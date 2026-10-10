@@ -1,7 +1,7 @@
 <?php
 /**
  * Empty state of a list: an icon, what will be here, and a clear first action.
- * Usage: <?= $app->view->render('admin/prazdno', ['ikona' => 'clanek', 'nadpis' => '…', 'text' => '…', 'akce' => [$url, 'Popisek']]) ?>
+ * Usage: <?= $app->view->render('admin/empty', ['icon' => 'article', 'heading' => '…', 'text' => '…', 'action' => [$url, 'Label']]) ?>
  *
  * @var string $icon    key into the set in views/admin/icons.php
  * @var string $heading   already translated text
@@ -10,13 +10,13 @@
  */
 $svg = require __DIR__ . '/icons.php';
 ?>
-<div class="prazdny-stav">
-	<div class="prazdny-stav-ikona"><?= $svg($icon) ?></div>
-	<p class="prazdny-stav-nadpis"><?= e($heading) ?></p>
+<div class="empty-state">
+	<div class="empty-state-icon"><?= $svg($icon) ?></div>
+	<p class="empty-state-heading"><?= e($heading) ?></p>
 <?php if (($text ?? '') !== ''): ?>
-	<p class="prazdny-stav-text"><?= e($text) ?></p>
+	<p class="empty-state-text"><?= e($text) ?></p>
 <?php endif ?>
 <?php if (!empty($action)): ?>
-	<p><a class="tl" href="<?= e($action[0]) ?>"><?= e($action[1]) ?></a></p>
+	<p><a class="btn" href="<?= e($action[0]) ?>"><?= e($action[1]) ?></a></p>
 <?php endif ?>
 </div>

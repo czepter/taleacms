@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * A structured importer whose "export" does not exist as a file: Joomla and Drupal only have an API. Such a Source

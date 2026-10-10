@@ -7,16 +7,17 @@ return [
     'button' => 'New notice board',
     'description' => 'Posting and takedown dates, reference number, issuer, category, document and summary; the board shows what is posted now, the archive what was taken down. Notices are never deleted and every change is logged.',
     'order' => 100,
+    'extension' => 'notice_board', // off by default (Core\Extensions); the Municipality blueprint turns it on
     'detail' => true,
     'redirect_hidden' => false, // a notice is never deleted or hidden once posted – its address stays
     'fields' => [
-        ['posted', 'Posted on', 'datum'],
-        ['taken_down', 'Taken down on', 'datum'],
+        ['posted', 'Posted on', 'date'],
+        ['taken_down', 'Taken down on', 'date'],
         ['reference', 'Reference number', 'text'],
         ['issuer', 'Issuer', 'text'],
         ['category', 'Category', 'text'],
-        ['document', 'Document', 'soubor'],
-        ['summary', 'Summary', 'radky'],
+        ['document', 'Document', 'file'],
+        ['summary', 'Summary', 'lines'],
     ],
     'schema' => null,
     'claude' => 'One item per notice, with the posting and takedown dates (YYYY-MM-DD). Two hidden pages come with it: /<address> is the board (current notices, newest '
@@ -25,24 +26,24 @@ return [
         . 'its posting date has come – change the takedown date instead; the collection cannot be deleted while it has notices. Every create and change is in the '
         . 'append-only log (list_notice_log), and the hourly job records the day each notice was posted and taken down.',
     // the board: what is posted now, the newest posting first, filter buttons by category
-    'list' => ['obdobi' => 'probihajici', 'obdobi_od' => 'posted', 'obdobi_do' => 'taken_down', 'razeni' => 'pole_sestupne', 'razeni_pole' => 'posted', 'filtr_pole' => 'category', 'filtry' => true],
+    'list' => ['period' => 'current', 'period_start_field' => 'posted', 'period_end_field' => 'taken_down', 'sort' => 'field_descending', 'sort_field' => 'posted', 'filter_field' => 'category', 'filters' => true],
     'card' => ['posted', 'reference', 'summary'],
     // the archive: a second hidden page at /<address>-archive with the notices taken down
     'extra_pages' => [
-        ['suffix' => 'archive', 'name' => '%s – archive', 'list' => ['obdobi' => 'minule', 'obdobi_od' => 'posted', 'obdobi_do' => 'taken_down', 'razeni' => 'pole_sestupne', 'razeni_pole' => 'posted', 'filtr_pole' => 'category', 'filtry' => true]],
+        ['suffix' => 'archive', 'name' => '%s – archive', 'list' => ['period' => 'past', 'period_start_field' => 'posted', 'period_end_field' => 'taken_down', 'sort' => 'field_descending', 'sort_field' => 'posted', 'filter_field' => 'category', 'filters' => true]],
     ],
     // the item page: the name, the status line, the reference details, the summary and the document
     'template' => function (array $fields): array {
-        $n = Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $n = Talea\Builder\Build::fresh(...);
+        $label = array_column($fields, 'label', 'key');
         $line = fn (string $key): string => isset($label[$key]) ? '<p><strong>' . e($label[$key]) . ':</strong> {{' . $key . '}}</p>' : '';
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{notice_status}}</strong></p>']),
             $n('text', ['html' => $line('reference') . $line('issuer') . $line('category')]),
             $n('text', ['html' => '{{summary}}']),
-            $n('tlacitko', ['text' => ($label['document'] ?? 'Document') . ' ({{document_name}})', 'odkaz' => '{{document}}', 'varianta' => 'obrys']),
+            $n('button', ['text' => ($label['document'] ?? 'Document') . ' ({{document_name}})', 'link' => '{{document}}', 'variant' => 'outline']),
         ];
     },
 ];

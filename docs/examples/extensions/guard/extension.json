@@ -1,0 +1,11 @@
+{
+  "name": "Guard",
+  "version": "1.0.0",
+  "description": "An example add-on for extension API 2: an early request hook that refuses one path, its own table with migrations, rows in System status, a hand-over finding, an event type with an alert, declared settings and a cron-only job.",
+  "author": "Talea project",
+  "class": "TaleaExample\\Guard\\Extension",
+  "entry": "Extension.php",
+  "table_prefix": "guard",
+  "requires": { "talea": ">=3.0", "api": 2 },
+  "capabilities": ["early_request", "tables"]
+}

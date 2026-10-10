@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Custom post types and custom fields of a WordPress export as Kaleta collections (2.7): CPT UI, ACF, Secure Custom
+ * Custom post types and custom fields of a WordPress export as Talea collections (2.7): CPT UI, ACF, Secure Custom
  * Fields, Pods and plain custom fields keep their values in <wp:postmeta>.
  *
  *  - Which post types count: everything except the WordPress internals and the types of known plugins (menus, blocks,
@@ -31,7 +31,7 @@ final class WpTypes
 
     public static function isCustomType(string $type): bool
     {
-        return $type !== '' && preg_match('/^[a-z0-9_\-]{1,40}$/D', $type) === 1 && preg_match(self::EXCLUDED, $type) !== 1;
+        return $type !== '' && preg_match('/^[a-z0-9_\-]{1,40}$/', $type) === 1 && preg_match(self::EXCLUDED, $type) !== 1;
     }
 
     /**
@@ -50,7 +50,7 @@ final class WpTypes
             if (!$acf && preg_match(self::SYSTEM_META, $key) === 1) {
                 continue;
             }
-            if (preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,60}$/D', $key) !== 1) {
+            if (preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,60}$/', $key) !== 1) {
                 continue;
             }
             $fields[$key] = $value;
@@ -74,25 +74,25 @@ final class WpTypes
             return null;
         }
         if (ctype_digit($v) && (isset($attachments[(int) $v]) || preg_match('/image|photo|foto|obrazek|logo|picture|thumbnail|portrait|icon|ikona|bild/i', $key) === 1)) {
-            return 'obrazek';
+            return 'image';
         }
-        if (preg_match('#^https?://\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$#iD', $v) === 1) {
-            return 'obrazek';
+        if (preg_match('#^https?://\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$#i', $v) === 1) {
+            return 'image';
         }
         if (preg_match('/^(\d{8}|\d{4}-\d{2}-\d{2})$/', $v) === 1 && self::date($v) !== '') {
-            return 'datum';
+            return 'date';
         }
-        if (preg_match('#^(https?://|mailto:|tel:)\S+$#iD', $v) === 1) {
-            return 'odkaz';
+        if (preg_match('#^(https?://|mailto:|tel:)\S+$#i', $v) === 1) {
+            return 'link';
         }
         if (preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $v) === 1) {
-            return 'cislo';
+            return 'number';
         }
         if (preg_match('/<(p|br|ul|ol|li|strong|em|a|h[1-6]|div|span|table)\b/i', $v) === 1) {
             return 'html';
         }
 
-        return str_contains($v, "\n") ? 'radky' : 'text';
+        return str_contains($v, "\n") ? 'lines' : 'text';
     }
 
     /**
@@ -103,7 +103,7 @@ final class WpTypes
      */
     public static function fieldType(array $votes): string
     {
-        foreach (['html', 'radky'] as $wins) {
+        foreach (['html', 'lines'] as $wins) {
             if (($votes[$wins] ?? 0) > 0) {
                 return $wins;
             }

@@ -3,7 +3,7 @@
 // The CRMs (2.13, Core\EnquiryCrm): HubSpot (Bearer token, paths /crm/v3/…), Pipedrive (?api_token=, /api/v1/…) and
 // Raynet (Basic + X-Instance-Name, /api/v2/lead/). Every call is logged with its body and how it was authorised. The
 // contact known@example.cz already exists in HubSpot and Pipedrive (the update branch). The flag file
-// kaleta-fake-<port>-crm.fail makes every CRM answer 500 (the retry test).
+// talea-fake-<port>-crm.fail makes every CRM answer 500 (the retry test).
 $fail = is_file($fakeFile('crm.fail'));
 
 if (str_starts_with($path, '/crm/v3/objects/')) {
@@ -60,7 +60,7 @@ if (str_starts_with($path, '/api/v1/')) {
 
 if (str_starts_with($path, '/api/v2/')) {
     $basic = base64_decode(substr((string) ($headers['authorization'] ?? ''), 6), true);
-    $log('crm', ['crm' => 'raynet', 'method' => $method, 'path' => $path, 'user' => is_string($basic) ? strstr($basic, ':', true) : '', 'key_ok' => is_string($basic) && str_ends_with($basic, ':rn-key'),
+    $log('crm', ['crm' => 'raynet', 'method' => $method, 'path' => $path, 'username' => is_string($basic) ? strstr($basic, ':', true) : '', 'key_ok' => is_string($basic) && str_ends_with($basic, ':rn-key'),
         'instance' => $headers['x-instance-name'] ?? '', 'body' => $json]);
     if (!is_string($basic) || !str_ends_with($basic, ':rn-key') || ($headers['x-instance-name'] ?? '') === '') {
         return $reply(401, ['success' => false, 'error' => 'Unauthorized']);

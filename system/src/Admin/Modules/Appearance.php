@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Images;
-use Kaleta\Core\Look;
-use Kaleta\Core\Response;
-use Kaleta\Builder\DesignSystem;
+use Talea\Admin\Module;
+use Talea\Core\Images;
+use Talea\Core\Look;
+use Talea\Core\Response;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Looks;
 
 /**
  * Site appearance: logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
@@ -21,7 +22,7 @@ final class Appearance extends Module
     public const string IDENT = 'appearance';
     public const string NAME = 'Site appearance';
     public const string GROUP = 'Appearance';
-    public const string ICON = 'identita';
+    public const string ICON = 'identity';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
@@ -31,8 +32,8 @@ final class Appearance extends Module
 
         return $this->view('list', 'Site appearance', [
             'ds' => $ds, 'versions' => Look::versions($this->db),
-            'contrasts' => DesignSystem::contrasts($ds), 'darkContrasts' => DesignSystem::contrasts($ds, true), 'darkColors' => DesignSystem::darkColors($ds),
-            'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
+            'contrasts' => DesignSystem::contrasts($ds),
+            'presets' => array_map(fn (string $k): array => ['name' => DesignSystem::PRESETS[$k][0], 'description' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
             'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
     }
@@ -46,28 +47,19 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
-        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
+        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(TALEA_ROOT . '/media/icon-180.png'))) {
             // icons for phones and for installing the site are prepared from the icon once, when saving
-            $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#D', $icon, $m) && !str_contains($m[1], '..') && Images::icons(KALETA_ROOT . '/' . $m[1]);
+            $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $icon, $m) && !str_contains($m[1], '..') && Images::icons(TALEA_ROOT . '/' . $m[1]);
             if (!$ok) {
-                array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), Images::ICON_SIZES);
+                array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/media/icon-' . $n . '.png'), Images::ICON_SIZES);
             }
         }
         $siteSettings->set('favicon', $icon);
-        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
+        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'dark'], true) ? $r->post('dark_mode') : 'off');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
-        $ds = $this->parseForm();
-        $inDraft = $this->toDraft($ds);
-        // 3.6: dark mode on with a colour pair that stays hard to read (chosen dark colours) – say so right away
-        if ($siteSettings->get('dark_mode') !== 'vypnuto' && array_filter(DesignSystem::contrasts($ds, true), fn (array $c): bool => !$c['ok']) !== []) {
-            $this->app->session->flash('info', 'Dark mode: some colour pairs are hard to read – see the readability list in the Dark mode tab.');
-        }
+        $inDraft = $this->toDraft($this->parseForm());
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
-        // older Identity keys: they are not read once the design system is saved, so they do not confuse the export or other tools
-        $siteSettings->set('brand_accent', '');
-        $siteSettings->set('brand_heading_font', 'vychozi');
-        $siteSettings->set('brand_text_font', 'vychozi');
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back($inDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
     }
@@ -91,6 +83,31 @@ final class Appearance extends Module
         return true;
     }
 
+    /** The looks gallery (Builder\Looks): a click puts a whole look into the draft look. */
+    protected function actionLooks(): Response
+    {
+        $current = Look::designSystem($this->app->settings());
+
+        return $this->view('looks', 'Looks', ['looks' => Looks::all(), 'current' => array_search($current, array_column(Looks::all(), 'design_system', 'key'), false) ?: '',
+            'library' => DesignSystem::libraryFonts(), 'sections' => array_column(\Talea\Builder\Library::listAll(\Talea\Core\Extensions::enabled($this->app->settings())), 'name', 'key')]);
+    }
+
+    protected function actionApplyLook(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $key = $this->request->post('look');
+        if (!Looks::apply($this->app, $key)) {
+            return $this->back('The look does not exist.', '', [], 'error');
+        }
+        $this->app->settings()->set('appearance_saved', '1');
+        \Talea\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($this->app, 'appearance', 'apply look', $key);
+
+        return $this->back('The look is in the draft – preview the whole site, then publish it.', 'looks');
+    }
+
     protected function actionPublishLook(): Response
     {
         if (!$this->request->isPost()) {
@@ -105,7 +122,7 @@ final class Appearance extends Module
     {
         if ($this->request->isPost()) {
             Look::discard($this->app->settings());
-            \Kaleta\Admin\ChangeLog::write($this->app, 'appearance', 'discard look draft');
+            \Talea\Admin\ChangeLog::write($this->app, 'appearance', 'discard look draft');
         }
 
         return $this->back('The unpublished look changes were discarded.');
@@ -120,7 +137,7 @@ final class Appearance extends Module
         try {
             Look::restoreVersion($this->app, $this->request->postInt('id'));
         } catch (\InvalidArgumentException $e) {
-            return $this->back(t($e->getMessage()), '', [], 'chyba');
+            return $this->back(t($e->getMessage()), '', [], 'error');
         }
 
         return $this->back('The earlier look is in the draft – preview the whole site, then publish it.');
@@ -133,9 +150,9 @@ final class Appearance extends Module
     }
 
     /** Signed link to the whole-site preview (Core\Preview target "web"). */
-    public static function sitePreviewUrl(\Kaleta\Core\App $app, int $minutes): string
+    public static function sitePreviewUrl(\Talea\Core\App $app, int $minutes): string
     {
-        return $app->request->origin() . $app->url('') . '?nahled_klic=' . \Kaleta\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
+        return $app->request->origin() . $app->url('') . '?preview_key=' . \Talea\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
     }
 
     /** Design tokens for download in the DTCG format (Figma, Tokens Studio, Style Dictionary). */
@@ -143,19 +160,19 @@ final class Appearance extends Module
     {
         $json = (string) json_encode(DesignSystem::toDtcg(DesignSystem::load($this->app->settings())), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokeny-' . date('Y-m-d') . '.tokens.json"']);
+        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokens-' . date('Y-m-d') . '.tokens.json"']);
     }
 
-    /** Import of DTCG tokens: the whole appearance from a Kaleta export, the colors from another tool. */
+    /** Import of DTCG tokens: the whole appearance from a Talea export, the colors from another tool. */
     protected function actionTokensImport(): Response
     {
-        $file = $_FILES['tokeny'] ?? null;
+        $file = $_FILES['tokens'] ?? null;
         $content = $this->request->isPost() && is_array($file) && ($file['error'] ?? 1) === UPLOAD_ERR_OK && (int) $file['size'] < 1_000_000 ? (string) file_get_contents((string) $file['tmp_name']) : '';
         $tokens = json_decode($content, true);
         $siteSettings = $this->app->settings();
         $ds = is_array($tokens) ? DesignSystem::fromDtcg($tokens, Look::designSystem($siteSettings)) : null;
         if ($ds === null) {
-            return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'chyba');
+            return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'error');
         }
         $this->toDraft($ds);
         $siteSettings->set('appearance_saved', '1');
@@ -168,10 +185,7 @@ final class Appearance extends Module
     {
         $ds = $this->parseForm();
 
-        $translate = fn (array $k): array => ['popis' => t($k['popis'])] + $k;
-
-        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'kontrasty' => array_map($translate, DesignSystem::contrasts($ds)),
-            'kontrasty_tmave' => array_map($translate, DesignSystem::contrasts($ds, true)), 'tmave' => DesignSystem::darkColors($ds)]);
+        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'contrasts' => array_map(fn (array $k): array => ['description' => t($k['description'])] + $k, DesignSystem::contrasts($ds))]);
     }
 
     /** @return array<string, mixed> */
@@ -179,15 +193,9 @@ final class Appearance extends Module
     {
         $ds = is_array($_POST['ds'] ?? null) ? $_POST['ds'] : [];
         // sizes are entered in pixels in the form, the design system keeps them in rem
-        foreach (['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'] as $key) {
+        foreach (['base_min', 'base_max', 'width', 'text_width'] as $key) {
             if (isset($ds[$key]) && is_numeric($ds[$key])) {
                 $ds[$key] = (float) $ds[$key] / 16;
-            }
-        }
-        // dark primary and secondary (3.6): a ticked "automatic" box drops the picked colour – DesignSystem derives it
-        foreach (is_array($ds['tmave_auto'] ?? null) ? $ds['tmave_auto'] : [] as $key) {
-            if (is_array($ds['barvy_tmave'] ?? null) && in_array($key, DesignSystem::DARK_DERIVED, true)) {
-                unset($ds['barvy_tmave'][$key]);
             }
         }
 

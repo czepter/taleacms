@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\AgentSchedules;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\AgentSchedules;
+use Talea\Core\Response;
 
 /**
  * Scheduled runs (2.17, Core\AgentSchedules): the schedules the site keeps for a routine in Claude – what, how often, when –
@@ -20,14 +20,14 @@ final class Schedules extends Module
     public const string PARENT = 'claude_settings';
     public const string NAME = 'Scheduled runs';
     public const string GROUP = 'Claude';
-    public const string ICON = 'plan';
+    public const string ICON = 'schedule';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
     {
         return $this->view('list', 'Scheduled runs', ['schedules' => AgentSchedules::all($this->db), 'prompt' => AgentSchedules::routinePrompt($this->app),
-            'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
-            'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokeny} WHERE access = 'drafts' AND druh IN ('token', 'obnova')")]);
+            'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
+            'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokens} WHERE access = 'drafts' AND kind IN ('token', 'refresh')")]);
     }
 
     protected function actionEdit(): Response
@@ -35,7 +35,7 @@ final class Schedules extends Module
         $id = $this->request->getInt('id');
         $schedule = $id > 0 ? AgentSchedules::get($this->db, $id) : null;
         if ($id > 0 && $schedule === null) {
-            return $this->back('The schedule does not exist.', '', [], 'chyba');
+            return $this->back('The schedule does not exist.', '', [], 'error');
         }
 
         return $this->view('edit', $schedule !== null ? (string) $schedule['name'] : 'New schedule', ['s' => $schedule]);
@@ -52,7 +52,7 @@ final class Schedules extends Module
             'day' => $cadence === 'monthly' ? $this->request->postInt('monthday') : $this->request->postInt('weekday'), 'time' => $this->request->post('time'), 'active' => $this->request->postBool('active')];
         $error = AgentSchedules::validate($data);
         if ($error !== null) {
-            return $this->back($error, 'edit', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back($error, 'edit', $id > 0 ? ['id' => $id] : [], 'error');
         }
         AgentSchedules::save($this->app, $id, $data);
 
@@ -90,6 +90,6 @@ final class Schedules extends Module
         }
 
         return $this->view('history', (string) $schedule['name'], ['s' => $schedule, 'runs' => AgentSchedules::runs($this->db, (int) $schedule['id'], 100),
-            'instructions' => \Kaleta\Core\Language::runWith('en', fn (): string => AgentSchedules::instructions($schedule))]); // what Claude gets, word for word
+            'instructions' => \Talea\Core\Language::runWith('en', fn (): string => AgentSchedules::instructions($schedule))]); // what Claude gets, word for word
     }
 }

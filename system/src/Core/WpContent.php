@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Converting the content of a WordPress post into HTML such as Kaleta's news editor writes. It only converts text – it reads and writes nothing.
+ * Converting the content of a WordPress post into HTML such as Talea's news editor writes. It only converts text – it reads and writes nothing.
  *
  * Order of steps: Gutenberg blocks → shortcodes in square brackets ([caption], [gallery]…) → embedded videos → paragraphs
  * (the old "classic" editor separates them only by an empty line) → letting through only allowed tags and attributes.
@@ -66,7 +66,7 @@ final class WpContent
      * repeated in the text.
      *
      * @param array<int|string, string> $attachments
-     * @return array{0:string, 1:string} [perex, text]
+     * @return array{0:string, 1:string} [lead, text]
      */
     public static function introAndText(string $intro, string $content, array $attachments = []): array
     {
@@ -132,7 +132,7 @@ final class WpContent
     /** @param list<string> $imgTags finished <img …> tags */
     private static function gallery(array $imgTags): string
     {
-        return $imgTags === [] ? '' : "\n" . '<figure class="galerie">' . implode('', $imgTags) . '</figure>' . "\n";
+        return $imgTags === [] ? '' : "\n" . '<figure class="gallery">' . implode('', $imgTags) . '</figure>' . "\n";
     }
 
     /* ---------- shortcodes in square brackets ---------- */
@@ -324,22 +324,22 @@ final class WpContent
             }
             $n->setAttribute('src', trim($url));
         }
-        foreach (iterator_to_array($n->attributes, false) as $a) { // a list: the keys are local names, and xlink:href would hide href (or onload x:onload)
-            $name = strtolower($a->nodeName); // the qualified name: xml:href is not href
+        foreach (iterator_to_array($n->attributes) as $a) {
+            $name = strtolower($a->name);
             $ok = in_array($name, self::ALLOWED[$tag], true) && match ($name) {
                 'href', 'src' => self::isSafeUrl($a->value),
                 'width', 'height', 'colspan', 'rowspan' => ctype_digit($a->value),
-                'data-id' => $mediaIds && ctype_digit($a->value), // the Media number of an image the editor or an import put there
+                'data-id' => $mediaIds && (ctype_digit($a->value) || Uuid::valid($a->value)), // the Media public id (older texts: number) of an image the editor or an import put there
                 'target' => $a->value === '_blank',
-                'class' => preg_match('/(^|\s)galerie(\s|$)/', $a->value) === 1,
+                'class' => preg_match('/(^|\s)gallery(\s|$)/', $a->value) === 1,
                 default => true,
             };
             if (!$ok) {
-                $n->removeAttributeNode($a);
+                $n->removeAttribute($a->name);
             }
         }
         if ($tag === 'figure' && $n->hasAttribute('class')) {
-            $n->setAttribute('class', 'galerie');
+            $n->setAttribute('class', 'gallery');
         }
         if ($tag === 'a' && $n->hasAttribute('target')) {
             $n->setAttribute('rel', 'noopener');

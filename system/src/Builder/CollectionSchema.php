@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Structured data of collection item pages (1.9): a collection says which schema.org type its items are – a service,
@@ -10,14 +10,14 @@ namespace Kaleta\Builder;
  * fill which properties. Item pages then carry that JSON-LD next to the site and company data (Front\Seo). Nothing is
  * guessed: a property without a field is left out, and an offer needs both a price and a currency.
  *
- * Stored in ka_kolekce.schema_org as {"typ": "Service", "pole": {"price": "cena", …}, "mena": "EUR"}.
+ * Stored in collections.schema_org as {"type": "Service", "fields": {"price": "cena", …}, "currency": "EUR"}.
  */
 final class CollectionSchema
 {
     /** type => [label, property => label] – the name, the address, the description and the image come from the item itself */
     public const array TYPES = [
         'Service' => ['Service', ['serviceType' => 'Kind of service', 'areaServed' => 'Area served', 'price' => 'Price']],
-        'Person' => ['Person', ['jobTitle' => 'Job title', 'email' => 'E-mail', 'telephone' => 'Phone', 'sameAs' => 'Profile link']],
+        'Person' => ['Person', ['jobTitle' => 'Job title', 'email' => 'Email', 'telephone' => 'Phone', 'sameAs' => 'Profile link']],
         'Product' => ['Product', ['brand' => 'Brand', 'sku' => 'Product code (SKU)', 'price' => 'Price']],
         'Event' => ['Event', ['startDate' => 'Start', 'endDate' => 'End', 'location' => 'Place', 'address' => 'Address of the place', 'online' => 'Online link', 'price' => 'Price']],
         'FAQPage' => ['Question and answer', ['answer' => 'Answer']],
@@ -25,7 +25,7 @@ final class CollectionSchema
         'JobPosting' => ['Job opening', ['description' => 'Description', 'employmentType' => 'Employment type', 'jobLocation' => 'Location (town)',
             'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)']],
         // a branch or store: the geo comes from a location field, the hours from a text written like the company hours
-        'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'E-mail', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
+        'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'Email', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
     ];
 
     /** schema.org employment types by words in the text of the field (Czech, Slovak, German, Polish, French, Spanish, Italian, English), checked in this order. */
@@ -49,40 +49,40 @@ final class CollectionSchema
     /**
      * The setting from a form or from Claude, checked against the collection's fields; null = no structured data.
      *
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
-     * @return array{typ: string, pole: array<string, string>, mena: string}|null
+     * @param list<array{key: string, label: string, type: string}> $fields
+     * @return array{type: string, fields: array<string, string>, currency: string}|null
      */
     public static function sanitize(mixed $input, array $fields): ?array
     {
-        $type = is_array($input) && is_string($input['typ'] ?? null) ? $input['typ'] : '';
+        $type = is_array($input) && is_string($input['type'] ?? null) ? $input['type'] : '';
         if (!isset(self::TYPES[$type])) {
             return null;
         }
-        $keys = array_column($fields, 'klic');
+        $keys = array_column($fields, 'key');
         $map = [];
         foreach (self::TYPES[$type][1] as $property => $_) {
-            $key = $input['pole'][$property] ?? '';
+            $key = $input['fields'][$property] ?? '';
             if (is_string($key) && in_array($key, $keys, true)) {
                 $map[$property] = $key;
             }
         }
-        $currency = is_string($input['mena'] ?? null) ? strtoupper(trim($input['mena'])) : '';
+        $currency = is_string($input['currency'] ?? null) ? strtoupper(trim($input['currency'])) : '';
 
-        return ['typ' => $type, 'pole' => $map, 'mena' => preg_match('/^[A-Z]{3}$/D', $currency) ? $currency : ''];
+        return ['type' => $type, 'fields' => $map, 'currency' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
     }
 
-    /** @return array{typ: string, pole: array<string, string>, mena: string}|null the stored setting of a collection row */
+    /** @return array{type: string, fields: array<string, string>, currency: string}|null the stored setting of a collection row */
     public static function of(array $collection): ?array
     {
         $stored = json_decode((string) ($collection['schema_org'] ?? ''), true);
 
-        return is_array($stored) ? self::sanitize($stored, (array) ($collection['pole'] ?? [])) : null;
+        return is_array($stored) ? self::sanitize($stored, (array) ($collection['fields'] ?? [])) : null;
     }
 
     /**
      * JSON-LD node of one item page, or null when the collection has no type.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data" (the whole row: a job posting reads datum and valid_until)
      * @param string $issuerId @id of the company node (the provider of a service, the organiser of an event)
      * @param array<string, mixed> $issuer the company node itself (Front\Company::schema) – the hiring organization of a job posting
@@ -94,30 +94,30 @@ final class CollectionSchema
             return null;
         }
         $value = function (string $property) use ($schema, $item): string {
-            $key = $schema['pole'][$property] ?? '';
+            $key = $schema['fields'][$property] ?? '';
             $v = $key === '' ? '' : (string) ($item['data'][$key] ?? '');
 
             return trim(html_entity_decode(strip_tags($v), ENT_QUOTES | ENT_HTML5));
         };
-        $name = (string) $item['nazev'];
-        if ($schema['typ'] === 'JobPosting') {
+        $name = (string) $item['name'];
+        if ($schema['type'] === 'JobPosting') {
             return self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
         }
-        if ($schema['typ'] === 'FAQPage') {
+        if ($schema['type'] === 'FAQPage') {
             $answer = $value('answer');
 
             return $answer === '' ? null : ['@type' => 'FAQPage', 'url' => $url, 'mainEntity' => [
                 ['@type' => 'Question', 'name' => $name, 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $answer]],
             ]];
         }
-        if ($schema['typ'] === 'Event' && self::date($value('startDate')) === '') {
+        if ($schema['type'] === 'Event' && self::date($value('startDate')) === '') {
             return null; // an event without a start is not an event for search engines
         }
         $price = str_replace([' ', ','], ['', '.'], $value('price'));
-        $offer = is_numeric($price) && $schema['mena'] !== '' ? ['@type' => 'Offer', 'price' => $price, 'priceCurrency' => $schema['mena'], 'url' => $url] : null;
-        $node = ['@type' => $schema['typ'], 'name' => $name, 'url' => $url, 'description' => $description, 'image' => $image];
+        $offer = is_numeric($price) && $schema['currency'] !== '' ? ['@type' => 'Offer', 'price' => $price, 'priceCurrency' => $schema['currency'], 'url' => $url] : null;
+        $node = ['@type' => $schema['type'], 'name' => $name, 'url' => $url, 'description' => $description, 'image' => $image];
 
-        return array_filter($node + match ($schema['typ']) {
+        return array_filter($node + match ($schema['type']) {
             'Service' => ['serviceType' => $value('serviceType'), 'areaServed' => $value('areaServed'), 'provider' => ['@id' => $issuerId], 'offers' => $offer],
             'Person' => ['jobTitle' => $value('jobTitle'), 'email' => $value('email'), 'telephone' => $value('telephone'),
                 'sameAs' => preg_match('#^https?://#', $value('sameAs')) ? $value('sameAs') : '', 'worksFor' => ['@id' => $issuerId]],
@@ -126,7 +126,7 @@ final class CollectionSchema
                 + ['organizer' => ['@id' => $issuerId], 'offers' => $offer],
             // the branch belongs to the company; hours that do not parse are left out rather than guessed
             'LocalBusiness' => ['address' => $value('address'), 'telephone' => $value('telephone'), 'email' => $value('email'), 'geo' => self::geo($value('geo')),
-                'openingHoursSpecification' => \Kaleta\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
+                'openingHoursSpecification' => \Talea\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
         }, fn (mixed $v): bool => $v !== '' && $v !== null);
     }
 
@@ -156,7 +156,7 @@ final class CollectionSchema
      * Business details, the place from the location field and the company country, the salary as a MonetaryAmount with the
      * collection currency. Whatever is missing is left out – nothing is guessed.
      *
-     * @param array{typ: string, pole: array<string, string>, mena: string} $schema
+     * @param array{type: string, fields: array<string, string>, currency: string} $schema
      * @param array<string, mixed> $item the item row
      * @param callable(string): string $value plain text of the field mapped to a property
      * @param array<string, mixed> $issuer the company node (Front\Company::schema)
@@ -170,19 +170,19 @@ final class CollectionSchema
         $min = self::number($value('baseSalary'));
         $max = self::number($value('baseSalaryMax'));
         $salary = null;
-        if (($min !== null || $max !== null) && $schema['mena'] !== '') {
+        if (($min !== null || $max !== null) && $schema['currency'] !== '') {
             // one figure is a value, two are a range; the unit only when the text says per month, per hour…
             $amount = $min !== null && $max !== null && $min !== $max ? ['minValue' => $min, 'maxValue' => $max] : ['value' => $min ?? $max];
-            $salary = ['@type' => 'MonetaryAmount', 'currency' => $schema['mena'], 'value' => ['@type' => 'QuantitativeValue'] + $amount + array_filter(['unitText' => self::salaryUnit($value('salaryUnit'))])];
+            $salary = ['@type' => 'MonetaryAmount', 'currency' => $schema['currency'], 'value' => ['@type' => 'QuantitativeValue'] + $amount + array_filter(['unitText' => self::salaryUnit($value('salaryUnit'))])];
         }
 
         return array_filter([
             '@type' => 'JobPosting',
-            'title' => (string) $item['nazev'],
+            'title' => (string) $item['name'],
             'url' => $url,
             'description' => $value('description') !== '' ? $value('description') : $description,
             'image' => $image,
-            'datePosted' => self::date((string) ($item['datum'] ?? '')),
+            'datePosted' => self::date((string) ($item['created_at'] ?? '')),
             'validThrough' => self::date((string) ($item['valid_until'] ?? '')),
             'employmentType' => self::employmentType($value('employmentType')),
             'hiringOrganization' => isset($organization['name']) ? $organization : null,

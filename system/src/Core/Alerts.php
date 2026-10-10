@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Alert e-mails (2.8): when something breaks – a backup, an update, mail, a webhook, a background job – the owner hears about
@@ -18,6 +18,12 @@ final class Alerts
 
     /** Warnings worth an e-mail (2.10); the rest of the warnings – e.g. a blocked address – stay in the events and System status. */
     public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'fleet.site_silent', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed'];
+
+    /** Talea's warnings worth an e-mail and those of the switched-on add-ons (Extension\Api::eventType with $alert). @return list<string> */
+    public static function warnings(): array
+    {
+        return [...self::WARNINGS, ...\Talea\Extension\Registry::alertTypes()];
+    }
 
     /** One run of the job: returns what it did, for System status. */
     public static function run(App $app): string
@@ -65,7 +71,7 @@ final class Alerts
      */
     public static function worth(array $events): array
     {
-        return array_values(array_filter($events, fn (array $e): bool => $e['severity'] === 'error' || in_array($e['type'], self::WARNINGS, true)));
+        return array_values(array_filter($events, fn (array $e): bool => $e['severity'] === 'error' || in_array($e['type'], self::warnings(), true)));
     }
 
     /**
@@ -79,7 +85,7 @@ final class Alerts
         return Language::runWith(Language::defaults($s), function () use ($s, $events, $siteUrl): array {
             $subject = t('%s: %d problem(s) on the site', $s->get('site_name'), count($events));
             $lines = array_map(fn (array $e): string => '– ' . substr($e['created_at'], 0, 16) . ' · ' . $e['message'], $events);
-            $text = t('Kaleta noticed something that needs your attention:') . "\n\n" . implode("\n", $lines) . "\n\n"
+            $text = t('Talea noticed something that needs your attention:') . "\n\n" . implode("\n", $lines) . "\n\n"
                 . t('Details are in System status:') . ' ' . $siteUrl . '/admin.php?module=status' . "\n\n"
                 . t('You get at most one such e-mail an hour. Change the address or switch the alerts off in System status.');
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Industry blueprints (2.11): what a kind of business needs from its site, as a package – a clinic, a manufacturer, a
@@ -19,14 +19,14 @@ use Kaleta\Builder\Presets;
  *  - audit – checks the site audit runs, from a closed set of declarative rules (RULES), never code;
  *  - claude – how to work on such a site, added to the instructions of every Claude connection.
  *
- * Shipped blueprints are system/blueprints/<key>.json; a site keeps the ones applied in ka_blueprints, they travel with
+ * Shipped blueprints are system/blueprints/<key>.json; a site keeps the ones applied in tl_blueprints, they travel with
  * the site export, and export() writes the current site as a manifest (presets in use, facts without values, its rules).
  */
 final class Blueprint
 {
     public const int FORMAT = 1;
 
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/D';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/';
 
     /** Audit rules: check => required parameters. */
     public const array RULES = [
@@ -60,8 +60,8 @@ final class Blueprint
     public static function sanitize(mixed $input): array
     {
         $errors = [];
-        if (!is_array($input) || (int) ($input['kaleta_blueprint'] ?? 0) !== self::FORMAT) {
-            return [null, ['Not a Kaleta blueprint (format ' . self::FORMAT . ').']];
+        if (!is_array($input) || (int) ($input['talea_blueprint'] ?? 0) !== self::FORMAT) {
+            return [null, ['Not a Talea blueprint (format ' . self::FORMAT . ').']];
         }
         $key = is_string($input['key'] ?? null) ? $input['key'] : '';
         if (preg_match(self::KEY_PATTERN, $key) !== 1) {
@@ -74,7 +74,7 @@ final class Blueprint
             if (is_array($v) && $v !== [] && !array_is_list($v)) {
                 $out = [];
                 foreach ($v as $language => $t) {
-                    if (is_string($language) && preg_match('/^[a-z]{2}$/D', $language) === 1 && is_string($t) && trim($t) !== '') {
+                    if (is_string($language) && preg_match('/^[a-z]{2}$/', $language) === 1 && is_string($t) && trim($t) !== '') {
                         $out[$language] = mb_substr(trim(strip_tags($t)), 0, $max);
                     }
                 }
@@ -129,7 +129,7 @@ final class Blueprint
                 'fact' => is_string($r['fact'] ?? null) && (isset($facts[$r['fact']]) || isset(Facts::BUILT_IN[$r['fact']])),
                 'preset_items' => is_string($r['preset'] ?? null) && Presets::get($r['preset']) !== null,
                 'setting' => in_array($r['setting'] ?? null, self::SETTINGS, true),
-                'page' => is_array($r['slugs'] ?? null) && $r['slugs'] !== [] && array_filter($r['slugs'], fn (mixed $s): bool => !is_string($s) || preg_match('/^[a-z0-9-]{1,120}$/D', $s) !== 1) === [],
+                'page' => is_array($r['slugs'] ?? null) && $r['slugs'] !== [] && array_filter($r['slugs'], fn (mixed $s): bool => !is_string($s) || preg_match('/^[a-z0-9-]{1,120}$/', $s) !== 1) === [],
                 'stale_items' => is_string($r['preset'] ?? null) && Presets::get($r['preset']) !== null && is_int($r['days'] ?? null) && $r['days'] >= 7 && $r['days'] <= 3650,
             };
             if (!$valid) {
@@ -148,7 +148,7 @@ final class Blueprint
 
         $group = is_string($input['group'] ?? null) && isset(self::GROUPS[$input['group']]) ? $input['group'] : 'other';
 
-        return $errors !== [] ? [null, $errors] : [['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'description' => $text($input['description'] ?? null, 500) ?? '',
+        return $errors !== [] ? [null, $errors] : [['talea_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'description' => $text($input['description'] ?? null, 500) ?? '',
             'presets' => array_values(array_unique($presets)), 'facts' => array_values($facts), 'questions' => $questions, 'audit' => $audit, 'claude' => $claude], []];
     }
 
@@ -167,7 +167,7 @@ final class Blueprint
     public static function available(): array
     {
         $out = [];
-        foreach (glob(KALETA_SYSTEM . '/blueprints/*.json') ?: [] as $file) {
+        foreach (glob(TALEA_SYSTEM . '/blueprints/*.json') ?: [] as $file) {
             [$manifest] = self::sanitize(json_decode((string) file_get_contents($file), true));
             if ($manifest !== null && $manifest['key'] === basename($file, '.json')) {
                 $out[$manifest['key']] = $manifest;
@@ -204,9 +204,16 @@ final class Blueprint
     {
         $db = $app->db();
         $created = ['collections' => [], 'facts' => []];
+        $enabled = Extensions::enabled($app->settings());
         foreach ($manifest['presets'] as $preset) {
-            if ($db->value('SELECT 1 FROM {kolekce} WHERE preset = ?', [$preset]) === null && ($id = Presets::create($app, $preset)) !== null) {
-                $created['collections'][] = (string) $db->value('SELECT seo_link FROM {kolekce} WHERE idk = ?', [$id]);
+            // a preset of a switched-off feature (the notice board) turns it on: the blueprint is the way to ask for it
+            $feature = (string) (Presets::get($preset)['extension'] ?? '');
+            if ($feature !== '' && !in_array($feature, $enabled, true)) {
+                Extensions::save($app->settings(), [...$enabled, $feature]);
+                $enabled[] = $feature;
+            }
+            if ($db->value('SELECT 1 FROM {collections} WHERE preset = ?', [$preset]) === null && ($id = Presets::create($app, $preset)) !== null) {
+                $created['collections'][] = (string) $db->value('SELECT slug FROM {collections} WHERE collection_id = ?', [$id]);
             }
         }
         foreach ($manifest['facts'] as $f) {
@@ -217,11 +224,11 @@ final class Blueprint
         }
         $json = (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($db->value('SELECT 1 FROM {blueprints} WHERE bkey = ?', [$manifest['key']]) !== null) {
-            $db->update('blueprints', ['manifest' => $json, 'nazev' => self::text($manifest['name'])], ['bkey' => $manifest['key']]);
+            $db->update('blueprints', ['manifest' => $json, 'name' => self::text($manifest['name'])], ['bkey' => $manifest['key']]);
         } else {
-            $db->insert('blueprints', ['bkey' => $manifest['key'], 'nazev' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
+            $db->insert('blueprints', ['bkey' => $manifest['key'], 'name' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
+        \Talea\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
 
         return $created;
     }
@@ -231,7 +238,7 @@ final class Blueprint
     {
         $done = $app->db()->delete('blueprints', ['bkey' => $key]) > 0;
         if ($done) {
-            \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
+            \Talea\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
         }
 
         return $done;
@@ -269,15 +276,15 @@ final class Blueprint
         $out = [];
         foreach (self::applied($db) as $m) {
             foreach ($m['audit'] as $r) {
-                $collection = in_array($r['check'], ['preset_items', 'stale_items'], true) ? $db->one('SELECT idk FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', [$r['preset']]) : null;
+                $collection = in_array($r['check'], ['preset_items', 'stale_items'], true) ? $db->one('SELECT collection_id FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [$r['preset']]) : null;
                 [$ok, $edit] = match ($r['check']) {
                     'fact' => [trim((string) ($facts[$r['fact']]['value'] ?? '')) !== '', 'admin.php?module=facts'],
                     'setting' => [trim($settings->get($r['setting'])) !== '', 'admin.php?module=settings&action=company'],
-                    'page' => [$db->value('SELECT 1 FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND seo_link IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
-                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL', [$collection['idk']]) >= $r['min'],
-                        $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['idk'] : 'admin.php?module=collections'],
-                    'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(zmeneno, datum)) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [$collection['idk']])) === null
-                        || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['idk'] : 'admin.php?module=collections'],
+                    'page' => [$db->value('SELECT 1 FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND slug IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
+                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id']]) >= $r['min'],
+                        $collection !== null ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', (int) $collection['collection_id']) : 'admin.php?module=collections'],
+                    'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(updated_at, created_at)) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$collection['collection_id']])) === null
+                        || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', (int) $collection['collection_id']) : 'admin.php?module=collections'],
                     default => [true, ''], // sanitize() keeps only the known checks
                 };
                 if (!$ok) {
@@ -323,8 +330,8 @@ final class Blueprint
                 $facts[] = ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type']] + ($f['schema'] !== '' ? ['schema' => $f['schema']] : []);
             }
         }
-        $manifest = ['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => (string) (array_values($applied)[0]['group'] ?? 'other'), 'description' => '',
-            'presets' => array_values(array_filter(array_map('strval', array_column($db->all("SELECT DISTINCT preset FROM {kolekce} WHERE preset <> '' ORDER BY preset"), 'preset')), fn (string $p): bool => Presets::get($p) !== null)),
+        $manifest = ['talea_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => (string) (array_values($applied)[0]['group'] ?? 'other'), 'description' => '',
+            'presets' => array_values(array_filter(array_map('strval', array_column($db->all("SELECT DISTINCT preset FROM {collections} WHERE preset <> '' ORDER BY preset"), 'preset')), fn (string $p): bool => Presets::get($p) !== null)),
             'facts' => $facts,
             'questions' => array_merge(...array_values(array_map(fn (array $m): array => $m['questions'], $applied)) ?: [[]]),
             'audit' => array_merge(...array_values(array_map(fn (array $m): array => $m['audit'], $applied)) ?: [[]]),

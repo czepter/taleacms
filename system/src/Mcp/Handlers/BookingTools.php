@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Core\Booking;
+use Talea\Admin\ChangeLog;
+use Talea\Core\Booking;
 
 /**
  * MCP tools for online booking (3.0, Core\Booking): the set-up (services, people with their hours and days off), the free
@@ -34,8 +34,8 @@ trait BookingTools
         if (!$this->app->auth()->hasModule('bookings')) {
             throw new \DomainException('Bookings are read only by users with the Bookings section – they hold personal data of customers.');
         }
-        $from = preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($a['from'] ?? '')) ? (string) $a['from'] : date('Y-m-d');
-        $to = preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($a['to'] ?? '')) ? (string) $a['to'] : date('Y-m-d', strtotime($from . ' +30 days'));
+        $from = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['from'] ?? '')) ? (string) $a['from'] : date('Y-m-d');
+        $to = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['to'] ?? '')) ? (string) $a['to'] : date('Y-m-d', strtotime($from . ' +30 days'));
         $status = (string) ($a['status'] ?? 'active');
         $rows = Booking::list($this->app->db(), ['from' => $from, 'to' => $to, 'staff' => (int) ($a['staff'] ?? 0), 'service' => (int) ($a['service'] ?? 0),
             'status' => $status === 'all' ? '' : $status, 'limit' => max(1, min(200, (int) ($a['limit'] ?? 100)))]);
@@ -59,22 +59,17 @@ trait BookingTools
         $out = ['services' => array_map(fn (array $s): array => ['id' => $s['id'], 'name' => $s['name'], 'duration_min' => $s['duration_min'], 'buffer_min' => $s['buffer_min'], 'price_text' => $s['price_text'], 'requires_confirmation' => $s['requires_confirmation'], 'staff' => $s['staff']], $services),
             'staff' => array_map(fn (array $m): array => ['id' => $m['id'], 'name' => $m['name'], 'services' => $m['services'],
                 'hours' => array_map(fn (array $ranges): string => implode(', ', array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges)), Booking::hours($db, $m['id'])) ?: 'the site\'s opening hours',
-                'service_hours' => array_map(fn (array $perDay): array => array_map(fn (array $ranges): string => implode(', ', array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges)), $perDay), Booking::serviceHours($db, $m['id'])) ?: null,
                 'days_off' => array_map(fn (array $o): array => ['from' => $o['from'], 'to' => $o['to'], 'note' => $o['note']], Booking::offs($db, $m['id']))], $staff),
             'settings' => ['lead_hours' => $this->app->settings()->int('booking_lead_hours'), 'horizon_days' => $this->app->settings()->int('booking_horizon_days'), 'cancel_hours' => $this->app->settings()->int('booking_cancel_hours'), 'reminder_hours' => $this->app->settings()->int('booking_reminder_hours'), 'hold_hours' => $this->app->settings()->int('booking_hold_hours')]];
         $serviceId = (int) ($a['service'] ?? 0);
         if ($serviceId > 0) {
             $service = Booking::service($db, $serviceId, true) ?? throw new \InvalidArgumentException('The service does not exist or is switched off. The services are listed in this result without the service parameter.');
-            $day = preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($a['day'] ?? '')) ? (string) $a['day'] : date('Y-m-d');
+            $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['day'] ?? '')) ? (string) $a['day'] : date('Y-m-d');
             $free = Booking::availability($this->app, $service, (int) ($a['staff'] ?? 0), $day);
             $out += ['service' => $service['name'], 'day' => $day, 'slots' => array_keys($free), 'free_staff_at' => $free,
                 'days_with_free_times' => Booking::days($this->app, $service, (int) ($a['staff'] ?? 0), substr($day, 0, 7))];
         } else {
             $out['next'] = 'Pass service (and a day) for the free times. The set-up: save_booking_service, save_booking_staff; the settings booking_lead_hours, booking_horizon_days, booking_cancel_hours, booking_reminder_hours with update_settings.';
-        }
-        // 3.5: visitors could book nothing soon – tell the user why instead of an empty calendar (an additive key)
-        if (($none = Booking::noFreeTime($this->app)) !== null) {
-            $out['warning'] = sprintf($none[0], $none[1]);
         }
 
         return $out;
@@ -92,7 +87,7 @@ trait BookingTools
             throw new \InvalidArgumentException($result);
         }
 
-        return ['service' => $result, 'next' => $result['staff'] === [] ? 'Nobody offers this service yet – save_booking_staff with services [' . $result['id'] . '], or save_booking_service with staff. Then a Booking element (type booking, content service ' . $result['id'] . ' or 0 for a choice) on a page.' : null];
+        return ['service' => $result, 'next' => $result['staff'] === [] ? 'Nobody offers this service yet – save_booking_staff with services [' . $this->pid('booking_services', $result['id']) . '], or save_booking_service with staff. Then a Booking element (type booking, content service ' . $this->pid('booking_services', $result['id']) . ' or empty for a choice) on a page.' : null];
     }
 
     /** save_booking_staff */
@@ -102,13 +97,13 @@ trait BookingTools
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The booking set-up is changed by administrators.');
         }
-        $result = Booking::saveStaff($this->app, array_intersect_key($a, array_flip(['name', 'email', 'active', 'user_id', 'sort_order', 'services', 'hours', 'service_hours', 'days_off'])), (int) ($a['id'] ?? 0));
+        $result = Booking::saveStaff($this->app, array_intersect_key($a, array_flip(['name', 'email', 'active', 'user_id', 'sort_order', 'services', 'hours', 'days_off'])), (int) ($a['id'] ?? 0));
         if (is_string($result)) {
             throw new \InvalidArgumentException($result);
         }
         $db = $this->app->db();
 
-        return ['staff' => $result + ['hours' => Booking::hours($db, $result['id']) ?: 'the site\'s opening hours', 'service_hours' => array_map(fn (array $perDay): array => array_map(fn (array $ranges): string => implode(', ', array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges)), $perDay), Booking::serviceHours($db, $result['id'])) ?: null, 'days_off' => Booking::offs($db, $result['id'])],
+        return ['staff' => $result + ['hours' => Booking::hours($db, $result['id']) ?: 'the site\'s opening hours', 'days_off' => Booking::offs($db, $result['id'])],
             'next' => $result['services'] === [] ? 'The person offers no service yet – pass services (ids from booking_availability).' : null];
     }
 

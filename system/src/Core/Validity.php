@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
+use Talea\Admin\ChangeLog;
 
 /**
  * True until and review by (2.10): content that is only true for a while hides itself, content that should be checked
  * asks for it. Pages, news items, collection items and pop-ups have two optional dates:
  *
- *  - valid_until: the day after it, the content hides itself – a page or an item gets zobrazit = 0, a news item
- *    visible = 0, a pop-up aktivni = 0. Every change goes to the change log (ChangeLog::write) and is recorded as the
+ *  - valid_until: the day after it, the content hides itself – a page or an item gets visible = 0, a news item
+ *    visible = 0, a pop-up active = 0. Every change goes to the change log (ChangeLog::write) and is recorded as the
  *    event content.expired; the page cache is cleared when something changed. The date stays, so the admin sees why.
  *  - review_by: on that day (and until the date is changed or removed) the site audit lists the content under
  *    "Review by" (Core\Audit) and the event content.review is recorded once per content and date.
@@ -22,10 +22,10 @@ final class Validity
 {
     /** kind => [table, id column, title column, visibility column, change log module]. */
     public const array KINDS = [
-        'page' => ['stranky', 'ids', 'titulek', 'zobrazit', 'pages'],
-        'news' => ['novinky', 'idc', 'titulek', 'visible', 'news'],
-        'collection_item' => ['kolekce_polozky', 'idp', 'nazev', 'zobrazit', 'collections'],
-        'popup' => ['popupy', 'idpp', 'nazev', 'aktivni', 'popups'],
+        'page' => ['pages', 'page_id', 'title', 'visible', 'pages'],
+        'news' => ['news', 'news_id', 'title', 'visible', 'news'],
+        'collection_item' => ['collection_items', 'item_id', 'name', 'visible', 'collections'],
+        'popup' => ['popups', 'popup_id', 'name', 'active', 'popups'],
     ];
 
     /** The hourly run: hides what expired and asks for the reviews that are due. Returns a short result for System status. */
@@ -38,7 +38,7 @@ final class Validity
         $asked = self::askedReviews($db);
         foreach (self::KINDS as $kind => [$table, $idColumn, $titleColumn, $visibleColumn, $module]) {
             $rows = $db->all('SELECT ' . $idColumn . ' AS id, ' . $titleColumn . ' AS title, ' . $visibleColumn . ' AS visible, valid_until, review_by FROM {' . $table . '}'
-                . ' WHERE (valid_until IS NOT NULL OR review_by IS NOT NULL)' . ($kind === 'popup' ? '' : ' AND smazano IS NULL'));
+                . ' WHERE (valid_until IS NOT NULL OR review_by IS NOT NULL)' . ($kind === 'popup' ? '' : ' AND deleted_at IS NULL'));
             foreach (self::expired($rows, $today) as $row) {
                 $db->update($table, [$visibleColumn => 0], [$idColumn => (int) $row['id']]);
                 ChangeLog::write($app, $module, 'expired', sprintf('%s – true until %s', (string) $row['title'], (string) $row['valid_until']));
@@ -52,7 +52,7 @@ final class Validity
             }
         }
         if ($hidden > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return 'hidden ' . $hidden . ', reviews ' . $reviews;

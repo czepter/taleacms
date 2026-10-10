@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Core\App;
-use Kaleta\Core\Events;
-use Kaleta\Core\Settings;
+use Talea\Admin\ChangeLog;
+use Talea\Core\App;
+use Talea\Core\Events;
+use Talea\Core\Settings;
 
 /**
  * The site's side of a fleet console (2.9). An administrator pastes the pairing key from the console in Settings →
@@ -23,11 +23,11 @@ final class Link
 
     public static function isPaired(Settings $s): bool
     {
-        return $s->get('fleet_console_url') !== '' && $s->int('fleet_site_id') > 0;
+        return $s->get('fleet_console_url') !== '' && $s->get('fleet_site_id') !== '';
     }
 
     /**
-     * The pairing key a console shows: "kaleta-console:" + base64url of {u: console address, c: one-time code, k: console
+     * The pairing key a console shows: "talea-console:" + base64url of {u: console address, c: one-time code, k: console
      * public key, n: console name}. Returns null when it is not one.
      *
      * @return array{url: string, code: string, key: string, name: string}|null
@@ -35,12 +35,12 @@ final class Link
     public static function parseKey(string $pairingKey): ?array
     {
         $pairingKey = preg_replace('/\s+/', '', $pairingKey) ?? '';
-        if (!str_starts_with($pairingKey, 'kaleta-console:')) {
+        if (!str_starts_with($pairingKey, 'talea-console:')) {
             return null;
         }
-        $data = json_decode((string) base64_decode(strtr(substr($pairingKey, 15), '-_', '+/'), true), true);
+        $data = json_decode((string) base64_decode(strtr(substr($pairingKey, strlen('talea-console:')), '-_', '+/'), true), true);
         if (!is_array($data) || !is_string($data['u'] ?? null) || !is_string($data['c'] ?? null) || !is_string($data['k'] ?? null)
-            || !preg_match('/^[a-f0-9]{32}$/D', $data['c']) || !Keys::isPublicKey($data['k']) || !Http::allowedUrl($data['u'])) {
+            || !preg_match('/^[a-f0-9]{32}$/', $data['c']) || !Keys::isPublicKey($data['k']) || !Http::allowedUrl($data['u'])) {
             return null;
         }
 
@@ -49,7 +49,7 @@ final class Link
 
     public static function makeKey(string $consoleUrl, string $code, string $consoleKey, string $consoleName): string
     {
-        return 'kaleta-console:' . rtrim(strtr(base64_encode((string) json_encode(['u' => $consoleUrl, 'c' => $code, 'k' => $consoleKey, 'n' => $consoleName], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
+        return 'talea-console:' . rtrim(strtr(base64_encode((string) json_encode(['u' => $consoleUrl, 'c' => $code, 'k' => $consoleKey, 'n' => $consoleName], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
     }
 
     /** Pairs the site with a console; $manageUpdates = the console decides when new versions install here. */
@@ -58,21 +58,21 @@ final class Link
         $s = $app->settings();
         $key = self::parseKey($pairingKey);
         if ($key === null) {
-            throw new \RuntimeException(t('This is not a pairing key of a Kaleta console (it starts with kaleta-console:).'));
+            throw new \RuntimeException(t('This is not a pairing key of a Talea console (it starts with talea-console:).'));
         }
         if (rtrim($s->get('site_url'), '/') === '') {
             throw new \RuntimeException(t('Fill in the site address in Settings → General first.'));
         }
         $answer = Http::post($key['url'] . '/fleet/pair', [
-            'action' => 'pair', 'code' => $key['code'], 'url' => rtrim($s->get('site_url'), '/'), 'name' => $s->get('site_name'), 'version' => KALETA_VERSION,
+            'action' => 'pair', 'code' => $key['code'], 'url' => rtrim($s->get('site_url'), '/'), 'name' => $s->get('site_name'), 'version' => TALEA_VERSION,
             'public_key' => Keys::publicKey($s), 'manage_updates' => $manageUpdates, 'ts' => time(),
         ], fn (string $body): string => Keys::sign($s, $body), 20);
-        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $key['key']) || (int) ($answer['json']['site_id'] ?? 0) <= 0) {
+        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $key['key']) || !\Talea\Core\Uuid::valid($answer['json']['site_id'] ?? null)) {
             $reason = (string) ($answer['json']['error'] ?? ($answer['error'] !== '' ? $answer['error'] : 'HTTP ' . $answer['status']));
             throw new \RuntimeException(t('The console refused the pairing: %s', mb_substr($reason, 0, 200)));
         }
         foreach (['fleet_console_url' => $key['url'], 'fleet_console_key' => $key['key'], 'fleet_console_name' => mb_substr((string) ($answer['json']['console_name'] ?? $key['name']), 0, 150),
-            'fleet_site_id' => (string) (int) $answer['json']['site_id'], 'fleet_updates' => $manageUpdates ? '1' : '0', 'fleet_update_allowed' => '', 'fleet_last_error' => ''] as $name => $value) {
+            'fleet_site_id' => (string) $answer['json']['site_id'], 'fleet_updates' => $manageUpdates ? '1' : '0', 'fleet_update_allowed' => '', 'fleet_last_error' => ''] as $name => $value) {
             $s->set($name, $value);
         }
         ChangeLog::write($app, 'settings', 'fleet_pair', $key['url'] . ($manageUpdates ? ', updates by the console' : ''));
@@ -97,7 +97,7 @@ final class Link
     {
         $s = $app->settings();
         if (self::isPaired($s)) {
-            Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->int('fleet_site_id'), 'ts' => time()],
+            Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->get('fleet_site_id'), 'ts' => time()],
                 fn (string $body): string => Keys::sign($s, $body), 10);
         }
         // the kit counter goes too, so another console's first kit is applied; the drafts that arrived stay for the person to decide
@@ -115,7 +115,7 @@ final class Link
         if (!self::isPaired($s)) {
             return 'not paired';
         }
-        $payload = ['action' => 'heartbeat', 'site_id' => $s->int('fleet_site_id'), 'ts' => time(), 'manage_updates' => $s->bool('fleet_updates')] + Heartbeat::build($app);
+        $payload = ['action' => 'heartbeat', 'site_id' => $s->get('fleet_site_id'), 'ts' => time(), 'manage_updates' => $s->bool('fleet_updates')] + Heartbeat::build($app);
         $answer = Http::post($s->get('fleet_console_url') . '/fleet/heartbeat', $payload, fn (string $body): string => Keys::sign($s, $body), 20);
         if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $s->get('fleet_console_key'))) {
             // stored as an English sentence and translated where it is shown; the detail goes to the job's error
@@ -128,7 +128,7 @@ final class Link
         $s->set('fleet_last_sent', (string) time());
         $s->set('fleet_last_error', '');
         $allowed = (string) ($answer['json']['update_allowed'] ?? '');
-        $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/D', $allowed) === 1 ? $allowed : '');
+        $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $allowed) === 1 ? $allowed : '');
 
         // 2.16: a newer shared design kit announced in the reply is fetched and applied as drafts (only when the site opted in)
         return 'sent' . ($allowed !== '' ? ', update ' . $allowed . ' allowed' : '') . Kit::afterHeartbeat($app, $answer['json']['kit'] ?? null);

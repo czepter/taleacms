@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
-use Kaleta\Builder\Check;
+use Talea\Builder\Build;
+use Talea\Builder\Check;
 
 /**
  * Site audit (1.9): what hurts a site in search engines and for visitors, collected across the whole site – for the
@@ -107,38 +107,38 @@ final class Audit
         $db = $this->app->db();
         $home = (int) $this->app->settings()->get('home_page');
         $titles = [];
-        foreach ($db->all('SELECT ids, titulek, seo_titulek, seo_link, popis, text, stavba, zobrazit, noindex, jazyk FROM {stranky} WHERE smazano IS NULL') as $p) {
-            $where = t('Page “%s”', $p['titulek']);
-            $target = ['page' => (int) $p['ids']];
-            $url = (int) $p['ids'] === $home ? '' : (string) $p['seo_link'];
-            $edit = 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'];
-            $build = $p['stavba'] !== null ? Build::fromJson((string) $p['stavba']) : null;
-            $this->links($p['stavba'] ?? (string) $p['text'], $where, $build !== null ? 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'] : $edit, $url, $target);
-            if (!$p['zobrazit']) {
+        foreach ($db->all('SELECT page_id, title, seo_title, slug, description, text, build, visible, noindex, language FROM {pages} WHERE deleted_at IS NULL') as $p) {
+            $where = t('Page “%s”', $p['title']);
+            $target = ['page' => (int) $p['page_id']];
+            $url = (int) $p['page_id'] === $home ? '' : (string) $p['slug'];
+            $edit = 'admin.php?module=pages&action=edit&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']);
+            $build = $p['build'] !== null ? Build::fromJson((string) $p['build']) : null;
+            $this->links($p['build'] ?? (string) $p['text'], $where, $build !== null ? 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']) : $edit, $url, $target);
+            if (!$p['visible']) {
                 continue; // a hidden page is not in search engines – only its links matter (it may be published later)
             }
             if ($build !== null) {
                 foreach (Check::builds($build, true, 50) as $c) {
-                    $this->add('build', $where, $c['zprava'], 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'], $url, $target, $c['id']);
+                    $this->add('build', $where, $c['message'], 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']), $url, $target, $c['id']);
                 }
             }
             if ($p['noindex']) {
                 continue;
             }
-            if (trim((string) $p['popis']) === '') {
+            if (trim((string) $p['description']) === '') {
                 $this->add('description', $where, t('No description for search engines – they then make up their own from the page text.'), $edit, $url, $target);
             }
-            $titles[$p['jazyk'] . '|' . mb_strtolower(trim($p['seo_titulek'] !== '' ? (string) $p['seo_titulek'] : (string) $p['titulek']))][] = [$where, $edit, $url, $target];
+            $titles[$p['language'] . '|' . mb_strtolower(trim($p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['title']))][] = [$where, $edit, $url, $target];
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.seo_titulek, p.popis, p.data, p.jazyk, k.seo_link AS kolekce, k.pole, k.nazev AS kolekce_nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL') as $p) {
-            $where = t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']);
-            $edit = 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'];
-            $url = ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'];
-            $target = ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']];
-            if (trim((string) $p['popis']) === '' && !$this->hasLongerText((string) $p['data'], (string) $p['pole'])) {
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.seo_title, p.description, p.data, p.language, k.slug AS collection, k.fields, k.name AS collection_name FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL') as $p) {
+            $where = t('Item “%s” (%s)', $p['name'], $p['collection_name']);
+            $edit = 'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']);
+            $url = ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'];
+            $target = ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']];
+            if (trim((string) $p['description']) === '' && !$this->hasLongerText((string) $p['data'], (string) $p['fields'])) {
                 $this->add('description', $where, t('No description for search engines and no longer text to take one from.'), $edit, $url, $target);
             }
-            $titles[$p['jazyk'] . '|' . mb_strtolower(trim($p['seo_titulek'] !== '' ? (string) $p['seo_titulek'] : (string) $p['nazev']))][] = [$where, $edit, $url, $target];
+            $titles[$p['language'] . '|' . mb_strtolower(trim($p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name']))][] = [$where, $edit, $url, $target];
         }
         foreach ($titles as $key => $same) {
             if (count($same) < 2) {
@@ -153,33 +153,33 @@ final class Audit
     private function parts(): void
     {
         $db = $this->app->db();
-        foreach ($db->all('SELECT typ, jazyk, varianta, nazev, stavba FROM {casti} WHERE stavba IS NOT NULL') as $c) {
-            $where = t('Site part “%s”', trim($c['typ'] . ' ' . $c['varianta'] . ' ' . $c['jazyk']));
-            $edit = 'admin.php?module=parts&action=builder&typ=' . rawurlencode((string) $c['typ']) . ($c['varianta'] !== '' ? '&varianta=' . rawurlencode((string) $c['varianta']) : '') . '&jazyk=' . rawurlencode((string) $c['jazyk']);
-            $this->links((string) $c['stavba'], $where, $edit, null, ['part' => (string) $c['typ']]);
-            foreach (Check::builds((array) Build::fromJson((string) $c['stavba']), false, 50) as $f) {
-                $this->add('build', $where, $f['zprava'], $edit, null, ['part' => (string) $c['typ']], $f['id']);
+        foreach ($db->all('SELECT type, language, variant, name, build FROM {site_parts} WHERE build IS NOT NULL') as $c) {
+            $where = t('Site part “%s”', trim($c['type'] . ' ' . $c['variant'] . ' ' . $c['language']));
+            $edit = 'admin.php?module=parts&action=builder&type=' . rawurlencode((string) $c['type']) . ($c['variant'] !== '' ? '&variant=' . rawurlencode((string) $c['variant']) : '') . '&language=' . rawurlencode((string) $c['language']);
+            $this->links((string) $c['build'], $where, $edit, null, ['part' => (string) $c['type']]);
+            foreach (Check::builds((array) Build::fromJson((string) $c['build']), false, 50) as $f) {
+                $this->add('build', $where, $f['message'], $edit, null, ['part' => (string) $c['type']], $f['id']);
             }
         }
-        foreach ($db->all('SELECT idm, nazev, stavba FROM {komponenty} WHERE stavba IS NOT NULL') as $c) {
-            $this->links((string) $c['stavba'], t('Component “%s”', $c['nazev']), 'admin.php?module=components&action=builder&id=' . (int) $c['idm'], null, ['component' => (int) $c['idm']]);
+        foreach ($db->all('SELECT component_id, name, build FROM {components} WHERE build IS NOT NULL') as $c) {
+            $this->links((string) $c['build'], t('Component “%s”', $c['name']), 'admin.php?module=components&action=builder&id=' . $this->app->db()->publicId('components', (int) $c['component_id']), null, ['component' => (int) $c['component_id']]);
         }
-        foreach ($db->all('SELECT idpp, nazev, stavba FROM {popupy} WHERE stavba IS NOT NULL AND aktivni = 1') as $c) {
-            $this->links((string) $c['stavba'], t('Pop-up “%s”', $c['nazev']), 'admin.php?module=popups&action=builder&id=' . (int) $c['idpp'], null, ['popup' => (int) $c['idpp']]);
+        foreach ($db->all('SELECT popup_id, name, build FROM {popups} WHERE build IS NOT NULL AND active = TRUE') as $c) {
+            $this->links((string) $c['build'], t('Pop-up “%s”', $c['name']), 'admin.php?module=popups&action=builder&id=' . $this->app->db()->publicId('popups', (int) $c['popup_id']), null, ['popup' => (int) $c['popup_id']]);
         }
     }
 
     private function collections(): void
     {
         $db = $this->app->db();
-        foreach ($db->all('SELECT idk, nazev, seo_link, detail, stavba FROM {kolekce}') as $k) {
-            if ($k['detail'] && $k['stavba'] !== null) {
-                $this->links((string) $k['stavba'], t('Item template of “%s”', $k['nazev']), 'admin.php?module=collections&action=builder&id=' . (int) $k['idk'], null, ['collection' => (string) $k['seo_link']]);
+        foreach ($db->all('SELECT collection_id, name, slug, detail, build FROM {collections}') as $k) {
+            if ($k['detail'] && $k['build'] !== null) {
+                $this->links((string) $k['build'], t('Item template of “%s”', $k['name']), 'admin.php?module=collections&action=builder&id=' . $this->app->db()->publicId('collections', (int) $k['collection_id']), null, ['collection' => (string) $k['slug']]);
             }
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.data, k.seo_link AS kolekce, k.nazev AS kolekce_nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.zobrazit = 1 AND p.smazano IS NULL') as $p) {
-            $this->links((string) $p['data'], t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'], null,
-                ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.data, k.slug AS collection, k.name AS collection_name FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.visible = TRUE AND p.deleted_at IS NULL') as $p) {
+            $this->links((string) $p['data'], t('Item “%s” (%s)', $p['name'], $p['collection_name']), 'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']), null,
+                ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]);
         }
     }
 
@@ -187,45 +187,45 @@ final class Audit
     {
         $db = $this->app->db();
         $pages = [];
-        foreach ($db->all('SELECT ids, titulek, zobrazit, smazano FROM {stranky}') as $p) {
-            $pages[(int) $p['ids']] = $p;
+        foreach ($db->all('SELECT page_id, title, visible, deleted_at FROM {pages}') as $p) {
+            $pages[(int) $p['page_id']] = $p;
         }
-        foreach ($db->all('SELECT umisteni, jazyk, polozky FROM {menu}') as $m) {
-            $where = t('Menu “%s”', t(Menu::LOCATIONS[$m['umisteni']] ?? $m['umisteni'])) . ($m['jazyk'] !== '' ? ' (' . $m['jazyk'] . ')' : '');
+        foreach ($db->all('SELECT location, language, items FROM {menus}') as $m) {
+            $where = t('Menu “%s”', t(Menu::LOCATIONS[$m['location']] ?? $m['location'])) . ($m['language'] !== '' ? ' (' . $m['language'] . ')' : '');
             $walk = function (array $items) use (&$walk, $pages, $where): void {
                 foreach ($items as $i) {
-                    if (($i['typ'] ?? '') === 'stranka') {
-                        $p = $pages[(int) ($i['ids'] ?? 0)] ?? null;
+                    if (($i['type'] ?? '') === 'page') {
+                        $p = $pages[(int) ($i['page_id'] ?? 0)] ?? null;
                         $message = match (true) {
                             $p === null => t('An item points at a page that no longer exists.'),
-                            $p['smazano'] !== null => t('The item “%s” points at a page in the trash.', $p['titulek']),
-                            !$p['zobrazit'] => t('The item “%s” points at a hidden page – visitors do not see it in the menu.', $p['titulek']),
+                            $p['deleted_at'] !== null => t('The item “%s” points at a page in the trash.', $p['title']),
+                            !$p['visible'] => t('The item “%s” points at a hidden page – visitors do not see it in the menu.', $p['title']),
                             default => null,
                         };
                         if ($message !== null) {
                             $this->add('menu', $where, $message, 'admin.php?module=menu', null, ['menu' => 'menu']);
                         }
-                    } elseif (($i['typ'] ?? '') === 'odkaz') {
+                    } elseif (($i['type'] ?? '') === 'link') {
                         $this->checkUrl((string) ($i['url'] ?? ''), $where, 'admin.php?module=menu', null, ['menu' => 'menu']);
                     }
-                    if (is_array($i['deti'] ?? null)) {
-                        $walk($i['deti']);
+                    if (is_array($i['children'] ?? null)) {
+                        $walk($i['children']);
                     }
                 }
             };
-            $walk(json_decode((string) $m['polozky'], true) ?: []);
+            $walk(json_decode((string) $m['items'], true) ?: []);
         }
     }
 
     private function news(): void
     {
-        if (!Extensions::isEnabled($this->app->settings(), 'novinky')) {
+        if (!Extensions::isEnabled($this->app->settings(), 'news')) {
             return;
         }
         $db = $this->app->db();
-        foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, uvod, text FROM {novinky} WHERE visible = 1 AND smazano IS NULL ORDER BY datum DESC LIMIT 500') as $c) {
-            $this->links($c['uvod'] . ' ' . $c['text'], t('News item “%s”', $c['titulek']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
-                $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
+        foreach ($db->all('SELECT news_id, title, slug, language, intro, text FROM {news} WHERE visible = TRUE AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 500') as $c) {
+            $this->links($c['intro'] . ' ' . $c['text'], t('News item “%s”', $c['title']), 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']),
+                $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language'])), ['news' => (int) $c['news_id']]);
         }
     }
 
@@ -255,22 +255,22 @@ final class Audit
         $db = $this->app->db();
         $home = (int) $this->app->settings()->get('home_page');
         $message = fn (string $day): string => t('Asked for a review by %s.', format_date($day));
-        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, review_by FROM {stranky} WHERE review_by IS NOT NULL AND review_by <= CURDATE() AND smazano IS NULL ORDER BY review_by') as $p) {
-            $this->add('review', t('Page “%s”', $p['titulek']), $message((string) $p['review_by']), 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'],
-                (int) $p['ids'] === $home ? '' : ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['seo_link'], ['page' => (int) $p['ids']]);
+        foreach ($db->all('SELECT page_id, title, slug, language, review_by FROM {pages} WHERE review_by IS NOT NULL AND review_by <= CURRENT_DATE AND deleted_at IS NULL ORDER BY review_by') as $p) {
+            $this->add('review', t('Page “%s”', $p['title']), $message((string) $p['review_by']), 'admin.php?module=pages&action=edit&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']),
+                (int) $p['page_id'] === $home ? '' : ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['slug'], ['page' => (int) $p['page_id']]);
         }
-        if (Extensions::isEnabled($this->app->settings(), 'novinky')) {
-            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, review_by FROM {novinky} WHERE review_by IS NOT NULL AND review_by <= CURDATE() AND smazano IS NULL ORDER BY review_by') as $c) {
-                $this->add('review', t('News item “%s”', $c['titulek']), $message((string) $c['review_by']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
-                    $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
+        if (Extensions::isEnabled($this->app->settings(), 'news')) {
+            foreach ($db->all('SELECT news_id, title, slug, language, review_by FROM {news} WHERE review_by IS NOT NULL AND review_by <= CURRENT_DATE AND deleted_at IS NULL ORDER BY review_by') as $c) {
+                $this->add('review', t('News item “%s”', $c['title']), $message((string) $c['review_by']), 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']),
+                    $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language'])), ['news' => (int) $c['news_id']]);
             }
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.review_by, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.review_by IS NOT NULL AND p.review_by <= CURDATE() AND p.smazano IS NULL ORDER BY p.review_by') as $p) {
-            $this->add('review', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), $message((string) $p['review_by']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
-                $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, p.review_by, k.slug AS collection, k.name AS collection_name, k.detail FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.review_by IS NOT NULL AND p.review_by <= CURRENT_DATE AND p.deleted_at IS NULL ORDER BY p.review_by') as $p) {
+            $this->add('review', t('Item “%s” (%s)', $p['name'], $p['collection_name']), $message((string) $p['review_by']), 'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']),
+                $p['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'] : null, ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]);
         }
-        foreach ($db->all('SELECT idpp, nazev, review_by FROM {popupy} WHERE review_by IS NOT NULL AND review_by <= CURDATE() ORDER BY review_by') as $c) {
-            $this->add('review', t('Pop-up “%s”', $c['nazev']), $message((string) $c['review_by']), 'admin.php?module=popups&action=edit&id=' . (int) $c['idpp'], null, ['popup' => (int) $c['idpp']]);
+        foreach ($db->all('SELECT popup_id, name, review_by FROM {popups} WHERE review_by IS NOT NULL AND review_by <= CURRENT_DATE ORDER BY review_by') as $c) {
+            $this->add('review', t('Pop-up “%s”', $c['name']), $message((string) $c['review_by']), 'admin.php?module=popups&action=edit&id=' . $this->app->db()->publicId('popups', (int) $c['popup_id']), null, ['popup' => (int) $c['popup_id']]);
         }
     }
 
@@ -280,63 +280,60 @@ final class Audit
      */
     private function jobs(): void
     {
-        foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
-            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY p.nazev', [Jobs::PRESET]) as $p) {
-            $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
-                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
-                $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
+        foreach ($this->app->db()->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS collection, k.name AS collection_name, k.detail FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id'
+            . ' WHERE k.preset = ? AND p.visible = TRUE AND p.deleted_at IS NULL AND p.valid_until IS NULL ORDER BY p.name', [Jobs::PRESET]) as $p) {
+            $this->add('job', t('Item “%s” (%s)', $p['name'], $p['collection_name']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
+                'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']),
+                $p['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'] : null, ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]);
         }
     }
 
     /** Document library (2.11, Core\Documents): visible documents whose true-until day comes within 30 days – a new edition is due, or the date needs moving. */
     private function documents(): void
     {
-        foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.valid_until, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
-            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NOT NULL AND p.valid_until BETWEEN CURDATE() AND CURDATE() + INTERVAL ? DAY ORDER BY p.valid_until', [Documents::PRESET, Documents::EXPIRY_WARNING_DAYS]) as $p) {
-            $this->add('document', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('The document is true until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.', format_date((string) $p['valid_until'])),
-                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
-                $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
+        foreach ($this->app->db()->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, p.valid_until, k.slug AS collection, k.name AS collection_name, k.detail FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id'
+            . ' WHERE k.preset = ? AND p.visible = TRUE AND p.deleted_at IS NULL AND p.valid_until IS NOT NULL AND p.valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL ? DAY ORDER BY p.valid_until', [Documents::PRESET, Documents::EXPIRY_WARNING_DAYS]) as $p) {
+            $this->add('document', t('Item “%s” (%s)', $p['name'], $p['collection_name']), t('The document is valid until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.', format_date((string) $p['valid_until'])),
+                'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']),
+                $p['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'] : null, ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]);
         }
     }
 
     /** Link texts that do not say where the link leads (screen reader users often list the links of a page on their own). */
-    private const string VAGUE_LINK = '/^(click here|here|read more|more|learn more|details|link|this|zde|sem|tady|klikněte sem|klikněte zde|více|číst dál|číst více|'
-        . 'hier|mehr|weiterlesen|mehr erfahren|ici|cliquez ici|plus|en savoir plus|aquí|haz clic aquí|más|leer más|qui|clicca qui|di più|leggi di più|'
-        . 'tutaj|kliknij tutaj|więcej|czytaj więcej|tu|kliknite sem|viac|čítať ďalej)[.!…]?$/iu';
+    private const string VAGUE_LINK = '/^(click here|here|read more|more|learn more|details|link|this|zde|sem|tady|klikněte sem|klikněte zde|více|číst dál|číst více|' // check-english: allow
+        . 'hier|mehr|weiterlesen|mehr erfahren|ici|cliquez ici|plus|en savoir plus|aquí|haz clic aquí|más|leer más|qui|clicca qui|di più|leggi di più|' // check-english: allow
+        . 'tutaj|kliknij tutaj|więcej|czytaj więcej|tu|kliknite sem|viac|čítať ďalej)[.!…]?$/iu'; // check-english: allow
 
     /** Page addresses of an accessibility statement in the site languages. */
-    private const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i';
+    private const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i'; // check-english: allow
 
     private function accessibility(): void
     {
         $db = $this->app->db();
         $s = $this->app->settings();
         // the design system: text and buttons in light and (when the site has it) dark mode
-        $ds = \Kaleta\Builder\DesignSystem::load($s);
-        // the dark mode palette with its derived (or chosen) primary and secondary colours (3.6, DesignSystem::darkColors)
-        $looks = ['' => false] + (in_array($s->get('dark_mode'), ['auto', 'tmavy'], true) ? [t(' (dark mode)') => true] : []);
-        foreach ($looks as $suffix => $dark) {
-            foreach (\Kaleta\Builder\DesignSystem::contrasts($ds, $dark) as $c) {
+        $ds = \Talea\Builder\DesignSystem::load($s);
+        $looks = ['' => $ds] + ($s->get('dark_mode') !== 'off' ? [t(' (dark mode)') => ['colors' => $ds['colors_dark'] + $ds['colors']] + $ds] : []);
+        foreach ($looks as $suffix => $look) {
+            foreach (\Talea\Builder\DesignSystem::contrasts($look) as $c) {
                 if (!$c['ok']) {
-                    $this->add('accessibility', t('Site appearance') . $suffix, $c['min'] < 4.5
-                        ? t('%s has a contrast of %s : 1 – a focus ring needs at least 3 : 1.', t($c['popis']), number_format($c['pomer'], 1))
-                        : t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['popis']), number_format($c['pomer'], 1)),
+                    $this->add('accessibility', t('Site appearance') . $suffix, t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['description']), number_format($c['ratio'], 1)),
                         'admin.php?module=appearance', null, ['look' => 'design_system']);
                 }
             }
         }
         $home = (int) $s->get('home_page');
         $statement = false;
-        foreach ($db->all('SELECT ids, titulek, seo_link, text, stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') as $p) {
-            $statement = $statement || preg_match(self::STATEMENT, (string) $p['seo_link']) === 1;
-            $build = $p['stavba'] !== null ? Build::fromJson((string) $p['stavba']) : null;
-            $edit = $build !== null ? 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'] : 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'];
-            $this->accessibleContent($build, (string) $p['text'], t('Page “%s”', $p['titulek']), $edit, (int) $p['ids'] === $home ? '' : (string) $p['seo_link'], ['page' => (int) $p['ids']]);
+        foreach ($db->all('SELECT page_id, title, slug, text, build FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE') as $p) {
+            $statement = $statement || preg_match(self::STATEMENT, (string) $p['slug']) === 1;
+            $build = $p['build'] !== null ? Build::fromJson((string) $p['build']) : null;
+            $edit = $build !== null ? 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']) : 'admin.php?module=pages&action=edit&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']);
+            $this->accessibleContent($build, (string) $p['text'], t('Page “%s”', $p['title']), $edit, (int) $p['page_id'] === $home ? '' : (string) $p['slug'], ['page' => (int) $p['page_id']]);
         }
-        if (Extensions::isEnabled($s, 'novinky')) {
-            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, uvod, text FROM {novinky} WHERE visible = 1 AND smazano IS NULL ORDER BY datum DESC LIMIT 500') as $c) {
-                $this->accessibleContent(null, $c['uvod'] . ' ' . $c['text'], t('News item “%s”', $c['titulek']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
-                    $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
+        if (Extensions::isEnabled($s, 'news')) {
+            foreach ($db->all('SELECT news_id, title, slug, language, intro, text FROM {news} WHERE visible = TRUE AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 500') as $c) {
+                $this->accessibleContent(null, $c['intro'] . ' ' . $c['text'], t('News item “%s”', $c['title']), 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']),
+                    $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language'])), ['news' => (int) $c['news_id']]);
             }
         }
         if (!$statement) {
@@ -360,22 +357,22 @@ final class Audit
                 if (!is_array($n)) {
                     continue;
                 }
-                $content = is_array($n['obsah'] ?? null) ? $n['obsah'] : [];
+                $content = is_array($n['content'] ?? null) ? $n['content'] : [];
                 foreach (['html', 'text'] as $key) {
                     if (is_string($content[$key] ?? null) && str_contains($content[$key], '<')) {
                         $fragments[] = [$content[$key], (string) ($n['id'] ?? '')];
                     }
                 }
-                if (($n['typ'] ?? '') === 'tlacitko' && is_string($content['text'] ?? null) && preg_match(self::VAGUE_LINK, trim(strip_tags($content['text'])))) {
+                if (($n['type'] ?? '') === 'button' && is_string($content['text'] ?? null) && preg_match(self::VAGUE_LINK, trim(strip_tags($content['text'])))) {
                     $this->add('accessibility', $where, t('The button “%s” does not say what it does – screen readers read buttons and links on their own.', trim(strip_tags($content['text']))), $edit, $url, $target, (string) ($n['id'] ?? ''));
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $walk($n['children']);
                 }
             }
         };
         if ($build !== null) {
-            $walk($build['deti'] ?? []);
+            $walk($build['children'] ?? []);
         }
         foreach ($fragments as [$html, $element]) {
             if ($html === '' || !str_contains($html, '<')) {
@@ -428,45 +425,45 @@ final class Audit
         };
         $check($s->get('site_email') !== '', t('No site e-mail: enquiries and password resets have nowhere to go.'), 'admin.php?module=settings&tab=general', 'site_email');
         $check($s->get('mail_mode') === 'smtp', t('E-mail goes out through the host’s mail() – set an SMTP server so enquiries and newsletters do not end up in spam.'), 'admin.php?module=settings&tab=mail', 'smtp');
-        $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup');
+        $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'off', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup');
         $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Company details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company');
         $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing');
-        $check($s->get('favicon') !== '' || is_file(KALETA_ROOT . '/media/ikona-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
+        $check($s->get('favicon') !== '' || is_file(TALEA_ROOT . '/media/icon-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
         $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
-        $check(!$tracking || $s->get('cookies_mode') !== 'zadna', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
+        $check(!$tracking || $s->get('cookies_mode') !== 'none', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
         $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact');
         // accounts and access (2.8): the same findings as System status, each with the user to fix
         $hygiene = SecurityHygiene::findings($this->app);
         foreach ($hygiene['two_step'] as $u) {
             $this->add('handover', $site, t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)),
-                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'two_step', 'user' => (int) $u['idu']]);
+                'admin.php?module=users&action=edit&id=' . $this->app->db()->publicId('users', (int) $u['user_id']), null, ['handover' => 'two_step', 'username' => (int) $u['user_id']]);
         }
         foreach ($hygiene['unused_accounts'] as $u) {
             $this->add('handover', $site, t('The account %s has not been used for %d days (last activity %s) – block it, or let the automatic suspension do it.', SecurityHygiene::displayName($u), SecurityHygiene::daysAgo((string) $u['last']), format_date((string) $u['last'])),
-                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'unused_account', 'user' => (int) $u['idu']]);
+                'admin.php?module=users&action=edit&id=' . $this->app->db()->publicId('users', (int) $u['user_id']), null, ['handover' => 'unused_account', 'username' => (int) $u['user_id']]);
         }
         foreach ($hygiene['unused_connections'] as $c) {
-            $this->add('handover', $site, t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['user'], SecurityHygiene::daysAgo((string) $c['last'])),
-                'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', null, ['handover' => 'unused_connection', 'user' => (int) $c['idu'], 'connection' => (string) $c['name']]);
+            $this->add('handover', $site, t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['username'], SecurityHygiene::daysAgo((string) $c['last'])),
+                'admin.php?module=users&action=edit&id=' . $this->app->db()->publicId('users', (int) $c['user_id']) . '#connections', null, ['handover' => 'unused_connection', 'username' => (int) $c['user_id'], 'connection' => (string) $c['name']]);
         }
         $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
-        $check((int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
+        $check((int) $db->value('SELECT COUNT(*) FROM {users} WHERE admin < 2 AND blocked = FALSE') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
         $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
-        if (Extensions::isEnabled($s, 'newsletter')) {
+        if (Extensions::isEnabled($s, 'newsletter_signup')) {
             $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron');
         }
-        // 2.8: the cached domain and mail watch – a missing SPF or DMARC record, a certificate or a domain about to expire
-        foreach (DomainWatch::handoverFindings(DomainWatch::cached($s)) as $finding) {
-            $this->add('handover', $site, $finding['message'], 'admin.php?module=status', null, ['handover' => $finding['key']]);
+        // findings of switched-on add-ons (API 2, Extension\Api::handoverFindings), e.g. the domain watch
+        foreach (\Talea\Extension\Registry::handoverFindings($this->app) as $finding) {
+            $this->add('handover', $site, $finding['message'], $finding['edit'], null, ['handover' => $finding['key']]);
         }
     }
 
     private function notFound(): void
     {
         foreach (NotFound::pending($this->app, 30, 25) as $n) {
-            $path = trim($n['cesta'], '/');
-            $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['pocet']),
-                'admin.php?module=redirects&z=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
+            $path = trim($n['path'], '/');
+            $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['count']),
+                'admin.php?module=redirects&from=' . rawurlencode('/' . $path) . '#edit', null, ['redirect_from' => '/' . $path]);
         }
     }
 
@@ -498,7 +495,7 @@ final class Audit
     /** Real-user speed (2.8): pages that got slower – p75 LCP of the last 30 days against the 30 days before, with enough measurements in both. */
     private function speed(): void
     {
-        if (!Extensions::isEnabled($this->app->settings(), 'statistika')) {
+        if (!Extensions::isEnabled($this->app->settings(), 'stats')) {
             return;
         }
         foreach (WebVitals::regressions($this->app->db()) as $r) {
@@ -512,7 +509,7 @@ final class Audit
     /** Every link in a build (JSON) or HTML; internal ones must lead somewhere. */
     private function links(string $content, string $where, string $edit, ?string $url, array $target): void
     {
-        preg_match_all('#"(?:odkaz|url|href)":"((?:[^"\\\\]|\\\\.)*)"|href=\\\\?"([^"\\\\]*)\\\\?"#', $content, $m, PREG_SET_ORDER);
+        preg_match_all('#"(?:link|url|href)":"((?:[^"\\\\]|\\\\.)*)"|href=\\\\?"([^"\\\\]*)\\\\?"#', $content, $m, PREG_SET_ORDER);
         $seen = [];
         foreach ($m as $match) {
             $link = stripslashes($match[1] !== '' ? $match[1] : ($match[2] ?? ''));
@@ -548,47 +545,42 @@ final class Audit
     /** Does an internal path lead to something on the site (a page, news, an item, a file or a system address)? */
     public function resolves(string $path): bool
     {
-        $key = '/' . trim(rawurldecode($path), '/');
-
-        return $this->resolved[$key] ??= self::pathResolves($this->app->db(), $this->app->settings(), $path);
-    }
-
-    /**
-     * The same answer without an Audit: also used by the WordPress import (3.6, N36-1), which must not take over an address
-     * the site already routes (a page in a language version, the news list, a news item, a category or tag).
-     */
-    public static function pathResolves(Db $db, Settings $settings, string $path): bool
-    {
         $path = '/' . trim(rawurldecode($path), '/');
+        if (isset($this->resolved[$path])) {
+            return $this->resolved[$path];
+        }
+        $db = $this->app->db();
         $segments = $path === '/' ? [] : explode('/', ltrim($path, '/'));
-        $language = Language::defaults($settings);
-        if ($segments !== [] && in_array($segments[0], Language::additional($settings), true)) {
-            $language = array_shift($segments);
+        if ($segments !== [] && in_array($segments[0], Language::additional($this->app->settings()), true)) {
+            array_shift($segments);
         }
         $rest = '/' . implode('/', $segments);
-        [$internal] = Routes::internalPath($rest, $language, $db);
+        [$internal] = Routes::internalPath($rest, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
-
-        return match (true) {
+        $ok = match (true) {
             $s === [] => true,
-            is_file(KALETA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
-            in_array($s[0], ['hledani', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
-            $s[0] === 'novinky' => self::newsPathExists($db, array_slice($s, 1)),
-            $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL', [implode('/', $s)]) !== null => true,
-            count($s) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL', [$s[0], $s[1]]) !== null => true,
-            $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [trim($path, '/')]) !== null => true,
+            is_file(TALEA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
+            in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
+            $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1)),
+            $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL', [implode('/', $s)]) !== null => true,
+            count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL', [$s[0], $s[1]]) !== null => true,
+            $db->value('SELECT 1 FROM {redirects} WHERE from_path = ?', [trim($path, '/')]) !== null => true,
             default => false,
         };
+
+        return $this->resolved[$path] = $ok;
     }
 
-    /** @param list<string> $s the path after /novinky */
-    private static function newsPathExists(Db $db, array $s): bool
+    /** @param list<string> $s the path after /news */
+    private function newsPathExists(array $s): bool
     {
+        $db = $this->app->db();
+
         return match (true) {
             $s === [] => true,
-            count($s) === 1 => $db->value('SELECT 1 FROM {novinky} WHERE seo_link = ? AND visible = 1 AND smazano IS NULL', [$s[0]]) !== null,
-            count($s) === 2 && $s[0] === 'kategorie' => $db->value('SELECT 1 FROM {kategorie} WHERE seo_link = ?', [$s[1]]) !== null,
-            count($s) === 2 && $s[0] === 'stitek' => $db->value('SELECT 1 FROM {stitky} WHERE seo_link = ?', [$s[1]]) !== null,
+            count($s) === 1 => $db->value('SELECT 1 FROM {news} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL', [$s[0]]) !== null,
+            count($s) === 2 && $s[0] === 'category' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?', [$s[1]]) !== null,
+            count($s) === 2 && $s[0] === 'tag' => $db->value('SELECT 1 FROM {tags} WHERE slug = ?', [$s[1]]) !== null,
             default => false,
         };
     }
@@ -599,7 +591,7 @@ final class Audit
     {
         $values = json_decode($data, true) ?: [];
         foreach (json_decode($fields, true) ?: [] as $f) {
-            if (in_array($f['typ'] ?? '', ['radky', 'html'], true) && trim(strip_tags((string) ($values[$f['klic']] ?? ''))) !== '') {
+            if (in_array($f['type'] ?? '', ['lines', 'html'], true) && trim(strip_tags((string) ($values[$f['key']] ?? ''))) !== '') {
                 return true;
             }
         }

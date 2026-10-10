@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\Components;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Style;
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Events;
-use Kaleta\Core\Look;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
+use Talea\Admin\ChangeLog;
+use Talea\Builder\Build;
+use Talea\Builder\Components;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Style;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Events;
+use Talea\Core\Look;
+use Talea\Core\Response;
+use Talea\Core\Settings;
 
 /**
  * The shared design kit of a fleet (2.16): the console snapshots its design system, chosen shared classes, components and
- * saved sections into a numbered kit version (ka_fleet_kits); the member sites that opted in (fleet_kit) pick it up.
+ * saved sections into a numbered kit version (tl_fleet_kits); the member sites that opted in (fleet_kit) pick it up.
  *
  * The security model of 2.9 holds: a site always calls the console, never the other way round. The heartbeat reply only
  * announces {version, sha256} of the newest kit; the site then asks POST /fleet/kit (signed by its own key, it must be
  * paired) and gets the manifest signed by the console's key. The site verifies the signature and that the manifest hashes
  * to the announced sha256 before it reads a byte of it. A kit is applied ONLY as drafts – the draft look (design system
- * and classes, published with "Publish look"), component drafts (stavba_koncept, never stavba) and the section library
+ * and classes, published with "Publish look"), component drafts (build_draft, never build) and the section library
  * (inserting a saved section is a person's act). Nothing on a member site is published by this class. Everything received
  * goes through the same sanitizers as a local save (Build::sanitize without admin rights, so a custom HTML element never
  * travels in a kit; Style for classes; DesignSystem::sanitize for the tokens), on the console when publishing and again on
@@ -36,31 +36,38 @@ final class Kit
     public const int MAX_BYTES = 1_900_000;
 
     /** A stable key of a component or a section: the slug of its name on the console; a site updates its copy by it. */
-    public const string KEY_PATTERN = '/^[a-z0-9][a-z0-9-]{0,78}$/D';
+    public const string KEY_PATTERN = '/^[a-z0-9][a-z0-9-]{0,78}$/';
 
     /* ---------- the manifest (both sides) ---------- */
 
     /**
      * A manifest from the console's rows: the published design system, published classes (name => [styl, css]), rows of
-     * ka_komponenty (the published build, or the draft of a component that was never published) and rows of ka_sekce.
+     * tl_components (the published build, or the draft of a component that was never published) and rows of tl_sekce.
      * Sanitized like everything that comes from outside, so the kit is clean before it is signed.
      *
      * @param array<string, mixed>|null $designSystem
-     * @param array<string, array{styl: array<string, mixed>, css: string}> $classes
+     * @param array<string, array{style: array<string, mixed>, css: string}> $classes
      * @param list<array<string, mixed>> $components
      * @param list<array<string, mixed>> $sections
      * @return array<string, mixed>
      */
     public static function compose(?array $designSystem, array $classes, array $components, array $sections): array
     {
-        $manifest = ['classes' => array_map(fn (array $c): array => ['styl' => $c['styl'], 'css' => $c['css']], $classes)];
+        $manifest = ['classes' => array_map(fn (array $c): array => ['style' => $c['style'], 'css' => $c['css']], $classes)];
         if ($designSystem !== null) {
             $manifest['design_system'] = $designSystem;
         }
-        $manifest['components'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['nazev'], 80), 'name' => (string) $r['nazev'],
-            'stavba' => Build::fromJson($r['stavba'] ?? $r['stavba_koncept'] ?? null) ?? [], 'properties' => is_array($r['vlastnosti']) ? $r['vlastnosti'] : (json_decode((string) $r['vlastnosti'], true) ?: [])], $components);
-        $manifest['sections'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['nazev'], 80), 'name' => (string) $r['nazev'],
-            'prvek' => is_array($r['prvek']) ? $r['prvek'] : (json_decode((string) $r['prvek'], true) ?: [])], $sections);
+        // the console's integer ids mean nothing on a member site: a component used inside a kit component travels by its kit key ("@key")
+        $keys = [];
+        foreach ($components as $r) {
+            if (isset($r['component_id'])) {
+                $keys[(int) $r['component_id']] = slugify((string) $r['name'], 80);
+            }
+        }
+        $manifest['components'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['name'], 80), 'name' => (string) $r['name'],
+            'build' => self::mapRefs(Build::fromJson($r['build'] ?? $r['build_draft'] ?? null) ?? [], fn (string $ref): string => isset($keys[(int) $ref]) && ctype_digit($ref) ? '@' . $keys[(int) $ref] : ''), 'properties' => is_array($r['properties']) ? $r['properties'] : (json_decode((string) $r['properties'], true) ?: [])], $components);
+        $manifest['sections'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['name'], 80), 'name' => (string) $r['name'],
+            'element' => is_array($r['element']) ? $r['element'] : (json_decode((string) $r['element'], true) ?: [])], $sections);
 
         return self::sanitize($manifest);
     }
@@ -71,14 +78,14 @@ final class Kit
      * custom HTML – the only way to carry script – is left out), a repeated key keeps the first item. Custom fonts are
      * files of the console, they do not travel: the design system comes without them.
      *
-     * @return array{design_system?: array<string, mixed>, classes: array<string, array{styl: array<string, mixed>, css: string}>, components: list<array{key: string, name: string, stavba: array<string, mixed>, properties: list<array<string, mixed>>}>, sections: list<array{key: string, name: string, prvek: array<string, mixed>}>}
+     * @return array{design_system?: array<string, mixed>, classes: array<string, array{style: array<string, mixed>, css: string}>, components: list<array{key: string, name: string, build: array<string, mixed>, properties: list<array<string, mixed>>}>, sections: list<array{key: string, name: string, element: array<string, mixed>}>}
      */
     public static function sanitize(mixed $manifest): array
     {
         $manifest = is_array($manifest) ? $manifest : [];
         $clean = ['classes' => [], 'components' => [], 'sections' => []];
         if (is_array($manifest['design_system'] ?? null)) {
-            $clean['design_system'] = DesignSystem::sanitize(['vlastni_pisma' => []] + $manifest['design_system']);
+            $clean['design_system'] = DesignSystem::sanitize(['custom_fonts' => []] + $manifest['design_system']);
         }
         foreach (is_array($manifest['classes'] ?? null) ? array_slice($manifest['classes'], 0, 200, true) : [] as $name => $class) {
             if (!is_string($name) || !preg_match(Build::CLASS_PATTERN, $name) || !is_array($class)) {
@@ -86,10 +93,10 @@ final class Kit
             }
             $errors = [];
             $discarded = [];
-            $style = Style::sanitize($class['styl'] ?? [], $name, $errors);
+            $style = Style::sanitize($class['style'] ?? [], $name, $errors);
             $css = Style::customCss(mb_substr((string) ($class['css'] ?? ''), 0, 4000), $discarded);
             if ($style !== [] || $css !== '') {
-                $clean['classes'][$name] = ['styl' => $style, 'css' => $css];
+                $clean['classes'][$name] = ['style' => $style, 'css' => $css];
             }
         }
         $name = fn (mixed $v): string => mb_substr(trim(strip_tags((string) (is_scalar($v) ? $v : ''))), 0, 100);
@@ -99,27 +106,53 @@ final class Kit
             if ($key === null || isset($used['c:' . $key])) {
                 continue;
             }
-            [$build] = Build::sanitize($c['stavba'] ?? null, false);
-            if ($build['deti'] === []) {
+            [$build] = Build::sanitize($c['build'] ?? null, false);
+            $build = self::mapRefs($build, fn (string $ref): string => str_starts_with($ref, '@') && preg_match(self::KEY_PATTERN, substr($ref, 1)) ? $ref : ''); // never a foreign integer
+            if ($build['children'] === []) {
                 continue;
             }
             $used['c:' . $key] = true;
-            $clean['components'][] = ['key' => $key, 'name' => $name($c['name']), 'stavba' => $build, 'properties' => Components::sanitizeProperties($c['properties'] ?? [])];
+            $clean['components'][] = ['key' => $key, 'name' => $name($c['name']), 'build' => $build, 'properties' => Components::sanitizeProperties($c['properties'] ?? [])];
         }
         foreach (is_array($manifest['sections'] ?? null) ? array_slice(array_values($manifest['sections']), 0, 100) : [] as $sec) {
             $key = is_array($sec) ? self::key($sec['key'] ?? null, $name($sec['name'] ?? '')) : null;
             if ($key === null || isset($used['s:' . $key])) {
                 continue;
             }
-            [$build] = Build::sanitize(['deti' => [$sec['prvek'] ?? null]], false);
-            if (($build['deti'][0] ?? null) === null) {
+            [$build] = Build::sanitize(['children' => [$sec['element'] ?? null]], false);
+            $build = self::mapRefs($build, fn (string $ref): string => '');
+            if (($build['children'][0] ?? null) === null) {
                 continue;
             }
             $used['s:' . $key] = true;
-            $clean['sections'][] = ['key' => $key, 'name' => $name($sec['name']), 'prvek' => $build['deti'][0]];
+            $clean['sections'][] = ['key' => $key, 'name' => $name($sec['name']), 'element' => $build['children'][0]];
         }
 
         return $clean;
+    }
+
+    /**
+     * A build with every reference to another row (the component of a use, the service of a booking) passed through `$map`
+     * (the reference as text => the new one); a service never travels, a component only by its kit key.
+     *
+     * @param array<mixed> $node
+     * @return array<mixed>
+     */
+    private static function mapRefs(array $node, callable $map): array
+    {
+        foreach ($node as $key => $value) {
+            if ($key === 'content' && is_array($value)) {
+                if (isset($value['component']) && is_scalar($value['component'])) {
+                    $node[$key]['component'] = $map((string) $value['component']);
+                }
+                unset($node[$key]['service']);
+            }
+            if (is_array($node[$key])) {
+                $node[$key] = self::mapRefs($node[$key], $map);
+            }
+        }
+
+        return $node;
     }
 
     /** The given key when it is one, otherwise the slug of the name; null for an item without a usable name. */
@@ -168,7 +201,7 @@ final class Kit
     public static function announced(mixed $kit, int $applied): ?array
     {
         if (!is_array($kit) || !is_int($kit['version'] ?? null) || $kit['version'] <= $applied || $kit['version'] > 1_000_000
-            || !is_string($kit['sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/D', $kit['sha256']) !== 1) {
+            || !is_string($kit['sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/', $kit['sha256']) !== 1) {
             return null;
         }
 
@@ -228,14 +261,14 @@ final class Kit
         }
         $in = fn (array $ids): string => $ids === [] ? '0' : implode(',', array_map('intval', $ids));
         $manifest = self::compose($choice['design_system'] ? DesignSystem::load($s) : null, $classes,
-            $db->all('SELECT nazev, vlastnosti, stavba, stavba_koncept FROM {komponenty} WHERE idm IN (' . $in($choice['components']) . ') ORDER BY nazev'),
-            $db->all('SELECT nazev, prvek FROM {sekce} WHERE idx IN (' . $in($choice['sections']) . ') ORDER BY nazev'));
+            $db->all('SELECT component_id, name, properties, build, build_draft FROM {components} WHERE component_id IN (' . $in($choice['components']) . ') ORDER BY name'),
+            $db->all('SELECT name, element FROM {sections} WHERE section_id IN (' . $in($choice['sections']) . ') ORDER BY name'));
         if (!isset($manifest['design_system']) && $manifest['classes'] === [] && $manifest['components'] === [] && $manifest['sections'] === []) {
             throw new \RuntimeException(t('Choose at least one thing for the kit: the design system, a class, a component or a section.'));
         }
         $json = self::encode($manifest);
         if (strlen($json) > self::MAX_BYTES) {
-            throw new \RuntimeException(t('The kit is too large (%s) – choose fewer components or sections.', \Kaleta\Core\Files::size(strlen($json))));
+            throw new \RuntimeException(t('The kit is too large (%s) – choose fewer components or sections.', \Talea\Core\Files::size(strlen($json))));
         }
         $version = (int) $db->value('SELECT COALESCE(MAX(version), 0) + 1 FROM {fleet_kits}');
         $summary = self::summary($manifest);
@@ -266,8 +299,8 @@ final class Kit
     /** @return list<array{version: int, created_at: string, summary: string, author: ?string}> newest first */
     public static function history(Db $db, int $limit = 20): array
     {
-        return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['autor']],
-            $db->all('SELECT k.version, k.created_at, k.summary, u.jmeno AS autor FROM {fleet_kits} k LEFT JOIN {uzivatele} u ON u.idu = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
+        return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['author_name']],
+            $db->all('SELECT k.version, k.created_at, k.summary, u.name AS author_name FROM {fleet_kits} k LEFT JOIN {users} u ON u.user_id = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
     }
 
     /** Which kit version each site applied, from its last heartbeat: site id => version (0 = none or not reported). @return array<int, int> */
@@ -287,7 +320,7 @@ final class Kit
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT id, public_key FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->byPublicId('fleet_sites', $d['site_id'] ?? null) : null;
         if ($site === null) {
             return Response::json(['error' => 'This console does not know the site.'], 404);
         }
@@ -339,7 +372,7 @@ final class Kit
         if (!Link::isPaired($s)) {
             throw new \RuntimeException('The site is not paired with a console.');
         }
-        $answer = Http::post($s->get('fleet_console_url') . '/fleet/kit', ['action' => 'kit', 'site_id' => $s->int('fleet_site_id'), 'ts' => time()],
+        $answer = Http::post($s->get('fleet_console_url') . '/fleet/kit', ['action' => 'kit', 'site_id' => $s->get('fleet_site_id'), 'ts' => time()],
             fn (string $body): string => Keys::sign($s, $body), 30);
         $manifest = self::verifyAnswer($answer, $s->get('fleet_console_key'), $version, $sha256);
 
@@ -364,22 +397,27 @@ final class Kit
             Look::setClass($s, $name, $class, true); // always the draft: the kit is reviewed as a whole before it is published
         }
         foreach ($clean['components'] as $c) {
-            $row = $db->one('SELECT idm, stavba FROM {komponenty} WHERE kit_key = ?', [$c['key']]);
+            $row = $db->one('SELECT component_id, build FROM {components} WHERE kit_key = ?', [$c['key']]);
             $properties = (string) json_encode($c['properties'], JSON_UNESCAPED_UNICODE);
             if ($row === null) {
-                $db->insert('komponenty', ['nazev' => $c['name'], 'vlastnosti' => $properties, 'stavba' => null, 'stavba_koncept' => Build::toJson($c['stavba']), 'kit_key' => $c['key'], 'zmeneno' => $now]);
+                $db->insert('components', ['name' => $c['name'], 'properties' => $properties, 'build' => null, 'build_draft' => Build::toJson($c['build']), 'kit_key' => $c['key'], 'updated_at' => $now]);
             } else {
                 // the properties of a component that is already published change what its uses show – they stay until a person decides
-                $db->update('komponenty', ['nazev' => $c['name'], 'stavba_koncept' => Build::toJson($c['stavba']), 'zmeneno' => $now] + ($row['stavba'] === null ? ['vlastnosti' => $properties] : []), ['idm' => (int) $row['idm']]);
+                $db->update('components', ['name' => $c['name'], 'build_draft' => Build::toJson($c['build']), 'updated_at' => $now] + ($row['build'] === null ? ['properties' => $properties] : []), ['component_id' => (int) $row['component_id']]);
             }
         }
+        $local = $db->pairs('SELECT kit_key, component_id FROM {components} WHERE kit_key IS NOT NULL');
+        foreach ($clean['components'] as $c) { // "@key" -> the id of that component on this site (the kit's own components only)
+            $draft = self::mapRefs($c['build'], fn (string $ref): string => isset($local[substr($ref, 1)]) ? (string) $local[substr($ref, 1)] : '');
+            $db->update('components', ['build_draft' => Build::toJson($draft)], ['kit_key' => $c['key']]);
+        }
         foreach ($clean['sections'] as $sec) {
-            $json = (string) json_encode($sec['prvek'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $id = $db->value('SELECT idx FROM {sekce} WHERE kit_key = ?', [$sec['key']]);
+            $json = (string) json_encode($sec['element'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $id = $db->value('SELECT section_id FROM {sections} WHERE kit_key = ?', [$sec['key']]);
             if ($id === null) {
-                $db->insert('sekce', ['nazev' => $sec['name'], 'prvek' => $json, 'kit_key' => $sec['key'], 'zmeneno' => $now]);
+                $db->insert('sections', ['name' => $sec['name'], 'element' => $json, 'kit_key' => $sec['key'], 'updated_at' => $now]);
             } else {
-                $db->update('sekce', ['nazev' => $sec['name'], 'prvek' => $json, 'zmeneno' => $now], ['idx' => (int) $id]);
+                $db->update('sections', ['name' => $sec['name'], 'element' => $json, 'updated_at' => $now], ['section_id' => (int) $id]);
             }
         }
         $summary = self::summary($clean);
@@ -397,6 +435,6 @@ final class Kit
     public static function waiting(Db $db, Settings $s): bool
     {
         return $s->int('fleet_kit_version') > 0
-            && (Look::hasDraft($s) || $db->value('SELECT 1 FROM {komponenty} WHERE kit_key IS NOT NULL AND stavba_koncept IS NOT NULL LIMIT 1') !== null);
+            && (Look::hasDraft($s) || $db->value('SELECT 1 FROM {components} WHERE kit_key IS NOT NULL AND build_draft IS NOT NULL LIMIT 1') !== null);
     }
 }

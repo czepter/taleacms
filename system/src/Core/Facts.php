@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Builder\Build;
+use Talea\Admin\ChangeLog;
+use Talea\Builder\Build;
 
 /**
  * Business facts (2.10): what the site states in many places – the year the company was founded, the number of
@@ -16,14 +16,14 @@ use Kaleta\Builder\Build;
  *  - Built-in facts come from Business details (company_phone, company_address…), the site name and the current year;
  *    they cannot be edited here.
  *  - A language version may have its own value of a fact; without one the default value is used.
- *  - Every change of a value is kept (ka_fact_history), and occurrences() finds the sentences that still state the old
+ *  - Every change of a value is kept (tl_fact_history), and occurrences() finds the sentences that still state the old
  *    value as plain text – the claims inventory.
  *  - Computed facts (COMPUTED_PATTERN, computed()) are worked out when a page is shown: years since a year, a date or a
  *    fact, the number of visible items of a collection or of published news – they never go stale.
  */
 final class Facts
 {
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/D';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/';
 
     /** {{fact.key}} – spaces inside the braces are allowed. */
     public const string TOKEN_PATTERN = '/\{\{\s*fact\.([a-z][a-z0-9_]{1,39})\s*\}\}/';
@@ -64,16 +64,16 @@ final class Facts
     private const array INTEGRATION = ['svg' => ['foreignobject', 'desc', 'title'], 'math' => ['mi', 'mo', 'mn', 'ms', 'mtext']];
 
     /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
-    public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/D';
+    public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/';
 
-    public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'e-mail', 'url' => 'web address'];
+    public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'email', 'url' => 'web address'];
 
     /** schema.org properties of the organisation a fact may fill (Front\Company::schema). */
     public const array SCHEMA_PROPS = ['' => '—', 'foundingDate' => 'founding date', 'numberOfEmployees' => 'number of employees', 'priceRange' => 'price range',
         'slogan' => 'slogan', 'award' => 'award', 'areaServed' => 'area served', 'knowsLanguage' => 'languages', 'founder' => 'founder'];
 
     /** Built-in facts from the settings (read-only) => label. */
-    public const array BUILT_IN = ['site_name' => 'Site name', 'company_name' => 'Company name', 'company_phone' => 'Phone', 'company_email' => 'E-mail',
+    public const array BUILT_IN = ['site_name' => 'Site name', 'company_name' => 'Company name', 'company_phone' => 'Phone', 'company_email' => 'Email',
         'company_address' => 'Address', 'company_id' => 'Company ID', 'company_vat_id' => 'VAT ID', 'year' => 'Current year',
         'google_rating' => 'Google rating', 'google_reviews' => 'Google reviews (count)']; // the last two from the Business Profile (2.13, Core\GoogleBusiness)
 
@@ -99,7 +99,7 @@ final class Facts
         foreach (self::BUILT_IN as $key => $label) {
             $value = match ($key) {
                 'site_name' => $s->get('site_name'),
-                'company_address' => implode(', ', \Kaleta\Front\Company::address($s)),
+                'company_address' => implode(', ', \Talea\Front\Company::address($s)),
                 'year' => date('Y'),
                 default => $s->get($key),
             };
@@ -132,7 +132,7 @@ final class Facts
         return match ($type) {
             'number' => is_numeric($value) ? format_count((float) $value, str_contains($value, '.') ? strlen(substr(strrchr($value, '.') ?: '', 1)) : 0) : $value,
             'money' => preg_match('/^(\d+(?:\.\d+)?)\s*([A-Z]{3})?$/', $value, $m) ? format_count((float) $m[1], str_contains($m[1], '.') ? 2 : 0) . (($m[2] ?? '') !== '' ? "\u{00A0}" . $m[2] : '') : $value,
-            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) ? format_date($value) : $value,
+            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? format_date($value) : $value,
             default => $value,
         };
     }
@@ -165,11 +165,11 @@ final class Facts
         return match ($type) {
             'number' => preg_match('/^-?\d+(\.\d+)?$/', str_replace([' ', "\u{00A0}"], '', $value)) ? str_replace([' ', "\u{00A0}"], '', $value) : null,
             'money' => preg_match('/^\d+(\.\d{1,2})?(\s+[A-Z]{3})?$/', $value) ? $value : null,
-            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) && strtotime($value) !== false ? $value : null,
+            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && strtotime($value) !== false ? $value : null,
             'year' => preg_match('/^\d{4}$/', $value) ? $value : null,
             'phone' => preg_match('/^[+()\d\s\/.-]{3,30}$/', $value) ? $value : null,
             'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? $value : null,
-            'url' => preg_match('#^https?://[^\s"<>]{3,400}$#iD', $value) ? $value : null,
+            'url' => preg_match('#^https?://[^\s"<>]{3,400}$#i', $value) ? $value : null,
             default => mb_substr(strip_tags($value), 0, 500),
         };
     }
@@ -518,10 +518,10 @@ final class Facts
         $count = null;
         try {
             if ($what === 'news') {
-                $count = Extensions::isEnabled($app->settings(), 'novinky')
-                    ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND jazyk = ?', [$language]) : null;
-            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/D', $what) && $db->one('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$what]) !== null) {
-                $count = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.jazyk = ?', [$what, $language]);
+                $count = Extensions::isEnabled($app->settings(), 'news')
+                    ? (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND language = ?', [$language]) : null;
+            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT collection_id FROM {collections} WHERE slug = ?', [$what]) !== null) {
+                $count = (int) $db->value('SELECT COUNT(*) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL AND p.language = ?', [$what, $language]);
             }
         } catch (\Throwable) {
             $count = null;
@@ -541,7 +541,7 @@ final class Facts
         $dated = array_filter(self::all($app), fn (array $f): bool => !$f['builtIn'] && in_array($f['type'], ['year', 'date'], true) && $f['value'] !== '');
         $factKey = array_key_first($dated) ?? 'founded';
         try {
-            $collection = (string) ($app->db()->value('SELECT seo_link FROM {kolekce} ORDER BY idk LIMIT 1') ?? 'reference');
+            $collection = (string) ($app->db()->value('SELECT slug FROM {collections} ORDER BY collection_id LIMIT 1') ?? 'reference');
         } catch (\Throwable) {
             $collection = 'reference';
         }
@@ -573,16 +573,16 @@ final class Facts
                 if (!is_array($n)) {
                     continue;
                 }
-                $number = is_array($n['obsah'] ?? null) && is_scalar($n['obsah']['cislo'] ?? null) ? trim((string) $n['obsah']['cislo']) : '';
-                if (($n['typ'] ?? '') === 'pocitadlo' && preg_match('/^\d+$/', $number)) {
+                $number = is_array($n['content'] ?? null) && is_scalar($n['content']['number'] ?? null) ? trim((string) $n['content']['number']) : '';
+                if (($n['type'] ?? '') === 'counter' && preg_match('/^\d+$/', $number)) {
                     $out[] = ['id' => (string) ($n['id'] ?? ''), 'number' => $number];
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $walk($n['children']);
                 }
             }
         };
-        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+        $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
 
         return $out;
     }
@@ -650,7 +650,7 @@ final class Facts
         }
         ChangeLog::write($app, 'facts', $existing === null ? 'create' : 'update', $key . ($language !== '' ? ' (' . $language . ')' : ''));
         self::$cache = [];
-        \Kaleta\Front\Cache::clear(); // cached pages show the new value right away
+        \Talea\Front\Cache::clear(); // cached pages show the new value right away
 
         return null;
     }
@@ -661,7 +661,7 @@ final class Facts
         if ($deleted) {
             ChangeLog::write($app, 'facts', 'delete', $key);
             self::$cache = [];
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $deleted;
@@ -682,37 +682,37 @@ final class Facts
      */
     public static function texts(Db $db): \Generator
     {
-        foreach ($db->all('SELECT ids, titulek, text, stavba, jazyk FROM {stranky} WHERE smazano IS NULL') as $p) {
-            $build = Build::fromJson((string) ($p['stavba'] ?? ''));
-            yield ['kind' => 'page', 'where' => (string) $p['titulek'], 'target' => ['page' => (int) $p['ids']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . (int) $p['ids'],
+        foreach ($db->all('SELECT page_id, title, text, build, language FROM {pages} WHERE deleted_at IS NULL') as $p) {
+            $build = Build::fromJson((string) ($p['build'] ?? ''));
+            yield ['kind' => 'page', 'where' => (string) $p['title'], 'target' => ['page' => (int) $p['page_id']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . $db->publicId('pages', (int) $p['page_id']),
                 'text' => $build !== null ? Build::asText($build) : (string) $p['text'], 'build' => $build]; // HTML – sentences() breaks it at block ends
         }
-        foreach ($db->all('SELECT idc, titulek, uvod, text FROM {novinky} WHERE smazano IS NULL') as $n) {
-            yield ['kind' => 'news', 'where' => (string) $n['titulek'], 'target' => ['news' => (int) $n['idc']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc'],
-                'text' => $n['titulek'] . "\n" . $n['uvod'] . "\n" . $n['text'], 'build' => null];
+        foreach ($db->all('SELECT news_id, title, intro, text FROM {news} WHERE deleted_at IS NULL') as $n) {
+            yield ['kind' => 'news', 'where' => (string) $n['title'], 'target' => ['news' => (int) $n['news_id']], 'edit' => 'admin.php?module=news&action=edit&id=' . $db->publicId('news', (int) $n['news_id']),
+                'text' => $n['title'] . "\n" . $n['intro'] . "\n" . $n['text'], 'build' => null];
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.popis, p.data, k.nazev AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL') as $i) {
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.description, p.data, k.name AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL') as $i) {
             $values = json_decode((string) $i['data'], true);
-            yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['nazev'], 'target' => ['collection' => (int) $i['idk'], 'item' => (int) $i['idp']],
-                'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['idk'] . '&polozka=' . (int) $i['idp'],
-                'text' => $i['nazev'] . "\n" . $i['popis'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
+            yield ['kind' => 'item', 'where' => $i['collection'] . ': ' . $i['name'], 'target' => ['collection' => (int) $i['collection_id'], 'item' => (int) $i['item_id']],
+                'edit' => 'admin.php?module=collections&action=item&id=' . $db->publicId('collections', (int) $i['collection_id']) . '&item=' . $db->publicId('collection_items', (int) $i['item_id']),
+                'text' => $i['name'] . "\n" . $i['description'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
         }
-        foreach ($db->all('SELECT typ, jazyk, varianta, nazev, stavba FROM {casti}') as $c) {
-            $build = Build::fromJson((string) ($c['stavba'] ?? ''));
+        foreach ($db->all('SELECT type, language, variant, name, build FROM {site_parts}') as $c) {
+            $build = Build::fromJson((string) ($c['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'part', 'where' => (string) ($c['nazev'] ?: $c['typ']), 'target' => ['part' => (string) $c['typ']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'part', 'where' => (string) ($c['name'] ?: $c['type']), 'target' => ['part' => (string) $c['type']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
             }
         }
-        foreach ($db->all('SELECT idpp, nazev, stavba FROM {popupy}') as $p) {
-            $build = Build::fromJson((string) ($p['stavba'] ?? ''));
+        foreach ($db->all('SELECT popup_id, name, build FROM {popups}') as $p) {
+            $build = Build::fromJson((string) ($p['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'popup', 'where' => (string) $p['nazev'], 'target' => ['popup' => (int) $p['idpp']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['idpp'], 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'popup', 'where' => (string) $p['name'], 'target' => ['popup' => (int) $p['popup_id']], 'edit' => 'admin.php?module=popups&action=edit&id=' . $db->publicId('popups', (int) $p['popup_id']), 'text' => Build::asText($build), 'build' => $build];
             }
         }
-        foreach ($db->all('SELECT idm, nazev, stavba FROM {komponenty}') as $m) {
-            $build = Build::fromJson((string) ($m['stavba'] ?? ''));
+        foreach ($db->all('SELECT component_id, name, build FROM {components}') as $m) {
+            $build = Build::fromJson((string) ($m['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'component', 'where' => (string) $m['nazev'], 'target' => ['component' => (int) $m['idm']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['idm'], 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'component', 'where' => (string) $m['name'], 'target' => ['component' => (int) $m['component_id']], 'edit' => 'admin.php?module=components&action=edit&id=' . $db->publicId('components', (int) $m['component_id']), 'text' => Build::asText($build), 'build' => $build];
             }
         }
     }
@@ -729,7 +729,10 @@ final class Facts
         if (mb_strlen($needle) < 2) {
             return [];
         }
-        $pattern = '/' . implode('[\s\x{00A0}\x{202F}]*', array_map(fn (string $ch): string => preg_quote($ch, '/'), preg_split('//u', preg_replace('/[\s\x{00A0}\x{202F}]+/u', '', $needle) ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [])) . '/iu';
+        // 1,500 / 1.500 / 1 500 are one number: when the needle has a thousands separator, any of them separates the digits
+        $separators = preg_match('/\d[,.]\d{3}(?!\d)/', $needle) === 1 ? '[\s\x{00A0}\x{202F},.]*' : '[\s\x{00A0}\x{202F}]*';
+        $needle = preg_replace('/(?<=\d)[,.](?=\d{3}(?!\d))/', '', $needle) ?? $needle;
+        $pattern = '/' . implode($separators, array_map(fn (string $ch): string => preg_quote($ch, '/'), preg_split('//u', preg_replace('/[\s\x{00A0}\x{202F}]+/u', '', $needle) ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [])) . '/iu';
         // a number must not be part of a longer one (2004 in 12004)
         if (preg_match('/^\d/', $needle)) {
             $pattern = '/(?<![\d])' . substr($pattern, 1, -3) . '(?![\d])/iu';
@@ -776,7 +779,7 @@ final class Facts
     public static function isClaim(string $sentence): bool
     {
         return preg_match('/\d/', $sentence) === 1 && !str_contains($sentence, '{{')
-            && preg_match('/(\b(19|20)\d{2}\b|\d[\d\s\x{00A0}]*\s*(%|\+|×|x\b|let|years|jahre|klient|client|kunden|projekt|project|realiz|zakáz|kč|czk|eur|€|\$))/iu', $sentence) === 1;
+            && preg_match('/(\b(19|20)\d{2}\b|\d[\d\s\x{00A0}]*\s*(%|\+|×|x\b|let|years|jahre|klient|client|kunden|projekt|project|realiz|zakáz|kč|czk|eur|€|\$))/iu', $sentence) === 1; // check-english: allow
     }
 
     /**

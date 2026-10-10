@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Language;
-use Kaleta\Core\Mailing;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Language;
+use Talea\Core\Mailing;
+use Talea\Core\Response;
 
 /**
  * Newsletters (Newsletter extension): the latest news to confirmed subscribers, in one template styled by the design
@@ -17,10 +17,11 @@ use Kaleta\Core\Response;
 final class Newsletters extends Module
 {
     public const string IDENT = 'newsletters';
-    public const string EXTENSION = 'newsletter';
+    public const string EXTENSION = 'newsletter_signup';
     public const string NAME = 'Newsletters';
     public const string GROUP = 'Content';
-    public const string ICON = 'rozesilka';
+    public const string ICON = 'mailing';
+    public const string TABLE = 'newsletters';
 
     protected function actionList(): Response
     {
@@ -34,13 +35,13 @@ final class Newsletters extends Module
         $last = $this->db->one('SELECT subject, preheader, intro, news_mode, news_count, button_label, button_url, language FROM {newsletters} ORDER BY id DESC LIMIT 1');
 
         // a new one starts from the previous one's settings (the intro and button often repeat), with an empty subject
-        return $this->form(['id' => 0, 'subject' => '', 'preheader' => '', 'status' => 'draft', 'news_ids' => '', 'scheduled_at' => null]
+        return $this->form(['id' => 0, 'public_id' => '', 'subject' => '', 'preheader' => '', 'status' => 'draft', 'news_ids' => '', 'scheduled_at' => null]
             + ($last ?? ['intro' => '', 'news_mode' => 'latest', 'news_count' => 3, 'button_label' => '', 'button_url' => '', 'language' => '']));
     }
 
     protected function actionEdit(): Response
     {
-        $n = Mailing::byId($this->db, $this->request->getInt('id'));
+        $n = Mailing::byId($this->db, $this->idParam());
 
         return $n === null ? $this->error('The newsletter does not exist.', 404) : $this->form($n);
     }
@@ -54,33 +55,36 @@ final class Newsletters extends Module
         }
         $input = [
             'subject' => $r->post('subject'), 'preheader' => $r->post('preheader'), 'intro' => $r->post('intro'), 'news_mode' => $r->post('news_mode'),
-            'news_count' => $r->postInt('news_count', 3), 'news_ids' => is_array($_POST['news_ids'] ?? null) ? $_POST['news_ids'] : [],
+            'news_count' => $r->postInt('news_count', 3), 'news_ids' => array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('news', $uuid), $r->postList('news_ids')))),
             'button_label' => $r->post('button_label'), 'button_url' => $r->post('button_url'), 'language' => $r->post('language'),
         ];
-        $id = $r->postInt('id');
+        if (($refusal = $this->refuseUnknownId('id', 'The newsletter does not exist.')) !== null) {
+            return $refusal;
+        }
+        $id = $this->idParam();
         try {
             $id = Mailing::save($this->app, $input, $id);
         } catch (\InvalidArgumentException | \DomainException $e) {
-            $this->app->session->flash('chyba', t($e->getMessage()));
+            $this->app->session->flash('error', t($e->getMessage()));
 
-            return $id > 0 ? $this->back('', 'edit', ['id' => $id]) : $this->back('', 'new');
+            return $id > 0 ? $this->back('', 'edit', ['id' => $this->publicId($id)]) : $this->back('', 'new');
         }
         if ($r->postBool('test')) {
             return $this->sendTest($id);
         }
 
-        return $this->back('The newsletter was saved.', 'edit', ['id' => $id]);
+        return $this->back('The newsletter was saved.', 'edit', ['id' => $this->publicId($id)]);
     }
 
     /** The e-mail as subscribers get it, for the preview frame; links open in a new window. */
     protected function actionPreview(): Response
     {
-        $n = Mailing::byId($this->db, $this->request->getInt('id'));
+        $n = Mailing::byId($this->db, $this->idParam());
         if ($n === null) {
             return $this->error('The newsletter does not exist.', 404);
         }
         $html = $n['html'] ?? Mailing::render($this->app, $n)[0];
-        $html = str_replace(['<head>', Mailing::UNSUBSCRIBE], ['<head><base target="_blank">', e(Mailing::absolute($this->app, 'odber'))], (string) $html);
+        $html = str_replace(['<head>', Mailing::UNSUBSCRIBE], ['<head><base target="_blank">', e(Mailing::absolute($this->app, 'subscribe'))], (string) $html);
 
         return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8',
             'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src * data:; frame-ancestors 'self'; base-uri 'self' https: http:"]);
@@ -88,36 +92,36 @@ final class Newsletters extends Module
 
     protected function actionTest(): Response
     {
-        return $this->request->isPost() ? $this->sendTest($this->request->postInt('id')) : $this->back();
+        return $this->request->isPost() ? $this->sendTest($this->idParam()) : $this->back();
     }
 
     /** Send now or at a time – only with the publishing permission. */
     protected function actionSend(): Response
     {
         $r = $this->request;
-        $id = $r->postInt('id');
+        $id = $this->idParam();
         if (!$r->isPost() || !$this->app->auth()->canPublish()) {
-            return $this->back('Sending to subscribers needs the publishing permission.', 'edit', ['id' => $id], 'chyba');
+            return $this->back('Sending to subscribers needs the publishing permission.', 'edit', ['id' => $this->publicId($id)], 'error');
         }
         try {
             Mailing::send($this->app, $id, $r->post('when') === 'later' ? $r->post('at') : null);
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return $this->back(t($e->getMessage()), 'edit', ['id' => $id], 'chyba');
+            return $this->back(t($e->getMessage()), 'edit', ['id' => $this->publicId($id)], 'error');
         }
         $n = (array) Mailing::byId($this->db, $id);
 
         return $this->back($n['status'] === 'scheduled'
             ? t('The newsletter is scheduled for %s.', format_date((string) $n['scheduled_at'], true))
-            : t('Sending has started: %d subscribers. The e-mails go out in batches each time cron runs.', (int) $n['recipients']), 'edit', ['id' => $id]);
+            : t('Sending has started: %d subscribers. The e-mails go out in batches each time cron runs.', (int) $n['recipients']), 'edit', ['id' => $this->publicId($id)]);
     }
 
     protected function actionUnschedule(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->canPublish()) {
-            Mailing::unschedule($this->app, $this->request->postInt('id'));
+            Mailing::unschedule($this->app, $this->idParam());
         }
 
-        return $this->back('Scheduling was cancelled – the newsletter is a draft again.', 'edit', ['id' => $this->request->postInt('id')]);
+        return $this->back('Scheduling was cancelled – the newsletter is a draft again.', 'edit', ['id' => $this->request->post('id')]);
     }
 
     protected function actionDelete(): Response
@@ -126,9 +130,9 @@ final class Newsletters extends Module
             return $this->back();
         }
         try {
-            Mailing::delete($this->app, $this->request->postInt('id'));
+            Mailing::delete($this->app, $this->idParam());
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return $this->back(t($e->getMessage()), '', [], 'chyba');
+            return $this->back(t($e->getMessage()), '', [], 'error');
         }
 
         return $this->back('The newsletter was deleted.');
@@ -142,11 +146,11 @@ final class Newsletters extends Module
             return $this->back();
         }
         if ($email === '') {
-            return $this->back('Your account has no e-mail address – add one under My account.', 'edit', ['id' => $id], 'chyba');
+            return $this->back('Your account has no e-mail address – add one under My account.', 'edit', ['id' => $this->publicId($id)], 'error');
         }
         $ok = Mailing::sendTest($this->app, $n, $email);
 
-        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', t(\Kaleta\Core\Mail::$error)), 'edit', ['id' => $id], $ok ? 'ok' : 'chyba');
+        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', \Talea\Core\Mail::$error), 'edit', ['id' => $this->publicId($id)], $ok ? 'ok' : 'error');
     }
 
     /** @param array<string, mixed> $n */
@@ -154,11 +158,11 @@ final class Newsletters extends Module
     {
         $s = $this->app->settings();
         $languages = Language::additional($s) === [] ? [] : [Language::defaults($s), ...Language::additional($s)];
-        $news = \Kaleta\Core\Extensions::isEnabled($s, 'novinky')
-            ? $this->db->all('SELECT idc, titulek, datum, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC, idc DESC LIMIT 40') : [];
+        $news = \Talea\Core\Extensions::isEnabled($s, 'news')
+            ? $this->db->all('SELECT news_id, public_id, title, published_at, language FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC, news_id DESC LIMIT 40') : [];
 
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
-            'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'novinky'),
+            'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Talea\Core\Extensions::isEnabled($s, 'news'),
             'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app), 'canPublish' => $this->app->auth()->canPublish(),
             'email' => (string) ($this->app->auth()->user()['email'] ?? ''),
         ]);

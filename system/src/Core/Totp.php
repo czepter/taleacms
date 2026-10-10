@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * One-time codes for two-factor login (TOTP, RFC 6238) - compatible with Google Authenticator,

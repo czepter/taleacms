@@ -1,0 +1,26 @@
+{
+    "name": "Space Grotesk",
+    "category": "display",
+    "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "space-grotesk.woff2",
+            "weight": "300 700",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/spacegrotesk",
+    "licence": "OFL-1.1"
+}

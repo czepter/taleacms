@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Icons;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Icons;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Icon from the built-in set (Builder\Icons) as inline SVG: color = the element's text color, size = the font size.
@@ -14,37 +14,37 @@ use Kaleta\Builder\Element;
  */
 final class Icon extends Element
 {
-    public const string TYPE = 'ikona';
+    public const string TYPE = 'icon';
     public const string NAME = 'Icon';
     public const string DESCRIPTION = 'A simple icon (check, phone, star…) – set its colour and size with the style.';
-    public const string ICON = 'ikona';
+    public const string ICON = 'icon';
     public const array HTML_TAGS = ['span', 'div'];
 
     public static function properties(): array
     {
         return [
-            'ikona' => ['typ' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'fajfka-kruh', 'moznosti' => Icons::options()],
-            'tvar' => ['typ' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'moznosti' => ['' => 'no background', 'kruh' => 'kruh', 'ctverec' => 'rounded square']],
-            'popis' => ['typ' => 'text', 'popisek' => 'Description for screen readers (empty = decorative only)', 'vychozi' => '', 'max' => 120],
+            'icon' => ['type' => 'choice', 'label' => 'Icon', 'default' => 'check-circle', 'options' => Icons::options()],
+            'shape' => ['type' => 'choice', 'label' => 'Background', 'default' => '', 'options' => ['' => 'no background', 'circle' => 'circle', 'square' => 'rounded square']],
+            'description' => ['type' => 'text', 'label' => 'Description for screen readers (empty = decorative only)', 'default' => '', 'max' => 120],
         ];
     }
 
     public static function baseCss(): string
     {
         // default size and color (the element's style overrides them); an element inserted via AI or MCP thus looks the same as from the editor
-        return '.ka-ikona { display: inline-grid; place-items: center; flex: none; width: 1em; height: 1em; line-height: 1; font-size: var(--ka-krok-3); color: var(--ka-barva-primarni); }
-.ka-ikona svg { display: block; width: 100%; height: 100%; }
-.ka-ikona--kruh, .ka-ikona--ctverec { width: 1.9em; height: 1.9em; padding: 0.45em; background: var(--ka-barva-primarni-jemna); }
-.ka-ikona--kruh { border-radius: 50%; }
-.ka-ikona--ctverec { border-radius: var(--ka-zaobleni-m); }';
+        return '.tl-icon { display: inline-grid; place-items: center; flex: none; width: 1em; height: 1em; line-height: 1; font-size: var(--tl-step-3); color: var(--tl-color-primary); }
+.tl-icon svg { display: block; width: 100%; height: 100%; }
+.tl-icon--circle, .tl-icon--square { width: 1.9em; height: 1.9em; padding: 0.45em; background: var(--tl-color-primary-soft); }
+.tl-icon--circle { border-radius: 50%; }
+.tl-icon--square { border-radius: var(--tl-radius-m); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
-        $className = 'ka-ikona' . ($o['tvar'] !== '' ? ' ka-ikona--' . $o['tvar'] : '');
-        $description = $o['popis'] !== '' ? ' role="img" aria-label="' . e($o['popis']) . '"' : ' aria-hidden="true"';
+        $o = $p['content'];
+        $className = 'tl-icon' . ($o['shape'] !== '' ? ' tl-icon--' . $o['shape'] : '');
+        $description = $o['description'] !== '' ? ' role="img" aria-label="' . e($o['description']) . '"' : ' aria-hidden="true"';
 
-        return '<' . $p['znacka'] . Text::withClass($a, $className) . $description . '>' . Icons::svg($o['ikona']) . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, $className) . $description . '>' . Icons::svg($o['icon']) . '</' . $p['tag'] . '>';
     }
 }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Events that keep themselves current (2.11): a collection made from a preset with a 'calendar' entry (events) knows its
@@ -34,8 +34,8 @@ final class Calendar
 
     /** Roles of calendar fields; the preset maps each to a field key and the field must still have one of the types. */
     private const array ROLES = [
-        'start' => ['termin', 'datum'], 'end' => ['termin', 'datum'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['radky', 'text'],
-        'online' => ['odkaz'], 'repeat' => ['volba', 'text'], 'repeat_until' => ['datum', 'termin'], 'capacity' => ['cislo'], 'registration_until' => ['termin', 'datum'],
+        'start' => ['datetime', 'date'], 'end' => ['datetime', 'date'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['lines', 'text'],
+        'online' => ['link'], 'repeat' => ['radio', 'text'], 'repeat_until' => ['date', 'datetime'], 'capacity' => ['number'], 'registration_until' => ['datetime', 'date'],
     ];
 
     /**
@@ -144,8 +144,8 @@ final class Calendar
             $since = $previous->format(strlen($start) === 10 ? 'Y-m-d 23:59:59' : 'Y-m-d H:i:s');
         }
 
-        return (int) $db->value("SELECT COUNT(*) FROM {poptavky} WHERE zdroj = ? AND (stranka LIKE ? OR stranka LIKE ?) AND datum > ?",
-            ['kolekce:' . (int) $collection['idk'], '%/' . $collection['seo_link'] . '/' . $item['seo_link'], '%/' . $collection['seo_link'] . '/' . $item['seo_link'] . '?%', $since]);
+        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
+            ['collection:' . (int) $collection['collection_id'], '%/' . $collection['slug'] . '/' . $item['slug'], '%/' . $collection['slug'] . '/' . $item['slug'] . '?%', $since]);
     }
 
     /**
@@ -167,7 +167,7 @@ final class Calendar
         $start = $get('start');
         $endsAt = $start !== '' ? self::endsAt($start, $get('end')) : '9999-12-31 23:59';
         $capacity = (int) $get('capacity');
-        $registered = $capacity > 0 && isset($item['idp']) ? self::registered($db, $collection, $item, $fields) : 0;
+        $registered = $capacity > 0 && isset($item['item_id']) ? self::registered($db, $collection, $item, $fields) : 0;
         $state = self::registrationState($capacity, $registered, $get('registration_until'), $endsAt, $now);
 
         $place = implode(', ', array_filter([$get('place'), $get('address')]));
@@ -176,7 +176,7 @@ final class Calendar
             'when' => [self::when($start, $get('end')), 'text'],
             'where' => [$place !== '' ? $place : ($get('online') !== '' ? t('Online') : ''), 'text'],
             'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' ? t('This event is fully booked.') : ''), 'text'],
-            'ical' => [$collection['detail'] && ($item['seo_link'] ?? '') !== '' ? $url($collection['seo_link'] . '/' . $item['seo_link'] . '.ics') : '', 'odkaz'],
+            'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'link'],
             'places_left' => [$capacity > 0 ? (string) max(0, $capacity - $registered) : '', 'text'],
             '_registration' => [$state, 'text'],
         ];
@@ -210,10 +210,10 @@ final class Calendar
     {
         $collection = Collections::byId($db, $idk);
         if ($collection === null || ($fields = self::fields($collection)) === null
-            || preg_match('#/' . preg_quote((string) $collection['seo_link'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $back, $m) !== 1) {
+            || preg_match('#/' . preg_quote((string) $collection['slug'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $back, $m) !== 1) {
             return null;
         }
-        $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [$idk, $m[1]]);
+        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$idk, $m[1]]);
         if ($item === null) {
             return null;
         }
@@ -236,7 +236,7 @@ final class Calendar
             if ($fields === null || $fields['repeat'] === '') {
                 continue;
             }
-            foreach ($db->all("SELECT idp, nazev, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['repeat'] . "')) <> ''", [(int) $collection['idk']]) as $r) {
+            foreach ($db->all("SELECT item_id, name, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL AND " . $db->dialect()->jsonExtract('data', '$.' . $fields['repeat']) . " <> ''", [(int) $collection['collection_id']]) as $r) {
                 $data = json_decode((string) $r['data'], true) ?: [];
                 $get = fn (string $role): string => $fields[$role] !== '' ? (string) ($data[$fields[$role]] ?? '') : '';
                 $next = self::nextOccurrence($get('start'), $get('end'), $get('repeat'), $get('repeat_until'), $now);
@@ -247,13 +247,13 @@ final class Calendar
                 if ($fields['end'] !== '' && $next[1] !== '') {
                     $data[$fields['end']] = $next[1];
                 }
-                $db->update('kolekce_polozky', ['data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE)], ['idp' => (int) $r['idp']]);
-                \Kaleta\Admin\ChangeLog::write($app, 'collections', 'event_next', $r['nazev'] . ': ' . $next[0]);
+                $db->update('collection_items', ['data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE)], ['item_id' => (int) $r['item_id']]);
+                \Talea\Admin\ChangeLog::write($app, 'collections', 'event_next', $r['name'] . ': ' . $next[0]);
                 $moved++;
             }
         }
         if ($moved > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return 'moved ' . $moved;
@@ -270,7 +270,7 @@ final class Calendar
     public static function ics(array $collection, array $events, string $name, string $host): string
     {
         $fields = self::fields($collection) ?? [];
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kaleta//Events//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:' . self::escape($name)];
+        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Talea//Events//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:' . self::escape($name)];
         foreach ($events as [$item, $url]) {
             $data = (array) ($item['data'] ?? []);
             $get = fn (string $role): string => ($fields[$role] ?? '') !== '' ? trim(html_entity_decode(strip_tags((string) ($data[$fields[$role]] ?? '')), ENT_QUOTES | ENT_HTML5)) : '';
@@ -280,7 +280,7 @@ final class Calendar
             }
             $end = $get('end');
             $wholeDay = strlen($start) === 10;
-            $event = ['BEGIN:VEVENT', 'UID:kaleta-' . (int) $item['idp'] . '@' . $host, 'DTSTAMP:' . self::utc((string) ($item['zmeneno'] ?? $item['datum'] ?? 'now'))];
+            $event = ['BEGIN:VEVENT', 'UID:talea-' . ($item['public_id'] ?? '') . '@' . $host, 'DTSTAMP:' . self::utc((string) ($item['updated_at'] ?? $item['created_at'] ?? 'now'))];
             if ($wholeDay) {
                 $event[] = 'DTSTART;VALUE=DATE:' . str_replace('-', '', $start);
                 $event[] = 'DTEND;VALUE=DATE:' . (new \DateTimeImmutable(substr($end !== '' ? $end : $start, 0, 10)))->modify('+1 day')->format('Ymd');
@@ -295,7 +295,7 @@ final class Calendar
                 $until = $get('repeat_until');
                 $event[] = 'RRULE:' . self::REPEATS[$repeat][1] . ($until !== '' ? ';UNTIL=' . ($wholeDay ? str_replace('-', '', substr($until, 0, 10)) : self::utc(substr($until, 0, 10) . ' 23:59')) : '');
             }
-            $event[] = 'SUMMARY:' . self::escape((string) $item['nazev']);
+            $event[] = 'SUMMARY:' . self::escape((string) $item['name']);
             $place = implode(', ', array_filter([$get('place'), $get('address')]));
             if ($place !== '' || $get('online') !== '') {
                 $event[] = 'LOCATION:' . self::escape($place !== '' ? $place : $get('online'));

@@ -2,16 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
 /**
- * Links from each part of the administration to its article in the guide on kaletacms.com (2.4). The articles have the
+ * Links from each part of the administration to its article in the guide on taleacms.com (2.4). The articles have the
  * same address in every language; the admin language picks the version (/guide, /cs/guide, /de/guide). The anchors
  * are the English headings – in another language the link simply opens the top of the article.
  */
 final class Guide
 {
-    public const string BASE = 'https://kaletacms.com';
+    // TODO(HF-15): the project domain is not registered yet (docs/NAME-CHECK.md); only a link, no request is made
+    public const string BASE = 'https://taleacms.com';
 
     /** Languages the guide is written in; other admin languages get the English one. */
     public const array LANGUAGES = ['en', 'cs', 'de'];
@@ -30,13 +31,13 @@ final class Guide
         'status' => 'site-health', // 3.2: System status (formerly a Settings tab)
         'claude_settings' => 'claude-connect', // 3.2: Claude settings (connecting, instructions, guardrails)
         'blueprints' => 'industry-blueprints',
+        'wizard' => 'industry-blueprints', // #31: the first-run wizard starts from a blueprint
         'connectors' => 'connections',
-        'whistleblowing' => 'privacy-cookies', // 2.14: until the guide has its own article on the whistleblowing channel
         'enquiries' => 'forms#enquiries',
         'bookings' => 'bookings',
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
         'subscribers' => 'newsletter',
-        'newsletters' => 'newsletter#send-newsletters-from-kaleta',
+        'newsletters' => 'newsletter#send-newsletters-from-talea',
         'media' => 'media',
         'appearance' => 'site-appearance',
         'parts' => 'site-parts',
@@ -45,7 +46,9 @@ final class Guide
         'popups' => 'popups',
         'users' => 'users-roles',
         'roles' => 'users-roles#custom-roles',
+        'members' => 'users-roles#members',
         'stats' => 'statistics',
+        'experiments' => 'statistics#experiments',
         'redirects' => 'seo#redirects-and-404s',
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',
@@ -67,7 +70,6 @@ final class Guide
         'mail' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
-        'firewall' => 'site-health#firewall',
         'console' => 'fleet-console#pair-a-site',
         'health' => 'site-health',
     ];

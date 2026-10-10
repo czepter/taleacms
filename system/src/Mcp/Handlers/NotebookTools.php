@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\Notebook;
+use Talea\Core\Notebook;
 
 /**
  * MCP tools of the agent notebook (2.15, Core\Notebook): the notes the site keeps for whoever works on it next –

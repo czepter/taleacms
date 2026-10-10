@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Site language and translations of template texts.
  *
  * Texts in templates and code are wrapped in the function t('Read more'). The source text is English (since 1.4.1; texts
- * not switched yet are still Czech) and is looked up in the dictionary system/jazyky/<code>.php (source text => translation),
+ * not switched yet are still Czech) and is looked up in the dictionary system/languages/<code>.php (source text => translation),
  * Czech included (cs.php). What is missing in the dictionary is taken from the English one, otherwise the source text is
  * shown as it is - the site never breaks.
- * The language of the whole site is set in Settings (site_language); the extension "jazyky" adds more language versions
- * at URLs /en/… - each has its own pages, categories and news. A new language = dictionaries system/jazyky/<code>.php
+ * The language of the whole site is set in Settings (site_language); the extension "languages" adds more language versions
+ * at URLs /en/… - each has its own pages, categories and news. A new language = dictionaries system/languages/<code>.php
  * (site), admin-<code>.php and install-<code>.php + an entry in AVAILABLE.
  */
 final class Language
@@ -64,10 +64,10 @@ final class Language
         'zh' => ['中文', 'zh_CN', 'Y-m-d'],
     ];
 
-    /** Codes from AVAILABLE for Settings field types (vyber:… / seznam:…). */
+    /** Codes from AVAILABLE for Settings field types (choice:… / list:…). */
     public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
 
-    private static string $code = 'cs';
+    private static string $code = 'en';
 
     private static bool $loaded = false;
     private static string $column = '';
@@ -75,11 +75,11 @@ final class Language
     /** @var array<string, string> */
     private static array $dictionary = [];
 
-    /** Languages the administration is translated into (dictionary system/jazyky/admin-<code>.php). */
+    /** Languages the administration is translated into (dictionary system/languages/admin-<code>.php). */
     public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English', 'de' => 'Deutsch'];
 
     /**
-     * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/jazyky/<set>de-du.php with only the
+     * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/languages/<set>de-du.php with only the
      * strings that contain a form of address). The register is a setting, not a language: the code stays "de".
      */
     public const array REGISTERS = ['formal', 'informal'];
@@ -95,7 +95,7 @@ final class Language
     private static bool $baseOnly = false;
 
     /**
-     * The language's dictionary: its own (system/jazyky/<set><code>.php), and what is missing there, from the English one – a language
+     * The language's dictionary: its own (system/languages/<set><code>.php), and what is missing there, from the English one – a language
      * without a dictionary thus has template texts in English and the date in its own numeric format. Czech needs no dictionary (texts in the code are Czech).
      *
      * @param string $dictionarySet "" = site texts, "admin-" = administration texts, "install-" = installer texts
@@ -103,33 +103,33 @@ final class Language
      */
     public static function set(string $code, string $dictionarySet = '', ?string $register = null): void
     {
-        self::$code = isset(self::AVAILABLE[$code]) ? $code : 'cs';
+        self::$code = isset(self::AVAILABLE[$code]) ? $code : 'en';
         self::$register = in_array($register, self::REGISTERS, true) ? $register : ($dictionarySet === '' ? self::$siteRegister : self::$adminRegister);
         self::$loaded = true;
         self::$dictionary = [];
         self::$baseOnly = false;
         if (self::$code === 'cs') {
             // the source texts are English since 1.4.1; Czech is a dictionary like any other (texts still Czech pass through)
-            $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'cs.php';
+            $file = TALEA_SYSTEM . '/languages/' . $dictionarySet . 'cs.php';
             self::$dictionary = is_file($file) ? require $file : [];
 
             return;
         }
-        $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '.php';
+        $file = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '.php';
         $custom = is_file($file) ? require $file : [];
-        $overlay = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '-du.php';
+        $overlay = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '-du.php';
         if (self::$register === 'informal' && is_file($overlay)) {
             $custom = (require $overlay) + $custom;
         }
-        $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php' : [];
+        $baseDictionary = self::$code !== 'en' && is_file(TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php') ? require TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
         if (self::$code !== 'en') {
             // the date format from the English dictionary is not taken over: its own, otherwise the language's numeric format and the date in words from the Czech keys of days and months
             if (!isset($custom['datum_format'])) {
                 self::$dictionary['datum_format'] = self::AVAILABLE[self::$code][2];
             }
-            if (!isset($custom['datum_slovy'])) {
-                unset(self::$dictionary['datum_slovy']);
+            if (!isset($custom['date_in_words'])) {
+                unset(self::$dictionary['date_in_words']);
             }
             self::$baseOnly = $custom === [];
         }
@@ -142,7 +142,7 @@ final class Language
     }
 
     /**
-     * Language of the currently shown version of the site; also remembers the value of the "jazyk" column for queries.
+     * Language of the currently shown version of the site; also remembers the value of the "language" column for queries.
      */
     public static function setSite(Settings $s, string $code): void
     {
@@ -170,7 +170,7 @@ final class Language
         }
     }
 
-    /** Value of the "jazyk" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
+    /** Value of the "language" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
     public static function siteColumn(): string
     {
         return self::$column;
@@ -227,7 +227,7 @@ final class Language
     /** Default language of the site. */
     public static function defaults(Settings $s): string
     {
-        return isset(self::AVAILABLE[$s->get('site_language')]) ? $s->get('site_language') : 'cs';
+        return isset(self::AVAILABLE[$s->get('site_language')]) ? $s->get('site_language') : 'en';
     }
 
     /**
@@ -237,7 +237,7 @@ final class Language
      */
     public static function additional(Settings $s): array
     {
-        if (!Extensions::isEnabled($s, 'jazyky')) {
+        if (!Extensions::isEnabled($s, 'languages')) {
             return [];
         }
 
@@ -257,18 +257,18 @@ final class Language
         if ($additional === [] || $home === 0) {
             return $additional;
         }
-        $done = array_column($db->all('SELECT DISTINCT jazyk FROM {stranky} WHERE preklad_z = ? AND zobrazit = 1 AND smazano IS NULL', [$home]), 'jazyk');
+        $done = array_column($db->all('SELECT DISTINCT language FROM {pages} WHERE translation_of = ? AND visible = TRUE AND deleted_at IS NULL', [$home]), 'language');
 
         return array_values(array_intersect($additional, $done));
     }
 
-    /** Language of content by the "jazyk" column (page, category, news item): empty = the site's default language. */
+    /** Language of content by the "language" column (page, category, news item): empty = the site's default language. */
     public static function ofContent(Settings $s, string $column): string
     {
         return isset(self::AVAILABLE[$column]) ? $column : self::defaults($s);
     }
 
-    /** Value of the "jazyk" column for the given language: the site's default language is stored as an empty string. */
+    /** Value of the "language" column for the given language: the site's default language is stored as an empty string. */
     public static function column(Settings $s, string $code): string
     {
         return $code === self::defaults($s) || !in_array($code, self::additional($s), true) ? '' : $code;

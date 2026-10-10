@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Mail;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Mail;
 
 /**
  * News subscription (Newsletter extension): sign-up from the News subscription element, confirmation and unsubscribe by
@@ -24,45 +24,45 @@ final class Subscription
     /**
      * POST from the element: saves or renews an unconfirmed address and sends the link.
      *
-     * @return string result for the element's message (ok | chyba | limit)
+     * @return string result for the element's message (ok | error | limit)
      */
     public function subscribe(): string
     {
         $r = $this->app->request;
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->verify($r, 'odber');
+        $reason = $antispam->verify($r, 'subscribe');
         if ($reason === 'robot') {
             return 'ok';
         }
         if ($reason !== null) {
-            return 'chyba';
+            return 'error';
         }
-        if ($antispam->count($r->ip(), 'odber', 0, 10) >= self::LIMIT) {
+        if ($antispam->count($r->ip(), 'subscribe', 0, 10) >= self::LIMIT) {
             return 'limit';
         }
-        if (!\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
+        if (!\Talea\Core\Captcha::accepted($this->app->settings(), \Talea\Core\Captcha::verify($this->app->settings(), $r))) {
             return 'captcha';
         }
-        $antispam->write($r->ip(), 'odber', 0);
+        $antispam->write($r->ip(), 'subscribe', 0);
         $email = mb_strtolower(trim($r->post('email')));
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            return 'chyba';
+            return 'error';
         }
         $db = $this->app->db();
-        $subscriber = $db->one('SELECT * FROM {odberatele} WHERE email = ?', [$email]);
-        if ($subscriber !== null && (int) $subscriber['stav'] === 1) {
+        $subscriber = $db->one('SELECT * FROM {subscribers} WHERE email = ?', [$email]);
+        if ($subscriber !== null && (int) $subscriber['status'] === 1) {
             return 'ok'; // already subscribed – we send nothing more
         }
         $token = bin2hex(random_bytes(16));
         if ($subscriber === null) {
             [$landing, $visitCampaign] = Forms::attribution($r); // with the visitor's consent to marketing (2.3)
-            $db->insert('odberatele', ['email' => $email, 'token' => $token, 'datum' => date('Y-m-d H:i:s'), 'zdroj' => mb_substr($r->post('zpet'), 0, 255),
-                'kampan' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'vstup' => $landing]);
+            $db->insert('subscribers', ['email' => $email, 'token' => $token, 'created_at' => date('Y-m-d H:i:s'), 'source' => mb_substr($r->post('back'), 0, 255),
+                'campaign' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'landing_page' => $landing]);
         } else {
-            $db->update('odberatele', ['token' => $token, 'datum' => date('Y-m-d H:i:s')], ['ido' => (int) $subscriber['ido']]);
+            $db->update('subscribers', ['token' => $token, 'created_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $subscriber['subscriber_id']]);
         }
         $siteSettings = $this->app->settings();
-        $link = $this->address('odber?potvrdit=' . $token);
+        $link = $this->address('subscribe?confirm=' . $token);
         Mail::send($siteSettings, $email, t('Confirm your subscription – %s', $siteSettings->get('site_name')),
             t('Hello,') . "\n\n" . t('to confirm your subscription to news from %s, click the link:', $siteSettings->get('site_name')) . "\n" . $link . "\n\n"
             . t('If you did not ask to subscribe, ignore this e-mail – without confirmation we will not send you anything.') . "\n");
@@ -71,7 +71,7 @@ final class Subscription
     }
 
     /**
-     * Link from the e-mail (?potvrdit= / ?odhlasit=). Opening the link (GET) only shows a button – mail link scanners
+     * Link from the e-mail (?confirm= / ?unsubscribe=). Opening the link (GET) only shows a button – mail link scanners
      * (Safe Links etc.) would otherwise confirm the subscription or unsubscribe the subscriber on their own. The change
      * happens only on submission (POST), unsubscribing also with one click from the mail client (List-Unsubscribe-Post).
      *
@@ -81,29 +81,29 @@ final class Subscription
     {
         $r = $this->app->request;
         $db = $this->app->db();
-        $action = preg_match('/^[a-f0-9]{32}$/D', $r->get('potvrdit')) ? 'potvrdit' : (preg_match('/^[a-f0-9]{32}$/D', $r->get('odhlasit')) ? 'odhlasit' : '');
-        $o = $action !== '' ? $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$r->get($action)]) : null;
+        $action = preg_match('/^[a-f0-9]{32}$/', $r->get('confirm')) ? 'confirm' : (preg_match('/^[a-f0-9]{32}$/', $r->get('unsubscribe')) ? 'unsubscribe' : '');
+        $o = $action !== '' ? $db->one('SELECT * FROM {subscribers} WHERE token = ?', [$r->get($action)]) : null;
         if ($o === null) {
             return [t('The link is no longer valid'), '<p>' . e(t('The link is invalid or has already been used. If you want to receive news, please subscribe again.')) . '</p>'];
         }
         if (!$r->isPost()) {
-            [$heading, $text, $button] = $action === 'potvrdit'
-                ? [t('Potvrzení odběru'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Potvrdit odběr')]
-                : [t('Odhlášení odběru'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Odhlásit odběr')];
+            [$heading, $text, $button] = $action === 'confirm'
+                ? [t('Confirm subscription'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Confirm my subscription')]
+                : [t('Unsubscribe'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Unsubscribe')];
 
-            return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
+            return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('subscribe') . '?' . $action . '=' . $o['token']) . '"><p><button class="button" type="submit">' . e($button) . '</button></p></form>'];
         }
-        if ($action === 'odhlasit') {
-            $db->delete('odberatele', ['ido' => (int) $o['ido']]);
-            if ((int) $o['stav'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
+        if ($action === 'unsubscribe') {
+            $db->delete('subscribers', ['subscriber_id' => (int) $o['subscriber_id']]);
+            if ((int) $o['status'] === 1) {
+                \Talea\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
             }
 
             return [t('Unsubscribed'), '<p>' . e(t('We have removed %s from the subscriber list.', $o['email'])) . '</p>'];
         }
-        if ((int) $o['stav'] === 0) {
-            $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
-            \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // to the mailing service, sent by the background cleanup
+        if ((int) $o['status'] === 0) {
+            $db->update('subscribers', ['status' => 1, 'confirmed_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $o['subscriber_id']]);
+            \Talea\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'add'); // to the mailing service, sent by the background cleanup
         }
 
         return [t('Subscription confirmed'), '<p>' . e(t('Thank you, we will send news to %s. You can unsubscribe using the link in every e-mail.', $o['email'])) . '</p>'];
@@ -112,7 +112,7 @@ final class Subscription
     /** Unsubscribe link for the mailing tool (subscriber export). */
     public static function unsubscribeLink(App $app, string $token): string
     {
-        return (new self($app))->address('odber?odhlasit=' . $token);
+        return (new self($app))->address('subscribe?unsubscribe=' . $token);
     }
 
     private function address(string $path): string

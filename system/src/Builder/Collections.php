@@ -2,46 +2,46 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\WpContent;
+use Talea\Core\Db;
+use Talea\Core\WpContent;
 
 /**
  * Collections – custom content types (references, team, products, branches…): field definitions, items and values for the builder.
  *
  * In the builder the Collection list element lists them: its inside repeats for each item and the {{field}} placeholders
- * in texts, images and links are replaced by the item's values. {{nazev}}, {{url}} (item page) and {{datum}} are always available.
+ * in texts, images and links are replaced by the item's values. {{name}}, {{url}} (item page) and {{date}} are always available.
  */
 final class Collections
 {
     /** Field types (key => label). */
-    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum',
-        'termin' => 'date and time', 'soubor' => 'file', 'poloha' => 'location (latitude, longitude)', 'volba' => 'choice from options',
-        'parametry' => 'parameters (Name: value per line)', 'varianty' => 'variants (name | code | price per line)', 'polozka' => 'item of another collection'];
+    public const array FIELD_TYPES = ['text' => 'short text', 'lines' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link', 'number' => 'number', 'date' => 'date',
+        'datetime' => 'date and time', 'file' => 'file', 'location' => 'location (latitude, longitude)', 'radio' => 'choice from options',
+        'parameters' => 'parameters (Name: value per line)', 'variants' => 'variants (name | code | price per line)', 'item' => 'item of another collection'];
 
     /** A file or an image: an https address or a path in Media. */
-    public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D';
+    public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#';
 
     /** An item link (2.10) stores the address (seo_link) of the linked item – the same in every language version. */
-    public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/D';
+    public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/';
 
     /** @var array<string, array<string, array{0: string, 1: string}>> linked items for this request: "collection|language" => slug => [name, path] */
     private static array $linked = [];
 
     /** Built-in values of every item – custom fields must not use them. */
-    public const array BUILT_IN = ['nazev', 'url', 'datum', 'seo'];
+    public const array BUILT_IN = ['name', 'url', 'date', 'seo'];
 
     public const string PLACEHOLDER_PATTERN = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
 
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/D';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/';
 
     /** Where a hidden item's page may redirect: '' (404), a path on the site (/team) or an https address; null = not valid. */
     public static function cleanRedirect(string $value): ?string
     {
         $value = trim($value);
 
-        return $value === '' || preg_match('#^/[^\s"<>]{0,250}$#D', $value) === 1 || (preg_match('#^https://[^\s"<>]{3,250}$#iD', $value) === 1) ? $value : null;
+        return $value === '' || preg_match('#^/[^\s"<>]{0,250}$#', $value) === 1 || (preg_match('#^https://[^\s"<>]{3,250}$#i', $value) === 1) ? $value : null;
     }
 
     /**
@@ -91,13 +91,13 @@ final class Collections
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
     {
-        return array_map(self::extract(...), $db->all('SELECT * FROM {kolekce} ORDER BY nazev'));
+        return array_map(self::extract(...), $db->all('SELECT * FROM {collections} ORDER BY name'));
     }
 
     /** @return array<string, mixed>|null */
     public static function bySlug(Db $db, string $seo): ?array
     {
-        $r = $db->one('SELECT * FROM {kolekce} WHERE seo_link = ?', [$seo]);
+        $r = $db->one('SELECT * FROM {collections} WHERE slug = ?', [$seo]);
 
         return $r === null ? null : self::extract($r);
     }
@@ -105,61 +105,52 @@ final class Collections
     /** @return array<string, mixed>|null */
     public static function byId(Db $db, int $idk): ?array
     {
-        $r = $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$idk]);
+        $r = $db->one('SELECT * FROM {collections} WHERE collection_id = ?', [$idk]);
 
         return $r === null ? null : self::extract($r);
     }
 
     /**
-     * Item template in a language version: the collection whose build and draft belong to the language (sablona_jazyk). The default
-     * language ('') has its template in ka_kolekce, other languages in ka_kolekce_sablony; a language without its own template has
+     * Item template in a language version: the collection whose build and draft belong to the language (template_language). The default
+     * language ('') has its template in collections, other languages in collection_templates; a language without its own template has
      * both build and draft null.
      *
      * @param array<string, mixed> $collection @return array<string, mixed>
      */
     public static function inLanguage(Db $db, array $collection, string $language): array
     {
-        $collection['sablona_jazyk'] = $language;
+        $collection['template_language'] = $language;
         if ($language === '') {
             return $collection;
         }
-        $r = $db->one('SELECT stavba, stavba_koncept, zmeneno FROM {kolekce_sablony} WHERE idk = ? AND jazyk = ?', [$collection['idk'], $language]);
+        $r = $db->one('SELECT build, build_draft, updated_at FROM {collection_templates} WHERE collection_id = ? AND language = ?', [$collection['collection_id'], $language]);
 
-        return ['stavba' => $r['stavba'] ?? null, 'stavba_koncept' => $r['stavba_koncept'] ?? null, 'zmeneno' => $r['zmeneno'] ?? null] + $collection;
+        return ['build' => $r['build'] ?? null, 'build_draft' => $r['build_draft'] ?? null, 'updated_at' => $r['updated_at'] ?? null] + $collection;
     }
 
     /**
-     * Writes the columns of the language template returned by inLanguage (the default into ka_kolekce, another language creates a row).
+     * Writes the columns of the language template returned by inLanguage (the default into collections, another language creates a row).
      *
      * @param array<string, mixed> $columns
      */
     public static function writeTemplate(Db $db, array $collection, array $columns): void
     {
-        if (($collection['sablona_druh'] ?? '') === 'kategorie') {
-            CollectionCategories::writeTemplate($db, $collection, $columns); // the category template (3.7)
-
-            return;
-        }
-        $language = (string) ($collection['sablona_jazyk'] ?? '');
+        $language = (string) ($collection['template_language'] ?? '');
         if ($language === '') {
-            $db->update('kolekce', $columns, ['idk' => $collection['idk']]);
-        } elseif ($db->value('SELECT 1 FROM {kolekce_sablony} WHERE idk = ? AND jazyk = ?', [$collection['idk'], $language]) !== null) {
-            $db->update('kolekce_sablony', $columns, ['idk' => $collection['idk'], 'jazyk' => $language]);
+            $db->update('collections', $columns, ['collection_id' => $collection['collection_id']]);
+        } elseif ($db->value('SELECT 1 FROM {collection_templates} WHERE collection_id = ? AND language = ?', [$collection['collection_id'], $language]) !== null) {
+            $db->update('collection_templates', $columns, ['collection_id' => $collection['collection_id'], 'language' => $language]);
         } else {
-            $db->insert('kolekce_sablony', $columns + ['idk' => $collection['idk'], 'jazyk' => $language]);
+            $db->insert('collection_templates', $columns + ['collection_id' => $collection['collection_id'], 'language' => $language]);
         }
     }
 
-    /**
-     * Key of the template's versions and signed preview: kolekce:<idk>, for another language kolekce:<idk>:<jazyk>; the
-     * category template (3.7) kategorie:<idk>[:<jazyk>].
-     */
+    /** Key of the template's versions and signed preview: collection:<id>, for another language collection:<id>:<language>. */
     public static function templateKey(array $collection): string
     {
-        $language = (string) ($collection['sablona_jazyk'] ?? '');
-        $prefix = ($collection['sablona_druh'] ?? '') === 'kategorie' ? CollectionCategories::TEMPLATE_PREFIX : 'kolekce:';
+        $language = (string) ($collection['template_language'] ?? '');
 
-        return $prefix . (int) $collection['idk'] . ($language !== '' ? ':' . $language : '');
+        return 'collection:' . (int) $collection['collection_id'] . ($language !== '' ? ':' . $language : '');
     }
 
     /**
@@ -168,13 +159,10 @@ final class Collections
      */
     public static function initialTemplateDraft(Db $db, array $collection): string
     {
-        if (($collection['sablona_druh'] ?? '') === 'kategorie') {
-            return CollectionCategories::initialTemplateDraft($db, $collection);
-        }
-        if (($collection['sablona_jazyk'] ?? '') !== '') {
-            $defaults = (array) self::byId($db, (int) $collection['idk']);
-            if (($defaults['stavba_koncept'] ?? $defaults['stavba'] ?? null) !== null) {
-                return (string) ($defaults['stavba_koncept'] ?? $defaults['stavba']);
+        if (($collection['template_language'] ?? '') !== '') {
+            $defaults = (array) self::byId($db, (int) $collection['collection_id']);
+            if (($defaults['build_draft'] ?? $defaults['build'] ?? null) !== null) {
+                return (string) ($defaults['build_draft'] ?? $defaults['build']);
             }
         }
 
@@ -183,7 +171,7 @@ final class Collections
 
     private static function extract(array $r): array
     {
-        $r['pole'] = json_decode((string) $r['pole'], true) ?: [];
+        $r['fields'] = json_decode((string) $r['fields'], true) ?: [];
 
         return $r;
     }
@@ -191,38 +179,38 @@ final class Collections
     /**
      * Field definitions from the form or from AI: the key only lowercase letters, digits and underscore (made from the label), a known type.
      *
-     * @return list<array{klic: string, popisek: string, typ: string, kolekce?: string, moznosti?: list<string>}>
+     * @return list<array{key: string, label: string, type: string, collection?: string, options?: list<string>}>
      */
     public static function sanitizeFields(mixed $input): array
     {
         $field = [];
         $keys = [];
         foreach (is_array($input) ? $input : [] as $p) {
-            $labelText = mb_substr(trim(strip_tags((string) ($p['popisek'] ?? ''))), 0, 80);
+            $labelText = mb_substr(trim(strip_tags((string) ($p['label'] ?? ''))), 0, 80);
             if ($labelText === '') {
                 continue;
             }
-            $key = (string) ($p['klic'] ?? '');
-            $key = preg_match('/^[a-z][a-z0-9_]{0,30}$/D', $key) ? $key : substr(str_replace('-', '_', slugify($labelText, 30)), 0, 30);
+            $key = (string) ($p['key'] ?? '');
+            $key = preg_match('/^[a-z][a-z0-9_]{0,30}$/', $key) ? $key : substr(str_replace('-', '_', slugify($labelText, 30)), 0, 30);
             if (!preg_match('/^[a-z]/', $key)) {
-                $key = 'pole_' . $key;
+                $key = 'field_' . $key;
             }
             while (in_array($key, self::BUILT_IN, true) || isset($keys[$key])) {
                 $key .= '_2';
             }
             $keys[$key] = true;
-            $type = isset(self::FIELD_TYPES[$p['typ'] ?? '']) ? $p['typ'] : 'text';
+            $type = isset(self::FIELD_TYPES[$p['type'] ?? '']) ? $p['type'] : 'text';
             // a link to an item of another collection (2.10) knows which collection; without one it is a short text
-            $target = (string) ($p['kolekce'] ?? '');
-            if ($type === 'polozka' && preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/D', $target) !== 1) {
+            $target = (string) ($p['collection'] ?? '');
+            if ($type === 'item' && preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $target) !== 1) {
                 $type = 'text';
             }
             // a choice (2.11) keeps its options: up to 30 short texts, one per line in the form
-            $options = $type === 'volba' ? self::cleanOptions($p['moznosti'] ?? []) : [];
-            if ($type === 'volba' && $options === []) {
+            $options = $type === 'radio' ? self::cleanOptions($p['options'] ?? []) : [];
+            if ($type === 'radio' && $options === []) {
                 $type = 'text';
             }
-            $field[] = ['klic' => $key, 'popisek' => $labelText, 'typ' => $type] + ($type === 'polozka' ? ['kolekce' => $target] : []) + ($type === 'volba' ? ['moznosti' => $options] : []);
+            $field[] = ['key' => $key, 'label' => $labelText, 'type' => $type] + ($type === 'item' ? ['collection' => $target] : []) + ($type === 'radio' ? ['options' => $options] : []);
         }
 
         return array_slice($field, 0, 30);
@@ -246,7 +234,7 @@ final class Collections
     /**
      * Item values by the field definitions. An invalid value is discarded and reported.
      *
-     * @param list<array{klic: string, popisek: string, typ: string, kolekce?: string, moznosti?: list<string>}> $field
+     * @param list<array{key: string, label: string, type: string, collection?: string, options?: list<string>}> $field
      * @param array<string, string> $errors
      * @return array<string, string>
      */
@@ -254,29 +242,29 @@ final class Collections
     {
         $data = [];
         foreach ($field as $p) {
-            $h = trim((string) (is_scalar($input[$p['klic']] ?? null) ? $input[$p['klic']] : ''));
-            $clean = match ($p['typ']) {
+            $h = trim((string) (is_scalar($input[$p['key']] ?? null) ? $input[$p['key']] : ''));
+            $clean = match ($p['type']) {
                 'text' => mb_substr(strip_tags(str_replace(["\r", "\n"], ' ', $h)), 0, 500),
-                'radky' => mb_substr(strip_tags(str_replace("\r\n", "\n", $h)), 0, 5000),
+                'lines' => mb_substr(strip_tags(str_replace("\r\n", "\n", $h)), 0, 5000),
                 'html' => WpContent::safeHtml(mb_substr($h, 0, 100000)),
-                'obrazek' => $h === '' || preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D', $h) ? $h : null,
-                'odkaz' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
-                'cislo' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
-                'datum' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $h) && strtotime($h) !== false) ? $h : null,
-                'termin' => self::cleanDateTime($h),
-                'soubor' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
-                'poloha' => self::cleanLocation($h),
-                'volba' => $h === '' || in_array($h, (array) ($p['moznosti'] ?? []), true) ? $h : null,
-                'parametry' => \Kaleta\Builder\Products::cleanParameters($h),
-                'varianty' => \Kaleta\Builder\Products::cleanVariants($h),
-                'polozka' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
+                'image' => $h === '' || preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $h) ? $h : null,
+                'link' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
+                'number' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
+                'date' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $h) && strtotime($h) !== false) ? $h : null,
+                'datetime' => self::cleanDateTime($h),
+                'file' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
+                'location' => self::cleanLocation($h),
+                'radio' => $h === '' || in_array($h, (array) ($p['options'] ?? []), true) ? $h : null,
+                'parameters' => \Talea\Builder\Products::cleanParameters($h),
+                'variants' => \Talea\Builder\Products::cleanVariants($h),
+                'item' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
                 default => '',
             };
             if ($clean === null) {
-                $errors[$p['klic']] = $p['popisek'];
+                $errors[$p['key']] = $p['label'];
                 $clean = '';
             }
-            $data[$p['klic']] = $clean;
+            $data[$p['key']] = $clean;
         }
 
         return $data;
@@ -287,84 +275,43 @@ final class Collections
      *
      * @param array{0: string, 1: string}|null $filter [field key, value]
      * @param array{0: string, 1: string, 2: string}|null $period [PERIODS key, start field, end field] (2.11)
-     * @param list<int>|null $categories only items in one of these categories (3.7); [] = none, null = no filter
      * @return array{0: list<array<string, mixed>>, 1: int} [items, total]
      */
-    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null, ?array $categories = null): array
+    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'order', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
     {
-        $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
-        $whereParts = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
+        $field = fn (string $key): string => $db->dialect()->jsonExtract('data', '$.' . $key); // the key passed KEY_PATTERN
+        $whereParts = 'collection_id = ? AND visible = TRUE AND language = ? AND ' . \Talea\Core\Members::notGated('item', 'item_id'); // gated items are never in a list (Core\Members)
         $params = [$idk, $language];
         if ($filter !== null && preg_match(self::KEY_PATTERN, $filter[0]) && $filter[1] !== '') {
             $whereParts .= ' AND ' . $field($filter[0]) . ' = ?';
             $params[] = $filter[1];
         }
-        if ($period !== null && ($condition = self::periodCondition($period[0], $period[1], $period[2], date('Y-m-d H:i'))) !== null) {
+        if ($period !== null && ($condition = self::periodCondition($db->dialect(), $period[0], $period[1], $period[2], date('Y-m-d H:i'))) !== null) {
             $whereParts .= ' AND ' . $condition[0];
             $params = [...$params, ...$condition[1]];
         }
-        if ($categories !== null) {
-            $categories = array_values(array_unique(array_map(intval(...), $categories)));
-            $whereParts .= $categories === [] ? ' AND 0 = 1'
-                : ' AND idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($categories), '?')) . '))';
-            $params = [...$params, ...$categories];
-        }
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
         $order = match (true) {
-            $sort === 'nazev' => 'nazev',
-            $sort === 'nejnovejsi' => 'datum DESC, idp DESC',
+            $sort === 'name' => 'name',
+            $sort === 'newest' => 'created_at DESC, item_id DESC',
             // numbers sort as numbers, everything else as text
-            $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, nazev',
-            $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, nazev',
-            default => 'poradi, nazev',
+            $sort === 'field' && $byField => $db->dialect()->toNumber($field($sortField)) . ' ASC, ' . $field($sortField) . ' ASC, name',
+            $sort === 'field_descending' && $byField => $db->dialect()->toNumber($field($sortField)) . ' DESC, ' . $field($sortField) . ' DESC, name',
+            default => 'sort_order, name',
         };
         $count = max(1, min(100, $count));
-        $total = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE ' . $whereParts, $params);
+        $total = (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE ' . $whereParts, $params);
         $items = array_map(function (array $r): array {
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
 
             return $r;
-        }, $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . $whereParts . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', [...$params, $count, (max(1, $pageNumber) - 1) * $count]));
+        }, $db->all('SELECT * FROM {collection_items} WHERE ' . $whereParts . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', [...$params, $count, (max(1, $pageNumber) - 1) * $count]));
 
         return [$items, $total];
     }
 
-    /**
-     * The previous and the next visible item of the same language (3.7, Previous / next item): by the order in the
-     * administration (order, name – as lists sort them), or by date (previous = older, next = newer, as blogs have it);
-     * optionally only among items in the given categories.
-     *
-     * @param list<int>|null $categories
-     * @return array{0: ?array<string, mixed>, 1: ?array<string, mixed>} [previous, next]
-     */
-    public static function neighbours(Db $db, array $item, string $by, ?array $categories = null): array
-    {
-        $where = 'idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND idp <> ?';
-        $params = [(int) $item['idk'], (string) $item['jazyk'], (int) $item['idp']];
-        if ($categories !== null && $categories !== []) {
-            $where .= ' AND idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($categories), '?')) . '))';
-            $params = [...$params, ...array_map(intval(...), $categories)];
-        }
-        if ($by === 'datum') {
-            $key = [(string) $item['datum'], (int) $item['idp']];
-            $before = '(datum < ? OR (datum = ? AND idp < ?))';
-            $after = '(datum > ? OR (datum = ? AND idp > ?))';
-            $keyParams = [$key[0], $key[0], $key[1]];
-            [$down, $up] = ['datum DESC, idp DESC', 'datum, idp'];
-        } else {
-            $key = [(int) $item['poradi'], (string) $item['nazev'], (int) $item['idp']];
-            $before = '(poradi < ? OR (poradi = ? AND nazev < ?) OR (poradi = ? AND nazev = ? AND idp < ?))';
-            $after = '(poradi > ? OR (poradi = ? AND nazev > ?) OR (poradi = ? AND nazev = ? AND idp > ?))';
-            $keyParams = [$key[0], $key[0], $key[1], $key[0], $key[1], $key[2]];
-            [$down, $up] = ['poradi DESC, nazev DESC, idp DESC', 'poradi, nazev, idp'];
-        }
-        $find = fn (string $condition, string $order): ?array => $db->one('SELECT * FROM {kolekce_polozky} WHERE ' . $where . ' AND ' . $condition . ' ORDER BY ' . $order . ' LIMIT 1', [...$params, ...$keyParams]);
-
-        return [$find($before, $down), $find($after, $up)];
-    }
-
     /** Which items a list shows by their dates (2.11): events that are still to come, notices that are posted now, the archive. */
-    public const array PERIODS = ['' => 'all items', 'nadchazejici' => 'upcoming – not ended yet', 'probihajici' => 'current – started and not ended', 'minule' => 'past – ended'];
+    public const array PERIODS = ['' => 'all items', 'upcoming' => 'upcoming – not ended yet', 'current' => 'current – started and not ended', 'past' => 'past – ended'];
 
     /**
      * The SQL condition of a period over a start field and an optional end field (date, or date and time; a day without a
@@ -379,21 +326,21 @@ final class Collections
      *
      * @return array{0: string, 1: list<string>}|null
      */
-    public static function periodCondition(string $period, string $startKey, string $endKey, string $now): ?array
+    public static function periodCondition(\Talea\Core\Dialect\Dialect $dialect, string $period, string $startKey, string $endKey, string $now): ?array
     {
         if ($period === '' || !isset(self::PERIODS[$period]) || preg_match(self::KEY_PATTERN, $startKey) !== 1 || ($endKey !== '' && preg_match(self::KEY_PATTERN, $endKey) !== 1)) {
             return null;
         }
-        $value = fn (string $key): string => "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')), '')";
-        $endOfDay = fn (string $v): string => 'IF(LENGTH(' . $v . ') = 10, CONCAT(' . $v . ", ' 23:59'), " . $v . ')';
+        $value = fn (string $key): string => "COALESCE(" . $dialect->jsonExtract('data', '$.' . $key) . ", '')";
+        $endOfDay = fn (string $v): string => 'CASE WHEN LENGTH(' . $v . ") = 10 THEN CONCAT(" . $v . ", ' 23:59') ELSE " . $v . ' END';
         $start = $value($startKey);
-        $startOfDay = 'IF(LENGTH(' . $start . ') = 10, CONCAT(' . $start . ", ' 00:00'), " . $start . ')';
+        $startOfDay = 'CASE WHEN LENGTH(' . $start . ") = 10 THEN CONCAT(" . $start . ", ' 00:00') ELSE " . $start . ' END';
         $ends = $endKey !== '' ? 'COALESCE(NULLIF(' . $value($endKey) . ", ''), " . $start . ')' : $start; // upcoming and past
         $end = $endKey !== '' ? $value($endKey) : $start; // current
 
         return match ($period) {
-            'nadchazejici' => ['(' . $start . " <> '' AND " . $endOfDay($ends) . ' >= ?)', [$now]],
-            'minule' => ['(' . $ends . " <> '' AND " . $endOfDay($ends) . ' < ?)', [$now]],
+            'upcoming' => ['(' . $start . " <> '' AND " . $endOfDay($ends) . ' >= ?)', [$now]],
+            'past' => ['(' . $ends . " <> '' AND " . $endOfDay($ends) . ' < ?)', [$now]],
             default => ['((' . $start . " <> '' OR " . $end . " <> '') AND (" . $start . " = '' OR " . $startOfDay . ' <= ?) AND (' . $end . " = '' OR " . $endOfDay($end) . ' >= ?))', [$now, $now]],
         };
     }
@@ -406,7 +353,7 @@ final class Collections
         }
 
         return array_values(array_filter(array_map('strval', array_column($db->all(
-            "SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')) AS h FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND jazyk = ? ORDER BY h LIMIT 30",
+            "SELECT DISTINCT " . $db->dialect()->jsonExtract('data', '$.' . $key) . " AS h FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND language = ? AND " . \Talea\Core\Members::notGated('item', 'item_id') . " ORDER BY h LIMIT 30",
             [$idk, $language],
         ), 'h')), fn (string $h): bool => $h !== '' && $h !== 'null'));
     }
@@ -420,49 +367,49 @@ final class Collections
     public static function values(array $collection, array $item, callable $url, ?Db $db = null): array
     {
         $h = [
-            'nazev' => [(string) $item['nazev'], 'text'],
-            'url' => [$collection['detail'] ? $url($collection['seo_link'] . '/' . $item['seo_link']) : '', 'odkaz'],
-            'datum' => [format_date((string) $item['datum']), 'text'],
-            'seo' => [(string) $item['seo_link'], 'text'],
+            'name' => [(string) $item['name'], 'text'],
+            'url' => [$collection['detail'] ? $url($collection['slug'] . '/' . $item['slug']) : '', 'link'],
+            'date' => [format_date((string) $item['created_at']), 'text'],
+            'seo' => [(string) $item['slug'], 'text'],
         ];
-        foreach ($collection['pole'] as $p) {
-            $value = (string) ($item['data'][$p['klic']] ?? '');
-            if ($p['typ'] === 'polozka') {
+        foreach ($collection['fields'] as $p) {
+            $value = (string) ($item['data'][$p['key']] ?? '');
+            if ($p['type'] === 'item') {
                 // {{branch}} = the name of the linked item, {{branch_url}} its page, {{branch_seo}} its address (for related lists)
-                $linked = $db !== null && $value !== '' ? (self::linked($db, (string) ($p['kolekce'] ?? ''))[$value] ?? null) : null;
-                $h[$p['klic']] = [$linked[0] ?? '', 'text'];
-                $h[$p['klic'] . '_url'] ??= [$linked !== null && $linked[1] !== '' ? $url($linked[1]) : '', 'odkaz'];
-                $h[$p['klic'] . '_seo'] ??= [$value, 'text'];
+                $linked = $db !== null && $value !== '' ? (self::linked($db, (string) ($p['collection'] ?? ''))[$value] ?? null) : null;
+                $h[$p['key']] = [$linked[0] ?? '', 'text'];
+                $h[$p['key'] . '_url'] ??= [$linked !== null && $linked[1] !== '' ? $url($linked[1]) : '', 'link'];
+                $h[$p['key'] . '_seo'] ??= [$value, 'text'];
                 continue;
             }
-            if ($p['typ'] === 'termin') {
+            if ($p['type'] === 'datetime') {
                 // {{start}} = the day (and time) for visitors, {{start_iso}} = as stored, for machines (a time element, iCal)
-                $h[$p['klic']] = [self::formatDateTime($value), 'text'];
-                $h[$p['klic'] . '_iso'] ??= [$value, 'text'];
+                $h[$p['key']] = [self::formatDateTime($value), 'text'];
+                $h[$p['key'] . '_iso'] ??= [$value, 'text'];
                 continue;
             }
-            if ($p['typ'] === 'soubor') {
+            if ($p['type'] === 'file') {
                 // {{datasheet}} = the file's address (a link or a button), {{datasheet_name}} = its file name
-                $h[$p['klic']] = [$value, 'odkaz'];
-                $h[$p['klic'] . '_name'] ??= [$value !== '' ? rawurldecode(basename((string) parse_url($value, PHP_URL_PATH))) : '', 'text'];
+                $h[$p['key']] = [$value, 'link'];
+                $h[$p['key'] . '_name'] ??= [$value !== '' ? rawurldecode(basename((string) parse_url($value, PHP_URL_PATH))) : '', 'text'];
                 continue;
             }
-            if ($p['typ'] === 'parametry' || $p['typ'] === 'varianty') {
+            if ($p['type'] === 'parameters' || $p['type'] === 'variants') {
                 // a table for visitors (2.11): parameters to compare, variants with their code and price
-                $h[$p['klic']] = [$p['typ'] === 'parametry' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
+                $h[$p['key']] = [$p['type'] === 'parameters' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
                 continue;
             }
-            if ($p['typ'] === 'volba') {
-                $h[$p['klic']] = [$value !== '' ? t($value) : '', 'text']; // a preset's options are English keys with site translations
+            if ($p['type'] === 'radio') {
+                $h[$p['key']] = [$value !== '' ? t($value) : '', 'text']; // a preset's options are English keys with site translations
                 continue;
             }
-            $h[$p['klic']] = [$value, $p['typ']];
+            $h[$p['key']] = [$value, $p['type']];
         }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
-            $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $h += \Talea\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
             $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
         }
-        foreach (\Kaleta\Core\Notices::placeholders($collection, $item) as $key => $value) {
+        foreach (\Talea\Core\Notices::placeholders($collection, $item) as $key => $value) {
             $h[$key] ??= $value; // {{notice_status}} of an official notice board (2.11) – a field with that key wins
         }
 
@@ -477,7 +424,7 @@ final class Collections
      */
     public static function linked(Db $db, string $collectionSlug, ?string $language = null): array
     {
-        $language ??= \Kaleta\Core\Language::siteColumn();
+        $language ??= \Talea\Core\Language::siteColumn();
         $key = $collectionSlug . '|' . $language;
         if (isset(self::$linked[$key])) {
             return self::$linked[$key];
@@ -485,9 +432,9 @@ final class Collections
         $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
         $out = [];
         if ($collection !== null) {
-            foreach ($db->all("SELECT nazev, seo_link, jazyk FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL AND jazyk IN ('', ?) ORDER BY jazyk = '' DESC, nazev",
-                [(int) $collection['idk'], $language]) as $r) {
-                $out[(string) $r['seo_link']] = [(string) $r['nazev'], $collection['detail'] ? $collection['seo_link'] . '/' . $r['seo_link'] : '']; // a translation overwrites the default
+            foreach ($db->all("SELECT name, slug, language FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL AND language IN ('', ?) AND " . \Talea\Core\Members::notGated('item', 'item_id') . " ORDER BY language = '' DESC, name",
+                [(int) $collection['collection_id'], $language]) as $r) {
+                $out[(string) $r['slug']] = [(string) $r['name'], $collection['detail'] ? $collection['slug'] . '/' . $r['slug'] : '']; // a translation overwrites the default
             }
         }
 
@@ -503,17 +450,17 @@ final class Collections
     {
         $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
 
-        return $collection === null ? [] : $db->pairs("SELECT seo_link, nazev FROM {kolekce_polozky} WHERE idk = ? AND jazyk = '' AND smazano IS NULL ORDER BY nazev", [(int) $collection['idk']]);
+        return $collection === null ? [] : $db->pairs("SELECT slug, name FROM {collection_items} WHERE collection_id = ? AND language = '' AND deleted_at IS NULL ORDER BY name", [(int) $collection['collection_id']]);
     }
 
     /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */
     public static function sample(array $collection): array
     {
-        $h = ['nazev' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
-        foreach ($collection['pole'] as $p) {
-            $h[$p['klic']] = [in_array($p['typ'], ['obrazek', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['typ'] === 'soubor' ? 'odkaz' : (in_array($p['typ'], ['termin', 'volba', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['typ'])];
+        $h = ['name' => ['[' . t('Name') . ']', 'text'], 'url' => ['#', 'link'], 'date' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
+        foreach ($collection['fields'] as $p) {
+            $h[$p['key']] = [in_array($p['type'], ['image', 'link', 'file'], true) ? '' : '[' . $p['label'] . ']', $p['type'] === 'file' ? 'link' : (in_array($p['type'], ['datetime', 'radio', 'location', 'parameters', 'variants'], true) ? 'text' : $p['type'])];
         }
-        if (\Kaleta\Core\Notices::isBoard($collection)) {
+        if (\Talea\Core\Notices::isBoard($collection)) {
             $h['notice_status'] ??= ['[' . t('Notice status') . ']', 'text'];
         }
 
@@ -540,24 +487,24 @@ final class Collections
                 // a paragraph with only a tag of formatted or longer text is replaced whole (otherwise <p><p>…</p></p> would result)
                 return match ($type) {
                     'html' => $h,
-                    'radky' => $h === '' ? '' : '<p>' . nl2br(e($h), false) . '</p>',
+                    'lines' => $h === '' ? '' : '<p>' . nl2br(e($h), false) . '</p>',
                     default => $h === '' ? '' : '<p>' . e($h) . '</p>',
                 };
             }
             $plain = $type === 'html' ? trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)) : $h;
 
             return match ($target) {
-                'html' => $type === 'html' ? $h : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
-                'inline' => $type === 'radky' ? nl2br(e($h), false) : e($plain),
+                'html' => $type === 'html' ? $h : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
+                'inline_text' => $type === 'lines' ? nl2br(e($h), false) : e($plain),
                 // Custom HTML is output as it is (the code filter ran on save, the filling only now): the value must not bring tags
-                'kod' => $type === 'html' ? \Kaleta\Core\Html::safe($h) : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
+                'code' => $type === 'html' ? \Talea\Core\Html::safe($h) : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
                 default => $plain,
             };
         }, $text);
-        if ($target === 'odkaz' && $result !== '' && !WpContent::isSafeUrl($result)) {
+        if ($target === 'link' && $result !== '' && !WpContent::isSafeUrl($result)) {
             return '';
         }
-        if ($target === 'obrazek' && $result !== '' && !preg_match(self::MEDIA_PATTERN, $result)) {
+        if ($target === 'image' && $result !== '' && !preg_match(self::MEDIA_PATTERN, $result)) {
             return '';
         }
 
@@ -568,46 +515,46 @@ final class Collections
     public static function defaultTemplate(array $collection): array
     {
         $n = Build::fresh(...);
-        $children = [['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}'])];
-        foreach ($collection['pole'] as $p) {
-            $children[] = match ($p['typ']) {
-                'obrazek' => $n('obrazek', ['src' => '{{' . $p['klic'] . '}}', 'alt' => '{{nazev}}']),
-                'odkaz' => $n('tlacitko', ['text' => $p['popisek'], 'odkaz' => '{{' . $p['klic'] . '}}', 'varianta' => 'obrys']),
-                'soubor' => $n('tlacitko', ['text' => $p['popisek'] . ' ({{' . $p['klic'] . '_name}})', 'odkaz' => '{{' . $p['klic'] . '}}', 'varianta' => 'obrys']),
-                'html', 'radky' => $n('text', ['html' => '{{' . $p['klic'] . '}}']),
-                default => $n('text', ['html' => '<p><strong>' . e($p['popisek']) . ':</strong> {{' . $p['klic'] . '}}</p>']),
+        $children = [['tag' => 'h1'] + $n('heading', ['text' => '{{name}}'])];
+        foreach ($collection['fields'] as $p) {
+            $children[] = match ($p['type']) {
+                'image' => $n('image', ['src' => '{{' . $p['key'] . '}}', 'alt' => '{{name}}']),
+                'link' => $n('button', ['text' => $p['label'], 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
+                'file' => $n('button', ['text' => $p['label'] . ' ({{' . $p['key'] . '_name}})', 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
+                'html', 'lines' => $n('text', ['html' => '{{' . $p['key'] . '}}']),
+                default => $n('text', ['html' => '<p><strong>' . e($p['label']) . ':</strong> {{' . $p['key'] . '}}</p>']),
             };
         }
 
-        return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', ['sirka' => 'uzka'], [
-            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], $children),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', ['width' => 'narrow'], [
+            ['style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]] + $n('container', [], $children),
         ])]])[0];
     }
 
     /* ---------- items as full pages (1.9) ---------- */
 
-    /** Columns of an item that make up one version in the history (ka_stavba_revize, cast polozka:<idp>). */
-    public const array VERSIONED = ['nazev', 'seo_link', 'data', 'seo_titulek', 'popis', 'obrazek', 'noindex'];
+    /** Columns of an item that make up one version in the history (tl_build_revisions, cast item:<idp>). */
+    public const array VERSIONED = ['name', 'slug', 'data', 'seo_title', 'description', 'image', 'noindex'];
 
     /**
      * SEO fields and scheduled publishing of an item from a form or from Claude. A hidden item with a future time
      * publishes itself then (Notifications::process); a past time publishes it at once.
      *
-     * @param array{seo_titulek?: mixed, popis?: mixed, obrazek?: mixed, noindex?: mixed, zverejnit_od?: mixed} $input
-     * @return array{seo_titulek: string, popis: string, obrazek: string, noindex: int, zverejnit_od: ?string, zobrazit: int}
+     * @param array{seo_title?: mixed, description?: mixed, image?: mixed, noindex?: mixed, publish_at?: mixed} $input
+     * @return array{seo_title: string, description: string, image: string, noindex: int, publish_at: ?string, visible: int}
      */
     public static function pageFields(array $input, bool $visible): array
     {
         $text = fn (string $key, int $max): string => mb_substr(trim(is_scalar($input[$key] ?? null) ? (string) $input[$key] : ''), 0, $max);
-        $image = $text('obrazek', 255);
-        $from = is_string($input['zverejnit_od'] ?? null) && $input['zverejnit_od'] !== '' ? (strtotime(str_replace('T', ' ', $input['zverejnit_od'])) ?: null) : null;
+        $image = $text('image', 255);
+        $from = is_string($input['publish_at'] ?? null) && $input['publish_at'] !== '' ? (strtotime(str_replace('T', ' ', $input['publish_at'])) ?: null) : null;
 
         return [
-            'seo_titulek' => $text('seo_titulek', 200), 'popis' => $text('popis', 300),
-            'obrazek' => preg_match('#^(/?media/|https://)[^\s"\'<>]+$#D', $image) && !str_contains($image, '..') ? $image : '',
+            'seo_title' => $text('seo_title', 200), 'description' => $text('description', 300),
+            'image' => preg_match('#^(/?media/|https://)[^\s"\'<>]+$#', $image) && !str_contains($image, '..') ? $image : '',
             'noindex' => filter_var($input['noindex'] ?? false, FILTER_VALIDATE_BOOL) ? 1 : 0,
-            'zverejnit_od' => !$visible && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null,
-            'zobrazit' => $visible || ($from !== null && $from <= time()) ? 1 : 0,
+            'publish_at' => !$visible && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null,
+            'visible' => $visible || ($from !== null && $from <= time()) ? 1 : 0,
         ];
     }
 
@@ -615,19 +562,19 @@ final class Collections
      * Keeps the item as it was before a save in its history (the last Publisher::VERSIONS_KEPT) – and, for a document
      * whose file changes, the previous file for good (2.11, Core\Documents).
      */
-    public static function saveVersion(\Kaleta\Core\App $app, array $previous, array $new): void
+    public static function saveVersion(\Talea\Core\App $app, array $previous, array $new): void
     {
-        \Kaleta\Core\Documents::keepVersion($app, $previous, $new);
+        \Talea\Core\Documents::keepVersion($app, $previous, $new);
         $snapshot = fn (array $r): string => (string) json_encode(array_intersect_key($r, array_flip(self::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $old = $snapshot($previous);
         $new = $snapshot(array_replace($previous, $new));
-        Publisher::version($app, ['cast' => 'polozka:' . (int) $previous['idp']], $old, $new, $previous['zmeneno'] ?? $previous['datum'] ?? null);
+        Publisher::version($app, ['part' => 'item:' . (int) $previous['item_id']], $old, $new, $previous['updated_at'] ?? $previous['created_at'] ?? null);
     }
 
     /** @return array<string, mixed>|null the item columns stored in one version */
     public static function loadVersion(Db $db, int $idp, int $idr): ?array
     {
-        $stored = json_decode((string) Publisher::load($db, ['cast' => 'polozka:' . $idp], $idr), true);
+        $stored = json_decode((string) Publisher::load($db, ['part' => 'item:' . $idp], $idr), true);
 
         return is_array($stored) ? array_intersect_key($stored, array_flip(self::VERSIONED)) : null;
     }

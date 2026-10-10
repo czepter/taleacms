@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Requests as Inbox;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Requests as Inbox;
+use Talea\Core\Response;
 
 /**
  * Requests to Claude (2.15, Core\Requests): staff with this section write what they need changed on the site; Claude reads
@@ -19,7 +19,8 @@ final class Requests extends Module
     public const string HUB = 'claude';
     public const string NAME = 'Ask Claude';
     public const string GROUP = 'Claude';
-    public const string ICON = 'komentare';
+    public const string ICON = 'comments';
+    public const string TABLE = 'requests';
 
     protected function actionList(): Response
     {
@@ -28,16 +29,16 @@ final class Requests extends Module
 
         return $this->view('list', 'Ask Claude', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
-            'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
+            'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
     }
 
     protected function actionNew(): Response
     {
         return $this->view('new', 'New request', [
-            'pages' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY titulek'),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT idc, titulek FROM {novinky} WHERE smazano IS NULL ORDER BY datum DESC LIMIT 100') : [],
-            'items' => $this->db->pairs('SELECT p.idp, CONCAT(k.nazev, \' – \', p.nazev) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL ORDER BY k.nazev, p.nazev LIMIT 300'),
-            'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
+            'pages' => $this->db->pairs('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
+            'news' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT public_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
+            'items' => $this->db->pairs('SELECT p.public_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
+            'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Talea\Core\Files::limitText(),
         ]);
     }
 
@@ -51,38 +52,36 @@ final class Requests extends Module
         // back to the dashboard, where the request is listed under their requests
         $fromDashboard = $this->request->post('from') === 'dashboard';
         $title = $this->request->post('quick') === '1' && trim($this->request->post('title')) === ''
-            ? \Kaleta\Core\AskClaude::title($this->request->post('text')) : $this->request->post('title');
+            ? \Talea\Core\AskClaude::title($this->request->post('text')) : $this->request->post('title');
         if (trim($title) === '' || trim($this->request->post('text')) === '') {
             // checked before the uploads, so a request sent back for its text leaves no stray files in Media
             $message = trim($this->request->post('text')) === '' ? 'Write what should change.' : 'Give the request a title.';
 
-            return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
+            return $fromDashboard ? $this->toDashboard($message, 'error') : $this->back($message, 'new', [], 'error');
         }
         $attachments = [];
-        foreach (Media::uploadedFiles('prilohy', Inbox::MAX_ATTACHMENTS) as $file) {
+        foreach (Media::uploadedFiles('attachments', Inbox::MAX_ATTACHMENTS) as $file) {
             try {
-                $attachments[] = (int) Media::store($this->app, $file)['ido'];
+                $attachments[] = (int) Media::store($this->app, $file)['media_id'];
             } catch (\RuntimeException $e) {
                 $message = t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($e->getMessage()));
 
-                return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
+                return $fromDashboard ? $this->toDashboard($message, 'error') : $this->back($message, 'new', [], 'error');
             }
         }
         $about = $this->request->post('about_url') !== '' ? $this->request->post('about_url') : $this->request->post('about');
+        // the select carries the public id of the page, news item or collection item; the request stores its number
+        $about = preg_replace_callback('/^(page|news|item):([0-9a-f-]{36})$/', fn (array $m): string => $m[1] . ':' . $this->db->internalId(['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'][$m[1]], $m[2]), $about) ?? '';
         try {
             $id = Inbox::create($this->app, $this->app->auth()->id(), $title, $this->request->post('text'), $about, $attachments);
         } catch (\DomainException $e) {
-            return $fromDashboard ? $this->toDashboard($e->getMessage(), 'chyba') : $this->back($e->getMessage(), 'new', [], 'chyba');
+            return $fromDashboard ? $this->toDashboard($e->getMessage(), 'error') : $this->back($e->getMessage(), 'new', [], 'error');
         }
-        // nothing is "sent" while no Claude connection has ever called the site (3.5): the request waits for it
-        $connected = \Kaleta\Core\AskClaude::connected($this->db, $this->app->settings());
         if ($fromDashboard) {
-            return $this->toDashboard($connected ? t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id)
-                : t('Saved as request #%d – Claude picks it up once it is connected to the site.', $id));
+            return $this->toDashboard(t('Sent to Claude as a request. Claude does it as drafts the next time it works on the site; its notes appear in the request.'));
         }
 
-        return $this->back($connected ? 'The request is saved. Claude will see it the next time it works on the site; you will read its notes here.'
-            : 'The request is saved – Claude picks it up once it is connected to the site; you will read its notes here.', 'detail', ['id' => $id]);
+        return $this->back('The request is saved. Claude will see it the next time it works on the site; you will read its notes here.', 'detail', ['id' => $this->publicId($id)]);
     }
 
     private function toDashboard(string $message, string $type = 'ok'): Response
@@ -94,12 +93,12 @@ final class Requests extends Module
 
     protected function actionDetail(): Response
     {
-        $request = Inbox::get($this->app, $this->request->getInt('id'));
+        $request = Inbox::get($this->app, $this->idParam());
         if ($request === null) {
             return $this->error('The request does not exist.', 404);
         }
 
-        return $this->view('detail', t('Request #%d', (int) $request['id']), [
+        return $this->view('detail', (string) $request['title'], [
             'r' => $request, 'about' => Inbox::describeAbout($this->app, (string) $request['about']), 'attachments' => Inbox::attachments($this->app, $request['attachments']),
             'messages' => Inbox::messages($this->db, (int) $request['id']), 'mine' => (int) $request['author_id'] === $this->app->auth()->id(),
         ]);
@@ -108,32 +107,32 @@ final class Requests extends Module
     /** The person's reply to Claude's notes. */
     protected function actionReply(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         $request = $this->request->isPost() ? Inbox::get($this->app, $id) : null;
         if ($request === null) {
             return $this->back();
         }
         $user = $this->app->auth()->user();
-        if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['user'] ?? '')), $this->request->post('text'))) {
-            return $this->back('Write the reply first.', 'detail', ['id' => $id], 'chyba');
+        if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['name'] ?? '') !== '' ? $user['name'] : ($user['username'] ?? '')), $this->request->post('text'))) {
+            return $this->back('Write the reply first.', 'detail', ['id' => $this->publicId($id)], 'error');
         }
 
-        return $this->back('The reply is added – Claude reads it with the request.', 'detail', ['id' => $id]);
+        return $this->back('The reply is added – Claude reads it with the request.', 'detail', ['id' => $this->publicId($id)]);
     }
 
     /** A person changes the status: closes a request, declines it, or reopens a done one. */
     protected function actionStatus(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         $request = $this->request->isPost() ? Inbox::get($this->app, $id) : null;
         if ($request === null) {
             return $this->back();
         }
         // the requester closing their own request needs no e-mail about it
         if (!Inbox::setStatus($this->app, $request, $this->request->post('status'), '', (int) $request['author_id'] !== $this->app->auth()->id())) {
-            return $this->back('This status change is not possible.', 'detail', ['id' => $id], 'chyba');
+            return $this->back('This status change is not possible.', 'detail', ['id' => $this->publicId($id)], 'error');
         }
 
-        return $this->back('The status is saved.', 'detail', ['id' => $id]);
+        return $this->back('The status is saved.', 'detail', ['id' => $this->publicId($id)]);
     }
 }

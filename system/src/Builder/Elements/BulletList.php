@@ -2,40 +2,40 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 final class BulletList extends Element
 {
-    public const string TYPE = 'seznam';
-    public const string NAME = 'Seznam';
+    public const string TYPE = 'list';
+    public const string NAME = 'List';
     public const string DESCRIPTION = 'A list of points – with bullets, numbers or ticks.';
-    public const string ICON = 'seznam';
+    public const string ICON = 'list';
     public const array HTML_TAGS = ['ul', 'ol'];
 
     public static function properties(): array
     {
         return [
-            'polozky' => ['typ' => 'radky', 'popisek' => 'Items (one per line)', 'vychozi' => t('First benefit') . "\n" . t('Second benefit') . "\n" . t('Third benefit'), 'max' => 4000],
-            'styl' => ['typ' => 'vyber', 'popisek' => 'Bullets', 'vychozi' => 'odrazky', 'moznosti' => ['odrazky' => 'běžné', 'fajfky' => 'fajfky', 'bez' => 'no bullets']],
+            'items' => ['type' => 'lines', 'label' => 'Items (one per line)', 'default' => t('First benefit') . "\n" . t('Second benefit') . "\n" . t('Third benefit'), 'max' => 4000],
+            'style' => ['type' => 'choice', 'label' => 'Bullets', 'default' => 'bullets', 'options' => ['bullets' => 'normal', 'checks' => 'checks', 'none' => 'no bullets']],
         ];
     }
 
     public static function baseCss(): string
     {
-        return '.ka-seznam--fajfky, .ka-seznam--bez { list-style: none; padding-inline-start: 0; }
-.ka-seznam--fajfky li { position: relative; padding-inline-start: 1.6em; }
-.ka-seznam--fajfky li::before { content: ""; position: absolute; left: 0.1em; top: 0.35em; width: 0.9em; height: 0.5em; border: solid var(--ka-barva-primarni); border-width: 0 0 0.16em 0.16em; transform: rotate(-45deg); }
-.ka-seznam li + li { margin-block-start: 0.4em; }';
+        return '.tl-list--checks, .tl-list--plain { list-style: none; padding-inline-start: 0; }
+.tl-list--checks li { position: relative; padding-inline-start: 1.6em; }
+.tl-list--checks li::before { content: ""; position: absolute; left: 0.1em; top: 0.35em; width: 0.9em; height: 0.5em; border: solid var(--tl-color-primary); border-width: 0 0 0.16em 0.16em; transform: rotate(-45deg); }
+.tl-list li + li { margin-block-start: 0.4em; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $items = array_filter(array_map(trim(...), preg_split('/\R/', $p['obsah']['polozky']) ?: []), fn (string $r): bool => $r !== '');
+        $items = array_filter(array_map(trim(...), preg_split('/\R/', $p['content']['items']) ?: []), fn (string $r): bool => $r !== '');
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-seznam ka-seznam--' . $p['obsah']['styl']) . '>'
-            . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $items)) . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'tl-list tl-list--' . $p['content']['style']) . '>'
+            . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $items)) . '</' . $p['tag'] . '>';
     }
 }

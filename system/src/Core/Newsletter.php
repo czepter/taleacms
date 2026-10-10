@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Subscribers into the mailing service the site already uses: after the subscription is confirmed (double opt-in) the
  * address is added to the list in the service, after unsubscribing it is removed from it. Sending, deliverability and
  * unsubscribing from e-mails are handled by the service.
  *
- * Confirming and unsubscribing only write a task to the queue (ka_odber_fronta); the background cleanup sends it
+ * Confirming and unsubscribing only write a task to the queue (tl_subscription_queue); the background cleanup sends it
  * (Notifications::runInBackground), so the visitor does not wait for the service. A failed attempt is retried later
- * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "chyba" (error) in the admin and can be retried.
+ * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "error" in the admin and can be retried.
  *
- * The API key is stored only on the site ("Nastavení → Rozšíření", Features) and is neither shown nor changed over MCP.
+ * The API key is stored only on the site ("Settings → Features") and is neither shown nor changed over MCP.
  */
 final class Newsletter
 {
@@ -46,14 +46,14 @@ final class Newsletter
     /** Queues adding (after confirmation) or removing (after unsubscribing) an address; nothing without a configured service. */
     public static function enqueue(App $app, string $email, string $action): void
     {
-        if (!self::isEnabled($app->settings()) || !in_array($action, ['pridat', 'odebrat'], true)) {
+        if (!self::isEnabled($app->settings()) || !in_array($action, ['add', 'remove'], true)) {
             return;
         }
         $db = $app->db();
         // an older pending task for the same address is redundant – the latest state applies
-        $db->run('DELETE FROM {odber_fronta} WHERE email = ?', [$email]);
-        $db->insert('odber_fronta', ['email' => $email, 'akce' => $action, 'pokusy' => 0, 'dalsi' => date('Y-m-d H:i:s'), 'vytvoreno' => date('Y-m-d H:i:s')]);
-        $db->run("UPDATE {odberatele} SET sync = 'ceka', sync_chyba = '' WHERE email = ?", [$email]);
+        $db->run('DELETE FROM {subscription_queue} WHERE email = ?', [$email]);
+        $db->insert('subscription_queue', ['email' => $email, 'action' => $action, 'attempts' => 0, 'next_attempt_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
+        $db->run("UPDATE {subscribers} SET sync = 'pending', sync_error = '' WHERE email = ?", [$email]);
     }
 
     /** All confirmed subscribers who are not in the service yet (after connecting the service). @return int how many are waiting */
@@ -63,8 +63,8 @@ final class Newsletter
             return 0;
         }
         $count = 0;
-        foreach ($app->db()->all("SELECT email FROM {odberatele} WHERE stav = 1 AND sync <> 'ok'") as $o) {
-            self::enqueue($app, (string) $o['email'], 'pridat');
+        foreach ($app->db()->all("SELECT email FROM {subscribers} WHERE status = 1 AND sync <> 'ok'") as $o) {
+            self::enqueue($app, (string) $o['email'], 'add');
             $count++;
         }
 
@@ -74,7 +74,7 @@ final class Newsletter
     /** Retry abandoned tasks right away. */
     public static function retry(App $app): int
     {
-        return $app->db()->run('UPDATE {odber_fronta} SET dalsi = NOW(), pokusy = 0 WHERE dalsi IS NULL')->rowCount();
+        return $app->db()->run('UPDATE {subscription_queue} SET next_attempt_at = NOW(), attempts = 0 WHERE next_attempt_at IS NULL')->rowCount();
     }
 
     /** Sends the tasks whose turn has come (called by the background cleanup). @return int number processed */
@@ -86,19 +86,19 @@ final class Newsletter
         }
         $db = $app->db();
         $done = 0;
-        foreach ($db->all('SELECT * FROM {odber_fronta} WHERE dalsi IS NOT NULL AND dalsi <= NOW() ORDER BY idf LIMIT ' . max(1, $limit)) as $u) {
+        foreach ($db->all('SELECT * FROM {subscription_queue} WHERE next_attempt_at IS NOT NULL AND next_attempt_at <= NOW() ORDER BY queue_id LIMIT ' . max(1, $limit)) as $u) {
             try {
-                self::apply($s, (string) $u['email'], (string) $u['akce'], (string) $db->value('SELECT zdroj FROM {odberatele} WHERE email = ?', [$u['email']]));
-                $db->delete('odber_fronta', ['idf' => $u['idf']]);
-                $db->run("UPDATE {odberatele} SET sync = 'ok', sync_chyba = '' WHERE email = ?", [$u['email']]);
+                self::apply($s, (string) $u['email'], (string) $u['action'], (string) $db->value('SELECT source FROM {subscribers} WHERE email = ?', [$u['email']]));
+                $db->delete('subscription_queue', ['queue_id' => $u['queue_id']]);
+                $db->run("UPDATE {subscribers} SET sync = 'ok', sync_error = '' WHERE email = ?", [$u['email']]);
                 $done++;
             } catch (\RuntimeException $e) {
-                $attempts = (int) $u['pokusy'] + 1;
+                $attempts = (int) $u['attempts'] + 1;
                 $delay = self::RETRY_DELAYS[$attempts - 1] ?? null;
                 $error = mb_substr($e->getMessage(), 0, 250);
-                $db->update('odber_fronta', ['pokusy' => $attempts, 'chyba' => $error, 'dalsi' => $delay === null ? null : date('Y-m-d H:i:s', time() + $delay * 60)], ['idf' => $u['idf']]);
+                $db->update('subscription_queue', ['attempts' => $attempts, 'error' => $error, 'next_attempt_at' => $delay === null ? null : date('Y-m-d H:i:s', time() + $delay * 60)], ['queue_id' => $u['queue_id']]);
                 if ($delay === null) {
-                    $db->run("UPDATE {odberatele} SET sync = 'chyba', sync_chyba = ? WHERE email = ?", [$error, $u['email']]);
+                    $db->run("UPDATE {subscribers} SET sync = 'error', sync_error = ? WHERE email = ?", [$error, $u['email']]);
                 }
             }
         }
@@ -114,7 +114,7 @@ final class Newsletter
         $service = $s->get('newsletter_service');
         $key = str_replace(["\r", "\n"], '', $s->get('newsletter_key')); // the key goes into a header – without line breaks
         $items = $s->get('newsletter_list');
-        $toAdd = $action === 'pridat';
+        $toAdd = $action === 'add';
         [$method, $url, $headers, $body, $missingOk] = match ($service) {
             'brevo' => $toAdd
                 ? ['POST', 'https://api.brevo.com/v3/contacts', ['api-key: ' . $key], ['email' => $email, 'listIds' => [(int) $items], 'updateEnabled' => true], false]
@@ -122,26 +122,26 @@ final class Newsletter
             'mailerlite' => ['POST', 'https://connect.mailerlite.com/api/subscribers', ['Authorization: Bearer ' . $key],
                 $toAdd ? ['email' => $email, 'groups' => [$items], 'status' => 'active'] : ['email' => $email, 'status' => 'unsubscribed'], !$toAdd],
             'mailchimp' => [$toAdd ? 'PUT' : 'PATCH', 'https://' . self::dataCenter($key) . '.api.mailchimp.com/3.0/lists/' . rawurlencode($items) . '/members/' . md5(mb_strtolower($email)),
-                ['Authorization: Basic ' . base64_encode('kaleta:' . $key)], $toAdd ? ['email_address' => $email, 'status_if_new' => 'subscribed', 'status' => 'subscribed'] : ['status' => 'unsubscribed'], !$toAdd],
+                ['Authorization: Basic ' . base64_encode('talea:' . $key)], $toAdd ? ['email_address' => $email, 'status_if_new' => 'subscribed', 'status' => 'subscribed'] : ['status' => 'unsubscribed'], !$toAdd],
             'ecomail' => $toAdd
                 ? ['POST', 'https://api2.ecomailapp.cz/lists/' . rawurlencode($items) . '/subscribe', ['key: ' . $key], ['subscriber_data' => ['email' => $email], 'update_existing' => true, 'resubscribe' => true, 'skip_confirmation' => true], false]
                 : ['DELETE', 'https://api2.ecomailapp.cz/lists/' . rawurlencode($items) . '/unsubscribe', ['key: ' . $key], ['email' => $email], true],
             'smartemailing' => ['POST', 'https://app.smartemailing.cz/api/v3/import', ['Authorization: Basic ' . base64_encode($key)],
                 ['settings' => ['update' => true, 'skip_invalid_emails' => true], 'data' => [['emailaddress' => $email, 'contactlists' => [['id' => (int) $items, 'status' => $toAdd ? 'confirmed' : 'unsubscribed']]]]], false],
-            'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['udalost' => $toAdd ? 'novy_odberatel' : 'odhlaseni_odberu', 'web' => $s->get('site_name'), 'email' => $email,
-                'zdroj' => $source, 'cas' => date('c')], false],
-            default => throw new \RuntimeException(t('The mailing service is not set up.')),
+            'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['event' => $toAdd ? 'subscribed' : 'unsubscribed', 'site' => $s->get('site_name'), 'email' => $email,
+                'source' => $source, 'time' => date('c')], false],
+            default => throw new \RuntimeException('The mailing service is not set up.'),
         };
         // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $s->get('newsletter_test_url');
-        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#D', $test)) {
+        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#', $test)) {
             $url = $test . '/' . $service . (string) parse_url($url, PHP_URL_PATH);
         }
         [$code, $response] = self::http($method, $url, $headers, $body);
         if (($code >= 200 && $code < 300) || ($missingOk && $code === 404)) {
             return; // removing an address the service does not know is fine
         }
-        // the error text is stored with the subscriber; the admin translates 'Služba neodpověděla.' when displaying it
+        // the error text is stored with the subscriber; the admin translates 'The service did not respond.' when displaying it
         throw new \RuntimeException($code === 0 ? 'The service did not respond.' : 'HTTP ' . $code . ($response !== '' ? ': ' . mb_substr(trim(strip_tags($response)), 0, 180) : ''));
     }
 
@@ -156,7 +156,7 @@ final class Newsletter
     {
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
             'method' => $method, 'timeout' => 6, 'ignore_errors' => true, 'follow_location' => 0, // the service does not redirect the request elsewhere
-            'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Kaleta/' . KALETA_VERSION], $headers)) . "\r\n",
+            'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Talea/' . TALEA_VERSION], $headers)) . "\r\n",
             'content' => $body === null ? '' : (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]]));
         $code = isset($http_response_header[0]) && preg_match('#^HTTP/\S+\s+(\d{3})#', $http_response_header[0], $m) ? (int) $m[1] : 0;

@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
 /**
- * Signed JSON between a site and its console (2.9). The body is signed as it is sent (header X-Kaleta-Signature), so the
+ * Signed JSON between a site and its console (2.9). The body is signed as it is sent (header X-Talea-Signature), so the
  * other side checks exactly the bytes it received.
  *
  * Since 3.3.2 (N37) every request of the fleet – pairing, heartbeats, the kit and the console's uptime checks – goes only
  * to a public address: the host is resolved once, every address it resolves to must be public (Core\ImageDownloader's
  * rules), and the connection is pinned to it; redirects are never followed and an answer is cut at MAX_BYTES. The signed
- * requests use https only; plain http and local addresses are allowed just in the automated tests (KALETA_FLEET_LOCAL=1).
+ * requests use https only; plain http and local addresses are allowed just in the automated tests (TALEA_FLEET_LOCAL=1).
  */
 final class Http
 {
-    public const string HEADER = 'X-Kaleta-Signature';
+    public const string HEADER = 'X-Talea-Signature';
 
     /** The largest answer read from the other side. */
     public const int MAX_BYTES = 2_000_000;
@@ -26,14 +26,14 @@ final class Http
     /** The automated tests run a console and its sites on 127.0.0.1 over plain http; never set on a real site. */
     private static function localTests(): bool
     {
-        return getenv('KALETA_FLEET_LOCAL') === '1';
+        return getenv('TALEA_FLEET_LOCAL') === '1';
     }
 
     /** Only https (plain http too when $plainHttp, for the uptime check of a site), no user name; tests also local http. */
     public static function allowedUrl(string $url, bool $plainHttp = false): bool
     {
         // Outbound::url: http(s), no user name, and a host curl reads exactly as it is checked – no percent sign (3.3.3, N52)
-        $target = \Kaleta\Core\Outbound::url($url);
+        $target = \Talea\Core\Outbound::url($url);
         if ($target === null || preg_match('/[\x00-\x20\\\\]/', $url) === 1) {
             return false;
         }
@@ -50,17 +50,17 @@ final class Http
      */
     public static function pin(string $url): ?array
     {
-        $target = \Kaleta\Core\Outbound::url($url);
+        $target = \Talea\Core\Outbound::url($url);
         if ($target === null) {
             return null;
         }
         [$host, $port] = [$target['host'], $target['port']];
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            return \Kaleta\Core\ImageDownloader::isPublicIp($host) || self::localTests() ? [$host, $port, $host, $target['url']] : null;
+            return \Talea\Core\ImageDownloader::isPublicIp($host) || self::localTests() ? [$host, $port, $host, $target['url']] : null;
         }
-        $addresses = \Kaleta\Core\Outbound::addresses($host);
+        $addresses = \Talea\Core\Outbound::addresses($host);
         foreach ($addresses as $ip) {
-            if (!\Kaleta\Core\ImageDownloader::isPublicIp($ip) && !self::localTests()) {
+            if (!\Talea\Core\ImageDownloader::isPublicIp($ip) && !self::localTests()) {
                 return null;
             }
         }
@@ -79,8 +79,8 @@ final class Http
      */
     public static function post(string $url, array $payload, ?\Closure $sign, int $timeout = 15, array $headers = []): array
     {
-        if (\Kaleta\Core\Demo::active()) {
-            return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => \Kaleta\Core\Demo::refusal()]; // 3.3.2 (N24): no requests from the public demo
+        if (\Talea\Core\Demo::active()) {
+            return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => \Talea\Core\Demo::refusal()]; // 3.3.2 (N24): no requests from the public demo
         }
         if (!self::allowedUrl($url)) {
             return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'Only https addresses are allowed.'];
@@ -90,7 +90,7 @@ final class Http
             return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'The address does not lead to a public server.'];
         }
         $body = (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $headers = ['Content-Type' => 'application/json', 'User-Agent' => 'Kaleta/' . KALETA_VERSION] + $headers;
+        $headers = ['Content-Type' => 'application/json', 'User-Agent' => 'Talea/' . TALEA_VERSION] + $headers;
         if ($sign !== null) {
             $headers[self::HEADER] = $sign($body);
         }
@@ -115,7 +115,7 @@ final class Http
         if (function_exists('curl_init')) {
             $answer = '';
             $ch = curl_init($url);
-            \Kaleta\Core\Outbound::pin($ch, $host, $port, $ip);
+            \Talea\Core\Outbound::pin($ch, $host, $port, $ip);
             curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $lines,
                 CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => min(5, $timeout), CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
                 CURLOPT_MAXFILESIZE => self::MAX_BYTES,
@@ -144,7 +144,7 @@ final class Http
             'follow_location' => 0, 'max_redirects' => 0, 'header' => implode("\r\n", [...$lines, 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '')]) . "\r\n", 'content' => $body],
             'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, self::MAX_BYTES);
         $status = 0;
-        foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
+        foreach (http_get_last_response_headers() ?? [] as $line) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                 $status = (int) $m[1];
             } elseif (stripos($line, self::HEADER . ':') === 0) {
@@ -174,10 +174,10 @@ final class Http
                 $parts = parse_url($url);
                 $target = $parts['scheme'] . '://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port . ($parts['path'] ?? '/');
                 @file_get_contents($target, false, stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0, 'max_redirects' => 0,
-                    'header' => 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '') . "\r\nUser-Agent: Kaleta-console/" . KALETA_VERSION . "\r\n"],
+                    'header' => 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '') . "\r\nUser-Agent: Talea-console/" . TALEA_VERSION . "\r\n"],
                     'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, 1024);
                 $status = 0;
-                foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
+                foreach (http_get_last_response_headers() ?? [] as $line) {
                     if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                         $status = (int) $m[1];
                     }
@@ -195,9 +195,9 @@ final class Http
             }
             [$host, $port, $ip, $target] = $pins[$i];
             $ch = curl_init($target); // the URL with the normalized host (3.3.3, N52)
-            \Kaleta\Core\Outbound::pin($ch, $host, $port, $ip);
+            \Talea\Core\Outbound::pin($ch, $host, $port, $ip);
             curl_setopt_array($ch, [CURLOPT_RANGE => '0-1023',
-                CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Kaleta-console/' . KALETA_VERSION,
+                CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Talea-console/' . TALEA_VERSION,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_WRITEFUNCTION => fn ($ch, string $chunk): int => 0]); // the status is enough: stop at the first byte of the body
             curl_multi_add_handle($multi, $ch);
             $handles[$i] = $ch;

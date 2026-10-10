@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Background jobs (2.8): one list of what the site does by itself, when each job runs, and what happened last time.
  *
  * Two triggers run the same list:
- *  - cron calling /tasks or the older /ulohy (every 5 minutes, the reliable way): every due job, with a larger time budget;
+ *  - cron calling /tasks (every 5 minutes, the reliable way): every due job, with a larger time budget;
  *  - a visit to the site (Notifications::runInBackground, at most once a minute, after the page is sent): only jobs marked
  *    "any", with a small budget, so a site without cron still publishes on time and sends its mail.
- * A job is due when INTERVAL seconds passed since it last ran. Its result goes to ka_jobs (last run, last success, the
+ * A job is due when INTERVAL seconds passed since it last ran. Its result goes to tl_jobs (last run, last success, the
  * error, failures in a row); after FAILURES_TO_ALERT failures in a row the event task.failed is recorded (Core\Events),
  * and task.recovered when it works again. One run at a time: a database lock, so cron and a visit never run jobs twice.
  */
@@ -33,9 +33,9 @@ final class Scheduler
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
-        'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
+        'experiments' => [3600, 'any', 'A/B tests: automatic promotion of a winner'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
         'triage' => [300, 'any', 'Sorting new enquiries with the writing assistant'],
         'connectors' => [0, 'any', 'Deliveries to connected services'],
@@ -48,7 +48,6 @@ final class Scheduler
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
-        'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
@@ -56,7 +55,11 @@ final class Scheduler
 
     public const int FAILURES_TO_ALERT = 3;
 
-    private const string LOCK = 'kaleta_scheduler';
+    /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
+    private static function lockName(Db $db): string
+    {
+        return substr('talea-sched-' . hash('sha256', $db->databaseName() . '|' . $db->prefix), 0, 64);
+    }
 
     /**
      * Every job with its implementation: it gets the app and the trigger (cron | visit) and returns a short result.
@@ -94,23 +97,18 @@ final class Scheduler
             'cleanup' => function (App $app, string $source): string {
                 Notifications::purgePersonalData($app, $source === 'cron'); // from cron on every run, on visits once a day
                 Events::prune($app->db());
-                Firewall::cleanUp($app->db());
+                Antispam::cleanUpCounters();
 
                 return 'ok';
             },
             'alerts' => fn (App $app): string => Alerts::run($app),
-            'domain_watch' => function (App $app): string {
-                $result = (new DomainWatch())->refresh($app);
-
-                return !empty($result['local']) ? 'local address, skipped' : 'checked';
-            },
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);
-                $clients = \Kaleta\Front\OAuth::purgeUnusedClients($app->db()); // registrations nobody approved within a day (3.3.4, N66)
 
-                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']) . ', unused app registrations removed ' . $clients;
+                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']);
             },
             'validity' => fn (App $app): string => Validity::run($app),
+            'experiments' => fn (App $app): string => \Talea\Builder\Experiments::autoPromote($app),
             'events' => fn (App $app): string => Calendar::run($app),
             'triage' => fn (App $app): string => Triage::run($app),
             'connectors' => fn (App $app): string => Connectors::processQueue($app),
@@ -119,15 +117,14 @@ final class Scheduler
             'gbp' => fn (App $app): string => GoogleBusiness::run($app),
             'notices' => fn (App $app): string => Notices::run($app),
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
-            'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
-            'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
+            'heartbeat' => fn (App $app): string => \Talea\Fleet\Link::send($app),
+            'fleet_uptime' => fn (App $app): string => \Talea\Fleet\Console::checkUptime($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
                 $scan = Privacy::scan($app);
 
                 return $scan['error'] !== '' ? $scan['error'] : 'pages ' . $scan['pages'] . ', cookies ' . count($scan['cookies']);
             },
-            'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
             'import_recheck' => function (App $app, string $source): string {
@@ -141,7 +138,7 @@ final class Scheduler
             $all[$name] = [$interval, $where, $label, $jobs[$name]];
         }
 
-        return $all + \Kaleta\Extension\Registry::get()->jobs(); // jobs of add-ons (3.0), ext_<slug>_<name>
+        return $all + \Talea\Extension\Registry::get()->jobs(); // jobs of add-ons (3.0), ext_<slug>_<name>
     }
 
     /**
@@ -152,10 +149,10 @@ final class Scheduler
      */
     public static function run(App $app, string $source, float $budget): array
     {
-        \Kaleta\Extension\Registry::boot($app);
+        \Talea\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
-        if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::LOCK, $source === 'cron' ? 20 : 0]) !== 1) {
+        if (!$db->lock(self::lockName($db), $source === 'cron' ? 20 : 0)) {
             return []; // another run is in progress
         }
         $end = microtime(true) + $budget;
@@ -179,7 +176,7 @@ final class Scheduler
                 $results[$name] = self::runOne($app, $name, $job, $source, (int) ($state[$name]['failures'] ?? 0));
             }
         } finally {
-            $db->value('SELECT RELEASE_LOCK(?)', [self::LOCK]);
+            $db->unlock(self::lockName($db));
         }
 
         return $results;
@@ -189,7 +186,7 @@ final class Scheduler
     public static function applies(string $name, Settings $s): bool
     {
         return match ($name) {
-            'heartbeat' => \Kaleta\Fleet\Link::isPaired($s),
+            'heartbeat' => \Talea\Fleet\Link::isPaired($s),
             'fleet_uptime' => Extensions::isEnabled($s, 'fleet'),
             default => true,
         };
@@ -209,9 +206,7 @@ final class Scheduler
         $now = date('Y-m-d H:i:s');
         try {
             $result = mb_substr((string) $job($app, $source), 0, 120);
-            $db->run('INSERT INTO {jobs} (name, last_run, last_ok, last_error, failures, runs, duration_ms) VALUES (?, ?, ?, \'\', 0, 1, ?)
-                ON DUPLICATE KEY UPDATE last_run = VALUES(last_run), last_ok = VALUES(last_ok), last_error = \'\', failures = 0, runs = runs + 1, duration_ms = VALUES(duration_ms)',
-                [$name, $now, $now, (int) ((microtime(true) - $start) * 1000)]);
+            $db->upsert('jobs', ['name' => $name, 'last_run' => $now, 'last_ok' => $now, 'last_error' => '', 'failures' => 0, 'runs' => 1, 'duration_ms' => (int) ((microtime(true) - $start) * 1000)], ['name'], ['last_run', 'last_ok', 'last_error', 'failures', 'runs' => '{old.runs} + 1', 'duration_ms']);
             if ($failures >= self::FAILURES_TO_ALERT) {
                 Events::record($db, 'task.recovered', 'info', t('The background job “%s” works again.', $name), ['job' => $name]);
             }
@@ -219,9 +214,7 @@ final class Scheduler
             return $result;
         } catch (\Throwable $e) {
             $error = mb_substr($e->getMessage(), 0, 255);
-            $db->run('INSERT INTO {jobs} (name, last_run, last_error, failures, runs, duration_ms) VALUES (?, ?, ?, 1, 1, ?)
-                ON DUPLICATE KEY UPDATE last_run = VALUES(last_run), last_error = VALUES(last_error), failures = failures + 1, runs = runs + 1, duration_ms = VALUES(duration_ms)',
-                [$name, $now, $error, (int) ((microtime(true) - $start) * 1000)]);
+            $db->upsert('jobs', ['name' => $name, 'last_run' => $now, 'last_error' => $error, 'failures' => 1, 'runs' => 1, 'duration_ms' => (int) ((microtime(true) - $start) * 1000)], ['name'], ['last_run', 'last_error', 'failures' => '{old.failures} + 1', 'runs' => '{old.runs} + 1', 'duration_ms']);
             if ($failures + 1 === self::FAILURES_TO_ALERT) {
                 Events::record($db, 'task.failed', 'error', t('The background job “%s” failed %d times in a row: %s', $name, self::FAILURES_TO_ALERT, $error), ['job' => $name]);
             }

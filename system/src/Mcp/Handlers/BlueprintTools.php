@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\Blueprint;
+use Talea\Core\Blueprint;
 
 /**
  * MCP tools for industry blueprints (2.11, Core\Blueprint): what the site's kind of business needs – the questions to
@@ -23,7 +23,7 @@ trait BlueprintTools
         }
         $db = $this->app->db();
 
-        return ['connectors' => \Kaleta\Core\Connectors::status($db), 'waiting_deliveries' => (int) $db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL'),
+        return ['connectors' => \Talea\Core\Connectors::status($db), 'waiting_deliveries' => (int) $db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL'),
             'note' => 'Connecting and credentials are only in Administration → Connections; Claude never sees or sets them.'];
     }
 
@@ -43,8 +43,8 @@ trait BlueprintTools
             'failing_checks' => array_map(fn (array $f): array => ['blueprint' => $f[0], 'message' => $f[1]], Blueprint::findings($this->app)),
             'instructions' => Blueprint::instructions($db),
             // 3.3: what a manifest of its own may contain (prompt draft_blueprint) – the groups, the fact types and the audit rules
-            'manifest_format' => ['groups' => array_keys(Blueprint::GROUPS), 'fact_types' => array_keys(\Kaleta\Core\Facts::TYPES),
-                'fact_schema' => array_values(array_filter(array_keys(\Kaleta\Core\Facts::SCHEMA_PROPS))), 'audit_rules' => Blueprint::RULES, 'audit_settings' => Blueprint::SETTINGS],
+            'manifest_format' => ['groups' => array_keys(Blueprint::GROUPS), 'fact_types' => array_keys(\Talea\Core\Facts::TYPES),
+                'fact_schema' => array_values(array_filter(array_keys(\Talea\Core\Facts::SCHEMA_PROPS))), 'audit_rules' => Blueprint::RULES, 'audit_settings' => Blueprint::SETTINGS],
             'next' => $applied === [] ? 'apply_blueprint {"key": "<available key>"} sets the site up for its kind of business (when the user wants it); when none fits, the prompt draft_blueprint makes one with the user.'
                 : 'Ask the user the unanswered questions and save each answer with save_fact (key = fact); then fix the failing checks.',
         ];

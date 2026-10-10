@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Admin\BuilderActions;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Builder\SiteParts as CastiWebu;
-use Kaleta\Builder\Publisher;
+use Talea\Admin\Module;
+use Talea\Admin\BuilderActions;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Builder\SiteParts as BuilderSiteParts;
+use Talea\Builder\Publisher;
 
 /**
  * Site parts in the builder: header, footer and the wrappers of the news item detail, the list and the 404 page. Without a
- * published build the layout draws the part; "Vrátit na šablonu" (Revert to layout) turns the build off (it stays in the versions).
+ * published build the layout draws the part; "Revert to layout" turns the build off (it stays in the versions).
  */
 final class SiteParts extends Module
 {
@@ -24,7 +24,7 @@ final class SiteParts extends Module
     public const string IDENT = 'parts';
     public const string NAME = 'Site parts';
     public const string GROUP = 'Appearance';
-    public const string ICON = 'casti';
+    public const string ICON = 'parts';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
@@ -33,18 +33,17 @@ final class SiteParts extends Module
         $languages = array_merge([''], Language::additional($siteSettings));
         $rows = [];
         $variants = [];
-        foreach ($this->db->all('SELECT typ, jazyk, varianta, nazev, stranky, pravidla, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny, zmeneno FROM {casti} ORDER BY nazev') as $r) {
-            if ($r['varianta'] === '') {
-                $rows[$r['typ'] . ':' . $r['jazyk']] = $r;
+        foreach ($this->db->all('SELECT type, language, variant, name, pages, build IS NOT NULL AS published, build_draft IS NOT NULL AND (build IS NULL OR build_draft <> build) AS changed, updated_at FROM {site_parts} ORDER BY name') as $r) {
+            if ($r['variant'] === '') {
+                $rows[$r['type'] . ':' . $r['language']] = $r;
             } else {
-                $variants[$r['typ'] . ':' . $r['jazyk']][] = $r;
+                $variants[$r['type'] . ':' . $r['language']][] = $r;
             }
         }
 
         return $this->view('list', 'Site parts', [
-            'types' => CastiWebu::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
-            'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
-            'collectionNames' => $this->db->pairs('SELECT seo_link, nazev FROM {kolekce}'),
+            'types' => BuilderSiteParts::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
+            'pageNames' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title'),
             'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }
@@ -53,8 +52,8 @@ final class SiteParts extends Module
     protected function actionBuilder(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
-        if ($type !== null && $variant === '' && CastiWebu::row($this->db, $type, $language) === null) {
-            $this->db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'stavba_koncept' => CastiWebu::initialDraft($this->db, $type, $language, $this->contentLanguage($language)), 'zmeneno' => date('Y-m-d H:i:s')]);
+        if ($type !== null && $variant === '' && BuilderSiteParts::row($this->db, $type, $language) === null) {
+            $this->db->insert('site_parts', ['type' => $type, 'language' => $language, 'build_draft' => BuilderSiteParts::initialDraft($this->db, $type, $language, $this->contentLanguage($language)), 'updated_at' => date('Y-m-d H:i:s')]);
         }
 
         return $this->openBuilder();
@@ -64,11 +63,11 @@ final class SiteParts extends Module
     protected function actionTemplate(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
-        $row = $this->request->isPost() && $type !== null ? CastiWebu::row($this->db, $type, $language, $variant) : null;
+        $row = $this->request->isPost() && $type !== null ? BuilderSiteParts::row($this->db, $type, $language, $variant) : null;
         if ($row !== null) {
-            Publisher::version($this->app, ['cast' => CastiWebu::versionKey($type, $language, $variant)], $row['stavba'], null, $row['zmeneno']);
-            $this->db->delete('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
-            \Kaleta\Front\Cache::clear();
+            Publisher::version($this->app, ['part' => BuilderSiteParts::versionKey($type, $language, $variant)], $row['build'], null, $row['updated_at']);
+            $this->db->delete('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant]);
+            \Talea\Front\Cache::clear();
         }
 
         return $this->back($variant !== '' ? 'The variant was deleted – the selected pages have the default version again.' : 'The site part is back to its default design. The previous design is in the history when you open it in the builder again.');
@@ -83,9 +82,9 @@ final class SiteParts extends Module
             return $this->error('The site part does not exist.', 404);
         }
 
-        return $this->view('templates', t('Templates: %s', t(CastiWebu::TYPES[$type][0])), [
+        return $this->view('templates', t('Templates: %s', t(BuilderSiteParts::TYPES[$type][0])), [
             'type' => $type, 'language' => $language, 'variant' => $variant,
-            'templates' => \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($this->app->settings())),
+            'templates' => \Talea\Builder\PartTemplates::forType($type, \Talea\Core\Extensions::enabled($this->app->settings())),
         ]);
     }
 
@@ -94,31 +93,26 @@ final class SiteParts extends Module
     {
         [$type, $language, $variant] = $this->readPartParams();
         if (!$this->request->isPost() || $type === null
-            || !CastiWebu::applyTemplate($this->db, $type, $language, $variant, $this->request->post('sablona'), $this->contentLanguage($language), \Kaleta\Core\Extensions::enabled($this->app->settings()))) {
-            return $this->back('The template could not be used.', '', [], 'chyba');
+            || !BuilderSiteParts::applyTemplate($this->db, $type, $language, $variant, $this->request->post('template'), $this->contentLanguage($language), \Talea\Core\Extensions::enabled($this->app->settings()))) {
+            return $this->back('The template could not be used.', '', [], 'error');
         }
         $this->app->session->flash('ok', 'The template is in the draft – adjust it and publish; until then visitors see the published version.');
 
-        return Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language] + ($variant !== '' ? ['varianta' => $variant] : [])));
+        return Response::redirect($this->url('builder', ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : [])));
     }
 
     protected function actionVariant(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
-        if ($type === null || !in_array($type, CastiWebu::WITH_VARIANTS, true)) {
+        if ($type === null || !in_array($type, BuilderSiteParts::WITH_VARIANTS, true)) {
             return $this->error('Only the header and footer can have variants.', 404);
         }
-        $row = $variant !== '' ? CastiWebu::row($this->db, $type, $language, $variant) : null;
+        $row = $variant !== '' ? BuilderSiteParts::row($this->db, $type, $language, $variant) : null;
 
-        return $this->view('variant', t('Variant: %s', t(CastiWebu::TYPES[$type][0])), [
-            'type' => $type, 'language' => $language, 'variant' => $row['varianta'] ?? '', 'name' => $row['nazev'] ?? '',
-            'selected' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
-            'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
-            // 3.6: kinds of content the variant takes besides the pages
-            'rules' => CastiWebu::sanitizeRules(json_decode((string) ($row['pravidla'] ?? ''), true)),
-            'collections' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
-            'parents' => $this->db->all('SELECT DISTINCT p.ids, p.titulek FROM {stranky} p JOIN {stranky} c ON c.nadrazena = p.ids AND c.smazano IS NULL WHERE p.jazyk = ? AND p.smazano IS NULL ORDER BY p.titulek', [$language]),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky'),
+        return $this->view('variant', t('Variant: %s', t(BuilderSiteParts::TYPES[$type][0])), [
+            'type' => $type, 'language' => $language, 'variant' => $row['variant'] ?? '', 'name' => $row['name'] ?? '',
+            'selected' => array_map('intval', json_decode((string) ($row['pages'] ?? '[]'), true) ?: []),
+            'pages' => $this->db->all('SELECT page_id, public_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]),
         ]);
     }
 
@@ -126,73 +120,71 @@ final class SiteParts extends Module
     protected function actionSaveVariant(): Response
     {
         [$type, $language] = $this->readPartParams();
-        if (!$this->request->isPost() || $type === null || !in_array($type, CastiWebu::WITH_VARIANTS, true)) {
+        if (!$this->request->isPost() || $type === null || !in_array($type, BuilderSiteParts::WITH_VARIANTS, true)) {
             return $this->back();
         }
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        $name = mb_substr(trim($this->request->post('name')), 0, 100);
         if ($name === '') {
-            return $this->back('The variant needs a name.', 'variant', ['typ' => $type, 'jazyk' => $language], 'chyba');
+            return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'error');
         }
-        $rules = ['novinky' => $this->request->post('novinky') === '1', 'vypis' => $this->request->post('vypis') === '1', 'kolekce' => $this->request->postList('kolekce'),
-            'nadrazene' => array_map('intval', $this->request->postList('nadrazene'))];
-        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language), $rules);
-        \Kaleta\Front\Cache::clear();
+        $variant = BuilderSiteParts::saveVariant($this->db, $type, $language, $this->request->post('variant'), $name, array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('pages', $uuid), $this->request->postList('pages')))), $this->contentLanguage($language));
+        \Talea\Front\Cache::clear();
 
-        return \Kaleta\Core\Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]));
+        return \Talea\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));
     }
 
     protected function loadBuildTarget(): ?array
     {
         [$type, $language, $variant] = $this->readPartParams();
-        $row = $type === null ? null : CastiWebu::row($this->db, $type, $language, $variant);
+        $row = $type === null ? null : BuilderSiteParts::row($this->db, $type, $language, $variant);
 
         return $row === null ? null : [
-            'radek' => $row, 'stavba' => $row['stavba'], 'koncept' => $row['stavba_koncept'], 'jazyk' => $this->contentLanguage($language),
-            'titulek' => t(CastiWebu::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['nazev'] : ''),
-            'revize' => ['cast' => CastiWebu::versionKey($type, $language, $variant)], 'parametry' => ['typ' => $type, 'jazyk' => $language] + ($variant !== '' ? ['varianta' => $variant] : []),
+            'row' => $row, 'build' => $row['build'], 'draft' => $row['build_draft'], 'language' => $this->contentLanguage($language),
+            'title' => t(BuilderSiteParts::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['name'] : ''),
+            'revisions' => ['part' => BuilderSiteParts::versionKey($type, $language, $variant)], 'params' => ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []),
         ];
     }
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('casti', ['stavba_koncept' => $draft], ['typ' => $target['radek']['typ'], 'jazyk' => $target['radek']['jazyk'], 'varianta' => $target['radek']['varianta']]);
+        $this->db->update('site_parts', ['build_draft' => $draft], ['type' => $target['row']['type'], 'language' => $target['row']['language'], 'variant' => $target['row']['variant']]);
     }
 
     protected function publishTarget(array $target): void
     {
-        Publisher::part($this->app, $target['radek']);
+        Publisher::part($this->app, $target['row']);
     }
 
     protected function describeTarget(array $target): array
     {
-        $type = $target['radek']['typ'];
-        $language = $target['radek']['jazyk'];
+        $type = $target['row']['type'];
+        $language = $target['row']['language'];
         // preview: a page on which the part appears (the news item wrapper on the newest news item, 404 on a non-existent URL)
         // a variant is shown on the first page it applies to
-        $page = $target['radek']['varianta'] !== '' ? (json_decode((string) $target['radek']['stranky'], true) ?: [])[0] ?? null : null;
-        $path = $page !== null ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [(int) $page]) : match ($type) {
-            'novinka' => ($seo = $this->db->value('SELECT seo_link FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum <= NOW() AND jazyk = ? ORDER BY datum DESC LIMIT 1', [$language])) !== null ? 'novinky/' . $seo : 'novinky',
-            'vypis' => 'novinky',
-            'nenalezeno' => 'tahle-stranka-neexistuje',
+        $page = $target['row']['variant'] !== '' ? (json_decode((string) $target['row']['pages'], true) ?: [])[0] ?? null : null;
+        $path = $page !== null ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [(int) $page]) : match ($type) {
+            'news_item' => ($seo = $this->db->value('SELECT slug FROM {news} WHERE visible = TRUE AND deleted_at IS NULL AND published_at <= NOW() AND language = ? ORDER BY published_at DESC LIMIT 1', [$language])) !== null ? 'news/' . $seo : 'news',
+            'list' => 'news',
+            'not_found' => 'this-page-does-not-exist',
             default => '',
         };
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $path);
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?cast=' . $type . '&stavba=koncept&editor=1' . ($target['radek']['varianta'] !== '' ? '&varianta=' . rawurlencode($target['radek']['varianta']) : ''),
-            'zobrazena' => true, 'casti' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['varianta'] !== '' ? ':' . $target['radek']['varianta'] : ''),
+            'url' => $url, 'preview' => $url . '?part=' . $type . '&build=draft&editor=1' . ($target['row']['variant'] !== '' ? '&variant=' . rawurlencode($target['row']['variant']) : ''),
+            'visible' => true, 'parts' => true,
+            'back' => ['url' => $this->url(), 'text' => t('Site parts')], 'settings' => null, 'signature' => 'part:' . $type . ':' . $language . ($target['row']['variant'] !== '' ? ':' . $target['row']['variant'] : ''),
         ];
     }
 
     /** @return array{0: ?string, 1: string, 2: string} type, language and variant of the part from the request URL */
     private function readPartParams(): array
     {
-        $type = $this->request->get('typ');
-        $language = $this->request->get('jazyk');
-        $variant = $this->request->get('varianta');
+        $type = $this->request->get('type');
+        $language = $this->request->get('language');
+        $variant = $this->request->get('variant');
 
-        return [isset(CastiWebu::TYPES[$type]) ? $type : null, in_array($language, Language::additional($this->app->settings()), true) ? $language : '',
-            in_array($type, CastiWebu::WITH_VARIANTS, true) && preg_match(CastiWebu::VARIANT_PATTERN, $variant) ? $variant : ''];
+        return [isset(BuilderSiteParts::TYPES[$type]) ? $type : null, in_array($language, Language::additional($this->app->settings()), true) ? $language : '',
+            in_array($type, BuilderSiteParts::WITH_VARIANTS, true) && preg_match(BuilderSiteParts::VARIANT_PATTERN, $variant) ? $variant : ''];
     }
 }

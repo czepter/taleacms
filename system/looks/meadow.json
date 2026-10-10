@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "meadow",
+    "name": "Meadow",
+    "description": "Calm and natural: sage green, a soft serif and rounded corners. For wellness, care and food.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#3f6b4f",
+            "secondary": "#8a5a2b",
+            "text": "#1f2a24",
+            "background": "#fbfcf8",
+            "surface": "#eef3e8"
+        },
+        "colors_dark": {
+            "text": "#e6eee8",
+            "background": "#111713",
+            "surface": "#1a221d",
+            "primary": "#8fd0a4",
+            "secondary": "#e0b27a"
+        },
+        "font_heading": "lib:lora",
+        "font_body": "lib:nunito-sans",
+        "radius": "l",
+        "ratio_min": 1.2,
+        "ratio_max": 1.25,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 70,
+        "text_width": 44
+    },
+    "header": "centered",
+    "footer": "columns",
+    "sections": [
+        "hero-image",
+        "benefits-list",
+        "services",
+        "reviews",
+        "faq",
+        "contact-form"
+    ]
+}

@@ -1,18 +1,18 @@
-# Contributing to Kaleta
+# Contributing to Talea
 
-Thank you for helping. Kaleta is a small project, so a short, focused change with a test is the easiest to accept.
+Thank you for helping. Talea is a small project, so a short, focused change with a test is the easiest to accept.
 
 ## Before you start
 
-- **Bugs:** open an [issue](https://github.com/phprs-cms/kaletacms/issues) with the Kaleta version (Admin → Updates), what
+- **Bugs:** open an issue in the project's GitHub repository with the Talea version (Admin → Updates), what
   you did, what you expected and what happened. Screenshots and the PHP error log help.
 - **Security problems:** do not open a public issue – follow [SECURITY.md](SECURITY.md).
-- **New features:** open an issue first and describe the use case. Kaleta has no third-party plugins by design; features
+- **New features:** open an issue first and describe the use case. Talea has no third-party plugins by design; features
   ship as built-in extensions that are tested together, so not every idea fits.
 
 ## Setting up
 
-You need PHP 8.3+ and MySQL 8 or MariaDB 10.6+.
+You need PHP 8.5+ and MySQL 8 or MariaDB 10.6+.
 
 ```bash
 php -S localhost:8080 system/dev-router.php
@@ -25,50 +25,33 @@ Open `http://localhost:8080/install.php` and install into an empty database.
 Every pull request must pass:
 
 ```bash
-php tools/unit-tests.php          # unit tests, no database
-tools/test.sh                # clean install and a walk through site, admin, builder and MCP (needs MySQL;
-                             # the database kaleta_test is dropped and created again)
-tools/test-english.sh        # the English installer, site and admin must contain no Czech
-tools/test-migrations.sh        # database upgrade from 1.0.0
+composer install                                # PHPUnit and Phinx (vendor/)
+vendor/bin/phpunit                              # all suites: unit, integration, legacy
+vendor/bin/phpunit --testsuite unit             # no database, milliseconds
+vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -f docker-compose-dev.yaml up -d db-test
+vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP (admin, builder, MCP, forms, jobs …), one class per
+                                                # site, in parallel; needs the db-test service
+vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and admin must contain no Czech (site tests, tools/check-english.php)
 ```
 
-Add a test for what you change – a unit test in `tools/unit-tests.php`, or a check in `tools/test.sh` for anything that needs
-a running site.
-
-## Writing tests that pass in CI
-
-CI runs the suites on a fresh runner: the MySQL service in UTC, PHP and the shell in Europe/Prague (a zone with summer time),
-two PHP versions side by side. A test that only passes on your machine turns `main` red for everyone, so:
-
-- **No `curl … | grep -q`.** The scripts run with `set -euo pipefail`; `grep -q` stops reading at the first match, `curl`
-  dies of SIGPIPE and the check fails at random. Pipe into `contains` (defined in `tools/test.sh`, it reads all the input),
-  or save the response with `curl -o "$WORK/response"` and grep the file. The same goes for `mcp …` and `sq …`.
-- **No MySQL `NOW()`, `CURDATE()` or `UTC_TIMESTAMP()` in seeded data or comparisons.** The site writes times with PHP's
-  `date()` in its own time zone; the database's clock is UTC on CI. Use `site_time` (`'$(site_time)'`,
-  `'$(site_time '-1 hour')'`, `$(site_time tomorrow Y-m-d)`) – `INTERVAL` arithmetic on it is fine. The scripts force their
-  own MySQL sessions to UTC, so this mistake fails locally too.
-- **Background jobs run after a visit.** After any public request (also `/tasks` or the older `/ulohy`) the site runs the due jobs once a minute.
-  When a check counts what a queue delivered, mark that trigger as just run first (`notification_check`, see `tools/test.sh`).
-- **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+17`; run parallel suites with their own
-  `PORT` and `DB_NAME` (for example `DB_NAME=mine_op PORT=9850 tools/test.sh`). Kill only the `php -S` you started.
-- **Never stop or restart MySQL** from a test or while suites run – other suites share it.
-- **No real-looking secrets.** Gitleaks scans the whole history: generate passwords and tokens at run time, or allow-list a
-  made-up value in `.gitleaks.toml`.
-- **Run PHPStan before you push** if you can (`phpstan analyse -c phpstan.neon.dist`); CI runs it on every change.
+Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Talea\Tests\Support\DatabaseTestCase`: a
+throw-away database built by the real migrations, every test in a rolled-back transaction; skipped when no MySQL is reachable). The older
+`tools/unit-tests.php` (about 930 checks) runs as the `legacy` suite; move checks out of it when you touch the code they cover. Use a
+test in `tests/Site` for anything that needs a running site (see `tests/Site/README.md`).
 
 ## Code
 
-- PHP 8.3 (the oldest supported; PHPStan checks it, CI runs it) with `declare(strict_types=1)`, namespace `Kaleta\`. Match the surrounding code: identifiers and comments are
+- PHP 8.5 with `declare(strict_types=1)`, namespace `Talea\`. Match the surrounding code: identifiers and comments are
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.
-- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/find-czech.php`
+- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/check-english.php`
   checks that no Czech leaks into the English interface.
 - Architecture notes for contributors (in Czech) are in [CLAUDE.md](CLAUDE.md).
 
 ## Translations
 
-Visitor texts live in `system/jazyky/<code>.php` (for example `de.php`), the English admin in `system/jazyky/admin-en.php`.
+Visitor texts live in `system/languages/<code>.php` (for example `de.php`), the English admin in `system/languages/admin-en.php`.
 A new language is one dictionary file keyed by the Czech source text; `tools/add-translations.py` adds entries. Languages without
 a dictionary fall back to English with dates in their own format.
 

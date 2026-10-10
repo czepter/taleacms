@@ -1,0 +1,31 @@
+{
+    "name": "EB Garamond",
+    "category": "serif",
+    "weights": [
+        400,
+        500,
+        600,
+        700,
+        800
+    ],
+    "italic": true,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "eb-garamond.woff2",
+            "weight": "400 800",
+            "style": "normal"
+        },
+        {
+            "file": "eb-garamond-italic.woff2",
+            "weight": "400 800",
+            "style": "italic"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/ebgaramond",
+    "licence": "OFL-1.1"
+}

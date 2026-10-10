@@ -1,4 +1,6 @@
-# Kaleta roadmap
+> Kaleta history: this roadmap was written for Kaleta, the project Talea was forked from. It is kept for reference and is not a plan for Talea.
+
+# Talea roadmap
 
 What is planned next. Dates are not promised; releases ship when they are tested.
 
@@ -57,7 +59,7 @@ Two steps: the first in 1.3, the second in 1.5.
 
 1. **Subscribers sent to the mailing service the site already uses**. After the double opt-in the address goes to
    Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing (API key and list in the admin), or to any service through the
-   existing webhook (Make, Zapier). Unsubscribing in Kaleta removes the address there too. Deliverability, bounces and
+   existing webhook (Make, Zapier). Unsubscribing in Talea removes the address there too. Deliverability, bounces and
    spam rules stay with the specialist service.
 2. **1.5 – a minimal built-in mailing for small lists** – “send the latest news to subscribers”, see 1.5 below.
 
@@ -69,12 +71,12 @@ what stays are in [docs/glossary.md](glossary.md).
 
 Done in 1.4.0:
 
-1. Preparation: the glossary, `tools/rename.php` (renames by PHP tokens, refuses name collisions), old class names as
-   aliases, `tools/test-update.sh` (every change is tested as an update from the previous release) and a browser test.
+1. Preparation: the glossary, a rename tool (by PHP tokens, refusing name collisions), old class names as
+   aliases, an update test (dropped in the hard fork) and a browser test.
 2. Tools and tests.
-3. PHP classes, functions, constants and variables (`Kaleta\Builder`, `Admin\Modules`…); release packages carry the
+3. PHP classes, functions, constants and variables (`Talea\Builder`, `Admin\Modules`…); release packages carry the
    previous release's class files for the update request.
-4. Admin and installer templates, admin and site scripts (`tools/rename-js.mjs`).
+4. Admin and installer templates, admin and site scripts.
 5. Admin URLs `admin.php?module=pages&action=edit`, old URLs redirected, permissions migrated.
 
 Done in 1.4.1:
@@ -107,7 +109,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
   the company footer. One fixed renderer writes table-based HTML with inline styles and a plain-text part.
 - Preview, test e-mail to yourself, send now or scheduled. Sending in batches through the mail queue, only through an
   SMTP relay set in Settings (Brevo, Amazon SES, Mailgun…); without a relay the feature stays off.
-- Background jobs run on visits, so a low-traffic site would stall a send: sending is refused unless the cron (`/ulohy`)
+- Background jobs run on visits, so a low-traffic site would stall a send: sending is refused unless the cron (`/tasks`)
   ran recently, and Health shows its last run.
 - One-click unsubscribe (`List-Unsubscribe`, RFC 8058), no open tracking; a send log with the date and the count only.
 - Claude: `draft_newsletter` and `send_test_newsletter`; the real send only on an explicit request and with the publish
@@ -127,7 +129,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 5. **English build vocabulary over MCP:** build JSON keys and element types are English at the MCP boundary (`type`,
    `content`, `style`, `children`, `form`…). Input accepts both the English and the Czech form, output is English.
    Stored builds do not change.
-6. **Parity guard:** `tools/test.sh` drives MCP by the English names, and a unit test fails when an admin write action
+6. **Parity guard:** the PHPUnit site tests drive MCP by the English names, and a unit test fails when an admin write action
    has neither an MCP tool nor an explicit “admin only” entry (users, roles, keys, updates and backups stay admin only).
 7. **Themeless:** custom PHP layouts are removed – no site uses one. Front templates are no longer overridable, the
    layout choice and `site_info.sablona` go away. Health warns about a custom layout folder that is still there.
@@ -145,7 +147,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 
 ## 1.8 – own and move your site (released 28 September 2026)
 
-1. **Import of a Kaleta export:** “Start from an export” in the installer and Transfer → Import on an empty site; builds
+1. **Import of a Talea export:** “Start from an export” in the installer and Transfer → Import on an empty site; builds
    go through the same sanitising as any build, users and secrets are never carried. It serves host moves and agency
    starter kits at once.
 2. **Backups include media:** an incremental media copy to the same FTPS or S3 target, a daily database backup when
@@ -177,8 +179,8 @@ Not new features – everything that exists is one English, builder-based system
 
 ## Direction after 2.0
 
-Decided on 29 September 2026 after an evaluation of the product and the market: Kaleta does what it set out to do, but
-nobody outside kaletacms.com uses it yet, and an MCP server alone no longer sets a CMS apart. The next releases earn trust
+Decided on 29 September 2026 after an evaluation of the product and the market: Talea does what it set out to do, but
+nobody outside taleacms.com uses it yet, and an MCP server alone no longer sets a CMS apart. The next releases earn trust
 first, then make "Claude runs your site, safely" the product, then prove business value, then serve agencies. About one
 minor release a month; the [release policy](RELEASE-POLICY.md) says what stays compatible.
 
@@ -188,11 +190,11 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
    any version, at least two minor releases and six months between deprecation and removal, removals only in a major.
 2. **Recorded public contracts** (`tools/contracts`): MCP tools and parameters, design tokens and builder elements; the
    tests fail when any of them is removed or changed.
-3. **English design token names** (`--ka-color-primary`, `--ka-space-m`…) next to the stored ones.
+3. **English design token names** (`--tl-color-primary`, `--tl-space-m`…) next to the stored ones.
 4. **Output budget in CI** (`tools/test-lighthouse.sh`): every starter site scores 99–100 in Lighthouse. Pages without
    their own description get one from their first longer paragraph; lazy images use `sizes="auto"`.
 5. **MCP layer rebuilt** on one catalog (`Mcp\Catalog`) with one method per tool; PHPStan in CI.
-6. **Docker image** (`ghcr.io/phprs-cms/kaleta`) and `compose.yaml`.
+6. **Docker image** (`ghcr.io/phprs-cms/talea`) and `compose.yaml`.
 7. The daily check of the update channel and the project website runs again; documentation caught up.
 
 ## 2.2 – Claude, in charge and safe (released 29 September 2026)
@@ -230,7 +232,7 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
    on the sign-in screen and at the foot of the admin, and a **Before handing over** check in the site audit (also for
    Claude: `site_audit`, `kind: handover`).
 3. **A guide link on every screen:** each part of the admin and the builder opens its article in the guide on
-   kaletacms.com, in the admin language.
+   taleacms.com, in the admin language.
 4. Moved to Later: visitor dictionaries keyed by English text – an internal change with no visible effect, better done
    on its own than next to a new admin language.
 - 2.4.1: the guide gains Media, Statistics, Privacy and cookies, and Sending e-mail, and those screens link to them;
@@ -238,10 +240,10 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 
 ## 2.5 – easy to start (released 29 September 2026)
 
-Kaleta does what it set out to do, but few people have tried it. 2.5 makes the first install short wherever it happens.
+Talea does what it set out to do, but few people have tried it. 2.5 makes the first install short wherever it happens.
 
 1. **The installer in German**, next to English and Czech.
-2. **No database typing on platforms:** Docker, Coolify and similar platforms set the database (`KALETA_DB_*`); the
+2. **No database typing on platforms:** Docker, Coolify and similar platforms set the database (`TALEA_DB_*`); the
    installer asks only for the site and the administrator.
 3. **Installation without the browser:** `php install.php` for scripts;
    the container installs itself on the first start when the address and the administrator's password are set.
@@ -252,7 +254,7 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 
 1. **Import from any site by its address:** the pages of a site on any platform (Wix, Webnode, Jimdo, Squarespace, Joomla,
    Drupal, WordPress without an export…) become builder pages with their images, and the old addresses redirect.
-2. **A public demo** of the admin at demo.kaletacms.com, reset every hour.
+2. **A public demo** of the admin at demo.taleacms.com, reset every hour.
 3. **Google Tag Manager** in one field, with Consent Mode and ready-made conversion events for campaigns.
 4. **An optional CAPTCHA** for forms: hCaptcha, Google reCAPTCHA v3 or Cloudflare Turnstile, on top of the built-in
    protection.
@@ -262,7 +264,7 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 ## Direction after 2.6
 
 Decided on 2 October 2026: the owner approved 102 items of a feature map – what business sites use on other platforms and
-what Kaleta could become. They are ordered so that each release stands on the ones before: first moving sites (2.7),
+what Talea could become. They are ordered so that each release stands on the ones before: first moving sites (2.7),
 then a site that runs itself (2.8), many sites as one (2.9), the business as data (2.10), content types that keep
 themselves current (2.11), leads and forms (2.12), Google and CRM connections (2.13), upkeep and EU duties (2.14), Claude as
 the site's operator (2.15), shared design and blocks across sites (2.16), and in 3.0 an extension API, appointment
@@ -298,7 +300,7 @@ booking and structured importers.
 ## 2.9 – many sites as one (released 2 October 2026)
 
 1. **Site keys:** every site has its own Ed25519 key pair, like the publisher's update signatures.
-2. **Fleet console:** a Kaleta install with the extension "fleet" shows every paired site on one screen, the ones that
+2. **Fleet console:** a Talea install with the extension "fleet" shows every paired site on one screen, the ones that
    need attention first, with a signed hourly report from each site and its own uptime check every 5 minutes.
 3. **Staged updates:** test sites first, the rest after 48 hours without problems; security releases at once.
 4. **The console cannot get into the sites** (decided on 2 October 2026): sites always call the console, never the other
@@ -379,9 +381,7 @@ booking and structured importers.
 3. **EU duties as templates:** a cookie scanner with a `{{cookie_table}}`, anonymising enquiries instead of deleting
    them, a record of processing, an accessibility statement from the audit and an accessibility toolbar for visitors.
 4. **Personal data requests:** find, export or erase everything about one e-mail address.
-5. **Whistleblowing channel:** encrypted reports with a case number and a code, follow-up, appointed readers and the
-   legal deadlines – never over MCP.
-6. **Password-protected pages** – never cached, indexed or searchable.
+5. **Password-protected pages** – never cached, indexed or searchable.
 
 ## 2.15 – Claude as the site's operator (released 3 October 2026)
 
@@ -427,7 +427,7 @@ booking and structured importers.
 3. 3.1.1 (after a UI/UX and a product review): the requests and scheduled-run prompts match what a drafts-only connection
    may call – what it may not save goes into the note as a proposal, checked by a test; Ask Claude knows whether Claude is
    connected and stays out of the demo, "Connect Claude" is the first step; the Client and Enquiries only presets can ask
-   Claude; Whistleblowing only for its readers; confirmations name the action and are red when dangerous; own icons for
+   Claude; confirmations name the action and are red when dangerous; own icons for
    seven sections; the sidebar keeps the current section in view; a skip link; the Scheduled runs page no longer
    overflows; German dates, "Fakta", "Menü"; Czech texts left in the English admin translated.
 
@@ -445,7 +445,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 3. **Waiting for you** on the dashboard: everything that waits for a person – drafts of pages and site parts, news drafts,
    hidden items, proposed hours, finished requests, comments on drafts, the draft look. `list_pending_review` and the
    prompt `review_pending` for Claude.
-4. **Bookings and Whistleblowing are features**, off on new installs and kept on where they are used; Statistics has one
+4. **Bookings is a feature**, off on new installs and kept on where they are used; Statistics has one
    switch (the feature).
 5. **Clearer names:** Ask Claude, Integrations (with cards for webhooks, the mailing service and analytics), Features,
    Blueprints, Writing assistant (your own key); "Claude never runs on the site". Calmer Integrations and Import and
@@ -477,7 +477,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 6. 3.3.2 (security, after the audit of 6 October 2026): imported content and the sanitizers never turn attribute text into
    markup and imported pages never become Custom HTML; user attributes cannot take over the site's script hooks; a fact
    used as a link is checked as a link; add-on tokens are filled only in authored content; gtm_id and Matomo are no
-   longer settable over MCP; whistleblowing reports are rate-limited and erased personal data leaves the undo journal;
+   longer settable over MCP; erased personal data leaves the undo journal;
    smaller hardening of guardrails, page passwords, extensions/, the fleet, add-on tools, updates and admin tokens.
 7. 3.3.3 (security, after the audit of 7 October 2026): facts in link attributes are filled tag by tag and a text fact
    cannot start with a script scheme; one shared check pins every outgoing request to a public address (encoded and IDN
@@ -485,105 +485,6 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    one answer for locked, blocked and wrong, counts behind the proxy and per IPv6 /64, and sessions end after 8 hours idle
    or 24 hours; e-mail and passkey changes need the password; no third-party CAPTCHA on the reporting channel, reports in
    a flood are accepted and flagged; the right page password always opens the page.
-8. 3.3.4 (security, after the audit of 8 October 2026): the Claude sign-in (OAuth) approves only the request the person
-   saw; the consent screen leads with where the app returns, warns for hosts that are not Claude's, marks apps never
-   approved and pre-selects drafts only for foreign hosts; an optional setting allows only Claude's own apps; a code or a
-   refresh token is redeemed once (a 30-second retry of the same refresh gets the same pair, a later reuse revokes the
-   app); unused registrations are removed after a day. Existing connections keep working.
-
-## 3.4 – contributions from the community (released 8 October 2026)
-
-The first release with pull requests from an outside contributor, Christian (czepter), each reviewed, tested and completed:
-
-1. **Configurable news address** (#11): `/blog`, `/aktuality` or any slug instead of /novinky or /news, with 301s from the
-   old addresses and from earlier slugs, redirects that keep working under the slug, and the system addresses reserved.
-2. **Preferred URL form** (#19): without a trailing slash, with one, or .html – the other forms redirect; Claude's
-   connection, OAuth discovery, the cron and links in e-mails are never redirected.
-3. **German informal address** (#21): du alongside Sie, chosen separately for the admin and for the website.
-4. **Tentative bookings** (#22): a service can require the provider's confirmation – accept, decline with a message or
-   propose other times; the slot is held meanwhile.
-5. **Claude in English** (#13): MCP results, summaries, server and OAuth errors are English on every site.
-
-Fix:
-
-6. 3.4.1: the builder's Add panel inserts elements again, by click and by drag (broken since 1.4.0: a new element was
-   built under keys the builder does not read); moving an element into another section works again too.
-7. 3.4.2 (security, after the audit of the 3.4 contributions on 8 October 2026): the preferred URL form (#19) could be
-   used as an open redirect (a request for //host/… was sent to another site); the booking tools that e-mail the customer
-   (confirm_booking, propose_booking_times) stop at the "no deleting" guardrail for Claude; choosing a proposed time twice
-   no longer sends a second confirmation.
-
-## 3.5 – the first hour (released 8 October 2026)
-
-The first release of the 30-day plan: what a new owner meets in the first hour, from the UX review of 8 October 2026.
-
-1. **No empty live pages:** a new page with nothing to show (from a template, or over MCP) stays hidden and out of the
-   navigation until its first content is published, then goes on the site as chosen; a publish date wins.
-2. **Connect Claude first:** until Claude has connected, the dashboard leads with the address (with a Copy button), three
-   steps and a warning when the site is not on HTTPS; the address has a Copy button wherever it is shown.
-3. **Bookings set-up:** a three-step card (person, service, a Book page), Mon–Fri 9–17 for a new person on a site without
-   opening hours, and a warning when visitors would find no free time in the next 14 days. **Hours per service** for one
-   person (#24, Christian).
-4. **Site appearance:** the preview shows the saved draft look; look changes read "Modern sans-serif → Rounded", with
-   colour swatches.
-5. **English everywhere it should be:** about fifteen Czech leftovers in English installs fixed (home page address,
-   examples, a mail error, the news address), no country claimed unless set, and a check for Czech text in PHP sources.
-6. **Cookie bar:** compact on phones (147 instead of 340 px), reached right after the skip link, never hides the
-   keyboard focus; the categories really stay behind Settings; a descriptive link text.
-7. **Accessibility and speed:** the accessibility toolbar opens above its button, valid Countdown and footer markup,
-   SVG logos with a size, the first image of a page loads first; axe runs in the browser test.
-8. **Navigation:** "Also on tablets" puts a long menu behind the button up to 1023 px.
-9. **Tests and CI:** the site's clock instead of the database clock, pinned scanner images, no more flaky pipes or
-   leftover servers; "Writing tests that pass in CI" in CONTRIBUTING.
-
-## 3.6 – migration I (released 8 October 2026)
-
-The second release of the 30-day plan: what moving the owner's WordPress sites needs first.
-
-1. **WordPress import over MCP** (`import_wordpress`): Claude imports a WordPress export (uploaded privately, from an
-   address, or from storage/import) in resumable batches; everything arrives hidden; WordPress **menus** come into the
-   draft look with links to the new addresses; authors map to users with the same e-mail; pages laid out with
-   Breakdance, Elementor, Oxygen or Divi are reported. The admin import and MCP share one code path, and the admin can
-   import everything hidden. Redirects never take over an address the site already uses.
-2. **Redirects for migrations:** prefix and wildcard rules (`/blog/*` → `/news/*`), **410 Gone**, a CSV import with a
-   preview (up to 5,000 rows, Excel and the WordPress Redirection plugin), and `save_redirects` for up to 500 rows a call.
-3. **Header and footer variants by rule:** for news items, the news list, items of chosen collections and pages under a
-   parent – not only for listed pages.
-4. **Dark mode you can read:** primary and secondary colours of their own in dark mode, computed for contrast and
-   adjustable; the readability check covers links on surfaces and the focus ring.
-5. **Menus for touch and keyboard:** submenus are real disclosures (tap on tablets, Enter/Space/Esc), the phone menu is an
-   accordion.
-6. **Builder pack:** a one-line bar for unpublished look changes and "Save and publish menu", a heading level control and
-   no second H1 from ready-made sections, a compact top bar, an image field with a thumbnail, and the inspector follows
-   typing on the canvas.
-7. "Support Kaleta" in the admin footer leads to kaletacms.com/why-free.
-
-Fix:
-
-8. 3.6.1 (security, after the audit of 9 October 2026): the SVG upload cleaner checks every attribute – two attributes
-   sharing a local name (`onload` and `x:onload`, `href` and `xlink:href`) let the second one through unchecked.
-
-## 3.7 – migration II (released 9 October 2026)
-
-The third release of the 30-day plan: what the owner's first five sites need before they move from WordPress.
-
-1. **PHP 8.3:** the minimum drops from 8.4 to 8.3 (`KALETA_MIN_PHP`). On 8.3 Kaleta loads its own HTML5 parser,
-   serializer and selector engine (`system/compat`, `Kaleta\Compat`) behind the PHP 8.4 `Dom\` API; 8.4 and newer use
-   PHP's own. Release manifests carry `min_php`, and a site is never offered a release its server cannot run.
-2. **Many items at once:** CSV/JSON item import with a preview (up to 5,000 rows, images fetched afterwards, everything
-   hidden), `save_collection_items` (up to 200 items a call, dry run), and the site import up to 3,000 addresses with
-   robots.txt and a pause between requests.
-3. **Collection categories:** nested categories with landing pages of their own, a Category page template in the
-   builder, the Collection list of categories, a Previous / next item element, and a per-form attachment limit.
-4. **English system addresses:** `/tasks`, `/subscription`, `/form`, `/consent`, `/conversion`, `/status.json`; the
-   Czech addresses stay as aliases.
-5. **Safer by default:** batch tools and imports count every row against Claude's hourly change limit, reserved before
-   the call so parallel calls cannot overshoot it; no page or item can take a system or category address; robots.txt,
-   sitemap and import-file limits; anchored identifier patterns all use `/D`.
-6. The 4.0 data model is designed (`docs/design/4.0-data-model.md`); building it follows the 30-day plan.
-7. PHP 8.3 with the per-function JIT (`opcache.jit = 1235`) crashes on builder pages – an engine bug of 8.3; System status
-   names that mode and asks for the default `tracing`. The compat parser avoids the `SplObjectStorage` methods PHP 8.5
-   deprecates.
 
 ## Not planned
 
@@ -595,7 +496,7 @@ The third release of the 30-day plan: what the owner's first five sites need bef
 - More style presets, approval workflows, PHP themes.
 - A fleet console that reaches into sites – remote commands or Claude tokens held by the console (decided on 2 October 2026).
 - Reversed on 2 October 2026 and delivered: form logic (2.12), appointment booking, structured importers and an
-  extension API (3.0). Add-ons are installed by copying a folder – never uploaded or downloaded by Kaleta.
+  extension API (3.0). Add-ons are installed by copying a folder – never uploaded or downloaded by Talea.
 
 ## Later
 

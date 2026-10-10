@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * QR code without a third-party library: byte mode, error correction level M (handles ~15 % damage), versions 1–40.

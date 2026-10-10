@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Downloadable attachments in Media: PDF, documents, spreadsheets, audio and video. Images are handled by Core\Images.
@@ -52,7 +52,7 @@ final class Files
 
     /**
      * @param array<string, mixed> $file item from $_FILES
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
     public static function save(array $file): array
@@ -70,7 +70,7 @@ final class Files
     /**
      * An attachment from a file already on disk (MCP, import) – the source stays, a copy is saved.
      *
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      */
     public static function saveFile(string $path, string $displayName): array
     {
@@ -81,36 +81,36 @@ final class Files
         return self::process($path, $displayName, false);
     }
 
-    /** @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string} */
+    /** @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string} */
     private static function process(string $tmp, string $displayName, bool $uploaded): array
     {
         $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
-            throw new \RuntimeException(t('This file type cannot be uploaded. Images and these attachments are allowed: %s.', implode(', ', self::FILE_EXTENSIONS)));
+            throw new \RuntimeException('This file type cannot be uploaded. Allowed are images and attachments: ' . implode(', ', self::FILE_EXTENSIONS) . '.');
         }
         $type = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
         if (preg_match(self::FORBIDDEN_TYPES, $type) || filesize($tmp) > self::MAX_BYTES) {
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
-            throw new \RuntimeException(t('The folder %s cannot be created – check the write permissions.', $folder));
+        if (!is_dir(TALEA_ROOT . '/' . $folder) && !mkdir(TALEA_ROOT . '/' . $folder, 0775, true)) {
+            throw new \RuntimeException('Cannot create the folder ' . $folder . ' - check the write permissions.');
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $target = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $extension;
-        if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
+        if (!($uploaded ? move_uploaded_file($tmp, TALEA_ROOT . '/' . $target) : copy($tmp, TALEA_ROOT . '/' . $target))) {
             throw new \RuntimeException('The file could not be saved.');
         }
 
         // an attachment is recognized in the media table by an empty thumbnail and zero dimensions
-        return ['obr_poloha' => $target, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $target),
-            'nahl_poloha' => '', 'nahl_width' => 0, 'nahl_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
+        return ['image_path' => $target, 'image_width' => 0, 'image_height' => 0, 'image_size' => (int) filesize(TALEA_ROOT . '/' . $target),
+            'thumb_path' => '', 'thumb_width' => 0, 'thumb_height' => 0, 'name' => mb_substr($name, 0, 150)];
     }
 
     public static function delete(string $path): void
     {
-        if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file(KALETA_ROOT . '/' . $path)) {
-            unlink(KALETA_ROOT . '/' . $path);
+        if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file(TALEA_ROOT . '/' . $path)) {
+            unlink(TALEA_ROOT . '/' . $path);
         }
     }
 

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Google;
+use Talea\Connectors\Google;
 
 /**
  * Google Business Profile (2.13, on the Google connection of Core\Connectors): what the site already knows goes to the
@@ -14,7 +14,7 @@ use Kaleta\Connectors\Google;
  *    changed hours, the next 12 months) as specialHours of the chosen location – whenever the hours change and once a day
  *    by the scheduler job 'gbp'; a published news item as a STANDARD post with a LEARN_MORE button (opt-in). Both go
  *    through the delivery queue (action prefix 'gbp'), so a Google outage is retried, never lost.
- *  - Pull: once a day the latest reviews into ka_google_reviews (name, stars, text, time, the owner's reply – what Google
+ *  - Pull: once a day the latest reviews into tl_google_reviews (name, stars, text, time, the owner's reply – what Google
  *    shows publicly, nothing more) and the profile's average rating and review count into the settings google_rating /
  *    google_reviews ({{fact.google_rating}}, {{fact.google_reviews}}). Reviews that disappeared from Google disappear here;
  *    disconnecting Google deletes them all (Google::disconnected).
@@ -47,7 +47,7 @@ final class GoogleBusiness
     {
         $location = Connectors::config($db, Google::KEY)['location'] ?? '';
 
-        return preg_match('#^accounts/[^/\s]+/locations/[^/\s]+$#D', $location) === 1 ? $location : '';
+        return preg_match('#^accounts/[^/\s]+/locations/[^/\s]+$#', $location) === 1 ? $location : '';
     }
 
     /** Connected to Google and a location is chosen – the only state in which anything is sent or fetched. */
@@ -76,7 +76,7 @@ final class GoogleBusiness
         $out = [];
         foreach (array_slice((array) ($accounts['json']['accounts'] ?? []), 0, 20) as $account) {
             $accountName = (string) ($account['name'] ?? '');
-            if (!preg_match('#^accounts/[^/\s]+$#D', $accountName)) {
+            if (!preg_match('#^accounts/[^/\s]+$#', $accountName)) {
                 continue;
             }
             $locations = Connectors::request($app, Google::KEY, 'GET', self::INFORMATION_URL . $accountName . '/locations?readMask=name,title&pageSize=100', null, [], 'gbp.locations');
@@ -85,7 +85,7 @@ final class GoogleBusiness
             }
             foreach ((array) ($locations['json']['locations'] ?? []) as $location) {
                 $name = (string) ($location['name'] ?? '');
-                if (preg_match('#^locations/[^/\s]+$#D', $name)) {
+                if (preg_match('#^locations/[^/\s]+$#', $name)) {
                     $out[] = ['name' => $accountName . '/' . $name, 'title' => mb_substr(trim(strip_tags((string) ($location['title'] ?? ''))), 0, 150)];
                 }
             }
@@ -201,20 +201,20 @@ final class GoogleBusiness
         if (!self::ready($db) || !self::postsNews($db)) {
             return;
         }
-        Connectors::queue($db, 'gbp.post', ['idc' => $idc, 'location' => self::location($db)]);
+        Connectors::queue($db, 'gbp.post', ['news_id' => $idc, 'location' => self::location($db)]);
     }
 
     /**
      * The body of a STANDARD post from a news item: the title and the intro as plain text within Google's limit, the
      * image, a LEARN_MORE button to the news item. Pure – the test checks the shape.
      *
-     * @param array{titulek: string, uvod: string, jazyk?: string} $news
+     * @param array{title: string, intro: string, language?: string} $news
      * @return array<string, mixed>
      */
     public static function postBody(array $news, string $url, string $imageUrl, string $language): array
     {
-        $title = trim(html_entity_decode(strip_tags($news['titulek']), ENT_QUOTES | ENT_HTML5));
-        $intro = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($news['uvod']), ENT_QUOTES | ENT_HTML5)));
+        $title = trim(html_entity_decode(strip_tags($news['title']), ENT_QUOTES | ENT_HTML5));
+        $intro = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($news['intro']), ENT_QUOTES | ENT_HTML5)));
         $summary = $title . ($intro !== '' ? "\n\n" . $intro : '');
         if (mb_strlen($summary) > self::POST_SUMMARY_LENGTH) {
             $summary = rtrim(mb_substr($summary, 0, self::POST_SUMMARY_LENGTH - 1)) . '…';
@@ -246,16 +246,16 @@ final class GoogleBusiness
             return $answer['error'];
         }
         if ($action === 'gbp.post') {
-            $news = $db->one('SELECT idc, titulek, uvod, obrazek, seo_link, jazyk FROM {novinky} WHERE idc = ? AND visible = 1 AND smazano IS NULL AND datum <= NOW()', [(int) ($payload['idc'] ?? 0)]);
+            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = TRUE AND deleted_at IS NULL AND published_at <= NOW() AND ' . \Talea\Core\Members::notGated('news', 'news_id'), [(int) ($payload['news_id'] ?? 0)]);
             if ($news === null) {
                 return ''; // unpublished or deleted before the delivery: no post
             }
             $origin = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-            $image = (string) $news['obrazek'];
+            $image = (string) $news['image'];
             $imageUrl = $image === '' ? '' : (preg_match('#^https?://#', $image) ? $image : $origin . $app->request->basePath() . '/' . ltrim($image, '/'));
-            $language = (string) $news['jazyk'] !== '' ? (string) $news['jazyk'] : Language::defaults($app->settings());
+            $language = (string) $news['language'] !== '' ? (string) $news['language'] : Language::defaults($app->settings());
             $answer = Connectors::request($app, Google::KEY, 'POST', self::V4_URL . $location . '/localPosts',
-                self::postBody($news, $origin . $app->newsItemUrl((string) $news['seo_link'], (string) $news['jazyk']), $imageUrl, $language), [], 'gbp.post');
+                self::postBody($news, $origin . $app->newsItemUrl((string) $news['slug'], (string) $news['language']), $imageUrl, $language), [], 'gbp.post');
 
             return $answer['error'];
         }
@@ -301,9 +301,7 @@ final class GoogleBusiness
                 continue;
             }
             $kept[] = $row['review_id'];
-            $db->run('INSERT INTO {google_reviews} (review_id, author, stars, comment, reviewed_at, reply, replied_at, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE author = VALUES(author), stars = VALUES(stars), comment = VALUES(comment), reviewed_at = VALUES(reviewed_at), reply = VALUES(reply), replied_at = VALUES(replied_at), fetched_at = VALUES(fetched_at)',
-                [$row['review_id'], $row['author'], $row['stars'], $row['comment'], $row['reviewed_at'], $row['reply'], $row['replied_at'], $now]);
+            $db->upsert('google_reviews', ['review_id' => $row['review_id'], 'author' => $row['author'], 'stars' => $row['stars'], 'comment' => $row['comment'], 'reviewed_at' => $row['reviewed_at'], 'reply' => $row['reply'], 'replied_at' => $row['replied_at'], 'fetched_at' => $now], ['review_id']);
         }
         // everything Google did not return this time goes (by id – two fetches within one second must not keep a deleted review)
         $db->run('DELETE FROM {google_reviews}' . ($kept !== [] ? ' WHERE review_id NOT IN (' . implode(', ', array_fill(0, count($kept), '?')) . ')' : ''), $kept);
@@ -312,7 +310,7 @@ final class GoogleBusiness
         $s->set('google_rating', is_numeric($rating) ? (string) round((float) $rating, 1) : '');
         $s->set('google_reviews', (string) max(0, (int) ($answer['json']['totalReviewCount'] ?? count($kept))));
         $s->set('google_reviews_synced', $now);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -352,7 +350,7 @@ final class GoogleBusiness
             return [];
         }
         try {
-            $rows = $db->all('SELECT review_id, author, stars, comment, reviewed_at, reply, replied_at FROM {google_reviews} ORDER BY reviewed_at DESC, review_id');
+            $rows = $db->all('SELECT review_id, author, stars, comment, reviewed_at, reply, replied_at FROM {google_reviews} ORDER BY reviewed_at IS NULL, reviewed_at DESC, review_id');
         } catch (\Throwable) {
             return []; // before the 2.13 migration
         }
@@ -393,6 +391,6 @@ final class GoogleBusiness
         foreach (['google_rating', 'google_reviews', 'google_reviews_synced', 'google_locations'] as $key) {
             $s->set($key, '');
         }
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 }

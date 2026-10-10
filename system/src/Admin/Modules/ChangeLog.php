@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * Change log - overview of actions in the admin (administrator only), and the Claude sessions that can be undone as a
@@ -16,43 +16,44 @@ final class ChangeLog extends Module
     public const string IDENT = 'changelog';
     public const string NAME = 'Change log';
     public const string GROUP = 'Site care';
-    public const string ICON = 'protokol';
+    public const string ICON = 'log';
     public const bool ADMIN_ONLY = true;
 
     private const int PER_PAGE = 100;
 
     protected function actionList(): Response
     {
-        $who = $this->request->getInt('kdo');
-        $whereParts = $this->request->get('kde');
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $whoId = $this->idParam('username', 'users');
+        $who = $whoId > 0 ? $this->request->get('username') : '';
+        $whereParts = $this->request->get('area');
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         $by = in_array($this->request->get('by'), ['people', 'claude'], true) ? $this->request->get('by') : '';
         $conditions = [];
         $params = [];
         if ($by !== '') {
             $conditions[] = $by === 'claude' ? "via <> ''" : "via = ''"; // made through a Claude connection or by a person in the admin (2.2)
         }
-        if ($who > 0) {
-            $conditions[] = 'kdo = ?';
-            $params[] = $who;
+        if ($whoId > 0) {
+            $conditions[] = 'user_id = ?';
+            $params[] = $whoId;
         }
-        if ($whereParts !== '' && preg_match('/^[a-z_]{2,30}$/D', $whereParts)) {
-            $conditions[] = 'modul = ?';
+        if ($whereParts !== '' && preg_match('/^[a-z_]{2,30}$/', $whereParts)) {
+            $conditions[] = 'module = ?';
             $params[] = $whereParts;
         }
         if ($search !== '') {
-            $conditions[] = 'popis LIKE ?';
+            $conditions[] = $this->db->dialect()->likeInsensitive('description');
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
-        $total = (int) $this->db->value('SELECT COUNT(*) FROM {protokol}' . $sql, $params);
+        $total = (int) $this->db->value('SELECT COUNT(*) FROM {change_log}' . $sql, $params);
         $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
-        $pageNumber = max(1, min($pageCount, $this->request->getInt('strana', 1)));
+        $pageNumber = max(1, min($pageCount, $this->request->getInt('page', 1)));
 
         return $this->view('list', 'Change log', [
-            'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
-            'modules' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),
+            'records' => $this->db->all('SELECT * FROM {change_log}' . $sql . ' ORDER BY log_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'users' => $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} ORDER BY 2"),
+            'modules' => array_column($this->db->all('SELECT DISTINCT module FROM {change_log} ORDER BY module'), 'module'),
             'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);
     }
@@ -62,7 +63,7 @@ final class ChangeLog extends Module
     {
         $sessions = [];
         try {
-            $sessions = \Kaleta\Core\AgentJournal::sessions($this->db, 100);
+            $sessions = \Talea\Core\AgentJournal::sessions($this->db, 100);
         } catch (\PDOException) {
             // before the migration
         }
@@ -79,9 +80,9 @@ final class ChangeLog extends Module
             return $this->back('', 'sessions');
         }
         try {
-            $result = \Kaleta\Core\AgentJournal::undo($this->app, $this->request->postInt('id'), $this->request->postBool('force'));
+            $result = \Talea\Core\AgentJournal::undo($this->app, $this->request->postInt('id'), $this->request->postBool('force'));
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return $this->back($e->getMessage(), 'sessions', [], 'chyba');
+            return $this->back($e->getMessage(), 'sessions', [], 'error');
         }
         $this->app->session->set('undo_result', $result + ['id' => $this->request->postInt('id')]);
 

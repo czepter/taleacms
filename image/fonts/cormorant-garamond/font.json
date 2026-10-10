@@ -1,0 +1,26 @@
+{
+    "name": "Cormorant Garamond",
+    "category": "serif",
+    "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "cormorant-garamond.woff2",
+            "weight": "300 700",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/cormorantgaramond",
+    "licence": "OFL-1.1"
+}

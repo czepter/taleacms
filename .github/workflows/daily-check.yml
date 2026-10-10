@@ -1,0 +1,109 @@
+# Daily security check. It releases and signs nothing - it only says in time that a patch (a fix release) is needed:
+#  1) the update channel on taleacms.com is signed with our key and the package matches its hash (catches forgery),
+#  2) the tests on PHP 8.5 and on the upcoming nightly (catches what the next PHP will break),
+#  3) static security analysis with daily updated rules - findings go to Security → Code scanning,
+#     visible to repository admins only (the public run log is deliberately quiet),
+#  4) the project website and the demo send security headers and do not expose files they should not.
+# When something fails, an issue "Daily check failed" is created (or revived) and GitHub sends an e-mail.
+name: Daily check
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  channel:
+    name: Update channel
+    if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: 'sodium, zip', coverage: none }
+      - run: php tools/check-channel.php
+
+  tests:
+    name: Tests on PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.5', 'nightly']
+    services:
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+
+  analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - name: Semgrep (results to Code scanning only)
+        run: |
+          docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --quiet --metrics=off \
+            --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --config p/security-audit \
+            --sarif --output /src/semgrep.sarif /src || true
+      - uses: github/codeql-action/upload-sarif@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
+        with: { sarif_file: semgrep.sarif, category: semgrep-daily }
+      - name: New high-severity findings stop the run (no details in the log)
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          results = [r for run in json.load(open('semgrep.sarif')).get('runs', []) for r in run.get('results', []) if r.get('level') == 'error' and not r.get('suppressions')]
+          print(f'High-severity findings: {len(results)} - details in Security → Code scanning.')
+          sys.exit(1 if results else 0)
+          PY
+      - name: Gitleaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
+
+  websites:
+    name: Project website from outside
+    if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Security headers and closed paths
+        run: |
+          set -u
+          errors=0
+          header() { curl -sSI -m 20 "$1" | tr -d '\r' | grep -qi "^$2:" || { echo "MISSING $2 on $1"; errors=$((errors+1)); }; }
+          code() { c=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$1"); case " $2 " in *" $c "*) ;; *) echo "UNEXPECTED $c on $1 (expected: $2)"; errors=$((errors+1));; esac; }
+          # public pages: the headers every Talea page sends (a strict CSP is the admin's – sites carry their own code)
+          for h in x-content-type-options referrer-policy x-frame-options; do header https://taleacms.com/ "$h"; done
+          # the admin: CSP and HSTS
+          for h in content-security-policy strict-transport-security; do header https://taleacms.com/admin.php "$h"; done
+          code https://taleacms.com/update.json "200 302"
+          for path in .htaccess config.php system/bootstrap.php system/files.json storage/log/errors.log .git/config tools/release.php; do code "https://taleacms.com/$path" "403 404"; done
+          exit "$errors"
+
+  report:
+    name: Issue on failure
+    needs: [channel, tests, analysis, websites]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Daily check failed"' --json number -q '.[0].number')
+          text="The daily check failed today: $RUN_URL
+          The static analysis details are in Security → Code scanning (repository admins only). If it is a vulnerability, do not discuss it here in public - open a private security advisory and follow docs/RELEASING.md (a fix release with the --security flag)."
+          if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Daily check failed" --body "$text"; fi

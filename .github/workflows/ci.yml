@@ -1,0 +1,112 @@
+# Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
+# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning. Also runs once a week without changes.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PHP_EXTENSIONS: pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache
+jobs:
+  checks:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - run: php tools/check-english.php
+      - run: php tools/contracts.php
+      - run: php tools/sql-dialect-scan.php
+      - run: php tools/unit-tests.php
+
+  mysql:
+    name: Tests on MySQL 8.4
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: PHPUnit (unit, integration and whole installed sites, in parallel)
+        run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+
+  postgres:
+    name: Tests on PostgreSQL 18
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:18
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: PHPUnit (integration and whole installed sites)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_TEST_PG_HOST: 127.0.0.1, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
+
+  browser:
+    name: Browser walk (Chrome)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: Admin, builder, editors and public site in Chrome
+        run: vendor/bin/phpunit --testsuite browser
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root, CHROME: /usr/bin/google-chrome }
+
+  phpstan:
+    # static analysis (phpstan.neon.dist): level 5, the existing findings in phpstan-baseline.neon - new code adds none
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: PHPStan
+        run: |
+          curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          php -d memory_limit=3G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - name: Semgrep - security rules for PHP and JavaScript
+        # run the tool directly in a container: the deprecated semgrep-action can no longer read the current registry rules
+        run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep semgrep scan --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --error --metrics=off --quiet
+      - name: Gitleaks - no keys or passwords in the repository
+        # run the tool directly: the gitleaks-action wrapper needs a paid licence for organisations
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner --verbose
+      - name: The publisher's private key is not in git
+        run: '! git ls-files | grep -E "tools/keys|\.key$"'

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Uploaded SVG (logos, icons): it is cleaned down to a list of allowed tags and attributes. Scripts, event handlers,
@@ -66,7 +66,7 @@ final class Svg
                 $el->removeChild($child);
             }
         }
-        foreach (iterator_to_array($el->attributes, false) as $attributes) { // a list: keyed by local name, x:onload would hide onload
+        foreach (iterator_to_array($el->attributes) as $attributes) {
             $name = strtolower($attributes->nodeName);
             $value = $attributes->nodeValue ?? '';
             $bad = !in_array($name, self::ATTRIBUTES, true)

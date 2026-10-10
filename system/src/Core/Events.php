@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * What happened on the site (2.8): one table of events that the alert e-mails, the monthly report, the heartbeat and Claude
@@ -27,7 +27,7 @@ final class Events
         'look.published' => 'The draft look (design system, classes, menus) was published.',
         'backup.created' => 'An automatic database backup was made.',
         'backup.failed' => 'A database backup or its off-site copy failed.',
-        'update.applied' => 'A new version of Kaleta was installed.',
+        'update.applied' => 'A new version of Talea was installed.',
         'update.failed' => 'Installing an update failed; the site stayed on its version.',
         'update.rolled_back' => 'An update was installed but the site did not work afterwards, so it went back to the previous version.',
         'mail.failed' => 'An e-mail could not be sent after all attempts.',
@@ -38,8 +38,6 @@ final class Events
         'task.recovered' => 'A background job works again.',
         'security.account_suspended' => 'An unused account was suspended.',
         'security.connection_revoked' => 'An unused Claude connection was revoked.',
-        'security.token_reuse' => 'A refresh token of a connected application was used again after it had been replaced, so every token of that application for that user was revoked (the client id, the user id and how many tokens went) – the person connects the application again (3.3.4).',
-        'firewall.blocked' => 'An address was blocked for a while (it probed for other systems).',
         'fact.changed' => 'The value of a business fact changed (the old sentences that still state it: Facts → the fact).',
         'fleet.paired' => 'This site was paired with a fleet console.',
         'fleet.site_paired' => 'Console: a site was paired.',
@@ -60,15 +58,19 @@ final class Events
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
         'addon.enabled' => 'An add-on from extensions/ was switched on (its slug and version).',
         'addon.failed' => 'An add-on threw an error while loading and was switched off (the error is in Add-ons).',
+        'addon.uninstalled' => 'An add-on was uninstalled (its slug, and whether its data was deleted).',
         'claude.session_undone' => 'A Claude session was undone (how many rows were restored, removed or left because they changed since).',
         'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
-        'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
-        'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',
-        'whistleblowing.purged' => 'Closed whistleblowing cases past the retention period were deleted (the count only).',
         'agent_run.missed' => 'A scheduled Claude run was not picked up within 6 hours of its time (Scheduled runs) – the routine in Claude probably stopped.',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];
+
+    /** Talea's own event types and those of the switched-on add-ons (Extension\Api::eventType): type => description. @return array<string, string> */
+    public static function types(): array
+    {
+        return self::TYPES + \Talea\Extension\Registry::eventTypes();
+    }
 
     public const int KEEP_DAYS = 180;
 
@@ -87,7 +89,7 @@ final class Events
                 'message' => mb_substr($message, 0, 255),
                 'data' => $data === [] ? null : (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]);
-            \Kaleta\Extension\Registry::dispatch($type, $data); // add-ons listening to events (3.0)
+            \Talea\Extension\Registry::dispatch($type, $data); // add-ons listening to events (3.0)
 
             return $id;
         } catch (\Throwable) {
@@ -123,8 +125,23 @@ final class Events
         array_push($params, ...$levels);
 
         return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'created_at' => (string) $r['created_at'], 'type' => (string) $r['type'],
-            'severity' => (string) $r['severity'], 'message' => (string) $r['message'], 'data' => json_decode((string) $r['data'], true) ?: []],
+            'severity' => (string) $r['severity'], 'message' => (string) $r['message'], 'data' => self::withPublicIds($db, json_decode((string) $r['data'], true) ?: [])],
             $db->all('SELECT id, created_at, type, severity, message, data FROM {events} WHERE ' . implode(' AND ', $where) . ' ORDER BY id LIMIT ' . max(1, min(500, $limit)), $params));
+    }
+
+    /** Event data keep the integer keys inside the database; what leaves it (MCP, alerts) names the rows by their public id. */
+    private static function withPublicIds(Db $db, array $data): array
+    {
+        $tables = ['site' => 'fleet_sites', 'booking' => 'bookings', 'page' => 'pages', 'item' => 'collection_items', 'username' => 'users'];
+        $kinds = ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items', 'popup' => 'popups'];
+        foreach ($data as $key => $value) {
+            $table = $key === 'id' ? ($kinds[(string) ($data['kind'] ?? '')] ?? null) : ($tables[$key] ?? null);
+            if ($table !== null && is_int($value)) {
+                $data[$key] = $db->publicId($table, $value);
+            }
+        }
+
+        return $data;
     }
 
     /** The id of the newest event (a starting cursor). */

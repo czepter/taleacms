@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Joomla 4 and 5: the Web Services API (/api/index.php/v1/…) read by Import\Fetch with the token from an API-enabled user
@@ -109,7 +109,7 @@ final class Joomla implements Source, Remote
 
     public function site(): array
     {
-        return ['nazev' => '', 'adresa' => $this->siteAddress()];
+        return ['name' => '', 'url' => $this->siteAddress()];
     }
 
     public function imagesFromAnyHost(): bool
@@ -124,7 +124,7 @@ final class Joomla implements Source, Remote
             'Trashed articles are skipped, unpublished ones come as drafts, archived ones as published.',
             'Modules, menus, the template, custom fields and the content of other extensions are not transferred.',
         ];
-        foreach ($this->load()['kaleta_fetch']['skipped'] ?? [] as $step) {
+        foreach ($this->load()['talea_fetch']['skipped'] ?? [] as $step) {
             $notes[] = 'The site does not offer ' . (is_string($step) ? $step : '?') . ' over the API, so they were not fetched.';
         }
 
@@ -220,7 +220,7 @@ final class Joomla implements Source, Remote
             featureImageUrl: $image !== '' ? $this->absoluteUrl(self::imagePath($image)) : '',
             seoDescription: self::text($a['metadesc'] ?? ''),
             oldUrl: $alias !== '' ? '/' . ($path !== '' ? $path . '/' : '') . $id . '-' . $alias : '',
-            language: preg_match('/^([a-z]{2})-[A-Z]{2}$/D', self::text($a['language'] ?? ''), $m) ? $m[1] : '',
+            language: preg_match('/^([a-z]{2})-[A-Z]{2}$/', self::text($a['language'] ?? ''), $m) ? $m[1] : '',
         );
     }
 
@@ -280,7 +280,7 @@ final class Joomla implements Source, Remote
 
     private function siteAddress(): string
     {
-        $fromFile = self::text($this->load()['kaleta_fetch']['site'] ?? '');
+        $fromFile = self::text($this->load()['talea_fetch']['site'] ?? '');
 
         return rtrim($fromFile !== '' ? $fromFile : $this->siteUrl, '/');
     }
@@ -295,10 +295,10 @@ final class Joomla implements Source, Remote
             return $this->data;
         }
         $json = json_decode((string) @file_get_contents($this->path), true, 64);
-        if (!is_array($json) || ($json['kaleta_fetch']['system'] ?? '') !== self::key() || !is_array($json['steps'] ?? null)) {
+        if (!is_array($json) || ($json['talea_fetch']['system'] ?? '') !== self::key() || !is_array($json['steps'] ?? null)) {
             throw new \RuntimeException('This is not a Joomla fetch. Enter the site address and the API token in Import and export → From another system and fetch the content again.');
         }
-        if (($json['kaleta_fetch']['done'] ?? false) !== true) {
+        if (($json['talea_fetch']['done'] ?? false) !== true) {
             throw new \RuntimeException('The fetch from the site did not finish. Start it again.');
         }
 

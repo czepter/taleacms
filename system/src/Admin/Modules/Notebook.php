@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Notebook as Notes;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Notebook as Notes;
+use Talea\Core\Response;
 
 /**
  * Agent notebook (2.15, Core\Notebook): notes for whoever works on the site next – Claude in a new conversation or a
@@ -20,12 +20,12 @@ final class Notebook extends Module
     public const string PARENT = 'claude_settings';
     public const string NAME = 'Notebook';
     public const string GROUP = 'Claude';
-    public const string ICON = 'zapisnik';
+    public const string ICON = 'notebook';
 
     protected function actionList(): Response
     {
-        $topic = Notes::topic($this->request->get('tema')) ?? '';
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $topic = Notes::topic($this->request->get('topic')) ?? '';
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
 
         return $this->view('list', 'Notebook', ['notes' => Notes::all($this->db, $topic, $search), 'topic' => $topic, 'search' => $search,
             'counts' => $this->db->pairs('SELECT topic, COUNT(*) FROM {notebook} GROUP BY topic')]);
@@ -36,10 +36,10 @@ final class Notebook extends Module
         $id = $this->request->getInt('id');
         $note = Notes::find($this->db, $id);
         if ($id > 0 && $note === null) {
-            return $this->back('The note does not exist.', '', [], 'chyba');
+            return $this->back('The note does not exist.', '', [], 'error');
         }
 
-        return $this->view('edit', $note !== null ? $note['title'] : 'New note', ['note' => $note, 'topic' => Notes::topic($this->request->get('tema')) ?? 'other']);
+        return $this->view('edit', $note !== null ? $note['title'] : 'New note', ['note' => $note, 'topic' => Notes::topic($this->request->get('topic')) ?? 'other']);
     }
 
     protected function actionSave(): Response
@@ -51,10 +51,10 @@ final class Notebook extends Module
         $saved = Notes::save($this->app, ['topic' => $this->request->post('topic'), 'title' => $this->request->post('title'), 'text' => $this->request->post('text'),
             'pinned' => $this->request->postBool('pinned')], $id);
         if (is_string($saved)) {
-            return $this->back($saved, 'edit', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back($saved, 'edit', $id > 0 ? ['id' => $id] : [], 'error');
         }
 
-        return $this->back('The note is saved.', '', ['tema' => (string) $saved['topic']]);
+        return $this->back('The note is saved.', '', ['topic' => (string) $saved['topic']]);
     }
 
     /** Pins a note or takes the pin off – one click in the list. */
@@ -66,7 +66,7 @@ final class Notebook extends Module
             Notes::save($this->app, ['pinned' => !$note['pinned']], $id);
         }
 
-        return $this->back('', '', array_filter(['tema' => $this->request->post('tema'), 'hledat' => $this->request->post('hledat')]));
+        return $this->back('', '', array_filter(['topic' => $this->request->post('topic'), 'search' => $this->request->post('search')]));
     }
 
     protected function actionDelete(): Response

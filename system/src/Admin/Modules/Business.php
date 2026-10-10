@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Core\Response;
+use Talea\Core\Response;
 
 /**
  * Business details (3.2): the hub for what is true about the business – the company and its opening hours (formerly
@@ -18,14 +18,14 @@ final class Business extends Settings
     public const string IDENT = 'business';
     public const string NAME = 'Business details';
     public const string GROUP = 'Company';
-    public const string ICON = 'fakta';
+    public const string ICON = 'facts';
     public const bool ADMIN_ONLY = false;
     public const string HUB = 'business';
 
     /** The fields only an administrator sees and saves. */
     public const array LEGAL = ['company_id', 'company_vat_id', 'company_register', 'company_representative'];
 
-    /** The only Settings actions this screen offers – an editor must never reach backups, updates or the firewall through it. */
+    /** The only Settings actions this screen offers – an editor must never reach backups or updates through it. */
     public const array ACTIONS = ['list', 'save', 'hours_add', 'hours_delete', 'hours_sign', 'hours_apply', 'hours_discard'];
 
     public function handle(string $action): Response

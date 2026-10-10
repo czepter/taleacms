@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Drupal 9, 10 and 11: the JSON:API core module (/jsonapi/…) read by Import\Fetch into drupal-<domain>.json; this class
@@ -110,7 +110,7 @@ final class Drupal implements Source, Remote
 
     public function site(): array
     {
-        return ['nazev' => '', 'adresa' => $this->siteAddress()];
+        return ['name' => '', 'url' => $this->siteAddress()];
     }
 
     public function imagesFromAnyHost(): bool
@@ -125,7 +125,7 @@ final class Drupal implements Source, Remote
             'Without a sign-in only published content is fetched; unpublished content needs user:password or a token.',
             'Blocks, menus, views, the theme, other content types, custom fields and comments are not transferred.',
         ];
-        foreach ($this->load()['kaleta_fetch']['skipped'] ?? [] as $step) {
+        foreach ($this->load()['talea_fetch']['skipped'] ?? [] as $step) {
             $notes[] = 'The site does not offer ' . (is_string($step) ? $step : '?') . ' over the API, so they were not fetched.';
         }
 
@@ -218,7 +218,7 @@ final class Drupal implements Source, Remote
             featureImageUrl: $image,
             seoDescription: $description,
             oldUrl: $alias !== '' ? $alias : ($nid !== '' ? '/node/' . $nid : ''),
-            language: preg_match('/^[a-z]{2}$/D', self::text($a['langcode'] ?? '')) ? (string) $a['langcode'] : '',
+            language: preg_match('/^[a-z]{2}$/', self::text($a['langcode'] ?? '')) ? (string) $a['langcode'] : '',
         );
     }
 
@@ -259,7 +259,7 @@ final class Drupal implements Source, Remote
 
     private function siteAddress(): string
     {
-        $fromFile = self::text($this->load()['kaleta_fetch']['site'] ?? '');
+        $fromFile = self::text($this->load()['talea_fetch']['site'] ?? '');
 
         return rtrim($fromFile !== '' ? $fromFile : $this->siteUrl, '/');
     }
@@ -274,10 +274,10 @@ final class Drupal implements Source, Remote
             return $this->data;
         }
         $json = json_decode((string) @file_get_contents($this->path), true, 64);
-        if (!is_array($json) || ($json['kaleta_fetch']['system'] ?? '') !== self::key() || !is_array($json['steps'] ?? null)) {
+        if (!is_array($json) || ($json['talea_fetch']['system'] ?? '') !== self::key() || !is_array($json['steps'] ?? null)) {
             throw new \RuntimeException('This is not a Drupal fetch. Enter the site address in Import and export → From another system and fetch the content again.');
         }
-        if (($json['kaleta_fetch']['done'] ?? false) !== true) {
+        if (($json['talea_fetch']['done'] ?? false) !== true) {
             throw new \RuntimeException('The fetch from the site did not finish. Start it again.');
         }
 

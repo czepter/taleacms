@@ -1,0 +1,42 @@
+{
+    "talea_look": 1,
+    "key": "studio",
+    "name": "Studio",
+    "description": "Bold and flat: heavy headlines, a warm yellow surface, sharp corners and one strong accent.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#c2410c",
+            "secondary": "#0f172a",
+            "text": "#0f172a",
+            "background": "#fffdf8",
+            "surface": "#fef3c7"
+        },
+        "colors_dark": {
+            "text": "#f5efe0",
+            "background": "#14120d",
+            "surface": "#211d14",
+            "primary": "#fb923c",
+            "secondary": "#cbd5e1"
+        },
+        "font_heading": "lib:archivo-black",
+        "font_body": "lib:work-sans",
+        "radius": "0",
+        "ratio_min": 1.333,
+        "ratio_max": 1.5,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 76,
+        "text_width": 42
+    },
+    "header": "classic",
+    "footer": "cta",
+    "sections": [
+        "hero-dark",
+        "numbers",
+        "services",
+        "pricing",
+        "cta-bar"
+    ]
+}

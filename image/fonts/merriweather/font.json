@@ -1,0 +1,29 @@
+{
+    "name": "Merriweather",
+    "category": "serif",
+    "weights": [
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "merriweather.woff2",
+            "weight": "300 900",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/merriweather",
+    "licence": "OFL-1.1",
+    "reserved_name": "Merriweather"
+}

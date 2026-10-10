@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * Ready-made collections (2.11): a team, events, jobs, documents, branches… created in one click – with their fields,
@@ -16,7 +16,7 @@ use Kaleta\Core\App;
  *  - order – position in the gallery; detail – items have pages; redirect_hidden – hidden items lead to the list page
  *  - fields – list of [key, label, type] or [key, label, type, options]: options 'preset' => another preset's key for an
  *    item link (the field links the first collection created from it; without one the field is left out)
- *  - schema – the schema.org setting {typ, pole: property => field key, mena} (CollectionSchema)
+ *  - schema – the schema.org setting {type, fields: property => field key, currency} (CollectionSchema)
  *  - claude – how to use it: the list element, the item template, what keeps it current (list_collection_presets)
  *  - list – options of the Collection list on the page created with it (sorting, period…); card – field keys (or values
  *    a feature computes, like an event's when) shown on a card under the name (the first image field is its picture)
@@ -28,12 +28,12 @@ use Kaleta\Core\App;
  *    sprintf(name, the collection name), with its own Collection list options (a notice board's archive)
  *
  * Creating one also creates a hidden page at /<address> listing the items – the administrator adds a text and publishes it.
- * The collection keeps its preset (ka_kolekce.preset), so a feature finds its field by key – field() checks it still exists
+ * The collection keeps its preset (collections.preset), so a feature finds its field by key – field() checks it still exists
  * with the expected type, because the administrator may change the fields afterwards.
  */
 final class Presets
 {
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,29}$/D';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,29}$/';
 
     /** @var array<string, array<string, mixed>>|null */
     private static ?array $all = null;
@@ -45,16 +45,22 @@ final class Presets
             return self::$all;
         }
         $all = [];
-        foreach (glob(KALETA_SYSTEM . '/presets/*.php') ?: [] as $file) {
+        foreach (glob(TALEA_SYSTEM . '/presets/*.php') ?: [] as $file) {
             $key = basename($file, '.php');
             $definition = preg_match(self::KEY_PATTERN, $key) === 1 ? require $file : null;
             if (is_array($definition) && is_string($definition['name'] ?? null) && is_array($definition['fields'] ?? null)) {
-                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null, 'card_extra' => null, 'page_extra' => null, 'extra_pages' => []];
+                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'extension' => '', 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null, 'card_extra' => null, 'page_extra' => null, 'extra_pages' => []];
             }
         }
         uasort($all, fn (array $a, array $b): int => [$a['order'], $a['name']] <=> [$b['order'], $b['name']]);
 
         return self::$all = $all;
+    }
+
+    /** @return array<string, array<string, mixed>> the presets this site may offer: those of a switched-off feature (the notice board) are left out */
+    public static function available(\Talea\Core\Settings $settings): array
+    {
+        return array_filter(self::all(), fn (array $p): bool => \Talea\Core\Extensions::isEnabled($settings, (string) $p['extension']));
     }
 
     /** @return array<string, mixed>|null */
@@ -80,8 +86,8 @@ final class Presets
         if (($collection['preset'] ?? '') !== $preset) {
             return null;
         }
-        foreach ((array) ($collection['pole'] ?? []) as $f) {
-            if (($f['klic'] ?? '') === $key && in_array($f['typ'] ?? '', $types, true)) {
+        foreach ((array) ($collection['fields'] ?? []) as $f) {
+            if (($f['key'] ?? '') === $key && in_array($f['type'] ?? '', $types, true)) {
                 return $key;
             }
         }
@@ -94,20 +100,20 @@ final class Presets
      * collection created from its preset (without one the field is left out).
      *
      * @param array<string, mixed> $preset
-     * @return list<array{klic: string, popisek: string, typ: string, kolekce?: string}>
+     * @return list<array{key: string, label: string, type: string, collection?: string}>
      */
-    public static function fields(\Kaleta\Core\Db $db, array $preset): array
+    public static function fields(\Talea\Core\Db $db, array $preset): array
     {
         $out = [];
         foreach ($preset['fields'] as $f) {
             [$key, $label, $type] = $f;
-            $field = ['klic' => $key, 'popisek' => t($label), 'typ' => $type] + ($type === 'volba' ? ['moznosti' => (array) ($f[3]['options'] ?? [])] : []);
-            if ($type === 'polozka') {
-                $target = (string) ($db->value('SELECT seo_link FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
+            $field = ['key' => $key, 'label' => t($label), 'type' => $type] + ($type === 'radio' ? ['options' => (array) ($f[3]['options'] ?? [])] : []);
+            if ($type === 'item') {
+                $target = (string) ($db->value('SELECT slug FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
                 if ($target === '') {
                     continue; // e.g. a team without branches has no branch field
                 }
-                $field['kolekce'] = $target;
+                $field['collection'] = $target;
             }
             $out[] = $field;
         }
@@ -132,28 +138,28 @@ final class Presets
      */
     public static function createWithPage(App $app, string $key, string $name = '', bool $withPage = true): ?array
     {
-        $preset = self::get($key);
+        $preset = self::available($app->settings())[$key] ?? null;
         if ($preset === null) {
             return null;
         }
         $db = $app->db();
         $name = mb_substr(trim($name) !== '' ? trim($name) : t($preset['name']), 0, 100);
         $seo = $base = slugify($name, 100);
-        for ($i = 2; $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$seo]) !== null || in_array($seo, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)
-            || isset(\Kaleta\Core\Language::AVAILABLE[$seo]); $i++) {
+        for ($i = 2; $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$seo]) !== null || in_array($seo, \Talea\Admin\Modules\Pages::RESERVED_SLUGS, true)
+            || isset(\Talea\Core\Language::AVAILABLE[$seo]); $i++) {
             $seo = $base . '-' . $i;
         }
         $fields = self::fields($db, $preset);
         $schema = is_array($preset['schema']) ? CollectionSchema::sanitize($preset['schema'], $fields) : null;
-        $id = $db->insert('kolekce', ['nazev' => $name, 'seo_link' => $seo, 'detail' => $preset['detail'] ? 1 : 0, 'preset' => $key,
-            'hidden_redirect' => $preset['redirect_hidden'] ? '/' . $seo : '', 'pole' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE),
-            'zmeneno' => date('Y-m-d H:i:s'), 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
-            'stavba' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
-        \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
+        $id = $db->insert('collections', ['name' => $name, 'slug' => $seo, 'detail' => $preset['detail'] ? 1 : 0, 'preset' => $key,
+            'hidden_redirect' => $preset['redirect_hidden'] ? '/' . $seo : '', 'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE),
+            'updated_at' => date('Y-m-d H:i:s'), 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
+            'build' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
+        \Talea\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
         $pageId = null;
         $extra = [];
         if ($withPage) {
-            Library::createClasses($db, ['karta']);
+            Library::createClasses($db, ['card']);
             $pageId = self::createListPage($app, $preset, $key, $name, $seo, $seo, $fields);
             foreach ((array) $preset['extra_pages'] as $page) {
                 $pageSeo = $seo . '-' . slugify((string) ($page['suffix'] ?? ''), 30);
@@ -173,18 +179,18 @@ final class Presets
      * id. Hidden until the administrator adds a text and publishes it.
      *
      * @param array<string, mixed> $preset
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     * @param list<array{key: string, label: string, type: string}> $fields
      */
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$pageSeo]) !== null || \Kaleta\Admin\Modules\Pages::slugReserved($pageSeo, $db)) {
+        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$pageSeo]) !== null) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);
-        $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $pageSeo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
-            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50, 'zmeneno' => date('Y-m-d H:i:s')]);
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
+        $pageId = $db->insert('pages', ['title' => $name, 'slug' => $pageSeo, 'build' => Build::toJson($build), 'text' => Build::asText($build),
+            'visible' => 0, 'in_menu' => 0, 'sort_order' => 50, 'updated_at' => date('Y-m-d H:i:s')]);
+        \Talea\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
 
         return $pageId;
     }
@@ -193,7 +199,7 @@ final class Presets
      * The item template a preset brings: its children in a narrow section, sanitized like any build.
      *
      * @param array<string, mixed> $preset
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     * @param list<array{key: string, label: string, type: string}> $fields
      * @return array<string, mixed>
      */
     public static function itemTemplate(array $preset, array $fields): array
@@ -201,8 +207,8 @@ final class Presets
         $n = Build::fresh(...);
         $children = ($preset['template'])($fields);
 
-        return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', ['sirka' => 'uzka'], [
-            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], is_array($children) ? array_values($children) : []),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', ['width' => 'narrow'], [
+            ['style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]] + $n('container', [], is_array($children) ? array_values($children) : []),
         ])]])[0];
     }
 
@@ -211,19 +217,19 @@ final class Presets
      * preset's options; a card shows the first image, the name, the card fields and a link to the item page.
      *
      * @param array<string, mixed> $preset
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     * @param list<array{key: string, label: string, type: string}> $fields
      * @return array<string, mixed>
      */
     public static function listPage(array $preset, string $name, string $seo, array $fields): array
     {
         $n = Build::fresh(...);
-        $types = array_column($fields, 'typ', 'klic');
-        $image = array_search('obrazek', $types, true);
+        $types = array_column($fields, 'type', 'key');
+        $image = array_search('image', $types, true);
         $card = [];
         if (is_string($image)) {
-            $card[] = $n('obrazek', ['src' => '{{' . $image . '}}', 'alt' => '{{nazev}}']);
+            $card[] = $n('image', ['src' => '{{' . $image . '}}', 'alt' => '{{name}}']);
         }
-        $card[] = ['znacka' => 'h3'] + $n('nadpis', ['text' => '{{nazev}}']);
+        $card[] = ['tag' => 'h3'] + $n('heading', ['text' => '{{name}}']);
         foreach ((array) $preset['card'] as $key) {
             // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
             if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {
@@ -231,16 +237,16 @@ final class Presets
             }
         }
         if ($preset['detail']) {
-            $card[] = $n('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']);
+            $card[] = $n('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']);
         }
         if (is_callable($preset['card_extra'])) {
             array_push($card, ...array_values((array) ($preset['card_extra'])()));
         }
-        $list = $n('kolekce', ['kolekce' => $seo, 'pocet' => 24] + (array) $preset['list'], [['tridy' => ['karta']] + $n('kontejner', [], $card)]);
+        $list = $n('collection_list', ['collection' => $seo, 'count' => 24] + (array) $preset['list'], [['classes' => ['card']] + $n('container', [], $card)]);
         $after = is_callable($preset['page_extra']) ? array_values((array) ($preset['page_extra'])()) : [];
 
-        return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', [], [
-            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'l']]] + $n('kontejner', [], [['znacka' => 'h1'] + $n('nadpis', ['text' => $name]), $list, ...$after]),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', [], [
+            ['style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'l']]] + $n('container', [], [['tag' => 'h1'] + $n('heading', ['text' => $name]), $list, ...$after]),
         ])]])[0];
     }
 
@@ -249,13 +255,13 @@ final class Presets
      *
      * @return list<array<string, mixed>>
      */
-    public static function describe(): array
+    public static function describe(\Talea\Core\Settings $settings): array
     {
         $out = [];
-        foreach (self::all() as $key => $p) {
+        foreach (self::available($settings) as $key => $p) {
             $out[] = ['preset' => $key, 'name' => t($p['name']), 'description' => t((string) $p['description']), 'item_pages' => (bool) $p['detail'],
                 'fields' => array_map(fn (array $f): array => ['key' => $f[0], 'label' => t($f[1]), 'type' => $f[2]] + (isset($f[3]['preset']) ? ['links_to_preset' => $f[3]['preset']] : []), $p['fields']),
-                'structured_data' => is_array($p['schema']) ? (string) $p['schema']['typ'] : '', 'how_to_use' => (string) $p['claude']];
+                'structured_data' => is_array($p['schema']) ? (string) $p['schema']['type'] : '', 'how_to_use' => (string) $p['claude']];
         }
 
         return $out;

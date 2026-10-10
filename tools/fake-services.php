@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /*
- * The fake of every outside service for tools/test.sh (2.13, Core\Connectors): started on PORT+15, the site's
- * KALETA_CONNECTORS_FAKE points every connector call here (the path and the query stay). Each service has its own file
+ * The fake of every outside service for the site tests (tests/Site, started by Support\Site) (2.13, Core\Connectors): started on PORT+15, the site's
+ * TALEA_CONNECTORS_FAKE points every connector call here (the path and the query stay). Each service has its own file
  * in tools/fake/ that answers its paths; the first one that returns true has handled the request.
  *
  * A fake file gets $method, $path, $query (array), $body (raw string), $json (decoded body or null), $headers (lower-case
@@ -19,7 +19,7 @@ $json = json_decode($body, true);
 $headers = array_change_key_case(function_exists('getallheaders') ? (getallheaders() ?: []) : []);
 // a file of this fake server in the temp folder: logs and the flag files the test creates (the port keeps parallel runs apart)
 // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
-$fakeFile = fn (string $name): string => sys_get_temp_dir() . '/kaleta-fake-' . (int) ($_SERVER['SERVER_PORT'] ?? 0) . '-' . preg_replace('/[^a-z0-9.\-]/', '', $name);
+$fakeFile = fn (string $name): string => sys_get_temp_dir() . '/talea-fake-' . (int) ($_SERVER['SERVER_PORT'] ?? 0) . '-' . preg_replace('/[^a-z0-9.\-]/', '', $name);
 $log = function (string $name, array $entry) use ($fakeFile): void {
     file_put_contents($fakeFile($name . '.log'), json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
 };

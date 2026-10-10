@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
 /**
  * Hubs (3.2): related screens behind one menu item, with tabs across the top. The screens stay separate modules with
@@ -16,7 +16,7 @@ final class Hubs
 {
     /** hub => list of [module ident, action ('' = the list), label]; a tab shows only when the person may open its module */
     public const array TABS = [
-        'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints']],
+        'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints'], ['wizard', '', 'Site wizard']],
         'features' => [['extensions', '', 'Features'], ['addons', '', 'Add-ons']],
         'claude' => [['claude_settings', '', 'Settings and connections'], ['requests', '', 'Ask Claude'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'Claude sessions']],
     ];
@@ -44,9 +44,9 @@ final class Hubs
                 $current = $i;
             }
         }
-        $html = '<nav class="zalozky zalozky-hub" aria-label="' . e(t('Sections')) . '">';
+        $html = '<nav class="tabs tabs-hub" aria-label="' . e(t('Sections')) . '">';
         foreach ($tabs as $i => [$module, $tabAction, $label]) {
-            $html .= '<a href="' . e($url('admin.php?module=' . $module . ($tabAction !== '' ? '&action=' . $tabAction : ''))) . '"' . ($i === $current ? ' class="aktivni" aria-current="page"' : '') . '>' . e(t($label)) . '</a>';
+            $html .= '<a href="' . e($url('admin.php?module=' . $module . ($tabAction !== '' ? '&action=' . $tabAction : ''))) . '"' . ($i === $current ? ' class="active" aria-current="page"' : '') . '>' . e(t($label)) . '</a>';
         }
 
         return $html . '</nav>';

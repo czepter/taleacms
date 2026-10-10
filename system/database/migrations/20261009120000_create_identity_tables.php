@@ -1,0 +1,125 @@
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Db\Adapter\MysqlAdapter;
+use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
+
+/** Baseline of the database schema. */
+final class CreateIdentityTables extends AbstractMigration
+{
+    public function change(): void
+    {
+        $prefix = (string) $this->getAdapter()->getOption('table_prefix'); // foreign key names are unique per database
+
+        $this->table('role', ['id' => false, 'primary_key' => ['role_id']])
+            ->addColumn('role_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('name', 'string', ['limit' => 60, 'null' => false])
+            ->addColumn('description', 'string', ['limit' => 200, 'null' => false, 'default' => ''])
+            ->addColumn('level', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('modules', 'string', ['limit' => 1000, 'null' => false, 'default' => '', 'comment' => 'comma-separated section identifiers'])
+            ->addIndex(['name'], ['name' => 'uq_role_name', 'unique' => true])
+            ->create();
+
+        $this->table('users', ['id' => false, 'primary_key' => ['user_id']])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('username', 'string', ['limit' => 40, 'null' => false, 'comment' => 'sign-in name'])
+            ->addColumn('password', 'string', ['limit' => 255, 'null' => false, 'comment' => 'password_hash()'])
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
+            ->addColumn('email', 'string', ['limit' => 190, 'null' => false, 'default' => ''])
+            ->addColumn('url', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('admin', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'role: 0 author, 1 editor, 2 administrator'])
+            ->addColumn('role', 'integer', ['signed' => false, 'null' => true, 'comment' => 'custom role (tl_role); NULL = only the level from admin'])
+            ->addColumn('blocked', 'boolean', ['null' => false, 'default' => 0])
+            ->addColumn('auto_blocked_at', 'datetime', ['null' => true, 'comment' => 'when the automatic suspension blocked the account (Core\\SecurityHygiene); NULL = not by it'])
+            ->addColumn('failed_logins', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'failed sign-ins in a row'])
+            ->addColumn('locked_until', 'datetime', ['null' => true, 'comment' => 'temporary lock after 10 failed sign-ins'])
+            ->addColumn('reset_token_hash', 'string', ['limit' => 64, 'null' => false, 'default' => '', 'comment' => 'sha256 of the one-time token for a password reset by e-mail; empty = nothing pending'])
+            ->addColumn('reset_sent_at', 'datetime', ['null' => true, 'comment' => 'when the password reset link was sent (valid for an hour)'])
+            ->addColumn('totp_secret', 'string', ['limit' => 64, 'null' => false, 'default' => '', 'comment' => 'two-factor sign-in (TOTP); empty = off'])
+            ->addColumn('totp_backup_codes', 'text', ['null' => true, 'comment' => 'JSON: hashes of one-time backup codes'])
+            ->addColumn('last_login_at', 'datetime', ['null' => true, 'comment' => 'last completed sign-in to the administration'])
+            ->addColumn('confirmed_at', 'datetime', ['null' => true, 'comment' => 'created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it'])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'admin language; \'\' = Czech'])
+            ->addColumn('register', 'string', ['limit' => 10, 'null' => false, 'default' => '', 'comment' => 'form of address in the German administration: \'\' = formal (Sie), \'informal\' = du'])
+            ->addColumn('position', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'position in the company (bio of the news author)'])
+            ->addColumn('photo', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('bio', 'text', ['null' => true, 'comment' => 'a few sentences about the author'])
+            ->addIndex(['public_id'], ['name' => 'uq_users_public_id', 'unique' => true])
+            ->addIndex(['username'], ['name' => 'uq_users_username', 'unique' => true])
+            ->create();
+
+        $this->table('user_permissions', ['id' => false, 'primary_key' => ['user_id', 'module']])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('module', 'string', ['limit' => 30, 'null' => false])
+            ->addForeignKey('user_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_user_permissions_user_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('user_passkeys', ['id' => false, 'primary_key' => ['passkey_id']])
+            ->addColumn('passkey_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('name', 'string', ['limit' => 80, 'null' => false, 'default' => '', 'comment' => 'the device name given by the user („MacBook“, „telefon“)'])
+            ->addColumn('credential_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the key identifier (the identifier can be up to 1023 bytes)'])
+            ->addColumn('credential_id', 'text', ['null' => false, 'comment' => 'key identifier, base64url'])
+            ->addColumn('public_key', 'text', ['null' => false, 'comment' => 'the device\'s public key (PEM)'])
+            ->addColumn('alg', 'smallinteger', ['signed' => true, 'null' => false, 'comment' => 'signature algorithm per COSE: -7 ES256, -257 RS256'])
+            ->addColumn('sign_count', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'signature counter; if the device keeps one, it must increase'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('used_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_user_passkeys_public_id', 'unique' => true])
+            ->addIndex(['credential_hash'], ['name' => 'uq_user_passkeys_credential_hash', 'unique' => true])
+            ->addIndex(['user_id'], ['name' => 'ix_user_passkeys_user_id'])
+            ->addForeignKey('user_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_user_passkeys_user_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('api_tokens', ['id' => false, 'primary_key' => ['token_id']])
+            ->addColumn('token_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addColumn('client_id', 'char', ['limit' => 32, 'null' => true, 'comment' => 'OAuth client_id; NULL = a personal token from "My account"'])
+            ->addColumn('kind', 'string', ['limit' => 10, 'null' => false, 'default' => 'token', 'comment' => 'token | access | refresh'])
+            ->addColumn('access', 'string', ['limit' => 10, 'null' => false, 'default' => 'full', 'comment' => 'full | drafts | read – what the connection may do (2.2)'])
+            ->addColumn('expires_at', 'datetime', ['null' => true])
+            ->addColumn('token_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the token'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('used_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_api_tokens_public_id', 'unique' => true])
+            ->addIndex(['token_hash'], ['name' => 'uq_api_tokens_token_hash', 'unique' => true])
+            ->addIndex(['client_id'], ['name' => 'ix_api_tokens_client_id'])
+            ->addForeignKey('user_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_api_tokens_user_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('oauth_clients', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('client_id', 'char', ['limit' => 32, 'null' => false])
+            ->addColumn('secret_hash', 'string', ['limit' => 64, 'null' => false, 'default' => '', 'comment' => 'sha256 client_secret; empty = public client (PKCE only)'])
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
+            ->addColumn('redirect_uris', 'text', ['null' => false, 'comment' => 'JSON list of allowed redirect_uri'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['client_id'], ['name' => 'uq_oauth_clients_client_id', 'unique' => true])
+            ->create();
+
+        $this->table('oauth_codes', ['id' => false, 'primary_key' => ['code_hash']])
+            ->addColumn('code_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the code'])
+            ->addColumn('client_id', 'char', ['limit' => 32, 'null' => false])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('redirect_uri', 'string', ['limit' => 500, 'null' => false])
+            ->addColumn('code_challenge', 'string', ['limit' => 128, 'null' => false, 'comment' => 'code_challenge (PKCE, S256)'])
+            ->addColumn('access', 'string', ['limit' => 10, 'null' => false, 'default' => 'full', 'comment' => 'the access chosen on the consent screen'])
+            ->addColumn('expires_at', 'datetime', ['null' => false])
+            ->create();
+
+        $this->table('ip_checks', ['id' => false, 'primary_key' => ['check_id']])
+            ->addColumn('check_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('ip', 'string', ['limit' => 45, 'null' => false])
+            ->addColumn('type', 'string', ['limit' => 20, 'null' => false])
+            ->addColumn('target', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('checked_at', 'datetime', ['null' => false])
+            ->addIndex(['type', 'target', 'ip', 'checked_at'], ['name' => 'ix_ip_checks_type_target_ip_checked_at'])
+            ->create();
+    }
+}

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace KaletaExample\Hello;
+namespace TaleaExample\Hello;
 
-use Kaleta\Extension\Api;
-use Kaleta\Extension\ExtensionInterface;
+use Talea\Extension\Api;
+use Talea\Extension\ExtensionInterface;
 
 /**
- * An example add-on for Kaleta 3.0 – copy the folder to extensions/hello/ and switch it on in Add-ons.
+ * An example add-on for Talea 3.0 – copy the folder to extensions/hello/ and switch it on in Add-ons.
  * It shows every part of the extension API (docs/EXTENSIONS.md).
  */
 final class Extension implements ExtensionInterface
@@ -18,7 +18,7 @@ final class Extension implements ExtensionInterface
         // {{ext.hello.greeting name="Jana"}} in a text or a build – the add-on escapes what it prints
         $api->token('greeting', fn (array $attributes): string => '<span class="hello-greeting">' . htmlspecialchars($api->get('word', 'Hello') . ', ' . ($attributes['name'] ?? 'world'), ENT_QUOTES) . '!</span>');
 
-        // a line at the end of every public page (never on private pages such as the whistleblowing channel)
+        // a line at the end of every public page
         $api->filter('footer', fn (string $html): string => $html . '<!-- hello add-on -->');
 
         // count enquiries as they arrive
@@ -26,8 +26,8 @@ final class Extension implements ExtensionInterface
             $api->set('enquiries', (string) ((int) $api->get('enquiries', '0') + 1));
         });
 
-        // an administration page (Add-ons → Hello settings); POSTs are CSRF-checked by Kaleta
-        $api->adminPage('settings', 'Hello settings', function (\Kaleta\Core\Request $request) use ($api): string {
+        // an administration page (Add-ons → Hello settings); POSTs are CSRF-checked by Talea
+        $api->adminPage('settings', 'Hello settings', function (\Talea\Core\Request $request) use ($api): string {
             if ($request->isPost()) {
                 $api->set('word', mb_substr(trim($request->post('word')), 0, 40));
             }

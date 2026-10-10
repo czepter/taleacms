@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\ShareImage;
+use Talea\Front\ShareImage;
 
 /**
  * Social post drafts (2.13). When a news item is published – in the administration, through Claude or by the scheduler –
@@ -12,7 +12,7 @@ use Kaleta\Front\ShareImage;
  * hashtags from the tags, the news image (or the picture the site draws, Front\ShareImage) and a tracked link, so the
  * statistics show the visits from each network (utm_source = the network, utm_campaign = the news slug). A person edits,
  * copies and posts them – the site never posts anywhere and calls no outside service; the AI assistant rewrites them only
- * on a click. Stored in ka_social_drafts (one row per network, so Claude can polish one draft by its id).
+ * on a click. Stored in tl_social_drafts (one row per network, so Claude can polish one draft by its id).
  *
  * The text builders are pure functions, tested without a database.
  */
@@ -21,7 +21,7 @@ final class SocialDrafts
     /** network key => name */
     public const array NETWORKS = ['facebook' => 'Facebook', 'linkedin' => 'LinkedIn', 'x' => 'X', 'instagram' => 'Instagram'];
 
-    /** For the settings field type (seznam:…). */
+    /** For the settings field type (list:…). */
     public const string NETWORK_KEYS = 'facebook|linkedin|x|instagram';
 
     public const string DEFAULT_NETWORKS = 'facebook,linkedin';
@@ -54,14 +54,14 @@ final class SocialDrafts
         return array_values(array_filter(array_keys(self::NETWORKS), fn (string $k): bool => in_array($k, $wanted, true)));
     }
 
-    /** The news URL with the campaign parameters the statistics already count (Front\Stats, ka_stat_kampane). */
+    /** The news URL with the campaign parameters the statistics already count (Front\Stats, tl_stats_campaigns). */
     public static function trackedLink(string $url, string $network, string $slug): string
     {
         return $url . (str_contains($url, '?') ? '&' : '?') . 'utm_source=' . rawurlencode($network) . '&utm_medium=social&utm_campaign=' . rawurlencode($slug);
     }
 
     /**
-     * Hashtags from the tags: "Nová hala" => #NovaHala, at most MAX_HASHTAGS, without duplicates.
+     * Hashtags from the tags: "New hall" => #NewHall, at most MAX_HASHTAGS, without duplicates.
      *
      * @param list<string> $tags
      * @return list<string>
@@ -154,12 +154,12 @@ final class SocialDrafts
     public static function prepare(App $app, int $idc): int
     {
         $db = $app->db();
-        $c = $db->one('SELECT idc, titulek, uvod, seo_link, jazyk, obrazek, seo_titulek FROM {novinky} WHERE idc = ? AND visible = 1 AND datum <= NOW() AND smazano IS NULL', [$idc]);
+        $c = $db->one('SELECT news_id, title, intro, slug, language, image, seo_title FROM {news} WHERE news_id = ? AND visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'), [$idc]);
         if ($c === null) {
             return 0;
         }
         try {
-            $existing = array_column($db->all('SELECT network FROM {social_drafts} WHERE idc = ?', [$idc]), 'network');
+            $existing = array_column($db->all('SELECT network FROM {social_drafts} WHERE news_id = ?', [$idc]), 'network');
         } catch (\Throwable) {
             return 0; // before the 2.13 migration
         }
@@ -168,13 +168,13 @@ final class SocialDrafts
             return 0;
         }
         $hashtags = self::hashtags(self::tags($db, $idc));
-        $url = self::origin($app) . $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']);
+        $url = self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']);
         $image = self::image($app, $c);
-        $lead = self::plain((string) $c['uvod']);
+        $lead = self::plain((string) $c['intro']);
         $now = date('Y-m-d H:i:s');
         foreach ($networks as $network) {
-            $link = self::trackedLink($url, $network, (string) $c['seo_link']);
-            $db->insert('social_drafts', ['idc' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['titulek'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
+            $link = self::trackedLink($url, $network, (string) $c['slug']);
+            $db->insert('social_drafts', ['news_id' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['title'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
                 'link' => mb_substr($link, 0, 500), 'image' => mb_substr($image, 0, 500), 'created_at' => $now]);
         }
 
@@ -184,12 +184,12 @@ final class SocialDrafts
     /**
      * The drafts of a news item in the order of NETWORKS.
      *
-     * @return list<array{id: int, idc: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}>
+     * @return list<array{id: int, news_id: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}>
      */
     public static function forNews(Db $db, int $idc): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {social_drafts} WHERE idc = ? ORDER BY FIELD(network, ' . implode(', ', array_fill(0, count(self::NETWORKS), '?')) . '), id', [$idc, ...array_keys(self::NETWORKS)]);
+            $rows = $db->all('SELECT * FROM {social_drafts} WHERE news_id = ? ORDER BY ' . $db->dialect()->listPosition('network', count(self::NETWORKS)) . ', id', [$idc, ...array_keys(self::NETWORKS)]);
         } catch (\Throwable) {
             return []; // before the 2.13 migration
         }
@@ -197,7 +197,7 @@ final class SocialDrafts
         return array_map(self::row(...), $rows);
     }
 
-    /** @return array{id: int, idc: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}|null */
+    /** @return array{id: int, news_id: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}|null */
     public static function find(Db $db, int $id): ?array
     {
         try {
@@ -249,13 +249,13 @@ final class SocialDrafts
             return 'The writing assistant is not enabled or the key is missing (Features).';
         }
         $db = $app->db();
-        $c = $db->one('SELECT titulek, uvod, text FROM {novinky} WHERE idc = ?', [$idc]);
+        $c = $db->one('SELECT title, intro, text FROM {news} WHERE news_id = ?', [$idc]);
         $drafts = self::forNews($db, $idc);
         if ($c === null || $drafts === []) {
             return 'There are no drafts to rewrite.';
         }
         try {
-            $suggestions = $assistant->suggest('prispevky', ['titulek' => (string) $c['titulek'], 'uvod' => (string) $c['uvod'], 'text' => (string) $c['text']])['navrhy'];
+            $suggestions = $assistant->suggest('posts', ['title' => (string) $c['title'], 'intro' => (string) $c['intro'], 'text' => (string) $c['text']])['suggestions'];
         } catch (\RuntimeException $e) {
             return $e->getMessage();
         }
@@ -292,11 +292,11 @@ final class SocialDrafts
 
     /**
      * @param array<string, mixed> $r
-     * @return array{id: int, idc: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}
+     * @return array{id: int, news_id: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}
      */
     private static function row(array $r): array
     {
-        return ['id' => (int) $r['id'], 'idc' => (int) $r['idc'], 'network' => (string) $r['network'], 'network_name' => self::NETWORKS[$r['network']] ?? (string) $r['network'],
+        return ['id' => (int) $r['id'], 'news_id' => (int) $r['news_id'], 'network' => (string) $r['network'], 'network_name' => self::NETWORKS[$r['network']] ?? (string) $r['network'],
             'text' => (string) $r['text'], 'link' => (string) $r['link'], 'image' => (string) $r['image'], 'created_at' => (string) $r['created_at'], 'posted_at' => $r['copied_at'] === null ? null : (string) $r['copied_at']];
     }
 
@@ -307,20 +307,20 @@ final class SocialDrafts
      */
     private static function tags(Db $db, int $idc): array
     {
-        return array_column($db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY cs.ids', [$idc]), 'nazev');
+        return array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY cs.tag_id', [$idc]), 'name');
     }
 
     /** The image to attach: the news image, else the site's sharing image, else the picture the site draws (2.12); '' = none. */
     private static function image(App $app, array $c): string
     {
         $root = self::origin($app) . $app->request->basePath() . '/';
-        foreach ([(string) $c['obrazek'], $app->settings()->get('share_image')] as $image) {
+        foreach ([(string) $c['image'], $app->settings()->get('share_image')] as $image) {
             if ($image !== '') {
                 return preg_match('#^https?://#i', $image) ? $image : $root . ltrim($image, '/');
             }
         }
 
-        return ShareImage::url($app, Facts::fillText((string) ($c['seo_titulek'] !== '' ? $c['seo_titulek'] : $c['titulek']), $app)) ?? '';
+        return ShareImage::url($app, Facts::fillText((string) ($c['seo_title'] !== '' ? $c['seo_title'] : $c['title']), $app)) ?? '';
     }
 
     /** Scheme and host of the site: the site address from Settings, not the Host header (the scheduler may run from cron). */

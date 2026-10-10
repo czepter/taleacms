@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Settings;
+use Talea\Core\Db;
+use Talea\Core\Settings;
 
 /**
- * Elements copied between Kaleta sites through the system clipboard (2.7). The builder writes a text envelope
- * {"kaleta":"elements","v":1,"site":"https://source.example","elements":[…],"classes":[…],"components":[…]} and the
+ * Elements copied between Talea sites through the system clipboard (2.7). The builder writes a text envelope
+ * {"talea":"elements","v":1,"site":"https://source.example","elements":[…],"classes":[…],"components":[…]} and the
  * builder of another site reads it back from a paste. The shared classes and the components the elements use travel
  * the same way as in a page export (PagePackage): a class the target site already has is kept, a missing one is
  * created, components are reused or created – by an administrator only. Element ids and anchors are made anew on paste;
@@ -38,31 +38,32 @@ final class ElementClipboard
      */
     public static function pack(Db $db, array $elements, string $origin): array
     {
-        $package = PagePackage::collect($db, ['deti' => $elements]);
+        $package = PagePackage::collect($db, ['children' => $elements]);
+        $elements = array_values((array) (PagePackage::toPublic($db, ['children' => $elements])['children'] ?? $elements)); // components by public id
 
-        return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['tridy'], 'components' => $package['komponenty']];
+        return ['talea' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['components']];
     }
 
     /**
      * Checks an envelope from the clipboard. Anything that is not one (plain text, another JSON) gives null; the elements
      * themselves are checked later by Build::sanitize.
      *
-     * @return array{site: string, prvky: list<array<string, mixed>>, tridy: list<array<string, mixed>>, komponenty: list<array<string, mixed>>}|null
+     * @return array{site: string, elements: list<array<string, mixed>>, classes: list<array<string, mixed>>, components: list<array<string, mixed>>}|null
      */
     public static function parse(mixed $data): ?array
     {
-        if (!is_array($data) || ($data['kaleta'] ?? null) !== self::FORMAT || !is_int($data['v'] ?? null) || $data['v'] < 1 || $data['v'] > self::VERSION
+        if (!is_array($data) || ($data['talea'] ?? null) !== self::FORMAT || !is_int($data['v'] ?? null) || $data['v'] < 1 || $data['v'] > self::VERSION
             || !is_array($data['elements'] ?? null) || !array_is_list($data['elements'])) {
             return null;
         }
-        $elements = array_values(array_filter($data['elements'], fn (mixed $e): bool => is_array($e) && is_string($e['typ'] ?? null)));
+        $elements = array_values(array_filter($data['elements'], fn (mixed $e): bool => is_array($e) && is_string($e['type'] ?? null)));
         if ($elements === [] || count($elements) > self::MAX_ELEMENTS) {
             return null;
         }
-        $site = is_string($data['site'] ?? null) && preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#iD', rtrim($data['site'], '/')) ? strtolower(rtrim($data['site'], '/')) : '';
+        $site = is_string($data['site'] ?? null) && preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', rtrim($data['site'], '/')) ? strtolower(rtrim($data['site'], '/')) : '';
         $list = fn (string $key): array => is_array($data[$key] ?? null) && array_is_list($data[$key]) ? array_values(array_filter($data[$key], 'is_array')) : [];
 
-        return ['site' => $site, 'prvky' => $elements, 'tridy' => $list('classes'), 'komponenty' => $list('components')];
+        return ['site' => $site, 'elements' => $elements, 'classes' => $list('classes'), 'components' => $list('components')];
     }
 
     /**
@@ -71,19 +72,19 @@ final class ElementClipboard
      * site's ids mean nothing here), media are relinked, ids and anchors dropped. From the same site nothing is imported –
      * classes, components and media are already here. The result still has to go through Build::sanitize.
      *
-     * @param array{site: string, prvky: list<array<string, mixed>>, tridy: list<array<string, mixed>>, komponenty: list<array<string, mixed>>} $package
-     * @return array{0: list<array<string, mixed>>, 1: array{tridy: int, komponenty: int}, 2: int} elements, what was created, relinked images
+     * @param array{site: string, elements: list<array<string, mixed>>, classes: list<array<string, mixed>>, components: list<array<string, mixed>>} $package
+     * @return array{0: list<array<string, mixed>>, 1: array{classes: int, components: int}, 2: int} elements, what was created, relinked images
      */
     public static function import(Settings $s, array $package, string $thisSite, bool $admin): array
     {
-        $elements = self::fresh($package['prvky']);
+        $elements = self::fresh($package['elements']);
         if ($package['site'] !== '' && $package['site'] === strtolower(rtrim($thisSite, '/'))) {
-            return [$elements, ['tridy' => 0, 'komponenty' => 0], 0];
+            return [array_values((array) (PagePackage::toInternal($s->db(), ['children' => $elements])['children'] ?? $elements)), ['classes' => 0, 'components' => 0], 0];
         }
         $images = 0;
         $elements = self::relinkMedia($elements, $package['site'], $images);
-        [$build, $created] = PagePackage::import($s, ['tridy' => $package['tridy'], 'komponenty' => $package['komponenty']], ['deti' => $elements], $admin);
-        $elements = is_array($build['deti'] ?? null) ? array_values($build['deti']) : [];
+        [$build, $created] = PagePackage::import($s, ['classes' => $package['classes'], 'components' => $package['components']], ['children' => $elements], $admin);
+        $elements = is_array($build['children'] ?? null) ? array_values($build['children']) : [];
 
         return [$admin ? $elements : self::detachComponents($elements), $created, $images];
     }
@@ -98,9 +99,9 @@ final class ElementClipboard
     public static function fresh(array $elements): array
     {
         foreach ($elements as $i => $p) {
-            unset($p['id'], $p['kotva']);
-            if (is_array($p['deti'] ?? null)) {
-                $p['deti'] = self::fresh(array_values($p['deti']));
+            unset($p['id'], $p['anchor']);
+            if (is_array($p['children'] ?? null)) {
+                $p['children'] = self::fresh(array_values($p['children']));
             }
             $elements[$i] = $p;
         }
@@ -148,13 +149,13 @@ final class ElementClipboard
             return $v;
         };
         foreach ($elements as $i => $p) {
-            foreach (['obsah', 'styl'] as $key) {
+            foreach (['content', 'style'] as $key) {
                 if (is_array($p[$key] ?? null)) {
                     $p[$key] = $value($p[$key]);
                 }
             }
-            if (is_array($p['deti'] ?? null)) {
-                $p['deti'] = self::relinkMedia(array_values($p['deti']), $site, $count);
+            if (is_array($p['children'] ?? null)) {
+                $p['children'] = self::relinkMedia(array_values($p['children']), $site, $count);
             }
             $elements[$i] = $p;
         }
@@ -172,11 +173,11 @@ final class ElementClipboard
     private static function detachComponents(array $elements): array
     {
         foreach ($elements as $i => $p) {
-            if (($p['typ'] ?? '') === 'komponenta' && is_array($p['obsah'] ?? null)) {
-                $p['obsah']['komponenta'] = '';
+            if (($p['type'] ?? '') === 'component' && is_array($p['content'] ?? null)) {
+                $p['content']['component'] = '';
             }
-            if (is_array($p['deti'] ?? null)) {
-                $p['deti'] = self::detachComponents(array_values($p['deti']));
+            if (is_array($p['children'] ?? null)) {
+                $p['children'] = self::detachComponents(array_values($p['children']));
             }
             $elements[$i] = $p;
         }

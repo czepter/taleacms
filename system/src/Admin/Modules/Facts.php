@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Facts as FactStore;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Facts as FactStore;
+use Talea\Core\Language;
+use Talea\Core\Response;
 
 /**
  * Business facts (2.10, Core\Facts): the facts the site states, where each is used, the sentences that still state an
@@ -21,7 +21,7 @@ final class Facts extends Module
     public const string PARENT = 'business';
     public const string NAME = 'Facts';
     public const string GROUP = 'Company';
-    public const string ICON = 'fakta';
+    public const string ICON = 'facts';
     public const bool ADMIN_ONLY = false;
 
     protected function actionList(): Response
@@ -35,7 +35,7 @@ final class Facts extends Module
         $facts = FactStore::all($this->app);
         $fact = $facts[$key] ?? null;
         if ($key !== '' && ($fact === null || $fact['builtIn'])) {
-            return $this->back($fact !== null ? 'This fact comes from the settings (Business details) – change it there.' : 'The fact does not exist.', '', [], 'chyba');
+            return $this->back($fact !== null ? 'This fact comes from the settings (Business details) – change it there.' : 'The fact does not exist.', '', [], 'error');
         }
         $old = $this->app->session->get('fact_old_value');
         $this->app->session->set('fact_old_value', null);
@@ -66,7 +66,7 @@ final class Facts extends Module
             }
         }
         if ($error !== null) {
-            return $this->back($error, 'edit', $before !== null ? ['key' => $key] : [], 'chyba');
+            return $this->back($error, 'edit', $before !== null ? ['key' => $key] : [], 'error');
         }
         $after = FactStore::all($this->app)[$key] ?? null;
         if ($before !== null && $after !== null && $before['value'] !== $after['value'] && $before['value'] !== '') {

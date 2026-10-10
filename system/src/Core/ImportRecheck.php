@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * Imported content checked again with today's sanitizers (3.3.3, N63). Before 3.3.2 (N23) the importers could turn the
  * text of an attribute into markup, and what they stored then is still on the site. Migration 0074 starts this check, the
  * background job "import_recheck" finishes it on a large site; the state is the setting imported_recheck (JSON).
  *
- * Only what the import map (ka_import_mapa) lists is looked at – imported news, pages and collection items – and only
+ * Only what the import map (tl_import_map) lists is looked at – imported news, pages and collection items – and only
  * what is risky changes, so everything an editor wrote since stays as it is:
  *  - HTML that can run a script (a <script>, an on… attribute, a javascript: address, an <object>…) goes through the
  *    sanitizer the import used: Html::safe for an import of a website (source web:…), WpContent::safeHtml for the others;
@@ -74,17 +74,17 @@ final class ImportRecheck
         $end = microtime(true) + $seconds;
         do {
             [$zdroj, $typ, $key] = $state['after'] ?? ['', '', ''];
-            $rows = $db->all("SELECT zdroj, typ, cizi_id, nase_id FROM {import_mapa} WHERE typ IN ('clanek', 'stranka', 'polozka') AND nase_id > 0
-                AND (zdroj > ? OR (zdroj = ? AND typ > ?) OR (zdroj = ? AND typ = ? AND cizi_id > ?)) ORDER BY zdroj, typ, cizi_id LIMIT " . self::BATCH,
+            $rows = $db->all("SELECT source, type, source_id, local_id FROM {import_map} WHERE type IN ('news', 'page', 'item') AND local_id > 0
+                AND (source > ? OR (source = ? AND type > ?) OR (source = ? AND type = ? AND source_id > ?)) ORDER BY source, type, source_id LIMIT " . self::BATCH,
                 [$zdroj, $zdroj, $typ, $zdroj, $typ, $key]);
             foreach ($rows as $r) {
                 try {
-                    $state['changed'] += self::recheck($db, (string) $r['zdroj'], (string) $r['typ'], (int) $r['nase_id']) ? 1 : 0;
+                    $state['changed'] += self::recheck($db, (string) $r['source'], (string) $r['type'], (int) $r['local_id']) ? 1 : 0;
                 } catch (\Throwable $e) {
-                    error_log('Import recheck: ' . $r['typ'] . ' ' . $r['nase_id'] . ' – ' . $e->getMessage()); // one odd row never stops the rest
+                    error_log('Import recheck: ' . $r['type'] . ' ' . $r['local_id'] . ' – ' . $e->getMessage()); // one odd row never stops the rest
                 }
                 $state['checked']++;
-                $state['after'] = [(string) $r['zdroj'], (string) $r['typ'], (string) $r['cizi_id']];
+                $state['after'] = [(string) $r['source'], (string) $r['type'], (string) $r['source_id']];
             }
             $state['done'] = count($rows) < self::BATCH;
             $settings->set(self::SETTING, (string) json_encode($state, JSON_UNESCAPED_UNICODE));
@@ -98,63 +98,63 @@ final class ImportRecheck
     {
         $sanitize = str_starts_with($source, 'web:') ? Html::safe(...) : WpContent::safeHtml(...);
         $now = date('Y-m-d H:i:s');
-        if ($type === 'clanek') {
-            $r = $db->one('SELECT idc, titulek, uvod, text FROM {novinky} WHERE idc = ?', [$id]);
+        if ($type === 'news') {
+            $r = $db->one('SELECT news_id, title, intro, text FROM {news} WHERE news_id = ?', [$id]);
             if ($r === null) {
                 return false;
             }
-            $new = ['uvod' => self::html((string) $r['uvod'], $sanitize), 'text' => self::html((string) $r['text'], $sanitize)];
-            if ($new === ['uvod' => (string) $r['uvod'], 'text' => (string) $r['text']]) {
+            $new = ['intro' => self::html((string) $r['intro'], $sanitize), 'text' => self::html((string) $r['text'], $sanitize)];
+            if ($new === ['intro' => (string) $r['intro'], 'text' => (string) $r['text']]) {
                 return false;
             }
-            $db->insert('novinky_revize', ['idc' => $id, 'datum' => $now, 'kdo' => null, 'titulek' => (string) $r['titulek'], 'uvod' => (string) $r['uvod'], 'text' => (string) $r['text']]);
-            $db->update('novinky', $new, ['idc' => $id]);
+            $db->insert('news_revisions', ['news_id' => $id, 'created_at' => $now, 'user_id' => null, 'title' => (string) $r['title'], 'intro' => (string) $r['intro'], 'text' => (string) $r['text']]);
+            $db->update('news', $new, ['news_id' => $id]);
             Search::index($db, $id);
 
             return true;
         }
-        if ($type === 'stranka') {
-            $r = $db->one('SELECT ids, titulek, text, stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$id]);
+        if ($type === 'page') {
+            $r = $db->one('SELECT page_id, title, text, build, build_draft FROM {pages} WHERE page_id = ?', [$id]);
             if ($r === null) {
                 return false;
             }
             $changed = false;
             $text = self::html((string) $r['text'], $sanitize);
             if ($text !== (string) $r['text']) {
-                $db->insert('stranky_revize', ['ids' => $id, 'datum' => $now, 'kdo' => null, 'titulek' => (string) $r['titulek'], 'text' => (string) $r['text']]);
-                $db->update('stranky', ['text' => $text], ['ids' => $id]);
+                $db->insert('page_revisions', ['page_id' => $id, 'created_at' => $now, 'user_id' => null, 'title' => (string) $r['title'], 'text' => (string) $r['text']]);
+                $db->update('pages', ['text' => $text], ['page_id' => $id]);
                 $changed = true;
             }
-            foreach (['stavba', 'stavba_koncept'] as $column) {
+            foreach (['build', 'build_draft'] as $column) {
                 $json = $r[$column] === null ? null : (string) $r[$column];
                 $clean = $json === null ? null : self::build($json);
                 if ($clean !== null && $clean !== $json) {
-                    $db->insert('stavba_revize', ['ids' => $id, 'datum' => $now, 'kdo' => null, 'stavba' => $json]);
-                    $db->update('stranky', [$column => $clean], ['ids' => $id]);
+                    $db->insert('build_revisions', ['page_id' => $id, 'created_at' => $now, 'user_id' => null, 'build' => $json]);
+                    $db->update('pages', [$column => $clean], ['page_id' => $id]);
                     $changed = true;
                 }
             }
 
             return $changed;
         }
-        $r = $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ?', [$id]);
-        $collection = $r === null ? null : \Kaleta\Builder\Collections::byId($db, (int) $r['idk']);
+        $r = $db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [$id]);
+        $collection = $r === null ? null : \Talea\Builder\Collections::byId($db, (int) $r['collection_id']);
         $data = $r === null ? null : json_decode((string) $r['data'], true);
         if ($collection === null || !is_array($data)) {
             return false;
         }
         $new = $data;
-        foreach ($collection['pole'] as $field) {
-            if (($field['typ'] ?? '') === 'html' && is_string($data[$field['klic'] ?? ''] ?? null)) {
-                $new[$field['klic']] = self::html($data[$field['klic']], WpContent::safeHtml(...)); // what Collections::sanitizeData uses
+        foreach ($collection['fields'] as $field) {
+            if (($field['type'] ?? '') === 'html' && is_string($data[$field['key'] ?? ''] ?? null)) {
+                $new[$field['key']] = self::html($data[$field['key']], WpContent::safeHtml(...)); // what Collections::sanitizeData uses
             }
         }
         if ($new === $data) {
             return false;
         }
-        $db->insert('stavba_revize', ['cast' => 'polozka:' . $id, 'datum' => $now, 'kdo' => null,
-            'stavba' => (string) json_encode(array_intersect_key($r, array_flip(\Kaleta\Builder\Collections::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
-        $db->update('kolekce_polozky', ['data' => (string) json_encode($new, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)], ['idp' => $id]);
+        $db->insert('build_revisions', ['part' => 'item:' . $id, 'created_at' => $now, 'user_id' => null,
+            'build' => (string) json_encode(array_intersect_key($r, array_flip(\Talea\Builder\Collections::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+        $db->update('collection_items', ['data' => (string) json_encode($new, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)], ['item_id' => $id]);
 
         return true;
     }
@@ -182,7 +182,7 @@ final class ImportRecheck
         if ($build === null) {
             return null;
         }
-        if (self::buildRisk($build['deti'] ?? []) === 0) {
+        if (self::buildRisk($build['children'] ?? []) === 0) {
             return $json;
         }
         [$clean] = Build::sanitize($build, false, $build); // $previous = the build itself: Custom HTML stays as the administrator wrote it
@@ -208,7 +208,7 @@ final class ImportRecheck
                 return 2;
             }
             foreach ($element->attributes as $a) {
-                $attribute = strtolower($a->nodeName);
+                $attribute = strtolower($a->name);
                 if (str_starts_with($attribute, 'on')) {
                     return 2;
                 }
@@ -236,12 +236,12 @@ final class ImportRecheck
             if (!is_array($node)) {
                 continue;
             }
-            $class = Build::className((string) ($node['typ'] ?? ''));
+            $class = Build::className((string) ($node['type'] ?? ''));
             if ($class !== null && $class::ADMIN_ONLY) {
                 continue; // Custom HTML is the administrator's own code
             }
             $values = $node;
-            unset($values['deti']);
+            unset($values['children']);
             array_walk_recursive($values, function (mixed $value) use (&$risk): void {
                 if (is_string($value) && $risk < 2) {
                     $risk = max($risk, self::scriptAddress($value, false) ? 2 : (str_contains($value, '<') ? self::risk($value) : 0));
@@ -250,7 +250,7 @@ final class ImportRecheck
             if ($risk === 2) {
                 return 2;
             }
-            $risk = max($risk, self::buildRisk(is_array($node['deti'] ?? null) ? $node['deti'] : []));
+            $risk = max($risk, self::buildRisk(is_array($node['children'] ?? null) ? $node['children'] : []));
         }
 
         return $risk;

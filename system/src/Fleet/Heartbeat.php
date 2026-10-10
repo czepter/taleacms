@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Audit;
-use Kaleta\Core\Backup;
-use Kaleta\Core\Events;
-use Kaleta\Core\Extensions;
-use Kaleta\Core\Health;
-use Kaleta\Core\Language;
-use Kaleta\Core\Scheduler;
-use Kaleta\Core\Updater;
+use Talea\Core\App;
+use Talea\Core\Audit;
+use Talea\Core\Backup;
+use Talea\Core\Events;
+use Talea\Core\Extensions;
+use Talea\Core\Health;
+use Talea\Core\Language;
+use Talea\Core\Scheduler;
+use Talea\Core\Updater;
 
 /**
  * What a site tells its console (2.9): version, health, background jobs, backups, updates, enquiries waiting for an answer,
@@ -27,8 +27,8 @@ final class Heartbeat
         $db = $app->db();
         $s = $app->settings();
         $checks = Language::runWith('en', fn (): array => Health::checks($app));
-        $problems = array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning',
-            'detail' => mb_substr(trim(strip_tags((string) $c['info'])), 0, 200)], array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok')));
+        $problems = array_values(array_map(fn (array $c): array => ['group' => $c['group'], 'check' => $c['name'], 'status' => $c['status'] === 'error' ? 'error' : 'warning',
+            'detail' => mb_substr(trim(strip_tags((string) $c['info'])), 0, 200)], array_filter($checks, fn (array $c): bool => $c['status'] !== 'ok')));
         $backup = Backup::listAll()[0] ?? null;
         $update = (new Updater($s))->state();
         $rolledBack = $db->one("SELECT created_at, message FROM {events} WHERE type IN ('update.rolled_back', 'update.failed') ORDER BY id DESC LIMIT 1");
@@ -44,21 +44,21 @@ final class Heartbeat
         return [
             'name' => $s->get('site_name'),
             'url' => rtrim($s->get('site_url'), '/'),
-            'version' => KALETA_VERSION,
+            'version' => TALEA_VERSION,
             'php' => PHP_VERSION,
-            'db_version' => $s->int('db_version'),
-            'status' => ['ok' => 'ok', 'varovani' => 'warning', 'chyba' => 'error'][Health::summary($checks)],
+            'schema_version' => (string) $db->value('SELECT MAX(version) FROM {migrations}'), // the newest applied migration (Phinx)
+            'status' => ['ok' => 'ok', 'warning' => 'warning', 'error' => 'error'][Health::summary($checks)],
             'problems' => array_slice($problems, 0, 20),
             'jobs_failing' => array_values(array_map(fn (array $j): string => $j['name'], array_filter(Scheduler::overview($db, $s), fn (array $j): bool => $j['failures'] > 0))),
             'cron_last_run' => $s->int('tasks_last_run') ?: null,
-            'last_backup' => $backup !== null ? (int) $backup['cas'] : null,
-            'offsite_backup' => $s->get('remote_backup') !== 'vypnuto',
-            'update_available' => $update['nova']['verze'] ?? null,
+            'last_backup' => $backup !== null ? (int) $backup['time'] : null,
+            'offsite_backup' => $s->get('remote_backup') !== 'off',
+            'update_available' => $update['available']['version'] ?? null,
             'update_problem' => $rolledBack !== null && strtotime((string) $rolledBack['created_at']) > time() - 14 * 86400 ? mb_substr((string) $rolledBack['message'], 0, 200) : null,
             'auto_updates' => $s->bool('auto_updates'),
-            'enquiries_unanswered' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0') : null,
-            'enquiries_7_days' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > NOW() - INTERVAL 7 DAY') : null,
-            'visits_7_days' => \Kaleta\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(navstevy), 0) FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 7 DAY') : null,
+            'enquiries_unanswered' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0') : null,
+            'enquiries_7_days' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > NOW() - INTERVAL 7 DAY') : null,
+            'visits_7_days' => \Talea\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(visits), 0) FROM {stats_days} WHERE day > CURRENT_DATE - INTERVAL 7 DAY') : null,
             'audit' => $audit,
             'problems_7_days' => Events::problems($db, 168),
             'claude' => Extensions::isEnabled($s, 'claude'),

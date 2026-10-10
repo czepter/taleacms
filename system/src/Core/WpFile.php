@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Reading a WordPress export (WXR file: Tools → Export → All content). It writes nothing, only reads.
@@ -15,13 +15,10 @@ namespace Kaleta\Core;
  */
 final class WpFile
 {
-    public const string FOLDER = KALETA_ROOT . '/storage/import';
+    public const string FOLDER = TALEA_ROOT . '/storage/import';
 
     /** Upper limit of the file size: a larger export is better split (WordPress can do it by date or author). */
     public const int MAX_BYTES = 1024 * 1024 * 1024;
-
-    /** Meta keys by which a page builder's layout is recognised (3.6): the layout is not in the post text, so the report says so. */
-    private const array BUILDERS = ['_breakdance_data' => 'Breakdance', '_elementor_data' => 'Elementor', 'ct_builder_shortcodes' => 'Oxygen', '_et_pb_use_builder' => 'Divi'];
 
     /** @param string $path full path to the file on disk */
     public function __construct(private readonly string $path)
@@ -43,48 +40,20 @@ final class WpFile
         return self::FOLDER;
     }
 
-    /** Days the state of an import or a migration report is kept after its last change (3.7, N37-25). */
-    public const int KEEP_DAYS = 14;
-
-    /**
-     * The daily clean-up of storage/import (3.7, N37-25): the states of imports and migration reports and the rows of item
-     * imports untouched for KEEP_DAYS (they can hold personal data – names, e-mails of a shop's customers), and the
-     * temporary files of downloads that died halfway after a day. A WordPress export (*.xml) is never deleted: the
-     * administrator uploaded it on purpose, may import it again, and removes it in Import and export – only the files
-     * Kaleta wrote itself expire. Returns how many files were deleted.
-     */
-    public static function purgeOld(string $folder, int $now): int
-    {
-        $deleted = 0;
-        foreach (scandir($folder) ?: [] as $name) {
-            $age = match (true) {
-                preg_match('/^(polozky|web|parita|stav)-[a-f0-9]{16}(\.rows)?\.json$/D', $name) === 1 => self::KEEP_DAYS * 86400,
-                preg_match('/^((nahrani|obrazek|stahovani|polozka|web-obrazek)-[a-f0-9]{12}|stav-[a-f0-9]{16}\.json)\.tmp$/D', $name) === 1 => 86400,
-                default => null,
-            };
-            $path = $folder . '/' . $name;
-            if ($age !== null && is_file($path) && $now - (int) filemtime($path) > $age && @unlink($path)) {
-                $deleted++;
-            }
-        }
-
-        return $deleted;
-    }
-
     /**
      * The *.xml files in the folder (uploaded through the form or over FTP), newest on top.
      *
-     * @return list<array{soubor:string, velikost:int, cas:int}>
+     * @return list<array{file:string, size:int, time:int}>
      */
     public static function listAll(): array
     {
         $files = [];
         foreach (glob(self::FOLDER . '/*.{xml,XML}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
-                $files[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
         }
-        usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($files, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
 
         return $files;
     }
@@ -139,15 +108,13 @@ final class WpFile
     }
 
     /**
-     * Data from the start of the file (before the first post): old site, authors (and their e-mails, only to find an
-     * existing user with the same address – never to create an account), categories, tags, the navigation menus
-     * (nav_menu terms, 3.6) and the term numbers of categories and tags (menu items point to terms by number).
+     * Data from the start of the file (before the first post): old site, authors, categories, tags.
      *
-     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>}
+     * @return array{name:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{name:string, predek:string}>, stitky:array<string,string>}
      */
     public function header(): array
     {
-        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => []];
+        $h = ['name' => '', 'url' => '', 'authors' => [], 'categories' => [], 'tags' => []];
         $link = '';
         $reader = $this->open();
         try {
@@ -163,33 +130,23 @@ final class WpFile
                     break;
                 }
                 $field = self::fields($this->node($reader));
-                $term = (int) ($field['wp:term_id'] ?? 0);
                 match ($reader->name) {
-                    'title' => $h['nazev'] = self::plainText($field['title'] ?? ''),
+                    'title' => $h['name'] = self::plainText($field['title'] ?? ''),
                     'link' => $link = trim($field['link'] ?? ''),
-                    'wp:base_site_url' => $h['adresa'] = trim($field['wp:base_site_url'] ?? ''),
-                    'wp:author' => $h['autori'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
-                    'wp:category' => $h['rubriky'][(string) ($field['wp:category_nicename'] ?? '')] = ['nazev' => self::plainText($field['wp:cat_name'] ?? ''), 'predek' => (string) ($field['wp:category_parent'] ?? '')],
-                    'wp:tag' => $h['stitky'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
-                    'wp:term' => ($field['wp:term_taxonomy'] ?? '') === 'nav_menu' ? $h['menu'][(string) ($field['wp:term_slug'] ?? '')] = self::plainText($field['wp:term_name'] ?? '') : null,
+                    'wp:base_site_url' => $h['url'] = trim($field['wp:base_site_url'] ?? ''),
+                    'wp:author' => $h['authors'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
+                    'wp:category' => $h['categories'][(string) ($field['wp:category_nicename'] ?? '')] = ['name' => self::plainText($field['wp:cat_name'] ?? ''), 'parent' => (string) ($field['wp:category_parent'] ?? '')],
+                    'wp:tag' => $h['tags'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
                     default => null,
                 };
-                if ($reader->name === 'wp:author') {
-                    $email = trim($field['wp:author_email'] ?? '');
-                    $h['emaily'][(string) ($field['wp:author_login'] ?? '')] = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_strtolower($email) : '';
-                }
-                if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true)) {
-                    // menu items name a category or a tag by its term number
-                    $h['terminy'][$term] = [$reader->name === 'wp:category' ? 'rubrika' : 'stitek', (string) ($field[$reader->name === 'wp:category' ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')];
-                }
                 $hasMore = $this->additional($reader);
             }
         } finally {
             $reader->close();
         }
         // URL of the old site: the channel's <link> is the URL the site really ran on; base_site_url only as a fallback
-        $h['adresa'] = $link !== '' ? $link : $h['adresa'];
-        unset($h['autori'][''], $h['emaily'][''], $h['rubriky'][''], $h['stitky'][''], $h['menu']['']);
+        $h['url'] = $link !== '' ? $link : $h['url'];
+        unset($h['authors'][''], $h['categories'][''], $h['tags']['']);
 
         return $h;
     }
@@ -233,9 +190,9 @@ final class WpFile
     public static function item(\DOMElement $item): array
     {
         $p = [
-            'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
-            'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
-            'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [], 'poradi' => 0, 'menu' => '', 'menu_nazev' => '', 'stavitel' => '',
+            'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'link' => '', 'url' => '', 'date' => '', 'date_gmt' => '', 'pub_date' => '',
+            'author' => '', 'content' => '', 'excerpt' => '', 'password' => '', 'sticky' => false, 'attachment_url' => '', 'preview' => 0,
+            'categories' => [], 'tags' => [], 'meta' => [], 'fields' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -243,47 +200,39 @@ final class WpFile
             }
             $text = $n->textContent;
             switch ($n->nodeName) {
-                case 'title': $p['titulek'] = self::plainText($text); break;
-                case 'link': $p['odkaz'] = trim($text); break;
-                case 'pubDate': $p['vydano'] = trim($text); break;
-                case 'dc:creator': $p['autor'] = trim($text); break;
-                case 'content:encoded': $p['obsah'] = $text; break;
-                case 'excerpt:encoded': $p['perex'] = $text; break;
+                case 'title': $p['title'] = self::plainText($text); break;
+                case 'link': $p['link'] = trim($text); break;
+                case 'pubDate': $p['pub_date'] = trim($text); break;
+                case 'dc:creator': $p['author'] = trim($text); break;
+                case 'content:encoded': $p['content'] = $text; break;
+                case 'excerpt:encoded': $p['excerpt'] = $text; break;
                 case 'wp:post_id': $p['id'] = (int) $text; break;
-                case 'wp:post_date': $p['datum'] = trim($text); break;
-                case 'wp:post_date_gmt': $p['datum_gmt'] = trim($text); break;
-                case 'wp:post_name': $p['adresa'] = trim($text); break;
-                case 'wp:status': $p['stav'] = trim($text); break;
-                case 'wp:post_type': $p['typ'] = trim($text); break;
-                case 'wp:post_password': $p['heslo'] = trim($text); break;
-                case 'wp:is_sticky': $p['pripnuty'] = trim($text) === '1'; break;
-                case 'wp:attachment_url': $p['priloha_url'] = trim($text); break;
-                case 'wp:menu_order': $p['poradi'] = (int) $text; break;
+                case 'wp:post_date': $p['date'] = trim($text); break;
+                case 'wp:post_date_gmt': $p['date_gmt'] = trim($text); break;
+                case 'wp:post_name': $p['url'] = trim($text); break;
+                case 'wp:status': $p['status'] = trim($text); break;
+                case 'wp:post_type': $p['type'] = trim($text); break;
+                case 'wp:post_password': $p['password'] = trim($text); break;
+                case 'wp:is_sticky': $p['sticky'] = trim($text) === '1'; break;
+                case 'wp:attachment_url': $p['attachment_url'] = trim($text); break;
                 case 'category':
-                    $kind = $n->getAttribute('domain') === 'post_tag' ? 'stitky' : ($n->getAttribute('domain') === 'category' ? 'rubriky' : '');
+                    $kind = $n->getAttribute('domain') === 'post_tag' ? 'tags' : ($n->getAttribute('domain') === 'category' ? 'categories' : '');
                     if ($kind !== '' && $n->getAttribute('nicename') !== '') {
                         $p[$kind][$n->getAttribute('nicename')] = self::plainText($text);
-                    } elseif ($n->getAttribute('domain') === 'nav_menu' && $p['menu'] === '') {
-                        $p['menu'] = mb_substr($n->getAttribute('nicename'), 0, 190); // the menu a nav_menu_item belongs to (3.6)
-                        $p['menu_nazev'] = self::plainText($text);
                     }
                     break;
                 case 'wp:postmeta':
                     $meta = self::fields($n);
                     $key = (string) ($meta['wp:meta_key'] ?? '');
                     if ($key === '_thumbnail_id') {
-                        $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
+                        $p['preview'] = (int) ($meta['wp:meta_value'] ?? 0);
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
-                    } elseif ($p['typ'] === 'nav_menu_item' && str_starts_with($key, '_menu_item_')) {
-                        $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 600); // where a menu item leads (3.6)
-                    } elseif (isset(self::BUILDERS[$key])) {
-                        $p['stavitel'] = self::BUILDERS[$key]; // only that a page builder made the layout – its data is not read
-                    } elseif (WpTypes::isCustomType($p['typ']) && count($p['pole']) < 120) {
+                    } elseif (WpTypes::isCustomType($p['type']) && count($p['fields']) < 120) {
                         // custom fields of a custom post type (Core\WpTypes); the export writes wp:post_type before the meta
                         $value = (string) ($meta['wp:meta_value'] ?? '');
                         if (!str_starts_with($key, '_') || str_starts_with($value, 'field_')) {
-                            $p['pole'][$key] = mb_substr($value, 0, 20000);
+                            $p['fields'][$key] = mb_substr($value, 0, 20000);
                         }
                     }
                     break;
@@ -320,7 +269,7 @@ final class WpFile
             }
             if ($reader->depth === 0) {
                 $namespaceUri = (string) $reader->getAttribute('xmlns:wp');
-                if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#D', $namespaceUri)) {
+                if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#', $namespaceUri)) {
                     throw new \RuntimeException('This is not a WordPress export. In WordPress open Tools → Export, choose “All content” and download the .xml file.');
                 }
             } elseif ($reader->depth === 1 && $reader->name === 'channel') {

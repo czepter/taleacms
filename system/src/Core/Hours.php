@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\Company;
+use Talea\Front\Company;
 
 /**
  * Opening hours with exceptions (2.10). The week stays in Business details (company_hours, as people write it); the
- * exceptions – holidays, a closed day, shorter hours – are dated rows in ka_hours_exceptions. From both the site knows
+ * exceptions – holidays, a closed day, shorter hours – are dated rows in tl_hours_exceptions. From both the site knows
  * whether it is open now, the hours of today, shows a notice bar a few days ahead until an exception ends, and adds the
  * exceptions to the structured data (specialOpeningHoursSpecification).
  *
@@ -35,8 +35,8 @@ final class Hours
     {
         $week = array_fill_keys(self::DAYS, []);
         foreach (Company::parseOpeningHours($s->get('company_hours')) ?? [] as $row) {
-            foreach ($row['dny'] as $day) {
-                $week[$day][] = [$row['od'], $row['do']];
+            foreach ($row['days'] as $day) {
+                $week[$day][] = [$row['from'], $row['to']];
             }
         }
 
@@ -51,7 +51,7 @@ final class Hours
     public static function exceptions(Db $db, bool $pastToo = false): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 0' . ($pastToo ? '' : ' AND date_to >= CURDATE()') . ' ORDER BY date_from, id LIMIT 200');
+            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = FALSE' . ($pastToo ? '' : ' AND date_to >= CURRENT_DATE') . ' ORDER BY date_from, id LIMIT 200');
         } catch (\Throwable) {
             return []; // before the 2.10 migration
         }
@@ -68,7 +68,7 @@ final class Hours
     public static function find(Db $db, int $id, bool $proposed = false): ?array
     {
         try {
-            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ? AND proposed = ' . ($proposed ? 1 : 0), [$id]) : null;
+            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ? AND proposed = ' . ($proposed ? 'TRUE' : 'FALSE'), [$id]) : null;
         } catch (\Throwable) {
             return null; // before the 2.10 migration
         }
@@ -84,7 +84,7 @@ final class Hours
     public static function proposed(Db $db): array
     {
         try {
-            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 1 AND date_to >= CURDATE() ORDER BY date_from, id LIMIT 200'));
+            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = TRUE AND date_to >= CURRENT_DATE ORDER BY date_from, id LIMIT 200'));
         } catch (\Throwable) {
             return []; // before the 3.2 migration
         }
@@ -247,7 +247,7 @@ final class Hours
             return '';
         }
 
-        return '<div class="ka-oznameni-hodiny" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
+        return '<div class="tl-notice-hours" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
     }
 
     /**
@@ -259,7 +259,7 @@ final class Hours
      */
     public static function specification(string $text): array
     {
-        return array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['dny'], 'opens' => $h['od'], 'closes' => $h['do']],
+        return array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['days'], 'opens' => $h['from'], 'closes' => $h['to']],
             Company::parseOpeningHours($text) ?? []);
     }
 
@@ -308,9 +308,9 @@ final class Hours
         } else {
             $db->insert('hours_exceptions', $row + ['created_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
+        \Talea\Admin\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
         if ($row['proposed'] === 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
             GoogleBusiness::hoursChanged($app); // the Business Profile gets the exception (2.13)
         }
 
@@ -324,8 +324,8 @@ final class Hours
         if ($proposal === null || $app->db()->update('hours_exceptions', ['proposed' => 0], ['id' => $id, 'proposed' => 1]) === 0) {
             return false;
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
+        \Talea\Front\Cache::clear();
         GoogleBusiness::hoursChanged($app);
 
         return true;
@@ -336,7 +336,7 @@ final class Hours
     {
         $discarded = $app->db()->delete('hours_exceptions', ['id' => $id, 'proposed' => 1]) > 0;
         if ($discarded) {
-            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
+            \Talea\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
         }
 
         return $discarded;
@@ -346,8 +346,8 @@ final class Hours
     {
         $deleted = $app->db()->delete('hours_exceptions', ['id' => $id]) > 0;
         if ($deleted) {
-            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
+            \Talea\Front\Cache::clear();
             GoogleBusiness::hoursChanged($app);
         }
 

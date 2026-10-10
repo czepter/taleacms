@@ -1,0 +1,22 @@
+{
+    "name": "Bebas Neue",
+    "category": "display",
+    "weights": [
+        400
+    ],
+    "italic": false,
+    "variable": false,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "bebas-neue-400.woff2",
+            "weight": 400,
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/bebasneue",
+    "licence": "OFL-1.1"
+}

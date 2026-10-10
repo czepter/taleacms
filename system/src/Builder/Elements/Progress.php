@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Progress bars (skills, progress toward a goal): each row is a <meter> with a label and percentage. The bar slides out on scroll
@@ -13,44 +13,44 @@ use Kaleta\Builder\Element;
  */
 final class Progress extends Element
 {
-    public const string TYPE = 'prubeh';
+    public const string TYPE = 'progress_bars';
     public const string NAME = 'Progress bars';
     public const string DESCRIPTION = 'Bars with percentages – goal progress, share, skill level.';
-    public const string ICON = 'prubeh';
+    public const string ICON = 'progress_bars';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
-        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Bars', 'max' => 12, 'pole' => [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Název', 'vychozi' => '', 'max' => 120],
-            'hodnota' => ['typ' => 'cislo', 'popisek' => 'Percent', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-        ], 'vychozi' => [['nazev' => t('Projects delivered on time'), 'hodnota' => 96], ['nazev' => t('Returning customers'), 'hodnota' => 78]]]];
+        return ['items' => ['type' => 'items', 'label' => 'Bars', 'max' => 12, 'fields' => [
+            'name' => ['type' => 'text', 'label' => 'Name', 'default' => '', 'max' => 120],
+            'value' => ['type' => 'number', 'label' => 'Percent', 'default' => 50, 'min' => 0, 'max' => 100],
+        ], 'default' => [['name' => t('Projects delivered on time'), 'value' => 96], ['name' => t('Returning customers'), 'value' => 78]]]];
     }
 
     public static function baseCss(): string
     {
-        return '.ka-prubeh { display: grid; gap: var(--ka-mezera-m); }
-.ka-prubeh-radek { display: grid; grid-template-columns: 1fr auto; gap: var(--ka-mezera-2xs) var(--ka-mezera-s); }
-.ka-prubeh-radek meter { grid-column: 1 / -1; width: 100%; height: 0.6rem; border: 0; border-radius: 999px; background: var(--ka-barva-plocha); appearance: none; }
-.ka-prubeh-radek meter::-webkit-meter-bar { height: 0.6rem; border: 0; border-radius: 999px; background: var(--ka-barva-plocha); }
-.ka-prubeh-radek meter::-webkit-meter-optimum-value { border-radius: 999px; background: var(--ka-barva-primarni); }
-.ka-prubeh-radek meter::-moz-meter-bar { border-radius: 999px; background: var(--ka-barva-primarni); }
-.ka-prubeh-hodnota { font-variant-numeric: tabular-nums; font-weight: 600; }
+        return '.tl-progress { display: grid; gap: var(--tl-space-m); }
+.tl-progress-row { display: grid; grid-template-columns: 1fr auto; gap: var(--tl-space-2xs) var(--tl-space-s); }
+.tl-progress-row meter { grid-column: 1 / -1; width: 100%; height: 0.6rem; border: 0; border-radius: 999px; background: var(--tl-color-surface); appearance: none; }
+.tl-progress-row meter::-webkit-meter-bar { height: 0.6rem; border: 0; border-radius: 999px; background: var(--tl-color-surface); }
+.tl-progress-row meter::-webkit-meter-optimum-value { border-radius: 999px; background: var(--tl-color-primary); }
+.tl-progress-row meter::-moz-meter-bar { border-radius: 999px; background: var(--tl-color-primary); }
+.tl-progress-value { font-variant-numeric: tabular-nums; font-weight: 600; }
 @supports (animation-timeline: view()) { @media (prefers-reduced-motion: no-preference) {
-	.ka-prubeh-radek meter { transform-origin: left; animation: ka-prubeh linear both; animation-timeline: view(); animation-range: entry 10% cover 35%; }
-	@keyframes ka-prubeh { from { scale: 0 1; } }
+	.tl-progress-row meter { transform-origin: left; animation: tl-progress linear both; animation-timeline: view(); animation-range: entry 10% cover 35%; }
+	@keyframes tl-progress { from { scale: 0 1; } }
 } }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        foreach ($p['obsah']['polozky'] as $i => $r) {
+        foreach ($p['content']['items'] as $i => $r) {
             $id = 'pr-' . $p['id'] . '-' . $i;
-            $html .= '<div class="ka-prubeh-radek"><span id="' . e($id) . '">' . e((string) $r['nazev']) . '</span><span class="ka-prubeh-hodnota">' . (int) $r['hodnota'] . ' %</span>'
-                . '<meter min="0" max="100" low="0" optimum="100" value="' . (int) $r['hodnota'] . '" aria-labelledby="' . e($id) . '">' . (int) $r['hodnota'] . ' %</meter></div>';
+            $html .= '<div class="tl-progress-row"><span id="' . e($id) . '">' . e((string) $r['name']) . '</span><span class="tl-progress-value">' . (int) $r['value'] . ' %</span>'
+                . '<meter min="0" max="100" low="0" optimum="100" value="' . (int) $r['value'] . '" aria-labelledby="' . e($id) . '">' . (int) $r['value'] . ' %</meter></div>';
         }
 
-        return '<div' . Text::withClass($a, 'ka-prubeh') . '>' . $html . '</div>';
+        return '<div' . Text::withClass($a, 'tl-progress') . '>' . $html . '</div>';
     }
 }

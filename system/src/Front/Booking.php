@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Builder\Elements\Booking as Element;
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Booking as Bookings;
-use Kaleta\Core\Captcha;
-use Kaleta\Core\Response;
+use Talea\Builder\Elements\Booking as Element;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Booking as Bookings;
+use Talea\Core\Captcha;
+use Talea\Core\Response;
 
 /**
  * The public side of online booking (3.0, Core\Booking):
@@ -39,21 +39,22 @@ final class Booking
     {
         $r = $this->app->request;
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        if ($antispam->count($r->ip(), 'rezervace_dotaz', 0, 1) >= self::QUERY_LIMIT) {
+        if ($antispam->count($r->ip(), 'booking_query', 0, 1) >= self::QUERY_LIMIT) {
             return Response::json(['error' => 'limit'], 429);
         }
-        $antispam->write($r->ip(), 'rezervace_dotaz', 0);
-        $service = Bookings::service($this->app->db(), $r->getInt('service'), true);
+        $antispam->write($r->ip(), 'booking_query', 0);
+        $service = Bookings::service($this->app->db(), $this->app->db()->internalId('booking_services', $r->get('service')), true);
+        $staffId = $this->app->db()->internalId('booking_staff', $r->get('staff')); // 0 = anyone
         if ($service === null) {
             return Response::json(['error' => 'service'], 404);
         }
         $headers = ['Cache-Control' => 'no-store'];
         if ($what === 'days') {
-            $days = Bookings::days($this->app, $service, $r->getInt('staff'), $r->get('month'));
+            $days = Bookings::days($this->app, $service, $staffId, $r->get('month'));
 
             return new Response((string) json_encode(['month' => $r->get('month'), 'days' => $days]), 200, $headers + ['Content-Type' => 'application/json; charset=utf-8']);
         }
-        $slots = Bookings::availability($this->app, $service, $r->getInt('staff'), $r->get('day'));
+        $slots = Bookings::availability($this->app, $service, $staffId, $r->get('day'));
 
         return new Response((string) json_encode(['day' => $r->get('day'), 'slots' => array_keys($slots)]), 200, $headers + ['Content-Type' => 'application/json; charset=utf-8']);
     }
@@ -65,41 +66,42 @@ final class Booking
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
-        $source = $r->post('zdroj');
-        $back = $r->post('zpet');
-        $back = preg_match('#^/[^\s\\\\?]*$#D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-        $element = Forms::findElement($this->app->db(), $source, $r->post('prvek'), Element::TYPE, \Kaleta\Core\Language::siteColumn());
+        $posted = $r->post('source'); // public ids, as printed (the antispam signature covers this)
+        $source = Forms::internalSource($this->app->db(), $posted);
+        $back = $r->post('back');
+        $back = preg_match('#^/[^\s\\\\?]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+        $element = Forms::findElement($this->app->db(), $source, $r->post('element'), Element::TYPE);
         if ($element === null) {
             return Response::redirect($back, 303);
         }
-        $redirect = fn (string $result): Response => Response::redirect($back . '?rezervace=' . rawurlencode($element['id']) . '&vysledek=' . $result . '#' . Element::anchor($element), 303);
+        $redirect = fn (string $result): Response => Response::redirect($back . '?booking=' . rawurlencode($element['id']) . '&result=' . $result . '#' . Element::anchor($element), 303);
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->reason($r, 'rezervace|' . $source . '|' . $element['id']);
+        $reason = $antispam->reason($r, 'booking|' . $posted . '|' . $element['id']);
         if ($reason === 'robot') {
             return $redirect('ok'); // the robot does not learn that it failed
         }
         if ($reason !== null) {
-            return $redirect($reason === 'rychle' ? 'rychle' : 'overeni');
+            return $redirect($reason === 'too_fast' ? 'too_fast' : 'verification');
         }
-        if ($antispam->count($r->ip(), 'rezervace', 0, 60) >= self::LIMIT) {
+        if ($antispam->count($r->ip(), 'booking', 0, 60) >= self::LIMIT) {
             return $redirect('limit');
         }
         if (!Captcha::accepted($this->app->settings(), Captcha::verify($this->app->settings(), $r))) {
             return $redirect('captcha');
         }
-        if ($r->post('souhlas') !== '1') {
-            return $redirect('souhlas');
+        if ($r->post('consent') !== '1') {
+            return $redirect('consent');
         }
-        $o = $element['obsah'];
+        $o = $element['content'];
         // the element may fix the service or the person – then the visitor's choice does not count
-        $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : $r->postInt('sluzba');
-        $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : $r->postInt('osoba');
-        [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
-            'phone' => $r->post('telefon'), 'note' => $r->post('poznamka'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
+        $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $this->app->db()->internalId('booking_services', $r->post('service'));
+        $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $this->app->db()->internalId('booking_staff', $r->post('staff'));
+        [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('name'), 'email' => $r->post('email'),
+            'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Talea\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
-            return $redirect($error === 'taken' ? 'obsazeno' : (string) $error);
+            return $redirect($error === 'taken' ? 'taken' : (string) $error);
         }
-        $antispam->write($r->ip(), 'rezervace', 0);
+        $antispam->write($r->ip(), 'booking', 0);
         Cache::clear(); // the free times on the page changed
 
         return $redirect($booking['status'] === 'pending' ? 'pending' : 'ok');
@@ -139,7 +141,7 @@ final class Booking
         }
 
         return [t('Cancel the appointment?'), $details . '<form method="post" action="' . e($this->app->url('_booking/cancel/' . $token)) . '"><input type="hidden" name="zrusit" value="1">'
-            . '<p><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
+            . '<p><button class="tl-button tl-button--primary" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
             . '<p>' . e(t('You can cancel online until %s.', format_date($deadline, true))) . '</p></form>', 200];
     }
 
@@ -175,7 +177,7 @@ final class Booking
         }
         $form = '<form method="post" action="' . e($this->app->url('_booking/choose/' . $token)) . '"><ul>';
         foreach ($proposals as $p) {
-            $form .= '<li><button class="ka-tlacitko ka-tlacitko--primarni" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
+            $form .= '<li><button class="tl-button tl-button--primary" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
         }
 
         return [t('Choose a time'), $message . '<p>' . e((string) $booking['service']) . ' – ' . e((string) $booking['staff']) . '</p><p>' . e(t('These times are free. Pick the one that suits you:')) . '</p>' . $form . '</ul></form>', 200];
@@ -189,6 +191,6 @@ final class Booking
             return null;
         }
 
-        return new Response(Bookings::ics($this->app, $booking, $token), 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Content-Disposition' => 'attachment; filename="appointment-' . (int) $booking['id'] . '.ics"', 'Cache-Control' => 'no-store']);
+        return new Response(Bookings::ics($this->app, $booking, $token), 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Content-Disposition' => 'attachment; filename="appointment-' . $this->app->db()->publicId('bookings', (int) $booking['id']) . '.ics"', 'Cache-Control' => 'no-store']);
     }
 }

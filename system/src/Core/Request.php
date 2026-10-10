@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 final class Request
 {
@@ -20,7 +20,7 @@ final class Request
     ) {
     }
 
-    /** Path without the language version prefix ("/en/novinky/x" -> "/novinky/x"); set by Front\Kernel. */
+    /** Path without the language version prefix ("/en/news/x" -> "/news/x"); set by Front\Kernel. */
     private ?string $path = null;
 
     /**
@@ -31,7 +31,7 @@ final class Request
 
     public function setOrigin(string $url): void
     {
-        if (preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#iD', $url)) {
+        if (preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', $url)) {
             $this->origin = $url;
         }
     }
@@ -51,7 +51,7 @@ final class Request
         return ($this->server['REQUEST_METHOD'] ?? 'GET') === 'POST';
     }
 
-    /** Whether the address has the query parameter at all (also with an empty value: ?varianta). */
+    /** Whether the address has the query parameter at all (also with an empty value: ?variant). */
     public function has(string $key): bool
     {
         return array_key_exists($key, $this->query);
@@ -108,7 +108,7 @@ final class Request
     }
 
     /**
-     * The server values of the request (the firewall reads the CDN's headers from them, 2.8).
+     * The server values of the request (the visitor address helper and add-ons read the CDN's headers from them).
      *
      * @return array<string, mixed>
      */
@@ -141,7 +141,7 @@ final class Request
             return $this->origin;
         }
         $host = (string) ($this->server['HTTP_HOST'] ?? 'localhost');
-        if (!preg_match('/^[a-z0-9.\-]+(:\d+)?$/iD', $host)) {
+        if (!preg_match('/^[a-z0-9.\-]+(:\d+)?$/i', $host)) {
             $host = 'localhost';
         }
 
@@ -157,15 +157,15 @@ final class Request
     }
 
     /**
-     * Request path inside the installation, always starts with a slash: "/novinky/muj-titulek".
-     * Without mod_rewrite the form index.php?cesta=/novinky/muj-titulek works too.
+     * Request path inside the installation, always starts with a slash: "/news/muj-titulek".
+     * Without mod_rewrite the form index.php?cesta=/news/muj-titulek works too.
      */
     public function path(): string
     {
         if ($this->path !== null) {
             return $this->path;
         }
-        $fallback = $this->get('cesta');
+        $fallback = $this->get('path');
         if ($fallback !== '') {
             return '/' . trim($fallback, '/');
         }

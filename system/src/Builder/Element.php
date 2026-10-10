@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Builder element type. Each type = one class in Builder\Elements with a content schema (properties()), allowed HTML tags,
  * default style and rendering. The output is always one tag per element (the only exceptions are compound elements like FAQ or the news list).
  *
- * Content fields – types: text (a line), inline (short text with bold/italic/link), html (formatted text), radky (several lines),
- * odkaz, obrazek, vyber, cislo, prepinac, polozky (a list of objects with the fields „pole“).
+ * Content fields – types: text (a line), inline_text (short text with bold/italic/link), html (formatted text), lines (several lines),
+ * link, image, choice, number, boolean, items (a list of objects with the fields „fields“), code, values.
  */
 abstract class Element
 {
@@ -29,7 +29,7 @@ abstract class Element
     /** Offered only in site parts (header, footer, wrappers) – logo, navigation, page content. */
     public const bool PARTS_ONLY = false;
 
-    /** @return array<string, array<string, mixed>> content fields: key => [typ, popisek, vychozi, moznosti, pole, max] */
+    /** @return array<string, array<string, mixed>> content fields: key => [type, label, default, options, fields, max] */
     public static function properties(): array
     {
         return [];
@@ -66,8 +66,8 @@ abstract class Element
     }
 
     /**
-     * @param array<string, mixed> $p       sanitized element (typ, znacka, obsah, …)
-     * @param string               $a       finished attributes (id, class, data-ka-id) starting with a space
+     * @param array<string, mixed> $p       sanitized element (type, tag, content, …)
+     * @param string               $a       finished attributes (id, class, data-tl-id) starting with a space
      * @param string               $children    rendered nested elements
      */
     abstract public static function render(array $p, string $a, string $children, Context $k): string;

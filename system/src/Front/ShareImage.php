@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
+use Talea\Builder\DesignSystem;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Response;
+use Talea\Core\Settings;
 
 /**
  * Share images drawn by the site (2.12): a page, a news item or a collection item without a share image gets a 1200×630
@@ -29,9 +29,9 @@ final class ShareImage
     /** Part of every hash: a redesign must not be served from the pictures drawn before it. */
     private const int VERSION = 1;
 
-    private const string FOLDER = KALETA_ROOT . '/storage/cache/og';
-    private const string FONT_BOLD = KALETA_ROOT . '/image/vendor/poppins/Poppins-Bold.ttf';
-    private const string FONT_REGULAR = KALETA_ROOT . '/image/vendor/poppins/Poppins-Regular.ttf';
+    private const string FOLDER = TALEA_ROOT . '/storage/cache/og';
+    private const string FONT_BOLD = TALEA_ROOT . '/image/vendor/poppins/Poppins-Bold.ttf';
+    private const string FONT_REGULAR = TALEA_ROOT . '/image/vendor/poppins/Poppins-Regular.ttf';
 
     /** Layout: the band with the logo and the site name (like the site's header), the margin, the title's size range (GD points). */
     private const int BAND = 132;
@@ -85,20 +85,20 @@ final class ShareImage
      */
     public static function brief(Settings $siteSettings, string $title): array
     {
-        $colors = DesignSystem::load($siteSettings)['barvy'];
+        $colors = DesignSystem::load($siteSettings)['colors'];
         $title = trim((string) preg_replace('/\s+/u', ' ', $title));
         if ($title === '') {
             $title = trim($siteSettings->get('site_description')) !== '' ? trim($siteSettings->get('site_description')) : $siteSettings->get('site_name');
         }
         $logo = ltrim($siteSettings->get('logo'), '/');
-        $logoFile = KALETA_ROOT . '/' . $logo;
-        $withLogo = $logo !== '' && preg_match('#^(media|image)/[A-Za-z0-9/_.-]+\.(png|jpe?g|webp)$#iD', $logo) === 1 && !str_contains($logo, '..') && is_file($logoFile);
+        $logoFile = TALEA_ROOT . '/' . $logo;
+        $withLogo = $logo !== '' && preg_match('#^(media|image)/[A-Za-z0-9/_.-]+\.(png|jpe?g|webp)$#i', $logo) === 1 && !str_contains($logo, '..') && is_file($logoFile);
 
         return [
             'v' => self::VERSION,
             'title' => mb_substr($title, 0, 300),
             'site' => mb_substr(trim($siteSettings->get('site_name')), 0, 100),
-            'colors' => [$colors['primarni'], $colors['pozadi'], $colors['text']],
+            'colors' => [$colors['primary'], $colors['background'], $colors['text']],
             'logo' => $withLogo ? $logo : '',
             'logo_time' => $withLogo ? (int) filemtime($logoFile) : 0,
         ];
@@ -117,13 +117,13 @@ final class ShareImage
      */
     public static function matches(string $hash, array $brief, string $key): bool
     {
-        return preg_match('/^[a-f0-9]{32}$/D', $hash) === 1 && hash_equals(self::hash($brief, $key), $hash);
+        return preg_match('/^[a-f0-9]{32}$/', $hash) === 1 && hash_equals(self::hash($brief, $key), $hash);
     }
 
     /** GET /og/<hash>.png: the picture, drawn on first request; null = no such picture (404). */
     public static function serve(App $app, string $hash): ?Response
     {
-        if (!self::isOn($app->settings()) || preg_match('/^[a-f0-9]{32}$/D', $hash) !== 1) {
+        if (!self::isOn($app->settings()) || preg_match('/^[a-f0-9]{32}$/', $hash) !== 1) {
             return null;
         }
         $png = self::FOLDER . '/' . $hash . '.png';
@@ -219,7 +219,7 @@ final class ShareImage
         imagefilledrectangle($image, 0, 0, self::WIDTH - 1, self::HEIGHT - 1, $rgb($primary));
         imagefilledrectangle($image, 0, 0, self::WIDTH - 1, self::BAND - 1, $rgb($background));
         $x = self::MARGIN;
-        $logo = $brief['logo'] !== '' ? self::logo(KALETA_ROOT . '/' . $brief['logo']) : null;
+        $logo = $brief['logo'] !== '' ? self::logo(TALEA_ROOT . '/' . $brief['logo']) : null;
         if ($logo !== null) {
             [$w, $h] = [imagesx($logo), imagesy($logo)];
             $scale = min(self::LOGO_HEIGHT / $h, self::LOGO_WIDTH / $w);
@@ -260,7 +260,7 @@ final class ShareImage
     /** @return array{int, int} ascent and descent of the font at a size (from a line with tall and deep letters) */
     private static function metrics(string $font, int $size): array
     {
-        $box = imagettfbbox($size, 0, $font, 'ÁŽgjpy'); // Czech on purpose: capitals with accents are the tallest letters
+        $box = imagettfbbox($size, 0, $font, 'ÁŽgjpy'); // check-english: allow (tall accented capitals for the ascent)
 
         return $box === false ? [$size, intdiv($size, 4)] : [-$box[7], $box[1]];
     }

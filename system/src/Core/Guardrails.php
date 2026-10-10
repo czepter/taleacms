@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Guardrails for Claude (2.15): limits the site owner sets on what any Claude connection may do, on top of the access
@@ -20,20 +20,18 @@ namespace Kaleta\Core;
 final class Guardrails
 {
     /** Tools whose `id` is a page – unless another build target (a site part, a pop-up, a component, a collection) is named. */
-    private const array PAGE_TOOLS = ['uprav_stranku', 'smaz_stranku', 'stavba_uloz', 'stavba_uprav', 'stavba_z_html', 'vloz_sekci', 'publikuj_stavbu',
-        'obnov_verzi', 'zahod_koncept'];
+    private const array PAGE_TOOLS = ['update_page', 'trash_page', 'save_build', 'edit_build', 'build_from_html', 'insert_section', 'publish_build',
+        'restore_build_version', 'discard_draft'];
 
     /**
      * Calls of write tools that delete, overwrite or send (3.3.2, N32): with claude_destructive = 0 they are refused like
-     * a destructive tool. tool (Czech name, or the English one when both sides are the same) => the parameter that makes
-     * the call destructive ('' = the tool always overwrites). The tools read these parameters with !empty().
+     * a destructive tool. tool => the parameter that makes the call destructive ('' = the tool always overwrites). The tools
+     * read these parameters with !empty().
      */
-    private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send',
-        // they e-mail the customer, like decline_booking (3.4.2, N34-2)
-        'confirm_booking' => '', 'propose_booking_times' => ''];
+    private const array DESTRUCTIVE_CALLS = ['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send'];
 
     /** The other build targets: with one of them the `id` does not name a page. */
-    private const array OTHER_TARGETS = ['cast', 'popup', 'komponenta', 'kolekce'];
+    private const array OTHER_TARGETS = ['part', 'popup', 'component', 'collection'];
 
     /** The pages protected in the setting ("12, 15 18" – any separators). @return list<int> */
     public static function protectedPages(Settings $settings): array
@@ -44,7 +42,7 @@ final class Guardrails
     }
 
     /**
-     * The page a tool call would change, by the Czech tool name and Czech arguments (after Mcp\Translator), or null.
+     * The page a tool call would change, by the tool name and its arguments, or null.
      *
      * @param array<string, mixed> $arguments
      */
@@ -52,7 +50,7 @@ final class Guardrails
     {
         // 3.3.2 (N31): another target counts only when the tools would use it – the same non-empty test as
         // Tools::loadBuildTarget ("popup": 0 still edits the page); update_page and trash_page have no other target
-        if (!in_array($tool, self::PAGE_TOOLS, true) || (!in_array($tool, ['uprav_stranku', 'smaz_stranku'], true) && self::otherTarget($arguments))) {
+        if (!in_array($tool, self::PAGE_TOOLS, true) || (!in_array($tool, ['update_page', 'trash_page'], true) && self::otherTarget($arguments))) {
             return null;
         }
         $id = $arguments['id'] ?? null;
@@ -65,7 +63,7 @@ final class Guardrails
     {
         foreach (self::OTHER_TARGETS as $key) {
             $value = $arguments[$key] ?? null;
-            if (in_array($key, ['popup', 'komponenta'], true) ? is_scalar($value) && (int) $value > 0 : $value !== null && $value !== '') {
+            if (in_array($key, ['popup', 'component'], true) ? is_scalar($value) && (int) $value > 0 : $value !== null && $value !== '') {
                 return true;
             }
         }
@@ -73,45 +71,11 @@ final class Guardrails
         return false;
     }
 
-    /** Batch tools: the argument with the rows – each row is one change against claude_change_limit (3.7). */
-    public const array BATCH_ROWS = ['save_redirects' => 'redirects', 'save_collection_items' => 'items'];
-
-    /**
-     * How many changes a call makes for the hourly limit: the rows of a batch tool, otherwise one.
-     *
-     * @param array<string, mixed> $arguments
-     */
-    public static function weight(string $tool, array $arguments): int
-    {
-        $key = self::BATCH_ROWS[$tool] ?? null;
-
-        return $key !== null && is_array($arguments[$key] ?? null) ? max(1, count($arguments[$key])) : 1;
-    }
-
-    /**
-     * Imports (3.7, N37-26): what one step creates is not known before it runs, so the step reserves one change and its
-     * change-log row is rewritten afterwards to the records it created ("<n> rows") – the next step is refused once the
-     * connection is over the limit.
-     */
-    public const array COUNTED_AFTER = ['importuj_web', 'import_wordpress'];
-
-    /** Seconds a call waits for another call of the same connection to pass the limit check (3.7, N37-20). */
-    private const int LOCK_SECONDS = 10;
-
-    /** The changes of a connection in the last hour: one per change-log row, a batch row counts its rows ("<n> rows"). */
-    private static function changesInLastHour(App $app, string $connection): int
-    {
-        $batch = "'" . implode("','", [...array_keys(self::BATCH_ROWS), ...self::COUNTED_AFTER]) . "'";
-
-        return (int) $app->db()->value("SELECT COALESCE(SUM(CASE WHEN akce IN ($batch) AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0)"
-            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]);
-    }
-
     /**
      * Why the call is refused, or null when the guardrails allow it. $access is the tool's kind from Mcp\Catalog
      * (read | draft | write | destructive); $connection the name of the Claude connection.
      *
-     * @param array<string, mixed> $arguments Czech arguments
+     * @param array<string, mixed> $arguments
      */
     public static function refusal(App $app, string $tool, string $access, array $arguments, string $connection): ?string
     {
@@ -130,60 +94,32 @@ final class Guardrails
             return 'Page ' . $page . ' is protected from changes by Claude (Claude settings → Guardrails for Claude). Suggest the change to the user instead.';
         }
         $limit = $settings->int('claude_change_limit');
-        if ($limit > 0) {
-            $used = self::changesInLastHour($app, $connection);
-            if ($used >= $limit) {
-                return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
-            }
-            $weight = self::weight($tool, $arguments);
-            if ($used + $weight > $limit) {
-                return 'This call would make ' . $weight . ' changes, but the connection has ' . ($limit - $used) . ' left of the limit of ' . $limit
-                    . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Send at most ' . ($limit - $used) . ' rows now, or stop and tell the user what is left.';
-            }
+        if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {change_log} WHERE module = 'claude' AND via = ? AND created_at > NOW() - INTERVAL 1 HOUR", [$connection]) >= $limit) {
+            return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
         }
 
         return null;
     }
 
     /**
-     * The guardrails check and the change-log row of a write call in one step (3.7, N37-20): under a database lock per
-     * connection the changes of the last hour are counted again and the row of this call is written before the tool runs,
-     * so parallel calls of one connection cannot all pass the check first – each one sees the changes of the others. The
-     * caller rewrites the row when the tool is done (ChangeLog::describe) or removes it when the tool refused the call
-     * (ChangeLog::remove); a call that dies halfway keeps its row and stays counted – counting too much is safe, too little
-     * is not.
-     *
-     * @param array<string, mixed> $arguments Czech arguments
-     * @return string|int the refusal, or the id of the change-log row (0 for a read tool: nothing is written)
+     * The same limits for the in-admin assistant (#31: the wizard and the builder's Ask box): the site owner's protected pages
+     * and the change limit per hour (counted per person). Returns why the request is refused, or null. The assistant never
+     * deletes (Builder\AskBox allows no delete operation unless claude_destructive is on).
      */
-    public static function reserve(App $app, string $tool, string $access, array $arguments, string $connection, string $description, string $reason): string|int
+    public static function assistantRefusal(App $app, ?int $page = null): ?string
     {
-        if ($access === 'read') {
-            return self::refusal($app, $tool, $access, $arguments, $connection) ?? 0;
+        $settings = $app->settings();
+        if ($page !== null && in_array($page, self::protectedPages($settings), true)) {
+            return t('This page is protected from changes by the assistant (Claude settings → Guardrails for Claude).');
         }
-        $db = $app->db();
-        $limited = $app->settings()->int('claude_change_limit') > 0;
-        // per database, table prefix and connection: two sites on one MySQL server and two connections never wait for each other
-        $lock = substr('kaleta-guard-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix . '|' . $connection), 0, 64);
-        if ($limited && (int) $db->value('SELECT GET_LOCK(?, ?)', [$lock, self::LOCK_SECONDS]) !== 1) {
-            return 'Another change of this connection is being checked against the hourly limit right now. Try again in a moment.';
+        $limit = $settings->int('claude_change_limit');
+        $user = $app->auth()->id();
+        if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {change_log} WHERE module = 'assistant' AND action IN ('ask', 'wizard') AND user_id = ? AND created_at > ?",
+            [$user, date('Y-m-d H:i:s', time() - 3600)]) >= $limit) {
+            return t('You reached the limit of %d changes an hour that the site owner set (Claude settings → Guardrails for Claude).', $limit);
         }
-        try {
-            $refusal = self::refusal($app, $tool, $access, $arguments, $connection);
-            if ($refusal !== null) {
-                return $refusal;
-            }
-            $id = \Kaleta\Admin\ChangeLog::write($app, 'claude', $tool, $description, $reason);
-            if ($id === 0 && $limited) {
-                return 'The change could not be recorded in the change log, so the hourly limit cannot be kept. Tell the user – the site needs a look.';
-            }
 
-            return $id;
-        } finally {
-            if ($limited) {
-                $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
-            }
-        }
+        return null;
     }
 
     /** The reason Claude gave for a change: one line of plain text, at most 255 characters ('' = none). */

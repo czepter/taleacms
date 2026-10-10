@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
 /**
  * Features – the built-in extensions – as a separate item of the main menu (formerly a Settings tab; "Features" since 3.2,
@@ -16,7 +16,7 @@ final class Extensions extends Settings
     public const string IDENT = 'extensions';
     public const string NAME = 'Features';
     public const string HUB = 'features';
-    public const string ICON = 'prepinace';
+    public const string ICON = 'switches';
 
     protected function tab(string $tab): string
     {

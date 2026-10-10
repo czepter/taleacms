@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * Stats: own measurement without cookies (visits, views, pages, campaigns, devices, sources) and the leads they bring
@@ -16,14 +16,14 @@ final class Stats extends Module
     public const string IDENT = 'stats';
     public const string NAME = 'Statistics';
     public const string GROUP = 'Customers';
-    public const string ICON = 'statistika';
-    public const string EXTENSION = 'statistika';
+    public const string ICON = 'stats';
+    public const string EXTENSION = 'stats';
 
     protected function actionList(): Response
     {
-        $days = in_array($this->request->getInt('dni'), \Kaleta\Core\Report::PERIODS, true) ? $this->request->getInt('dni') : 30;
+        $days = in_array($this->request->getInt('days'), \Talea\Core\Report::PERIODS, true) ? $this->request->getInt('days') : 30;
 
         // the module is there only while the Statistics feature is on – the one switch since 3.2, so no "turned off" notice
-        return $this->view('list', 'Statistics', ['report' => \Kaleta\Core\Report::build($this->db, $days)]);
+        return $this->view('list', 'Statistics', ['report' => \Talea\Core\Report::build($this->db, $days)]);
     }
 }

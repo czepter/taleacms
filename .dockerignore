@@ -17,7 +17,7 @@ SECURITY.md
 docker-compose*.yaml
 storage/cache/*
 storage/log/*
-storage/zalohy
+storage/backups
 storage/import/*
 media/*
 !media/.htaccess

@@ -10,13 +10,13 @@ return [
     'detail' => true,
     'redirect_hidden' => true,
     'fields' => [
-        ['summary', 'Summary', 'radky'],
-        ['image', 'Image', 'obrazek'],
+        ['summary', 'Summary', 'lines'],
+        ['image', 'Image', 'image'],
         ['description', 'Description', 'html'],
-        ['price_from', 'Price from', 'cislo'],
+        ['price_from', 'Price from', 'number'],
         ['price_note', 'Price note', 'text'],
     ],
-    'schema' => ['typ' => 'Service', 'pole' => ['price' => 'price_from']],
+    'schema' => ['type' => 'Service', 'fields' => ['price' => 'price_from']],
     'claude' => 'One item per service. A Collection list of it on the services page (sorted by order in the administration – put the main services first); '
         . 'the item template shows the image, the summary as the lead, the description and the price from with its note (e.g. "per hour"). '
         . 'Hide a service you no longer offer – its page then leads to the services page. The structured data is Service with the price from; '
@@ -24,13 +24,13 @@ return [
     'list' => [],
     'card' => ['summary'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $n = \Talea\Builder\Build::fresh(...);
+        $label = array_column($fields, 'label', 'key');
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{summary}}</strong></p>']),
-            $n('obrazek', ['src' => '{{image}}', 'alt' => '{{nazev}}']),
+            $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '{{description}}']),
             $n('text', ['html' => '<p><strong>' . e($label['price_from']) . ':</strong> {{price_from}} {{price_note}}</p>']),
         ];

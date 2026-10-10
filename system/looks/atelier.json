@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "atelier",
+    "name": "Atelier",
+    "description": "A quiet white portfolio: a centred logo, fine serif headings and large images. For photographers and artists.",
+    "source": "Layout study of portfolio and client-gallery layouts: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#1a1a1a",
+            "secondary": "#7a5c3e",
+            "text": "#1a1a1a",
+            "background": "#ffffff",
+            "surface": "#f4f2ef"
+        },
+        "colors_dark": {
+            "text": "#ececec",
+            "background": "#111111",
+            "surface": "#1b1b1b",
+            "primary": "#f2f2f2",
+            "secondary": "#d2b48c"
+        },
+        "font_heading": "lib:cormorant-garamond",
+        "font_body": "lib:work-sans",
+        "radius": "0",
+        "ratio_min": 1.25,
+        "ratio_max": 1.414,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 80,
+        "text_width": 40
+    },
+    "header": "centered",
+    "footer": "compact",
+    "sections": [
+        "hero-centered",
+        "gallery",
+        "portfolio",
+        "story",
+        "quote",
+        "contact-form"
+    ]
+}

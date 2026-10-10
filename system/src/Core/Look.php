@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\DesignSystem;
+use Talea\Builder\DesignSystem;
 
 /**
  * Look drafts (1.7): the design system, the shared classes and the menus change the whole site at once, so a change goes
@@ -20,9 +20,9 @@ final class Look
     public const int VERSIONS = 20;
 
     /** Design system settings in words for the summary (colours come from DesignSystem::COLORS). */
-    private const array DS_LABELS = ['pismo_titulky' => 'Heading font', 'pismo_text' => 'Text font', 'zaklad_min' => 'Base font size on phones',
-        'zaklad_max' => 'Base font size on monitors', 'pomer_min' => 'Headings on phones', 'pomer_max' => 'Headings on monitors', 'sirka' => 'Content width',
-        'sirka_textu' => 'Text width', 'zaobleni' => 'Corner radius', 'vlastni_pisma' => 'Custom fonts', 'typografie' => 'Typography styles'];
+    private const array DS_LABELS = ['font_heading' => 'Heading font', 'font_body' => 'Text font', 'base_min' => 'Base font size', 'base_max' => 'Base font size',
+        'ratio_min' => 'Type scale', 'ratio_max' => 'Type scale', 'width' => 'Content width', 'text_width' => 'Text width', 'radius' => 'Corner radius',
+        'custom_fonts' => 'Custom fonts', 'typography' => 'Typography styles'];
 
     /** The draft look applies to this request (a preview or the builder of an administrator). */
     private static ?Settings $active = null;
@@ -76,26 +76,26 @@ final class Look
      * A class into the draft; null = delete it on publishing. A class the site does not have yet goes live at once – it
      * changes nothing that is published, and new pages need it.
      *
-     * @param array{styl: array<string, mixed>, css: string}|null $class
+     * @param array{style: array<string, mixed>, css: string}|null $class
      * @param bool $draftOnly even a new class waits in the draft (a kit from the fleet console is reviewed as a whole, 2.16)
      * @return bool whether it went to the draft
      */
     public static function setClass(Settings $s, string $name, ?array $class, bool $draftOnly = false): bool
     {
         $db = $s->db();
-        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) === null) {
-            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['styl'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
+        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) === null) {
+            $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
             $d = self::draft($s);
             if (isset($d['classes']) && array_key_exists($name, $d['classes'])) {
                 unset($d['classes'][$name]);
                 $s->set('look_draft', $d === ['classes' => []] || $d === [] ? '' : (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             }
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
 
             return false;
         }
         self::write($s, function (array $d) use ($name, $class): array {
-            $d['classes'][$name] = $class === null ? null : ['styl' => $class['styl'] ?: new \stdClass(), 'css' => (string) $class['css']];
+            $d['classes'][$name] = $class === null ? null : ['style' => $class['style'] ?: new \stdClass(), 'css' => (string) $class['css']];
 
             return $d;
         });
@@ -129,8 +129,32 @@ final class Look
         $s->set('look_draft', (string) json_encode($change(self::draft($s)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
+    /** The header and footer templates a look (Builder\Looks) put into the drafts of the site parts: type => template key. */
+    public static function setParts(Settings $s, array $parts): void
+    {
+        self::write($s, function (array $d) use ($parts): array {
+            unset($d['parts']);
+
+            return $parts === [] ? $d : $d + ['parts' => $parts];
+        });
+    }
+
+    /** Throws the part drafts a look made away; a part that exists only because of the look goes too. */
+    public static function discardParts(Db $db, array $parts): void
+    {
+        foreach (array_keys($parts) as $type) {
+            $row = \Talea\Builder\SiteParts::row($db, (string) $type, '');
+            if ($row === null) {
+                continue;
+            }
+            $row['build'] === null ? $db->delete('site_parts', ['type' => $type, 'language' => '', 'variant' => ''])
+                : $db->update('site_parts', ['build_draft' => null], ['type' => $type, 'language' => '', 'variant' => '']);
+        }
+    }
+
     public static function discard(Settings $s): void
     {
+        self::discardParts($s->db(), self::draft($s)['parts'] ?? []);
         $s->set('look_draft', '');
     }
 
@@ -147,20 +171,20 @@ final class Look
     /**
      * Shared classes, with the draft applied when asked: name => [styl, css, draft (changed in the draft)].
      *
-     * @return array<string, array{styl: array<string, mixed>, css: string, draft: bool}>
+     * @return array<string, array{style: array<string, mixed>, css: string, draft: bool}>
      */
     public static function classes(Db $db, Settings $s, bool $withDraft): array
     {
         $classes = [];
-        foreach ($db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev') as $r) {
-            $classes[$r['nazev']] = ['styl' => json_decode((string) $r['styl'], true) ?: [], 'css' => (string) $r['css'], 'draft' => false];
+        foreach ($db->all('SELECT name, style, css FROM {classes} ORDER BY name') as $r) {
+            $classes[$r['name']] = ['style' => json_decode((string) $r['style'], true) ?: [], 'css' => (string) $r['css'], 'draft' => false];
         }
         if ($withDraft) {
             foreach (self::draft($s)['classes'] ?? [] as $name => $class) {
                 if ($class === null) {
                     unset($classes[$name]);
                 } else {
-                    $classes[$name] = ['styl' => (array) ($class['styl'] ?? []), 'css' => (string) ($class['css'] ?? ''), 'draft' => true];
+                    $classes[$name] = ['style' => (array) ($class['style'] ?? []), 'css' => (string) ($class['css'] ?? ''), 'draft' => true];
                 }
             }
             ksort($classes);
@@ -173,12 +197,12 @@ final class Look
     public static function classesForCss(Db $db, array $names): array
     {
         if (self::$active === null) {
-            return $db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev IN (' . implode(',', array_fill(0, count($names), '?')) . ') ORDER BY nazev', $names);
+            return $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($names), '?')) . ') ORDER BY name', $names);
         }
         $rows = [];
         foreach (self::classes($db, self::$active, true) as $name => $class) {
             if (in_array($name, $names, true)) {
-                $rows[] = ['nazev' => $name, 'styl' => (string) json_encode($class['styl']), 'css' => $class['css']];
+                $rows[] = ['name' => $name, 'style' => (string) json_encode($class['style']), 'css' => $class['css']];
             }
         }
 
@@ -211,117 +235,51 @@ final class Look
             $before = DesignSystem::load($s);
             $after = DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS);
             $changes = [];
-            foreach (['barvy', 'barvy_tmave'] as $group) {
-                // a dark primary or secondary without a value is derived automatically (3.6)
-                [$new, $old] = [(array) $after[$group], (array) ($before[$group] ?? [])];
-                foreach (array_keys($new + $old) as $k) {
-                    $v = $new[$k] ?? null;
-                    if (($old[$k] ?? null) !== $v) {
-                        $label = t(DesignSystem::COLORS[$k] ?? (string) $k);
-                        $changes[] = ($group === 'barvy_tmave' ? t('%s (dark mode)', $label) : $label) . ' ' . (is_string($old[$k] ?? null) ? $old[$k] : t('automatic')) . ' → ' . (is_string($v) ? $v : t('automatic'));
+            foreach (['colors', 'colors_dark'] as $group) {
+                foreach ((array) $after[$group] as $k => $v) {
+                    if (($before[$group][$k] ?? null) !== $v) {
+                        $label = t(DesignSystem::COLORS[$k] ?? $k);
+                        $changes[] = ($group === 'colors_dark' ? t('%s (dark mode)', $label) : $label) . ' ' . ($before[$group][$k] ?? '–') . ' → ' . $v;
                     }
                 }
             }
             foreach ($after as $k => $v) {
-                if (!in_array($k, ['barvy', 'barvy_tmave'], true) && ($before[$k] ?? null) != $v) {
-                    $changes[] = t(self::DS_LABELS[$k] ?? $k) . (is_scalar($v) && is_scalar($before[$k] ?? null) ? ' ' . self::valueName($k, $before[$k], $before) . ' → ' . self::valueName($k, $v, $after) : '');
+                if (!in_array($k, ['colors', 'colors_dark'], true) && ($before[$k] ?? null) != $v) {
+                    $changes[] = t(self::DS_LABELS[$k] ?? $k) . (is_scalar($v) && is_scalar($before[$k] ?? null) ? ' ' . $before[$k] . ' → ' . $v : '');
                 }
             }
             $changes = array_values(array_unique($changes));
             $lines[] = t('Design system: %s', $changes === [] ? t('no change') : implode(', ', array_slice($changes, 0, 8)) . (count($changes) > 8 ? ' …' : ''));
         }
+        if (($draft['parts'] ?? []) !== []) {
+            $lines[] = t('Header and footer: %s', implode(', ', array_map(fn (string $type, string $key): string => t(\Talea\Builder\SiteParts::TYPES[$type][0] ?? $type) . ' – ' . t(\Talea\Builder\PartTemplates::LIST[$type][$key][0] ?? $key),
+                array_keys($draft['parts']), $draft['parts'])));
+        }
         if (($draft['classes'] ?? []) !== []) {
-            $existing = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
+            $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
             $lines[] = t('Classes: %s', implode(', ', array_map(fn (string $name): string => $name . ' (' . ($draft['classes'][$name] === null ? t('deleted')
                 : (in_array($name, $existing, true) ? t('changed') : t('new'))) . ')', array_keys($draft['classes']))));
         }
         if (($draft['menus'] ?? []) !== []) {
-            $lines[] = t('Menus: %s', implode(', ', array_map(fn (string $key): string => self::menuName($key, $draft['menus'][$key]), array_keys($draft['menus']))));
+            $lines[] = t('Menus: %s', implode(', ', array_map(function (string $key) use ($draft): string {
+                [$location, $language] = explode('|', $key) + ['', ''];
+
+                return t(Menu::LOCATIONS[$location] ?? $location) . ($language !== '' ? ' (' . strtoupper($language) . ')' : '') . ($draft['menus'][$key] === null ? ' – ' . t('automatic') : '');
+            }, array_keys($draft['menus']))));
         }
 
         return $lines;
-    }
-
-    /** A draft menu in words: "Main menu (EN) – automatic". */
-    private static function menuName(string $key, ?array $items): string
-    {
-        [$location, $language] = explode('|', $key) + ['', ''];
-
-        return t(Menu::LOCATIONS[$location] ?? $location) . ($language !== '' ? ' (' . strtoupper($language) . ')' : '') . ($items === null ? ' – ' . t('automatic') : '');
-    }
-
-    /**
-     * What the draft touches, in a few words for the one-line admin bar (3.6): "menu, colours". The full summary() opens
-     * under it.
-     *
-     * @return list<string>
-     */
-    public static function areas(Settings $s): array
-    {
-        $draft = self::draft($s);
-        $areas = [];
-        if (isset($draft['design_system'])) {
-            $before = DesignSystem::load($s);
-            $after = DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS);
-            foreach ($after as $key => $value) {
-                if (($before[$key] ?? null) == $value) {
-                    continue;
-                }
-                $areas[] = match ($key) {
-                    'barvy', 'barvy_tmave' => t('colours'),
-                    'pismo_titulky', 'pismo_text', 'vlastni_pisma', 'typografie' => t('fonts'),
-                    default => t('sizes'),
-                };
-            }
-            $areas = $areas === [] ? [t('design system')] : $areas;
-        }
-        if (($draft['classes'] ?? []) !== []) {
-            $areas[] = t('classes');
-        }
-        if (($draft['menus'] ?? []) !== []) {
-            $areas[] = t('menu');
-        }
-
-        return array_values(array_unique($areas));
-    }
-
-    /**
-     * A design system value as the Site appearance form names it (3.5): "Modern sans-serif" instead of moderni, "large"
-     * instead of l, sizes in px. The stored values do not change.
-     *
-     * @param array<string, mixed> $ds the design system the value belongs to (names of custom fonts)
-     */
-    private static function valueName(string $key, int|float|string|bool $value, array $ds): string
-    {
-        $value = (string) $value;
-        if ($key === 'pismo_titulky' || $key === 'pismo_text') {
-            $fonts = $key === 'pismo_titulky' ? \Kaleta\Front\SiteIdentity::TITLE_FONTS : \Kaleta\Front\SiteIdentity::TEXT_FONTS;
-            if (isset($fonts[$value])) {
-                return t($fonts[$value][0]);
-            }
-            $customFonts = is_array($ds['vlastni_pisma'] ?? null) ? $ds['vlastni_pisma'] : [];
-            $font = preg_match('/^vlastni-(\d+)$/D', $value, $m) ? ($customFonts[(int) $m[1] - 1] ?? null) : null;
-
-            return is_array($font) && is_string($font['nazev'] ?? null) && $font['nazev'] !== '' ? $font['nazev'] : t('custom font');
-        }
-
-        return match ($key) {
-            'zaobleni' => isset(DesignSystem::RADIUS_NAMES[$value]) ? t(DesignSystem::RADIUS_NAMES[$value]) : $value,
-            'pomer_min', 'pomer_max' => isset(DesignSystem::RATIOS[$value]) ? t(DesignSystem::RATIOS[$value]) : $value,
-            'zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu' => round((float) $value * 16) . ' px',
-            default => $value,
-        };
     }
 
     /** The published look (to keep as a version before publishing). */
     private static function snapshot(Db $db, Settings $s): array
     {
         $menus = [];
-        foreach ($db->all('SELECT umisteni, jazyk, polozky FROM {menu}') as $r) {
-            $menus[$r['umisteni'] . '|' . $r['jazyk']] = json_decode((string) $r['polozky'], true) ?: [];
+        foreach ($db->all('SELECT location, language, items FROM {menus}') as $r) {
+            $menus[$r['location'] . '|' . $r['language']] = json_decode((string) $r['items'], true) ?: [];
         }
 
-        return ['design_system' => DesignSystem::load($s), 'classes' => array_map(fn (array $c): array => ['styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']],
+        return ['design_system' => DesignSystem::load($s), 'classes' => array_map(fn (array $c): array => ['style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']],
             self::classes($db, $s, false)), 'menus' => $menus];
     }
 
@@ -339,78 +297,42 @@ final class Look
             return [];
         }
         $summary = self::summary($db, $s);
-        self::keepVersion($app, $summary);
+        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['username' => $app->auth()->id() ?: null]);
+        $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $s), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['user_id'] ?? null, 'created' => date('Y-m-d H:i:s')]);
+        $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
         if (isset($draft['design_system'])) {
             $s->set('design_system', (string) json_encode(DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS), JSON_UNESCAPED_SLASHES));
         }
         foreach ($draft['classes'] ?? [] as $name => $class) {
             if ($class === null) {
-                $db->delete('tridy', ['nazev' => $name]);
+                $db->delete('classes', ['name' => $name]);
             } else {
-                $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
-                    [$name, (string) json_encode($class['styl'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
+                $db->upsert('classes', ['name' => $name, 'style' => (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), 'css' => (string) $class['css'], 'updated_at' => date('Y-m-d H:i:s')], ['name']);
             }
         }
         foreach ($draft['menus'] ?? [] as $key => $items) {
             [$location, $language] = explode('|', $key) + ['', ''];
             Menu::save($db, $location, $language, $items);
         }
-        self::discard($s);
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
+        foreach (array_keys($draft['parts'] ?? []) as $type) {
+            $row = \Talea\Builder\SiteParts::row($db, (string) $type, '');
+            if ($row !== null && $row['build_draft'] !== null) {
+                \Talea\Builder\Publisher::part($app, $row); // the editor may have adjusted the draft since the look was applied
+            }
+        }
+        $s->set('look_draft', '');
+        \Talea\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
 
         return $summary;
-    }
-
-    /**
-     * Publishes one menu of the draft and leaves the rest of the draft waiting (3.6, "Save and publish menu" in the menu
-     * editor): a menu changes nothing but itself, so it does not have to wait for colours or classes someone else is
-     * still preparing. The published look is kept as a version first, as publish() does. Returns false when the draft
-     * has no such menu.
-     */
-    public static function publishMenu(App $app, string $location, string $language): bool
-    {
-        $db = $app->db();
-        $s = $app->settings();
-        $draft = self::draft($s);
-        $key = $location . '|' . $language;
-        if (!array_key_exists($key, $draft['menus'] ?? [])) {
-            return false;
-        }
-        $items = $draft['menus'][$key];
-        $summary = [t('Menus: %s', self::menuName($key, $items))];
-        self::keepVersion($app, $summary);
-        Menu::save($db, $location, $language, $items);
-        unset($draft['menus'][$key]);
-        if ($draft['menus'] === []) {
-            unset($draft['menus']);
-        }
-        $s->set('look_draft', $draft === [] ? '' : (string) json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish menu', mb_substr($summary[0], 0, 255));
-
-        return true;
-    }
-
-    /**
-     * The published look as a version (the last 20) before something of the draft goes live, with an event.
-     *
-     * @param list<string> $summary what is being published
-     */
-    private static function keepVersion(App $app, array $summary): void
-    {
-        $db = $app->db();
-        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['user' => $app->auth()->id() ?: null]);
-        $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $app->settings()), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s')]);
-        $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
     }
 
     /** @return list<array{id: int, summary: string, created: string, author: ?string}> newest first */
     public static function versions(Db $db): array
     {
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'summary' => (string) $r['summary'], 'created' => (string) $r['created'], 'author' => $r['autor']],
-            $db->all('SELECT v.id, v.summary, v.created, u.jmeno AS autor FROM {look_versions} v LEFT JOIN {uzivatele} u ON u.idu = v.author ORDER BY v.id DESC LIMIT ' . self::VERSIONS));
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'summary' => (string) $r['summary'], 'created' => (string) $r['created'], 'author' => $r['author_name']],
+            $db->all('SELECT v.id, v.summary, v.created, u.name AS author_name FROM {look_versions} v LEFT JOIN {users} u ON u.user_id = v.author ORDER BY v.id DESC LIMIT ' . self::VERSIONS));
     }
 
     /** A kept version back into the draft (the site changes only after publishing): classes and menus it did not have go away. */
@@ -427,11 +349,11 @@ final class Look
             $classes[$name] = null;
         }
         foreach ((array) ($version['classes'] ?? []) as $name => $class) {
-            $classes[$name] = ['styl' => $class['styl'] ?? new \stdClass(), 'css' => (string) ($class['css'] ?? '')];
+            $classes[$name] = ['style' => $class['style'] ?? new \stdClass(), 'css' => (string) ($class['css'] ?? '')];
         }
         $menus = [];
-        foreach ($db->all('SELECT umisteni, jazyk FROM {menu}') as $r) {
-            $menus[$r['umisteni'] . '|' . $r['jazyk']] = null;
+        foreach ($db->all('SELECT location, language FROM {menus}') as $r) {
+            $menus[$r['location'] . '|' . $r['language']] = null;
         }
         $menus = array_merge($menus, (array) ($version['menus'] ?? []));
         $s->set('look_draft', (string) json_encode(['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(),

@@ -1,89 +1,106 @@
 <?php
 /**
- * Kaleta - release preparation (run by the publisher on their own computer, not uploaded to the web).
+ * Talea - release preparation (run by the publisher on their own computer, not uploaded to the web).
  *
- *   php tools/release.php 1.0.1 --url=https://github.com/phprs-cms/kaletacms/releases/download/v1.0.1/kaleta-1.0.1.zip \
- *       --zmena="Oprava ..." --zmena="Nové ..." [--bezpecnostni]
+ *   php tools/release.php 1.0.1 --url=<address of the package> \
+ *       --change="Fix ..." --change="New ..." [--security]
  *
- * --bezpecnostni marks the release as a security fix: installations update to it by themselves and the administrator gets an e-mail.
- * Instead of a file, the private key can be passed in the KALETA_KLIC environment variable (base64) - for releasing from GitHub Actions.
+ * --security marks the release as a security fix: installations update to it by themselves and the administrator gets an e-mail.
+ * Instead of a file, the private key can be passed in the TALEA_KEY environment variable (base64) - for releasing from GitHub Actions.
  *
- * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/aktualizace.json signed with the private key.
- * Keys: tools/klice/vydavatel.key (primary) and tools/klice/zalozni.key (backup, should be kept offline) are PRIVATE - never into git.
- * system/aktualizace.pub carries the public keys (one per line), it is part of the system. Key rotation and revocation: docs/RELEASING.md.
- *   php tools/release.php --novy-klic=zalozni      creates a key pair and appends the public one to system/aktualizace.pub
- *   php tools/release.php 1.0.1 --klic=zalozni …   signs the release with the backup key (the primary one lost or leaked)
+ * Creates dist/talea-<version>.zip (files tracked by git) and dist/update.json signed with the private key.
+ * Keys: tools/keys/publisher.key (primary) and tools/keys/backup.key (backup, should be kept offline) are PRIVATE - never into git.
+ * system/update.pub carries the public keys (one per line), it is part of the system. Key rotation and revocation: docs/RELEASING.md.
+ *   php tools/release.php --new-key=backup      creates a key pair and appends the public one to system/update.pub
+ *   php tools/release.php 1.0.1 --key=backup …   signs the release with the backup key (the primary one lost or leaked)
  */
 
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
-    exit('Jen z příkazové řádky.');
+    exit('Command line only.');
 }
 $root = dirname(__DIR__);
 $version = $argv[1] ?? '';
-$options = ['url' => '', 'zmeny' => [], 'bezpecnostni' => false, 'klic' => 'provozni'];
+$options = ['url' => '', 'changes' => [], 'security' => false, 'key' => 'operating', 'feed' => false, 'digest' => '', 'image' => ''];
 foreach (array_slice($argv, 2) as $arg) {
     if (str_starts_with($arg, '--url=')) {
         $options['url'] = substr($arg, 6);
-    } elseif ($arg === '--bezpecnostni') {
-        $options['bezpecnostni'] = true;
-    } elseif (str_starts_with($arg, '--zmena=')) {
-        $options['zmeny'][] = substr($arg, 8);
-    } elseif (str_starts_with($arg, '--klic=')) {
-        $options['klic'] = substr($arg, 7);
+    } elseif ($arg === '--feed') {
+        $options['feed'] = true;
+    } elseif (str_starts_with($arg, '--digest=')) {
+        $options['digest'] = substr($arg, 9);
+    } elseif (str_starts_with($arg, '--image=')) {
+        $options['image'] = substr($arg, 8);
+    } elseif ($arg === '--security') {
+        $options['security'] = true;
+    } elseif (str_starts_with($arg, '--change=')) {
+        $options['changes'][] = substr($arg, 8);
+    } elseif (str_starts_with($arg, '--key=')) {
+        $options['key'] = substr($arg, 7);
     }
 }
-if (str_starts_with($version, '--novy-klic=')) {
-    // a new key pair: the private one into tools/klice/ (never into git), the public one is APPENDED to system/aktualizace.pub
+if (str_starts_with($version, '--new-key=')) {
+    // a new key pair: the private one into tools/keys/ (never into git), the public one is APPENDED to system/update.pub
     require_once $root . '/system/src/Core/Signature.php';
     $name = substr($version, 12);
-    $target = ['provozni' => $root . '/tools/klice/vydavatel.key', 'zalozni' => $root . '/tools/klice/zalozni.key'][$name] ?? exit("Použití: --novy-klic=provozni nebo --novy-klic=zalozni\n");
+    $target = ['operating' => $root . '/tools/keys/publisher.key', 'backup' => $root . '/tools/keys/backup.key'][$name] ?? exit("Usage: --new-key=operating or --new-key=backup\n");
     if (is_file($target)) {
-        exit("Soubor {$target} už existuje. Při výměně klíče ho nejdřív přesuňte do archivu - nikdy ho nepřepisujte naslepo.\n");
+        exit("File {$target} already exists. When replacing a key, move it to an archive first - never overwrite it blindly.\n");
     }
     @mkdir(dirname($target), 0700, true);
     $pair = sodium_crypto_sign_keypair();
     file_put_contents($target, base64_encode(sodium_crypto_sign_secretkey($pair)) . "\n");
     chmod($target, 0600);
     $pk = sodium_crypto_sign_publickey($pair);
-    $pub = $root . '/system/aktualizace.pub';
-    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $name . ' ' . date('Y-m-d') . ' id=' . Kaleta\Core\Signature::id($pk) . "\n");
+    $pub = $root . '/system/update.pub';
+    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $name . ' ' . date('Y-m-d') . ' id=' . Talea\Core\Signature::id($pk) . "\n");
     file_put_contents($pub, ltrim((string) file_get_contents($pub)));
-    exit("Nový klíč „{$name}“ (id " . Kaleta\Core\Signature::id($pk) . ") je v {$target}.\n"
-        . "1) Soukromý soubor si HNED zazálohujte mimo tento počítač" . ($name === 'zalozni' ? " a z disku ho pak smažte - záložní klíč má ležet offline" : '') . ".\n"
-        . "2) system/aktualizace.pub commitněte; instalace nový klíč poznají až po vydání, které ho přinese (podepsaném klíčem, který už znají).\n");
+    exit("New key \"{$name}\" (id " . Talea\Core\Signature::id($pk) . ") is in {$target}.\n"
+        . "1) Back up the private file RIGHT NOW outside this computer" . ($name === 'backup' ? " and then delete it from the disk - the backup key is to be kept offline" : '') . ".\n"
+        . "2) Commit system/update.pub; installations recognise the new key only after the release that brings it (signed with a key they already know).\n");
 }
 if (!preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $version)) {
-    exit("Použití: php tools/release.php <verze> --url=<adresa ZIPu> [--zmena=\"...\"]\n");
+    exit("Usage: php tools/release.php <version> --url=<ZIP address> [--change=\"...\"]\n");
 }
-if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "const KALETA_VERSION = '{$version}';")) {
-    exit("V system/bootstrap.php není KALETA_VERSION = '{$version}'. Nejprve zvyšte verzi a změnu commitněte.\n");
-}
-// the oldest PHP the release runs on: sites on an older one are not offered it (Core\Updater::state) and refuse to install it
-if (!preg_match("/const KALETA_MIN_PHP = '(\\d+\\.\\d+)';/", (string) file_get_contents($root . '/system/bootstrap.php'), $minPhp)) {
-    exit("V system/bootstrap.php chybí KALETA_MIN_PHP.\n");
+if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "const TALEA_VERSION = '{$version}';")) {
+    exit("system/bootstrap.php does not have TALEA_VERSION = '{$version}'. Raise the version and commit the change first.\n");
 }
 
-// --- keys: system/aktualizace.pub carries several public keys (primary + backup), a signature is valid against any of them - see docs/RELEASING.md
+// --- keys: system/update.pub carries several public keys (primary + backup), a signature is valid against any of them - see docs/RELEASING.md
 require_once $root . '/system/src/Core/Signature.php';
-$publicKeyFile = $root . '/system/aktualizace.pub';
-$keyFiles = ['provozni' => $root . '/tools/klice/vydavatel.key', 'zalozni' => $root . '/tools/klice/zalozni.key'];
-$privateKeyFile = $keyFiles[$options['klic']] ?? exit("Neznámý klíč „{$options['klic']}“ - použijte --klic=provozni nebo --klic=zalozni.\n");
-$sk = base64_decode(trim(getenv('KALETA_KLIC') !== false ? (string) getenv('KALETA_KLIC') : (string) @file_get_contents($privateKeyFile)), true);
+$publicKeyFile = $root . '/system/update.pub';
+$keyFiles = ['operating' => $root . '/tools/keys/publisher.key', 'backup' => $root . '/tools/keys/backup.key'];
+$privateKeyFile = $keyFiles[$options['key']] ?? exit("Unknown key \"{$options['key']}\" - use --key=operating or --key=backup.\n");
+$sk = base64_decode(trim(getenv('TALEA_KEY') !== false ? (string) getenv('TALEA_KEY') : (string) @file_get_contents($privateKeyFile)), true);
 if ($sk === false || strlen($sk) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
-    exit("Soukromý klíč {$privateKeyFile} chybí nebo je poškozený. Nový pár založíte příkazem: php tools/release.php --novy-klic={$options['klic']}\n");
+    exit("Private key {$privateKeyFile} is missing or damaged. Create a new pair with: php tools/release.php --new-key={$options['key']}\n");
 }
-$keyId = Kaleta\Core\Signature::id(sodium_crypto_sign_publickey_from_secretkey($sk));
-if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
-    exit("Klíč {$keyId} není uveden v system/aktualizace.pub - instalace by jeho podpis odmítly.\n");
+$keyId = Talea\Core\Signature::id(sodium_crypto_sign_publickey_from_secretkey($sk));
+if (!isset(Talea\Core\Signature::keys($publicKeyFile)[$keyId])) {
+    exit("Key {$keyId} is not listed in system/update.pub - installations would reject its signature.\n");
+}
+
+// --- feed mode (container releases, docs/specs/update-and-deployment.md): the CI published the image, this signs the feed entry for it
+if ($options['feed']) {
+    $digest = strtolower((string) preg_replace('/^sha256:/', '', $options['digest']));
+    if (preg_match('/^[a-f0-9]{64}$/', $digest) !== 1 || $options['image'] === '') {
+        exit("Feed mode needs --digest=sha256:<64 hex> (of the pushed image) and --image=<registry/name:version>.\n");
+    }
+    @mkdir($root . '/dist');
+    file_put_contents($root . '/dist/update.json', json_encode([
+        'version' => $version, 'released' => date('Y-m-d'), 'security' => $options['security'], 'changes' => $options['changes'],
+        'image' => $options['image'], 'digest' => 'sha256:' . $digest, 'key' => $keyId,
+        'signature' => base64_encode(sodium_crypto_sign_detached(Talea\Core\Signature::packageMessage($version, $digest, $options['security']), $sk)),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+    exit("Done: dist/update.json for {$options['image']}. Upload it to the release as the asset update.json.\n");
 }
 
 // --- package from the files tracked by git
 $files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
-$exclude = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'docker-compose.yaml', 'docker-compose.coolify.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
+$exclude = ['tools/', 'docs/', 'extensions/domain_watch/tests/', 'extensions/firewall/tests/', 'extensions/client_galleries/tests/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'docker-compose.yaml', 'docker-compose.coolify.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
 @mkdir($root . '/dist');
-$zipFile = $root . "/dist/kaleta-{$version}.zip";
+$zipFile = $root . "/dist/talea-{$version}.zip";
 @unlink($zipFile);
 $zip = new ZipArchive();
 $zip->open($zipFile, ZipArchive::CREATE);
@@ -119,19 +136,19 @@ foreach (array_filter(explode("\n", $git('tag --sort=-v:refname --merged HEAD^ "
 }
 require_once $root . '/system/src/Core/Integrity.php';
 ksort($hashes);
-$zip->addFromString('system/soubory.json', json_encode([
-    'verze' => $version, 'soubory' => $hashes, 'legacy' => $legacy,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrity::stringToSign($version, $hashes), $sk)),
+$zip->addFromString('system/files.json', json_encode([
+    'version' => $version, 'files' => $hashes, 'legacy' => $legacy,
+    'signature' => base64_encode(sodium_crypto_sign_detached(Talea\Core\Integrity::stringToSign($version, $hashes), $sk)),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 $zip->close();
 
 $sha = hash_file('sha256', $zipFile);
 $manifest = [
-    'verze' => $version, 'vydano' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['bezpecnostni']), $sk)),
-    'klic' => $keyId, // only for reference, which key signed it; installations try all keys they know
-    'min_php' => $minPhp[1], 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
+    'version' => $version, 'released' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
+    'signature' => base64_encode(sodium_crypto_sign_detached(Talea\Core\Signature::packageMessage($version, $sha, $options['security']), $sk)),
+    'key' => $keyId, // only for reference, which key signed it; installations try all keys they know
+    'min_php' => '8.4', 'security' => $options['security'], 'changes' => $options['changes'],
 ];
-file_put_contents($root . '/dist/aktualizace.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
-echo "Hotovo: dist/kaleta-{$version}.zip (" . round(filesize($zipFile) / 1024) . " kB) a dist/aktualizace.json\n";
-echo $options['url'] === '' ? "POZOR: nezadali jste --url, doplňte adresu ZIPu do dist/aktualizace.json PŘED podpisem (spusťte znovu s --url).\n" : "1) ZIP nahrajte na {$options['url']}\n2) aktualizace.json nahrajte na web projektu.\n";
+file_put_contents($root . '/dist/update.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+echo "Done: dist/talea-{$version}.zip (" . round(filesize($zipFile) / 1024) . " kB) and dist/update.json\n";
+echo $options['url'] === '' ? "WARNING: no --url given - add the ZIP address to dist/update.json BEFORE signing (run again with --url).\n" : "1) Upload the ZIP to {$options['url']}\n2) Upload update.json to the project website.\n";

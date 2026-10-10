@@ -9,16 +9,16 @@ return [
     'detail' => true,
     'redirect_hidden' => true,
     'fields' => [
-        ['photo', 'Photo', 'obrazek'],
-        ['role', 'Role', 'text'],
+        ['photo', 'Photo', 'image'],
+        ['role', 'Roles', 'text'],
         ['languages', 'Languages', 'text'],
         ['phone', 'Phone', 'text'],
-        ['email', 'E-mail', 'text'],
+        ['email', 'Email', 'text'],
         ['on_leave', 'On leave', 'text'],
         ['about', 'About', 'html'],
-        ['branch', 'Branch', 'polozka', ['preset' => 'branches']],
+        ['branch', 'Branch', 'item', ['preset' => 'branches']],
     ],
-    'schema' => ['typ' => 'Person', 'pole' => ['jobTitle' => 'role', 'email' => 'email', 'telephone' => 'phone']],
+    'schema' => ['type' => 'Person', 'fields' => ['jobTitle' => 'role', 'email' => 'email', 'telephone' => 'phone']],
     'claude' => 'One item per person. A Collection list of it on the team page (sorted by order); the item template shows the photo, role, contacts and about. '
         . 'Hide or delete a person who left – their page then leads to the team page. get_email_signature gives each person an e-mail signature. '
         . 'The branch field links a person to a branch when the site has a Branches collection.',

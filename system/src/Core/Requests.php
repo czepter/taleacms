@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Requests to Claude (2.15): staff write in the administration what they need changed on the site – "change the opening
@@ -47,7 +47,7 @@ final class Requests
     public static function cleanAbout(string $about): string
     {
         $about = trim($about);
-        if (preg_match('/^(page|news|item):[1-9]\d{0,9}$/D', $about)) {
+        if (preg_match('/^(page|news|item):[1-9]\d{0,9}$/', $about)) {
             return $about;
         }
         if ($about !== '' && mb_strlen($about) <= 500 && !preg_match('/[\s<>"\'\\\\]/', $about) && (str_starts_with($about, '/') || preg_match('#^https?://[^/]+#i', $about))) {
@@ -69,13 +69,13 @@ final class Requests
         }
         $db = $app->db();
         $site = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-        if (preg_match('/^(page|news|item):(\d+)$/D', $about, $m)) {
+        if (preg_match('/^(page|news|item):(\d+)$/', $about, $m)) {
             $id = (int) $m[2];
             [$title, $url] = match ($m[1]) {
-                'page' => (($r = $db->one('SELECT titulek, seo_link FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id])) !== null ? [(string) $r['titulek'], $app->url((string) $r['seo_link'])] : ['', '']),
-                'news' => (($r = $db->one('SELECT titulek, seo_link, jazyk FROM {novinky} WHERE idc = ? AND smazano IS NULL', [$id])) !== null ? [(string) $r['titulek'], $app->newsItemUrl((string) $r['seo_link'], (string) $r['jazyk'])] : ['', '']),
-                default => (($r = $db->one('SELECT p.nazev, p.seo_link, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ? AND p.smazano IS NULL', [$id])) !== null
-                    ? [(string) $r['nazev'], $app->url((string) $r['kolekce'] . '/' . (string) $r['seo_link'])] : ['', '']),
+                'page' => (($r = $db->one('SELECT title, slug FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id])) !== null ? [(string) $r['title'], $app->url((string) $r['slug'])] : ['', '']),
+                'news' => (($r = $db->one('SELECT title, slug, language FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id])) !== null ? [(string) $r['title'], $app->newsItemUrl((string) $r['slug'], (string) $r['language'])] : ['', '']),
+                default => (($r = $db->one('SELECT p.name, p.slug, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ? AND p.deleted_at IS NULL', [$id])) !== null
+                    ? [(string) $r['name'], $app->url((string) $r['collection'] . '/' . (string) $r['slug'])] : ['', '']),
             };
 
             return ['type' => $m[1], 'id' => $id, 'title' => $title !== '' ? $title : t('(no longer exists)'), 'url' => $url !== '' ? $site . $url : ''];
@@ -102,7 +102,7 @@ final class Requests
         }
         $db = $app->db();
         $ids = array_values(array_unique(array_filter(array_map('intval', $attachments), fn (int $id): bool => $id > 0)));
-        $ids = $ids === [] ? [] : array_map('intval', array_column($db->all('SELECT ido FROM {media} WHERE ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY ido', $ids), 'ido'));
+        $ids = $ids === [] ? [] : array_map('intval', array_column($db->all('SELECT media_id FROM {media} WHERE media_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY media_id', $ids), 'media_id'));
         $now = date('Y-m-d H:i:s');
         $id = $db->insert('requests', ['created_at' => $now, 'updated_at' => $now, 'author_id' => $authorId, 'title' => $title, 'text' => mb_substr($text, 0, self::MAX_TEXT),
             'about' => self::cleanAbout($about), 'attachments' => (string) json_encode(array_slice($ids, 0, self::MAX_ATTACHMENTS)), 'status' => 'new']);
@@ -121,8 +121,8 @@ final class Requests
     public static function all(App $app, string $status = '', int $limit = 100): array
     {
         $where = isset(self::STATUSES[$status]) ? 'WHERE r.status = ?' : '';
-        $rows = $app->db()->all("SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, IFNULL(u.user, ''), u.jmeno) AS author FROM {requests} r LEFT JOIN {uzivatele} u ON u.idu = r.author_id {$where}"
-            . ' ORDER BY FIELD(r.status, ' . implode(', ', array_map(fn (string $s): string => "'" . $s . "'", array_keys(self::ORDER))) . '), r.id DESC LIMIT ' . max(1, min(500, $limit)), isset(self::STATUSES[$status]) ? [$status] : []);
+        $rows = $app->db()->all("SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN COALESCE(u.username, '') ELSE u.name END AS author FROM {requests} r LEFT JOIN {users} u ON u.user_id = r.author_id {$where}"
+            . ' ORDER BY ' . $app->db()->dialect()->listPosition('r.status', count(self::ORDER)) . ', r.id DESC LIMIT ' . max(1, min(500, $limit)), [...(isset(self::STATUSES[$status]) ? [$status] : []), ...array_keys(self::ORDER)]);
 
         return array_map(self::decode(...), $rows);
     }
@@ -130,7 +130,7 @@ final class Requests
     /** @return array<string, mixed>|null the request with its author's name */
     public static function get(App $app, int $id): ?array
     {
-        $row = $app->db()->one("SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, IFNULL(u.user, ''), u.jmeno) AS author, u.email AS author_email, u.jazyk AS author_language, u.register AS author_register FROM {requests} r LEFT JOIN {uzivatele} u ON u.idu = r.author_id WHERE r.id = ?", [$id]);
+        $row = $app->db()->one("SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN COALESCE(u.username, '') ELSE u.name END AS author, u.email AS author_email, u.language AS author_language, u.register AS author_register FROM {requests} r LEFT JOIN {users} u ON u.user_id = r.author_id WHERE r.id = ?", [$id]);
 
         return $row === null ? null : self::decode($row);
     }
@@ -157,10 +157,10 @@ final class Requests
             return [];
         }
         $site = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-        $rows = $app->db()->all('SELECT ido, nazev, obr_poloha, nahl_poloha, obr_vel FROM {media} WHERE ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY FIELD(ido, ' . implode(',', array_fill(0, count($ids), '?')) . ')', [...$ids, ...$ids]);
+        $rows = $app->db()->all('SELECT media_id, name, image_path, thumb_path, image_size FROM {media} WHERE media_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY ' . $app->db()->dialect()->listPosition('media_id', count($ids)), [...$ids, ...$ids]);
 
-        return array_map(fn (array $m): array => ['id' => (int) $m['ido'], 'name' => $m['nazev'] !== '' ? (string) $m['nazev'] : basename((string) $m['obr_poloha']),
-            'url' => $site . $app->url((string) $m['obr_poloha']), 'size' => Files::size((int) $m['obr_vel']), 'image' => $m['nahl_poloha'] !== ''], $rows);
+        return array_map(fn (array $m): array => ['id' => (int) $m['media_id'], 'name' => $m['name'] !== '' ? (string) $m['name'] : basename((string) $m['image_path']),
+            'url' => $site . $app->url((string) $m['image_path']), 'size' => Files::size((int) $m['image_size']), 'image' => $m['thumb_path'] !== ''], $rows);
     }
 
     /** @return list<array{id: int, sender: string, sender_name: string, text: string, links: list<array{label: string, url: string}>, created_at: string}> oldest first */
@@ -192,7 +192,7 @@ final class Requests
             }
             $url = trim((string) ($link['url'] ?? ''));
             $label = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($link['label'] ?? '')) ?? ''), 0, 190);
-            if ($url !== '' && (!preg_match('#^https?://[^\s<>"\']+$#iD', $url) || mb_strlen($url) > 500)) {
+            if ($url !== '' && (!preg_match('#^https?://[^\s<>"\']+$#i', $url) || mb_strlen($url) > 500)) {
                 continue; // only web addresses: a javascript: or data: link must never reach the requester's browser
             }
             if ($url === '' && $label === '') {
@@ -255,7 +255,7 @@ final class Requests
     /** The administration address of a request, absolute – for e-mails. */
     public static function adminUrl(App $app, int $id): string
     {
-        return rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=requests&action=detail&id=' . $id);
+        return rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=requests&action=detail&id=' . $app->db()->publicId('requests', $id));
     }
 
     /** "New request for Claude: <title>" to every administrator with an e-mail address – except the requester, who knows. */
@@ -263,8 +263,8 @@ final class Requests
     {
         $s = $app->settings();
         $url = self::adminUrl($app, $id);
-        foreach ($app->db()->all("SELECT email, jazyk, register FROM {uzivatele} WHERE admin = ? AND blokovat = 0 AND email <> '' AND idu <> ?", [Auth::ADMIN, $authorId]) as $admin) {
-            Language::runWith((string) $admin['jazyk'] ?: Language::defaults($s), function () use ($s, $admin, $title, $url): void {
+        foreach ($app->db()->all("SELECT email, language, register FROM {users} WHERE admin = ? AND blocked = FALSE AND email <> '' AND user_id <> ?", [Auth::ADMIN, $authorId]) as $admin) {
+            Language::runWith((string) $admin['language'] ?: Language::defaults($s), function () use ($s, $admin, $title, $url): void {
                 Mail::send($s, (string) $admin['email'], t('New request for Claude: %s', $title), t('A colleague wrote a new request for Claude: %s', $title) . "\n\n" . $url . "\n");
             }, 'admin-', Language::normalizeRegister((string) $admin['register']));
         }

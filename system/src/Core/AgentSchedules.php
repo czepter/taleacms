@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Scheduled Claude runs (2.17): a weekly review, a monthly report, a daily triage of enquiries, the open requests, or the
@@ -14,7 +14,7 @@ namespace Kaleta\Core;
  * the Claude app or a Claude Code routine – over a drafts-only connection to this site, so whatever the instructions say,
  * nothing is published, deleted or sent without a person.
  *
- *  - A run is handed out once: the first get_due_agent_runs after next_due creates the ka_agent_runs row (running); a
+ *  - A run is handed out once: the first get_due_agent_runs after next_due creates the tl_agent_runs row (running); a
  *    second call within HANDOUT_HOURS gets the same open run. An open run older than that is written off as failed and a
  *    new one handed out – the routine gets another chance, the owner sees the gap in the history.
  *  - next_due is computed in the site's time zone (Settings time_zone, App::applyTimezone) from the cadence, the day and
@@ -173,7 +173,7 @@ final class AgentSchedules
     {
         return $db->all('SELECT s.*, r.status AS last_status, r.finished_at AS last_finished, r.summary AS last_summary
             FROM {agent_schedules} s LEFT JOIN {agent_runs} r ON r.id = (SELECT MAX(id) FROM {agent_runs} WHERE schedule_id = s.id)
-            ORDER BY s.active DESC, s.next_due, s.id');
+            ORDER BY s.active DESC, s.next_due IS NULL DESC, s.next_due, s.id'); // NULL first on both engines (PostgreSQL would sort it last)
     }
 
     /**
@@ -216,7 +216,7 @@ final class AgentSchedules
         $db = $app->db();
         $now = date('Y-m-d H:i:s');
         $out = [];
-        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = 1 AND next_due IS NOT NULL AND next_due <= ? ORDER BY next_due, id', [$now]) as $schedule) {
+        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = TRUE AND next_due IS NOT NULL AND next_due <= ? ORDER BY next_due, id', [$now]) as $schedule) {
             $open = $db->one("SELECT * FROM {agent_runs} WHERE schedule_id = ? AND status = 'running' ORDER BY id DESC LIMIT 1", [(int) $schedule['id']]);
             if ($open !== null && strtotime((string) $open['started_at']) < time() - self::HANDOUT_HOURS * 3600) {
                 $db->update('agent_runs', ['status' => 'failed', 'finished_at' => $now, 'summary' => t('Handed out but not reported within %d hours – written off by the site.', self::HANDOUT_HOURS)], ['id' => (int) $open['id']]);
@@ -274,7 +274,7 @@ final class AgentSchedules
         $now = new \DateTimeImmutable();
         $limit = $now->modify('-' . self::MISSED_HOURS . ' hours')->format('Y-m-d H:i:s');
         $missed = 0;
-        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = 1 AND next_due IS NOT NULL AND next_due < ?', [$limit]) as $schedule) {
+        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = TRUE AND next_due IS NOT NULL AND next_due < ?', [$limit]) as $schedule) {
             if ($db->value("SELECT COUNT(*) FROM {agent_runs} WHERE schedule_id = ? AND status = 'running'", [(int) $schedule['id']]) > 0) {
                 continue; // handed out – late, but somebody is on it
             }
@@ -304,6 +304,6 @@ final class AgentSchedules
     {
         $url = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('mcp');
 
-        return 'Connect to the Kaleta site ' . $url . ' and call get_due_agent_runs. For each run it returns, follow its instructions as drafts only – never publish, make visible, delete or send anything – and when you are done call report_agent_run with the run id, the status (ok, partial or failed), a short summary of what you did and what needs a person, and links to the drafts. If nothing is due, stop.';
+        return 'Connect to the Talea site ' . $url . ' and call get_due_agent_runs. For each run it returns, follow its instructions as drafts only – never publish, make visible, delete or send anything – and when you are done call report_agent_run with the run id, the status (ok, partial or failed), a short summary of what you did and what needs a person, and links to the drafts. If nothing is due, stop.';
     }
 }

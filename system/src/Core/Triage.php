@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Enquiry triage (2.12): every enquiry gets a kind (sales, support, a job application, a supplier's offer, spam, other), a
@@ -32,16 +32,16 @@ final class Triage
      * A triage result from Claude, the assistant or a form, cleaned: an unknown kind or priority is null (= unchanged), the
      * reply plain text up to 5 000 characters.
      *
-     * @return array{kategorie: ?string, priorita: ?int, navrh_odpovedi: ?string}
+     * @return array{category: ?string, priority: ?int, suggested_reply: ?string}
      */
     public static function clean(mixed $category, mixed $priority, mixed $reply): array
     {
         $priorities = array_flip(self::PRIORITIES);
 
         return [
-            'kategorie' => is_string($category) && isset(self::CATEGORIES[$category]) ? $category : null,
-            'priorita' => is_int($priority) && isset(self::PRIORITIES[$priority]) ? $priority : (is_string($priority) && isset($priorities[$priority]) ? $priorities[$priority] : null),
-            'navrh_odpovedi' => is_string($reply) ? mb_substr(trim(strip_tags(str_replace("\r\n", "\n", $reply))), 0, 5000) : null,
+            'category' => is_string($category) && isset(self::CATEGORIES[$category]) ? $category : null,
+            'priority' => is_int($priority) && isset(self::PRIORITIES[$priority]) ? $priority : (is_string($priority) && isset($priorities[$priority]) ? $priorities[$priority] : null),
+            'suggested_reply' => is_string($reply) ? mb_substr(trim(strip_tags(str_replace("\r\n", "\n", $reply))), 0, 5000) : null,
         ];
     }
 
@@ -51,7 +51,7 @@ final class Triage
      */
     public static function save(Db $db, int $idp, array $clean, string $by): bool
     {
-        $current = (string) ($db->value('SELECT triaged_by FROM {poptavky} WHERE idp = ?', [$idp]) ?? '');
+        $current = (string) ($db->value('SELECT triaged_by FROM {enquiries} WHERE enquiry_id = ?', [$idp]) ?? '');
         if (in_array($by, self::MACHINES, true) && !in_array($current, self::MACHINES, true)) {
             return false;
         }
@@ -59,7 +59,7 @@ final class Triage
         if ($changes === []) {
             return false;
         }
-        $db->update('poptavky', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['idp' => $idp]);
+        $db->update('enquiries', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $idp]);
 
         return true;
     }
@@ -67,13 +67,13 @@ final class Triage
     /** The rule for what is certain: an application sent from a job opening is a job application. @param list<string> $jobSources */
     public static function rule(array $enquiry, array $jobSources): ?array
     {
-        return in_array((string) ($enquiry['zdroj'] ?? ''), $jobSources, true) ? ['kategorie' => 'job', 'priorita' => 2, 'navrh_odpovedi' => null] : null;
+        return in_array((string) ($enquiry['source'] ?? ''), $jobSources, true) ? ['category' => 'job', 'priority' => 2, 'suggested_reply' => null] : null;
     }
 
     /** Applies the rule to a new enquiry right after it is saved (Front\Forms). */
     public static function afterSubmit(App $app, int $idp): void
     {
-        $enquiry = $app->db()->one('SELECT idp, zdroj FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $app->db()->one('SELECT enquiry_id, source FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
         if ($enquiry !== null && ($result = self::rule($enquiry, Jobs::sources($app->db()))) !== null) {
             self::save($app->db(), $idp, $result, 'rule');
         }
@@ -85,9 +85,9 @@ final class Triage
      */
     public static function text(array $enquiry): string
     {
-        $lines = ['Form: ' . $enquiry['formular'], 'Page: ' . $enquiry['stranka']];
-        if (($enquiry['tema'] ?? '') !== '') {
-            $lines[] = 'About: ' . $enquiry['tema'];
+        $lines = ['Form: ' . $enquiry['form'], 'Page: ' . $enquiry['page']];
+        if (($enquiry['topic'] ?? '') !== '') {
+            $lines[] = 'About: ' . $enquiry['topic'];
         }
         foreach (json_decode((string) $enquiry['data'], true) ?: [] as $field) {
             if (is_array($field) && isset($field[0], $field[1])) {
@@ -106,22 +106,22 @@ final class Triage
     {
         $settings = $app->settings();
         $assistant = new Assistant($settings);
-        if (!$settings->bool('triage_assistant') || !Extensions::isEnabled($settings, 'asistent') || !$assistant->isReady()) {
+        if (!$settings->bool('triage_assistant') || !Extensions::isEnabled($settings, 'assistant') || !$assistant->isReady()) {
             return 'off';
         }
         $db = $app->db();
         $done = 0;
         $failed = '';
-        foreach ($db->all("SELECT * FROM {poptavky} WHERE triaged_by = '' AND datum > NOW() - INTERVAL 7 DAY ORDER BY idp LIMIT " . self::PER_RUN) as $enquiry) {
+        foreach ($db->all("SELECT * FROM {enquiries} WHERE triaged_by = '' AND created_at > NOW() - INTERVAL 7 DAY ORDER BY enquiry_id LIMIT " . self::PER_RUN) as $enquiry) {
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'));
             } catch (\RuntimeException $e) {
-                $db->update('poptavky', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['idp' => (int) $enquiry['idp']]); // not asked again
+                $db->update('enquiries', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => (int) $enquiry['enquiry_id']]); // not asked again
                 $failed = $e->getMessage();
 
                 continue;
             }
-            if (self::save($db, (int) $enquiry['idp'], self::clean($result['category'] ?? null, $result['priority'] ?? null, $result['reply'] ?? null), 'assistant')) {
+            if (self::save($db, (int) $enquiry['enquiry_id'], self::clean($result['category'] ?? null, $result['priority'] ?? null, $result['reply'] ?? null), 'assistant')) {
                 $done++;
             }
         }

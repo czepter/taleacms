@@ -1,46 +1,38 @@
 {
-    "kaleta_blueprint": 1,
+    "talea_blueprint": 1,
     "key": "craftsman",
     "group": "services",
-    "name": {
-        "en": "Trades business",
-        "cs": "Řemeslník",
-        "de": "Handwerksbetrieb"
-    },
-    "description": {
-        "en": "A plumber, electrician, joiner, roofer or other tradesperson: the services, finished jobs as references, a price list and customers' questions, with facts about the area served, rates and the emergency line.",
-        "cs": "Instalatér, elektrikář, truhlář, pokrývač nebo jiné řemeslo: služby, hotové zakázky jako reference, ceník a otázky zákazníků, k tomu fakta o oblasti působení, sazbách a havarijní lince.",
-        "de": "Installateur, Elektriker, Schreiner, Dachdecker oder ein anderes Handwerk: die Leistungen, fertige Aufträge als Referenzen, eine Preisliste und Kundenfragen, dazu Fakten zum Einsatzgebiet, zu Preisen und zum Notdienst."
-    },
+    "name": "Trades business",
+    "description": "A plumber, electrician, joiner, roofer or other tradesperson: the services, finished jobs as references, a price list and customers' questions, with facts about the area served, rates and the emergency line.",
     "presets": ["services", "references", "price_list", "faq"],
     "facts": [
-        {"key": "service_area", "label": {"en": "Area we serve", "cs": "Oblast působení", "de": "Einsatzgebiet"}, "type": "text", "schema": "areaServed"},
-        {"key": "in_business_since", "label": {"en": "In business since", "cs": "Řemeslo provozujeme od roku", "de": "Im Geschäft seit"}, "type": "year", "schema": "foundingDate"},
-        {"key": "callout_fee", "label": {"en": "Call-out fee", "cs": "Cena za výjezd", "de": "Anfahrtspauschale"}, "type": "money"},
-        {"key": "hourly_rate", "label": {"en": "Hourly rate from", "cs": "Hodinová sazba od", "de": "Stundensatz ab"}, "type": "money"},
-        {"key": "emergency_phone", "label": {"en": "Emergency line", "cs": "Havarijní linka", "de": "Notdienst-Telefon"}, "type": "phone"},
-        {"key": "warranty", "label": {"en": "Warranty on work", "cs": "Záruka na práci", "de": "Gewährleistung auf Arbeiten"}, "type": "text"}
+        {"key": "service_area", "label": "Area we serve", "type": "text", "schema": "areaServed"},
+        {"key": "in_business_since", "label": "In business since", "type": "year", "schema": "foundingDate"},
+        {"key": "callout_fee", "label": "Call-out fee", "type": "money"},
+        {"key": "hourly_rate", "label": "Hourly rate from", "type": "money"},
+        {"key": "emergency_phone", "label": "Emergency line", "type": "phone"},
+        {"key": "warranty", "label": "Warranty on work", "type": "text"}
     ],
     "questions": [
-        {"fact": "service_area", "question": {"en": "Where do you work – which towns or how far from your base?", "cs": "Kde pracujete – ve kterých městech nebo jak daleko od sídla?", "de": "Wo arbeiten Sie – in welchen Orten oder wie weit von Ihrem Standort?"},
-            "help": {"en": "For example \"Brno and up to 40 km around\". Customers check this before they call.", "cs": "Například „Brno a okolí do 40 km“. Zákazníci to ověřují, než zavolají.", "de": "Zum Beispiel „Graz und bis 40 km Umgebung“. Kunden prüfen das, bevor sie anrufen."}},
-        {"fact": "in_business_since", "question": {"en": "Since which year have you been in business?", "cs": "Od kterého roku řemeslo provozujete?", "de": "Seit welchem Jahr sind Sie im Geschäft?"}},
-        {"fact": "callout_fee", "question": {"en": "Do you charge a call-out fee? How much?", "cs": "Účtujete výjezd? Kolik stojí?", "de": "Verrechnen Sie eine Anfahrtspauschale? Wie hoch ist sie?"},
-            "help": {"en": "An amount with the currency, e.g. 500 CZK or 40 EUR. Leave it empty if there is none.", "cs": "Částka s měnou, např. 500 CZK. Pokud výjezd neúčtujete, nechte prázdné.", "de": "Ein Betrag mit Währung, z. B. 40 EUR. Leer lassen, wenn es keine gibt."}},
-        {"fact": "hourly_rate", "question": {"en": "What is your hourly rate from?", "cs": "Jaká je vaše hodinová sazba od?", "de": "Wie hoch ist Ihr Stundensatz mindestens?"},
-            "help": {"en": "An amount with the currency; the price list holds the details.", "cs": "Částka s měnou; podrobnosti patří do ceníku.", "de": "Ein Betrag mit Währung; die Einzelheiten gehören in die Preisliste."}},
-        {"fact": "emergency_phone", "question": {"en": "Do you offer an emergency service? Which number should people call?", "cs": "Nabízíte havarijní službu? Na jaké číslo mají lidé volat?", "de": "Bieten Sie einen Notdienst an? Welche Nummer soll man anrufen?"},
-            "help": {"en": "Leave it empty if you do not take emergency calls.", "cs": "Pokud havarijní výjezdy neděláte, nechte prázdné.", "de": "Leer lassen, wenn Sie keinen Notdienst anbieten."}},
-        {"fact": "warranty", "question": {"en": "What warranty do you give on your work?", "cs": "Jakou záruku dáváte na svou práci?", "de": "Welche Gewährleistung geben Sie auf Ihre Arbeit?"},
-            "help": {"en": "For example \"24 months on labour, materials as the manufacturer\". Check what your law requires as a minimum.", "cs": "Například „24 měsíců na práci, materiál podle výrobce“. Ověřte, jaké minimum vyžaduje zákon.", "de": "Zum Beispiel „24 Monate auf Arbeit, Material laut Hersteller“. Prüfen Sie das gesetzliche Minimum."}}
+        {"fact": "service_area", "question": "Where do you work – which towns or how far from your base?",
+            "help": "For example \"Brno and up to 40 km around\". Customers check this before they call."},
+        {"fact": "in_business_since", "question": "Since which year have you been in business?"},
+        {"fact": "callout_fee", "question": "Do you charge a call-out fee? How much?",
+            "help": "An amount with the currency, e.g. 500 CZK or 40 EUR. Leave it empty if there is none."},
+        {"fact": "hourly_rate", "question": "What is your hourly rate from?",
+            "help": "An amount with the currency; the price list holds the details."},
+        {"fact": "emergency_phone", "question": "Do you offer an emergency service? Which number should people call?",
+            "help": "Leave it empty if you do not take emergency calls."},
+        {"fact": "warranty", "question": "What warranty do you give on your work?",
+            "help": "For example \"24 months on labour, materials as the manufacturer\". Check what your law requires as a minimum."}
     ],
     "audit": [
-        {"check": "fact", "fact": "service_area", "message": {"en": "Say where you work – customers outside your area should know before they call.", "cs": "Uveďte, kde pracujete – zákazníci mimo vaši oblast to mají vědět, než zavolají.", "de": "Nennen Sie Ihr Einsatzgebiet – Kunden außerhalb sollten es wissen, bevor sie anrufen."}},
-        {"check": "setting", "setting": "company_phone", "message": {"en": "Fill in your phone number in Business details – most customers of a trade call.", "cs": "Doplňte telefon v Údajích o firmě – většina zákazníků řemeslníka volá.", "de": "Tragen Sie Ihre Telefonnummer unter Firmendaten ein – die meisten Handwerkskunden rufen an."}},
-        {"check": "preset_items", "preset": "services", "min": 1, "message": {"en": "Add the services you offer, each with what it includes and a price from.", "cs": "Přidejte služby, které nabízíte, u každé co zahrnuje a cenu od.", "de": "Fügen Sie Ihre Leistungen hinzu, jede mit dem, was sie umfasst, und einem Preis ab."}},
-        {"check": "preset_items", "preset": "references", "min": 1, "message": {"en": "Add at least one finished job with photos as a reference – customers want to see your work.", "cs": "Přidejte alespoň jednu hotovou zakázku s fotografiemi jako referenci – zákazníci chtějí vidět vaši práci.", "de": "Fügen Sie mindestens einen fertigen Auftrag mit Fotos als Referenz hinzu – Kunden wollen Ihre Arbeit sehen."}},
-        {"check": "stale_items", "preset": "price_list", "days": 365, "message": {"en": "The price list has not changed for a year – check your rates and material prices.", "cs": "Ceník se rok nezměnil – zkontrolujte sazby a ceny materiálu.", "de": "Die Preisliste wurde seit einem Jahr nicht geändert – prüfen Sie Ihre Sätze und Materialpreise."}},
-        {"check": "page", "slugs": ["gdpr", "ochrana-osobnich-udaju", "privacy-policy", "privacy", "datenschutz", "datenschutzerklaerung"], "message": {"en": "Publish a privacy policy page – the enquiry form collects personal data; check what your law requires.", "cs": "Zveřejněte stránku o ochraně osobních údajů – poptávkový formulář sbírá osobní údaje; ověřte, co vyžaduje zákon.", "de": "Veröffentlichen Sie eine Datenschutzseite – das Anfrageformular erhebt personenbezogene Daten; prüfen Sie die gesetzlichen Anforderungen."}}
+        {"check": "fact", "fact": "service_area", "message": "Say where you work – customers outside your area should know before they call."},
+        {"check": "setting", "setting": "company_phone", "message": "Fill in your phone number in Business details – most customers of a trade call."},
+        {"check": "preset_items", "preset": "services", "min": 1, "message": "Add the services you offer, each with what it includes and a price from."},
+        {"check": "preset_items", "preset": "references", "min": 1, "message": "Add at least one finished job with photos as a reference – customers want to see your work."},
+        {"check": "stale_items", "preset": "price_list", "days": 365, "message": "The price list has not changed for a year – check your rates and material prices."},
+        {"check": "page", "slugs": ["gdpr", "ochrana-osobnich-udaju", "privacy-policy", "privacy", "datenschutz", "datenschutzerklaerung"], "message": "Publish a privacy policy page – the enquiry form collects personal data; check what your law requires."}
     ],
     "claude": "Customers of a trade want three things fast: does this person do what I need, in my area, and how do I reach them – so the services, the area served and a phone number belong at the top of the home page, and the emergency line (if any) must be impossible to miss. Write in short, concrete sentences, like a tradesperson explaining the job, without marketing superlatives. Never invent references, photos, customer quotes, years of experience, certificates or prices – ask the owner for real finished jobs and publish them only with the customer's consent. Rates and the call-out fee are facts: state them once and let the price list carry the details. If a licence or registration may be required for the trade, note that it should be checked rather than claiming it."
 }

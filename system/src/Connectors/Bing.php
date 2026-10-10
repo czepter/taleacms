@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Connectors;
+namespace Talea\Connectors;
 
 /**
  * Bing Webmaster Tools (2.13): the queries and pages Bing shows the site for (Core\SearchData). The administrator pastes

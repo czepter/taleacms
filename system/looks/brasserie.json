@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "brasserie",
+    "name": "Brasserie",
+    "description": "Warm hospitality: cream paper, a brick-red accent and a display face for the menu headings.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#a3281c",
+            "secondary": "#3b5d3a",
+            "text": "#2a1d16",
+            "background": "#fbf4e9",
+            "surface": "#f1e5d0"
+        },
+        "colors_dark": {
+            "text": "#f2e8da",
+            "background": "#18110d",
+            "surface": "#241a14",
+            "primary": "#f0897d",
+            "secondary": "#8fbf8d"
+        },
+        "font_heading": "lib:abril-fatface",
+        "font_body": "lib:lato",
+        "radius": "m",
+        "ratio_min": 1.25,
+        "ratio_max": 1.333,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 70,
+        "text_width": 42
+    },
+    "header": "with-bar",
+    "footer": "columns",
+    "sections": [
+        "hero-image",
+        "story",
+        "services-list",
+        "gallery",
+        "reviews",
+        "contact"
+    ]
+}

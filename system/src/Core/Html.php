@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Safe HTML from users without administrator permission (author and editor of news and pages, MCP with their token).
@@ -66,9 +66,8 @@ final class Html
         $name = $html ? $node->localName : $node->tagName;
         $output = '<' . $name;
         foreach ($node->attributes as $a) {
-            $attribute = self::attributeName($a->namespaceURI, $a->nodeName);
-            if ($attribute !== null && preg_match('/^[^\s"\'>\/=<\x00-\x1f\x7f]+$/', $attribute)) { // a name the parser would read differently is left out
-                $output .= ' ' . $attribute . '="' . str_replace(['&', "\u{00A0}", '"', '<', '>'], ['&amp;', '&nbsp;', '&quot;', '&lt;', '&gt;'], $a->value) . '"';
+            if (preg_match('/^[^\s"\'>\/=<\x00-\x1f\x7f]+$/', $a->name)) { // a name the parser would read differently is left out
+                $output .= ' ' . $a->name . '="' . str_replace(['&', "\u{00A0}", '"', '<', '>'], ['&amp;', '&nbsp;', '&quot;', '&lt;', '&gt;'], $a->value) . '"';
             }
         }
         $output .= '>';
@@ -79,28 +78,6 @@ final class Html
         $output .= $html && $name === 'template' ? $node->innerHTML : self::inner($node);
 
         return $output . '</' . $name . '>';
-    }
-
-    /**
-     * The qualified name of an attribute (xlink:href, never just href) – the name every sanitizer judges and the one that
-     * is written. A namespaced attribute is written only when it is one HTML parsing creates (xlink:href and its siblings
-     * in SVG, xml:lang, xmlns): an attribute in any other namespace is left out, never written under its local name
-     * (on PHP 8.3 an "xml:onerror" became a live "onerror" that way before 3.7.0).
-     */
-    private static function attributeName(?string $namespace, string $qualifiedName): ?string
-    {
-        if ($namespace === null) {
-            return $qualifiedName;
-        }
-        $prefix = match ($namespace) {
-            'http://www.w3.org/1999/xlink' => 'xlink:',
-            'http://www.w3.org/XML/1998/namespace' => 'xml:',
-            'http://www.w3.org/2000/xmlns/' => 'xmlns',
-            default => null,
-        };
-
-        return $prefix !== null && str_starts_with($qualifiedName, $prefix) && in_array($qualifiedName, \Kaleta\Compat\Html5Serializer::NAMESPACED, true)
-            ? $qualifiedName : null;
     }
 
     /**
@@ -145,8 +122,8 @@ final class Html
                     $img->remove();
                     continue;
                 }
-                foreach (iterator_to_array($img->attributes, false) as $a) {
-                    $img->removeAttributeNode($a);
+                foreach (iterator_to_array($img->attributes) as $a) {
+                    $img->removeAttribute($a->name);
                 }
                 foreach ($result as $name => $value) {
                     $img->setAttribute($name, (string) $value);
@@ -177,15 +154,15 @@ final class Html
                 $n->remove();
                 continue;
             }
-            foreach (iterator_to_array($n->attributes, false) as $a) { // a list: the keys are local names, and xlink:href would hide href (or onload x:onload)
-                $name = strtolower($a->nodeName); // the qualified name: xml:onerror is not onerror
+            foreach (iterator_to_array($n->attributes) as $a) {
+                $name = strtolower($a->name);
                 $ok = (in_array($name, self::ATTRIBUTES, true) || preg_match('/^aria-[a-z]{2,20}$/', $name)
-                        || ($name === 'data-id' && strtolower($n->localName) === 'img' && ctype_digit($a->value))) // the Media number the editor puts on an image
+                        || ($name === 'data-id' && strtolower($n->localName) === 'img' && (ctype_digit($a->value) || Uuid::valid($a->value)))) // the Media public id the editor puts on an image (older texts carry the number)
                     && (!in_array($name, ['href', 'src', 'poster', 'cite'], true) || WpContent::isSafeUrl($a->value))
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'target' || $a->value === '_blank');
                 if (!$ok) {
-                    $n->removeAttributeNode($a);
+                    $n->removeAttribute($a->name);
                 }
             }
             if (strtolower($n->localName) === 'a' && $n->getAttribute('target') === '_blank') {

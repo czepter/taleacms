@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Firewall;
-use Kaleta\Core\Language;
-use Kaleta\Core\Mail;
-use Kaleta\Core\Response;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Core\Mail;
+use Talea\Core\Response;
 
 /**
  * Reset of a forgotten admin password with a link from an e-mail (admin.php?action=password).
@@ -43,14 +42,14 @@ final class PasswordReset
         $error = null;
         if ($app->request->isPost()) {
             // counted by the visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54)
-            $ip = Antispam::hash(Firewall::visitorKey($app->request, $app->settings()));
-            $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'obnova' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]);
+            $ip = Antispam::hash(Antispam::visitorKey($app->request, $app->settings()));
+            $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'reset' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]);
             if ($attempts >= 5) {
                 $error = t('Too many requests. Try again in 15 minutes.');
             } else {
-                $app->db()->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'obnova', 'cas' => date('Y-m-d H:i:s')]);
-                $who = trim($app->request->post('kdo'));
-                $user = $who === '' ? null : $app->db()->one("SELECT * FROM {uzivatele} WHERE (user = ? OR email = ?) AND blokovat = 0 AND email <> '' LIMIT 1", [$who, $who]);
+                $app->db()->insert('ip_checks', ['ip' => $ip, 'type' => 'reset', 'checked_at' => date('Y-m-d H:i:s')]);
+                $who = trim($app->request->post('user_id'));
+                $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = FALSE AND email <> '' LIMIT 1", [$who, $who]);
                 if ($user !== null) {
                     $this->sendLink($user);
                 }
@@ -58,7 +57,7 @@ final class PasswordReset
             }
         }
 
-        return $this->page(['step' => 'zadost', 'sent' => $sent, 'error' => $error], $error === null ? 200 : 429);
+        return $this->page(['step' => 'request', 'sent' => $sent, 'error' => $error], $error === null ? 200 : 429);
     }
 
     /**
@@ -67,45 +66,45 @@ final class PasswordReset
      *
      * @param array<string, mixed> $user
      */
-    public function sendLink(array $user, string $reason = 'zadost'): void
+    public function sendLink(array $user, string $reason = 'request'): void
     {
         $app = $this->app;
         $token = bin2hex(random_bytes(32));
-        $time = $reason === 'zadost' ? time() : time() + 71 * 3600;
-        $app->db()->update('uzivatele', ['obnova_otisk' => hash('sha256', $token), 'obnova_cas' => date('Y-m-d H:i:s', $time)], ['idu' => $user['idu']]);
+        $time = $reason === 'request' ? time() : time() + 71 * 3600;
+        $app->db()->update('users', ['reset_token_hash' => hash('sha256', $token), 'reset_sent_at' => date('Y-m-d H:i:s', $time)], ['user_id' => $user['user_id']]);
         $link = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?action=password&token=' . $token);
-        $language = (string) ($user['jazyk'] ?? '') !== '' ? (string) $user['jazyk'] : Language::defaults($app->settings());
+        $language = (string) ($user['language'] ?? '') !== '' ? (string) $user['language'] : Language::defaults($app->settings());
         $siteSettings = $app->settings()->get('site_name');
         [$subject, $text] = Language::runWith($language, fn (): array => match ($reason) {
-            'pozvanka' => [t('Invitation to the administration') . ' – ' . $siteSettings,
-                t('Hello,') . "\n\n" . t('you have been given access to the administration of the website %s. Your username is %s.', $siteSettings, (string) $user['user'])
+            'invitation' => [t('Invitation to the administration') . ' – ' . $siteSettings,
+                t('Hello,') . "\n\n" . t('you have been given access to the administration of the website %s. Your username is %s.', $siteSettings, (string) $user['username'])
                     . "\n\n" . t('Set your password at this address (valid for 3 days, single use):') . "\n" . $link],
-            'spravce' => [t('New administration password') . ' – ' . $siteSettings,
-                t('Hello,') . "\n\n" . t('the administrator of %s has sent you a link to set a new password for the account %s.', $siteSettings, (string) $user['user'])
+            'administrator' => [t('New administration password') . ' – ' . $siteSettings,
+                t('Hello,') . "\n\n" . t('the administrator of %s has sent you a link to set a new password for the account %s.', $siteSettings, (string) $user['username'])
                     . "\n\n" . t('Set your password at this address (valid for 3 days, single use):') . "\n" . $link],
             default => [t('New administration password') . ' – ' . $siteSettings,
-                t('Hello,') . "\n\n" . t('someone (most likely you) asked for a new password for the account %s in the administration of %s.', (string) $user['user'], $siteSettings)
+                t('Hello,') . "\n\n" . t('someone (most likely you) asked for a new password for the account %s in the administration of %s.', (string) $user['username'], $siteSettings)
                     . "\n\n" . t('Set a new password at this address (valid for one hour, can be used once):') . "\n" . $link
                     . "\n\n" . t('If you did not ask for a new password, delete this e-mail – your password stays unchanged.')],
         }, 'admin-', Language::normalizeRegister((string) ($user['register'] ?? ''))); // the recipient's form of address, not that of whoever sent the link
-        if ($reason === 'zadost') {
+        if ($reason === 'request') {
             // a request from the sign-in page: the e-mail goes to the queue and out right after the response (admin.php,
             // Mail::afterResponse), so the answer takes as long whether the account exists or not (3.3.3, N59)
             Mail::later($app->settings(), (string) $user['email'], $subject, $text);
         } else {
             Mail::send($app->settings(), (string) $user['email'], $subject, $text);
         }
-        ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t($reason === 'pozvanka' ? 'invitation sent, account: %s' : 'link sent, account: %s', (string) $user['user']));
+        ChangeLog::write($app, 'signed_in', 'password_reset', ($reason === 'invitation' ? 'invitation' : 'link sent') . ', account: ' . $user['username']);
     }
 
     private function setNewPassword(string $token): Response
     {
         $app = $this->app;
-        $user = preg_match('/^[a-f0-9]{64}$/D', $token) === 1
-            ? $app->db()->one('SELECT * FROM {uzivatele} WHERE obnova_otisk = ? AND blokovat = 0 AND obnova_cas > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
+        $user = preg_match('/^[a-f0-9]{64}$/', $token) === 1
+            ? $app->db()->one('SELECT * FROM {users} WHERE reset_token_hash = ? AND blocked = FALSE AND reset_sent_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
             : null;
         if ($user === null) {
-            return $this->page(['step' => 'neplatny', 'sent' => false, 'error' => t('The link has expired or has already been used. Request a new one.')], 400);
+            return $this->page(['step' => 'invalid', 'sent' => false, 'error' => t('The link has expired or has already been used. Request a new one.')], 400);
         }
         $error = null;
         if ($app->request->isPost()) {
@@ -115,17 +114,17 @@ final class PasswordReset
             } elseif ($password !== (string) ($_POST['password2'] ?? '')) {
                 $error = t('The passwords do not match.');
             } else {
-                $app->db()->update('uzivatele', [
-                    'password' => password_hash($password, PASSWORD_DEFAULT), 'obnova_otisk' => '', 'obnova_cas' => null, 'pocet_chyb' => 0, 'zamceno_do' => null,
-                ], ['idu' => $user['idu']]);
+                $app->db()->update('users', [
+                    'password' => password_hash($password, PASSWORD_DEFAULT), 'reset_token_hash' => '', 'reset_sent_at' => null, 'failed_logins' => 0, 'locked_until' => null,
+                ], ['user_id' => $user['user_id']]);
                 // whoever resets the password may have lost the account: connection tokens (MCP) stop being valid
-                $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
-                ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t('password changed, connection tokens revoked, account: %s', (string) $user['user']));
-                return Response::redirect($app->url('admin.php?heslo=zmeneno'));
+                $app->db()->delete('api_tokens', ['user_id' => $user['user_id']]);
+                ChangeLog::write($app, 'signed_in', 'password_reset', 'password changed, connection tokens revoked, account: ' . $user['username']);
+                return Response::redirect($app->url('admin.php?password=changed'));
             }
         }
 
-        return $this->page(['step' => 'heslo', 'sent' => false, 'error' => $error, 'token' => $token, 'account' => (string) $user['user']], $error === null ? 200 : 422);
+        return $this->page(['step' => 'password', 'sent' => false, 'error' => $error, 'token' => $token, 'account' => (string) $user['username']], $error === null ? 200 : 422);
     }
 
     /** @param array<string, mixed> $data */

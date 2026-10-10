@@ -1,228 +1,227 @@
 {
-    "casova_osa": [
-        "udalosti"
+    "back_to_top": [],
+    "before_after": [
+        "after_alt",
+        "after_image",
+        "after_label",
+        "before_alt",
+        "before_image",
+        "before_label",
+        "divider_position"
     ],
-    "cenik": [
-        "plany"
+    "booking": [
+        "button_text",
+        "consent",
+        "service",
+        "staff_member",
+        "thank_you"
     ],
-    "citat": [
-        "autor",
-        "pozice",
+    "breadcrumbs": [],
+    "button": [
+        "icon",
+        "icon_left",
+        "link",
+        "new_window",
+        "text",
+        "variant"
+    ],
+    "carousel": [
+        "description",
+        "per_view"
+    ],
+    "collection_list": [
+        "collection",
+        "count",
+        "empty_text",
+        "exclude_current",
+        "filter_field",
+        "filter_value",
+        "filters",
+        "pagination",
+        "period",
+        "period_end_field",
+        "period_start_field",
+        "sort",
+        "sort_field"
+    ],
+    "company_details": [
+        "detail"
+    ],
+    "component": [
+        "component",
+        "values"
+    ],
+    "container": [
+        "link"
+    ],
+    "countdown": [
+        "end_text",
+        "target"
+    ],
+    "counter": [
+        "caption",
+        "number",
+        "prefix",
+        "suffix"
+    ],
+    "custom_html": [
+        "code"
+    ],
+    "divider": [],
+    "embed": [
+        "address",
+        "height",
+        "title"
+    ],
+    "enquiry_button": [
+        "basket_page",
+        "compare",
+        "quantity",
         "text"
     ],
-    "do_poptavky": [
-        "kosik",
-        "mnozstvi",
-        "porovnani",
-        "text"
-    ],
-    "drobecky": [],
     "faq": [
-        "faq",
-        "jedna",
-        "polozky"
+        "faq_schema",
+        "items",
+        "single_open"
     ],
-    "formular": [
-        "bez_captcha",
-        "dalsi_kroky",
-        "dekovna",
-        "dekujeme",
-        "max_priloha",
-        "nazev",
-        "odpovida",
-        "odpovime_do",
-        "pole",
-        "poslat_soubor",
-        "potvrzeni",
-        "prijemce",
-        "tlacitko"
+    "form": [
+        "button_text",
+        "confirmation",
+        "fields",
+        "name",
+        "next_steps",
+        "no_captcha",
+        "recipient",
+        "reply_within_hours",
+        "send_file",
+        "thank_you",
+        "thank_you_page",
+        "who_replies"
     ],
-    "galerie": [
-        "fotky",
-        "pomer",
-        "popisek"
+    "gallery": [
+        "caption",
+        "folder",
+        "label",
+        "layout",
+        "photos",
+        "ratio"
     ],
-    "hledani": [
-        "napoveda",
-        "tlacitko"
+    "google_reviews": [
+        "count",
+        "link",
+        "min_stars",
+        "summary"
     ],
-    "hodnoceni": [
-        "hodnota",
+    "grid": [],
+    "heading": [
         "text"
     ],
-    "hotspoty": [
+    "hotspots": [
         "alt",
-        "body",
+        "points",
         "src"
     ],
-    "html": [
-        "kod"
+    "icon": [
+        "description",
+        "icon",
+        "shape"
     ],
-    "ikona": [
-        "ikona",
-        "popis",
-        "tvar"
+    "image": [
+        "alt",
+        "caption",
+        "link",
+        "priority",
+        "src"
     ],
-    "jazyky": [
-        "smer",
-        "styl"
+    "language_switcher": [
+        "direction",
+        "style"
     ],
-    "karusel": [
-        "naraz",
-        "popis"
-    ],
-    "kolekce": [
-        "bez_aktualni",
-        "filtr_hodnota",
-        "filtr_pole",
-        "filtry",
-        "kategorie",
-        "kolekce",
-        "obdobi",
-        "obdobi_do",
-        "obdobi_od",
-        "pocet",
-        "prazdne",
-        "razeni",
-        "razeni_pole",
-        "strankovani",
-        "zdroj"
-    ],
-    "komponenta": [
-        "hodnoty",
-        "komponenta"
-    ],
-    "kontejner": [
-        "odkaz"
+    "list": [
+        "items",
+        "style"
     ],
     "logo": [
-        "nazev"
+        "show_name"
     ],
-    "mapa": [
-        "adresa",
-        "priblizeni"
+    "map": [
+        "address",
+        "zoom"
     ],
-    "mrizka": [],
-    "nadpis": [
-        "text"
+    "member_menu": [
+        "sign_in_text",
+        "sign_out_text"
     ],
-    "nahoru": [],
-    "navigace": [
-        "jazyky",
-        "mega",
+    "navigation": [
+        "highlight",
+        "language_switcher",
+        "mega_menu",
         "menu",
-        "mobil",
-        "mobil_tablet",
-        "novinky",
-        "zvyrazneni"
+        "news_link",
+        "phone_menu"
     ],
-    "newsletter": [
-        "souhlas",
-        "tlacitko"
+    "news_list": [
+        "category",
+        "count",
+        "images"
     ],
-    "novinky": [
-        "kategorie",
-        "obrazky",
-        "pocet"
+    "newsletter_signup": [
+        "button_text",
+        "consent"
     ],
-    "obrazek": [
-        "alt",
-        "odkaz",
-        "popisek",
-        "priorita",
-        "src"
+    "page_content": [],
+    "pricing_table": [
+        "plans"
     ],
-    "obsah": [],
-    "oddelovac": [],
-    "odpocet": [
-        "cil",
-        "konec"
+    "progress_bars": [
+        "items"
     ],
-    "pobocky": [
-        "hledani",
-        "kolekce",
-        "mapa",
-        "nejblizsi",
-        "pole_poloha"
+    "rating": [
+        "text",
+        "value"
     ],
-    "pocitadlo": [
-        "cislo",
-        "popisek",
-        "pred",
-        "za"
+    "search": [
+        "button_text",
+        "placeholder"
     ],
-    "pred_po": [
-        "alt_po",
-        "alt_pred",
-        "delic",
-        "obrazek_po",
-        "obrazek_pred",
-        "popisek_po",
-        "popisek_pred"
+    "section": [
+        "background_video",
+        "layout",
+        "on_scroll",
+        "stack_from",
+        "text_at_top",
+        "width"
     ],
-    "predchozi_dalsi": [
-        "nahledy",
-        "nazvy",
-        "podle",
-        "pole_obrazku",
-        "popisek_dalsi",
-        "popisek_predchozi",
-        "stejna_kategorie"
+    "social_links": [
+        "show_names"
     ],
-    "prubeh": [
-        "polozky"
+    "store_locator": [
+        "collection",
+        "location_field",
+        "nearest",
+        "search_box",
+        "show_map"
     ],
-    "recenze_google": [
-        "min_hvezd",
-        "odkaz",
-        "pocet",
-        "souhrn"
+    "structured_data": [
+        "data"
     ],
-    "rezervace": [
-        "dekujeme",
-        "osoba",
-        "sluzba",
-        "souhlas",
-        "tlacitko"
+    "tabs": [
+        "tabs"
     ],
-    "sekce": [
-        "pri_rolovani",
-        "sirka",
-        "text_nahore",
-        "video"
-    ],
-    "seznam": [
-        "polozky",
-        "styl"
-    ],
-    "socialni": [
-        "nazvy"
+    "testimonial": [
+        "author",
+        "position",
+        "text"
     ],
     "text": [
         "html"
     ],
-    "tlacitko": [
-        "ikona",
-        "ikona_vlevo",
-        "nove_okno",
-        "odkaz",
-        "text",
-        "varianta"
-    ],
-    "udaje": [
-        "udaj"
+    "timeline": [
+        "milestones"
     ],
     "video": [
-        "plakat",
-        "titulek",
+        "poster",
+        "title",
         "url"
-    ],
-    "vlozeni": [
-        "adresa",
-        "titulek",
-        "vyska"
-    ],
-    "zalozky": [
-        "karty"
     ]
 }

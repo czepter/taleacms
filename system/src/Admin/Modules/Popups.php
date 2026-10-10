@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Admin\BuilderActions;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Builder\Popups as Okna;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
+use Talea\Admin\Module;
+use Talea\Admin\BuilderActions;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Builder\Popups as Okna;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
 
 /**
  * Popups: the content is built in the builder as a site part, the settings define the type, trigger, rules and frequency.
@@ -23,8 +23,9 @@ final class Popups extends Module
     public const string IDENT = 'popups';
     public const string NAME = 'Pop-ups';
     public const string GROUP = 'Appearance';
-    public const string ICON = 'popupy';
+    public const string ICON = 'popups';
     public const bool ADMIN_ONLY = true;
+    public const string TABLE = 'popups';
 
     protected function actionList(): Response
     {
@@ -40,64 +41,65 @@ final class Popups extends Module
     protected function actionCreate(): Response
     {
         $r = $this->request;
-        $pattern = Okna::LIBRARY[$r->post('vzor')] ?? null;
+        $pattern = Okna::LIBRARY[$r->post('template')] ?? null;
         if (!$r->isPost() || $pattern === null) {
             return $this->back('', 'new');
         }
-        $name = mb_substr(trim($r->post('nazev')), 0, 100) ?: t($pattern[0]);
-        $id = $this->db->insert('popupy', [
-            'nazev' => $name, 'adresa' => Okna::address($this->db, $name), 'typ' => $pattern[2], 'spoustec' => $pattern[3], 'hodnota' => $pattern[4],
-            'pravidla' => (string) json_encode(Okna::defaultRules()), 'cetnost' => 'relace', 'dni' => 7, 'aktivni' => 0,
-            'stavba_koncept' => Build::toJson(Okna::libraryBuild((string) $r->post('vzor'), Language::defaults($this->app->settings()))), 'zmeneno' => date('Y-m-d H:i:s'),
+        $name = mb_substr(trim($r->post('name')), 0, 100) ?: t($pattern[0]);
+        $id = $this->db->insert('popups', [
+            'name' => $name, 'slug' => Okna::address($this->db, $name), 'type' => $pattern[2], 'trigger_type' => $pattern[3], 'value' => $pattern[4],
+            'rules' => (string) json_encode(Okna::defaultRules()), 'frequency' => 'session', 'days' => 7, 'active' => 0,
+            'build_draft' => Build::toJson(Okna::libraryBuild((string) $r->post('template'), Language::defaults($this->app->settings()))), 'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        return Response::redirect($this->url('builder', ['id' => $id]));
+        return Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
     }
 
     protected function actionEdit(): Response
     {
-        $p = Okna::byId($this->db, $this->request->getInt('id'));
+        $p = Okna::byId($this->db, $this->idParam());
 
-        return $p === null ? $this->error('The pop-up does not exist.', 404) : $this->view('form', $p['nazev'], ['p' => $p] + $this->options());
+        return $p === null ? $this->error('The pop-up does not exist.', 404) : $this->view('form', $p['name'], ['p' => $p] + $this->options());
     }
 
     protected function actionSave(): Response
     {
         $r = $this->request;
-        $p = $r->isPost() ? Okna::byId($this->db, $r->postInt('idpp')) : null;
+        $p = $r->isPost() ? Okna::byId($this->db, $this->idParam('popup_id')) : null;
         if ($p === null) {
             return $this->back();
         }
-        $name = mb_substr(trim($r->post('nazev')), 0, 100);
+        $name = mb_substr(trim($r->post('name')), 0, 100);
         if ($name === '') {
-            return $this->back('The pop-up needs a name.', 'edit', ['id' => $p['idpp']], 'chyba');
+            return $this->back('The pop-up needs a name.', 'edit', ['id' => $p['public_id']], 'error');
         }
-        $url = $r->post('adresa') !== '' ? slugify($r->post('adresa'), 60) : $p['adresa'];
-        if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$url, $p['idpp']]) !== null) {
-            return $this->back(t('Another window already uses the address “%s”.', $url), 'edit', ['id' => $p['idpp']], 'chyba');
+        $url = $r->post('slug') !== '' ? slugify($r->post('slug'), 60) : $p['slug'];
+        if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$url, $p['popup_id']]) !== null) {
+            return $this->back(t('Another window already uses the address “%s”.', $url), 'edit', ['id' => $p['public_id']], 'error');
         }
-        // "na celém webu" (on the whole site): the choice of places is inactive in the form and is not sent – it stays saved in case you return to it
-        $selected = $r->post('kde') === 'vybrane';
+        // "on the whole site": the choice of places is inactive in the form and is not sent – it stays saved in case you return to it
+        $selected = $r->post('where') === 'selected';
         $rules = Okna::sanitizeRules([
-            'kde' => $r->post('kde'),
-            'stranky' => $selected ? (is_array($_POST['stranky'] ?? null) ? $_POST['stranky'] : []) : $p['pravidla']['stranky'],
-            'kolekce' => $selected ? (is_array($_POST['kolekce'] ?? null) ? $_POST['kolekce'] : []) : $p['pravidla']['kolekce'],
-            'novinky' => $selected ? $r->postBool('novinky') : $p['pravidla']['novinky'], 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
-            'zarizeni' => $r->post('zarizeni'), 'utm' => $r->post('utm'), 'odkud' => $r->post('odkud'),
+            'where' => $r->post('where'),
+            // the form carries public ids of the pages; the rules keep the numbers the site matches against
+            'pages' => $selected ? array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('pages', $uuid), $r->postList('pages')))) : $p['rules']['pages'],
+            'collections' => $selected ? (is_array($_POST['collections'] ?? null) ? $_POST['collections'] : []) : $p['rules']['collections'],
+            'news' => $selected ? $r->postBool('news') : $p['rules']['news'], 'language' => $r->post('language'), 'from' => $r->post('from'), 'to' => $r->post('to'),
+            'device' => $r->post('device'), 'campaign' => $r->post('campaign'), 'referrer' => $r->post('referrer'),
         ]);
-        $this->db->update('popupy', [
-            'nazev' => $name, 'adresa' => $url,
-            'typ' => isset(Okna::TYPES[$r->post('typ')]) ? $r->post('typ') : $p['typ'],
-            'spoustec' => isset(Okna::TRIGGERS[$r->post('spoustec')]) ? $r->post('spoustec') : $p['spoustec'],
-            'hodnota' => max(0, min(3600, $r->postInt('hodnota'))),
-            'cetnost' => isset(Okna::FREQUENCIES[$r->post('cetnost')]) ? $r->post('cetnost') : $p['cetnost'],
-            'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // the field is active only for the frequency "dni"
-            'poradi' => max(-9999, min(9999, $r->postInt('poradi', 100))),
-            'pravidla' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
+        $this->db->update('popups', [
+            'name' => $name, 'slug' => $url,
+            'type' => isset(Okna::TYPES[$r->post('type')]) ? $r->post('type') : $p['type'],
+            'trigger_type' => isset(Okna::TRIGGERS[$r->post('trigger_type')]) ? $r->post('trigger_type') : $p['trigger_type'],
+            'value' => max(0, min(3600, $r->postInt('value'))),
+            'frequency' => isset(Okna::FREQUENCIES[$r->post('frequency')]) ? $r->post('frequency') : $p['frequency'],
+            'days' => $r->post('days') !== '' ? max(1, min(365, $r->postInt('days', 7))) : (int) $p['days'], // the field is active only for the frequency "days"
+            'sort_order' => max(-9999, min(9999, $r->postInt('sort_order', 100))),
+            'rules' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s'),
             // true until and review by (2.10, Core\Validity): empty or not a date = none
-            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
-        ], ['idpp' => $p['idpp']]);
-        \Kaleta\Front\Cache::clear();
+            'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')), 'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
+        ], ['popup_id' => $p['popup_id']]);
+        \Talea\Front\Cache::clear();
 
         return $this->back('The pop-up settings were saved.');
     }
@@ -105,25 +107,25 @@ final class Popups extends Module
     /** Enable or disable the popup on the site; only a published one can be enabled. */
     protected function actionToggle(): Response
     {
-        $p = $this->request->isPost() ? Okna::byId($this->db, $this->request->postInt('idpp')) : null;
+        $p = $this->request->isPost() ? Okna::byId($this->db, $this->idParam('popup_id')) : null;
         if ($p === null) {
             return $this->back();
         }
         // from the popup settings you stay in the settings, from the list in the list
-        [$action, $args] = $this->request->post('z') === 'edit' ? ['edit', ['id' => $p['idpp']]] : ['', []];
-        if (!$p['aktivni'] && $p['stavba'] === null) {
-            return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'chyba');
+        [$action, $args] = $this->request->post('back_to') === 'edit' ? ['edit', ['id' => $p['public_id']]] : ['', []];
+        if (!$p['active'] && $p['build'] === null) {
+            return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'error');
         }
-        $this->db->update('popupy', ['aktivni' => $p['aktivni'] ? 0 : 1], ['idpp' => $p['idpp']]);
-        \Kaleta\Front\Cache::clear();
+        $this->db->update('popups', ['active' => $p['active'] ? 0 : 1], ['popup_id' => $p['popup_id']]);
+        \Talea\Front\Cache::clear();
 
-        return $this->back($p['aktivni'] ? 'The pop-up is off – it no longer shows on the site.' : 'The pop-up is on and shows on the site according to its rules.', $action, $args);
+        return $this->back($p['active'] ? 'The pop-up is off – it no longer shows on the site.' : 'The pop-up is on and shows on the site according to its rules.', $action, $args);
     }
 
     protected function actionReset(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->update('popupy', ['zobrazeni' => 0, 'zavreni' => 0, 'konverze' => 0], ['idpp' => $this->request->postInt('idpp')]);
+            $this->db->update('popups', ['impressions' => 0, 'closes' => 0, 'conversions' => 0], ['popup_id' => $this->idParam('popup_id')]);
         }
 
         return $this->back('The pop-up counters were reset.');
@@ -132,8 +134,8 @@ final class Popups extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('popupy', ['idpp' => $this->request->postInt('idpp')]);
-            \Kaleta\Front\Cache::clear();
+            $this->db->delete('popups', ['popup_id' => $this->idParam('popup_id')]);
+            \Talea\Front\Cache::clear();
         }
 
         return $this->back('The pop-up was deleted.');
@@ -146,8 +148,8 @@ final class Popups extends Module
         $languages = array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings));
 
         return [
-            'pages' => $this->db->all('SELECT ids, titulek, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500'),
-            'collection' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
+            'pages' => $this->db->all('SELECT page_id, public_id, title, language FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 500'),
+            'collection' => $this->db->all('SELECT slug, name FROM {collections} WHERE detail = TRUE ORDER BY name'),
             'languages' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
         ];
     }
@@ -156,33 +158,33 @@ final class Popups extends Module
 
     protected function loadBuildTarget(): ?array
     {
-        $p = Okna::byId($this->db, $this->request->getInt('id'));
+        $p = Okna::byId($this->db, $this->idParam('id', null, true));
 
         return $p === null ? null : [
-            'radek' => $p, 'stavba' => $p['stavba'], 'koncept' => $p['stavba_koncept'], 'jazyk' => Language::defaults($this->app->settings()),
-            'titulek' => t('Pop-up: %s', $p['nazev']), 'revize' => ['cast' => 'popup:' . $p['idpp']], 'parametry' => ['id' => $p['idpp']],
+            'row' => $p, 'build' => $p['build'], 'draft' => $p['build_draft'], 'language' => Language::defaults($this->app->settings()),
+            'title' => t('Pop-up: %s', $p['name']), 'revisions' => ['part' => 'popup:' . $p['popup_id']], 'params' => ['id' => $p['public_id']],
         ];
     }
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('popupy', ['stavba_koncept' => $draft], ['idpp' => $target['radek']['idpp']]);
+        $this->db->update('popups', ['build_draft' => $draft], ['popup_id' => $target['row']['popup_id']]);
     }
 
     protected function publishTarget(array $target): void
     {
-        Publisher::popup($this->app, $target['radek']);
+        Publisher::popup($this->app, $target['row']);
     }
 
     protected function describeTarget(array $target): array
     {
-        $p = $target['radek'];
-        $url = $this->app->url('_popup/' . $p['idpp']);
+        $p = $target['row'];
+        $url = $this->app->url('_popup/' . $p['public_id']);
 
         return [
-            'adresa' => $url . '?stavba=koncept', 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $p['aktivni'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-ups')], 'nastaveni' => $this->url('edit', ['id' => $p['idpp']]),
-            'textNastaveni' => t('Pop-up settings (when and where it shows)'), 'podpis' => 'popup:' . $p['idpp'],
+            'url' => $url . '?build=draft', 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $p['active'], 'parts' => false,
+            'back' => ['url' => $this->url(), 'text' => t('Pop-ups')], 'settings' => $this->url('edit', ['id' => $p['public_id']]),
+            'settings_text' => t('Pop-up settings (when and where it shows)'), 'signature' => 'popup:' . $p['popup_id'],
         ];
     }
 }

@@ -1,18 +1,18 @@
 <?php
 /**
- * Kaleta - konfigurace. Soubor config.php vytvoří instalátor (install.php);
- * ručně stačí zkopírovat tento vzor a doplnit údaje k databázi.
+ * Talea - configuration. The installer (install.php) creates config.php;
+ * by hand, just copy this sample and fill in the database details.
  */
 
 return [
     'db' => [
         'host' => 'localhost',
         'port' => 3306,
-        'name' => 'kaleta',
-        'user' => 'kaleta',
+        'name' => 'talea',
+        'username' => 'talea',
         'password' => '',
-        'prefix' => 'ka_',
+        'prefix' => 'tl_',
     ],
-    // true = chyby se vypisují do stránky; na ostrém webu vždy false
+    // true = errors are printed into the page; always false on a live site
     'debug' => false,
 ];

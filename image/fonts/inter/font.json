@@ -1,0 +1,35 @@
+{
+    "name": "Inter",
+    "category": "sans",
+    "weights": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900
+    ],
+    "italic": true,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "inter.woff2",
+            "weight": "100 900",
+            "style": "normal"
+        },
+        {
+            "file": "inter-italic.woff2",
+            "weight": "100 900",
+            "style": "italic"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/inter",
+    "licence": "OFL-1.1"
+}

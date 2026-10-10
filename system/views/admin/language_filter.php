@@ -12,10 +12,10 @@ if ($siteLanguages === []) {
 }
 ?>
 	<label><?= e(t('Language:')) ?>
-		<select name="jazyk"<?= !empty($submitOnChange) ? ' data-odeslat-pri-zmene' : '' ?>>
-			<option value=""><?= e(t('všechny')) ?></option>
+		<select name="language"<?= !empty($submitOnChange) ? ' data-submit-on-change' : '' ?>>
+			<option value=""><?= e(t('all')) ?></option>
 <?php foreach ($siteLanguages as $code): ?>
-			<option value="<?= e($code) ?>"<?= $language === $code ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0]) ?></option>
+			<option value="<?= e($code) ?>"<?= $language === $code ? ' selected' : '' ?>><?= e(Talea\Core\Language::AVAILABLE[$code][0]) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>

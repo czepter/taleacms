@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Components;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Components;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Use of a component: inserts its published build and fills in its own values of its {{properties}}.
@@ -15,30 +15,30 @@ use Kaleta\Builder\Element;
  */
 final class Component extends Element
 {
-    public const string TYPE = 'komponenta';
+    public const string TYPE = 'component';
     public const string NAME = 'Component';
     public const string DESCRIPTION = 'A reusable block – editing the component updates it everywhere it is used.';
-    public const string ICON = 'komponenta';
-    public const string GROUP = 'Pokročilé';
+    public const string ICON = 'component';
+    public const string GROUP = 'Advanced';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'komponenta' => ['typ' => 'text', 'popisek' => 'Component', 'vychozi' => '', 'max' => 12],
-            'hodnoty' => ['typ' => 'hodnoty', 'popisek' => 'Properties', 'vychozi' => []],
+            'component' => ['type' => 'text', 'label' => 'Component', 'default' => '', 'max' => 90],
+            'values' => ['type' => 'values', 'label' => 'Properties', 'default' => []],
         ];
     }
 
     /** Content of the component with the values of this use (called by Build when rendering). */
     public static function inner(array $p, Context $k, callable $render): string
     {
-        $id = (int) $p['obsah']['komponenta'];
+        $id = (int) $p['content']['component'];
         if (!array_key_exists($id, $k->components)) {
             $k->components[$id] = $id > 0 ? Components::byId($k->app->db(), $id) : null;
         }
         $component = $k->components[$id];
-        $build = $component === null ? null : \Kaleta\Builder\Build::fromJson($component['stavba'] ?? $component['stavba_koncept']);
+        $build = $component === null ? null : \Talea\Builder\Build::fromJson($component['build'] ?? $component['build_draft']);
         if ($build === null) {
             return $k->editor ? '<p>' . e(t('Choose a component in the Content panel.')) . '</p>' : '';
         }
@@ -49,7 +49,7 @@ final class Component extends Element
         // a component can be on a page several times, hence the style through a class as in a collection list
         [$item, $editor, $loop] = [$k->item, $k->editor, $k->inLoop];
         $k->nesting[] = $id;
-        $k->item = Components::values($component, is_array($p['obsah']['hodnoty'] ?? null) ? $p['obsah']['hodnoty'] : []);
+        $k->item = Components::values($component, is_array($p['content']['values'] ?? null) ? $p['content']['values'] : []);
         $k->editor = false;
         $k->inLoop++;
         try {

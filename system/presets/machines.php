@@ -10,14 +10,14 @@ return [
     'detail' => true,
     'redirect_hidden' => true,
     'fields' => [
-        ['photo', 'Photo', 'obrazek'],
+        ['photo', 'Photo', 'image'],
         ['model', 'Model', 'text'],
         ['parameters', 'Parameters', 'html'],
-        ['year', 'Year', 'cislo'],
-        ['datasheet', 'Datasheet', 'soubor'],
+        ['year', 'Year', 'number'],
+        ['datasheet', 'Datasheet', 'file'],
         ['availability', 'Availability', 'text'],
     ],
-    'schema' => ['typ' => 'Product', 'pole' => ['sku' => 'model']],
+    'schema' => ['type' => 'Product', 'fields' => ['sku' => 'model']],
     'claude' => 'One item per machine – the name is what people call it, the model its type designation, the parameters a table (rows of parameter and value), '
         . 'the datasheet a PDF from Media (upload_file), the availability a short text ("in stock", "rented until 12 May", "sold"). '
         . 'A Collection list of it on the machines page (sorted by order; filter buttons by the availability field when the site rents); the card shows the model and the availability. '
@@ -26,16 +26,16 @@ return [
     'list' => [],
     'card' => ['model', 'availability'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $n = \Talea\Builder\Build::fresh(...);
+        $label = array_column($fields, 'label', 'key');
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['model']) . ':</strong> {{model}} · <strong>' . e($label['availability']) . ':</strong> {{availability}}</p>']),
-            $n('obrazek', ['src' => '{{photo}}', 'alt' => '{{nazev}}']),
+            $n('image', ['src' => '{{photo}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '{{parameters}}']),
             $n('text', ['html' => '<p><strong>' . e($label['year']) . ':</strong> {{year}}</p>']),
-            $n('tlacitko', ['text' => $label['datasheet'] . ' ({{datasheet_name}})', 'odkaz' => '{{datasheet}}', 'varianta' => 'obrys']),
+            $n('button', ['text' => $label['datasheet'] . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
         ];
     },
 ];

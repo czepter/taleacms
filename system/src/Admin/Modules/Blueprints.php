@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Blueprint;
-use Kaleta\Core\Facts;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Blueprint;
+use Talea\Core\Facts;
+use Talea\Core\Response;
 
 /**
- * Industry blueprints (2.11, Core\Blueprint): apply one shipped with Kaleta or a manifest from another site, answer its
+ * Industry blueprints (2.11, Core\Blueprint): apply one shipped with Talea or a manifest from another site, answer its
  * questions (each answer is a fact), see its failing checks, take it off, and download the current site as a manifest.
  */
 final class Blueprints extends Module
@@ -20,7 +20,7 @@ final class Blueprints extends Module
     public const string PARENT = 'business';
     public const string NAME = 'Blueprints';
     public const string GROUP = 'Company';
-    public const string ICON = 'sablony';
+    public const string ICON = 'templates';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
@@ -41,12 +41,12 @@ final class Blueprints extends Module
         if (is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']) && (int) $file['size'] <= 512 * 1024) {
             [$manifest, $errors] = Blueprint::sanitize(json_decode((string) file_get_contents((string) $file['tmp_name']), true));
             if ($manifest === null) {
-                return $this->back(t('The file is not a valid blueprint: %s', implode(' ', $errors)), '', [], 'chyba');
+                return $this->back(t('The file is not a valid blueprint: %s', implode(' ', $errors)), '', [], 'error');
             }
         } else {
             $manifest = Blueprint::available()[$this->request->post('key')] ?? null;
             if ($manifest === null) {
-                return $this->back('Choose a blueprint or a file.', '', [], 'chyba');
+                return $this->back('Choose a blueprint or a file.', '', [], 'error');
             }
         }
         $created = Blueprint::apply($this->app, $manifest);
@@ -77,7 +77,7 @@ final class Blueprints extends Module
             }
             $error = Facts::save($this->app, $fact, ['value' => trim($value)]);
             if ($error !== null) {
-                return $this->back(t($error) . ' (' . $fact . ')', '', [], 'chyba');
+                return $this->back(t($error) . ' (' . $fact . ')', '', [], 'error');
             }
         }
 
@@ -89,7 +89,7 @@ final class Blueprints extends Module
     {
         $key = $this->request->get('key');
         if (preg_match(Blueprint::KEY_PATTERN, $key) !== 1) {
-            return $this->back('The key may contain lowercase letters, digits and _ (2–40 characters).', '', [], 'chyba');
+            return $this->back('The key may contain lowercase letters, digits and _ (2–40 characters).', '', [], 'error');
         }
         $manifest = Blueprint::export($this->app, $key, mb_substr(trim($this->request->get('name')) ?: $key, 0, 100));
 

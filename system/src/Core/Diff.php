@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Comparison of two versions of a text: by paragraphs, in changed paragraphs by words.
@@ -10,7 +10,7 @@ namespace Kaleta\Core;
  */
 final class Diff
 {
-    /** @return array{html:string, pridano:int, smazano:int} */
+    /** @return array{html:string, added:int, deleted:int} */
     public static function html(string $oldVersion, string $newItems): array
     {
         $a = self::paragraphs($oldVersion);
@@ -40,7 +40,7 @@ final class Diff
             }
         }
 
-        return ['html' => $html, 'pridano' => $added, 'smazano' => $deleted];
+        return ['html' => $html, 'added' => $added, 'deleted_at' => $deleted];
     }
 
     /** @return list<string> */

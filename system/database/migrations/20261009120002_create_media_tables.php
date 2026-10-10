@@ -1,0 +1,58 @@
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Db\Adapter\MysqlAdapter;
+use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
+
+/** Baseline of the database schema. */
+final class CreateMediaTables extends AbstractMigration
+{
+    public function change(): void
+    {
+        $prefix = (string) $this->getAdapter()->getOption('table_prefix'); // foreign key names are unique per database
+
+        $this->table('media_folders', ['id' => false, 'primary_key' => ['folder_id']])
+            ->addColumn('folder_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addIndex(['public_id'], ['name' => 'uq_media_folders_public_id', 'unique' => true])
+            ->create();
+
+        $this->table('media', ['id' => false, 'primary_key' => ['media_id']])
+            ->addColumn('media_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('owner_id', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('folder_id', 'integer', ['signed' => false, 'null' => true, 'comment' => 'folder'])
+            ->addColumn('name', 'string', ['limit' => 150, 'null' => false, 'default' => '', 'comment' => 'also serves as the alternative text (alt)'])
+            ->addColumn('description', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'caption below the image'])
+            ->addColumn('author', 'string', ['limit' => 120, 'null' => false, 'default' => '', 'comment' => 'photo author (shown with the article\'s featured photo)'])
+            ->addColumn('image_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path from the web root: media/2026/09/foto.jpg'])
+            ->addColumn('image_width', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('image_height', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('image_size', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'file size in bytes'])
+            ->addColumn('thumb_path', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('thumb_width', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('thumb_height', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('color', 'string', ['limit' => 7, 'null' => false, 'default' => '', 'comment' => 'dominant color (#rrggbb) as a placeholder before loading; \'\' = not computed, \'-\' = cannot be determined'])
+            ->addColumn('focal_point', 'string', ['limit' => 12, 'null' => false, 'default' => '', 'comment' => 'crop center (object-position), e.g. „50% 30%“; \'\' = center'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['public_id'], ['name' => 'uq_media_public_id', 'unique' => true])
+            ->addIndex(['created_at'], ['name' => 'ix_media_created_at'])
+            ->addIndex(['image_path'], ['name' => 'ix_media_image_path'])
+            ->addIndex(['folder_id'], ['name' => 'ix_media_folder_id'])
+            ->addForeignKey('folder_id', 'media_folders', 'folder_id', ['constraint' => $prefix . 'fk_media_folder_id', 'delete' => 'SET_NULL'])
+            ->addForeignKey('owner_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_media_owner_id', 'delete' => 'SET_NULL'])
+            ->create();
+
+        $this->table('media_usage', ['id' => false, 'primary_key' => ['media_id', 'news_id']])
+            ->addColumn('media_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('news_id', 'integer', ['signed' => false, 'null' => false])
+            ->addIndex(['news_id'], ['name' => 'ix_media_usage_news_id'])
+            ->addForeignKey('media_id', 'media', 'media_id', ['constraint' => $prefix . 'fk_media_usage_media_id', 'delete' => 'CASCADE'])
+            ->addForeignKey('news_id', 'news', 'news_id', ['constraint' => $prefix . 'fk_media_usage_news_id', 'delete' => 'CASCADE'])
+            ->create();
+
+    }
+}

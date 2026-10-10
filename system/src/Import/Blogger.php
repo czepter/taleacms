@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Blogger: the Atom XML export from Blogger → Settings → Manage blog → Back up content.
@@ -58,7 +58,7 @@ final class Blogger implements Source
 
     public function site(): array
     {
-        $site = ['nazev' => '', 'adresa' => $this->siteUrl];
+        $site = ['name' => '', 'url' => $this->siteUrl];
         $reader = $this->open();
         try {
             $this->findFeed($reader);
@@ -72,9 +72,9 @@ final class Blogger implements Source
                     break;
                 }
                 if ($reader->localName === 'title') {
-                    $site['nazev'] = mb_substr(self::plainText($this->node($reader)->textContent), 0, 150);
+                    $site['name'] = mb_substr(self::plainText($this->node($reader)->textContent), 0, 150);
                 } elseif ($reader->localName === 'link' && $reader->getAttribute('rel') === 'alternate' && $this->siteUrl === '') {
-                    $site['adresa'] = rtrim(trim((string) $reader->getAttribute('href')), '/');
+                    $site['url'] = rtrim(trim((string) $reader->getAttribute('href')), '/');
                 }
                 $hasMore = $this->skipElement($reader);
             }
@@ -103,7 +103,7 @@ final class Blogger implements Source
     {
         $reader = $this->open();
         $order = 0;
-        $seen = ['autori' => [], 'stitky' => []];
+        $seen = ['authors' => [], 'tags' => []];
         try {
             $this->findFeed($reader);
             $hasMore = $this->step($reader);
@@ -121,16 +121,16 @@ final class Blogger implements Source
                 if ($kind === 'post' || $kind === 'page') {
                     // the author and the labels go first, on first sight – a post may refer to them in a later batch
                     $author = self::author($entry);
-                    if ($author !== null && !isset($seen['autori'][$author->key])) {
-                        $seen['autori'][$author->key] = true;
+                    if ($author !== null && !isset($seen['authors'][$author->key])) {
+                        $seen['authors'][$author->key] = true;
                         if ($order++ >= $skip) {
                             yield $order - 1 => $author;
                         }
                     }
                     $labels = self::labels($entry);
                     foreach ($labels as $slug => $label) {
-                        if (!isset($seen['stitky'][$slug])) {
-                            $seen['stitky'][$slug] = true;
+                        if (!isset($seen['tags'][$slug])) {
+                            $seen['tags'][$slug] = true;
                             if ($order++ >= $skip) {
                                 yield $order - 1 => new Tag($slug, $label, $slug);
                             }

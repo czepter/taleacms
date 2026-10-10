@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Bing;
-use Kaleta\Connectors\Google;
+use Talea\Connectors\Bing;
+use Talea\Connectors\Google;
 
 /**
  * Search data (2.13): what Google Search Console and Bing Webmaster Tools know about the site – the queries people
@@ -14,7 +14,7 @@ use Kaleta\Connectors\Google;
  *
  * The daily job search_data (Core\Scheduler) asks every connected engine for the last 28 days (Search Console's own
  * "last 28 days" ends three days back, where the data is final) and stores the answer as one snapshot per day in
- * ka_search_stats; snapshots are kept 16 months, so a later version can draw trends. The Statistics screen, get_stats and
+ * tl_search_stats; snapshots are kept 16 months, so a later version can draw trends. The Statistics screen, get_stats and
  * the monthly report show the latest snapshot of the period. Nothing here is personal: queries and page addresses only.
  *
  * The response → rows mapping is pure (googleRows, bingRows) and tested without a network; the fake services in
@@ -282,7 +282,7 @@ final class SearchData
             foreach ($chunk as $r) {
                 array_push($params, $day, $engine, $r['kind'], $r['key'], $r['clicks'], $r['impressions'], $r['ctr'], $r['position']);
             }
-            $db->run('INSERT INTO {search_stats} (day, engine, kind, `key`, clicks, impressions, ctr, position) VALUES ' . implode(', ', array_fill(0, count($chunk), '(?, ?, ?, ?, ?, ?, ?, ?)')), $params);
+            $db->run('INSERT INTO {search_stats} (day, engine, kind, ' . $db->dialect()->quote('key') . ', clicks, impressions, ctr, position) VALUES ' . implode(', ', array_fill(0, count($chunk), '(?, ?, ?, ?, ?, ?, ?, ?)')), $params);
         }
     }
 
@@ -305,11 +305,11 @@ final class SearchData
                 continue;
             }
             $top = fn (string $kind, string $name): array => array_map(fn (array $r): array => [$name => (string) $r['key'], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions'], 'ctr' => (float) $r['ctr'], 'position' => (float) $r['position']],
-                $db->all('SELECT `key`, clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, `key` LIMIT ' . self::TOP, [$engine, $kind, $day]));
+                $db->all('SELECT ' . $db->dialect()->quote('key') . ', clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, ' . $db->dialect()->quote('key') . ' LIMIT ' . self::TOP, [$engine, $kind, $day]));
             $out[$engine] = ['day' => (string) $day, 'covers_days' => self::DAYS, 'queries' => $top('query', 'query'), 'pages' => $top('page', 'page')];
             if ($engine === Google::KEY) {
                 $out[$engine]['sitemaps'] = array_map(fn (array $r): array => ['path' => (string) $r['key'], 'submitted' => (int) $r['impressions'], 'indexed' => (int) $r['clicks']],
-                    $db->all('SELECT `key`, impressions, clicks FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY `key` LIMIT 50', [$engine, 'sitemap', $day]));
+                    $db->all('SELECT ' . $db->dialect()->quote('key') . ', impressions, clicks FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY ' . $db->dialect()->quote('key') . ' LIMIT 50', [$engine, 'sitemap', $day]));
             }
         }
 
@@ -333,7 +333,7 @@ final class SearchData
             if ($day === null) {
                 continue;
             }
-            foreach ($db->all('SELECT `key`, clicks FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? AND clicks > 0 ORDER BY clicks DESC, impressions DESC, `key` LIMIT ' . max(1, $limit), [$engine, 'query', $day]) as $r) {
+            foreach ($db->all('SELECT ' . $db->dialect()->quote('key') . ', clicks FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? AND clicks > 0 ORDER BY clicks DESC, impressions DESC, ' . $db->dialect()->quote('key') . ' LIMIT ' . max(1, $limit), [$engine, 'query', $day]) as $r) {
                 $out[] = ['engine' => $engine, 'query' => (string) $r['key'], 'clicks' => (int) $r['clicks']];
             }
         }

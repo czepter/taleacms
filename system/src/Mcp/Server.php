@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp;
+namespace Talea\Mcp;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Core\App;
-use Kaleta\Core\Response;
-use Kaleta\Core\Extensions;
+use Talea\Admin\ChangeLog;
+use Talea\Core\App;
+use Talea\Core\Response;
+use Talea\Core\Extensions;
 
 /**
  * MCP server (Model Context Protocol, "Streamable HTTP" transport) at /mcp.
  * Through it Claude can work with the site: read and write pages and news, manage categories, collections, site parts
  * and appearance.
  *
- * Sign-in: the header "Authorization: Bearer <token>" – a personal token from the "Můj účet" (My account) menu, or the
+ * Sign-in: the header "Authorization: Bearer <token>" – a personal token from the "My account" menu, or the
  * token of an application connected via OAuth (connector in Claude, Front\OAuth).
  * Claude then acts with this user's permissions (author / editor / administrator), limited by the access of the connection
  * (full, drafts or read, 2.2). New installations have the extension switched on.
@@ -31,7 +31,7 @@ final class Server
     public function handle(): Response
     {
         $r = $this->app->request;
-        \Kaleta\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
+        \Talea\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
         if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
             return Response::json(['error' => 'The Claude connection is switched off (Extensions menu).'], 404);
         }
@@ -46,7 +46,7 @@ final class Server
         if ($user === null) {
             // link to the OAuth metadata: using them the Claude connector registers itself and asks the user for consent
             return new Response(json_encode(['error' => 'The token is invalid or missing.']), 401, ['Content-Type' => 'application/json',
-                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
+                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Talea\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
@@ -86,7 +86,7 @@ final class Server
             'initialize' => $ok([
                 'protocolVersion' => self::protocol($z['params']['protocolVersion'] ?? null),
                 'capabilities' => ['tools' => new \stdClass(), 'resources' => new \stdClass(), 'prompts' => new \stdClass()],
-                'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('site_name'), 'version' => KALETA_VERSION],
+                'serverInfo' => ['name' => 'Talea – ' . $this->app->settings()->get('site_name'), 'version' => TALEA_VERSION],
                 'instructions' => Prompts::serverInstructions($this->app),
             ]),
             // the site owner's instructions and an overview; ready-made tasks (2.2)
@@ -95,10 +95,9 @@ final class Server
             'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
             'prompts/get' => $this->guarded($id, fn (): array => Prompts::get((string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
-            // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
-            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
-                [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
+            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations($t['name'])],
+                $tools->listAll()), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -123,80 +122,65 @@ final class Server
     }
 
     /**
-     * Tool call. The English name (tools/list) is translated to the Czech tool and back (Translator); the Czech name is a
-     * hidden alias for connections from before 1.1 and behaves as before.
+     * Tool call.
      *
      * @param array<string, mixed> $arguments
      * @return array<string, mixed>
      */
     private function call(Tools $tools, string $name, array $arguments): array
     {
-        $czech = Translator::czech($name);
-        $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
-        if (Catalog::english($name) !== null && !Catalog::allows($this->access(), $name)) {
+        if (Catalog::exists($name) && !Catalog::allows($this->access(), $name)) {
             return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
                 : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
         }
         try {
-            $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();
+            $items = $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
             // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
-            $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
+            $reason = \Talea\Core\Guardrails::reason($arguments['reason'] ?? null);
             unset($arguments['reason']);
             $unknownParams = self::unknownParams($items, $name, $arguments);
-            // a huge number would be cast to a wrong one by the tool (or stop it with an error page): a clear error instead (3.7, N37-27)
-            $badNumber = self::badNumber($items, $name, $arguments);
-            if ($badNumber !== null) {
-                return ['content' => [['type' => 'text', 'text' => $badNumber]], 'isError' => true];
+            // rows are named by their public id (HF-16): the tools below work with the numbers, so the guardrails and the journal see them
+            $given = $arguments;
+            $ownTool = \Talea\Extension\Registry::get()->tool($name) === null;
+            if ($ownTool) {
+                $arguments = \Talea\Mcp\PublicIds::in($this->app->db(), $name, $arguments, false);
             }
-            if ($czech !== null) {
-                $arguments = Translator::arguments($name, $arguments);
+            // the site owner's guardrails (2.15) hold for every connection, on top of its access
+            $refusal = \Talea\Core\Guardrails::refusal($this->app, $name, Catalog::access($name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
+            if ($refusal !== null) {
+                return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
             }
-            $tool = $czech ?? $name;
-            // the site owner's guardrails (2.15) hold for every connection, on top of its access; a write call gets its
-            // change-log row before the tool runs, so parallel calls count each other against the hourly limit (3.7, N37-20)
-            // – a batch records how many rows it sent, an import 1 until its step has run (Guardrails::COUNTED_AFTER)
-            $what = isset(\Kaleta\Core\Guardrails::BATCH_ROWS[$tool]) || in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true) ? \Kaleta\Core\Guardrails::weight($tool, $arguments) . ' rows'
-                : mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200);
-            $logged = \Kaleta\Core\Guardrails::reserve($this->app, $tool, Catalog::access($tool), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''), $what, $reason);
-            if (is_string($logged)) {
-                return ['content' => [['type' => 'text', 'text' => $logged]], 'isError' => true];
+            if ($ownTool) {
+                $arguments = \Talea\Mcp\PublicIds::in($this->app->db(), $name, $given); // now an id that names no row is refused
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
-            $db->journal = $tools->isWriteTool($tool) && $tool !== 'undo_agent_session'
-                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($tool) ?? $name) : null;
+            $db->journal = $tools->isWriteTool($name) && $name !== 'undo_agent_session'
+                ? \Talea\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), $name) : null;
             try {
-                $result = $tools->call($tool, $arguments);
-            } catch (\InvalidArgumentException | \DomainException $e) {
-                // the tool refused the call before changing anything: no change to log or count
-                ChangeLog::remove($this->app, $logged);
-                throw $e;
+                $result = $tools->call($name, $arguments);
+                $result = \Talea\Mcp\PublicIds::out($this->app->db(), $name, $result, $arguments);
             } finally {
                 $db->journal = null;
             }
-            if ($tools->isWriteTool($tool)) {
-                if (in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true)) {
-                    ChangeLog::describe($this->app, $logged, max(1, $tools->recordsCreated) . ' rows'); // what the step created (N37-26)
-                }
-                \Kaleta\Front\Cache::clear();
+            if ($tools->isWriteTool($name)) {
+                ChangeLog::write($this->app, 'claude', $name, mb_substr((string) ($given['title'] ?? $given['name'] ?? $given['template'] ?? $given['id'] ?? ''), 0, 200), $reason);
+                \Talea\Front\Cache::clear();
             }
-            if (($czech ?? $name) === 'seznam_poptavek') {
+            if ($name === 'list_enquiries') {
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)
-                $result['nezname_parametry'] = $unknownParams;
-            }
-            if ($czech !== null) {
-                $result = Translator::result($name, $result);
+                $result['unknown_parameters'] = $unknownParams;
             }
 
             return ['content' => [['type' => 'text', 'text' => is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return ['content' => [['type' => 'text', 'text' => $isEnglish ? Translator::message($e->getMessage()) : $e->getMessage()]], 'isError' => true];
+            return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
         }
     }
 
@@ -239,55 +223,6 @@ final class Server
         }
 
         return $arguments;
-    }
-
-    /** The largest number a tool takes (2^53 - 1: every whole number up to it is exact in JSON and in PHP's float and int). */
-    public const int MAX_NUMBER = 9007199254740991;
-
-    /**
-     * A number no tool can use (3.7, N37-27): a float beyond MAX_NUMBER anywhere in the arguments (JSON 1e20 – a tool's
-     * (int) would turn it into another number, PHP 8.5 even into an error page), or an integer parameter given as text
-     * beyond it. The error names the parameter, so the caller can send a sensible value.
-     *
-     * @param list<array<string, mixed>> $items tool definitions (tools/list)
-     * @param array<string, mixed> $arguments
-     */
-    public static function badNumber(array $items, string $name, array $arguments): ?string
-    {
-        $integers = [];
-        foreach ($items as $tool) {
-            if (($tool['name'] ?? '') === $name) {
-                foreach ((array) ($tool['inputSchema']['properties'] ?? []) as $key => $property) {
-                    if (in_array('integer', (array) (is_array($property) ? ($property['type'] ?? []) : []), true)) {
-                        $integers[(string) $key] = true;
-                    }
-                }
-                break;
-            }
-        }
-        $find = function (mixed $value, string $path, bool $integer) use (&$find): ?string {
-            if (is_float($value) || ($integer && is_string($value) && is_numeric(trim($value)))) {
-                $number = (float) $value;
-
-                return !is_finite($number) || abs($number) > self::MAX_NUMBER ? $path : null;
-            }
-            foreach (is_array($value) ? $value : [] as $key => $inner) {
-                $found = $find($inner, $path . '.' . $key, false);
-                if ($found !== null) {
-                    return $found;
-                }
-            }
-
-            return null;
-        };
-        foreach ($arguments as $key => $value) {
-            $path = $find($value, (string) $key, isset($integers[(string) $key]));
-            if ($path !== null) {
-                return 'The number in ' . $path . ' is too large – numbers up to ' . self::MAX_NUMBER . ' are accepted. Send the value the user meant (an ID from a list tool, a count, a position).';
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -341,31 +276,27 @@ final class Server
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
         // the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
-        $ip = \Kaleta\Core\Antispam::hash(\Kaleta\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
-        // a personal token from "Můj účet" (kaleta_…) or the access token of an application connected via OAuth
-        // (kaleta_oa_…, valid for an hour)
-        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/D', $header, $m)) {
+        $ip = \Talea\Core\Antispam::hash(\Talea\Core\Antispam::visitorKey($this->app->request, $this->app->settings()));
+        // a personal token from "My account" (talea_…) or the access token of an application connected via OAuth
+        // (talea_oa_…, valid for an hour)
+        if (!preg_match('/^Bearer\s+(talea_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }
         // Wrong tokens are recorded per address, but only up to 20 rows per 15 minutes: the cap keeps a flood from filling the
         // table, it never refuses a request (3.3.3, N62). A request is not refused on purpose: a valid token must always work,
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
-        $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $limited = (int) $db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'mcp' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
+        $token = $db->one("SELECT t.token_id, t.name AS connection_name, t.access AS connection_access, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             if (!$limited) {
-                $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);
+                $db->insert('ip_checks', ['ip' => $ip, 'type' => 'mcp', 'checked_at' => date('Y-m-d H:i:s')]);
             }
 
             return null;
         }
-        $db->run('UPDATE {api_tokeny} SET pouzit = NOW() WHERE idt = ?', [$token['idt']]);
-        if ($this->app->settings()->get('claude_first_used') === '') {
-            // the first call of any Claude connection: the dashboard stops leading with "Connect Claude" (3.5, Core\AskClaude)
-            $this->app->settings()->set('claude_first_used', date('Y-m-d H:i:s'));
-        }
+        $db->run('UPDATE {api_tokens} SET used_at = NOW() WHERE token_id = ?', [$token['token_id']]);
 
         return $token;
     }

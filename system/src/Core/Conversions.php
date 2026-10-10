@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\Stats;
+use Talea\Front\Stats;
 
 /**
  * Contact clicks as leads (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead like a sent form,
- * so image/web.js reports it with navigator.sendBeacon to POST /conversion (the older /konverze too) – the way image/vitals.js reports speed (Core\WebVitals).
+ * so image/web.js reports it with navigator.sendBeacon to POST /conversion – the way image/vitals.js reports speed (Core\WebVitals).
  * The same cookie-free rules as the built-in statistics (Front\Stats): only while they are on, never for bots or signed-in
  * users (Front\Seo::head() hands the endpoint to the script only then, and the endpoint checks again), and nothing about
- * the visitor is stored – one row of ka_stat_konverze per day, page path and type with the count.
+ * the visitor is stored – one row of tl_stats_conversions per day, page path and type with the count.
  *
  * A visitor who clicks the same number on the same page three times is one lead: a click counts once per type, page,
  * visitor and day. The visitor is told apart by the statistics' daily fingerprint (IP, browser and a salt that changes
  * every day), here hashed together with the page and the type; the mark lives among the visitor hashes in
- * ka_stat_navstevnici, is never stored with the counted row and is deleted with the hashes the next day.
+ * tl_stats_visitors, is never stored with the counted row and is deleted with the hashes the next day.
  */
 final class Conversions
 {
@@ -41,7 +41,7 @@ final class Conversions
     }
 
     /**
-     * The page path of a beacon as the statistics store it (Front\Stats, ka_stat_stranky.cesta): an absolute path without
+     * The page path of a beacon as the statistics store it (Front\Stats, tl_stats_pages.cesta): an absolute path without
      * the query string and the fragment, at most 255 characters. Null for anything else – the script sends location.pathname,
      * so a relative address, whitespace or a control character means a forged request.
      */
@@ -56,7 +56,7 @@ final class Conversions
         return $path;
     }
 
-    /** POST /conversion or /konverze: one beacon per click (image/web.js); always answers 204, a bad or unwanted beacon is simply not counted. */
+    /** POST /conversion: one beacon per click (image/web.js); always answers 204, a bad or unwanted beacon is simply not counted. */
     public static function record(App $app): Response
     {
         $request = $app->request;
@@ -68,12 +68,12 @@ final class Conversions
         }
         $db = $app->db();
         $antispam = new Antispam($db, $app->settings());
-        if ($antispam->count($request->ip(), 'konverze', 0, 60) >= 60) {
+        if ($antispam->count($request->ip(), 'conversion', 0, 60) >= 60) {
             return new Response('', 204);
         }
-        $antispam->write($request->ip(), 'konverze', 0);
+        $antispam->write($request->ip(), 'conversion', 0);
         // only pages the statistics have seen (the page view is counted before anyone can click) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURRENT_DATE - INTERVAL 1 DAY', [$path]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
@@ -81,12 +81,12 @@ final class Conversions
         // is a different hash than the visitor's, so it never makes a visit "new" for Front\Stats
         $salt = $antispam->key() . $today;
         $mark = substr(hash('sha256', $salt . '|' . $request->ip() . '|' . $ua . '|' . $path . '|' . $type), 0, 32);
-        if ($db->run('INSERT IGNORE INTO {stat_navstevnici} (den, otisk) VALUES (?, ?)', [$today, $mark])->rowCount() !== 1) {
+        if (!$db->insertIgnore('stats_visitors', ['day' => $today, 'visitor_hash' => $mark])) {
             return new Response('', 204);
         }
-        $db->run('INSERT INTO {stat_konverze} (den, cesta, typ, pocet) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $path, $type]);
+        $db->upsert('stats_conversions', ['day' => $today, 'path' => $path, 'type' => $type, 'count' => 1], ['day', 'path', 'type'], ['count' => '{old.count} + 1']);
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stat_konverze} WHERE den < CURDATE() - INTERVAL ' . self::KEEP_DAYS . ' DAY');
+            $db->run('DELETE FROM {stats_conversions} WHERE day < CURRENT_DATE - INTERVAL ' . self::KEEP_DAYS . ' DAY');
         }
 
         return new Response('', 204);
@@ -100,18 +100,18 @@ final class Conversions
      */
     public static function summary(Db $db, string $since, ?string $until = null): array
     {
-        $rows = $db->all('SELECT cesta, typ, SUM(pocet) AS n FROM {stat_konverze} WHERE den >= ?' . ($until !== null ? ' AND den < ?' : '') . ' GROUP BY cesta, typ',
+        $rows = $db->all('SELECT path, type, SUM(count) AS n FROM {stats_conversions} WHERE day >= ?' . ($until !== null ? ' AND day < ?' : '') . ' GROUP BY path, type',
             $until !== null ? [$since, $until] : [$since]);
         $zero = ['calls' => 0, 'emails' => 0, 'whatsapp' => 0];
         $totals = $zero;
         $pages = [];
         foreach ($rows as $r) {
-            $key = self::KEYS[$r['typ']] ?? null;
+            $key = self::KEYS[$r['type']] ?? null;
             if ($key === null) {
                 continue;
             }
-            $pages[$r['cesta']] ??= ['path' => (string) $r['cesta']] + $zero;
-            $pages[$r['cesta']][$key] += (int) $r['n'];
+            $pages[$r['path']] ??= ['path' => (string) $r['path']] + $zero;
+            $pages[$r['path']][$key] += (int) $r['n'];
             $totals[$key] += (int) $r['n'];
         }
         usort($pages, fn (array $a, array $b): int => [self::total($b), $a['path']] <=> [self::total($a), $b['path']]);

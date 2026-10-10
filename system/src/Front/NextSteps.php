@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Hours;
+use Talea\Core\App;
+use Talea\Core\Hours;
 
 /**
  * What happens after a form is sent (2.12): the steps the site promised, by when it replies and who. The form carries the
@@ -30,7 +30,7 @@ final class NextSteps
      */
     public static function steps(array $content): array
     {
-        return array_values(array_filter(array_map('trim', explode("\n", str_replace("\r\n", "\n", (string) ($content['dalsi_kroky'] ?? '')))), fn (string $s): bool => $s !== ''));
+        return array_values(array_filter(array_map('trim', explode("\n", str_replace("\r\n", "\n", (string) ($content['next_steps'] ?? '')))), fn (string $s): bool => $s !== ''));
     }
 
     /**
@@ -90,12 +90,12 @@ final class NextSteps
     {
         $now ??= new \DateTimeImmutable();
         $steps = self::steps($content);
-        $html = $steps === [] ? '' : '<p class="ka-kroky-nadpis">' . e(t('What happens next')) . '</p><ol class="ka-kroky">' . implode('', array_map(fn (string $s): string => '<li>' . e($s) . '</li>', $steps)) . '</ol>';
+        $html = $steps === [] ? '' : '<p class="tl-steps-heading">' . e(t('What happens next')) . '</p><ol class="tl-steps">' . implode('', array_map(fn (string $s): string => '<li>' . e($s) . '</li>', $steps)) . '</ol>';
         $due = self::due($app, $content, $now);
-        $html .= $due === null ? '' : '<p class="ka-kroky-termin">' . e(self::deadlineText($due, $now)) . '</p>';
-        $who = trim((string) ($content['odpovida'] ?? ''));
+        $html .= $due === null ? '' : '<p class="tl-steps-deadline">' . e(self::deadlineText($due, $now)) . '</p>';
+        $who = trim((string) ($content['who_replies'] ?? ''));
 
-        return $html . ($who === '' ? '' : '<p class="ka-kroky-kdo">' . e(t('%s will reply.', $who)) . '</p>');
+        return $html . ($who === '' ? '' : '<p class="tl-steps-who">' . e(t('%s will reply.', $who)) . '</p>');
     }
 
     /**
@@ -115,7 +115,7 @@ final class NextSteps
         if ($due !== null) {
             $lines[] = self::deadlineText($due, $now);
         }
-        $who = trim((string) ($content['odpovida'] ?? ''));
+        $who = trim((string) ($content['who_replies'] ?? ''));
         if ($who !== '') {
             $lines[] = t('%s will reply.', $who);
         }
@@ -126,7 +126,7 @@ final class NextSteps
     /** The reply deadline of a form, null when it promises none (0 working hours). @param array<string, mixed> $content */
     private static function due(App $app, array $content, \DateTimeImmutable $now): ?\DateTimeImmutable
     {
-        $hours = max(0, min(self::MAX_HOURS, (int) ($content['odpovime_do'] ?? 0)));
+        $hours = max(0, min(self::MAX_HOURS, (int) ($content['reply_within_hours'] ?? 0)));
         if ($hours === 0) {
             return null;
         }

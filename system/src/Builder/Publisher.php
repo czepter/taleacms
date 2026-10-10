@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
+use Talea\Core\App;
+use Talea\Core\Db;
 
 /**
  * Publishing a build draft (page, site part, collection, component or popup) – from the editor and from MCP. The previous published version goes to the history
- * (ka_stavba_revize, the last 20 for each target), the site cache is cleared.
+ * (tl_build_revisions, the last 20 for each target), the site cache is cleared.
  */
 final class Publisher
 {
@@ -18,88 +18,83 @@ final class Publisher
     /** Page: the content without the layout is saved into the text – search, llms.txt, the API and the return to text draw on it. */
     public static function page(App $app, array $page): void
     {
-        $new = $page['stavba_koncept'] ?? $page['stavba'];
-        self::version($app, ['ids' => $page['ids']], $page['stavba'], $new, $page['zmeneno'] ?? null);
+        $new = $page['build_draft'] ?? $page['build'];
+        self::version($app, ['page_id' => $page['page_id']], $page['build'], $new, $page['updated_at'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
-        $app->db()->update('stranky', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['ids' => $page['ids']]);
-        // a page that waited hidden for its first build (3.5, Modules\Pages::visibility) goes on the site with it – unless a
-        // publisher set a publish date: then the schedule shows it, not this publish (N35-1)
-        $now = date('Y-m-d H:i:s');
-        $app->db()->run('UPDATE {stranky} SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1 AND smazano IS NULL AND (zverejnit_od IS NULL OR zverejnit_od <= ?)', [$page['ids'], $now]);
-        $app->db()->run('UPDATE {stranky} SET show_on_publish = 0 WHERE ids = ? AND show_on_publish = 1 AND zverejnit_od > ?', [$page['ids'], $now]);
-        \Kaleta\Front\Cache::clear();
+        $app->db()->update('pages', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['page_id' => $page['page_id']]);
+        \Talea\Front\Cache::clear();
     }
 
     public static function part(App $app, array $row): void
     {
-        $new = $row['stavba_koncept'] ?? $row['stavba'];
-        $variant = (string) ($row['varianta'] ?? '');
-        self::version($app, ['cast' => SiteParts::versionKey($row['typ'], $row['jazyk'], $variant)], $row['stavba'], $new, $row['zmeneno'] ?? null);
-        $app->db()->update('casti', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $row['typ'], 'jazyk' => $row['jazyk'], 'varianta' => $variant]);
-        \Kaleta\Front\Cache::clear();
+        $new = $row['build_draft'] ?? $row['build'];
+        $variant = (string) ($row['variant'] ?? '');
+        self::version($app, ['part' => SiteParts::versionKey($row['type'], $row['language'], $variant)], $row['build'], $new, $row['updated_at'] ?? null);
+        $app->db()->update('site_parts', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['type' => $row['type'], 'language' => $row['language'], 'variant' => $variant]);
+        \Talea\Front\Cache::clear();
     }
 
     /**
-     * Item template of a collection in the language from Collections::inLanguage (versions under the key „kolekce:<idk>“,
-     * for another language „kolekce:<idk>:<jazyk>“).
+     * Item template of a collection in the language from Collections::inLanguage (versions under the key „collection:<idk>“,
+     * for another language „collection:<idk>:<jazyk>“).
      */
     public static function collection(App $app, array $collection): void
     {
-        $new = $collection['stavba_koncept'] ?? $collection['stavba'];
-        self::version($app, ['cast' => Collections::templateKey($collection)], $collection['stavba'], $new, $collection['zmeneno'] ?? null);
-        Collections::writeTemplate($app->db(), $collection, ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
-        \Kaleta\Front\Cache::clear();
+        $new = $collection['build_draft'] ?? $collection['build'];
+        self::version($app, ['part' => Collections::templateKey($collection)], $collection['build'], $new, $collection['updated_at'] ?? null);
+        Collections::writeTemplate($app->db(), $collection, ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')]);
+        \Talea\Front\Cache::clear();
     }
 
     /** Popup (versions under the key „popup:<idpp>“). */
     public static function popup(App $app, array $popup): void
     {
-        $new = $popup['stavba_koncept'] ?? $popup['stavba'];
-        self::version($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $new, $popup['zmeneno'] ?? null);
-        $app->db()->update('popupy', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
-        \Kaleta\Front\Cache::clear();
+        $new = $popup['build_draft'] ?? $popup['build'];
+        self::version($app, ['part' => 'popup:' . (int) $popup['popup_id']], $popup['build'], $new, $popup['updated_at'] ?? null);
+        $app->db()->update('popups', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['popup_id' => $popup['popup_id']]);
+        \Talea\Front\Cache::clear();
     }
 
-    /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
+    /** Component (versions under the key „component:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
-        $new = $component['stavba_koncept'] ?? $component['stavba'];
-        self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
-        $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);
-        \Kaleta\Front\Cache::clear();
+        $new = $component['build_draft'] ?? $component['build'];
+        self::version($app, ['part' => 'component:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
+        $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
+        \Talea\Front\Cache::clear();
     }
 
-    /** Saves the previous published version to the history. @param array{ids?: int|string, cast?: string} $target */
+    /** Saves the previous published version to the history. @param array{page_id?: int|string, part?: string} $target */
     public static function version(App $app, array $target, ?string $old, ?string $newVersion, ?string $date): void
     {
         // 2.8: every publishing is an event (who: a user id and whether it came through a Claude connection)
-        \Kaleta\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['ids']) ? 'page ' . (int) $target['ids'] : (string) ($target['cast'] ?? '')),
-            $target + ['user' => $app->auth()->id() ?: null, 'claude' => $app->auth()->connection() !== null]);
+        \Talea\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['page_id']) ? 'page ' . (int) $target['page_id'] : (string) ($target['part'] ?? '')),
+            $target + ['username' => $app->auth()->id() ?: null, 'claude' => $app->auth()->connection() !== null]);
         if ($old === null || $old === $newVersion) {
             return;
         }
         $db = $app->db();
-        $db->insert('stavba_revize', $target + ['datum' => $date ?? date('Y-m-d H:i:s'), 'kdo' => $app->auth()->id() ?: null, 'stavba' => $old]);
+        $db->insert('build_revisions', $target + ['created_at' => $date ?? date('Y-m-d H:i:s'), 'user_id' => $app->auth()->id() ?: null, 'build' => $old]);
         [$whereParts, $value] = self::whereClause($target);
-        $boundary = $db->value('SELECT idr FROM {stavba_revize} WHERE ' . $whereParts . ' ORDER BY idr DESC LIMIT 1 OFFSET ' . self::VERSIONS_KEPT, [$value]);
+        $boundary = $db->value('SELECT revision_id FROM {build_revisions} WHERE ' . $whereParts . ' ORDER BY revision_id DESC LIMIT 1 OFFSET ' . self::VERSIONS_KEPT, [$value]);
         if ($boundary !== null) {
-            $db->run('DELETE FROM {stavba_revize} WHERE ' . $whereParts . ' AND idr <= ?', [$value, $boundary]);
+            $db->run('DELETE FROM {build_revisions} WHERE ' . $whereParts . ' AND revision_id <= ?', [$value, $boundary]);
         }
     }
 
-    /** @param array{ids?: int|string, cast?: string} $target @return list<array<string, mixed>> */
+    /** @param array{page_id?: int|string, part?: string} $target @return list<array<string, mixed>> */
     public static function listAll(Db $db, array $target): array
     {
         [$whereParts, $value] = self::whereClause($target);
 
-        return $db->all("SELECT r.idr, r.datum, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo FROM {stavba_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r." . $whereParts . ' ORDER BY r.idr DESC', [$value]);
+        return $db->all("SELECT r.revision_id, r.created_at, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name FROM {build_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r." . $whereParts . ' ORDER BY r.revision_id DESC', [$value]);
     }
 
-    /** @param array{ids?: int|string, cast?: string} $target */
+    /** @param array{page_id?: int|string, part?: string} $target */
     public static function load(Db $db, array $target, int $idr): ?string
     {
         [$whereParts, $value] = self::whereClause($target);
-        $build = $db->value('SELECT stavba FROM {stavba_revize} WHERE idr = ? AND ' . $whereParts, [$idr, $value]);
+        $build = $db->value('SELECT build FROM {build_revisions} WHERE revision_id = ? AND ' . $whereParts, [$idr, $value]);
 
         return $build === null ? null : (string) $build;
     }
@@ -107,6 +102,6 @@ final class Publisher
     /** @return array{0: string, 1: int|string} */
     private static function whereClause(array $target): array
     {
-        return isset($target['ids']) ? ['ids = ?', (int) $target['ids']] : ['cast = ?', (string) $target['cast']];
+        return isset($target['page_id']) ? ['page_id = ?', (int) $target['page_id']] : ['part = ?', (string) $target['part']];
     }
 }

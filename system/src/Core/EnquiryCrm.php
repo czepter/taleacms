@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\HubSpot;
-use Kaleta\Connectors\Pipedrive;
-use Kaleta\Connectors\Raynet;
+use Talea\Connectors\HubSpot;
+use Talea\Connectors\Pipedrive;
+use Talea\Connectors\Raynet;
 
 /**
  * An enquiry as a lead in the CRM (2.13, the queue action crm.lead of EnquiryDelivery): the contact is found by e-mail
@@ -112,7 +112,7 @@ final class EnquiryCrm
     private static function raynet(App $app, array $payload, array $lead, string $note): string
     {
         $instance = Connectors::config($app->db(), Raynet::KEY)['instance'] ?? '';
-        if (preg_match('/^[a-z0-9._-]{1,100}$/iD', $instance) !== 1) {
+        if (preg_match('/^[a-z0-9._-]{1,100}$/i', $instance) !== 1) {
             return t('Enter the Raynet instance name in Connections.');
         }
 

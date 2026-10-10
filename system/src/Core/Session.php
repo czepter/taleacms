@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 final class Session
 {
@@ -19,7 +19,7 @@ final class Session
         if ($this->started) {
             return;
         }
-        session_name('kaleta');
+        session_name('talea');
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => $this->cookiePath,
@@ -68,11 +68,11 @@ final class Session
         $this->started = false;
     }
 
-    /** One-time message shown after a redirect. Type: "ok" | "chyba" | "info". */
+    /** One-time message shown after a redirect. Type: "ok" | "error" | "info". */
     public function flash(string $type, string $message): void
     {
         $this->start();
-        $_SESSION['_flash'][] = ['typ' => $type, 'text' => $message];
+        $_SESSION['_flash'][] = ['type' => $type, 'text' => $message];
     }
 
     /** @return list<array{typ:string, text:string}> */

@@ -1,13 +1,79 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Method Talea\\Admin\\Kernel\:\:firstSteps\(\) should return list\<array\{nazev\: string, popis\: string, url\: string, hotovo\: bool\}\> but returns array\<0\|1\|2\|3\|4\|5\|6\|7, array\{name\: ''Complete the…''\|''Connect Claude''\|''Fill in company…''\|''Give your site a…''\|''Prepare your pages''\|''Set up e\-mail''\|''Set up with the…''\|''Your kind of…'', description\: ''About us, Services,…''\|''Address, phone and…''\|''Answer a few…''\|''Build and edit the…''\|''Logo, main colour…''\|''The enquiry form…''\|''Twenty blueprints –…''\|''Where the site…'', url\: string, done\: bool\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Admin/Kernel.php
+
+		-
 			message: '#^Strict comparison using \!\=\= between array\<string, mixed\> and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: system/src/Admin/Kernel.php
 
 		-
-			message: '#^Offset ''obsah'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			message: '#^Strict comparison using \=\=\= between ''collections'' and ''pages'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: system/src/Admin/Modules/Collections.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''components'' and ''pages'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: system/src/Admin/Modules/Components.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''pages'' and ''pages'' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: system/src/Admin/Modules/Pages.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''popups'' and ''pages'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: system/src/Admin/Modules/Popups.php
+
+		-
+			message: '#^Left side of && is always false\.$#'
+			identifier: booleanAnd.leftAlwaysFalse
+			count: 1
+			path: system/src/Admin/Modules/Settings.php
+
+		-
+			message: '#^Negated boolean expression is always true\.$#'
+			identifier: booleanNot.alwaysTrue
+			count: 1
+			path: system/src/Admin/Modules/Settings.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: system/src/Admin/Modules/Settings.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: system/src/Admin/Modules/Settings.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''parts'' and ''pages'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: system/src/Admin/Modules/SiteParts.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: mixed$#'
+			identifier: match.unhandled
+			count: 1
+			path: system/src/Admin/Modules/Transfer.php
+
+		-
+			message: '#^Offset ''content'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: system/src/Builder/Build.php
@@ -43,10 +109,28 @@ parameters:
 			path: system/src/Builder/Edits.php
 
 		-
+			message: '#^Result of && is always true\.$#'
+			identifier: booleanAnd.alwaysTrue
+			count: 1
+			path: system/src/Builder/Elements/CollectionList.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between '''' and '''' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: system/src/Builder/Elements/CollectionList.php
+
+		-
 			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, Closure\(array\)\: bool given\.$#'
 			identifier: argument.type
 			count: 1
 			path: system/src/Builder/Elements/Navigation.php
+
+		-
+			message: '#^Access to an undefined property Dom\\Node\:\:\$innerHTML\.$#'
+			identifier: property.notFound
+			count: 1
+			path: system/src/Builder/HtmlConverter.php
 
 		-
 			message: '#^Call to an undefined method Dom\\Document\:\:saveHtml\(\)\.$#'
@@ -55,13 +139,25 @@ parameters:
 			path: system/src/Builder/HtmlConverter.php
 
 		-
-			message: '#^Method Kaleta\\Builder\\HtmlConverter\:\:figure\(\) never returns null so it can be removed from the return type\.$#'
+			message: '#^Call to an undefined method Dom\\Node\:\:querySelector\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: system/src/Builder/HtmlConverter.php
+
+		-
+			message: '#^Call to an undefined method Dom\\Node\:\:querySelectorAll\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: system/src/Builder/HtmlConverter.php
+
+		-
+			message: '#^Method Talea\\Builder\\HtmlConverter\:\:figure\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
 			path: system/src/Builder/HtmlConverter.php
 
 		-
-			message: '#^Parameter &\$skipped by\-ref type of method Kaleta\\Builder\\HtmlConverter\:\:withoutClasses\(\) expects list\<string\>, array given\.$#'
+			message: '#^Parameter &\$skipped by\-ref type of method Talea\\Builder\\HtmlConverter\:\:withoutClasses\(\) expects list\<string\>, array given\.$#'
 			identifier: parameterByRef.type
 			count: 1
 			path: system/src/Builder/HtmlConverter.php
@@ -79,8 +175,146 @@ parameters:
 			path: system/src/Builder/HtmlConverter.php
 
 		-
+			message: '#^Method Talea\\Builder\\Library\:\:sections\(\) should return array\<string, array\{nazev\: string, popis\: string, stavba\: callable\(\)\: array\}\> but returns array\{hero\: array\{name\: string, description\: string, build\: Closure\(\)\: non\-empty\-array\}, hero\-image\: array\{name\: string, description\: string, build\: Closure\(\)\: non\-empty\-array\}, benefits\: array\{name\: string, description\: string, build\: Closure\(\)\: array\}, services\: array\{name\: string, description\: string, build\: Closure\(\)\: array\}, numbers\: array\{name\: string, description\: string, build\: Closure\(\)\: non\-empty\-array\}, testimonials\: array\{name\: string, description\: string, build\: Closure\(\)\: array\}, faq\: array\{name\: string, description\: string, build\: Closure\(\)\: array\}, call\-to\-action\: array\{name\: string, description\: string, build\: Closure\(\)\: array\}, \.\.\.\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Builder/Library.php
+
+		-
+			message: '#^Offset ''build'' does not exist on array\{nazev\: string, popis\: string, stavba\: callable\(\)\: array\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Builder/Library.php
+
+		-
+			message: '#^Offset ''description'' does not exist on array\{nazev\: string, popis\: string, stavba\: callable\(\)\: array\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Builder/Library.php
+
+		-
+			message: '#^Offset ''name'' does not exist on array\{nazev\: string, popis\: string, stavba\: callable\(\)\: array\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: system/src/Builder/Library.php
+
+		-
+			message: '#^Cannot unset offset ''parts'' on array\{design_system\?\: array\<string, mixed\>, classes\?\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>\}\.$#'
+			identifier: unset.offset
+			count: 1
+			path: system/src/Builder/Looks.php
+
+		-
+			message: '#^Offset ''parts'' on array\{design_system\?\: array\<string, mixed\>, classes\?\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Builder/Looks.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: system/src/Core/Db.php
+
+		-
+			message: '#^Static property Talea\\Core\\Demo\:\:\$config \(array\{user\: string, password\: string\}\|null\) does not accept array\{username\: non\-empty\-string, password\: string\}\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: system/src/Core/Demo.php
+
+		-
+			message: '#^Static property Talea\\Core\\Demo\:\:\$config \(array\{user\: string, password\: string\}\|null\) is never assigned array\{user\: string, password\: string\} so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: system/src/Core/Demo.php
+
+		-
+			message: '#^Method Talea\\Core\\Diff\:\:html\(\) should return array\{html\: string, added\: int, deleted\: int\} but returns array\{html\: string, added\: int, deleted_at\: int\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/Diff.php
+
+		-
+			message: '#^If condition is always false\.$#'
+			identifier: if.alwaysFalse
+			count: 1
+			path: system/src/Core/Health.php
+
+		-
+			message: '#^Offset ''status'' does not exist on array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/Health.php
+
+		-
+			message: '#^Offset ''username'' on array\{scheme\?\: string, host\?\: string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: system/src/Core/ImageDownloader.php
+
+		-
+			message: '#^Method Talea\\Core\\Integrity\:\:check\(\) should return array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\} but returns array\{changed\: array\{\}, missing\: array\{\}, extra\: array\{\}, status\: ''error'', info\: string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/Integrity.php
+
+		-
+			message: '#^Method Talea\\Core\\Integrity\:\:check\(\) should return array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\} but returns array\{changed\: array\{\}, missing\: array\{\}, extra\: array\{\}, status\: ''ok'', info\: string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/Integrity.php
+
+		-
+			message: '#^Method Talea\\Core\\Integrity\:\:check\(\) should return array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\} but returns array\{status\: ''ok''\|''warning'', info\: string, changed\: list\<\(int\|string\)\>, missing\: list\<\(int\|string\)\>, extra\: list\<string\>\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/Integrity.php
+
+		-
+			message: '#^Method Talea\\Core\\Links\:\:broken\(\) should return list\<array\{kind\: string, id\: int, title\: string, url\: string, element\: string, status\: int, found\: string, edit\: string, \.\.\.\}\> but returns list\<array\{kind\: string, id\: string, title\: string, url\: string, element\: string, status\: int, found\: string, edit\: string, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/Links.php
+
+		-
+			message: '#^Empty array passed to foreach\.$#'
+			identifier: foreach.emptyArray
+			count: 1
+			path: system/src/Core/Look.php
+
+		-
+			message: '#^Offset ''parts'' on array\{design_system\?\: array\<string, mixed\>, classes\?\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: system/src/Core/Look.php
+
+		-
+			message: '#^Offset ''parts'' on non\-empty\-array\{design_system\?\: array\<string, mixed\>, classes\?\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Core/Look.php
+
+		-
+			message: '#^Offset 0 on array\{''Centred logo'', ''The logo in the…'', ''''\}\|array\{''Columns'', ''The company, the…'', ''''\}\|array\{''Compact'', ''One line\: the…'', ''''\}\|array\{''Logo left, menu…'', ''The logo on the…'', ''''\}\|array\{''Minimal'', ''Only the logo and…'', ''''\}\|array\{''Plain'', ''Only the list of…''\|''Only the message…''\|''Only the news item\.'', ''''\}\|array\{''With a call to…'', ''A coloured call to…''\|''The news item and a…'', ''''\}\|array\{''With a contact bar'', ''A thin bar with the…'', ''''\}\|array\{''With a newsletter…'', ''The list of news…'', ''newsletter_signup''\}\|array\{''With search'', ''The message with a…'', ''''\}\|array\{''With the imprint'', ''The company details…'', ''''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Core/Look.php
+
+		-
+			message: '#^Offset 0 on array\{''Footer'', ''Contacts, links and…''\}\|array\{''Header'', ''Logo and navigation…''\}\|array\{''News item'', ''A wrapper around…''\}\|array\{''News list'', ''A wrapper around…''\}\|array\{''Page not found \(404\)'', ''A wrapper around…''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Core/Look.php
+
+		-
 			message: '#^Result of \|\| is always false\.$#'
 			identifier: booleanOr.alwaysFalse
+			count: 1
+			path: system/src/Core/Look.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between array\{\} and array\{\} will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
 			count: 1
 			path: system/src/Core/Look.php
 
@@ -97,13 +331,43 @@ parameters:
 			path: system/src/Core/Look.php
 
 		-
+			message: '#^Method Talea\\Core\\MigrationReport\:\:check\(\) should return array\{stara\: string, nova\: string, stav\: string, problemy\: list\<string\>, titulek_stary\: string, titulek_novy\: string\} but returns array\{old\: non\-falsy\-string, new\: string, status\: string, problems\: array\{\}\|array\{''fewer_images''\}\|array\{0\: ''chain''\|''hidden''\|''missing''\|''redirect_out'', 1\?\: ''fewer_images''\|''form_missing''\|''no_description''\|''not_read'', 2\?\: ''fewer_images''\|''form_missing''\|''no_description'', 3\?\: ''fewer_images''\|''form_missing'', 4\?\: ''fewer_images''\}\|array\{0\: ''form_missing'', 1\?\: ''fewer_images''\}\|array\{0\: ''no_description'', 1\?\: ''fewer_images''\|''form_missing'', 2\?\: ''fewer_images''\}\|array\{0\: ''not_read'', 1\?\: ''fewer_images''\|''form_missing''\|''no_description'', 2\?\: ''fewer_images''\|''form_missing'', 3\?\: ''fewer_images''\}, old_title\: string, new_title\: string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/MigrationReport.php
+
+		-
+			message: '#^Offset ''username'' does not exist on array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, user\: string, password\: string, prefix\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/Migrator.php
+
+		-
+			message: '#^Parameter \#1 \$c of static method Talea\\Core\\Db\:\:fromConfig\(\) expects array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, username\: string, password\: string, prefix\?\: string\}, array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, user\: string, password\: string, prefix\?\: string\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: system/src/Core/Migrator.php
+
+		-
+			message: '#^Offset ''item_id'' does not exist on array\{idp\: int, visible\: bool, posted\: string, taken_down\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/Notices.php
+
+		-
+			message: '#^Parameter \#1 \$items of static method Talea\\Core\\Notices\:\:due\(\) expects list\<array\{idp\: int, visible\: bool, posted\: string, taken_down\: string\}\>, list\<array\{item_id\: int, visible\: bool, posted\: string, taken_down\: string\}\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: system/src/Core/Notices.php
+
+		-
 			message: '#^Binary operation "%%" between int and 0\|1\|2\|4\|5\|8\|9\|10\|11\|13\|14\|16\|17\|18\|20\|21\|23\|25\|26\|28\|29\|31\|33\|35\|37\|38\|40\|43\|45\|47\|49 results in an error\.$#'
 			identifier: binaryOp.invalid
 			count: 1
 			path: system/src/Core/Qr.php
 
 		-
-			message: '#^Method Kaleta\\Core\\RemoteBackup\:\:ftp\(\) should return array\{callable\(string, string\)\: void, callable\(\)\: void\} but returns array\{Closure\(string, string\)\: void, Closure\(\)\: bool\}\.$#'
+			message: '#^Method Talea\\Core\\RemoteBackup\:\:ftp\(\) should return array\{callable\(string, string\)\: void, callable\(\)\: void\} but returns array\{Closure\(string, string\)\: void, Closure\(\)\: bool\}\.$#'
 			identifier: return.type
 			count: 1
 			path: system/src/Core/RemoteBackup.php
@@ -121,14 +385,140 @@ parameters:
 			path: system/src/Core/SiteImport.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>session" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: system/src/Core/SiteWizard.php
+
+		-
 			message: '#^Empty array passed to foreach\.$#'
 			identifier: foreach.emptyArray
 			count: 1
 			path: system/src/Core/Updater.php
 
 		-
+			message: '#^Method Talea\\Core\\Updater\:\:download\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Method Talea\\Core\\Updater\:\:extract\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Method Talea\\Core\\Updater\:\:probe\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Method Talea\\Core\\Updater\:\:releaseFiles\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Method Talea\\Core\\Updater\:\:releaseHashes\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Method Talea\\Core\\Updater\:\:restore\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Negated boolean expression is always true\.$#'
+			identifier: booleanNot.alwaysTrue
+			count: 2
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Property Talea\\Core\\Updater\:\:\$keyFile is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 2
+			path: system/src/Core/Updater.php
+
+		-
+			message: '#^Offset ''username'' on array\{scheme\?\: string, host\: non\-empty\-string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: system/src/Core/WebImport.php
+
+		-
+			message: '#^Method Talea\\Core\\WpFile\:\:header\(\) should return array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\} but returns array\{name\: string, url\: string, authors\: array\<non\-empty\-string, string\>, categories\: array\<non\-empty\-string, array\{name\: string, parent\: string\}\>, tags\: array\<non\-empty\-string, string\>\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/WpFile.php
+
+		-
 			message: '#^Comparison operation "\<\=" between 10 and 0 is always false\.$#'
 			identifier: smallerOrEqual.alwaysFalse
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Method Talea\\Core\\WpImport\:\:collectionFor\(\) should return array\{idk\: int, seo_link\: string, pole\: list\<array\{key\: string, label\: string, type\: string\}\>, mapa\: array\<string, string\>, typy\: array\<string, string\>\} but returns array\{collection_id\: int, slug\: string, fields\: mixed, map\: array\<string, string\>, types\: array\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''authors'' does not exist on array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''categories'' does not exist on array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''categories'' on array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''map'' does not exist on array\{idk\: int, seo_link\: string, pole\: list\<array\{key\: string, label\: string, type\: string\}\>, mapa\: array\<string, string\>, typy\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''tags'' does not exist on array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''tags'' on array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Offset ''url'' does not exist on array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: system/src/Core/WpImport.php
+
+		-
+			message: '#^Property Talea\\Core\\WpImport\:\:\$header \(array\{name\: string, adresa\: string, autori\: array\<string, string\>, rubriky\: array\<string, array\{name\: string, predek\: string\}\>, stitky\: array\<string, string\>\}\) does not accept default value of type array\{name\: '''', url\: '''', authors\: array\{\}, categories\: array\{\}, tags\: array\{\}\}\.$#'
+			identifier: property.defaultValue
 			count: 1
 			path: system/src/Core/WpImport.php
 
@@ -139,7 +529,7 @@ parameters:
 			path: system/src/Front/Kernel.php
 
 		-
-			message: '#^Property Kaleta\\Builder\\Context\:\:\$menu \(list\<array\{titulek\: string, seo_link\: string\}\>\) does not accept array\{hlavni\: list\<array\<string, mixed\>\>, paticka\: list\<array\<string, mixed\>\>\}\.$#'
+			message: '#^Property Talea\\Builder\\Context\:\:\$menu \(list\<array\{title\: string, slug\: string\}\>\) does not accept array\{main\: list\<array\<string, mixed\>\>, footer\: list\<array\<string, mixed\>\>\}\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: system/src/Front/Kernel.php
@@ -151,37 +541,37 @@ parameters:
 			path: system/src/Front/Kernel.php
 
 		-
-			message: '#^Offset 0\|1\|2\|3 on array\{array\{''uvod'', ''vyhody'', ''cisla'', ''reference'', ''novinky'', ''vyzva''\}, array\{\}, array\{''nadpis\-stranky'', ''sluzby'', ''faq'', ''vyzva''\}, array\{''nadpis\-stranky'', ''kontakt'', ''poptavka''\}\}\|array\{array\{''uvod\-obrazek'', ''zaruky'', ''proces'', ''portfolio'', ''reference'', ''vyzva''\}, array\{''nadpis\-stranky'', ''pribeh'', ''hodnoty'', ''tym''\}, array\{''nadpis\-stranky'', ''strida'', ''sluzby\-seznam'', ''faq'', ''vyzva\-pruh''\}, array\{''nadpis\-stranky'', ''kontakt\-formular''\}\}\|array\{array\{''uvod\-stred'', ''loga'', ''vyhody\-seznam'', ''cisla\-svetla'', ''reference\-jedna'', ''vyzva''\}, array\{''nadpis\-stranky'', ''pribeh'', ''tym'', ''historie'', ''kariera''\}, array\{''nadpis\-stranky'', ''sluzby'', ''cenik'', ''faq\-dva''\}, array\{''nadpis\-stranky'', ''kontakt\-formular'', ''pobocky''\}\} on left side of \?\? always exists and is not nullable\.$#'
+			message: '#^Method Talea\\Install\\Installer\:\:requirements\(\) should return list\<array\{nazev\: string, ok\: bool, info\: string\}\> but returns array\{0\: array\{name\: string, ok\: bool, info\: non\-falsy\-string\}, 1\: array\{name\: string, ok\: bool, info\: string\}, 2\: array\{name\: string, ok\: bool, info\: string\}, 3\: array\{name\: string, ok\: bool, info\: string\}, 4\?\: array\{name\: string, ok\: bool, info\: string\}\}\.$#'
+			identifier: return.type
+			count: 1
+			path: system/src/Install/Installer.php
+
+		-
+			message: '#^Offset 0\|1\|2\|3 on array\{array\{''hero'', ''benefits'', ''numbers'', ''testimonials'', ''news'', ''call\-to\-action''\}, array\{\}, array\{''page\-title'', ''services'', ''faq'', ''call\-to\-action''\}, array\{''page\-title'', ''contact'', ''enquiry''\}\}\|array\{array\{''hero\-centered'', ''logos'', ''benefits\-list'', ''numbers\-light'', ''quote'', ''call\-to\-action''\}, array\{''page\-title'', ''story'', ''team'', ''history'', ''careers''\}, array\{''page\-title'', ''services'', ''pricing'', ''faq\-columns''\}, array\{''page\-title'', ''contact\-form'', ''branches''\}\}\|array\{array\{''hero\-image'', ''guarantees'', ''process'', ''portfolio'', ''testimonials'', ''call\-to\-action''\}, array\{''page\-title'', ''story'', ''values'', ''team''\}, array\{''page\-title'', ''alternating'', ''services\-list'', ''faq'', ''cta\-bar''\}, array\{''page\-title'', ''contact\-form''\}\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: system/src/Install/Installer.php
 
 		-
-			message: '#^Offset ''revize'' does not exist on array\{druh\: string, radek\: array\<string, mixed\>, stavba\: string\|null, koncept\: string\|null, jazyk\: string\}\.$#'
+			message: '#^Parameter \#1 \$config of static method Talea\\Core\\Migrator\:\:migrate\(\) expects array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, user\: string, password\: string, prefix\?\: string\}, array\{driver\: string, host\: non\-empty\-string, port\: int, name\: string, username\: string, password\: string, prefix\: string\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: system/src/Install/Installer.php
+
+		-
+			message: '#^Offset ''revision'' does not exist on array\{kind\: string, row\: array\<string, mixed\>, build\: string\|null, draft\: string\|null, language\: string\}\.$#'
 			identifier: offsetAccess.notFound
 			count: 2
 			path: system/src/Mcp/Tools.php
 
 		-
-			message: '#^Parameter \#1 \$array \(list\<array\{draft\?\: true, nazev\: string, styl\: non\-empty\-array\<string, mixed\>\|stdClass, css\: string\}\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
+			message: '#^Offset ''slug'' does not exist on array\{idk\: int, nazev\: string, seo_link\: string\}\.$#'
+			identifier: offsetAccess.notFound
 			count: 1
 			path: system/src/Mcp/Tools.php
 
 		-
-			message: '#^Constant Kaleta\\Mcp\\Translator\:\:TOOLS \(array\<string, array\<int, array\<string, mixed\>\|string\>\>\) does not accept value array\{site_info\: array\{''info_o_webu'', ''Site name, home…'', array\{\}\}, list_pages\: array\{''seznam_stranek'', ''Pages of the site …'', array\{\}\}, get_page\: array\{''nacti_stranku'', ''The whole page…'', array\{id\: array\{''id'', ''Page ID''\}\}\}, create_page\: array\{''vytvor_stranku'', ''Creates a page …'', array\{''\*stranka''\}\}, update_page\: array\{''uprav_stranku'', ''Changes the given…'', array\{id\: array\{''id'', ''Page ID''\}, 0\: ''\*stranka''\}\}, get_menu\: array\{''nacti_menu'', ''The site menu \(main…'', array\{location\: array\{''umisteni'', ''main \(default\) \|…''\}, language\: array\{''jazyk'', ''language version …''\}\}\}, save_menu\: array\{''uloz_menu'', ''Saves the whole…'', array\{location\: array\{''umisteni'', ''main \| footer''\}, language\: array\{''jazyk'', ''language version …''\}, items\: array\{''polozky'', ''menu items''\}\}\}, builder_schema\: array\{''stavba_schema'', ''How a page is put…'', array\{elements\: array\{''prvky'', ''element types to…''\}, full\: array\{''uplne'', ''true \= the whole…''\}\}\}, \.\.\.\}\.$#'
-			identifier: classConstant.value
-			count: 1
-			path: system/src/Mcp/Translator.php
-
-		-
-			message: '#^Match expression does not handle remaining value\: mixed$#'
-			identifier: match.unhandled
-			count: 1
-			path: system/src/Mcp/Translator.php
-
-		-
-			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			message: '#^Parameter \#1 \$array \(list\<array\{draft\?\: true, name\: string, style\: non\-empty\-array\<string, mixed\>\|stdClass, css\: string\}\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
-			count: 3
-			path: system/src/Mcp/Vocabulary.php
+			count: 1
+			path: system/src/Mcp/Tools.php

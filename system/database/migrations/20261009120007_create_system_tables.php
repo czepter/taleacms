@@ -1,0 +1,272 @@
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Db\Adapter\MysqlAdapter;
+use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
+
+/** Baseline of the database schema. */
+final class CreateSystemTables extends AbstractMigration
+{
+    public function change(): void
+    {
+        $prefix = (string) $this->getAdapter()->getOption('table_prefix'); // foreign key names are unique per database
+
+        $this->table('settings', ['id' => false, 'primary_key' => ['name']])
+            ->addColumn('name', 'string', ['limit' => 60, 'null' => false])
+            ->addColumn('value', 'text', ['null' => false])
+            ->create();
+
+        $this->table('change_log', ['id' => false, 'primary_key' => ['log_id']])
+            ->addColumn('log_id', 'biginteger', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('user_name', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the name at the moment of the action (the account may be removed later)'])
+            ->addColumn('via', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the Claude connection a change came through (empty = the admin)'])
+            ->addColumn('module', 'string', ['limit' => 30, 'null' => false])
+            ->addColumn('action', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('description', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('reason', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'why (2.15): the reason Claude gave with a write tool'])
+            ->addIndex(['created_at'], ['name' => 'ix_change_log_created_at'])
+            ->addIndex(['user_id'], ['name' => 'ix_change_log_user_id'])
+            ->create();
+
+        $this->table('mail', ['id' => false, 'primary_key' => ['mail_id']])
+            ->addColumn('mail_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('recipient', 'string', ['limit' => 190, 'null' => false])
+            ->addColumn('subject', 'string', ['limit' => 255, 'null' => false])
+            ->addColumn('body', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON {text, html, hlavicky}; deleted after sending'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('sent_at', 'datetime', ['null' => true])
+            ->addColumn('attempts', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('next_attempt_at', 'datetime', ['null' => true])
+            ->addColumn('error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addIndex(['sent_at', 'next_attempt_at'], ['name' => 'ix_mail_sent_at_next_attempt_at'])
+            ->create();
+
+        $this->table('events', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('type', 'string', ['limit' => 40, 'null' => false, 'comment' => 'e.g. backup.failed, enquiry.received, update.applied'])
+            ->addColumn('severity', 'string', ['limit' => 10, 'null' => false, 'default' => 'info', 'comment' => 'info | warning | error'])
+            ->addColumn('message', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('data', 'text', ['null' => true, 'comment' => 'JSON with ids and counts, never personal data'])
+            ->addIndex(['created_at'], ['name' => 'ix_events_created_at'])
+            ->addIndex(['type', 'id'], ['name' => 'ix_events_type_id'])
+            ->create();
+
+        $this->table('jobs', ['id' => false, 'primary_key' => ['name']])
+            ->addColumn('name', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('last_run', 'datetime', ['null' => true])
+            ->addColumn('last_ok', 'datetime', ['null' => true])
+            ->addColumn('last_error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('failures', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('runs', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('duration_ms', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->create();
+
+        $this->table('webhook_deliveries', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('event', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('url', 'string', ['limit' => 500, 'null' => false])
+            ->addColumn('body', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON sent; NULL after a successful delivery'])
+            ->addColumn('attempts', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('status', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'HTTP status of the last attempt (0 = no response)'])
+            ->addColumn('error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('created', 'datetime', ['null' => false])
+            ->addColumn('next_attempt', 'datetime', ['null' => true, 'comment' => 'NULL = nothing more to do (delivered or given up)'])
+            ->addColumn('delivered', 'datetime', ['null' => true])
+            ->addIndex(['next_attempt'], ['name' => 'ix_webhook_deliveries_next_attempt'])
+            ->create();
+
+        $this->table('connectors', ['id' => false, 'primary_key' => ['service']])
+            ->addColumn('service', 'string', ['limit' => 20, 'null' => false])
+            ->addColumn('account', 'string', ['limit' => 190, 'null' => false, 'default' => '', 'comment' => 'what the connection is (an e-mail, a company name) for the admin'])
+            ->addColumn('client_id', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'the site\'s own OAuth app (Google), entered by an administrator'])
+            ->addColumn('secret', 'text', ['null' => true, 'comment' => 'encrypted: the OAuth client secret or an API token'])
+            ->addColumn('access_token', 'text', ['null' => true, 'comment' => 'encrypted'])
+            ->addColumn('refresh_token', 'text', ['null' => true, 'comment' => 'encrypted'])
+            ->addColumn('expires_at', 'datetime', ['null' => true])
+            ->addColumn('scopes', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
+            ->addColumn('config', 'text', ['null' => true, 'comment' => 'JSON: what to sync where (a sheet, a location, a pipeline)'])
+            ->addColumn('connected_at', 'datetime', ['null' => true])
+            ->addColumn('connected_by', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
+            ->addColumn('last_error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->create();
+
+        $this->table('connector_queue', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('action', 'string', ['limit' => 40, 'null' => false, 'comment' => 'e.g. sheets.append, crm.lead, gbp.hours'])
+            ->addColumn('payload', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON; emptied once delivered'])
+            ->addColumn('attempts', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('next_attempt', 'datetime', ['null' => true, 'comment' => 'NULL = done or given up'])
+            ->addColumn('last_error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('delivered_at', 'datetime', ['null' => true])
+            ->addIndex(['next_attempt'], ['name' => 'ix_connector_queue_next_attempt'])
+            ->create();
+
+        $this->table('connector_log', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('service', 'string', ['limit' => 20, 'null' => false])
+            ->addColumn('action', 'string', ['limit' => 60, 'null' => false, 'default' => ''])
+            ->addColumn('status', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'the HTTP status; 0 = no answer'])
+            ->addColumn('ok', 'boolean', ['null' => false, 'default' => 0])
+            ->addColumn('ms', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addIndex(['service', 'id'], ['name' => 'ix_connector_log_service_id'])
+            ->create();
+
+        $this->table('notice_log', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('item_id', 'integer', ['signed' => false, 'null' => false, 'comment' => 'the notice (tl_collection_items.item_id)'])
+            ->addColumn('action', 'string', ['limit' => 12, 'null' => false, 'comment' => 'created | changed | posted | taken_down'])
+            ->addColumn('at', 'datetime', ['null' => false])
+            ->addColumn('by', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'user name, "Claude" or "system"'])
+            ->addColumn('fields', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON: key => [old, new], the job writes {action: date}'])
+            ->addIndex(['item_id', 'id'], ['name' => 'ix_notice_log_item_id_id'])
+            ->create();
+
+        $this->table('facts', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('fact_key', 'string', ['limit' => 40, 'null' => false, 'comment' => 'a-z, digits, _; used as {{fact.<key>}}'])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => '\'\' = the default language'])
+            ->addColumn('label', 'string', ['limit' => 150, 'null' => false, 'default' => ''])
+            ->addColumn('type', 'string', ['limit' => 10, 'null' => false, 'default' => 'text', 'comment' => 'text | number | money | date | year | phone | email | url'])
+            ->addColumn('value', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
+            ->addColumn('schema_prop', 'string', ['limit' => 40, 'null' => false, 'default' => '', 'comment' => 'a schema.org property of the organisation, e.g. foundingDate'])
+            ->addColumn('source', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'where the fact comes from (a note or a link)'])
+            ->addColumn('updated_at', 'datetime', ['null' => false])
+            ->addIndex(['fact_key', 'language'], ['name' => 'uq_facts_fact_key_language', 'unique' => true])
+            ->create();
+
+        $this->table('fact_history', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('fact_key', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => ''])
+            ->addColumn('old_value', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
+            ->addColumn('new_value', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
+            ->addColumn('changed_at', 'datetime', ['null' => false])
+            ->addIndex(['fact_key', 'id'], ['name' => 'ix_fact_history_fact_key_id'])
+            ->create();
+
+        $this->table('hours_exceptions', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('date_from', 'date', ['null' => false])
+            ->addColumn('date_to', 'date', ['null' => false])
+            ->addColumn('closed', 'boolean', ['null' => false, 'default' => 1])
+            ->addColumn('hours', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'when open: 9:00-12:00, more ranges with a comma'])
+            ->addColumn('note', 'string', ['limit' => 150, 'null' => false, 'default' => '', 'comment' => 'e.g. Christmas, inventory'])
+            ->addColumn('notice_days', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 7, 'comment' => 'the notice bar this many days ahead (0 = no bar)'])
+            ->addColumn('proposed', 'boolean', ['null' => false, 'default' => 0, 'comment' => '1 = proposed by a drafts-only Claude connection; ignored until a person applies it (3.2)'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['date_to'], ['name' => 'ix_hours_exceptions_date_to'])
+            ->create();
+
+        $this->table('fleet_sites', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('name', 'string', ['limit' => 150, 'null' => false, 'default' => ''])
+            ->addColumn('url', 'string', ['limit' => 255, 'null' => false])
+            ->addColumn('public_key', 'string', ['limit' => 64, 'null' => false, 'comment' => 'base64 Ed25519 key of the site'])
+            ->addColumn('relay_token', 'string', ['limit' => 80, 'null' => true, 'comment' => 'the site\'s Claude token for the console; never shown or exported'])
+            ->addColumn('relay_access', 'string', ['limit' => 10, 'null' => false, 'default' => '', 'comment' => '\'\' (no relay) | read | drafts | full'])
+            ->addColumn('relay_expires', 'datetime', ['null' => true])
+            ->addColumn('ring', 'string', ['limit' => 10, 'null' => false, 'default' => 'normal', 'comment' => 'canary | normal'])
+            ->addColumn('manage_updates', 'boolean', ['null' => false, 'default' => 0, 'comment' => 'the site lets the console decide when updates install'])
+            ->addColumn('update_allowed', 'string', ['limit' => 30, 'null' => false, 'default' => '', 'comment' => 'the version the console allowed the site to install'])
+            ->addColumn('paired_at', 'datetime', ['null' => false])
+            ->addColumn('last_seen', 'datetime', ['null' => true, 'comment' => 'the last heartbeat'])
+            ->addColumn('last_ts', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'its time stamp: an older or repeated heartbeat is refused'])
+            ->addColumn('heartbeat', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'the last heartbeat (JSON)'])
+            ->addColumn('version', 'string', ['limit' => 30, 'null' => false, 'default' => ''])
+            ->addColumn('version_since', 'datetime', ['null' => true])
+            ->addColumn('status', 'string', ['limit' => 10, 'null' => false, 'default' => '', 'comment' => 'the site\'s own health summary: ok | warning | error'])
+            ->addColumn('up', 'boolean', ['null' => true, 'comment' => 'the console\'s own check: 1 up, 0 down, NULL not checked yet'])
+            ->addColumn('up_status', 'smallinteger', ['signed' => true, 'null' => false, 'default' => 0, 'comment' => 'the HTTP status of the last check (0 = no answer)'])
+            ->addColumn('up_checked', 'datetime', ['null' => true])
+            ->addColumn('up_changed', 'datetime', ['null' => true])
+            ->addColumn('up_failures', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('silent_reported', 'boolean', ['null' => false, 'default' => 0, 'comment' => '"stopped reporting" already recorded as an event'])
+            ->addIndex(['public_id'], ['name' => 'uq_fleet_sites_public_id', 'unique' => true])
+            ->addIndex(['public_key'], ['name' => 'uq_fleet_sites_public_key', 'unique' => true])
+            ->create();
+
+        $this->table('fleet_pairing', ['id' => false, 'primary_key' => ['code_hash']])
+            ->addColumn('code_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the one-time code'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('expires_at', 'datetime', ['null' => false])
+            ->addColumn('used_at', 'datetime', ['null' => true])
+            ->addColumn('site_id', 'integer', ['signed' => false, 'null' => true])
+            ->create();
+
+        $this->table('fleet_kits', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('version', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('created_by', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('manifest', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false])
+            ->addColumn('sha256', 'char', ['limit' => 64, 'null' => false, 'comment' => 'of the manifest bytes: a site checks the kit it fetched against the announced hash'])
+            ->addColumn('summary', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'what it carries, in words'])
+            ->addIndex(['version'], ['name' => 'uq_fleet_kits_version', 'unique' => true])
+            ->create();
+
+        $this->table('agent_sessions', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('connection', 'string', ['limit' => 100, 'null' => false, 'comment' => 'the name of the Claude connection'])
+            ->addColumn('started_at', 'datetime', ['null' => false])
+            ->addColumn('last_at', 'datetime', ['null' => false])
+            ->addColumn('calls', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'tool calls that change the site'])
+            ->addColumn('undone_at', 'datetime', ['null' => true])
+            ->addColumn('undone_by', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
+            ->addIndex(['connection', 'last_at'], ['name' => 'ix_agent_sessions_connection_last_at'])
+            ->create();
+
+        $this->table('agent_journal', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('session_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('call_no', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('tool', 'string', ['limit' => 60, 'null' => false, 'default' => ''])
+            ->addColumn('tbl', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('row_key', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'JSON of the primary key; empty for an untracked write'])
+            ->addColumn('before_row', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON of the row before; NULL = the row did not exist'])
+            ->addColumn('after_row', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON of the row after; NULL = deleted'])
+            ->addColumn('untracked', 'string', ['limit' => 120, 'null' => true, 'comment' => 'a write that could not be followed row by row, and why'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['session_id', 'id'], ['name' => 'ix_agent_journal_session_id_id'])
+            ->addForeignKey('session_id', 'agent_sessions', 'id', ['constraint' => $prefix . 'fk_agent_journal_session_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('agent_schedules', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('name', 'string', ['limit' => 150, 'null' => false])
+            ->addColumn('task', 'string', ['limit' => 30, 'null' => false, 'comment' => 'review | report | triage | requests | custom'])
+            ->addColumn('text', 'text', ['null' => false, 'comment' => 'the instructions of a custom task; optional extra for the others'])
+            ->addColumn('cadence', 'string', ['limit' => 10, 'null' => false, 'comment' => 'daily | weekly | monthly'])
+            ->addColumn('day', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 1, 'comment' => 'weekly: ISO weekday 1–7; monthly: day of month 1–28'])
+            ->addColumn('time', 'char', ['limit' => 5, 'null' => false, 'default' => '07:00', 'comment' => 'HH:MM in the site\'s time zone'])
+            ->addColumn('active', 'boolean', ['null' => false, 'default' => 1])
+            ->addColumn('next_due', 'datetime', ['null' => true, 'comment' => 'the next moment a run is handed out (site time)'])
+            ->addColumn('last_run_at', 'datetime', ['null' => true])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['active', 'next_due'], ['name' => 'ix_agent_schedules_active_next_due'])
+            ->create();
+
+        $this->table('agent_runs', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('schedule_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('due_at', 'datetime', ['null' => false])
+            ->addColumn('started_at', 'datetime', ['null' => true, 'comment' => 'when get_due_agent_runs handed it out'])
+            ->addColumn('finished_at', 'datetime', ['null' => true])
+            ->addColumn('status', 'string', ['limit' => 10, 'null' => false, 'default' => 'running', 'comment' => 'running | ok | partial | failed | missed'])
+            ->addColumn('summary', 'text', ['null' => true])
+            ->addColumn('links', 'text', ['null' => true, 'comment' => 'JSON list of {"label": …, "url": …}'])
+            ->addColumn('connection', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the name of the Claude connection that did the run'])
+            ->addIndex(['schedule_id', 'id'], ['name' => 'ix_agent_runs_schedule_id_id'])
+            ->addForeignKey('schedule_id', 'agent_schedules', 'id', ['constraint' => $prefix . 'fk_agent_runs_schedule_id', 'delete' => 'CASCADE'])
+            ->create();
+
+    }
+}

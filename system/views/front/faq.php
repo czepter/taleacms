@@ -8,12 +8,12 @@ if ($faq === []) {
     return;
 }
 ?>
-<section class="faq obal-uzky">
+<section class="faq wrap-narrow">
 	<h2><?= e(t('Questions and answers')) ?></h2>
-<?php foreach ($faq as [$otazka, $odpoved]): ?>
+<?php foreach ($faq as [$question, $answer]): ?>
 	<details>
-		<summary><?= e($otazka) ?></summary>
-		<p><?= nl2br(e($odpoved)) ?></p>
+		<summary><?= e($question) ?></summary>
+		<p><?= nl2br(e($answer)) ?></p>
 	</details>
 <?php endforeach ?>
 </section>

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Addresses visitors could not find (table ka_nenalezeno): what the administrator should redirect.
+ * Addresses visitors could not find (table tl_not_found): what the administrator should redirect.
  *
  * The log keeps itself useful (1.9): probes of bots looking for other systems are never recorded, an address that works
  * again (the page was published, a translation added) or has a redirect drops out, and an address the administrator
@@ -33,22 +33,22 @@ final class NotFound
      * Addresses that still end in 404, were hit repeatedly in the last $days days and were not ignored. On the way, rows
      * that work again, have a redirect or are bot probes recorded by an older version are removed.
      *
-     * @return list<array{cesta: string, pocet: int, naposledy: string}>
+     * @return list<array{path: string, count: int, last_seen_at: string}>
      */
     public static function pending(App $app, int $days = 7, int $limit = 100): array
     {
         $db = $app->db();
         $audit = new Audit($app);
         $out = [];
-        foreach ($db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} WHERE ignorovano IS NULL AND naposledy > NOW() - INTERVAL ? DAY AND pocet >= ? ORDER BY pocet DESC, naposledy DESC LIMIT 500', [$days, self::HITS]) as $r) {
-            $path = (string) $r['cesta'];
+        foreach ($db->all('SELECT path, count, last_seen_at FROM {not_found} WHERE ignored_at IS NULL AND last_seen_at > NOW() - INTERVAL ? DAY AND count >= ? ORDER BY count DESC, last_seen_at DESC LIMIT 500', [$days, self::HITS]) as $r) {
+            $path = (string) $r['path'];
             if (self::isBot($path) || $audit->resolves('/' . $path)) {
-                $db->delete('nenalezeno', ['cesta' => $path]); // nothing to do about it any more
+                $db->delete('not_found', ['path' => $path]); // nothing to do about it any more
 
                 continue;
             }
             if (count($out) < $limit) {
-                $out[] = ['cesta' => $path, 'pocet' => (int) $r['pocet'], 'naposledy' => (string) $r['naposledy']];
+                $out[] = ['path' => $path, 'count' => (int) $r['count'], 'last_seen_at' => (string) $r['last_seen_at']];
             }
         }
 
@@ -60,11 +60,11 @@ final class NotFound
     {
         $db = $app->db();
         if ($paths === null) {
-            $paths = array_column(self::pending($app, 60, 500), 'cesta');
+            $paths = array_column(self::pending($app, 60, 500), 'path');
         }
         $count = 0;
         foreach ($paths as $path) {
-            $count += $db->run('UPDATE {nenalezeno} SET ignorovano = NOW() WHERE cesta = ? AND ignorovano IS NULL', [trim((string) $path, '/')])->rowCount();
+            $count += $db->run('UPDATE {not_found} SET ignored_at = NOW() WHERE path = ? AND ignored_at IS NULL', [trim((string) $path, '/')])->rowCount();
         }
 
         return $count;

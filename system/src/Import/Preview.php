@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * The overview of an export before anything is imported (step 2 of the admin flow): counts per kind, the first TITLES
@@ -17,46 +17,46 @@ final class Preview
     /** @return array<string, mixed> */
     public static function empty(): array
     {
-        return ['autori' => 0, 'rubriky' => 0, 'stitky' => 0, 'clanky' => [], 'stranky' => [], 'media' => 0, 'obrazky' => 0,
-            'tituly' => ['post' => [], 'page' => []], 'varovani' => [], 'bloky' => [], 'adresy' => [], 'poznamky' => []];
+        return ['authors' => 0, 'categories' => 0, 'tags' => 0, 'articles' => [], 'pages' => [], 'media' => 0, 'images' => 0,
+            'titles' => ['post' => [], 'page' => []], 'warnings' => [], 'blocks' => [], 'urls' => [], 'notes' => []];
     }
 
     /** @param array<string, mixed> $p */
     public static function tally(array &$p, Author|Category|Tag|Post|Media $record): void
     {
         if ($record instanceof Author) {
-            $p['autori']++;
+            $p['authors']++;
         } elseif ($record instanceof Category) {
-            $p['rubriky']++;
+            $p['categories']++;
         } elseif ($record instanceof Tag) {
-            $p['stitky']++;
+            $p['tags']++;
         } elseif ($record instanceof Media) {
             $p['media']++;
         } else {
-            $kind = $record->type === 'page' ? 'stranky' : 'clanky';
+            $kind = $record->type === 'page' ? 'pages' : 'articles';
             $p[$kind][$record->status] = ($p[$kind][$record->status] ?? 0) + 1;
-            if (count($p['tituly'][$record->type]) < self::TITLES) {
-                $p['tituly'][$record->type][] = mb_substr($record->title !== '' ? $record->title : t('(untitled)'), 0, 120);
+            if (count($p['titles'][$record->type]) < self::TITLES) {
+                $p['titles'][$record->type][] = mb_substr($record->title !== '' ? $record->title : t('(untitled)'), 0, 120);
             }
             preg_match_all('#<img\b[^>]*\bsrc=["\']([^"\']*)#i', $record->html, $m);
-            $p['obrazky'] += count($m[1]);
+            $p['images'] += count($m[1]);
             $images = $record->featureImageUrl !== '' ? [...$m[1], $record->featureImageUrl] : $m[1];
             $missing = count(array_filter($images, fn (string $url): bool => !preg_match('#^https?://#i', html_entity_decode($url, ENT_QUOTES | ENT_HTML5))));
             if ($missing > 0) {
-                $p['varovani']['missing_images'] = ($p['varovani']['missing_images'] ?? 0) + $missing;
+                $p['warnings']['missing_images'] = ($p['warnings']['missing_images'] ?? 0) + $missing;
             }
             foreach ($record->warnings as $code) {
                 if (str_starts_with($code, 'block:')) {
                     $block = mb_substr(substr($code, 6), 0, 40);
-                    $p['bloky'][$block] = ($p['bloky'][$block] ?? 0) + 1;
+                    $p['blocks'][$block] = ($p['blocks'][$block] ?? 0) + 1;
                 } else {
-                    $p['varovani'][mb_substr($code, 0, 40)] = ($p['varovani'][mb_substr($code, 0, 40)] ?? 0) + 1;
+                    $p['warnings'][mb_substr($code, 0, 40)] = ($p['warnings'][mb_substr($code, 0, 40)] ?? 0) + 1;
                 }
             }
             // the slug a post or page will fight for; a second one with the same gets a number (Core\Slug::makeUnique)
             $slug = $record->type . ':' . mb_substr(slugify($record->slug !== '' ? $record->slug : $record->title, 150), 0, 150);
-            if (count($p['adresy']) < 20000 || isset($p['adresy'][$slug])) {
-                $p['adresy'][$slug] = ($p['adresy'][$slug] ?? 0) + 1;
+            if (count($p['urls']) < 20000 || isset($p['urls'][$slug])) {
+                $p['urls'][$slug] = ($p['urls'][$slug] ?? 0) + 1;
             }
         }
     }
@@ -68,18 +68,18 @@ final class Preview
      */
     public static function finish(array &$p, Source $source): void
     {
-        $duplicates = array_sum(array_map(fn (int $n): int => $n - 1, $p['adresy']));
+        $duplicates = array_sum(array_map(fn (int $n): int => $n - 1, $p['urls']));
         if ($duplicates > 0) {
-            $p['varovani']['duplicate_slugs'] = $duplicates;
+            $p['warnings']['duplicate_slugs'] = $duplicates;
         }
-        $p['adresy'] = [];
-        if ($p['bloky'] !== []) {
-            arsort($p['bloky']);
-            $p['bloky'] = array_slice($p['bloky'], 0, 15, true);
+        $p['urls'] = [];
+        if ($p['blocks'] !== []) {
+            arsort($p['blocks']);
+            $p['blocks'] = array_slice($p['blocks'], 0, 15, true);
         }
-        $p['poznamky'] = $source->notes();
-        if ($source->site()['adresa'] === '') {
-            $p['varovani']['no_site_url'] = 1;
+        $p['notes'] = $source->notes();
+        if ($source->site()['url'] === '') {
+            $p['warnings']['no_site_url'] = 1;
         }
     }
 

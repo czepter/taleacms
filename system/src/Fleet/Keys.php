@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Core\Settings;
-use Kaleta\Core\Signature;
+use Talea\Core\Settings;
+use Talea\Core\Signature;
 
 /**
  * The site's own key pair (2.9): Ed25519 like the publisher's update signatures (Core\Signature). A site signs its

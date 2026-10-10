@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Ghost: the JSON export from Ghost Admin → Settings → Labs → Export your content.
@@ -64,7 +64,7 @@ final class Ghost implements Source
             }
         }
 
-        return ['nazev' => mb_substr($name, 0, 150), 'adresa' => $this->siteUrl];
+        return ['name' => mb_substr($name, 0, 150), 'url' => $this->siteUrl];
     }
 
     public function imagesFromAnyHost(): bool

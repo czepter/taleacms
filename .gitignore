@@ -8,15 +8,22 @@
 /media/*
 !/media/.htaccess
 /dist/
-/tools/klice/
-/tools/klice
-/storage/zalohy/
+/tools/keys/
+/tools/keys
+/storage/backups/
 /storage/import/*
 !/storage/import/.htaccess
 !/storage/import/.gitkeep
 /.claude/
 
-# add-ons of a site (3.0) – only the README ships with Kaleta
+# add-ons of a site (3.0) – only the README ships with Talea
 /extensions/*
 !/extensions/README.md
+!/extensions/domain_watch/
+!/extensions/firewall/
+!/extensions/client_galleries/
 /.env
+
+# PHPUnit
+/.phpunit.cache/
+/.phpunit.result.cache

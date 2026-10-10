@@ -1,4 +1,4 @@
-/* Kaleta - real-user speed (Core Web Vitals) for the site's own statistics. No libraries, no cookies, no identifiers:
+/* Talea - real-user speed (Core Web Vitals) for the site's own statistics. No libraries, no cookies, no identifiers:
  * LCP, CLS and INP of this page view go once to POST /vitals (navigator.sendBeacon) when the visitor leaves or hides the page.
  * Front\Seo::head() loads the script only when the built-in statistics are on; the endpoint is in data-vitals. Core\WebVitals
  * aggregates the values per page and day. Browsers without PerformanceObserver (or without a metric) simply send less. */

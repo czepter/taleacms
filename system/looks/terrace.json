@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "terrace",
+    "name": "Terrace",
+    "description": "Warm and refined: terracotta, a classic garalde serif and a contact bar. For hotels and real estate.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#9a3b1f",
+            "secondary": "#2f5d62",
+            "text": "#2b211c",
+            "background": "#fdf9f4",
+            "surface": "#f3e9dd"
+        },
+        "colors_dark": {
+            "text": "#f0e6da",
+            "background": "#171210",
+            "surface": "#231b17",
+            "primary": "#f0956f",
+            "secondary": "#7fc0c6"
+        },
+        "font_heading": "lib:eb-garamond",
+        "font_body": "lib:work-sans",
+        "radius": "s",
+        "ratio_min": 1.25,
+        "ratio_max": 1.333,
+        "base_min": 1.0625,
+        "base_max": 1.1875,
+        "width": 72,
+        "text_width": 42
+    },
+    "header": "with-bar",
+    "footer": "imprint",
+    "sections": [
+        "hero-image",
+        "alternating",
+        "services",
+        "gallery",
+        "testimonials",
+        "contact-form"
+    ]
+}

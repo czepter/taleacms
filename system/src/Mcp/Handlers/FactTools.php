@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\Facts;
-use Kaleta\Core\Language;
+use Talea\Core\Facts;
+use Talea\Core\Language;
 
 /**
  * MCP tools for business facts (2.10, Core\Facts): the facts, saving them, and the claims inventory – sentences that
@@ -18,11 +18,11 @@ trait FactTools
     /** list_facts */
     private function toolListFacts(string $name, array $a): mixed
     {
-        $language = preg_match('/^[a-z]{2}$/D', (string) ($a['language'] ?? '')) ? (string) $a['language'] : '';
+        $language = preg_match('/^[a-z]{2}$/', (string) ($a['language'] ?? '')) ? (string) $a['language'] : '';
         $usage = Facts::usage($this->app->db());
 
         return [
-            'facts' => array_values(array_map(fn (array $f): array => ['key' => $f['key'], 'label' => $f['builtIn'] ? (Facts::BUILT_IN[$f['key']] ?? $f['label']) : $f['label'], 'type' => $f['type'], 'value' => $f['value'], 'shown_as' => $f['display'],
+            'facts' => array_values(array_map(fn (array $f): array => ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type'], 'value' => $f['value'], 'shown_as' => $f['display'],
                 'schema_property' => $f['schema'] !== '' ? $f['schema'] : null, 'source' => $f['source'] !== '' ? $f['source'] : null, 'from_settings' => $f['builtIn'],
                 'used_in' => $usage[$f['key']] ?? 0], Facts::all($this->app, $language))),
             'token' => '{{fact.<key>}} in texts, buttons, links (tel:{{fact.company_phone}}) and the number of a counter; the site fills it in for visitors.',
@@ -40,7 +40,7 @@ trait FactTools
             throw new \DomainException('Facts are changed by people with access to Business details – the site states them everywhere.');
         }
         $key = mb_strtolower(trim((string) ($a['key'] ?? '')));
-        $language = preg_match('/^[a-z]{2}$/D', (string) ($a['language'] ?? '')) && in_array((string) $a['language'], Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
+        $language = preg_match('/^[a-z]{2}$/', (string) ($a['language'] ?? '')) && in_array((string) $a['language'], Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
         $before = Facts::all($this->app)[$key] ?? null;
         $data = array_filter(['label' => $a['label'] ?? null, 'type' => $a['type'] ?? null, 'value' => isset($a['value']) ? (string) $a['value'] : null,
             'schema' => $a['schema_property'] ?? null, 'source' => $a['source'] ?? null], fn (mixed $v): bool => $v !== null);
@@ -88,16 +88,16 @@ trait FactTools
     private function toolListHours(string $name, array $a): mixed
     {
         $s = $this->app->settings();
-        $week = \Kaleta\Core\Hours::week($s);
+        $week = \Talea\Core\Hours::week($s);
 
         return [
             'week' => array_map(fn (array $ranges): array => array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges), $week),
             'as_written' => $s->get('company_hours'),
-            'exceptions' => \Kaleta\Core\Hours::exceptions($this->app->db(), (bool) ($a['past_too'] ?? false)),
+            'exceptions' => \Talea\Core\Hours::exceptions($this->app->db(), (bool) ($a['past_too'] ?? false)),
             // proposed by a drafts-only connection (3.2): the site ignores them until a person applies them
-            'proposed' => \Kaleta\Core\Hours::proposed($this->app->db()),
-            'now' => \Kaleta\Core\Hours::statusText($this->app),
-            'today' => \Kaleta\Core\Hours::todayText($this->app),
+            'proposed' => \Talea\Core\Hours::proposed($this->app->db()),
+            'now' => \Talea\Core\Hours::statusText($this->app),
+            'today' => \Talea\Core\Hours::todayText($this->app),
             'tokens' => '{{hours.status}} (open now, until when) and {{hours.today}} (today\'s hours) in texts; the Company details element shows the hours with the exceptions of the next 30 days.',
             'next' => 'The regular week is changed with update_settings (company_hours, one day or range per line). Holidays and other days: save_hours_exception.',
         ];
@@ -115,17 +115,17 @@ trait FactTools
         $db = $this->app->db();
         $id = (int) ($a['id'] ?? 0);
         $propose = $this->app->auth()->draftsOnly();
-        if ($propose && $id > 0 && \Kaleta\Core\Hours::find($db, $id, true) === null) {
+        if ($propose && $id > 0 && \Talea\Core\Hours::find($db, $id, true) === null) {
             throw new \DomainException('This connection can only propose exceptions to the opening hours, and this one is already in use on the site (or does not exist). '
                 . 'Propose the change as a new exception without id – a person applies it – or write it into the note for a person to change.');
         }
-        $error = \Kaleta\Core\Hours::save($this->app, ['from' => (string) ($a['from'] ?? ''), 'to' => (string) ($a['to'] ?? ''), 'closed' => ($a['hours'] ?? '') === '' || (bool) ($a['closed'] ?? false),
+        $error = \Talea\Core\Hours::save($this->app, ['from' => (string) ($a['from'] ?? ''), 'to' => (string) ($a['to'] ?? ''), 'closed' => ($a['hours'] ?? '') === '' || (bool) ($a['closed'] ?? false),
             'hours' => (string) ($a['hours'] ?? ''), 'note' => (string) ($a['note'] ?? ''), 'notice_days' => (int) ($a['notice_days'] ?? 7), 'proposed' => $propose], $id);
         if ($error !== null) {
             throw new \DomainException($error);
         }
 
-        return ['exceptions' => \Kaleta\Core\Hours::exceptions($db), 'proposed' => \Kaleta\Core\Hours::proposed($db), 'now' => \Kaleta\Core\Hours::statusText($this->app)]
+        return ['exceptions' => \Talea\Core\Hours::exceptions($db), 'proposed' => \Talea\Core\Hours::proposed($db), 'now' => \Talea\Core\Hours::statusText($this->app)]
             + ($propose ? ['next' => 'Saved as a PROPOSAL: the site does not use it yet – not in the hours, the notice bar, the structured data or Google. '
                 . 'A person applies it in the administration (the exceptions to the opening hours, “Proposed by Claude”); tell the user it waits there.'] : []);
     }
@@ -136,10 +136,10 @@ trait FactTools
         if (!$this->app->auth()->hasModule('business')) { // 3.2: whoever may open Business details (owner decision: editors too)
             throw new \DomainException('Opening hours are changed by people with access to Business details.');
         }
-        if (!\Kaleta\Core\Hours::delete($this->app, (int) ($a['id'] ?? 0))) {
+        if (!\Talea\Core\Hours::delete($this->app, (int) ($a['id'] ?? 0))) {
             throw new \DomainException('No such exception. Use list_hours.');
         }
 
-        return ['exceptions' => \Kaleta\Core\Hours::exceptions($this->app->db())];
+        return ['exceptions' => \Talea\Core\Hours::exceptions($this->app->db())];
     }
 }

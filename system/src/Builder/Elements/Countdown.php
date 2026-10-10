@@ -2,59 +2,56 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Countdown to a date (an event, an opening, a deadline): days, hours, minutes and seconds. The server outputs the state at the moment
- * of rendering, web.js then counts it down every second; once it has passed, the „po skončení“ (after the end) text is shown.
+ * of rendering, web.js then counts it down every second; once it has passed, the "after the end" text is shown.
  */
 final class Countdown extends Element
 {
-    public const string TYPE = 'odpocet';
+    public const string TYPE = 'countdown';
     public const string NAME = 'Countdown';
     public const string DESCRIPTION = 'Time remaining until a date – an event, an opening, a registration deadline.';
-    public const string ICON = 'odpocet';
+    public const string ICON = 'countdown';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'cil' => ['typ' => 'text', 'popisek' => 'Until (YYYY-MM-DD HH:MM)', 'vychozi' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
-            'konec' => ['typ' => 'text', 'popisek' => 'Text when finished', 'vychozi' => t('The event is on now.'), 'max' => 200],
+            'target' => ['type' => 'text', 'label' => 'Until (YYYY-MM-DD HH:MM)', 'default' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
+            'end_text' => ['type' => 'text', 'label' => 'Text when finished', 'default' => t('The event is on now.'), 'max' => 200],
         ];
     }
 
     public static function baseCss(): string
     {
-        return '.ka-odpocet { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-s); margin: 0; }
-.ka-odpocet > dl { display: contents; }
-.ka-odpocet dl > div { display: grid; min-width: 4.5rem; padding: var(--ka-mezera-s); border-radius: var(--ka-zaobleni); background: var(--ka-barva-plocha); text-align: center; }
-.ka-odpocet dd { order: -1; margin: 0; font: 800 var(--ka-krok-4)/1 var(--ka-pismo-titulky); font-variant-numeric: tabular-nums; }
-.ka-odpocet dt { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }';
+        return '.tl-countdown { display: flex; flex-wrap: wrap; gap: var(--tl-space-s); margin: 0; }
+.tl-countdown > div { display: grid; min-width: 4.5rem; padding: var(--tl-space-s); border-radius: var(--tl-radius); background: var(--tl-color-surface); text-align: center; }
+.tl-countdown dd { order: -1; margin: 0; font: 800 var(--tl-step-4)/1 var(--tl-font-heading); font-variant-numeric: tabular-nums; }
+.tl-countdown dt { color: var(--tl-color-muted); font-size: var(--tl-step--1); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
-        $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/D', (string) $o['cil']) ? strtotime((string) $o['cil']) : false;
+        $o = $p['content'];
+        $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/', (string) $o['target']) ? strtotime((string) $o['target']) : false;
         if ($target === false) {
             return $k->editor ? '<p' . $a . '>' . e(t('Enter the date as YYYY-MM-DD HH:MM.')) . '</p>' : '';
         }
         $remaining = $target - time();
         if ($remaining <= 0) {
-            return '<p' . Text::withClass($a, 'ka-odpocet-konec') . '>' . e($o['konec']) . '</p>';
+            return '<p' . Text::withClass($a, 'tl-countdown-end') . '>' . e($o['end_text']) . '</p>';
         }
-        $parts = ['d' => [intdiv($remaining, 86400), t('days')], 'h' => [intdiv($remaining % 86400, 3600), t('hodin')], 'm' => [intdiv($remaining % 3600, 60), t('minutes')], 's' => [$remaining % 60, t('seconds')]];
+        $parts = ['d' => [intdiv($remaining, 86400), t('days')], 'h' => [intdiv($remaining % 86400, 3600), t('hours')], 'm' => [intdiv($remaining % 3600, 60), t('minutes')], 's' => [$remaining % 60, t('seconds')]];
         $html = '';
         foreach ($parts as $key => [$number, $name]) {
-            $html .= '<div><dt>' . e($name) . '</dt><dd data-cast="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
+            $html .= '<div><dt>' . e($name) . '</dt><dd data-part="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
         }
 
-        // the timer role on a wrapper: on the <dl> itself it would replace the list role and orphan its <dt>/<dd> (3.5);
-        // the list takes no box of its own, so the element's style still lays out the parts
-        return '<div' . Text::withClass($a, 'ka-odpocet') . ' data-odpocet="' . e(date('c', $target)) . '" data-konec="' . e($o['konec']) . '" role="timer" aria-live="off"><dl>' . $html . '</dl></div>';
+        return '<dl' . Text::withClass($a, 'tl-countdown') . ' data-countdown="' . e(date('c', $target)) . '" data-end="' . e($o['end_text']) . '" role="timer" aria-live="off">' . $html . '</dl>';
     }
 }

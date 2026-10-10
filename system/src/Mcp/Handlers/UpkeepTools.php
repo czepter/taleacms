@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\InternalLinks;
-use Kaleta\Core\Links;
+use Talea\Core\InternalLinks;
+use Talea\Core\Links;
 
 /**
  * MCP tools for links that look after themselves (2.14): the broken links the background check found across the site

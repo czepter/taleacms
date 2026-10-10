@@ -1,0 +1,28 @@
+{
+    "name": "Manrope",
+    "category": "sans",
+    "weights": [
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "manrope.woff2",
+            "weight": "200 800",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/manrope",
+    "licence": "OFL-1.1"
+}

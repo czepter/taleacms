@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * Content check of one page or news item (2.14): a short checklist computed on the server – the title and description
@@ -98,7 +98,7 @@ final class ContentCheck
     }
 
     /**
-     * The check of a page row (ka_stranky): a build page is judged by the content of its draft (otherwise the published
+     * The check of a page row (tl_pages): a build page is judged by the content of its draft (otherwise the published
      * build), a text page by its text with the title as the H1 the site prints above it.
      *
      * @param array<string, mixed> $page
@@ -106,18 +106,18 @@ final class ContentCheck
      */
     public static function forPage(array $page): array
     {
-        $build = Build::fromJson($page['stavba_koncept'] ?? $page['stavba'] ?? null);
+        $build = Build::fromJson($page['build_draft'] ?? $page['build'] ?? null);
 
         return self::run([
-            'title' => (string) ($page['seo_titulek'] !== '' ? $page['seo_titulek'] : $page['titulek']),
-            'description' => (string) ($page['popis'] ?? ''),
+            'title' => (string) ($page['seo_title'] !== '' ? $page['seo_title'] : $page['title']),
+            'description' => (string) ($page['description'] ?? ''),
             'html' => $build !== null ? Build::asText($build) : (string) ($page['text'] ?? ''),
             'title_is_h1' => $build === null,
         ]);
     }
 
     /**
-     * The check of a news item (ka_novinky): the title is the H1, the lead and the text are the content; without its own
+     * The check of a news item (tl_news): the title is the H1, the lead and the text are the content; without its own
      * description the site uses the beginning of the lead.
      *
      * @param array<string, mixed> $newsItem
@@ -125,11 +125,11 @@ final class ContentCheck
      */
     public static function forNews(array $newsItem): array
     {
-        $lead = (string) ($newsItem['uvod'] ?? '');
+        $lead = (string) ($newsItem['intro'] ?? '');
 
         return self::run([
-            'title' => (string) ($newsItem['seo_titulek'] !== '' ? $newsItem['seo_titulek'] : $newsItem['titulek']),
-            'description' => (string) ($newsItem['seo_popis'] !== '' ? $newsItem['seo_popis'] : mb_strimwidth(trim(strip_tags($lead)), 0, 300, '…')),
+            'title' => (string) ($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title']),
+            'description' => (string) ($newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($lead)), 0, 300, '…')),
             'html' => $lead . "\n" . (string) ($newsItem['text'] ?? ''),
             'title_is_h1' => true,
         ]);
@@ -146,7 +146,7 @@ final class ContentCheck
 
     /**
      * The given keyword, otherwise the opening phrase of the title: up to the first KEYWORD_WORDS words of three or more
-     * letters, with the short words between them kept ("Kuchyně na míru"), so the phrase can be found as written.
+     * letters, with the short words between them kept ("Kitchens made to measure"), so the phrase can be found as written.
      */
     private static function keyword(string $given, string $title): string
     {

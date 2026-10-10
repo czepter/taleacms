@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Connector;
+use Talea\Connectors\Connector;
 
 /**
  * Outbound connectors (2.13): one careful foundation for the outside services a site talks to, with small features on
@@ -15,16 +15,16 @@ use Kaleta\Connectors\Connector;
  *    the admin form never shows them back, MCP never sees them, the site export never carries them.
  *  - OAuth with PKCE and a state bound to the session; the access token is refreshed with the refresh token when it
  *    expires; disconnecting revokes it where the service allows it.
- *  - Every call is rate-limited per service and logged without its content (ka_connector_log); deliveries that may fail
+ *  - Every call is rate-limited per service and logged without its content (tl_connector_log); deliveries that may fail
  *    (a lead to a CRM, a row to a sheet) go through a queue with retries, run by the scheduler job 'connectors'.
  *
- * Tests point every service at a fake one with the environment variable KALETA_CONNECTORS_FAKE (a base URL that replaces
+ * Tests point every service at a fake one with the environment variable TALEA_CONNECTORS_FAKE (a base URL that replaces
  * the scheme and host of every call); it cannot be set from the administration.
  */
 final class Connectors
 {
     /** @var list<class-string<Connector>> */
-    public const array SERVICES = [\Kaleta\Connectors\Google::class, \Kaleta\Connectors\Bing::class, \Kaleta\Connectors\HubSpot::class, \Kaleta\Connectors\Pipedrive::class, \Kaleta\Connectors\Raynet::class];
+    public const array SERVICES = [\Talea\Connectors\Google::class, \Talea\Connectors\Bing::class, \Talea\Connectors\HubSpot::class, \Talea\Connectors\Pipedrive::class, \Talea\Connectors\Raynet::class];
 
     /** Queue handlers: the prefix of an action => the class with a static deliver(App, string $action, array $payload): string. */
     public const array HANDLERS = ['gbp' => GoogleBusiness::class, 'sheets' => EnquirySheet::class, 'crm' => EnquiryCrm::class];
@@ -48,7 +48,7 @@ final class Connectors
 
     private static function vaultKey(Settings $settings): string
     {
-        return sodium_crypto_generichash('kaleta-connectors|' . (new Antispam($settings->db(), $settings))->key(), '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
+        return sodium_crypto_generichash('talea-connectors|' . (new Antispam($settings->db(), $settings))->key(), '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
     }
 
     public static function encrypt(Settings $settings, string $plain): string
@@ -122,7 +122,7 @@ final class Connectors
         } else {
             $db->update('connectors', $row, ['service' => $key]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
+        \Talea\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
     }
 
     /**
@@ -140,14 +140,14 @@ final class Connectors
         } else {
             $db->update('connectors', ['config' => (string) json_encode($merged, JSON_UNESCAPED_UNICODE)], ['service' => $key]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
+        \Talea\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
     }
 
     private static function who(App $app): string
     {
         $user = $app->auth()->user();
 
-        return mb_substr((string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['user'] ?? '')), 0, 100);
+        return mb_substr((string) (($user['name'] ?? '') !== '' ? $user['name'] : ($user['username'] ?? '')), 0, 100);
     }
 
     /* ---------- OAuth ---------- */
@@ -259,7 +259,7 @@ final class Connectors
         $app->db()->update('connectors', ['access_token' => null, 'refresh_token' => null, 'expires_at' => null, 'connected_at' => null, 'last_error' => '']
             + ($class::AUTH !== 'oauth' ? ['secret' => null] : []), ['service' => $key]);
         $class::disconnected($app);
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'disconnect', $key);
+        \Talea\Admin\ChangeLog::write($app, 'connectors', 'disconnect', $key);
     }
 
     /* ---------- calls ---------- */
@@ -300,11 +300,11 @@ final class Connectors
         return $answer;
     }
 
-    /** The real address, or the fake service in tests (KALETA_CONNECTORS_FAKE keeps the path and the query). */
+    /** The real address, or the fake service in tests (TALEA_CONNECTORS_FAKE keeps the path and the query). */
     public static function url(string $url): string
     {
-        $fake = getenv('KALETA_CONNECTORS_FAKE');
-        if (is_string($fake) && $fake !== '' && preg_match('#^https://[^/]+(/.*)?$#D', $url, $m) === 1) {
+        $fake = getenv('TALEA_CONNECTORS_FAKE');
+        if (is_string($fake) && $fake !== '' && preg_match('#^https://[^/]+(/.*)?$#', $url, $m) === 1) {
             return rtrim($fake, '/') . ($m[1] ?? '/');
         }
 
@@ -320,7 +320,7 @@ final class Connectors
         $started = microtime(true);
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_HTTPHEADER => array_map(fn (string $k, string $v): string => $k . ': ' . $v, array_keys($headers), $headers), CURLOPT_USERAGENT => 'Kaleta/' . KALETA_VERSION]
+            CURLOPT_HTTPHEADER => array_map(fn (string $k, string $v): string => $k . ': ' . $v, array_keys($headers), $headers), CURLOPT_USERAGENT => 'Talea/' . TALEA_VERSION]
             + ($body !== null ? [CURLOPT_POSTFIELDS => $body] : []));
         $raw = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);

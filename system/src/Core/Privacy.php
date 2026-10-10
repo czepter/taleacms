@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * EU duties a site owner would otherwise do by hand on every site (2.14): what cookies and storage the site really uses,
@@ -12,7 +12,7 @@ use Kaleta\Builder\Build;
  * style) and an accessibility statement filled from the site audit. Everything generated here is a template the owner
  * reviews – never legal advice; the admin screens say so where a document is produced.
  *
- * The cookie table has three sources: what Kaleta itself sets (a fixed list – the code is the source of truth), the known
+ * The cookie table has three sources: what Talea itself sets (a fixed list – the code is the source of truth), the known
  * third-party embeds and tags found in published builds and in the settings (KNOWN maps a provider to its cookies), and the
  * Set-Cookie headers the site's own pages answer with (scan(): only the site's own address, a few pages, stored in the
  * setting cookie_scan). Visitors see the table through the {{cookie_table}} placeholder on the cookie policy page.
@@ -27,7 +27,7 @@ final class Privacy
     {
         $url = trim($s->get('cookies_policy_url'));
 
-        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#iD', $url) === 1 ? $url : '';
+        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#i', $url) === 1 ? $url : '';
     }
 
     public const array CATEGORIES = ['necessary' => 'Necessary', 'statistics' => 'Statistics', 'marketing' => 'Marketing'];
@@ -68,13 +68,15 @@ final class Privacy
         'hcaptcha' => ['hCaptcha', '~hcaptcha~i', [['hc_accessibility', 'Spam check: accessibility of the challenge', '1 month', 'necessary']]],
     ];
 
-    /** Cookies and storage Kaleta sets itself – the code is the source of truth, so the list is fixed. */
+    /** Cookies and storage Talea sets itself – the code is the source of truth, so the list is fixed. */
     private const array OWN = [
-        ['kaleta_souhlas', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
-        ['ka-tema', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
-        ['ka-jazyk', 'The chosen language version (local storage)', 'until removed', 'necessary'],
-        ['ka-pristupnost', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
+        ['talea_consent', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
+        ['tl-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
+        ['tl-language', 'The chosen language version (local storage)', 'until removed', 'necessary'],
+        ['tl-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
+        ['tl-x', 'A/B tests: which version of a tested page the visitor sees – written only after they accepted the cookie bar (local storage)', 'until removed', 'statistics'],
         ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
+        ['tl_member', 'Member login: keeps a member signed in – only after signing in, never for other visitors', '30 days', 'necessary'],
     ];
 
     /** Pages the scan fetches at most – a few published pages are enough to see what the site answers with. */
@@ -83,7 +85,7 @@ final class Privacy
     /* ---------- cookie table ---------- */
 
     /**
-     * The table of cookies and storage: Kaleta's own, the known providers found in content and settings, and names the
+     * The table of cookies and storage: Talea's own, the known providers found in content and settings, and names the
      * last scan saw in Set-Cookie headers that no known provider explains.
      *
      * @return list<array{name: string, provider: string, purpose: string, duration: string, category: string}>
@@ -91,7 +93,7 @@ final class Privacy
     public static function cookieTable(App $app): array
     {
         $s = $app->settings();
-        $rows = self::ownRows($s);
+        $rows = self::ownRows($s, (int) $app->db()->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0);
         $found = self::providersIn(self::contentSamples($app), self::settingSamples($s));
         foreach ($found as $key) {
             foreach (self::KNOWN[$key][2] as [$name, $purpose, $duration, $category]) {
@@ -114,15 +116,15 @@ final class Privacy
     }
 
     /** @return list<array{name: string, provider: string, purpose: string, duration: string, category: string}> */
-    private static function ownRows(Settings $s): array
+    private static function ownRows(Settings $s, bool $experiments = false): array
     {
         $rows = [];
         foreach (self::OWN as [$name, $purpose, $duration, $category]) {
-            if (($name === 'ka-tema' && !$s->bool('theme_switcher')) || ($name === 'ka-pristupnost' && !$s->bool('accessibility_toolbar'))
-                || ($name === 'kaleta_souhlas' && $s->get('cookies_mode') !== 'vestavena') || ($name === 'ka-jazyk' && Language::additional($s) === [])) {
+            if (($name === 'tl-theme' && !$s->bool('theme_switcher')) || ($name === 'tl-accessibility' && !$s->bool('accessibility_toolbar'))
+                || ($name === 'tl_member' && !Extensions::isEnabled($s, 'members')) || ($name === 'tl-x' && !$experiments) || ($name === 'talea_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'tl-language' && Language::additional($s) === [])) {
                 continue;
             }
-            $rows[] = ['name' => $name, 'provider' => 'Kaleta', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
+            $rows[] = ['name' => $name, 'provider' => 'Talea', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
         }
 
         return $rows;
@@ -155,17 +157,17 @@ final class Privacy
     {
         $db = $app->db();
         $samples = [];
-        foreach ($db->all('SELECT text, stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') as $p) {
-            $samples[] = (string) $p['stavba'] . "\n" . $p['text'];
+        foreach ($db->all('SELECT text, build FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE') as $p) {
+            $samples[] = (string) $p['build'] . "\n" . $p['text'];
         }
-        foreach ($db->all('SELECT stavba FROM {casti}') as $c) {
-            $samples[] = (string) $c['stavba'];
+        foreach ($db->all('SELECT build FROM {site_parts}') as $c) {
+            $samples[] = (string) $c['build'];
         }
-        foreach ($db->all('SELECT stavba FROM {popupy}') as $p) {
-            $samples[] = (string) $p['stavba'];
+        foreach ($db->all('SELECT build FROM {popups}') as $p) {
+            $samples[] = (string) $p['build'];
         }
-        foreach ($db->all('SELECT stavba FROM {komponenty}') as $m) {
-            $samples[] = (string) $m['stavba'];
+        foreach ($db->all('SELECT build FROM {components}') as $m) {
+            $samples[] = (string) $m['build'];
         }
 
         return $samples;
@@ -196,7 +198,7 @@ final class Privacy
             $result['error'] = 'curl is not available';
         } else {
             $base = $app->request->origin() . $app->url('');
-            $paths = array_merge([''], array_map('strval', array_column($app->db()->all("SELECT seo_link FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = '' AND nadrazena IS NULL ORDER BY poradi LIMIT ?", [self::SCAN_PAGES - 1]), 'seo_link')));
+            $paths = array_merge([''], array_map('strval', array_column($app->db()->all("SELECT slug FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND language = '' AND parent_id IS NULL ORDER BY sort_order LIMIT ?", [self::SCAN_PAGES - 1]), 'slug')));
             foreach ($paths as $path) {
                 $names = self::setCookies($base . $path);
                 if ($names === null) {
@@ -231,7 +233,7 @@ final class Privacy
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 4, CURLOPT_CONNECTTIMEOUT => 2,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Kaleta cookie scan)',
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Talea cookie scan)',
             CURLOPT_HEADERFUNCTION => function (\CurlHandle $ch, string $header) use (&$names): int {
                 if (preg_match('/^set-cookie:\s*([^=;\s]+)=/i', $header, $m)) {
                     $names[] = $m[1];
@@ -249,7 +251,7 @@ final class Privacy
     /** The table for visitors, in the site language – {{cookie_table}} on the cookie policy page. */
     public static function cookieTableHtml(App $app): string
     {
-        $html = '<table class="ka-cookies-tabulka"><thead><tr><th>' . e(t('Name')) . '</th><th>' . e(t('Provider')) . '</th><th>' . e(t('Purpose')) . '</th><th>' . e(t('Duration')) . '</th><th>' . e(t('Category')) . '</th></tr></thead><tbody>';
+        $html = '<table class="tl-cookies-table"><thead><tr><th>' . e(t('Name')) . '</th><th>' . e(t('Provider')) . '</th><th>' . e(t('Purpose')) . '</th><th>' . e(t('Duration')) . '</th><th>' . e(t('Category')) . '</th></tr></thead><tbody>';
         foreach (self::cookieTable($app) as $r) {
             $html .= '<tr><td><code>' . e($r['name']) . '</code></td><td>' . e($r['provider']) . '</td><td>' . e($r['purpose']) . '</td><td>' . e($r['duration']) . '</td><td>' . e(t(self::CATEGORIES[$r['category']] ?? $r['category'])) . '</td></tr>';
         }
@@ -295,11 +297,11 @@ final class Privacy
         if ($ids === []) {
             return 0;
         }
-        $rows = $db->all('SELECT idp, data FROM {poptavky} WHERE anonymizovano IS NULL AND idp IN (' . implode(',', $ids) . ')');
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows);
+        $rows = $db->all('SELECT enquiry_id, data FROM {enquiries} WHERE anonymised_at IS NULL AND enquiry_id IN (' . implode(',', $ids) . ')');
+        \Talea\Admin\Modules\Enquiries::deleteAttachments($rows);
         foreach ($rows as $r) {
-            $db->update('poptavky', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
-                'email' => '', 'navrh_odpovedi' => null, 'poznamka' => null, 'vstup' => '', 'odkud' => '', 'anonymizovano' => date('Y-m-d H:i:s')], ['idp' => $r['idp']]);
+            $db->update('enquiries', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
+                'email' => '', 'suggested_reply' => null, 'note' => null, 'landing_page' => '', 'referrer' => '', 'anonymised_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $r['enquiry_id']]);
         }
 
         return count($rows);
@@ -347,17 +349,27 @@ final class Privacy
                 t('Legal basis: steps before a contract (Art. 6(1)(b)); keeping an application longer needs the applicant’s consent.'),
             ]];
         }
-        if (Extensions::isEnabled($s, 'newsletter')) {
+        if (Extensions::isEnabled($s, 'newsletter_signup')) {
             $sections[] = ['heading' => t('Newsletter'), 'lines' => [
-                t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'), (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 0')),
+                t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'), (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 0')),
                 t('Data: e-mail address, date and language of the sign-up%s.', $s->bool('lead_attribution') ? ', ' . t('the first page of the visit and its campaign (with consent to marketing)') : ''),
                 t('Legal basis: consent (Art. 6(1)(a)); every e-mail carries an unsubscribe link.'),
                 $s->get('newsletter_service') !== '' ? t('Processor: the mailing service %s (confirmed subscribers are passed to it).', ucfirst($s->get('newsletter_service'))) : t('Processor: none – the newsletter is sent from this site.'),
             ]];
         }
+        if (Extensions::isEnabled($s, 'members')) {
+            $sections[] = ['heading' => t('Members'), 'lines' => [
+                t('Member accounts: %d (%d confirmed). Sign-up: %s.', (int) $db->value('SELECT COUNT(*) FROM {members}'), (int) $db->value('SELECT COUNT(*) FROM {members} WHERE confirmed_at IS NOT NULL'), t($s->get('member_signup') === 'open' ? 'open to anyone with a confirmed e-mail address' : 'by invitation only')),
+                t('Data: e-mail address, name if given, groups, date of the last sign-in. Sign-in links are stored only as hashes and work once; a cookie keeps the member signed in for up to 30 days.'),
+                t('Legal basis: performance of the membership the person asked for (Art. 6(1)(b)). Retention: until the person asks to be removed or the owner removes them – then the account and its sessions are deleted (Enquiries → Personal data request).'),
+            ]];
+        }
         $statistics = [];
-        if (\Kaleta\Front\Stats::enabled($s)) {
+        if (\Talea\Front\Stats::enabled($s)) {
             $statistics[] = t('Built-in statistics: page views, devices and campaigns counted without cookies; the visitor’s address is hashed with a daily salt and never stored.');
+        }
+        if (\Talea\Front\Stats::enabled($s) && (int) $db->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0) {
+            $statistics[] = t('A/B tests: visitors see one of two versions of some content, chosen at random on every page view; nothing is stored in their browser. Only after they accept the cookie bar is the version remembered in the browser (local storage, key tl-x) so that the page does not change between visits. Views and goals (a form sent, a click, a booking, a page reached) are counted per version and day, without any data about the visitor.');
         }
         foreach (['ga4_id' => 'Google Analytics', 'gtm_id' => 'Google Tag Manager', 'matomo_url' => 'Matomo', 'plausible_domain' => 'Plausible'] as $key => $name) {
             if ($s->get($key) !== '') {
@@ -373,19 +385,18 @@ final class Privacy
         }
         $sections[] = ['heading' => t('Connected services and processors'), 'lines' => array_merge($services, [
             $s->get('mail_mode') === 'smtp' ? t('E-mail: sent through the SMTP server %s.', $s->get('smtp_host')) : t('E-mail: sent by the hosting server’s mail function.'),
-            $s->get('remote_backup') !== 'vypnuto' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
-            Extensions::isEnabled($s, 'asistent') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
+            $s->get('remote_backup') !== 'off' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
+            Extensions::isEnabled($s, 'assistant') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
             Extensions::isEnabled($s, 'claude') ? t('Claude (MCP): administrators’ assistants work with the content; enquiries are shown to them as the Enquiries screen shows them.') : '',
             $s->get('captcha_provider') !== '' ? t('Spam check: %s receives the visitor’s address and browser details when a form is sent.', Captcha::PROVIDERS[$s->get('captcha_provider')][0] ?? $s->get('captcha_provider')) : t('Spam check: built-in only (a signed time, a trap field, a limit per address) – no third party.'),
         ])];
         $cookies = array_map(fn (array $r): string => $r['name'] . ' – ' . $r['provider'] . ' (' . t(self::CATEGORIES[$r['category']] ?? $r['category']) . ', ' . $r['duration'] . ')', self::cookieTable($app));
         $sections[] = ['heading' => t('Cookies and storage'), 'lines' => array_merge([
-            t('Cookie bar: %s.', t(['vestavena' => 'built-in, tracking starts after consent', 'externi' => 'an external service', 'zadna' => 'none'][$s->get('cookies_mode')] ?? $s->get('cookies_mode'))),
+            t('Cookie bar: %s.', t(['builtin' => 'built-in, tracking starts after consent', 'external' => 'an external service', 'none' => 'none'][$s->get('cookies_mode')] ?? $s->get('cookies_mode'))),
             $s->bool('cookies_log') ? t('Consents are logged (time, a random identifier, the categories – no IP address)%s.', $s->int('cookies_log_months') > 0 ? ' ' . t('and deleted after %d months', $s->int('cookies_log_months')) : '') : t('Consents are not logged.'),
         ], $cookies)];
         $sections[] = ['heading' => t('Security'), 'lines' => array_values(array_filter([
-            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0'), (int) $db->value("SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0 AND totp_tajemstvi = ''") === 0 ? t('on for everyone') : t('not on for every account')),
-            $s->bool('firewall_enabled') ? t('Firewall: on (rate limits, probes, country and address blocks).') : '',
+            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = FALSE'), (int) $db->value("SELECT COUNT(*) FROM {users} WHERE blocked = FALSE AND totp_secret = ''") === 0 ? t('on for everyone') : t('not on for every account')),
             t('Transport: %s.', $app->request->isHttps() ? 'HTTPS' : t('HTTP – switch the site to HTTPS')),
         ]))];
 
@@ -419,20 +430,20 @@ final class Privacy
             }
             $walk = function (array $nodes) use (&$walk, &$forms, $t): void {
                 foreach ($nodes as $n) {
-                    if (($n['typ'] ?? '') === 'formular') {
+                    if (($n['type'] ?? '') === 'form') {
                         $fields = [];
-                        foreach ((array) ($n['obsah']['pole'] ?? []) as $field) {
-                            $type = (string) ($field['typ'] ?? 'text');
-                            if (!in_array($type, ['krok', 'skryte', 'odhad'], true)) {
-                                $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
+                        foreach ((array) ($n['content']['fields'] ?? []) as $field) {
+                            $type = (string) ($field['type'] ?? 'text');
+                            if (!in_array($type, ['step', 'hidden', 'estimate'], true)) {
+                                $fields[] = ['label' => (string) ($field['label'] ?? ''), 'type' => \Talea\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
-                        $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['prijemce'] ?? ''), 'confirmation' => !empty($n['obsah']['potvrzeni'])];
+                        $forms[] = ['name' => (string) ($n['content']['name'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['content']['recipient'] ?? ''), 'confirmation' => !empty($n['content']['confirmation'])];
                     }
-                    $walk((array) ($n['deti'] ?? []));
+                    $walk((array) ($n['children'] ?? []));
                 }
             };
-            $walk((array) ($t['build']['deti'] ?? []));
+            $walk((array) ($t['build']['children'] ?? []));
         }
 
         return $forms;
@@ -485,19 +496,19 @@ final class Privacy
         $db = $app->db();
         $s = $app->settings();
         $statement = self::accessibilityStatement($app);
-        [$build] = Build::sanitize(['v' => 1, 'deti' => [Build::fresh('sekce', [], [array_replace(Build::fresh('nadpis', ['text' => $statement['title']]), ['znacka' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
-        $record = ['titulek' => $statement['title'], 'stavba' => Build::toJson($build), 'text' => Build::asText($build), 'zmeneno' => date('Y-m-d H:i:s')];
+        [$build] = Build::sanitize(['v' => 1, 'children' => [Build::fresh('section', [], [array_replace(Build::fresh('heading', ['text' => $statement['title']]), ['tag' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
+        $record = ['title' => $statement['title'], 'build' => Build::toJson($build), 'text' => Build::asText($build), 'updated_at' => date('Y-m-d H:i:s')];
         $id = $s->int('accessibility_statement_page');
-        if ($id > 0 && $db->value('SELECT 1 FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]) !== null) {
-            $db->update('stranky', $record, ['ids' => $id]);
-            \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated #' . $id);
+        if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {
+            $db->update('pages', $record, ['page_id' => $id]);
+            \Talea\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated: ' . $statement['title']);
 
             return $id;
         }
-        $slug = \Kaleta\Admin\Modules\Pages::freeSlug($db, slugify($statement['title'], 110));
-        $id = $db->insert('stranky', $record + ['seo_link' => $slug, 'zobrazit' => 0, 'v_menu' => 1, 'poradi' => 90]);
+        $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$u]) !== null);
+        $id = $db->insert('pages', $record + ['slug' => $slug, 'visible' => 0, 'in_menu' => 1, 'sort_order' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created #' . $id);
+        \Talea\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created: ' . $statement['title']);
 
         return $id;
     }

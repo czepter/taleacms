@@ -1,46 +1,38 @@
 {
-    "kaleta_blueprint": 1,
+    "talea_blueprint": 1,
     "key": "agency",
     "group": "tech",
-    "name": {
-        "en": "Marketing, web or design agency",
-        "cs": "Marketingová, webová nebo designová agentura",
-        "de": "Marketing-, Web- oder Designagentur"
-    },
-    "description": {
-        "en": "An agency or studio: services, case studies, the team, clients' questions and job openings, with facts about the focus, team size, where and in which languages you work, the usual budget and awards.",
-        "cs": "Agentura nebo studio: služby, případové studie, tým, otázky klientů a volná místa, k tomu fakta o zaměření, velikosti týmu, kde a v jakých jazycích pracujete, obvyklém rozpočtu a oceněních.",
-        "de": "Eine Agentur oder ein Studio: Leistungen, Fallstudien, das Team, Kundenfragen und Stellenangebote, dazu Fakten zum Schwerpunkt, zur Teamgröße, zu Arbeitsgebiet und -sprachen, zum üblichen Budget und zu Auszeichnungen."
-    },
+    "name": "Marketing, web or design agency",
+    "description": "An agency or studio: services, case studies, the team, clients' questions and job openings, with facts about the focus, team size, where and in which languages you work, the usual budget and awards.",
     "presets": ["services", "references", "people", "faq", "jobs"],
     "facts": [
-        {"key": "agency_focus", "label": {"en": "What we specialise in", "cs": "Na co se specializujeme", "de": "Unser Schwerpunkt"}, "type": "text"},
-        {"key": "founded", "label": {"en": "Founded", "cs": "Rok založení", "de": "Gründungsjahr"}, "type": "year", "schema": "foundingDate"},
-        {"key": "team_size", "label": {"en": "Team size", "cs": "Velikost týmu", "de": "Teamgröße"}, "type": "number", "schema": "numberOfEmployees"},
-        {"key": "clients_area", "label": {"en": "Where our clients are", "cs": "Odkud jsou naši klienti", "de": "Wo unsere Kunden sitzen"}, "type": "text", "schema": "areaServed"},
-        {"key": "working_languages", "label": {"en": "Languages we work in", "cs": "Jazyky, ve kterých pracujeme", "de": "Arbeitssprachen"}, "type": "text", "schema": "knowsLanguage"},
-        {"key": "project_budget_from", "label": {"en": "Projects from", "cs": "Projekty od", "de": "Projekte ab"}, "type": "money"},
-        {"key": "awards", "label": {"en": "Awards", "cs": "Ocenění", "de": "Auszeichnungen"}, "type": "text", "schema": "award"}
+        {"key": "agency_focus", "label": "What we specialise in", "type": "text"},
+        {"key": "founded", "label": "Founded", "type": "year", "schema": "foundingDate"},
+        {"key": "team_size", "label": "Team size", "type": "number", "schema": "numberOfEmployees"},
+        {"key": "clients_area", "label": "Where our clients are", "type": "text", "schema": "areaServed"},
+        {"key": "working_languages", "label": "Languages we work in", "type": "text", "schema": "knowsLanguage"},
+        {"key": "project_budget_from", "label": "Projects from", "type": "money"},
+        {"key": "awards", "label": "Awards", "type": "text", "schema": "award"}
     ],
     "questions": [
-        {"fact": "agency_focus", "question": {"en": "What does the agency specialise in – which kind of work and which clients?", "cs": "Na co se agentura specializuje – na jakou práci a pro jaké klienty?", "de": "Worauf ist die Agentur spezialisiert – auf welche Arbeit und welche Kunden?"},
-            "help": {"en": "One sentence a client would recognise, e.g. \"websites and online shops for manufacturers\".", "cs": "Jedna věta, ve které se klient pozná, např. „weby a e-shopy pro výrobní firmy“.", "de": "Ein Satz, in dem sich Kunden wiederfinden, z. B. „Websites und Onlineshops für Hersteller“."}},
-        {"fact": "founded", "question": {"en": "In which year was the agency founded?", "cs": "V jakém roce agentura vznikla?", "de": "In welchem Jahr wurde die Agentur gegründet?"}},
-        {"fact": "team_size", "question": {"en": "How many people work at the agency?", "cs": "Kolik lidí v agentuře pracuje?", "de": "Wie viele Menschen arbeiten in der Agentur?"},
-            "help": {"en": "Count the people clients actually work with; mention regular freelancers elsewhere rather than in this number.", "cs": "Počítejte lidi, se kterými klienti skutečně pracují; stálé externisty zmiňte raději jinde než v tomto čísle.", "de": "Zählen Sie die Menschen, mit denen Kunden tatsächlich arbeiten; feste Freelancer erwähnen Sie besser an anderer Stelle."}},
-        {"fact": "clients_area", "question": {"en": "Where are your clients – a city, a country, internationally?", "cs": "Odkud jsou vaši klienti – z jednoho města, z celé země, ze zahraničí?", "de": "Wo sitzen Ihre Kunden – in einer Stadt, landesweit, international?"}},
-        {"fact": "working_languages", "question": {"en": "In which languages can clients work with you?", "cs": "V jakých jazycích s vámi klienti mohou spolupracovat?", "de": "In welchen Sprachen können Kunden mit Ihnen zusammenarbeiten?"}},
-        {"fact": "project_budget_from", "question": {"en": "From what budget do you usually take on a project?", "cs": "Od jakého rozpočtu obvykle projekt berete?", "de": "Ab welchem Budget übernehmen Sie üblicherweise ein Projekt?"},
-            "help": {"en": "An amount with the currency. It saves both sides a call; leave it empty if you prefer not to say.", "cs": "Částka s měnou. Ušetří zbytečné hovory oběma stranám; pokud ji uvádět nechcete, nechte prázdné.", "de": "Ein Betrag mit Währung. Das erspart beiden Seiten unnötige Gespräche; leer lassen, wenn Sie ihn nicht nennen möchten."}},
-        {"fact": "awards", "question": {"en": "Has the agency or its work won any awards? Which ones and when?", "cs": "Získala agentura nebo její práce nějaká ocenění? Jaká a kdy?", "de": "Hat die Agentur oder ihre Arbeit Auszeichnungen gewonnen? Welche und wann?"},
-            "help": {"en": "Only awards actually won, with the year. Leave it empty if there are none.", "cs": "Jen skutečně získaná ocenění s rokem. Pokud žádná nejsou, nechte prázdné.", "de": "Nur tatsächlich gewonnene Auszeichnungen mit Jahr. Leer lassen, wenn es keine gibt."}}
+        {"fact": "agency_focus", "question": "What does the agency specialise in – which kind of work and which clients?",
+            "help": "One sentence a client would recognise, e.g. \"websites and online shops for manufacturers\"."},
+        {"fact": "founded", "question": "In which year was the agency founded?"},
+        {"fact": "team_size", "question": "How many people work at the agency?",
+            "help": "Count the people clients actually work with; mention regular freelancers elsewhere rather than in this number."},
+        {"fact": "clients_area", "question": "Where are your clients – a city, a country, internationally?"},
+        {"fact": "working_languages", "question": "In which languages can clients work with you?"},
+        {"fact": "project_budget_from", "question": "From what budget do you usually take on a project?",
+            "help": "An amount with the currency. It saves both sides a call; leave it empty if you prefer not to say."},
+        {"fact": "awards", "question": "Has the agency or its work won any awards? Which ones and when?",
+            "help": "Only awards actually won, with the year. Leave it empty if there are none."}
     ],
     "audit": [
-        {"check": "preset_items", "preset": "references", "min": 3, "message": {"en": "Add at least three case studies – clients choose an agency by its work. Publish only projects the client has agreed to.", "cs": "Přidejte alespoň tři případové studie – klienti si agenturu vybírají podle práce. Zveřejněte jen projekty, se kterými klient souhlasí.", "de": "Fügen Sie mindestens drei Fallstudien hinzu – Kunden wählen eine Agentur nach ihrer Arbeit. Veröffentlichen Sie nur Projekte mit Zustimmung des Kunden."}},
-        {"check": "preset_items", "preset": "services", "min": 1, "message": {"en": "Add the services you offer, each with what the client gets and how you work.", "cs": "Přidejte služby, které nabízíte, u každé co klient dostane a jak postupujete.", "de": "Fügen Sie Ihre Leistungen hinzu, jeweils mit dem, was der Kunde bekommt, und wie Sie vorgehen."}},
-        {"check": "preset_items", "preset": "people", "min": 1, "message": {"en": "Introduce the team – clients want to know who they will work with.", "cs": "Představte tým – klienti chtějí vědět, s kým budou pracovat.", "de": "Stellen Sie das Team vor – Kunden möchten wissen, mit wem sie arbeiten werden."}},
-        {"check": "fact", "fact": "agency_focus", "message": {"en": "Say in one sentence what the agency specialises in.", "cs": "Řekněte jednou větou, na co se agentura specializuje.", "de": "Sagen Sie in einem Satz, worauf die Agentur spezialisiert ist."}},
-        {"check": "page", "slugs": ["privacy", "privacy-policy", "gdpr", "ochrana-osobnich-udaju", "datenschutz", "datenschutzerklaerung"], "message": {"en": "Publish a privacy policy page – the contact form and job applications collect personal data; check what your law requires.", "cs": "Zveřejněte stránku o ochraně osobních údajů – kontaktní formulář i přihlášky do výběrových řízení sbírají osobní údaje; ověřte, co vyžaduje zákon.", "de": "Veröffentlichen Sie eine Datenschutzseite – Kontaktformular und Bewerbungen erheben personenbezogene Daten; prüfen Sie die gesetzlichen Anforderungen."}}
+        {"check": "preset_items", "preset": "references", "min": 3, "message": "Add at least three case studies – clients choose an agency by its work. Publish only projects the client has agreed to."},
+        {"check": "preset_items", "preset": "services", "min": 1, "message": "Add the services you offer, each with what the client gets and how you work."},
+        {"check": "preset_items", "preset": "people", "min": 1, "message": "Introduce the team – clients want to know who they will work with."},
+        {"check": "fact", "fact": "agency_focus", "message": "Say in one sentence what the agency specialises in."},
+        {"check": "page", "slugs": ["privacy", "privacy-policy", "gdpr", "ochrana-osobnich-udaju", "datenschutz", "datenschutzerklaerung"], "message": "Publish a privacy policy page – the contact form and job applications collect personal data; check what your law requires."}
     ],
     "claude": "An agency's site is its own showcase: clients judge it by the work it shows, so the case studies lead and each one tells the brief, what the agency did and the result – stated as the client confirms it. Describe services as what the client gets and how the collaboration runs, in plain words rather than buzzwords. Never invent clients, logos, projects, results or percentages, quotes, awards, partner badges or team members – ask the owner for each, publish a client's name or logo only with consent, and describe work under NDA without naming the client only if the owner agrees. Team members appear with their own consent and a real photo. Every job opening needs a closing date so it hides itself. Keep the focus, team size and the usual budget as facts so the site states them the same everywhere."
 }

@@ -1,27 +1,30 @@
 <?php
 /**
- * Kaleta – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
+ * Talea – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
  * and checked by tools/unit-tests.php: an MCP tool or parameter, a design token or a builder element (and its content
  * properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
  * deliberate addition, record it:
  *
  *   php tools/contracts.php --update
+ *
+ * --update --force records a change that removes or renames things on purpose (the hard fork's English rename, issue #9): the policy above
+ * is for installations that exist; the fork has none.
  */
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/system/bootstrap.php';
 
 /** @return array<string, array<string, mixed>> the MCP interface: English tool => parameters (type), required ones, annotations */
-function kaleta_mcp_contract(): array
+function talea_mcp_contract(): array
 {
     $contract = [];
-    foreach (Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()) as $tool) {
+    foreach (Talea\Mcp\Tools::definitions() as $tool) {
         $properties = (array) $tool['inputSchema']['properties'];
         ksort($properties);
         $contract[$tool['name']] = [
             'parameters' => array_map(fn (array $p): mixed => $p['type'] ?? 'any', $properties),
             'required' => $tool['inputSchema']['required'],
-            'annotations' => Kaleta\Mcp\Tools::annotations(Kaleta\Mcp\Translator::czech($tool['name']) ?? $tool['name']),
+            'annotations' => Talea\Mcp\Tools::annotations($tool['name']),
         ];
     }
     ksort($contract);
@@ -30,10 +33,10 @@ function kaleta_mcp_contract(): array
 }
 
 /** @return list<string> design tokens: the stored names and their English names */
-function kaleta_token_contract(): array
+function talea_token_contract(): array
 {
-    $css = Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS);
-    preg_match_all('/^\t+(--ka-[a-z0-9-]+):/m', $css, $m);
+    $css = Talea\Builder\DesignSystem::css(Talea\Builder\DesignSystem::DEFAULTS);
+    preg_match_all('/^\t+(--tl-[a-z0-9-]+):/m', $css, $m);
     $tokens = array_values(array_unique($m[1]));
     sort($tokens);
 
@@ -41,10 +44,10 @@ function kaleta_token_contract(): array
 }
 
 /** @return array<string, list<string>> builder element types => their content properties (what stored builds hold) */
-function kaleta_element_contract(): array
+function talea_element_contract(): array
 {
     $elements = [];
-    foreach (Kaleta\Builder\Build::ELEMENTS as $class) {
+    foreach (Talea\Builder\Build::ELEMENTS as $class) {
         $properties = array_keys($class::properties());
         sort($properties);
         $elements[$class::TYPE] = $properties;
@@ -58,12 +61,12 @@ function kaleta_element_contract(): array
  * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters and the
  * access levels of tools – what add-ons are written against.
  *
- * @return array{version: int, methods: array<string, list<string>>, filters: list<string>, tool_access: list<string>}
+ * @return array{version: int, supported: list<int>, methods: array<string, list<string>>, v2_methods: list<string>, filters: list<string>, tool_access: list<string>, runners: list<string>, capabilities: list<string>}
  */
-function kaleta_extension_contract(): array
+function talea_extension_contract(): array
 {
     $methods = [];
-    foreach ((new ReflectionClass(Kaleta\Extension\Api::class))->getMethods(ReflectionMethod::IS_PUBLIC) as $m) {
+    foreach ((new ReflectionClass(Talea\Extension\Api::class))->getMethods(ReflectionMethod::IS_PUBLIC) as $m) {
         if ($m->isStatic() || $m->getName() === '__construct') {
             continue;
         }
@@ -71,7 +74,12 @@ function kaleta_extension_contract(): array
     }
     ksort($methods);
 
-    return ['version' => Kaleta\Extension\Api::VERSION, 'methods' => $methods, 'filters' => array_keys(Kaleta\Extension\Api::FILTERS), 'tool_access' => Kaleta\Extension\Api::TOOL_ACCESS];
+    $v2 = Talea\Extension\Api::V2_METHODS;
+    sort($v2);
+
+    // version 2 is additive: "methods" lists all of them, "v2_methods" the ones an add-on of API 1 may not call (the rest is what version 1 had)
+    return ['version' => Talea\Extension\Api::VERSION, 'supported' => Talea\Extension\Api::SUPPORTED, 'methods' => $methods, 'v2_methods' => $v2, 'filters' => array_keys(Talea\Extension\Api::FILTERS),
+        'tool_access' => Talea\Extension\Api::TOOL_ACCESS, 'runners' => Talea\Extension\Api::RUNNERS, 'capabilities' => array_keys(Talea\Extension\Api::CAPABILITIES)];
 }
 
 /**
@@ -80,11 +88,11 @@ function kaleta_extension_contract(): array
  *
  * @return array{broken: list<string>, added: list<string>}
  */
-function kaleta_contract_diff(): array
+function talea_contract_diff(): array
 {
     $broken = $added = [];
     $recorded = json_decode((string) file_get_contents(__DIR__ . '/contracts/mcp-tools.json'), true);
-    $current = kaleta_mcp_contract();
+    $current = talea_mcp_contract();
     foreach ($recorded as $tool => $r) {
         if (!isset($current[$tool])) {
             $broken[] = "MCP tool $tool removed";
@@ -112,14 +120,14 @@ function kaleta_contract_diff(): array
         $added[] = "MCP tool $tool";
     }
     $tokens = json_decode((string) file_get_contents(__DIR__ . '/contracts/design-tokens.json'), true);
-    foreach (array_diff($tokens, kaleta_token_contract()) as $token) {
+    foreach (array_diff($tokens, talea_token_contract()) as $token) {
         $broken[] = "design token $token removed";
     }
-    foreach (array_diff(kaleta_token_contract(), $tokens) as $token) {
+    foreach (array_diff(talea_token_contract(), $tokens) as $token) {
         $added[] = "design token $token";
     }
     $elements = json_decode((string) file_get_contents(__DIR__ . '/contracts/builder-elements.json'), true);
-    $currentElements = kaleta_element_contract();
+    $currentElements = talea_element_contract();
     foreach ($elements as $type => $properties) {
         if (!isset($currentElements[$type])) {
             $broken[] = "builder element $type removed";
@@ -139,15 +147,29 @@ function kaleta_contract_diff(): array
     $extensionFile = __DIR__ . '/contracts/extension-api.json';
     if (is_file($extensionFile)) {
         $recordedApi = json_decode((string) file_get_contents($extensionFile), true);
-        $currentApi = kaleta_extension_contract();
-        if ($recordedApi['version'] !== $currentApi['version']) {
-            $broken[] = 'extension API version changed';
+        $currentApi = talea_extension_contract();
+        if ($recordedApi['version'] > $currentApi['version']) {
+            $broken[] = 'extension API version went down';
+        } elseif ($recordedApi['version'] < $currentApi['version']) {
+            $added[] = 'extension API version ' . $currentApi['version'];
+        }
+        foreach (['supported' => 'API version', 'v2_methods' => 'API 2 method', 'runners' => 'job runner', 'capabilities' => 'capability'] as $key => $what) {
+            foreach (array_diff($recordedApi[$key] ?? [], $currentApi[$key]) as $gone) {
+                $broken[] = "extension API: $what $gone removed";
+            }
+            foreach (array_diff($currentApi[$key], $recordedApi[$key] ?? []) as $new) {
+                $added[] = "extension API: $what $new";
+            }
         }
         foreach ($recordedApi['methods'] as $method => $parameters) {
             if (!isset($currentApi['methods'][$method])) {
                 $broken[] = "extension API: $method() removed";
             } elseif (array_slice($currentApi['methods'][$method], 0, count($parameters)) !== $parameters) {
                 $broken[] = "extension API: $method() parameters changed";
+            } else {
+                foreach (array_slice($currentApi['methods'][$method], count($parameters)) as $parameter) {
+                    $added[] = "extension API: $method() parameter $parameter";
+                }
             }
         }
         foreach (array_diff($recordedApi['filters'], $currentApi['filters']) as $filter) {
@@ -163,26 +185,26 @@ function kaleta_contract_diff(): array
 
 if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __FILE__) {
     if (in_array('--update', $_SERVER['argv'], true)) {
-        $diff = kaleta_contract_diff_safe();
-        if ($diff['broken'] !== []) {
+        $diff = talea_contract_diff_safe();
+        if ($diff['broken'] !== [] && !in_array('--force', $_SERVER['argv'], true)) {
             fwrite(STDERR, "The change breaks the contract – not recorded:\n  " . implode("\n  ", $diff['broken']) . "\n");
             exit(1);
         }
         $json = fn (mixed $v): string => json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
-        file_put_contents(__DIR__ . '/contracts/mcp-tools.json', $json(kaleta_mcp_contract()));
-        file_put_contents(__DIR__ . '/contracts/design-tokens.json', $json(kaleta_token_contract()));
-        file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(kaleta_element_contract()));
-        file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(kaleta_extension_contract()));
-        echo 'recorded: ' . count(kaleta_mcp_contract()) . ' MCP tools, ' . count(kaleta_token_contract()) . ' design tokens, ' . count(kaleta_element_contract()) . " builder elements\n";
+        file_put_contents(__DIR__ . '/contracts/mcp-tools.json', $json(talea_mcp_contract()));
+        file_put_contents(__DIR__ . '/contracts/design-tokens.json', $json(talea_token_contract()));
+        file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(talea_element_contract()));
+        file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(talea_extension_contract()));
+        echo 'recorded: ' . count(talea_mcp_contract()) . ' MCP tools, ' . count(talea_token_contract()) . ' design tokens, ' . count(talea_element_contract()) . " builder elements\n";
         exit(0);
     }
-    $diff = kaleta_contract_diff();
+    $diff = talea_contract_diff();
     echo $diff['broken'] === [] && $diff['added'] === [] ? "contracts unchanged\n" : "broken:\n  " . implode("\n  ", $diff['broken'] ?: ['–']) . "\nadded:\n  " . implode("\n  ", $diff['added'] ?: ['–']) . "\n";
     exit($diff['broken'] === [] ? 0 : 1);
 }
 
 /** The first recording has nothing to compare with. */
-function kaleta_contract_diff_safe(): array
+function talea_contract_diff_safe(): array
 {
-    return is_file(__DIR__ . '/contracts/mcp-tools.json') && is_file(__DIR__ . '/contracts/design-tokens.json') && is_file(__DIR__ . '/contracts/builder-elements.json') ? kaleta_contract_diff() : ['broken' => [], 'added' => []];
+    return is_file(__DIR__ . '/contracts/mcp-tools.json') && is_file(__DIR__ . '/contracts/design-tokens.json') && is_file(__DIR__ . '/contracts/builder-elements.json') ? talea_contract_diff() : ['broken' => [], 'added' => []];
 }

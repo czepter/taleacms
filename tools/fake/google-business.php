@@ -2,7 +2,7 @@
 
 // Google Business Profile (2.13, Core\GoogleBusiness): one account with two locations, the hours PATCH and the local post
 // are logged (google-business.log) so the test can read what was sent, the reviews list has three reviews – two when the
-// flag file kaleta-fake-<port>-google-fewer exists (a review deleted on Google must disappear from the site).
+// flag file talea-fake-<port>-google-fewer exists (a review deleted on Google must disappear from the site).
 if (($headers['authorization'] ?? '') === '' && str_starts_with($path, '/v')) {
     return false; // every Business Profile call is authorised; an unauthorised one falls through to the 404
 }

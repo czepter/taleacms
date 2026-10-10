@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * A simple container of shared services. No magic - what the application can do is visible here.
@@ -22,7 +22,7 @@ final class App
     {
         $this->request = $request ?? Request::fromGlobals();
         $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
-        $this->view = new View([KALETA_SYSTEM . '/views']);
+        $this->view = new View([TALEA_SYSTEM . '/views']);
         Demo::configure($config['demo'] ?? null);
     }
 
@@ -36,17 +36,13 @@ final class App
             exit;
         }
         // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored);
-        // the dictionary is not loaded here yet, so a short English sentence follows the Czech text
-        $lock = KALETA_ROOT . '/storage/udrzba.lock';
+        // the dictionary is not loaded here yet, so the page is plain English
+        $lock = TALEA_ROOT . '/storage/maintenance.lock';
         if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
             header('Content-Type: text/html; charset=utf-8');
-            // the site language is not known yet: Czech on purpose only for visitors with Czech or Slovak in the browser (as the error page)
-            [$lang, $title, $heading, $help] = preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''))
-                ? ['cs', 'Probíhá aktualizace', 'Web se právě aktualizuje', 'Zkuste to prosím za minutu.'] // Czech on purpose
-                : ['en', 'Updating', 'The site is being updated', 'Please try again in a minute.'];
-            exit('<!doctype html><html lang="' . $lang . '"><meta charset="utf-8"><title>' . $title . '</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">' . $heading . '</h1><p>' . $help . '</p>');
+            exit('<!doctype html><meta charset="utf-8"><title>Update in progress</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">The site is being updated</h1><p>Please try again in a minute.</p>');
         }
         $app = new self($config);
         $app->installErrorHandler();
@@ -78,7 +74,7 @@ final class App
         $timeZone = $this->settings()->get('time_zone');
         if ($timeZone !== date_default_timezone_get() && in_array($timeZone, \DateTimeZone::listIdentifiers(), true)) {
             date_default_timezone_set($timeZone);
-            $this->db()->pdo()->exec("SET time_zone = '" . date('P') . "'");
+            $this->db()->dialect()->setTimeZone($this->db()->pdo(), date('P'));
         }
     }
 
@@ -92,21 +88,15 @@ final class App
 
     /**
      * Absolute path within the installation: url('admin.php') -> "/magazin/admin.php".
-     * In a language version the URLs of site pages get the language prefix (url('novinky/x') -> "/en/novinky/x");
+     * In a language version the URLs of site pages get the language prefix (url('news/x') -> "/en/news/x");
      * files and services (anything with an extension, mcp) stay shared.
      */
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
-        $endpoint = false; // a system endpoint keeps one form whatever url_slash says
-        if (preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path) && isset($this->config['db'])) {
-            // system URLs in the version's language (/news, /search outside Czech) – Core\Routes
-            $language = $this->languagePrefix !== '' ? $this->languagePrefix : Language::defaults($this->settings());
-            $path = Routes::publicPath($path, $language, $this->db());
-        } elseif (preg_match('#^_?[a-z]#', $path) && isset($this->config['db']) && ($public = Routes::publicSystemPath($path, $this->db())) !== null) {
-            // 3.7: the English form of a system endpoint (/tasks, /subscription, /form…); the Czech one keeps answering
-            $path = $public;
-            $endpoint = true;
+        if (preg_match('#^news(?=$|[/?.])#', $path) && isset($this->config['db'])) {
+            // the custom news slug (setting news_slug) replaces /news – Core\Routes
+            $path = Routes::publicPath($path, $this->db());
         }
         if ($this->languagePrefix !== '') {
             $pathOnly = explode('?', $path, 2)[0];
@@ -118,7 +108,7 @@ final class App
         }
 
         // trailing slash preference (setting url_slash): page-like paths only, the query and fragment stay behind it
-        if (!$endpoint && isset($this->config['db']) && preg_match('~^([^?#]+)(.*)$~', $path, $m) && !str_ends_with($m[1], '/') && !str_ends_with($m[1], '.html') && Routes::pageLike('/' . $m[1], $this->db())) {
+        if (isset($this->config['db']) && preg_match('~^([^?#]+)(.*)$~', $path, $m) && !str_ends_with($m[1], '/') && !str_ends_with($m[1], '.html') && Routes::pageLike('/' . $m[1])) {
             $path = $m[1] . Routes::suffix($this->settings()->get('url_slash')) . $m[2];
         }
 
@@ -134,7 +124,7 @@ final class App
         $previous = $this->languagePrefix;
         $this->languagePrefix = in_array($language, Language::additional($this->settings()), true) ? $language : '';
         try {
-            return $this->url('novinky/' . $seo);
+            return $this->url('news/' . $seo);
         } finally {
             $this->languagePrefix = $previous;
         }
@@ -152,17 +142,14 @@ final class App
         });
         set_exception_handler(function (\Throwable $e): void {
             $line = sprintf("[%s] %s: %s in %s:%d\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-            @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', $line, FILE_APPEND | LOCK_EX);
+            @file_put_contents(TALEA_ROOT . '/storage/log/errors.log', $line, FILE_APPEND | LOCK_EX);
             if (!headers_sent()) {
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
             }
-            // the site language may not be known here yet (an error even at start): Czech on purpose only for visitors with Czech or Slovak in the browser
-            $czech = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
-            [$title, $heading, $help] = $czech // Czech on purpose
-                ? ['Error', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']
-                : ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
-            echo '<!doctype html><html lang="' . ($czech ? 'cs' : 'en') . '"><meta charset="utf-8"><title>' . $title . '</title>'
+            // the site language may not be known here yet (an error even at start): plain English
+            [$title, $heading, $help] = ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/errors.log.'];
+            echo '<!doctype html><html lang="en"><meta charset="utf-8"><title>' . $title . '</title>'
                 . '<body style="font:14px Verdana,sans-serif;margin:3em">'
                 . '<h1 style="font-size:18px">' . $heading . '</h1>';
             if ($this->debug()) {

@@ -1,0 +1,2006 @@
+{
+    "source": "schema.org release",
+    "types": {
+        "AggregateRating": {
+            "label": "AggregateRating",
+            "description": "The average rating based on multiple ratings or reviews.",
+            "extends": "Rating",
+            "properties": {
+                "ratingValue": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Rating Value",
+                    "description": "The rating for the content.\\n\\nUsage guidelines:\\n\\n* Use values from 0123456789 (Unicode 'DIGIT ZERO' (U+0030) to 'DIGIT NINE' (U+0039)) rather than superficially similar Unicode symbols.\\n* Use '.' (Unicode 'FULL STOP' (U+002E)) rather than ',' to indicate a decimal point. Avoid using these symbols as a readability separator.",
+                    "type": "number"
+                },
+                "ratingCount": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Rating Count",
+                    "description": "The count of total number of ratings.",
+                    "type": "integer"
+                },
+                "bestRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Best Rating",
+                    "description": "The highest value allowed in this rating system.",
+                    "type": "number"
+                },
+                "worstRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Worst Rating",
+                    "description": "The lowest value allowed in this rating system.",
+                    "type": "number"
+                },
+                "reviewCount": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Review Count",
+                    "description": "The count of total number of reviews.",
+                    "type": "integer"
+                }
+            }
+        },
+        "Answer": {
+            "label": "Answer",
+            "description": "An answer offered to a question; perhaps correct, perhaps opinionated or wrong.",
+            "extends": "Comment",
+            "properties": {
+                "text": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Text",
+                    "description": "The textual content of this CreativeWork.",
+                    "type": "long_text"
+                }
+            }
+        },
+        "Article": {
+            "label": "Article",
+            "description": "An article, such as a news article or piece of investigative report. Newspapers and magazines have articles of many different types and this is intended to cover them all.\\n\\nSee also [blog post](https://blog.schema.org/2014/09/02/schema-org-support-for-bibliographic-relationships-and-periodicals/).",
+            "extends": "CreativeWork",
+            "properties": {
+                "headline": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Headline",
+                    "description": "Headline of the article.",
+                    "type": "text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "datePublished": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Date Published",
+                    "description": "Date of first publication or broadcast. For example the date a [[CreativeWork]] was broadcast or a [[Certification]] was issued.",
+                    "type": "date"
+                },
+                "dateModified": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Date Modified",
+                    "description": "The date on which the CreativeWork was most recently modified or when the item's entry was modified within a DataFeed.",
+                    "type": "date"
+                },
+                "author": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Author",
+                    "description": "The author of this content or rating. Please note that author is special in that HTML 5 provides a special mechanism for indicating authorship via the rel tag. That is equivalent to this and may be used interchangeably.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "publisher": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Publisher",
+                    "description": "The publisher of the article in question.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "BlogPosting": {
+            "label": "BlogPosting",
+            "description": "A blog post.",
+            "extends": "SocialMediaPosting",
+            "properties": {
+                "headline": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Headline",
+                    "description": "Headline of the article.",
+                    "type": "text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "datePublished": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Date Published",
+                    "description": "Date of first publication or broadcast. For example the date a [[CreativeWork]] was broadcast or a [[Certification]] was issued.",
+                    "type": "date"
+                },
+                "dateModified": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Date Modified",
+                    "description": "The date on which the CreativeWork was most recently modified or when the item's entry was modified within a DataFeed.",
+                    "type": "date"
+                },
+                "author": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Author",
+                    "description": "The author of this content or rating. Please note that author is special in that HTML 5 provides a special mechanism for indicating authorship via the rel tag. That is equivalent to this and may be used interchangeably.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "publisher": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Publisher",
+                    "description": "The publisher of the article in question.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "ContactPoint": {
+            "label": "ContactPoint",
+            "description": "A contact point—for example, a Customer Complaints department.",
+            "extends": "StructuredValue",
+            "properties": {
+                "contactType": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Contact Type",
+                    "description": "A person or organization can have different contact points, for different purposes. For example, a sales contact point, a PR contact point and so on. This property is used to specify the kind of contact point.",
+                    "type": "text"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "email": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Email",
+                    "description": "Email address.",
+                    "type": "text"
+                },
+                "availableLanguage": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Available Language",
+                    "description": "A language someone may use with or at the item, service or place. Please use one of the language codes from the [IETF BCP 47 standard](http://tools.ietf.org/html/bcp47). See also [[inLanguage]].",
+                    "type": "text",
+                    "multiple": true
+                }
+            }
+        },
+        "Course": {
+            "label": "Course",
+            "description": "A description of an educational course which may be offered as distinct instances which take place at different times or take place at different locations, or be offered through different media or modes of study. An educational course is a sequence of one or more educational events and/or creative works which aims to build knowledge, competence or ability of learners.",
+            "extends": "CreativeWork",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "provider": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Provider",
+                    "description": "The service provider, service operator, or service performer; the goods producer. Another party (a seller) may offer those services or goods on behalf of the provider. A provider may also serve as the seller.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "courseCode": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Course Code",
+                    "description": "The identifier for the [[Course]] used by the course [[provider]] (e.g. CS101 or 6.001).",
+                    "type": "text"
+                },
+                "offers": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Offers",
+                    "description": "An offer to provide this item—for example, an offer to sell a product, rent the DVD of a movie, perform a service, or give away tickets to an event. Use [[businessFunction]] to indicate the kind of transaction offered, i.e. sell, lease, etc. This property can also be used to describe a [[Demand]]. While this property is listed as expected on a number of common types, it can be used in others. In that case, using a second type, such as Product or a subtype of Product, can clarify the nature of the offer.",
+                    "type": "thing",
+                    "of": [
+                        "Offer"
+                    ],
+                    "multiple": true
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "inLanguage": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "In Language",
+                    "description": "The language of the content or performance or used in an action. Please use one of the language codes from the [IETF BCP 47 standard](http://tools.ietf.org/html/bcp47). See also [[availableLanguage]].",
+                    "type": "text"
+                }
+            }
+        },
+        "Event": {
+            "label": "Event",
+            "description": "An event happening at a certain time and location, such as a concert, lecture, or festival. Ticketing information may be added via the [[offers]] property. Repeated events may be structured as separate Event objects.",
+            "extends": "Thing",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "startDate": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Start Date",
+                    "description": "The start date and time of the item (in [ISO 8601 date format](http://en.wikipedia.org/wiki/ISO_8601)).",
+                    "type": "date"
+                },
+                "location": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Location",
+                    "description": "The location of, for example, where an event is happening, where an organization is located, or where an action takes place.",
+                    "type": "text",
+                    "of": [
+                        "Place",
+                        "PostalAddress"
+                    ]
+                },
+                "endDate": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "End Date",
+                    "description": "The end date and time of the item (in [ISO 8601 date format](http://en.wikipedia.org/wiki/ISO_8601)).",
+                    "type": "date"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "eventStatus": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Event Status",
+                    "description": "An eventStatus of an event represents its status; particularly useful when an event is cancelled or rescheduled.",
+                    "type": "enum",
+                    "options": [
+                        "EventCancelled",
+                        "EventMovedOnline",
+                        "EventPostponed",
+                        "EventRescheduled",
+                        "EventScheduled"
+                    ]
+                },
+                "eventAttendanceMode": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Event Attendance Mode",
+                    "description": "The eventAttendanceMode of an event indicates whether it occurs online, offline, or a mix.",
+                    "type": "enum",
+                    "options": [
+                        "MixedEventAttendanceMode",
+                        "OfflineEventAttendanceMode",
+                        "OnlineEventAttendanceMode"
+                    ]
+                },
+                "offers": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Offers",
+                    "description": "An offer to provide this item—for example, an offer to sell a product, rent the DVD of a movie, perform a service, or give away tickets to an event. Use [[businessFunction]] to indicate the kind of transaction offered, i.e. sell, lease, etc. This property can also be used to describe a [[Demand]]. While this property is listed as expected on a number of common types, it can be used in others. In that case, using a second type, such as Product or a subtype of Product, can clarify the nature of the offer.",
+                    "type": "thing",
+                    "of": [
+                        "Offer"
+                    ],
+                    "multiple": true
+                },
+                "organizer": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Organizer",
+                    "description": "An organizer of an Event.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "performer": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Performer",
+                    "description": "A performer at the event—for example, a presenter, musician, musical group or actor.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ],
+                    "multiple": true
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "FAQPage": {
+            "label": "FAQPage",
+            "description": "A [[FAQPage]] is a [[WebPage]] presenting one or more \"[Frequently asked questions](https://en.wikipedia.org/wiki/FAQ)\" (see also [[QAPage]]).",
+            "extends": "WebPage",
+            "properties": {
+                "mainEntity": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Main Entity",
+                    "description": "Indicates the primary entity described in some page or other CreativeWork.",
+                    "type": "thing",
+                    "of": [
+                        "Question"
+                    ],
+                    "multiple": true
+                }
+            }
+        },
+        "GeoCoordinates": {
+            "label": "GeoCoordinates",
+            "description": "The geographic coordinates of a place or event.",
+            "extends": "StructuredValue",
+            "properties": {
+                "latitude": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Latitude",
+                    "description": "The latitude of a location. For example ```37.42242``` ([WGS 84](https://en.wikipedia.org/wiki/World_Geodetic_System)).",
+                    "type": "number"
+                },
+                "longitude": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Longitude",
+                    "description": "The longitude of a location. For example ```-122.08585``` ([WGS 84](https://en.wikipedia.org/wiki/World_Geodetic_System)).",
+                    "type": "number"
+                }
+            }
+        },
+        "HealthAndBeautyBusiness": {
+            "label": "HealthAndBeautyBusiness",
+            "description": "Health and beauty.",
+            "extends": "LocalBusiness",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "address": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "openingHours": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Opening Hours",
+                    "description": "The general opening hours for a business. Opening hours can be specified as a weekly time range, starting with days, then times per day. Multiple days can be listed with commas ',' separating each day. Day or time ranges are specified using a hyphen '-'.\\n\\n* Days are specified using the following two-letter combinations: ```Mo```, ```Tu```, ```We```, ```Th```, ```Fr```, ```Sa```, ```Su```.\\n* Times are specified using 24:00 format. For example, 3pm is specified as ```15:00```, 10am as ```10:00```. \\n* Here is an example: Tuesdays and Thursdays 4-8pm.\\n* If a business is open 7 days a week, then it can be specified as Monday through Sunday, all day.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "priceRange": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Price Range",
+                    "description": "The price range of the business, for example ```$$$```.",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "HowTo": {
+            "label": "HowTo",
+            "description": "Instructions that explain how to achieve a result by performing a sequence of steps.",
+            "extends": "CreativeWork",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "step": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Step",
+                    "description": "A single step item (as HowToStep, text, document, video, etc.) or a HowToSection.",
+                    "type": "text",
+                    "of": [
+                        "HowToStep"
+                    ],
+                    "multiple": true
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "totalTime": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Total Time",
+                    "description": "The total time required to perform instructions or a direction (including time to prepare the supplies), in [ISO 8601 duration format](http://en.wikipedia.org/wiki/ISO_8601).",
+                    "type": "duration"
+                },
+                "supply": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Supply",
+                    "description": "A sub-property of instrument. A supply consumed when performing instructions or a direction.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "tool": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Tool",
+                    "description": "A sub property of instrument. An object used (but not consumed) when performing instructions or a direction.",
+                    "type": "text",
+                    "multiple": true
+                }
+            }
+        },
+        "HowToStep": {
+            "label": "HowToStep",
+            "description": "A step in the instructions for how to achieve a result. It is an ordered list with HowToDirection and/or HowToTip items.",
+            "extends": "CreativeWork",
+            "properties": {
+                "text": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Text",
+                    "description": "The textual content of this CreativeWork.",
+                    "type": "long_text"
+                },
+                "name": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "ImageObject": {
+            "label": "ImageObject",
+            "description": "An image file.",
+            "extends": "MediaObject",
+            "properties": {
+                "url": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "caption": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Caption",
+                    "description": "The caption for this object. For downloadable machine formats (closed caption, subtitles etc.) use MediaObject and indicate the [[encodingFormat]].",
+                    "type": "text"
+                },
+                "width": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Width",
+                    "description": "The width of the item.",
+                    "type": "text"
+                },
+                "height": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Height",
+                    "description": "The height of the item.",
+                    "type": "text"
+                },
+                "creator": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Creator",
+                    "description": "The creator/author of this CreativeWork. This is the same as the Author property for CreativeWork.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "license": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "License",
+                    "description": "A license document that applies to this content, typically indicated by URL.",
+                    "type": "text"
+                }
+            }
+        },
+        "JobPosting": {
+            "label": "JobPosting",
+            "description": "A listing that describes a job opening in a certain organization.",
+            "extends": "Intangible",
+            "properties": {
+                "title": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Title",
+                    "description": "The title of the job.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "datePosted": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Date Posted",
+                    "description": "Publication date of an online listing.",
+                    "type": "date"
+                },
+                "hiringOrganization": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Hiring Organization",
+                    "description": "Organization or Person offering the job position.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "jobLocation": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Job Location",
+                    "description": "A (typically single) geographic location associated with the job position.",
+                    "type": "thing",
+                    "of": [
+                        "Place"
+                    ],
+                    "multiple": true
+                },
+                "validThrough": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Valid Through",
+                    "description": "The date after when the item is not valid. For example the end of an offer, salary period, or a period of opening hours.",
+                    "type": "date"
+                },
+                "employmentType": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Employment Type",
+                    "description": "Type of employment (e.g. full-time, part-time, contract, temporary, seasonal, internship).",
+                    "type": "text"
+                },
+                "baseSalary": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Base Salary",
+                    "description": "The base salary of the job or of an employee in an EmployeeRole.",
+                    "type": "thing",
+                    "of": [
+                        "MonetaryAmount"
+                    ]
+                },
+                "directApply": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Direct Apply",
+                    "description": "Indicates whether an [[url]] that is associated with a [[JobPosting]] enables direct application for the job, via the posting website. A job posting is considered to have directApply of [[True]] if an application process for the specified job can be directly initiated via the url(s) given (noting that e.g. multiple internet domains might nevertheless be involved at an implementation level). A value of [[False]] is appropriate if there is no clear path to applying directly online for the specified job, navigating directly from the JobPosting url(s) supplied.",
+                    "type": "boolean"
+                },
+                "identifier": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Identifier",
+                    "description": "The identifier property represents any kind of identifier for any kind of [[Thing]], such as ISBNs, GTIN codes, UUIDs etc. Schema.org provides dedicated properties for representing many of these, either as textual strings or as URL (URI) links. See [background notes](/docs/datamodel.html#identifierBg) for more details.",
+                    "type": "text"
+                }
+            }
+        },
+        "LocalBusiness": {
+            "label": "LocalBusiness",
+            "description": "A particular physical business or branch of an organization. Examples of LocalBusiness include a restaurant, a particular branch of a restaurant chain, a branch of a bank, a medical practice, a club, a bowling alley, etc.",
+            "extends": "Organization",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "address": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "openingHours": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Opening Hours",
+                    "description": "The general opening hours for a business. Opening hours can be specified as a weekly time range, starting with days, then times per day. Multiple days can be listed with commas ',' separating each day. Day or time ranges are specified using a hyphen '-'.\\n\\n* Days are specified using the following two-letter combinations: ```Mo```, ```Tu```, ```We```, ```Th```, ```Fr```, ```Sa```, ```Su```.\\n* Times are specified using 24:00 format. For example, 3pm is specified as ```15:00```, 10am as ```10:00```. \\n* Here is an example: Tuesdays and Thursdays 4-8pm.\\n* If a business is open 7 days a week, then it can be specified as Monday through Sunday, all day.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "priceRange": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Price Range",
+                    "description": "The price range of the business, for example ```$$$```.",
+                    "type": "text"
+                },
+                "geo": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Geo",
+                    "description": "The geo coordinates of the place.",
+                    "type": "thing",
+                    "of": [
+                        "GeoCoordinates"
+                    ]
+                },
+                "aggregateRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Aggregate Rating",
+                    "description": "The overall rating, based on a collection of reviews or ratings, of the item.",
+                    "type": "thing",
+                    "of": [
+                        "AggregateRating"
+                    ]
+                },
+                "email": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Email",
+                    "description": "Email address.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                }
+            }
+        },
+        "MonetaryAmount": {
+            "label": "MonetaryAmount",
+            "description": "A monetary value or range. This type can be used to describe an amount of money such as $50 USD, or a range as in describing a bank account being suitable for a balance between £1,000 and £1,000,000 GBP, or the value of a salary, etc. It is recommended to use [[PriceSpecification]] Types to describe the price of an Offer, Invoice, etc.",
+            "extends": "StructuredValue",
+            "properties": {
+                "currency": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Currency",
+                    "description": "The currency in which the monetary amount is expressed.\\n\\nUse standard formats: [ISO 4217 currency format](http://en.wikipedia.org/wiki/ISO_4217), e.g. \"USD\"; [Ticker symbol](https://en.wikipedia.org/wiki/List_of_cryptocurrencies) for cryptocurrencies, e.g. \"BTC\"; well known names for [Local Exchange Trading Systems](https://en.wikipedia.org/wiki/Local_exchange_trading_system) (LETS) and other currency types, e.g. \"Ithaca HOUR\".",
+                    "type": "text"
+                },
+                "value": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Value",
+                    "description": "The value of a [[QuantitativeValue]] (including [[Observation]]) or property value node.\\n\\n* For [[QuantitativeValue]] and [[MonetaryAmount]], the recommended type for values is 'Number'.\\n* For [[PropertyValue]], it can be 'Text', 'Number', 'Boolean', 'StructuredValue' or 'QualitativeValue'.\\n* Use values from 0123456789 (Unicode 'DIGIT ZERO' (U+0030) to 'DIGIT NINE' (U+0039)) rather than superficially similar Unicode symbols.\\n* Use '.' (Unicode 'FULL STOP' (U+002E)) rather than ',' to indicate a decimal point. Avoid using these symbols as a readability separator.",
+                    "type": "number"
+                }
+            }
+        },
+        "Offer": {
+            "label": "Offer",
+            "description": "An offer to transfer some rights to an item or to provide a service — for example, an offer to sell tickets to an event, to rent the DVD of a movie, to stream a TV show over the internet, to repair a motorcycle, or to loan a book.\\n\\nNote: As the [[businessFunction]] property, which identifies the form of offer (e.g. sell, lease, repair, dispose), defaults to http://purl.org/goodrelations/v1#Sell; an Offer without a defined businessFunction value can be assumed to be an offer to sell.\\n\\nFor [GTIN](http://www.gs1.org/barcodes/technical/idkeys/gtin)-related fields, see [Check Digit calculator](http://www.gs1.org/barcodes/support/check_digit_calculator) and [validation guide](http://www.gs1us.org/resources/standards/gtin-validation-guide) from [GS1](http://www.gs1.org/).",
+            "extends": "Intangible",
+            "properties": {
+                "price": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Price",
+                    "description": "The offer price of a product, or of a price component when attached to PriceSpecification and its subtypes.\\n\\nUsage guidelines:\\n\\n* Use the [[priceCurrency]] property (with standard formats: [ISO 4217 currency format](http://en.wikipedia.org/wiki/ISO_4217), e.g. \"USD\"; [Ticker symbol](https://en.wikipedia.org/wiki/List_of_cryptocurrencies) for cryptocurrencies, e.g. \"BTC\"; well known names for [Local Exchange Trading Systems](https://en.wikipedia.org/wiki/Local_exchange_trading_system) (LETS) and other currency types, e.g. \"Ithaca HOUR\") instead of including [ambiguous symbols](http://en.wikipedia.org/wiki/Dollar_sign#Currencies_that_use_the_dollar_or_peso_sign) such as '$' in the value.\\n* Use '.' (Unicode 'FULL STOP' (U+002E)) rather than ',' to indicate a decimal point. Avoid using these symbols as a readability separator.\\n* Note that both [RDFa](http://www.w3.org/TR/xhtml-rdfa-primer/#using-the-content-attribute) and Microdata syntax allow the use of a \"content=\" attribute for publishing simple machine-readable values alongside more human-friendly formatting.\\n* Use values from 0123456789 (Unicode 'DIGIT ZERO' (U+0030) to 'DIGIT NINE' (U+0039)) rather than superficially similar Unicode symbols.",
+                    "type": "number"
+                },
+                "priceCurrency": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Price Currency",
+                    "description": "The currency of the price, or a price component when attached to [[PriceSpecification]] and its subtypes.\\n\\nUse standard formats: [ISO 4217 currency format](http://en.wikipedia.org/wiki/ISO_4217), e.g. \"USD\"; [Ticker symbol](https://en.wikipedia.org/wiki/List_of_cryptocurrencies) for cryptocurrencies, e.g. \"BTC\"; well known names for [Local Exchange Trading Systems](https://en.wikipedia.org/wiki/Local_exchange_trading_system) (LETS) and other currency types, e.g. \"Ithaca HOUR\".",
+                    "type": "text"
+                },
+                "availability": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Availability",
+                    "description": "The availability of this item—for example In stock, Out of stock, Pre-order, etc.",
+                    "type": "enum",
+                    "options": [
+                        "BackOrder",
+                        "Discontinued",
+                        "InStock",
+                        "InStoreOnly",
+                        "LimitedAvailability",
+                        "MadeToOrder",
+                        "OnlineOnly",
+                        "OutOfStock",
+                        "PreOrder",
+                        "PreSale",
+                        "Reserved",
+                        "SoldOut"
+                    ]
+                },
+                "url": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "priceValidUntil": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Price Valid Until",
+                    "description": "The date after which the price is no longer available.",
+                    "type": "date"
+                },
+                "itemCondition": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Item Condition",
+                    "description": "A predefined value from OfferItemCondition specifying the condition of the product or service, or the products or services included in the offer. Also used for product return policies to specify the condition of products accepted for returns.",
+                    "type": "enum",
+                    "options": [
+                        "DamagedCondition",
+                        "NewCondition",
+                        "RefurbishedCondition",
+                        "UsedCondition"
+                    ]
+                }
+            }
+        },
+        "Organization": {
+            "label": "Organization",
+            "description": "An organization such as a school, NGO, corporation, club, etc.",
+            "extends": "Thing",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "logo": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Logo",
+                    "description": "An associated logo.",
+                    "type": "url"
+                },
+                "sameAs": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Same As",
+                    "description": "URL of a reference Web page that unambiguously indicates the item's identity. E.g. the URL of the item's Wikipedia page, Wikidata entry, or official website.",
+                    "type": "url",
+                    "multiple": true
+                },
+                "contactPoint": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Contact Point",
+                    "description": "A contact point for a person or organization.",
+                    "type": "thing",
+                    "of": [
+                        "ContactPoint"
+                    ],
+                    "multiple": true
+                },
+                "address": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "email": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Email",
+                    "description": "Email address.",
+                    "type": "text"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                }
+            }
+        },
+        "Person": {
+            "label": "Person",
+            "description": "A person (alive, dead, undead, or fictional).",
+            "extends": "Thing",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "jobTitle": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Job Title",
+                    "description": "The job title of the person (for example, Financial Manager).",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "sameAs": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Same As",
+                    "description": "URL of a reference Web page that unambiguously indicates the item's identity. E.g. the URL of the item's Wikipedia page, Wikidata entry, or official website.",
+                    "type": "url",
+                    "multiple": true
+                },
+                "worksFor": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Works For",
+                    "description": "Organizations that the person works for.",
+                    "type": "thing",
+                    "of": [
+                        "Organization"
+                    ]
+                },
+                "email": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Email",
+                    "description": "Email address.",
+                    "type": "text"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                }
+            }
+        },
+        "Place": {
+            "label": "Place",
+            "description": "Entities that have a somewhat fixed, physical extension.",
+            "extends": "Thing",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "address": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "geo": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Geo",
+                    "description": "The geo coordinates of the place.",
+                    "type": "thing",
+                    "of": [
+                        "GeoCoordinates"
+                    ]
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "PostalAddress": {
+            "label": "PostalAddress",
+            "description": "The mailing address.",
+            "extends": "ContactPoint",
+            "properties": {
+                "streetAddress": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Street Address",
+                    "description": "The street address. For example, 1600 Amphitheatre Pkwy.",
+                    "type": "text"
+                },
+                "addressLocality": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address Locality",
+                    "description": "The locality in which the street address is, and which is in the region. For example, Mountain View.",
+                    "type": "text"
+                },
+                "addressCountry": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address Country",
+                    "description": "The country. Recommended to be in 2-letter [ISO 3166-1 alpha-2](http://en.wikipedia.org/wiki/ISO_3166-1) format, for example \"US\". For backward compatibility, a 3-letter [ISO 3166-1 alpha-3](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3) country code such as \"SGP\" or a full country name such as \"Singapore\" can also be used.",
+                    "type": "text"
+                },
+                "postalCode": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Postal Code",
+                    "description": "The postal code. For example, 94043.",
+                    "type": "text"
+                },
+                "addressRegion": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Address Region",
+                    "description": "The region in which the locality is, and which is in the country. For example, California or another appropriate first-level [Administrative division](https://en.wikipedia.org/wiki/List_of_administrative_divisions_by_country) such as the Province in Italy or Region in Germany.",
+                    "type": "text"
+                }
+            }
+        },
+        "Product": {
+            "label": "Product",
+            "description": "Any offered product or service. For example: a pair of shoes; a concert ticket; the rental of a car; a haircut; or an episode of a TV show streamed online.",
+            "extends": "Thing",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "sku": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Sku",
+                    "description": "The Stock Keeping Unit (SKU), i.e. a merchant-specific identifier for a product or service, or the product to which the offer refers.",
+                    "type": "text"
+                },
+                "brand": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Brand",
+                    "description": "The brand(s) associated with a product or service, or the brand(s) maintained by an organization or business person.",
+                    "type": "thing",
+                    "of": [
+                        "Organization"
+                    ]
+                },
+                "offers": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Offers",
+                    "description": "An offer to provide this item—for example, an offer to sell a product, rent the DVD of a movie, perform a service, or give away tickets to an event. Use [[businessFunction]] to indicate the kind of transaction offered, i.e. sell, lease, etc. This property can also be used to describe a [[Demand]]. While this property is listed as expected on a number of common types, it can be used in others. In that case, using a second type, such as Product or a subtype of Product, can clarify the nature of the offer.",
+                    "type": "thing",
+                    "of": [
+                        "Offer"
+                    ],
+                    "multiple": true
+                },
+                "aggregateRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Aggregate Rating",
+                    "description": "The overall rating, based on a collection of reviews or ratings, of the item.",
+                    "type": "thing",
+                    "of": [
+                        "AggregateRating"
+                    ]
+                },
+                "review": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Review",
+                    "description": "A review of the item.",
+                    "type": "thing",
+                    "of": [
+                        "Review"
+                    ],
+                    "multiple": true
+                },
+                "gtin": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Gtin",
+                    "description": "A Global Trade Item Number ([GTIN](https://www.gs1.org/standards/id-keys/gtin)). GTINs identify trade items, including products and services, using numeric identification codes.\n\nA correct [[gtin]] value should be a valid GTIN, which means that it should be an all-numeric string of either 8, 12, 13 or 14 digits, or a \"GS1 Digital Link\" URL based on such a string. The numeric component should also have a [valid GS1 check digit](https://www.gs1.org/services/check-digit-calculator) and meet the other rules for valid GTINs. See also [GS1's GTIN Summary](http://www.gs1.org/barcodes/technical/idkeys/gtin) and [Wikipedia](https://en.wikipedia.org/wiki/Global_Trade_Item_Number) for more details. Left-padding of the gtin values is not required or encouraged. The [[gtin]] property generalizes the earlier [[gtin8]], [[gtin12]], [[gtin13]], and [[gtin14]] properties.\n\nThe GS1 [digital link specifications](https://www.gs1.org/standards/Digital-Link/) expresses GTINs as URLs (URIs, IRIs, etc.).\nDigital Links should be populated into the [[hasGS1DigitalLink]] attribute.\n\nNote also that this is a definition for how to include GTINs in Schema.org data, and not a definition of GTINs in general - see the GS1 documentation for authoritative details.",
+                    "type": "text"
+                },
+                "mpn": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Mpn",
+                    "description": "The Manufacturer Part Number (MPN) of the product, or the product to which the offer refers.",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "color": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Color",
+                    "description": "The color of the product.",
+                    "type": "text"
+                }
+            }
+        },
+        "ProfessionalService": {
+            "label": "ProfessionalService",
+            "description": "Original definition: \"provider of professional services.\"\\n\\nThe general [[ProfessionalService]] type for local businesses was deprecated due to confusion with [[Service]]. For reference, the types that it included were: [[Dentist]],\n        [[AccountingService]], [[Attorney]], [[Notary]], as well as types for several kinds of [[HomeAndConstructionBusiness]]: [[Electrician]], [[GeneralContractor]],\n        [[HousePainter]], [[Locksmith]], [[Plumber]], [[RoofingContractor]]. [[LegalService]] was introduced as a more inclusive supertype of [[Attorney]].",
+            "extends": "LocalBusiness",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "address": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "openingHours": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Opening Hours",
+                    "description": "The general opening hours for a business. Opening hours can be specified as a weekly time range, starting with days, then times per day. Multiple days can be listed with commas ',' separating each day. Day or time ranges are specified using a hyphen '-'.\\n\\n* Days are specified using the following two-letter combinations: ```Mo```, ```Tu```, ```We```, ```Th```, ```Fr```, ```Sa```, ```Su```.\\n* Times are specified using 24:00 format. For example, 3pm is specified as ```15:00```, 10am as ```10:00```. \\n* Here is an example: Tuesdays and Thursdays 4-8pm.\\n* If a business is open 7 days a week, then it can be specified as Monday through Sunday, all day.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "areaServed": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Area Served",
+                    "description": "The geographic area where a service or offered item is provided.",
+                    "type": "text",
+                    "of": [
+                        "Place"
+                    ],
+                    "multiple": true
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "Question": {
+            "label": "Question",
+            "description": "A specific question - e.g. from a user seeking answers online, or collected in a Frequently Asked Questions (FAQ) document.",
+            "extends": "Comment",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "acceptedAnswer": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Accepted Answer",
+                    "description": "The answer(s) that has been accepted as best, typically on a Question/Answer site. Sites vary in their selection mechanisms, e.g. drawing on community opinion and/or the view of the Question author.",
+                    "type": "thing",
+                    "of": [
+                        "Answer"
+                    ]
+                }
+            }
+        },
+        "Rating": {
+            "label": "Rating",
+            "description": "A rating is an evaluation on a numeric scale, such as 1 to 5 stars.",
+            "extends": "Intangible",
+            "properties": {
+                "ratingValue": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Rating Value",
+                    "description": "The rating for the content.\\n\\nUsage guidelines:\\n\\n* Use values from 0123456789 (Unicode 'DIGIT ZERO' (U+0030) to 'DIGIT NINE' (U+0039)) rather than superficially similar Unicode symbols.\\n* Use '.' (Unicode 'FULL STOP' (U+002E)) rather than ',' to indicate a decimal point. Avoid using these symbols as a readability separator.",
+                    "type": "number"
+                },
+                "bestRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Best Rating",
+                    "description": "The highest value allowed in this rating system.",
+                    "type": "number"
+                },
+                "worstRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Worst Rating",
+                    "description": "The lowest value allowed in this rating system.",
+                    "type": "number"
+                }
+            }
+        },
+        "Recipe": {
+            "label": "Recipe",
+            "description": "A recipe. For dietary restrictions covered by the recipe, a few common restrictions are enumerated via [[suitableForDiet]]. The [[keywords]] property can also be used to add more detail.",
+            "extends": "HowTo",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "image": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "author": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Author",
+                    "description": "The author of this content or rating. Please note that author is special in that HTML 5 provides a special mechanism for indicating authorship via the rel tag. That is equivalent to this and may be used interchangeably.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "prepTime": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Prep Time",
+                    "description": "The length of time it takes to prepare the items to be used in instructions or a direction, in [ISO 8601 duration format](http://en.wikipedia.org/wiki/ISO_8601).",
+                    "type": "duration"
+                },
+                "cookTime": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Cook Time",
+                    "description": "The time it takes to actually cook the dish, in [ISO 8601 duration format](http://en.wikipedia.org/wiki/ISO_8601).",
+                    "type": "duration"
+                },
+                "totalTime": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Total Time",
+                    "description": "The total time required to perform instructions or a direction (including time to prepare the supplies), in [ISO 8601 duration format](http://en.wikipedia.org/wiki/ISO_8601).",
+                    "type": "duration"
+                },
+                "recipeYield": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Recipe Yield",
+                    "description": "The quantity produced by the recipe (for example, number of people served, number of servings, etc).",
+                    "type": "text"
+                },
+                "recipeIngredient": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Recipe Ingredient",
+                    "description": "An ingredient or ordered list of ingredients and potentially quantities used in the recipe, e.g. 1 cup of sugar, flour or garlic.  The ingredients can be represented as free text or more structured values.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "recipeInstructions": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Recipe Instructions",
+                    "description": "A step in making the recipe, in the form of a single item (document, video, etc.) or an ordered list with HowToStep and/or HowToSection items.",
+                    "type": "long_text",
+                    "multiple": true
+                },
+                "recipeCategory": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Recipe Category",
+                    "description": "The category of the recipe—for example, appetizer, entree, etc.",
+                    "type": "text"
+                },
+                "recipeCuisine": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Recipe Cuisine",
+                    "description": "The cuisine of the recipe (for example, French or Ethiopian).",
+                    "type": "text"
+                },
+                "aggregateRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Aggregate Rating",
+                    "description": "The overall rating, based on a collection of reviews or ratings, of the item.",
+                    "type": "thing",
+                    "of": [
+                        "AggregateRating"
+                    ]
+                },
+                "datePublished": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Date Published",
+                    "description": "Date of first publication or broadcast. For example the date a [[CreativeWork]] was broadcast or a [[Certification]] was issued.",
+                    "type": "date"
+                },
+                "keywords": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Keywords",
+                    "description": "Keywords or tags used to describe some item. Multiple textual entries in a keywords list are typically delimited by commas, or by repeating the property.",
+                    "type": "text",
+                    "multiple": true
+                }
+            }
+        },
+        "Restaurant": {
+            "label": "Restaurant",
+            "description": "A restaurant.",
+            "extends": "FoodEstablishment",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "address": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "servesCuisine": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Serves Cuisine",
+                    "description": "The cuisine of the restaurant.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "menu": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Menu",
+                    "description": "Either the actual menu as a structured representation, as text, or a URL of the menu.",
+                    "type": "url"
+                },
+                "acceptsReservations": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Accepts Reservations",
+                    "description": "Indicates whether a FoodEstablishment accepts reservations. Values can be Boolean, an URL at which reservations can be made or (for backwards compatibility) the strings ```Yes``` or ```No```.",
+                    "type": "text"
+                },
+                "openingHours": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Opening Hours",
+                    "description": "The general opening hours for a business. Opening hours can be specified as a weekly time range, starting with days, then times per day. Multiple days can be listed with commas ',' separating each day. Day or time ranges are specified using a hyphen '-'.\\n\\n* Days are specified using the following two-letter combinations: ```Mo```, ```Tu```, ```We```, ```Th```, ```Fr```, ```Sa```, ```Su```.\\n* Times are specified using 24:00 format. For example, 3pm is specified as ```15:00```, 10am as ```10:00```. \\n* Here is an example: Tuesdays and Thursdays 4-8pm.\\n* If a business is open 7 days a week, then it can be specified as Monday through Sunday, all day.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "priceRange": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Price Range",
+                    "description": "The price range of the business, for example ```$$$```.",
+                    "type": "text"
+                },
+                "aggregateRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Aggregate Rating",
+                    "description": "The overall rating, based on a collection of reviews or ratings, of the item.",
+                    "type": "thing",
+                    "of": [
+                        "AggregateRating"
+                    ]
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "Review": {
+            "label": "Review",
+            "description": "A review of an item - for example, of a restaurant, movie, or store.",
+            "extends": "CreativeWork",
+            "properties": {
+                "itemReviewed": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Item Reviewed",
+                    "description": "The item that is being reviewed/rated.",
+                    "type": "thing",
+                    "of": [
+                        "Product",
+                        "Service",
+                        "Event",
+                        "Course",
+                        "Recipe",
+                        "Organization",
+                        "LocalBusiness"
+                    ]
+                },
+                "reviewRating": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Review Rating",
+                    "description": "The rating given in this review. Note that reviews can themselves be rated. The ```reviewRating``` applies to rating given by the review. The [[aggregateRating]] property applies to the review itself, as a creative work.",
+                    "type": "thing",
+                    "of": [
+                        "Rating"
+                    ]
+                },
+                "author": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Author",
+                    "description": "The author of this content or rating. Please note that author is special in that HTML 5 provides a special mechanism for indicating authorship via the rel tag. That is equivalent to this and may be used interchangeably.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "reviewBody": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Review Body",
+                    "description": "The actual body of the review.",
+                    "type": "long_text"
+                },
+                "datePublished": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Date Published",
+                    "description": "Date of first publication or broadcast. For example the date a [[CreativeWork]] was broadcast or a [[Certification]] was issued.",
+                    "type": "date"
+                },
+                "name": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                }
+            }
+        },
+        "Service": {
+            "label": "Service",
+            "description": "A service provided by an organization, e.g. delivery service, print services, etc.",
+            "extends": "Intangible",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "provider": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Provider",
+                    "description": "The service provider, service operator, or service performer; the goods producer. Another party (a seller) may offer those services or goods on behalf of the provider. A provider may also serve as the seller.",
+                    "type": "thing",
+                    "of": [
+                        "Person",
+                        "Organization"
+                    ]
+                },
+                "areaServed": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Area Served",
+                    "description": "The geographic area where a service or offered item is provided.",
+                    "type": "text",
+                    "of": [
+                        "Place"
+                    ],
+                    "multiple": true
+                },
+                "offers": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Offers",
+                    "description": "An offer to provide this item—for example, an offer to sell a product, rent the DVD of a movie, perform a service, or give away tickets to an event. Use [[businessFunction]] to indicate the kind of transaction offered, i.e. sell, lease, etc. This property can also be used to describe a [[Demand]]. While this property is listed as expected on a number of common types, it can be used in others. In that case, using a second type, such as Product or a subtype of Product, can clarify the nature of the offer.",
+                    "type": "thing",
+                    "of": [
+                        "Offer"
+                    ],
+                    "multiple": true
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "serviceType": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Service Type",
+                    "description": "The type of service being offered, e.g. veterans' benefits, emergency relief, etc.",
+                    "type": "enum",
+                    "options": [
+                        "BasicIncome",
+                        "BusinessSupport",
+                        "DisabilitySupport",
+                        "HealthCare",
+                        "OneTimePayments",
+                        "PaidLeave",
+                        "ParentalSupport",
+                        "UnemploymentSupport"
+                    ]
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "SoftwareApplication": {
+            "label": "SoftwareApplication",
+            "description": "A software application.",
+            "extends": "CreativeWork",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "offers": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Offers",
+                    "description": "An offer to provide this item—for example, an offer to sell a product, rent the DVD of a movie, perform a service, or give away tickets to an event. Use [[businessFunction]] to indicate the kind of transaction offered, i.e. sell, lease, etc. This property can also be used to describe a [[Demand]]. While this property is listed as expected on a number of common types, it can be used in others. In that case, using a second type, such as Product or a subtype of Product, can clarify the nature of the offer.",
+                    "type": "thing",
+                    "of": [
+                        "Offer"
+                    ],
+                    "multiple": true
+                },
+                "applicationCategory": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Application Category",
+                    "description": "Type of software application, e.g. 'Game, Multimedia'.",
+                    "type": "text"
+                },
+                "operatingSystem": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Operating System",
+                    "description": "Operating systems supported (Windows 7, OS X 10.6, Android 1.6).",
+                    "type": "text"
+                },
+                "aggregateRating": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Aggregate Rating",
+                    "description": "The overall rating, based on a collection of reviews or ratings, of the item.",
+                    "type": "thing",
+                    "of": [
+                        "AggregateRating"
+                    ]
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                }
+            }
+        },
+        "Store": {
+            "label": "Store",
+            "description": "A retail good store.",
+            "extends": "LocalBusiness",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "address": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Address",
+                    "description": "Physical address of the item.",
+                    "type": "text",
+                    "of": [
+                        "PostalAddress"
+                    ]
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "telephone": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Telephone",
+                    "description": "The telephone number.",
+                    "type": "text"
+                },
+                "openingHours": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Opening Hours",
+                    "description": "The general opening hours for a business. Opening hours can be specified as a weekly time range, starting with days, then times per day. Multiple days can be listed with commas ',' separating each day. Day or time ranges are specified using a hyphen '-'.\\n\\n* Days are specified using the following two-letter combinations: ```Mo```, ```Tu```, ```We```, ```Th```, ```Fr```, ```Sa```, ```Su```.\\n* Times are specified using 24:00 format. For example, 3pm is specified as ```15:00```, 10am as ```10:00```. \\n* Here is an example: Tuesdays and Thursdays 4-8pm.\\n* If a business is open 7 days a week, then it can be specified as Monday through Sunday, all day.",
+                    "type": "text",
+                    "multiple": true
+                },
+                "priceRange": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Price Range",
+                    "description": "The price range of the business, for example ```$$$```.",
+                    "type": "text"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                }
+            }
+        },
+        "VideoObject": {
+            "label": "VideoObject",
+            "description": "A video file.",
+            "extends": "MediaObject",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "thumbnailUrl": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Thumbnail Url",
+                    "description": "A thumbnail image relevant to the Thing.",
+                    "type": "url"
+                },
+                "uploadDate": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Upload Date",
+                    "description": "Date (including time if available) when this media object was uploaded to this site.",
+                    "type": "date"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "contentUrl": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Content Url",
+                    "description": "Actual bytes of the media object, for example the image file or video file.",
+                    "type": "url"
+                },
+                "embedUrl": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Embed Url",
+                    "description": "A URL pointing to a player for a specific video. In general, this is the information in the ```src``` element of an ```embed``` tag and should not be the same as the content of the ```loc``` tag.",
+                    "type": "url"
+                },
+                "duration": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Duration",
+                    "description": "The duration of the item (movie, audio recording, event, etc.) in [ISO 8601 duration format](http://en.wikipedia.org/wiki/ISO_8601).",
+                    "type": "duration"
+                }
+            }
+        },
+        "WebPage": {
+            "label": "WebPage",
+            "description": "A web page. Every web page is implicitly assumed to be declared to be of type WebPage, so the various properties about that webpage, such as breadcrumb may be used. We recommend explicit declaration if these properties are specified, but if they are found outside of an itemscope, they will be assumed to be about the page.",
+            "extends": "CreativeWork",
+            "properties": {
+                "name": {
+                    "required": true,
+                    "recommended": false,
+                    "label": "Name",
+                    "description": "The name of the item.",
+                    "type": "text"
+                },
+                "description": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Description",
+                    "description": "A description of the item.",
+                    "type": "long_text"
+                },
+                "image": {
+                    "required": false,
+                    "recommended": true,
+                    "label": "Image",
+                    "description": "An image of the item. This can be a [[URL]] or a fully described [[ImageObject]].",
+                    "type": "image"
+                },
+                "url": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Url",
+                    "description": "URL of the item.",
+                    "type": "url"
+                },
+                "datePublished": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Date Published",
+                    "description": "Date of first publication or broadcast. For example the date a [[CreativeWork]] was broadcast or a [[Certification]] was issued.",
+                    "type": "date"
+                },
+                "dateModified": {
+                    "required": false,
+                    "recommended": false,
+                    "label": "Date Modified",
+                    "description": "The date on which the CreativeWork was most recently modified or when the item's entry was modified within a DataFeed.",
+                    "type": "date"
+                }
+            }
+        }
+    }
+}

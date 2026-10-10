@@ -1,0 +1,150 @@
+/* Talea – the built-in page frame (the former layout "zakladni"; Talea is themeless since 1.6). Colours, fonts and scales come from the design system (tokens --tl-*, Builder\DesignSystem).
+ * The whole template is in the layer "template": builder elements, classes and their style (later layers) override it regardless of specificity.
+ * Navigation on a phone via the Popover API, smooth transitions between pages (View Transitions) – no JavaScript. */
+
+@layer tokens, shared, template, builder, classes, elements;
+@layer template.base, template.layout, template.elements;
+
+@view-transition { navigation: auto; }
+
+@layer template.base {
+	:root {
+		color-scheme: light;
+		/* short names for the template; values from the design system */
+		--accent: var(--tl-color-primary, #2b5be3);
+		--accent-soft: var(--tl-color-primary-soft, #eef2fd);
+		--text: var(--tl-color-text, #16181d);
+		--text-muted: var(--tl-color-muted, #5b5f68);
+		--base: var(--tl-color-background, #ffffff);
+		--surface: var(--tl-color-surface, #f5f6f8);
+		--line: var(--tl-color-line, #dfe1e5);
+		--font: var(--tl-font-body, system-ui, sans-serif);
+		--font-heading: var(--tl-font-heading, var(--font));
+		--width: var(--tl-width, 72rem);
+		--text-width: var(--tl-text-width, 44rem);
+		--space: var(--tl-space-l, 1.5rem);
+		--space-large: var(--tl-space-2xl, 4rem);
+		--radius: var(--tl-radius, 0.75rem);
+		--step-0: var(--tl-step-0, 1rem);
+		--step-1: var(--tl-step-1, 1.25rem);
+		--step-2: var(--tl-step-2, 1.5rem);
+		--step-3: var(--tl-step-3, 2rem);
+	}
+	:root[data-dark] { color-scheme: light dark; }
+	:root[data-dark][data-theme="dark"] { color-scheme: dark; }
+	:root[data-dark][data-theme="light"] { color-scheme: light; }
+	*, *::before, *::after { box-sizing: border-box; }
+	html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
+	body { margin: 0; background: var(--base); color: var(--text); font: var(--step-0) / 1.6 var(--font); text-rendering: optimizeLegibility; }
+	h1, h2, h3, h4 { margin: 0 0 0.5em; font-family: var(--font-heading); line-height: 1.15; letter-spacing: -0.015em; text-wrap: balance; }
+	h1 { font-size: var(--step-3); }
+	h2 { font-size: var(--step-2); }
+	h3 { font-size: var(--step-1); }
+	p, ul, ol, figure, table, blockquote { margin: 0 0 1.1em; }
+	p { text-wrap: pretty; }
+	a { color: var(--accent); text-underline-offset: 0.18em; }
+	img { max-width: 100%; height: auto; }
+	@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+}
+
+@layer template.layout {
+	.wrap { width: min(100% - 2 * var(--space), var(--width)); margin-inline: auto; }
+	.skip { position: absolute; left: -999px; }
+	.skip:focus { left: var(--space); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--base); }
+	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
+	.tl-notice-hours { background: var(--accent-soft); color: var(--text); border-bottom: 1px solid var(--line); font-size: 0.9375rem; text-align: center; }
+	.tl-notice-hours p { margin: 0 auto; padding: 0.5rem var(--space); max-width: var(--width); }
+
+	.header { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--base) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+	.header-wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space); min-height: 4.25rem; }
+	.logo { color: var(--text); font: 700 var(--step-1) / 1 var(--font-heading); text-decoration: none; }
+	.logo img { display: block; max-height: 2.75rem; width: auto; }
+	.navigation ul { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+	.navigation a { display: block; padding: 0.5rem 0.8rem; border-radius: 999px; color: var(--text); font-weight: 600; text-decoration: none; }
+	.navigation a:hover { background: var(--surface); }
+	.navigation a[aria-current] { background: var(--accent-soft); color: var(--accent); }
+	.menu-btn { display: none; }
+	/* submenu: on a computer it opens on mouse hover and on keyboard focus, on a phone it is shown indented under its item */
+	.navigation li { position: relative; }
+	.navigation li > .menu-group { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: 0.5rem 0.8rem; font-weight: 600; cursor: default; }
+	.navigation .submenu > a::after, .navigation .submenu > .menu-group::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
+	.navigation .submenu.active > a, .navigation .submenu.active > .menu-group { color: var(--accent); }
+	.navigation .submenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
+	.navigation .submenu > ul a { border-radius: calc(var(--radius) / 1.5); font-weight: 500; }
+	.navigation .submenu:hover > ul, .navigation .submenu:focus-within > ul { display: flex; }
+	/* icon before the label; a group inside a submenu = a heading with its items under it (Core\Menu::html) */
+	.navigation .menu-icon { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
+	.navigation .menu-column > ul { flex-direction: column; flex-wrap: nowrap; }
+	.navigation .menu-heading { display: block; padding: 0.5rem 0.8rem 0.2rem; color: var(--text-muted); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+	/* phone: the navigation is a popover – the button opens it, Esc or a tap outside closes it; no script */
+	@media (max-width: 767px) {
+		.menu-btn { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--line); border-radius: 50%; background: var(--base); color: var(--text); cursor: pointer; }
+		.menu-btn span, .menu-btn span::before, .menu-btn span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
+		.menu-btn span { position: relative; }
+		.menu-btn span::before, .menu-btn span::after { content: ""; position: absolute; left: 0; }
+		.menu-btn span::before { top: -6px; }
+		.menu-btn span::after { top: 6px; }
+		.navigation[popover] { inset: 4.5rem var(--space) auto; width: auto; margin: 0; padding: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); color: var(--text); box-shadow: 0 20px 50px rgb(0 0 0 / 0.18); }
+		.navigation[popover] ul { flex-direction: column; }
+		.navigation[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--radius) / 1.5); }
+		.navigation[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+		.navigation[popover] .submenu > a::after, .navigation[popover] .submenu > .menu-group::after { display: none; }
+		/* keyboard: Tab past the last item – the open menu hides so it does not cover the focused element (WCAG 2.4.11), and comes back
+		   when focus returns to the button or into the menu; Esc or a tap outside closes it completely */
+		:root:has(:focus-visible):not(:has(.menu-btn:focus-visible, .navigation :focus-visible)) .navigation[popover]:popover-open { display: none; }
+	}
+	@media (min-width: 768px) {
+		.navigation[popover] { display: flex; position: static; align-items: center; gap: 0.5rem; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
+	}
+
+	.content { padding-block: var(--space-large); min-height: 60vh; }
+	.build { min-height: 60vh; }
+	.footer { padding-block: var(--space-large) var(--space); background: var(--surface); border-top: 1px solid var(--line); font-size: 0.95em; }
+	.footer-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space); }
+	.footer p { margin: 0.4em 0 0; color: var(--text-muted); }
+	.footer ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.3rem; }
+	.footer a { color: inherit; }
+	.footer-copy { grid-column: 1 / -1; padding-top: var(--space); border-top: 1px solid var(--line); font-size: 0.875em; }
+}
+
+@layer template.elements {
+	/* page and news item: text at a comfortable line width */
+	.page, .news { max-width: var(--text-width); margin-inline: auto; }
+	.page-intro { max-width: none; }
+	.page-intro .text > h1:first-child { max-width: 18ch; font-size: clamp(2.5rem, 1.6rem + 4.5vw, 4.5rem); }
+	.page-intro .text > :where(p, ul) { max-width: var(--text-width); font-size: var(--step-1); color: var(--text-muted); }
+	.lead { font-size: var(--step-1); line-height: 1.5; color: var(--text-muted); }
+	.text blockquote { margin-inline: 0; padding-left: 1.2em; border-left: 3px solid var(--accent); }
+	.news-image { margin: 0 0 1.5em; }
+	.news-image img { width: 100%; border-radius: var(--radius); }
+	.news-updated { font-size: 0.875em; color: var(--text-muted); }
+	.news-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2em; }
+	.news-tags a { padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--surface); font-size: 0.875em; text-decoration: none; }
+	.related { margin-top: var(--space-large); padding-top: var(--space); border-top: 1px solid var(--line); }
+	.related ul { padding-left: 1.1em; }
+
+	/* news list: cards that adapt to the width of the container (container queries), not the window */
+	.listing-header { max-width: var(--text-width); margin-bottom: var(--space); }
+	.news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--space); }
+	.news-card { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--radius); background: var(--base); border: 1px solid var(--line); overflow: hidden; }
+	.news-card > :not(.news-card-image) { padding-inline: 1.1rem; }
+	.news-card-image img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+	.news-info { margin: 1rem 0 0.4rem; font-size: 0.85em; color: var(--text-muted); }
+	.news-info a { color: inherit; }
+	.news-card h2 { font-size: var(--step-1); }
+	.news-card h2 a { color: var(--text); text-decoration: none; }
+	.news-card h2 a:hover { color: var(--accent); }
+	.news-card .lead { font-size: 1em; }
+	.news-card .lead p:last-child { margin-bottom: 0; }
+	@container (min-width: 34rem) {
+		.news-card h2 { font-size: var(--step-2); }
+	}
+	.listing-pages { margin-bottom: var(--space); }
+	.listing-pages p { margin: 0.2em 0 0.9em; color: var(--text-muted); font-size: 0.92em; }
+
+	.search { display: flex; gap: 0.5rem; max-width: 30rem; margin: 1em 0; }
+	.search input { flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border: 1px solid var(--line); border-radius: 999px; background: var(--base); color: inherit; font: inherit; }
+	.search button { padding: 0.65rem 1.2rem; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: 600 1em var(--font); cursor: pointer; }
+	.pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: var(--space-large); }
+}

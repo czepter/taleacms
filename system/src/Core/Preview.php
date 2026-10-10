@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Signed link to a draft preview (page or site part) without login – for Claude over MCP and for sharing with a colleague.
@@ -16,7 +16,7 @@ final class Preview
 {
     public const int MAX_MINUTES = 7 * 24 * 60;
 
-    /** Preview key for the target "stranka:12" or "cast:hlavicka:en", valid for the given number of minutes. */
+    /** Preview key for the target "page:12" or "part:header:en", valid for the given number of minutes. */
     public static function key(Db $db, Settings $settings, string $target, int $minutes, bool $comments = false): string
     {
         $to = time() + 60 * max(5, min(self::MAX_MINUTES, $minutes));
@@ -38,7 +38,7 @@ final class Preview
     /** @return bool|null null = invalid or expired; otherwise whether the key allows comments */
     private static function parse(Db $db, Settings $settings, string $target, string $key): ?bool
     {
-        if (!preg_match('/^(\d{10})(k?)\.([a-f0-9]{64})$/D', $key, $m) || (int) $m[1] < time()) {
+        if (!preg_match('/^(\d{10})(k?)\.([a-f0-9]{64})$/', $key, $m) || (int) $m[1] < time()) {
             return null;
         }
         $comments = $m[2] === 'k';
@@ -48,6 +48,6 @@ final class Preview
 
     private static function signature(Db $db, Settings $settings, string $target, int $to, bool $comments): string
     {
-        return hash_hmac('sha256', 'nahled|' . $target . '|' . $to . ($comments ? '|komentare' : ''), (new Antispam($db, $settings))->key());
+        return hash_hmac('sha256', 'preview|' . $target . '|' . $to . ($comments ? '|comments' : ''), (new Antispam($db, $settings))->key());
     }
 }

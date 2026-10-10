@@ -11,12 +11,12 @@ return [
     'redirect_hidden' => true,
     'fields' => [
         ['client', 'Client', 'text'],
-        ['image', 'Image', 'obrazek'],
-        ['quote', 'Quote', 'radky'],
+        ['image', 'Image', 'image'],
+        ['quote', 'Quote', 'lines'],
         ['result', 'Result', 'text'],
-        ['link', 'Link', 'odkaz'],
-        ['service', 'Service', 'polozka', ['preset' => 'services']],
-        ['year', 'Year', 'cislo'],
+        ['link', 'Link', 'link'],
+        ['service', 'Service', 'item', ['preset' => 'services']],
+        ['year', 'Year', 'number'],
     ],
     'schema' => null,
     'claude' => 'One item per project or client – the name is the project, the client field the company (never invent clients or quotes; ask for real ones). '
@@ -26,19 +26,19 @@ return [
     'list' => [],
     'card' => ['client', 'quote'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $n = \Talea\Builder\Build::fresh(...);
+        $label = array_column($fields, 'label', 'key');
         $children = [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['client']) . ':</strong> {{client}}' . (isset($label['year']) ? ' ({{year}})' : '') . '</p>']),
-            $n('obrazek', ['src' => '{{image}}', 'alt' => '{{nazev}}']),
+            $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '<blockquote><p>{{quote}}</p></blockquote>']),
             $n('text', ['html' => '<p><strong>' . e($label['result']) . ':</strong> {{result}}</p>']),
         ];
         if (isset($label['service'])) {
             $children[] = $n('text', ['html' => '<p>' . e($label['service']) . ': <a href="{{service_url}}">{{service}}</a></p>']);
         }
-        $children[] = $n('tlacitko', ['text' => $label['link'], 'odkaz' => '{{link}}', 'varianta' => 'obrys', 'nove_okno' => true]);
+        $children[] = $n('button', ['text' => $label['link'], 'link' => '{{link}}', 'variant' => 'outline', 'new_window' => true]);
 
         return $children;
     },

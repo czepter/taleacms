@@ -2,42 +2,42 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Settings;
+use Talea\Core\Settings;
 
 /**
  * Site identity ("Vzhled → Identita webu", Appearance → Site identity): the main color and fonts that flow into the page frame.
  *
- * The frame (image/sablona.css) uses the identity through the CSS custom properties --ka-akcent, --ka-pismo-titulky and
- * --ka-pismo-text, each with its own default value, e.g. --akcent: var(--ka-akcent, #326891).
+ * The frame (image/template.css) uses the identity through the CSS custom properties --tl-accent, --tl-font-heading and
+ * --tl-font-body, each with its own default value, e.g. --accent: var(--tl-accent, #326891).
  * Fonts are system fonts only (no downloads from third-party servers - speed and GDPR).
  */
 final class SiteIdentity
 {
     /** key => [name, description, CSS font-family] */
     public const array TITLE_FONTS = [
-        'vychozi' => ['Default font', 'the font of the default site design', ''],
-        'elegantni' => ['Elegant serif', 'Bodoni, Didot – elegance and fashion', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
-        'klasicke' => ['Classic serif', 'Georgia – serious and easy to read', 'Georgia, "Times New Roman", Times, serif'],
-        'knizni' => ['Book', 'Charter, Cambria – calm and literary', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
-        'moderni' => ['Modern sans-serif', 'the device\'s system font – clean and neutral', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
-        'grotesk' => ['Bold grotesque', 'Helvetica, Arial – strong and confident', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
-        'zaoblene' => ['Rounded', 'friendly, for services and family businesses', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
-        'strojove' => ['Typewriter', 'technology and development', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
+        'default' => ['Default font', 'the font of the default site design', ''],
+        'elegant' => ['Elegant serif', 'Bodoni, Didot – elegance and fashion', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
+        'classic' => ['Classic serif', 'Georgia – serious and easy to read', 'Georgia, "Times New Roman", Times, serif'],
+        'book' => ['Book', 'Charter, Cambria – calm and literary', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
+        'modern' => ['Modern sans-serif', 'the device\'s system font – clean and neutral', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+        'grotesque' => ['Bold grotesque', 'Helvetica, Arial – strong and confident', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'rounded' => ['Rounded', 'friendly, for services and family businesses', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
+        'typewriter' => ['Typewriter', 'technology and development', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
     ];
 
     public const array TEXT_FONTS = [
-        'vychozi' => ['Default font', '', ''],
-        'patkove' => ['Serif', 'Georgia – comfortable for long reads', 'Georgia, "Times New Roman", Times, serif'],
-        'knizni' => ['Book', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
-        'moderni' => ['Sans-serif', 'the device\'s system font', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
-        'grotesk' => ['Grotesque', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'default' => ['Default font', '', ''],
+        'serif' => ['Serif', 'Georgia – comfortable for long reads', 'Georgia, "Times New Roman", Times, serif'],
+        'book' => ['Book', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
+        'modern' => ['Sans-serif', 'the device\'s system font', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+        'grotesque' => ['Grotesque', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
     ];
 
     /**
      * Site icons, manifest and browser bar color for <head>. The site's colors and fonts are output by the design system
-     * (Builder\DesignSystem). The PNG sizes (media/ikona-<n>.png) are prepared by Appearance when the icon is saved.
+     * (Builder\DesignSystem). The PNG sizes (media/icon-<n>.png) are prepared by Appearance when the icon is saved.
      */
     public static function head(Settings $siteSettings, string $base): string
     {
@@ -46,15 +46,15 @@ final class SiteIdentity
         if ($icon !== '') {
             $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $icon) ? '' : $base . '/') . $icon) . "\">\n";
         }
-        $png = KALETA_ROOT . '/media/ikona-180.png';
+        $png = TALEA_ROOT . '/media/icon-180.png';
         if (is_file($png)) {
             $v = '?v=' . filemtime($png);
-            $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($base . '/media/ikona-32.png' . $v) . "\">\n"
-                . '<link rel="apple-touch-icon" href="' . e($base . '/media/ikona-180.png' . $v) . "\">\n";
+            $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($base . '/media/icon-32.png' . $v) . "\">\n"
+                . '<link rel="apple-touch-icon" href="' . e($base . '/media/icon-180.png' . $v) . "\">\n";
         }
         $html .= '<link rel="manifest" href="' . e($base . '/manifest.webmanifest') . "\">\n";
-        $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['barvy'];
-        $html .= '<meta name="theme-color" content="' . e($colors['pozadi']) . '">' . "\n";
+        $colors = \Talea\Builder\DesignSystem::load($siteSettings)['colors'];
+        $html .= '<meta name="theme-color" content="' . e($colors['background']) . '">' . "\n";
 
         return $html;
     }
@@ -62,18 +62,18 @@ final class SiteIdentity
     /** Site manifest: name, colors and icons – a phone then pins the site to the home screen with its own icon and name. */
     public static function manifest(Settings $siteSettings, string $base): string
     {
-        $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['barvy'];
+        $colors = \Talea\Builder\DesignSystem::load($siteSettings)['colors'];
         $name = $siteSettings->get('site_name') ?: 'Website';
         $icons = [];
         foreach ([192, 512] as $n) {
-            if (is_file(KALETA_ROOT . '/media/ikona-' . $n . '.png')) {
-                $icons[] = ['src' => $base . '/media/ikona-' . $n . '.png', 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
+            if (is_file(TALEA_ROOT . '/media/icon-' . $n . '.png')) {
+                $icons[] = ['src' => $base . '/media/icon-' . $n . '.png', 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
             }
         }
 
         return (string) json_encode(array_filter([
             'name' => $name, 'short_name' => mb_strimwidth($name, 0, 12, ''), 'start_url' => $base . '/', 'scope' => $base . '/',
-            'display' => 'browser', 'background_color' => $colors['pozadi'], 'theme_color' => $colors['pozadi'], 'icons' => $icons,
+            'display' => 'browser', 'background_color' => $colors['background'], 'theme_color' => $colors['background'], 'icons' => $icons,
         ]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     }
 }

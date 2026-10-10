@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Connectors;
+namespace Talea\Connectors;
 
 /**
  * An outside service a site can connect to (2.13, Core\Connectors): how it signs in and where its API is. Features that
@@ -30,7 +30,7 @@ abstract class Connector
     /**
      * Settings of the connection the administrator fills in (which sheet, which location, which pipeline):
      * key => [label, hint] for a text field, [label, hint, 'check'] for a switch (stored as '1' when ticked). Stored in
-     * ka_connectors.config.
+     * tl_connectors.config.
      *
      * @return array<string, array{0: string, 1: string, 2?: string}>
      */
@@ -55,7 +55,7 @@ abstract class Connector
     }
 
     /** The connection was deleted: what the features kept from the service (reviews, ratings) goes with it. */
-    public static function disconnected(\Kaleta\Core\App $app): void
+    public static function disconnected(\Talea\Core\App $app): void
     {
     }
 }

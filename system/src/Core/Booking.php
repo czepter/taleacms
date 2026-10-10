@@ -2,20 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Front\Company;
+use Talea\Admin\ChangeLog;
+use Talea\Front\Company;
 
 /**
  * Online booking of appointments (3.0): a hairdresser, a physiotherapist, a garage, a consultant. The visitor picks a
  * service, a person (or anyone), a day and a free time, leaves a name, e-mail and phone and gets a confirmation with a
  * cancel link; the business sees the bookings in Administration → Bookings and the site reminds the customer.
  *
- *  - Services (ka_booking_services) have a duration and a buffer kept free after them; people (ka_booking_staff) offer
- *    some of them, have their weekly hours (ka_booking_hours; hours of a service replace the general ones for that service,
- *    so one person can offer speed dates on weekday evenings and family shoots at weekends; without any, the site's opening hours from Core\Hours) and
- *    days off (ka_booking_off; a closed day in the site's hours exceptions is a day off for everyone).
+ *  - Services (tl_booking_services) have a duration and a buffer kept free after them; people (tl_booking_staff) offer
+ *    some of them, have their weekly hours (tl_booking_hours; without any, the site's opening hours from Core\Hours) and
+ *    days off (tl_booking_off; a closed day in the site's hours exceptions is a day off for everyone).
  *  - Free times (free()) are pure: the ranges of the day minus days off, minus existing bookings with the buffer around
  *    them, never in the past, after the lead time and within the horizon – unit tested without a database.
  *  - Booking (book()) runs in a transaction that first locks the rows of the people concerned (SELECT … FOR UPDATE) and
@@ -64,7 +63,7 @@ final class Booking
     public static function services(Db $db, bool $activeOnly = true): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {booking_services}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, name, id');
+            $rows = $db->all('SELECT * FROM {booking_services}' . ($activeOnly ? ' WHERE active = TRUE' : '') . ' ORDER BY sort_order, name, id');
             $links = $db->all('SELECT staff_id, service_id FROM {booking_staff_services}');
         } catch (\Throwable) {
             return []; // before the 3.0 migration
@@ -72,7 +71,7 @@ final class Booking
         $out = [];
         foreach ($rows as $r) {
             $id = (int) $r['id'];
-            $out[] = ['id' => $id, 'name' => (string) $r['name'], 'duration_min' => (int) $r['duration_min'], 'buffer_min' => (int) $r['buffer_min'], 'price_text' => (string) $r['price_text'],
+            $out[] = ['id' => $id, 'public_id' => (string) $r['public_id'], 'name' => (string) $r['name'], 'duration_min' => (int) $r['duration_min'], 'buffer_min' => (int) $r['buffer_min'], 'price_text' => (string) $r['price_text'],
                 'description' => (string) $r['description'], 'active' => (int) $r['active'] === 1, 'requires_confirmation' => (int) $r['requires_confirmation'] === 1, 'sort_order' => (int) $r['sort_order'],
                 'staff' => array_values(array_map(fn (array $l): int => (int) $l['staff_id'], array_filter($links, fn (array $l): bool => (int) $l['service_id'] === $id)))];
         }
@@ -98,7 +97,7 @@ final class Booking
     public static function staff(Db $db, bool $activeOnly = true): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {booking_staff}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, name, id');
+            $rows = $db->all('SELECT * FROM {booking_staff}' . ($activeOnly ? ' WHERE active = TRUE' : '') . ' ORDER BY sort_order, name, id');
             $links = $db->all('SELECT staff_id, service_id FROM {booking_staff_services}');
         } catch (\Throwable) {
             return [];
@@ -106,7 +105,7 @@ final class Booking
         $out = [];
         foreach ($rows as $r) {
             $id = (int) $r['id'];
-            $out[] = ['id' => $id, 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'active' => (int) $r['active'] === 1, 'user_id' => $r['user_id'] === null ? null : (int) $r['user_id'],
+            $out[] = ['id' => $id, 'public_id' => (string) $r['public_id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'active' => (int) $r['active'] === 1, 'user_id' => $r['user_id'] === null ? null : (int) $r['user_id'],
                 'sort_order' => (int) $r['sort_order'], 'services' => array_values(array_map(fn (array $l): int => (int) $l['service_id'], array_filter($links, fn (array $l): bool => (int) $l['staff_id'] === $id)))];
         }
 
@@ -136,41 +135,15 @@ final class Booking
     }
 
     /**
-     * The general weekly hours of a person: weekday (1–7) => ranges; [] when the person has none (the site's hours apply).
-     * With a service: only the hours kept for that service.
+     * The weekly hours of a person: weekday (1–7) => ranges; [] when the person has none (the site's hours apply).
      *
      * @return array<int, list<array{0: string, 1: string}>>
      */
-    public static function hours(Db $db, int $staffId, ?int $serviceId = null): array
+    public static function hours(Db $db, int $staffId): array
     {
         $out = [];
-        foreach ($db->all('SELECT weekday, time_from, time_to FROM {booking_hours} WHERE staff_id = ? AND service_id <=> ? ORDER BY weekday, time_from', [$staffId, $serviceId]) as $r) {
+        foreach ($db->all('SELECT weekday, time_from, time_to FROM {booking_hours} WHERE staff_id = ? ORDER BY weekday, time_from', [$staffId]) as $r) {
             $out[(int) $r['weekday']][] = [(string) $r['time_from'], (string) $r['time_to']];
-        }
-
-        return $out;
-    }
-
-    /**
-     * The hours that apply to a person for a service: the ones kept for that service, else the general ones, else [] (the site's).
-     *
-     * @return array<int, list<array{0: string, 1: string}>>
-     */
-    public static function hoursFor(Db $db, int $staffId, int $serviceId): array
-    {
-        return self::hours($db, $staffId, $serviceId) ?: self::hours($db, $staffId);
-    }
-
-    /**
-     * The hours kept per service: service id => weekday => ranges (only services with their own hours).
-     *
-     * @return array<int, array<int, list<array{0: string, 1: string}>>>
-     */
-    public static function serviceHours(Db $db, int $staffId): array
-    {
-        $out = [];
-        foreach ($db->all('SELECT service_id, weekday, time_from, time_to FROM {booking_hours} WHERE staff_id = ? AND service_id IS NOT NULL ORDER BY service_id, weekday, time_from', [$staffId]) as $r) {
-            $out[(int) $r['service_id']][(int) $r['weekday']][] = [(string) $r['time_from'], (string) $r['time_to']];
         }
 
         return $out;
@@ -246,7 +219,7 @@ final class Booking
             self::link($db, 'service_id', $id, 'staff_id', array_map('intval', $data['staff']), array_column(self::staff($db, false), 'id'));
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'service_create' : 'service_update', $name);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return self::service($db, $id) ?? [];
     }
@@ -254,8 +227,7 @@ final class Booking
     /**
      * Saves a person. Returns the row, or the error text.
      *
-     * @param array<string, mixed> $data name, email, active, user_id, sort_order, services (ids), hours (weekday => "9-12, 13-17"),
-     *        service_hours (service id => weekday => "9-12, 13-17"; an empty map takes the service back to the general hours), days_off (list of {from, to, note} – replaces)
+     * @param array<string, mixed> $data name, email, active, user_id, sort_order, services (ids), hours (weekday => "9-12, 13-17"), days_off (list of {from, to, note} – replaces)
      * @return array<string, mixed>|string
      */
     public static function saveStaff(App $app, array $data, int $id = 0): array|string
@@ -280,20 +252,6 @@ final class Booking
                 return 'Write the hours per weekday as ranges, e.g. 9:00-12:00, 13:00-17:00 (empty = the opening hours of the site).';
             }
         }
-        $serviceHours = [];
-        if (isset($data['service_hours'])) {
-            $known = array_column(self::services($db, false), 'id');
-            foreach (is_array($data['service_hours']) ? $data['service_hours'] : [] as $serviceId => $perDay) {
-                if (!in_array((int) $serviceId, $known, true)) {
-                    return 'Hours per service need an existing service (the ids are listed by booking_availability).';
-                }
-                $parsed = is_array($perDay) ? self::parseHours($perDay) : null;
-                if ($parsed === null) {
-                    return 'Write the hours per weekday as ranges, e.g. 9:00-12:00, 13:00-17:00 (empty = the opening hours of the site).';
-                }
-                $serviceHours[(int) $serviceId] = $parsed;
-            }
-        }
         $daysOff = null;
         if (isset($data['days_off'])) {
             $daysOff = is_array($data['days_off']) ? self::cleanOffs($data['days_off']) : null;
@@ -303,7 +261,7 @@ final class Booking
         }
         $userId = (int) ($data['user_id'] ?? ($existing['user_id'] ?? 0));
         $row = ['name' => $name, 'email' => mb_substr($email, 0, 190), 'active' => (bool) ($data['active'] ?? ($existing['active'] ?? true)) ? 1 : 0,
-            'user_id' => $userId > 0 && $db->value('SELECT idu FROM {uzivatele} WHERE idu = ?', [$userId]) !== null ? $userId : null, 'sort_order' => (int) ($data['sort_order'] ?? ($existing['sort_order'] ?? 0))];
+            'user_id' => $userId > 0 && $db->value('SELECT user_id FROM {users} WHERE user_id = ?', [$userId]) !== null ? $userId : null, 'sort_order' => (int) ($data['sort_order'] ?? ($existing['sort_order'] ?? 0))];
         if ($existing === null) {
             $id = $db->insert('booking_staff', $row);
         } else {
@@ -313,10 +271,12 @@ final class Booking
             self::link($db, 'staff_id', $id, 'service_id', array_map('intval', $data['services']), array_column(self::services($db, false), 'id'));
         }
         if ($hours !== null) {
-            self::saveHours($db, $id, null, $hours);
-        }
-        foreach ($serviceHours as $serviceId => $perDay) {
-            self::saveHours($db, $id, $serviceId, $perDay);
+            $db->delete('booking_hours', ['staff_id' => $id]);
+            foreach ($hours as $weekday => $ranges) {
+                foreach ($ranges as [$from, $to]) {
+                    $db->insert('booking_hours', ['staff_id' => $id, 'weekday' => $weekday, 'time_from' => $from, 'time_to' => $to]);
+                }
+            }
         }
         if ($daysOff !== null) {
             $db->delete('booking_off', ['staff_id' => $id]);
@@ -325,23 +285,12 @@ final class Booking
             }
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'staff_create' : 'staff_update', $name);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return self::member($db, $id) ?? [];
     }
 
-    /** Replaces the weekly hours of a person for a service (null = the general hours). @param array<int, list<array{0: string, 1: string}>> $hours */
-    private static function saveHours(Db $db, int $staffId, ?int $serviceId, array $hours): void
-    {
-        $db->run('DELETE FROM {booking_hours} WHERE staff_id = ? AND service_id <=> ?', [$staffId, $serviceId]);
-        foreach ($hours as $weekday => $ranges) {
-            foreach ($ranges as [$from, $to]) {
-                $db->insert('booking_hours', ['staff_id' => $staffId, 'service_id' => $serviceId, 'weekday' => $weekday, 'time_from' => $from, 'time_to' => $to]);
-            }
-        }
-    }
-
-    /** Replaces the links of one side of ka_booking_staff_services. @param list<int> $ids @param list<int> $known */
+    /** Replaces the links of one side of tl_booking_staff_services. @param list<int> $ids @param list<int> $known */
     private static function link(Db $db, string $ownColumn, int $ownId, string $otherColumn, array $ids, array $known): void
     {
         $db->delete('booking_staff_services', [$ownColumn => $ownId]);
@@ -410,8 +359,8 @@ final class Booking
             return 'The person does not exist.';
         }
         $app->db()->insert('booking_off', ['staff_id' => $staffId > 0 ? $staffId : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => mb_substr(trim(strip_tags($note)), 0, 150)]);
-        ChangeLog::write($app, 'bookings', 'off_create', ($staffId > 0 ? '#' . $staffId . ' ' : '') . $range[0] . ' – ' . $range[1]);
-        \Kaleta\Front\Cache::clear();
+        ChangeLog::write($app, 'bookings', 'off_create', ($staffId > 0 ? (string) self::member($app->db(), $staffId)['name'] . ' ' : '') . $range[0] . ' – ' . $range[1]);
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -420,8 +369,8 @@ final class Booking
     {
         $deleted = $app->db()->delete('booking_off', ['id' => $id]) > 0;
         if ($deleted) {
-            ChangeLog::write($app, 'bookings', 'off_delete', '#' . $id);
-            \Kaleta\Front\Cache::clear();
+            ChangeLog::write($app, 'bookings', 'off_delete');
+            \Talea\Front\Cache::clear();
         }
 
         return $deleted;
@@ -450,9 +399,10 @@ final class Booking
         if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE service_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
             return 'The service has upcoming bookings – cancel them first, or switch the service off instead.';
         }
+        $name = (string) $db->value('SELECT name FROM {booking_services} WHERE id = ?', [$id]);
         $db->delete('booking_services', ['id' => $id]);
-        ChangeLog::write($app, 'bookings', 'service_delete', '#' . $id);
-        \Kaleta\Front\Cache::clear();
+        ChangeLog::write($app, 'bookings', 'service_delete', $name);
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -467,9 +417,10 @@ final class Booking
         if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
             return 'The person has upcoming bookings – cancel or move them first, or switch the person off instead.';
         }
+        $name = (string) $db->value('SELECT name FROM {booking_staff} WHERE id = ?', [$id]);
         $db->delete('booking_staff', ['id' => $id]);
-        ChangeLog::write($app, 'bookings', 'staff_delete', '#' . $id);
-        \Kaleta\Front\Cache::clear();
+        ChangeLog::write($app, 'bookings', 'staff_delete', $name);
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -495,7 +446,7 @@ final class Booking
      */
     public static function free(array $ranges, array $busy, array $off, int $durationMin, int $bufferMin, int $stepMin, string $day, \DateTimeImmutable $now, int $leadHours, int $horizonDays): array
     {
-        if ($durationMin <= 0 || $stepMin <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) || strtotime($day) === false) {
+        if ($durationMin <= 0 || $stepMin <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) || strtotime($day) === false) {
             return [];
         }
         $tz = $now->getTimezone();
@@ -556,19 +507,19 @@ final class Booking
     }
 
     /**
-     * What the free-time calculation needs for some people over a span of days, loaded once: their weekly hours for the service
-     * (or the site's), their bookings and days off, the site's hours exceptions.
+     * What the free-time calculation needs for some people over a span of days, loaded once: their weekly hours (or the
+     * site's), their bookings and days off, the site's hours exceptions.
      *
      * @param list<array<string, mixed>> $members
      * @return array{week: array<int, array<int, list<array{0: string, 1: string}>>>, site: array<string, list<array{0: string, 1: string}>>, exceptions: list<array<string, mixed>>, busy: array<int, list<array{0: string, 1: string}>>, off: array<int, list<array{0: string, 1: string}>>}
      */
-    private static function calendar(App $app, array $members, int $serviceId, string $fromDay, string $toDay, int $exclude = 0): array
+    private static function calendar(App $app, array $members, string $fromDay, string $toDay, int $exclude = 0): array
     {
         $db = $app->db();
         $ids = array_map(fn (array $m): int => (int) $m['id'], $members);
         $cal = ['week' => [], 'site' => Hours::week($app->settings()), 'exceptions' => Hours::exceptions($db), 'busy' => array_fill_keys($ids, []), 'off' => array_fill_keys($ids, [])];
         foreach ($ids as $id) {
-            $cal['week'][$id] = self::hoursFor($db, $id, $serviceId);
+            $cal['week'][$id] = self::hours($db, $id);
         }
         if ($ids === []) {
             return $cal;
@@ -620,11 +571,11 @@ final class Booking
     public static function availability(App $app, array $service, int $staffId, string $day, ?\DateTimeImmutable $now = null, bool $forStaff = false, int $exclude = 0): array
     {
         $members = self::candidates($app->db(), (int) $service['id'], $staffId);
-        if ($members === [] || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) || strtotime($day) === false) {
+        if ($members === [] || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) || strtotime($day) === false) {
             return [];
         }
 
-        return self::freeFrom($app, self::calendar($app, $members, (int) $service['id'], $day, $day, $exclude), $members, $service, $day, $now ?? new \DateTimeImmutable(), $forStaff);
+        return self::freeFrom($app, self::calendar($app, $members, $day, $day, $exclude), $members, $service, $day, $now ?? new \DateTimeImmutable(), $forStaff);
     }
 
     /**
@@ -673,7 +624,7 @@ final class Booking
         if ($first > $last) {
             return [];
         }
-        $cal = self::calendar($app, $members, (int) $service['id'], $first, $last);
+        $cal = self::calendar($app, $members, $first, $last);
         $out = [];
         for ($d = new \DateTimeImmutable($first, $now->getTimezone()); $d->format('Y-m-d') <= $last; $d = $d->modify('+1 day')) {
             if (self::freeFrom($app, $cal, $members, $service, $d->format('Y-m-d'), $now, false) !== []) {
@@ -739,7 +690,7 @@ final class Booking
             $db->all('SELECT id FROM {booking_staff} WHERE id IN (' . implode(',', $ids) . ') ORDER BY id FOR UPDATE');
             $db->all('SELECT id FROM {bookings} WHERE staff_id IN (' . implode(',', $ids) . ') AND starts_at >= ? AND starts_at < ? FOR UPDATE', [$m[1] . ' 00:00:00', date('Y-m-d 00:00:00', strtotime($m[1] . ' +1 day'))]);
             // the free times again, now with the rows locked: what another request booked a moment ago is busy now
-            $free = self::freeFrom($app, self::calendar($app, $members, (int) $service['id'], $m[1], $m[1]), $members, $service, $m[1], $now, $by !== 'customer');
+            $free = self::freeFrom($app, self::calendar($app, $members, $m[1], $m[1]), $members, $service, $m[1], $now, $by !== 'customer');
             if (!isset($free[$m[2]])) {
                 return [null, 'taken'];
             }
@@ -758,7 +709,7 @@ final class Booking
                 'name' => $name, 'email' => mb_substr($email, 0, 190), 'phone' => mb_substr($phone, 0, 40), 'note' => mb_substr(trim(strip_tags((string) ($input['note'] ?? ''))), 0, 1000),
                 'status' => $pending ? 'pending' : 'confirmed', 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                 'hold_until' => $pending ? min(date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), $start->format('Y-m-d H:i:s')) : null,
-                'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => preg_match('/^[a-z]{2}$/D', (string) ($input['language'] ?? '')) ? (string) $input['language'] : ''];
+                'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => preg_match('/^[a-z]{2}$/', (string) ($input['language'] ?? '')) ? (string) $input['language'] : ''];
             $row['id'] = $db->insert('bookings', $row);
 
             return [$row, null];
@@ -771,7 +722,7 @@ final class Booking
         Events::record($db, 'booking.created', 'info', t('An appointment was booked: %s, %s', $service['name'], self::when($booking['starts_at'], $booking['ends_at'])),
             ['booking' => (int) $booking['id'], 'service' => $service['id'], 'staff' => (int) $booking['staff_id'], 'by' => $by]); // never the customer
         if ($by !== 'customer') {
-            ChangeLog::write($app, 'bookings', 'create', '#' . $booking['id'] . ' ' . $service['name'] . ' ' . $booking['starts_at']);
+            ChangeLog::write($app, 'bookings', 'create', $service['name'] . ' ' . $booking['starts_at']);
         }
         if ($booking['status'] === 'pending') {
             self::sendPending($app, $booking);
@@ -797,7 +748,7 @@ final class Booking
     /** The booking of a customer's token (the cancel and .ics links). @return array<string, mixed>|null */
     public static function byToken(Db $db, string $token): ?array
     {
-        if (!preg_match('/^[a-f0-9]{32}$/D', $token)) {
+        if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
             return null;
         }
         $id = $db->value('SELECT id FROM {bookings} WHERE token_hash = ?', [hash('sha256', $token)]);
@@ -815,11 +766,11 @@ final class Booking
     {
         $where = ['1 = 1'];
         $params = [];
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($filter['from'] ?? ''))) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($filter['from'] ?? ''))) {
             $where[] = 'b.starts_at >= ?';
             $params[] = $filter['from'] . ' 00:00:00';
         }
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($filter['to'] ?? ''))) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($filter['to'] ?? ''))) {
             $where[] = 'b.starts_at < ?';
             $params[] = date('Y-m-d 00:00:00', strtotime($filter['to'] . ' +1 day'));
         }
@@ -843,13 +794,19 @@ final class Booking
     }
 
     /** Marks a booking done or did not come (only a confirmed one, after it started). */
+    /** What a booking is called in the change log: its service and time (never its row number or the customer). */
+    private static function label(Db $db, array $booking): string
+    {
+        return trim((string) ($booking['service'] ?? $db->value('SELECT name FROM {booking_services} WHERE id = ?', [(int) ($booking['service_id'] ?? 0)])) . ' ' . substr((string) ($booking['starts_at'] ?? ''), 0, 16));
+    }
+
     public static function setStatus(App $app, array $booking, string $status): bool
     {
         if (!in_array($status, ['done', 'no_show'], true) || $booking['status'] !== 'confirmed') {
             return false;
         }
         $app->db()->update('bookings', ['status' => $status], ['id' => (int) $booking['id']]);
-        ChangeLog::write($app, 'bookings', $status, '#' . $booking['id']);
+        ChangeLog::write($app, 'bookings', $status, self::label($app->db(), $booking));
 
         return true;
     }
@@ -871,7 +828,7 @@ final class Booking
         Events::record($db, 'booking.cancelled', 'info', t('An appointment was cancelled: %s, %s', (string) ($booking['service'] ?? ''), self::when($booking['starts_at'], $booking['ends_at'])),
             ['booking' => (int) $booking['id'], 'by' => $by]);
         if ($by !== 'customer') {
-            ChangeLog::write($app, 'bookings', 'cancel', '#' . $booking['id']);
+            ChangeLog::write($app, 'bookings', 'cancel', self::label($app->db(), $booking));
             self::sendCancelled($app, $booking);
         }
         self::notifyStaff($app, $booking, 'cancelled');
@@ -916,7 +873,7 @@ final class Booking
         $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
         $token = self::rotateToken($db, (int) $booking['id']);
         $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
-        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'confirm', '#' . $booking['id']);
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'confirm', self::label($app->db(), $booking));
         Events::record($db, 'booking.confirmed', 'info', t('An appointment was accepted: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => $by]);
         self::sendConfirmation($app, $booking);
 
@@ -933,7 +890,7 @@ final class Booking
         }
         $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
         $booking = self::find($db, (int) $booking['id']) ?? $booking;
-        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'decline', '#' . $booking['id']);
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'decline', self::label($app->db(), $booking));
         Events::record($db, 'booking.declined', 'info', t('An appointment request was declined: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => $by]);
         self::sendDeclined($app, $booking, mb_substr(trim(strip_tags($message)), 0, 1000));
 
@@ -989,7 +946,7 @@ final class Booking
         });
         $token = self::rotateToken($db, (int) $booking['id']);
         $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
-        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'propose', '#' . $booking['id']);
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'propose', self::label($app->db(), $booking));
         self::sendProposal($app, $booking, self::proposals($db, (int) $booking['id']), mb_substr(trim(strip_tags($message)), 0, 1000));
 
         return null;
@@ -1021,11 +978,7 @@ final class Booking
             if (!isset(self::availability($app, $service, (int) $booking['staff_id'], $day, null, true, (int) $booking['id'])[substr($proposal['starts_at'], 11, 5)])) {
                 return 'Sorry, this time has just been taken. Please choose another one.';
             }
-            // a second submit (double click, back and resend) finds the booking confirmed already: no second e-mail and no new
-            // token, which would break the links in the first confirmation (3.4.2, N34-3)
-            if ($db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']])->rowCount() === 0) {
-                return 'This request is no longer waiting for an answer.';
-            }
+            $db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']]);
             $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
 
             return null;
@@ -1158,12 +1111,12 @@ final class Booking
         }
 
         return Language::runWith(Language::defaults($s), function () use ($app, $booking, $what, $recipient, $s): bool {
-            $customer = [t('Customer') . ': ' . (string) $booking['name'], t('E-mail') . ': ' . (string) $booking['email'], t('Phone') . ': ' . ((string) $booking['phone'] !== '' ? (string) $booking['phone'] : '—')];
+            $customer = [t('Customer') . ': ' . (string) $booking['name'], t('Email') . ': ' . (string) $booking['email'], t('Phone') . ': ' . ((string) $booking['phone'] !== '' ? (string) $booking['phone'] : '—')];
             if ((string) $booking['note'] !== '') {
                 $customer[] = t('Note') . ': ' . (string) $booking['note'];
             }
             $text = implode("\n", self::details($app, $booking)) . "\n\n" . implode("\n", $customer)
-                . "\n\n—\n" . t('The booking in the administration: %s', self::absolute($app, 'admin.php?module=bookings&action=detail&id=' . (int) $booking['id']));
+                . "\n\n—\n" . t('The booking in the administration: %s', self::absolute($app, 'admin.php?module=bookings&action=detail&id=' . $app->db()->publicId('bookings', (int) $booking['id'])));
             $when = self::when((string) $booking['starts_at'], (string) $booking['ends_at']);
             $subject = match ($what) {
                 'cancelled' => t('Booking cancelled: %s, %s', (string) $booking['service'], $when),
@@ -1186,23 +1139,6 @@ final class Booking
         $text = trim($app->settings()->get($key));
 
         return $text === '' ? '' : str_replace('{name}', (string) $booking['name'], $text);
-    }
-
-    /**
-     * A booking setting as the Bookings settings form stores it – the same limits for the form and for update_settings over
-     * MCP (their keys are in Mcp\Tools::MCP_SETTINGS, but the settings form types of Admin\Modules\Settings do not know them).
-     * Null = not a booking setting, or not a whole number where one is needed.
-     */
-    public static function settingValue(string $key, string $value): ?string
-    {
-        $numbers = ['booking_lead_hours' => [0, 720], 'booking_horizon_days' => [1, 365], 'booking_cancel_hours' => [0, 720], 'booking_reminder_hours' => [0, 168], 'booking_hold_hours' => [1, 720]];
-        if (isset($numbers[$key])) {
-            return preg_match('/^-?\d{1,6}$/', trim($value)) === 1 ? (string) max($numbers[$key][0], min($numbers[$key][1], (int) trim($value))) : null;
-        }
-        // own texts: empty = the built-in one; {name} is the customer's name (form of address and tone are the site's)
-        $texts = ['booking_pending_thanks' => 400, 'booking_pending_mail' => 1000, 'booking_declined_mail' => 1000];
-
-        return isset($texts[$key]) ? mb_substr(trim(strip_tags($value)), 0, $texts[$key]) : null;
     }
 
     /** The thank-you after a request for a service that needs confirmation (the element shows it; empty setting = the built-in text). */
@@ -1355,7 +1291,7 @@ final class Booking
     {
         $done = $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = NOW() WHERE id = ? AND anonymised_at IS NULL", [$id])->rowCount() > 0;
         if ($done) {
-            ChangeLog::write($app, 'bookings', 'anonymise', '#' . $id);
+            ChangeLog::write($app, 'bookings', 'anonymise');
         }
 
         return $done;
@@ -1367,9 +1303,9 @@ final class Booking
     public static function ics(App $app, array $booking, string $token): string
     {
         $s = $app->settings();
-        $host = (string) (parse_url($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), PHP_URL_HOST) ?: 'kaleta.invalid');
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kaleta//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-            'BEGIN:VEVENT', 'UID:kaleta-booking-' . (int) $booking['id'] . '@' . $host, 'DTSTAMP:' . Calendar::utc((string) $booking['created_at']),
+        $host = (string) (parse_url($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), PHP_URL_HOST) ?: 'talea.invalid');
+        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Talea//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+            'BEGIN:VEVENT', 'UID:talea-booking-' . $app->db()->publicId('bookings', (int) $booking['id']) . '@' . $host, 'DTSTAMP:' . Calendar::utc((string) $booking['created_at']),
             'DTSTART:' . Calendar::utc((string) $booking['starts_at']), 'DTEND:' . Calendar::utc((string) $booking['ends_at']),
             'SUMMARY:' . Calendar::escape((string) $booking['service'] . ' – ' . $s->get('site_name'))];
         if (self::place($s) !== '') {
@@ -1384,72 +1320,5 @@ final class Booking
         array_push($lines, 'END:VEVENT', 'END:VCALENDAR');
 
         return implode("\r\n", array_map(Calendar::fold(...), $lines)) . "\r\n";
-    }
-
-    /* ---------- the set-up (3.5) ---------- */
-
-    /** How many days ahead the Bookings screen and booking_availability look for a free time. */
-    public const int FREE_DAYS = 14;
-
-    /** The weekly hours a new person starts with when the site has no opening hours: Monday to Friday, 9:00–17:00. */
-    public const array STARTER_HOURS = [1 => [['09:00', '17:00']], 2 => [['09:00', '17:00']], 3 => [['09:00', '17:00']], 4 => [['09:00', '17:00']], 5 => [['09:00', '17:00']]];
-
-    /**
-     * How far the set-up is: a person who takes bookings, a service such a person offers, and a page with the Booking
-     * element (published or a draft). The Bookings screen shows the set-up card until all three are done.
-     *
-     * @return array{person: bool, service: bool, page: bool}
-     */
-    public static function setup(Db $db): array
-    {
-        $element = '%"typ":"' . \Kaleta\Builder\Elements\Booking::TYPE . '"%';
-
-        return [
-            'person' => $db->value('SELECT 1 FROM {booking_staff} WHERE active = 1 LIMIT 1') !== null,
-            'service' => $db->value('SELECT 1 FROM {booking_services} s JOIN {booking_staff_services} l ON l.service_id = s.id JOIN {booking_staff} m ON m.id = l.staff_id WHERE s.active = 1 AND m.active = 1 LIMIT 1') !== null,
-            'page' => $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?) LIMIT 1', [$element, $element]) !== null
-                || $db->value('SELECT 1 FROM {casti} WHERE stavba LIKE ? OR stavba_koncept LIKE ? LIMIT 1', [$element, $element]) !== null,
-        ];
-    }
-
-    /**
-     * Why a visitor could not book anything in the next FREE_DAYS days, or null when some service has a free time (or no
-     * service is offered yet – the set-up card says what is missing). [English source text, the name of the person
-     * concerned]: the admin shows it through t(), Claude gets it with the name filled in.
-     *
-     * @return array{0: string, 1: string}|null
-     */
-    public static function noFreeTime(App $app, ?\DateTimeImmutable $now = null): ?array
-    {
-        $db = $app->db();
-        $now ??= new \DateTimeImmutable();
-        $last = $now->modify('+' . (self::FREE_DAYS - 1) . ' days')->format('Y-m-d');
-        $offered = false;
-        foreach (self::services($db) as $service) {
-            $members = self::candidates($db, (int) $service['id'], 0);
-            if ($members === []) {
-                continue;
-            }
-            $offered = true;
-            $cal = self::calendar($app, $members, (int) $service['id'], $now->format('Y-m-d'), $last); // the hours kept for this service count (3.5, #24)
-            for ($d = $now; $d->format('Y-m-d') <= $last; $d = $d->modify('+1 day')) {
-                if (self::freeFrom($app, $cal, $members, $service, $d->format('Y-m-d'), $now, false) !== []) {
-                    return null;
-                }
-            }
-        }
-        if (!$offered) {
-            return null;
-        }
-        // the usual cause: a person without hours of their own takes the site's opening hours, and the site has none
-        if (array_filter(Hours::week($app->settings())) === []) {
-            foreach (self::staff($db) as $m) {
-                if ($m['services'] !== [] && self::hours($db, (int) $m['id']) === [] && self::serviceHours($db, (int) $m['id']) === []) {
-                    return ['No free time in the next 14 days: %s has no weekly hours and the site has no opening hours, so no time is offered. Give them weekly hours, or fill in the opening hours in Business details.', (string) $m['name']];
-                }
-            }
-        }
-
-        return ['No free time in the next 14 days – visitors see an empty calendar. Check the weekly hours and days off of the people, and the earliest booking and how far ahead visitors may book.', ''];
     }
 }

@@ -2,40 +2,40 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Core\Db;
+use Talea\Builder\Collections;
+use Talea\Core\Db;
 
 /**
- * What an enquiry was about (2.12, ka_poptavky.tema): the collection and item of a service, product or event page, the
+ * What an enquiry was about (2.12, tl_enquiries.tema): the collection and item of a service, product or event page, the
  * title of an ordinary page, the name of a pop-up – so whoever reads the enquiry knows without the visitor typing it.
  * It is looked up on the server from the form's source and the address the form came back to; nothing posted is trusted.
  */
 final class EnquiryTopic
 {
-    /** Length of ka_poptavky.tema. */
+    /** Length of tl_enquiries.tema. */
     private const int MAX = 255;
 
     /** Looks the topic up for a submission; '' for a site part (header, footer) or when the source is unknown. */
     public static function find(Db $db, string $source, string $back): string
     {
-        if (preg_match('/^stranka:(\d+)$/D', $source, $m)) {
-            return self::compose((string) $db->value('SELECT titulek FROM {stranky} WHERE ids = ?', [(int) $m[1]]));
+        if (preg_match('/^page:(\d+)$/', $source, $m)) {
+            return self::compose((string) $db->value('SELECT title FROM {pages} WHERE page_id = ?', [(int) $m[1]]));
         }
-        if (preg_match('/^popup:(\d+)$/D', $source, $m)) {
-            return self::compose((string) $db->value('SELECT nazev FROM {popupy} WHERE idpp = ?', [(int) $m[1]]));
+        if (preg_match('/^popup:(\d+)$/', $source, $m)) {
+            return self::compose((string) $db->value('SELECT name FROM {popups} WHERE popup_id = ?', [(int) $m[1]]));
         }
-        if (preg_match('/^kolekce:(\d+)$/D', $source, $m)) {
+        if (preg_match('/^collection:(\d+)$/', $source, $m)) {
             $collection = Collections::byId($db, (int) $m[1]);
-            $slug = $collection === null ? null : self::itemSlug((string) $collection['seo_link'], $back);
+            $slug = $collection === null ? null : self::itemSlug((string) $collection['slug'], $back);
             if ($collection === null || $slug === null) {
                 return '';
             }
             // the item name, also of a hidden one: the form may have been sent a moment before the item was hidden
-            $item = (string) $db->value('SELECT nazev FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $slug]);
+            $item = (string) $db->value('SELECT name FROM {collection_items} WHERE collection_id = ? AND slug = ? AND deleted_at IS NULL LIMIT 1', [(int) $collection['collection_id'], $slug]);
 
-            return self::compose((string) $collection['nazev'], $item);
+            return self::compose((string) $collection['name'], $item);
         }
 
         return '';

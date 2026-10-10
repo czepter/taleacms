@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * E-mail signatures from people records (2.10). Every person in a people collection – the ready-made Team
@@ -22,7 +22,7 @@ use Kaleta\Core\App;
 final class EmailSignature
 {
     /** Words in a field's key or label (lowercase, without diacritics) that make it the person's role. */
-    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'funkce', 'pozice', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
+    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'pozice', 'position', 'funkce', 'funktion', 'jobtitle', 'profese', 'beruf'];
 
     public const int PHOTO_SIZE = 72;
 
@@ -31,32 +31,32 @@ final class EmailSignature
      * e-mail come from the schema.org Person mapping of the collection first and then from the key or label of a short
      * text field. A field that is not there is null.
      *
-     * @param array<string, mixed> $collection with decoded "pole" (and "schema_org" when it has one)
+     * @param array<string, mixed> $collection with decoded "fields" (and "schema_org" when it has one)
      * @return array{photo: ?string, role: ?string, phone: ?string, email: ?string}
      */
     public static function fields(array $collection): array
     {
         $found = ['photo' => null, 'role' => null, 'phone' => null, 'email' => null];
         $schema = CollectionSchema::of($collection);
-        if ($schema !== null && $schema['typ'] === 'Person') {
+        if ($schema !== null && $schema['type'] === 'Person') {
             foreach (['role' => 'jobTitle', 'phone' => 'telephone', 'email' => 'email'] as $what => $property) {
-                $found[$what] = $schema['pole'][$property] ?? null;
+                $found[$what] = $schema['fields'][$property] ?? null;
             }
         }
-        foreach (is_array($collection['pole'] ?? null) ? $collection['pole'] : [] as $p) {
-            $key = (string) ($p['klic'] ?? '');
-            $type = (string) ($p['typ'] ?? 'text');
+        foreach (is_array($collection['fields'] ?? null) ? $collection['fields'] : [] as $p) {
+            $key = (string) ($p['key'] ?? '');
+            $type = (string) ($p['type'] ?? 'text');
             if ($key === '' || in_array($key, $found, true)) {
                 continue;
             }
-            if ($type === 'obrazek') {
+            if ($type === 'image') {
                 $found['photo'] ??= $key;
                 continue;
             }
             if ($type !== 'text') {
                 continue; // a role, a phone or an address is a short text
             }
-            $words = [...self::words($key), ...self::words((string) ($p['popisek'] ?? ''))];
+            $words = [...self::words($key), ...self::words((string) ($p['label'] ?? ''))];
             foreach (['role', 'phone', 'email'] as $what) {
                 if ($found[$what] === null && self::names($what, $words)) {
                     $found[$what] = $key;
@@ -72,7 +72,7 @@ final class EmailSignature
     public static function isPeople(array $collection): bool
     {
         $schema = CollectionSchema::of($collection);
-        if ($schema !== null && $schema['typ'] === 'Person') {
+        if ($schema !== null && $schema['type'] === 'Person') {
             return true;
         }
         $fields = self::fields($collection);
@@ -84,7 +84,7 @@ final class EmailSignature
      * The signature of one person with the site's data: name, website, brand colour, fonts and logo from the settings
      * and the design system.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data"
      * @return array{html: string, text: string}
      */
@@ -101,9 +101,9 @@ final class EmailSignature
             'base' => $base,
             'phone' => $s->get('company_phone'),
             'address' => implode(', ', array_filter([trim($s->get('company_street')), trim($s->get('company_postcode') . ' ' . $s->get('company_city'))])),
-            'color' => $ds['barvy']['primarni'],
-            'text_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false),
-            'heading_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true),
+            'color' => $ds['colors']['primary'],
+            'text_font' => DesignSystem::fontFamily($ds, (string) $ds['font_body'], false),
+            'heading_font' => DesignSystem::fontFamily($ds, (string) $ds['font_heading'], true),
             // mail clients do not show SVG – a vector logo is left out and the site name stands in its place
             'logo' => preg_match('/\.(png|jpe?g|gif|webp)$/i', $logo) ? self::absolute($logo, $base) : '',
         ]);
@@ -112,7 +112,7 @@ final class EmailSignature
     /**
      * Renders the signature from the record and the site data. Everything from the record and the settings is escaped.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data"
      * @param array{name: string, url: string, base: string, phone: string, address: string, color: string, text_font: string, heading_font: string, logo: string} $site
      *   url = the website (absolute, for the link), base = absolute prefix of media paths, phone = the company phone when
@@ -124,17 +124,17 @@ final class EmailSignature
         $keys = self::fields($collection);
         $data = is_array($item['data'] ?? null) ? $item['data'] : [];
         $value = fn (?string $key): string => $key === null ? '' : trim(strip_tags((string) ($data[$key] ?? '')));
-        $name = trim((string) ($item['nazev'] ?? ''));
+        $name = trim((string) ($item['name'] ?? ''));
         $role = $value($keys['role']);
         $phone = $value($keys['phone']) !== '' ? $value($keys['phone']) : trim($site['phone']);
         $email = filter_var($value($keys['email']), FILTER_VALIDATE_EMAIL) !== false ? $value($keys['email']) : '';
         $photo = self::absolute($value($keys['photo']), $site['base']);
-        $url = preg_match('#^https?://[^\s"<>]+$#D', $site['url']) ? $site['url'] : '';
+        $url = preg_match('#^https?://[^\s"<>]+$#', $site['url']) ? $site['url'] : '';
         $host = (string) preg_replace('#^https?://|/$#', '', $url);
         $address = trim($site['address']);
         $company = trim($site['name']);
 
-        $color = preg_match('/^#[0-9a-f]{6}$/iD', $site['color']) ? strtolower($site['color']) : '#121212';
+        $color = preg_match('/^#[0-9a-f]{6}$/i', $site['color']) ? strtolower($site['color']) : '#121212';
         $fallback = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
         $font = e($site['text_font'] !== '' ? $site['text_font'] : $fallback);
         $headingFont = e($site['heading_font'] !== '' ? $site['heading_font'] : $fallback);

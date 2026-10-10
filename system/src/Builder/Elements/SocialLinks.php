@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
- * Social networks as icons. The profile urls are entered once in „Nastavení → Firma“ (Business details); the element outputs them the same everywhere.
+ * Social networks as icons. The profile urls are entered once in "Settings → Business details"; the element outputs them the same everywhere.
  * The icons are simplified custom drawings (currentColor stroke), no third-party scripts or tracking buttons.
  */
 final class SocialLinks extends Element
 {
-    public const string TYPE = 'socialni';
-    public const string NAME = 'Sociální sítě';
+    public const string TYPE = 'social_links';
+    public const string NAME = 'Follow us';
     public const string DESCRIPTION = 'Icons linking to the company profiles (addresses from Settings).';
-    public const string ICON = 'socialni';
+    public const string ICON = 'social_links';
     public const array HTML_TAGS = ['ul'];
 
     /** settings key => [name, inner SVG 24×24] */
@@ -30,15 +30,15 @@ final class SocialLinks extends Element
 
     public static function properties(): array
     {
-        return ['nazvy' => ['typ' => 'prepinac', 'popisek' => 'Show network names too', 'vychozi' => false]];
+        return ['show_names' => ['type' => 'boolean', 'label' => 'Show network names too', 'default' => false]];
     }
 
     public static function baseCss(): string
     {
-        return '.ka-socialni { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); margin: 0; padding: 0; list-style: none; }
-.ka-socialni a { display: inline-flex; align-items: center; gap: 0.4em; min-width: 2.5rem; min-height: 2.5rem; justify-content: center; border-radius: var(--ka-zaobleni); color: inherit; text-decoration: none; }
-.ka-socialni a:hover { background: var(--ka-barva-plocha); }
-.ka-socialni svg { width: 1.35em; height: 1.35em; }';
+        return '.tl-social { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); margin: 0; padding: 0; list-style: none; }
+.tl-social a { display: inline-flex; align-items: center; gap: 0.4em; min-width: 2.5rem; min-height: 2.5rem; justify-content: center; border-radius: var(--tl-radius); color: inherit; text-decoration: none; }
+.tl-social a:hover { background: var(--tl-color-surface); }
+.tl-social svg { width: 1.35em; height: 1.35em; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -51,13 +51,13 @@ final class SocialLinks extends Element
                 continue;
             }
             $icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $svg . '</svg>';
-            $html .= '<li><a href="' . e($url) . '" rel="me noopener" target="_blank"' . ($p['obsah']['nazvy'] ? '' : ' aria-label="' . e($name) . '" title="' . e($name) . '"') . '>' . $icon
-                . ($p['obsah']['nazvy'] ? '<span>' . e($name) . '</span>' : '') . '</a></li>';
+            $html .= '<li><a href="' . e($url) . '" rel="me noopener" target="_blank"' . ($p['content']['show_names'] ? '' : ' aria-label="' . e($name) . '" title="' . e($name) . '"') . '>' . $icon
+                . ($p['content']['show_names'] ? '<span>' . e($name) . '</span>' : '') . '</a></li>';
         }
         if ($html === '') {
             return $k->editor ? '<p' . $a . '>' . e(t('Add social networks under Settings.')) . '</p>' : '';
         }
 
-        return '<ul' . Text::withClass($a, 'ka-socialni') . '>' . $html . '</ul>';
+        return '<ul' . Text::withClass($a, 'tl-social') . '>' . $html . '</ul>';
     }
 }

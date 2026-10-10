@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Events;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
-use Kaleta\Core\Updater;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Events;
+use Talea\Core\Response;
+use Talea\Core\Settings;
+use Talea\Core\Updater;
 
 /**
- * The console's side (2.9): a Kaleta install with the extension "fleet" keeps the sites paired with it.
+ * The console's side (2.9): a Talea install with the extension "fleet" keeps the sites paired with it.
  *
  *  - Pairing: the console makes a one-time code (24 hours); the site sends it with its public key, signed by that key.
  *  - Heartbeat: each site reports every hour, signed; an older or repeated heartbeat is refused. The console stores the
@@ -31,7 +31,7 @@ final class Console
     public const int DOWN_AFTER = 2;
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
-    private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'db_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
+    private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'schema_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
         'update_available', 'update_problem', 'auto_updates', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
@@ -57,7 +57,7 @@ final class Console
     {
         $d = json_decode($body, true);
         if (!is_array($d) || ($d['action'] ?? '') !== 'pair' || !is_string($d['code'] ?? null) || !is_string($d['public_key'] ?? null) || !Keys::isPublicKey($d['public_key'])
-            || !is_string($d['url'] ?? null) || preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~iD', $d['url']) !== 1) {
+            || !is_string($d['url'] ?? null) || preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~i', $d['url']) !== 1) {
             return Response::json(['error' => 'Not a pairing request.'], 400);
         }
         if (!Keys::verify($body, $signature, $d['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW) {
@@ -80,7 +80,7 @@ final class Console
         $db->update('fleet_pairing', ['used_at' => date('Y-m-d H:i:s'), 'site_id' => $id], ['code_hash' => $hash]);
         Events::record($db, 'fleet.site_paired', 'info', t('%s was paired with the console.', $row['url']), ['site' => $id]);
 
-        return self::signed($app->settings(), ['ok' => true, 'site_id' => $id, 'console_name' => $app->settings()->get('site_name')]);
+        return self::signed($app->settings(), ['ok' => true, 'site_id' => $db->publicId('fleet_sites', $id), 'console_name' => $app->settings()->get('site_name')]);
     }
 
     /** POST /fleet/heartbeat */
@@ -88,7 +88,7 @@ final class Console
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT * FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->byPublicId('fleet_sites', $d['site_id'] ?? null) : null; // the site's public id: its row number never leaves the console
         if ($site === null) {
             return Response::json(['error' => 'This console does not know the site.'], 404);
         }
@@ -107,7 +107,7 @@ final class Console
         if (($beat['name'] ?? '') !== '') {
             $update['name'] = $beat['name'];
         }
-        if (preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~iD', (string) ($beat['url'] ?? '')) === 1) {
+        if (preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~i', (string) ($beat['url'] ?? '')) === 1) {
             $update['url'] = $beat['url'];
         }
         if ($version !== (string) $site['version']) {
@@ -135,7 +135,7 @@ final class Console
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT id, url, public_key FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->byPublicId('fleet_sites', $d['site_id'] ?? null) : null;
         if ($site === null || !Keys::verify($body, $signature, (string) $site['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW) {
             return Response::json(['error' => 'Not a valid request of a paired site.'], 403);
         }
@@ -180,15 +180,12 @@ final class Console
     public static function latest(App $app): array
     {
         $s = $app->settings();
-        // the console's own PHP does not decide for the sites: a release it cannot run itself is still the newest one
-        // (a site on an older PHP than the release needs refuses it itself – Core\Updater)
-        $state = (new Updater($s))->state();
-        $new = $state['nova'] ?? $state['vyzaduje_php'];
-        $version = $new !== null ? (string) $new['verze'] : KALETA_VERSION;
+        $new = (new Updater($s))->state()['available'];
+        $version = $new !== null ? (string) $new['version'] : TALEA_VERSION;
         $seen = json_decode($s->get('fleet_versions'), true);
         $seen = is_array($seen) ? $seen : [];
         if (!isset($seen[$version])) {
-            $seen[$version] = [time(), $new !== null && !empty($new['bezpecnostni'])];
+            $seen[$version] = [time(), $new !== null && !empty($new['security'])];
             $s->set('fleet_versions', (string) json_encode(array_slice($seen, -20, null, true)));
         }
 
@@ -225,7 +222,7 @@ final class Console
     /**
      * Why a site needs attention, by weight (REASONS). Pure.
      *
-     * @param array<string, mixed> $site a row of ka_fleet_sites
+     * @param array<string, mixed> $site a row of tl_fleet_sites
      * @return array{score: int, reasons: list<string>}
      */
     public static function attention(array $site, int $now): array
@@ -276,7 +273,7 @@ final class Console
     /**
      * All sites, the ones that need attention first.
      *
-     * @return list<array<string, mixed>> rows of ka_fleet_sites with attention, reasons and the decoded heartbeat (beat)
+     * @return list<array<string, mixed>> rows of tl_fleet_sites with attention, reasons and the decoded heartbeat (beat)
      */
     public static function overview(Db $db, int $now): array
     {

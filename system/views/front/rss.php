@@ -1,27 +1,26 @@
 <?php
 /**
- * @var Kaleta\Core\Settings $web
- * @var list<array<string, mixed>> $novinky
- * @var string $adresa  absolute url of the site with a trailing slash
- * @var callable(string): string $odkaz  absolute url of a news item by its slug
+ * @var Talea\Core\Settings $web
+ * @var list<array<string, mixed>> $news
+ * @var string $url  absolute url of the site with a trailing slash
  */
 echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 ?>
 <rss version="2.0">
 <channel>
 	<title><?= e($web->get('site_name')) ?></title>
-	<link><?= e($adresa) ?></link>
+	<link><?= e($url) ?></link>
 	<description><?= e($web->get('site_description')) ?></description>
-	<language><?= e(\Kaleta\Core\Language::code()) ?></language>
-	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
-<?php foreach ($novinky as $c): ?>
+	<language><?= e(\Talea\Core\Language::code()) ?></language>
+	<generator>Talea <?= e(TALEA_VERSION) ?></generator>
+<?php foreach ($news as $c): ?>
 	<item>
-		<title><?= e($c['titulek']) ?></title>
-		<link><?= e($odkaz((string) $c['seo_link'])) ?></link>
-		<guid isPermaLink="false">novinka-<?= (int) $c['idc'] ?></guid>
-		<pubDate><?= e(date(DATE_RSS, strtotime($c['datum']))) ?></pubDate>
-		<category><?= e($c['tema_jm']) ?></category>
-		<description><?= e($c['uvod']) ?></description>
+		<title><?= e($c['title']) ?></title>
+		<link><?= e($url . 'news/' . $c['slug']) ?></link>
+		<guid isPermaLink="false">news-<?= e($c['public_id']) ?></guid>
+		<pubDate><?= e(date(DATE_RSS, strtotime($c['published_at']))) ?></pubDate>
+		<category><?= e($c['category_name']) ?></category>
+		<description><?= e($c['intro']) ?></description>
 	</item>
 <?php endforeach ?>
 </channel>

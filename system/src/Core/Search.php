@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Search index of articles: the column ka_novinky.hledani holds the text in lowercase without diacritics, so a reader
- * finds "nábřeží" even after typing "nabrezi". For locked articles only the title and the intro are indexed - so the
+ * Search index of articles: the column tl_news.search_text holds the text in lowercase without diacritics, so a reader
+ * finds "café" even after typing "cafe". For locked articles only the title and the intro are indexed - so the
  * locked text cannot be pieced together from search results.
  */
 final class Search
@@ -22,16 +22,16 @@ final class Search
     /** Recomputes the index of one article; called after every save (admin, Claude). */
     public static function index(Db $db, int $idc): void
     {
-        $c = $db->one('SELECT titulek, uvod, text, t_slova FROM {novinky} WHERE idc = ?', [$idc]);
+        $c = $db->one('SELECT title, intro, text, keywords FROM {news} WHERE news_id = ?', [$idc]);
         if ($c !== null) {
-            $db->update('novinky', ['hledani' => self::normalize($c['titulek'] . ' ' . $c['t_slova'] . ' ' . $c['uvod'] . ' ' . $c['text'])], ['idc' => $idc]);
+            $db->update('news', ['search_text' => self::normalize($c['title'] . ' ' . $c['keywords'] . ' ' . $c['intro'] . ' ' . $c['text'])], ['news_id' => $idc]);
         }
     }
 
     /** Fills in the index for articles that do not have it yet (after a system update); in batches so it does not hold up the request. */
     public static function complete(Db $db, int $batch = 100): int
     {
-        $ids = array_column($db->all('SELECT idc FROM {novinky} WHERE hledani IS NULL LIMIT ' . max(1, $batch)), 'idc');
+        $ids = array_column($db->all('SELECT news_id FROM {news} WHERE search_text IS NULL LIMIT ' . max(1, $batch)), 'news_id');
         foreach ($ids as $idc) {
             self::index($db, (int) $idc);
         }
@@ -45,8 +45,8 @@ final class Search
      * word found, sorted by relevance (a match in the title weighs most, then the number of occurrences in the text; on a tie
      * the site's order stays).
      *
-     * @param list<array{titulek: string, adresa: string, text: string}> $candidates
-     * @return list<array{titulek: string, adresa: string, uryvek: string}>
+     * @param list<array{title: string, url: string, text: string}> $candidates
+     * @return list<array{title: string, url: string, snippet: string}>
      */
     public static function find(string $q, array $candidates, int $limit = 20): array
     {
@@ -58,7 +58,7 @@ final class Search
         $score = [];
         foreach ($candidates as $k) {
             $plain = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $k['text'])), ENT_QUOTES | ENT_HTML5)));
-            $search = self::normalize($k['titulek'] . ' ' . $plain);
+            $search = self::normalize($k['title'] . ' ' . $plain);
             foreach ($words as $word) {
                 if (!str_contains($search, $word)) {
                     continue 2;
@@ -68,8 +68,8 @@ final class Search
             $position = mb_strpos(remove_diacritics(mb_strtolower($plain)), $words[0]);
             $from = $position === false ? 0 : max(0, $position - 60);
             $excerpt = mb_substr($plain, $from, 180);
-            $results[] = ['titulek' => $k['titulek'], 'adresa' => $k['adresa'], 'uryvek' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
-            $name = self::normalize($k['titulek']);
+            $results[] = ['title' => $k['title'], 'url' => $k['url'], 'snippet' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
+            $name = self::normalize($k['title']);
             $text = self::normalize($plain);
             $score[] = array_sum(array_map(fn (string $s): int => (str_contains($name, $s) ? 100 : 0) + min(20, substr_count($text, $s)), $words));
         }
@@ -80,11 +80,9 @@ final class Search
         return array_slice($results, 0, $limit);
     }
 
-    /** Query for MATCH … AGAINST in BOOLEAN mode: all words of 3 or more characters with any ending. */
-    public static function query(string $q): string
+    /** The words of a full-text query: normalised, 3 or more characters, at most 8; every one is a prefix and all are required (Dialect::fulltextQuery()). @return list<string> */
+    public static function words(string $q): array
     {
-        $words = array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 3);
-
-        return implode(' ', array_map(fn (string $s): string => '+' . $s . '*', array_slice($words, 0, 8)));
+        return array_slice(array_values(array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 3)), 0, 8);
     }
 }

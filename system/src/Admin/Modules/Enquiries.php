@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * Enquiries and messages from the site's forms (the Form element in the builder, Front\Forms). Status: 0 new, 1 read, 2 handled.
@@ -14,74 +14,75 @@ use Kaleta\Core\Response;
 final class Enquiries extends Module
 {
     public const string IDENT = 'enquiries';
-    public const string EXTENSION = 'poptavky';
+    public const string EXTENSION = 'enquiries';
     public const string NAME = 'Enquiries';
     public const string GROUP = 'Customers';
-    public const string ICON = 'poptavky';
+    public const string ICON = 'enquiries';
+    public const string TABLE = 'enquiries';
 
-    public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
+    public const array STATUSES = [0 => 'new', 1 => 'read', 2 => 'resolved'];
     private const int PER_PAGE = 50;
 
     protected function actionList(): Response
     {
-        \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
+        \Talea\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
         self::deleteExpired($this->db, $this->app->settings());
-        $filter = $this->request->get('stav');
+        $filter = $this->request->get('status');
         $conditions = match ($filter) {
-            'otevrene' => ['stav < 2'],
-            'vyrizene' => ['stav = 2'],
-            'moje' => ['prirazeno = ' . (int) $this->app->auth()->id()],
+            'open' => ['status < 2'],
+            'resolved' => ['status = 2'],
+            'mine' => ['assigned_to = ' . (int) $this->app->auth()->id()],
             default => [],
         };
         $params = [];
         // the kind from triage (2.12): spam stays out of the list unless asked for; '-' = not sorted yet
-        $kind = $this->request->get('kategorie');
+        $kind = $this->request->get('category');
         if ($kind === '-') {
-            $conditions[] = "kategorie = ''";
-        } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
-            $conditions[] = 'kategorie = ?';
+            $conditions[] = "category = ''";
+        } elseif (isset(\Talea\Core\Triage::CATEGORIES[$kind])) {
+            $conditions[] = 'category = ?';
             $params[] = $kind;
         } else {
             $kind = '';
-            $conditions[] = "kategorie <> 'spam'";
+            $conditions[] = "category <> 'spam'";
         }
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
-            $conditions[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
+            $conditions[] = '(' . implode(' OR ', array_map(fn (string $c): string => $this->db->dialect()->likeInsensitive($c), ['email', 'form', 'data', 'note'])) . ')';
             // the data is JSON with \uXXXX instead of diacritics – the search also looks in that form
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
-        $pageNumber = max(1, $this->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->request->getInt('page', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
-            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
-            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
+            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to FROM {enquiries} ' . $whereParts . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
+            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'users' => $this->db->pairs("SELECT user_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"),
             'months' => $this->app->settings()->int('enquiries_months'),
             'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
-            'suggestion' => \Kaleta\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
+            'suggestion' => \Talea\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
         ]);
     }
 
     protected function actionDetail(): Response
     {
-        $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
+        $p = $this->db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam()]);
         if ($p === null) {
             return $this->error('The enquiry does not exist.', 404);
         }
-        if ((int) $p['stav'] === 0) {
-            $this->db->update('poptavky', ['stav' => 1], ['idp' => $p['idp']]);
-            $p['stav'] = 1;
+        if ((int) $p['status'] === 0) {
+            $this->db->update('enquiries', ['status' => 1], ['enquiry_id' => $p['enquiry_id']]);
+            $p['status'] = 1;
         }
 
-        return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
-            'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
-            'users' => $this->listAssignees((int) $p['prirazeno'])]);
+        return $this->view('detail', t('Enquiry') . ' – ' . ($p['email'] !== '' ? $p['email'] : format_date($p['created_at'], true)), ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+            'testimonials' => \Talea\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
+            'users' => $this->listAssignees((int) $p['assigned_to']), 'assignedPublicId' => $this->publicId((int) $p['assigned_to'], 'users')]);
     }
 
     /**
@@ -89,13 +90,13 @@ final class Enquiries extends Module
      * who does not see them). An already assigned user stays in the list even if they lost the permission in the meantime –
      * saving the note does not silently remove them.
      *
-     * @return array<int, string>
+     * @return array<string, string> public id => name
      */
     private function listAssignees(int $assignee = 0): array
     {
         return $this->db->pairs(
-            "SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} u WHERE (blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))) OR idu = ? ORDER BY 2",
-            [\Kaleta\Core\Auth::ADMIN, self::IDENT, $assignee],
+            "SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} u WHERE (blocked = FALSE AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
+            [\Talea\Core\Auth::ADMIN, self::IDENT, $assignee],
         );
     }
 
@@ -103,50 +104,50 @@ final class Enquiries extends Module
     /** Asks the customer of an enquiry for a testimonial (2.12, Core\Testimonials): the link by e-mail, or only to copy. */
     protected function actionTestimonial(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         if (!$this->request->isPost()) {
             return $this->back();
         }
         try {
-            $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('poslat'));
+            $result = \Talea\Core\Testimonials::request($this->app, $id, $this->request->postBool('send'));
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+            return $this->back($e->getMessage(), 'detail', ['id' => $this->publicId($id)], 'error');
         }
 
-        return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $id]);
+        return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $this->publicId($id)]);
     }
 
     /** A person's triage (2.12): the kind, the priority and the drafted reply – Claude and the assistant never overwrite it. */
     protected function actionTriage(): Response
     {
-        $id = $this->request->postInt('id');
-        if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {poptavky} WHERE idp = ?', [$id]) !== null) {
+        $id = $this->idParam();
+        if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
-            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priorita'), $this->request->post('navrh_odpovedi')),
-                (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['user'] ?? 'admin'));
+            \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
+                (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
         }
 
-        return $this->back('Saved.', 'detail', ['id' => $id]);
+        return $this->back('Saved.', 'detail', ['id' => $this->publicId($id)]);
     }
 
     protected function actionNote(): Response
     {
-        $idp = $this->request->postInt('idp');
+        $idp = $this->idParam('enquiry_id');
         if ($this->request->isPost()) {
-            $who = $this->request->postInt('prirazeno');
-            $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000),
-                'prirazeno' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]))[$who]) ? $who : null], ['idp' => $idp]);
+            $who = $this->idParam('assigned_to', 'users');
+            $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
+                'assigned_to' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT assigned_to FROM {enquiries} WHERE enquiry_id = ?', [$idp]))[$this->publicId($who, 'users')]) ? $who : null], ['enquiry_id' => $idp]);
         }
 
-        return $this->back('The note has been saved.', 'detail', ['id' => $idp]);
+        return $this->back('The note has been saved.', 'detail', ['id' => $this->publicId($idp)]);
     }
 
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
     protected function actionAttachment(): Response
     {
-        $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
-        $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
-        $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
+        $p = $this->db->one('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam()]);
+        $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
+        $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? TALEA_ROOT . '/storage/attachments/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
             return $this->error('The attachment no longer exists.', 404);
         }
@@ -159,18 +160,18 @@ final class Enquiries extends Module
     /** In bulk: mark as handled, or delete (including attachments). */
     protected function actionBulk(): Response
     {
-        $ids = array_map('intval', $this->request->postList('oznacene'));
+        $ids = array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('enquiries', $uuid), $this->request->postList('selected'))));
         if (!$this->request->isPost() || $ids === []) {
             return $this->back();
         }
         $v = implode(',', $ids);
-        if ($this->request->post('provest') === 'smazat') {
-            self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
-            $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
+        if ($this->request->post('bulk') === 'delete') {
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . $v . ')'));
+            $this->db->run('DELETE FROM {enquiries} WHERE enquiry_id IN (' . $v . ')');
 
             return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
-        $this->db->run('UPDATE {poptavky} SET stav = 2 WHERE idp IN (' . $v . ')');
+        $this->db->run('UPDATE {enquiries} SET status = 2 WHERE enquiry_id IN (' . $v . ')');
 
         return $this->back(t('Enquiries resolved: %d.', count($ids)));
     }
@@ -180,8 +181,8 @@ final class Enquiries extends Module
     {
         foreach ($rows as $r) {
             foreach (json_decode((string) $r['data'], true) ?: [] as $item) {
-                if (is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? ''))) {
-                    @unlink(KALETA_ROOT . '/storage/prilohy/' . $item[2]);
+                if (is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? ''))) {
+                    @unlink(TALEA_ROOT . '/storage/attachments/' . $item[2]);
                 }
             }
         }
@@ -190,18 +191,18 @@ final class Enquiries extends Module
     protected function actionStatus(): Response
     {
         if ($this->request->isPost()) {
-            $state = $this->request->postInt('stav');
-            $this->db->update('poptavky', ['stav' => isset(self::STATUSES[$state]) ? $state : 1], ['idp' => $this->request->postInt('idp')]);
+            $state = $this->request->postInt('status');
+            $this->db->update('enquiries', ['status' => isset(self::STATUSES[$state]) ? $state : 1], ['enquiry_id' => $this->idParam('enquiry_id')]);
         }
 
-        return $this->back($this->request->postInt('stav') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
+        return $this->back($this->request->postInt('status') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
     }
 
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
-            $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam('enquiry_id')]));
+            $this->db->delete('enquiries', ['enquiry_id' => $this->idParam('enquiry_id')]);
         }
 
         return $this->back('The enquiry was deleted.');
@@ -216,39 +217,39 @@ final class Enquiries extends Module
         if (!$this->app->auth()->isAdmin()) {
             return $this->error('Only an administrator can handle personal data requests.', 403);
         }
-        $email = \Kaleta\Core\PersonalData::normalise($this->request->isPost() ? $this->request->post('email') : '');
-        $do = $this->request->isPost() ? $this->request->post('provest') : '';
+        $email = \Talea\Core\PersonalData::normalise($this->request->isPost() ? $this->request->post('email') : '');
+        $do = $this->request->isPost() ? $this->request->post('bulk') : '';
         if ($email !== null && $do === 'export') {
-            return new Response(\Kaleta\Core\PersonalData::export($this->app, $email), 200, ['Content-Type' => 'application/json; charset=utf-8',
+            return new Response(\Talea\Core\PersonalData::export($this->app, $email), 200, ['Content-Type' => 'application/json; charset=utf-8',
                 'Content-Disposition' => 'attachment; filename="personal-data-' . date('Y-m-d') . '.json"']);
         }
         if ($email !== null && $do === 'erase') {
-            if (!$this->request->postBool('potvrzeno')) {
-                return $this->back('Tick that you want to erase the data.', 'personal', [], 'chyba');
+            if (!$this->request->postBool('confirmed_at')) {
+                return $this->back('Tick that you want to erase the data.', 'personal', [], 'error');
             }
-            $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
+            $result = \Talea\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials']);
             if ($result['kept_testimonials'] !== []) {
-                $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
+                $message .= ' ' . t('A testimonial the person sent stays in References – remove it there if they ask.');
             }
 
             return $this->back($message, 'personal');
         }
         if ($this->request->isPost() && $email === null) {
-            return $this->back('Enter a valid e-mail address.', 'personal', [], 'chyba');
+            return $this->back('Enter a valid e-mail address.', 'personal', [], 'error');
         }
 
-        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email) : null]);
+        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Talea\Core\PersonalData::find($this->db, $email) : null]);
     }
 
     /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */
     protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
-            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
+            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('months'))));
+            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('applicant_months'))));
             $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
-            $this->app->settings()->set('enquiries_expiry', $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete');
+            $this->app->settings()->set('enquiries_expiry', $this->request->post('after_expiry') === 'anonymise' ? 'anonymise' : 'delete');
         }
 
         return $this->back('Enquiry settings saved.');
@@ -260,48 +261,48 @@ final class Enquiries extends Module
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content')], ';', '"', '');
-        foreach ($this->db->all('SELECT * FROM {poptavky} ORDER BY idp') as $p) {
+        foreach ($this->db->all('SELECT * FROM {enquiries} ORDER BY enquiry_id') as $p) {
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $p['idp'], (string) $p['datum'], (string) $p['formular'], t(self::STATUSES[(int) $p['stav']] ?? ''), (string) $p['email'], (string) $p['stranka'], \Kaleta\Front\Forms::campaignText((string) ($p['kampan'] ?? '')), $content]);
+                [(string) $p['enquiry_id'], (string) $p['created_at'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Talea\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
+        \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
 
-        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
+        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="enquiries-' . date('Y-m-d') . '.csv"']);
     }
 
     /**
      * Enquiries older than the set number of months: deleted including attachments, or – with enquiries_expiry = anonymise
      * (2.14) – kept as rows without the person for statistics (Core\Privacy). Also called by the background cleanup (Core\Notifications).
      */
-    public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
+    public static function deleteExpired(\Talea\Core\Db $db, \Talea\Core\Settings $siteSettings): void
     {
         $months = $siteSettings->int('enquiries_months');
         if ($months <= 0) {
             return;
         }
         if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
-            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE anonymizovano IS NULL AND datum < NOW() - INTERVAL ? MONTH', [$months]), 'idp')));
+            \Talea\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'enquiry_id')));
 
             return;
         }
-        self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]));
-        $db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]);
+        self::deleteAttachments($db->all('SELECT data FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]));
+        $db->run('DELETE FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]);
     }
 
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */
     protected function actionAnonymise(): Response
     {
-        $idp = $this->request->postInt('idp');
-        if ($this->request->isPost() && \Kaleta\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '#' . $idp);
+        $idp = $this->idParam('enquiry_id');
+        if ($this->request->isPost() && \Talea\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
+            \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '');
         }
 
-        return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $idp]);
+        return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $this->publicId($idp)]);
     }
 }

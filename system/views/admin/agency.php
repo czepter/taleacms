@@ -3,7 +3,7 @@
  * Who looks after the site (2.4, Settings → General → Built and looked after by): on the sign-in screen and at the foot
  * of the admin, so the client knows whom to ask.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var bool $withLogo
  */
 $s = $app->settings();
@@ -18,8 +18,8 @@ $contacts = array_filter([
 ]);
 $nameHtml = $s->get('agency_url') !== '' ? '<a href="' . e($s->get('agency_url')) . '" target="_blank" rel="noopener">' . e($name) . '</a>' : e($name);
 ?>
-<p class="agentura">
-<?php if ($withLogo && $logo !== '' && is_file(KALETA_ROOT . '/' . $logo)): ?>
+<p class="agency">
+<?php if ($withLogo && $logo !== '' && is_file(TALEA_ROOT . '/' . $logo)): ?>
 	<img src="<?= e($app->url($logo)) ?>" alt="" height="28">
 <?php endif ?>
 	<span><?= t('Website by %s', $nameHtml) ?><?= $contacts !== [] ? ' · ' . t('help: %s', implode(', ', $contacts)) : '' ?></span>

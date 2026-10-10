@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Personal data requests (2.14): someone writes "what do you have about me" or "delete me". The administrator enters the
@@ -12,7 +12,8 @@ namespace Kaleta\Core;
  *
  *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
- *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
+ *    (3.0, Core\Booking), the member account of the site's member login (Core\Members), and an account of the administration
+ *    (shown only – accounts are removed in Users, never here).
  *  - Erasing deletes the enquiries with their attachments, the subscriber with the newsletter queue rows, the pending
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
@@ -42,28 +43,38 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, member: ?array<string, mixed>, account: ?array<string, mixed>}
      */
     public static function find(Db $db, string $email): array
     {
         $like = '%' . addcslashes($email, '%_\\') . '%';
-        $subscriber = $db->one('SELECT ido, email, stav, zdroj, kampan, vstup, datum, potvrzeno, sync FROM {odberatele} WHERE LOWER(email) = ?', [$email]);
+        $subscriber = $db->one('SELECT subscriber_id, email, status, source, campaign, landing_page, created_at, confirmed_at, sync FROM {subscribers} WHERE LOWER(email) = ?', [$email]);
         try {
-            $bookings = $db->all('SELECT b.id, b.starts_at, b.ends_at, b.name, b.email, b.phone, b.note, b.status, b.created_at, s.name AS service, p.name AS staff FROM {bookings} b LEFT JOIN {booking_services} s ON s.id = b.service_id LEFT JOIN {booking_staff} p ON p.id = b.staff_id WHERE LOWER(b.email) = ? ORDER BY b.id', [$email]);
+            $bookings = $db->all('SELECT b.id, b.public_id, b.starts_at, b.ends_at, b.name, b.email, b.phone, b.note, b.status, b.created_at, s.name AS service, p.name AS staff FROM {bookings} b LEFT JOIN {booking_services} s ON s.id = b.service_id LEFT JOIN {booking_staff} p ON p.id = b.staff_id WHERE LOWER(b.email) = ? ORDER BY b.id', [$email]);
         } catch (\Throwable) {
             $bookings = []; // before the 3.0 migration
+        }
+
+        try {
+            $member = $db->one('SELECT member_id, public_id, email, name, created_at, confirmed_at, last_login_at FROM {members} WHERE email = ?', [$email]);
+            if ($member !== null) {
+                $member['groups'] = array_column($db->all('SELECT g.name FROM {member_group_links} l JOIN {member_groups} g ON g.group_id = l.group_id WHERE l.member_id = ? ORDER BY g.name', [(int) $member['member_id']]), 'name');
+            }
+        } catch (\Throwable) {
+            $member = null; // before the member login migration
         }
 
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
             'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
-                $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
+                $db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, data, campaign, landing_page, referrer FROM {enquiries} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY enquiry_id', [$email, $like])),
             'subscriber' => $subscriber,
-            'sync' => $db->all('SELECT akce, vytvoreno, pokusy FROM {odber_fronta} WHERE LOWER(email) = ?', [$email]),
-            'mail' => $db->all('SELECT idp, predmet, vytvoreno, odeslano FROM {posta} WHERE LOWER(komu) = ? ORDER BY idp', [$email]),
-            'testimonials' => $db->all('SELECT id, idp, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
+            'sync' => $db->all('SELECT action, created_at, attempts FROM {subscription_queue} WHERE LOWER(email) = ?', [$email]),
+            'mail' => $db->all('SELECT mail_id, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY mail_id', [$email]),
+            'testimonials' => $db->all('SELECT id, enquiry_id, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
             'bookings' => $bookings,
-            'account' => $db->one('SELECT idu, jmeno, email FROM {uzivatele} WHERE LOWER(email) = ?', [$email]),
+            'member' => $member,
+            'account' => $db->one('SELECT user_id, name, email FROM {users} WHERE LOWER(email) = ?', [$email]),
         ];
     }
 
@@ -77,6 +88,7 @@ final class PersonalData
             'mail' => count($found['mail']),
             'testimonials' => count($found['testimonials']),
             'bookings' => count($found['bookings']),
+            'member' => $found['member'] !== null ? 1 : 0,
             'account' => $found['account'] !== null ? 1 : 0,
         ];
     }
@@ -85,8 +97,8 @@ final class PersonalData
     public static function export(App $app, string $email): string
     {
         $found = self::find($app->db(), $email);
-        unset($found['account']['idu']);
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
+        unset($found['account']['user_id'], $found['member']['member_id']);
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
 
         return (string) json_encode(['site' => $app->settings()->get('site_name'), 'email' => $email, 'exported_at' => date('c')] + $found,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -102,26 +114,29 @@ final class PersonalData
     {
         $db = $app->db();
         $found = self::find($db, $email);
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {poptavky} WHERE idp IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'idp'))) . ')'));
-        foreach (array_column($found['enquiries'], 'idp') as $idp) {
-            $db->delete('poptavky', ['idp' => (int) $idp]);
+        \Talea\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'enquiry_id'))) . ')'));
+        foreach (array_column($found['enquiries'], 'enquiry_id') as $idp) {
+            $db->delete('enquiries', ['enquiry_id' => (int) $idp]);
         }
         if ($found['subscriber'] !== null) {
-            if ((int) $found['subscriber']['stav'] === 1) {
-                Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'odebrat'); // gone from the mailing service too
+            if ((int) $found['subscriber']['status'] === 1) {
+                Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'remove'); // gone from the mailing service too
             }
-            $db->delete('newsletter_queue', ['subscriber_id' => (int) $found['subscriber']['ido']]);
-            $db->delete('odberatele', ['ido' => (int) $found['subscriber']['ido']]);
+            $db->delete('newsletter_queue', ['subscriber_id' => (int) $found['subscriber']['subscriber_id']]);
+            $db->delete('subscribers', ['subscriber_id' => (int) $found['subscriber']['subscriber_id']]);
         }
-        $db->run('DELETE FROM {posta} WHERE LOWER(komu) = ?', [$email]);
+        $db->run('DELETE FROM {mail} WHERE LOWER(recipient) = ?', [$email]);
         $db->run('DELETE FROM {testimonial_requests} WHERE LOWER(email) = ?', [$email]);
         if ($found['bookings'] !== []) {
             $db->run('DELETE FROM {bookings} WHERE LOWER(email) = ?', [$email]); // upcoming ones too – the person asked to be forgotten
         }
+        if ($found['member'] !== null) {
+            $db->delete('members', ['member_id' => (int) $found['member']['member_id']]); // sessions, sign-in links and group memberships go with it
+        }
         AgentJournal::forget($db, $email);
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
         $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
 
         return ['erased' => $erased, 'kept_testimonials' => $kept];

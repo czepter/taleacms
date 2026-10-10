@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Self-healing internal links (2.14): when an address of the site changes (a page, news item or category gets a new
@@ -24,19 +24,16 @@ final class LinkHealing
      * @var array<string, array{list<string>, array<string, string>}>
      */
     private const array PLACES = [
-        'stranky' => [['ids'], ['stavba' => 'json', 'stavba_koncept' => 'json', 'text' => 'html']],
-        'novinky' => [['idc'], ['uvod' => 'html', 'text' => 'html']],
-        'kolekce' => [['idk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'kolekce_sablony' => [['idk', 'jazyk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'kolekce_polozky' => [['idp'], ['data' => 'json']],
-        // collection categories (3.7): the category templates and the descriptions
-        'collection_category_templates' => [['idk', 'jazyk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'collection_category_texts' => [['category_id', 'language'], ['description' => 'html']],
-        'casti' => [['typ', 'jazyk', 'varianta'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'komponenty' => [['idm'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'popupy' => [['idpp'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'sekce' => [['idx'], ['prvek' => 'json']],
-        'menu' => [['umisteni', 'jazyk'], ['polozky' => 'json']],
+        'pages' => [['page_id'], ['build' => 'json', 'build_draft' => 'json', 'text' => 'html']],
+        'news' => [['news_id'], ['intro' => 'html', 'text' => 'html']],
+        'collections' => [['collection_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'collection_templates' => [['collection_id', 'language'], ['build' => 'json', 'build_draft' => 'json']],
+        'collection_items' => [['item_id'], ['data' => 'json']],
+        'site_parts' => [['type', 'language', 'variant'], ['build' => 'json', 'build_draft' => 'json']],
+        'components' => [['component_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'popups' => [['popup_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'sections' => [['section_id'], ['element' => 'json']],
+        'menus' => [['location', 'language'], ['items' => 'json']],
     ];
 
     /**
@@ -50,17 +47,8 @@ final class LinkHealing
         if ($old === '' || $new === '' || trim($new, '/') === $old || str_contains($old, '?')) {
             return 0;
         }
-        $origin = rtrim((string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'site_url'") ?? ''), '/');
-        $pairs = [[$old, $new]];
-        // news addresses also have an English public form (/news/x outside Czech) that links may use
-        $english = Routes::publicPath($old, 'en', null);
-        if ($english !== $old && preg_match('#^https?://#i', $new) !== 1) {
-            $pairs[] = [$english, Routes::publicPath(trim($new, '/'), 'en', null)];
-        }
-        $changed = 0;
-        foreach ($pairs as [$from, $to]) {
-            $changed += self::replace($db, $from, $to, $origin);
-        }
+        $origin = rtrim((string) ($db->value("SELECT value FROM {settings} WHERE name = 'site_url'") ?? ''), '/');
+        $changed = self::replace($db, $old, $new, $origin);
         if ($changed > 0) {
             Events::record($db, 'links.healed', 'info', t('Links to /%s now lead to %s (%d places).', $old, $new, $changed), ['from' => $old, 'to' => $new, 'count' => $changed]);
         }

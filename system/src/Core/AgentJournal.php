@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Undo a whole Claude session (2.17). While a Claude connection runs a tool that changes the site, Core\Db hands every
@@ -32,20 +32,16 @@ final class AgentJournal
      * testimonial requests, bookings, subscribers and mail are never copied into the journal, so an erasure on request
      * (Core\PersonalData) cannot be undone and the person's data does not wait here for JOURNAL_DAYS.
      */
-    public const array TABLES = ['nastaveni', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
-        'media_pouziti', 'stranky', 'stranky_revize', 'casti', 'stavba_revize', 'tridy', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
-        'collection_categories', 'collection_category_texts', 'collection_item_categories', 'collection_category_templates',
-        'document_versions', 'menu', 'sekce', 'popupy', 'komponenty', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
+    public const array TABLES = ['settings', 'categories', 'news', 'news_revisions', 'news_drafts', 'news_tags', 'tags', 'media', 'media_folders',
+        'media_usage', 'pages', 'page_revisions', 'site_parts', 'build_revisions', 'classes', 'redirects', 'collections', 'collection_items', 'collection_templates',
+        'document_versions', 'menus', 'sections', 'popups', 'components', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
         'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
 
     /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
-    public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue'];
+    public const array PERSONAL_TABLES = ['enquiries', 'testimonial_requests', 'bookings', 'subscribers', 'mail', 'subscription_queue', 'newsletter_queue'];
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
-    private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';
-
-    /** @var array<string, list<string>> primary key columns by table */
-    private static array $keys = [];
+    private const string BOOKKEEPING = '/^(notification_check)$|_(check|time|checked|seen|ts|at)$/';
 
     private bool $busy = false;
 
@@ -55,13 +51,14 @@ final class AgentJournal
 
     /**
      * Starts journaling one tool call of a connection: finds the connection's open session (a change within SESSION_GAP
-     * minutes) or opens a new one. Returns null when the tables are not there yet (before the migration).
+     * minutes) or opens a new one (always a new one with $fresh). Returns null when the tables are not there yet (before the migration).
      */
-    public static function start(Db $db, string $connection, string $tool): ?self
+    public static function start(Db $db, string $connection, string $tool, bool $fresh = false): ?self
     {
         try {
             $now = date('Y-m-d H:i:s');
-            $session = $db->one('SELECT id FROM {agent_sessions} WHERE connection = ? AND undone_at IS NULL AND last_at > ? ORDER BY id DESC LIMIT 1',
+            // $fresh: one request of the in-admin assistant is one session, so that its undo takes back just that request
+            $session = $fresh ? null : $db->one('SELECT id FROM {agent_sessions} WHERE connection = ? AND undone_at IS NULL AND last_at > ? ORDER BY id DESC LIMIT 1',
                 [$connection, date('Y-m-d H:i:s', time() - self::SESSION_GAP * 60)]);
             $id = $session !== null ? (int) $session['id'] : $db->insert('agent_sessions', ['connection' => mb_substr($connection, 0, 100), 'started_at' => $now, 'last_at' => $now, 'calls' => 0]);
             $db->run('UPDATE {agent_sessions} SET last_at = ?, calls = calls + 1 WHERE id = ?', [$now, $id]);
@@ -96,7 +93,7 @@ final class AgentJournal
     public function record(string $table, array $before, ?array $insertedKey = null): void
     {
         $this->quietly(function () use ($table, $before, $insertedKey): void {
-            $keyColumns = self::primaryKey($this->db, $table);
+            $keyColumns = $this->db->primaryKey($table);
             if ($keyColumns === []) {
                 $this->untracked($table, 'a table without a primary key');
 
@@ -109,10 +106,10 @@ final class AgentJournal
 
                     continue;
                 }
-                if ($table === 'nastaveni' && preg_match(self::BOOKKEEPING, (string) ($key['promenna'] ?? '')) === 1) {
+                if ($table === 'settings' && preg_match(self::BOOKKEEPING, (string) ($key['name'] ?? '')) === 1) {
                     continue;
                 }
-                $new = $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition(array_keys($key)), array_values($key));
+                $new = $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition($this->db, array_keys($key)), array_values($key));
                 if ($old === $new) {
                     continue; // nothing changed (an update to the same values)
                 }
@@ -130,7 +127,7 @@ final class AgentJournal
      */
     public function inserted(string $table, array $data, int $id): void
     {
-        $keyColumns = $this->quietly(fn (): array => self::primaryKey($this->db, $table));
+        $keyColumns = $this->quietly(fn (): array => $this->db->primaryKey($table));
         $key = count($keyColumns) === 1 && $id > 0 ? [$keyColumns[0] => $id] : array_intersect_key($data, array_flip($keyColumns));
         $this->record($table, [], $key);
     }
@@ -163,18 +160,18 @@ final class AgentJournal
 
             return fn () => $this->record($table, $before);
         }
-        if ($verb === 'INSERT' && array_is_list($params) && preg_match('/^\s*INSERT\s+INTO\s+\{[a-z0-9_]+\}\s*\(([^)]+)\)\s*VALUES\s*\(([^)]*)\)\s*ON\s+DUPLICATE/is', $sql, $i) === 1) {
-            $columns = array_map(fn (string $c): string => trim($c, " `\t\n"), explode(',', $i[1]));
+        if ($verb === 'INSERT' && array_is_list($params) && preg_match('/^\s*INSERT\s+INTO\s+\{[a-z0-9_]+\}\s*\(([^)]+)\)\s*VALUES\s*\(([^)]*)\)\s*(?:AS\s+new_row\s+)?ON\s+(?:DUPLICATE|CONFLICT)/is', $sql, $i) === 1) {
+            $columns = array_map(fn (string $c): string => trim($c, " `\"\t\n"), explode(',', $i[1]));
             if (count($columns) === count($params)) {
                 $values = array_combine($columns, $params);
-                foreach ($this->quietly(fn (): array => self::uniqueKeys($this->db, $table)) as $key) {
+                foreach ($this->quietly(fn (): array => array_values($this->db->uniqueKeys($table))) as $key) {
                     if (array_diff($key, $columns) === []) {
                         $where = array_intersect_key($values, array_flip($key));
-                        $before = $this->rowsWhere($table, self::condition(array_keys($where)), array_values($where));
-                        $primary = self::primaryKey($this->db, $table);
+                        $before = $this->rowsWhere($table, self::condition($this->db, array_keys($where)), array_values($where));
+                        $primary = $this->db->primaryKey($table);
 
                         return fn () => $before !== [] ? $this->record($table, $before) : $this->record($table, [], array_intersect_key(
-                            (array) $this->quietly(fn (): ?array => $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition(array_keys($where)), array_values($where))),
+                            (array) $this->quietly(fn (): ?array => $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition($this->db, array_keys($where)), array_values($where))),
                             array_flip($primary)));
                     }
                 }
@@ -191,7 +188,7 @@ final class AgentJournal
     {
         return $db->all('SELECT s.*, (SELECT COUNT(*) FROM {agent_journal} j WHERE j.session_id = s.id AND j.untracked IS NULL) AS rows_changed,
             (SELECT COUNT(*) FROM {agent_journal} j WHERE j.session_id = s.id AND j.untracked IS NOT NULL) AS rows_untracked,
-            (SELECT GROUP_CONCAT(DISTINCT j.tool ORDER BY j.tool SEPARATOR \', \') FROM {agent_journal} j WHERE j.session_id = s.id) AS tools
+            (SELECT ' . $db->dialect()->groupConcat('j.tool', ', ', 'j.tool', true) . ' FROM {agent_journal} j WHERE j.session_id = s.id) AS tools
             FROM {agent_sessions} s ORDER BY s.id DESC LIMIT ' . max(1, min(200, $limit)));
     }
 
@@ -224,10 +221,11 @@ final class AgentJournal
         $result = ['restored' => 0, 'removed' => 0, 'conflicts' => [], 'untracked' => $untracked, 'undone' => false];
         $db->transaction(function (Db $db) use ($rows, $force, &$result): void {
             foreach (array_reverse($rows) as $row) {
-                $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition(array_keys($row['key'])), array_values($row['key']));
+                $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition($db, array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
                 if (!$force && !self::same($current, $expected)) {
-                    $result['conflicts'][] = ['table' => $row['table'], 'key' => $row['key']];
+                    $pk = Db::PRIMARY_KEYS[$row['table']] ?? null; // a row of a public-id table is named by its public id, never by the integer key
+                    $result['conflicts'][] = ['table' => $row['table'], 'key' => $pk !== null && count($row['key']) === 1 && isset($row['key'][$pk]) ? $db->publicId($row['table'], (int) $row['key'][$pk]) : $row['key']];
 
                     continue;
                 }
@@ -241,17 +239,15 @@ final class AgentJournal
                 }
                 $before = (array) json_decode((string) $row['before'], true);
                 $columns = array_keys($before);
-                $db->run('INSERT INTO {' . $row['table'] . '} (' . implode(', ', array_map(fn (string $c): string => '`' . str_replace('`', '', $c) . '`', $columns)) . ') VALUES ('
-                    . implode(', ', array_fill(0, count($columns), '?')) . ') ON DUPLICATE KEY UPDATE '
-                    . implode(', ', array_map(fn (string $c): string => '`' . str_replace('`', '', $c) . '` = VALUES(`' . str_replace('`', '', $c) . '`)', $columns)), array_values($before));
+                $db->upsert($row['table'], $before, $db->primaryKey($row['table']));
                 $result['restored']++;
             }
         });
         $user = $app->auth()->user();
-        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);
+        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
+        \Talea\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
         Events::record($db, 'claude.session_undone', 'info', t('A Claude session was undone: %d rows restored, %d removed, %d left because they changed since.', $result['restored'], $result['removed'], count($result['conflicts'])),
             ['session' => $sessionId, 'restored' => $result['restored'], 'removed' => $result['removed'], 'conflicts' => count($result['conflicts'])]);
 
@@ -295,26 +291,9 @@ final class AgentJournal
     }
 
     /** @param list<string> $columns */
-    private static function condition(array $columns): string
+    private static function condition(Db $db, array $columns): string
     {
-        return implode(' AND ', array_map(fn (string $c): string => '`' . str_replace('`', '', $c) . '` = ?', $columns));
-    }
-
-    /** @return list<string> */
-    private static function primaryKey(Db $db, string $table): array
-    {
-        return self::$keys[$table] ??= array_map(fn (mixed $c): string => (string) $c, array_column($db->all("SHOW KEYS FROM {" . $table . "} WHERE Key_name = 'PRIMARY'"), 'Column_name'));
-    }
-
-    /** The primary key and every unique key, each as its columns. @return list<list<string>> */
-    private static function uniqueKeys(Db $db, string $table): array
-    {
-        $keys = [];
-        foreach ($db->all('SHOW KEYS FROM {' . $table . '} WHERE Non_unique = 0') as $k) {
-            $keys[(string) $k['Key_name']][(int) $k['Seq_in_index']] = (string) $k['Column_name'];
-        }
-
-        return array_values(array_map(fn (array $c): array => array_values($c), $keys));
+        return implode(' AND ', array_map(fn (string $c): string => $db->dialect()->quote($c) . ' = ?', $columns));
     }
 
     /** Runs the journal's own queries without journaling them. */

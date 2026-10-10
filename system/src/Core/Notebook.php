@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
+use Talea\Admin\ChangeLog;
 
 /**
  * Agent notebook (2.15): notes the site keeps for whoever works on it next – Claude in a new conversation, or a
@@ -45,7 +45,7 @@ final class Notebook
             $params[] = $topic;
         }
         if ($search !== '') {
-            $where[] = '(title LIKE ? OR text LIKE ?)';
+            $where[] = '(' . $db->dialect()->likeInsensitive('title') . ' OR ' . $db->dialect()->likeInsensitive('text') . ')';
             array_push($params, '%' . addcslashes($search, '%_\\') . '%', '%' . addcslashes($search, '%_\\') . '%');
         }
         try {
@@ -70,7 +70,7 @@ final class Notebook
     {
         try {
             return ['count' => (int) $db->value('SELECT COUNT(*) FROM {notebook}'),
-                'pinned' => array_map('strval', array_column($db->all('SELECT title FROM {notebook} WHERE pinned = 1 ORDER BY updated_at DESC, id DESC LIMIT 20'), 'title'))];
+                'pinned' => array_map('strval', array_column($db->all('SELECT title FROM {notebook} WHERE pinned = TRUE ORDER BY updated_at DESC, id DESC LIMIT 20'), 'title'))];
         } catch (\Throwable) {
             return ['count' => 0, 'pinned' => []]; // before the 2.15 migration
         }
@@ -132,7 +132,7 @@ final class Notebook
     {
         $user = $app->auth()->user();
 
-        return mb_substr((string) ($app->auth()->connection()['name'] ?? '') ?: ((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? '')), 0, 100);
+        return mb_substr((string) ($app->auth()->connection()['name'] ?? '') ?: ((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? '')), 0, 100);
     }
 
     /** @param array<string, mixed> $r @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string} */

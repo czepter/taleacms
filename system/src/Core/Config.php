@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
+
+use Talea\Core\Dialect\Dialect;
 
 /**
  * Where the site's configuration comes from. Two sources, the environment wins:
  *
- *  1. Environment variables (Docker): KALETA_DB_NAME turns this mode on, see docker/README.md for the full list.
- *     Every variable also has a KALETA_…_FILE twin (Docker / Kubernetes secrets): the value is read from that file.
+ *  1. Environment variables (Docker): TALEA_DB_NAME turns this mode on (TALEA_DB_DRIVER = mysql | pgsql), see docker/README.md for the full list.
+ *     Every variable also has a TALEA_…_FILE twin (Docker / Kubernetes secrets): the value is read from that file.
  *  2. config.php (classic hosting), written by the web installer.
  *
  * null = not configured, the site is not installed yet.
@@ -26,7 +28,7 @@ final class Config
         if (self::fromEnv()) {
             return self::installed() ? self::fromEnvironment() : null;
         }
-        $file = KALETA_ROOT . '/config.php';
+        $file = TALEA_ROOT . '/config.php';
 
         return is_file($file) ? require $file : null;
     }
@@ -37,13 +39,13 @@ final class Config
      */
     public static function installed(): bool
     {
-        $marker = KALETA_ROOT . '/storage/.installed';
+        $marker = TALEA_ROOT . '/storage/.installed';
         if (is_file($marker)) {
             return true;
         }
         try {
             $db = Db::fromConfig(self::fromEnvironment()['db']);
-            if ((int) $db->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db->prefix . 'uzivatele']) === 0) {
+            if (!$db->tableExists('users')) {
                 return false;
             }
         } catch (\PDOException) {
@@ -56,38 +58,39 @@ final class Config
 
     public static function markInstalled(): bool
     {
-        return @touch(KALETA_ROOT . '/storage/.installed');
+        return @touch(TALEA_ROOT . '/storage/.installed');
     }
 
     /** @return array<string, mixed> */
     public static function fromEnvironment(): array
     {
-        if (($url = self::env('AI_URL')) !== '' && !defined('KALETA_AI_URL')) {
-            define('KALETA_AI_URL', $url);
+        if (($url = self::env('AI_URL')) !== '' && !defined('TALEA_AI_URL')) {
+            define('TALEA_AI_URL', $url);
         }
 
         return [
             'db' => [
+                'driver' => $driver = self::env('DB_DRIVER', 'mysql'),
                 'host' => self::env('DB_HOST', 'localhost'),
-                'port' => (int) self::env('DB_PORT', '3306') ?: 3306,
+                'port' => (int) self::env('DB_PORT', '0') ?: Dialect::forDriver($driver)->defaultPort(),
                 'name' => self::env('DB_NAME'),
-                'user' => self::env('DB_USER'),
+                'username' => self::env('DB_USER'),
                 'password' => self::env('DB_PASSWORD'),
-                'prefix' => self::env('DB_PREFIX', 'ka_'),
+                'prefix' => self::env('DB_PREFIX', 'tl_'),
             ],
             'debug' => self::flag('DEBUG', false),
             'addons' => self::flag('ADDONS', true),
         ];
     }
 
-    /** KALETA_<name>, or the content of the file named by KALETA_<name>_FILE; $default when neither is set. */
+    /** TALEA_<name>, or the content of the file named by TALEA_<name>_FILE; $default when neither is set. */
     public static function env(string $name, string $default = ''): string
     {
-        $file = getenv("KALETA_{$name}_FILE");
+        $file = getenv("TALEA_{$name}_FILE");
         if ($file !== false && $file !== '' && is_readable($file)) {
             return rtrim((string) file_get_contents($file), "\r\n");
         }
-        $value = getenv("KALETA_{$name}");
+        $value = getenv("TALEA_{$name}");
 
         return $value === false || $value === '' ? $default : $value;
     }

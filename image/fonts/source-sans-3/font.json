@@ -1,0 +1,35 @@
+{
+    "name": "Source Sans 3",
+    "category": "sans",
+    "weights": [
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900
+    ],
+    "italic": true,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "source-sans-3.woff2",
+            "weight": "200 900",
+            "style": "normal"
+        },
+        {
+            "file": "source-sans-3-italic.woff2",
+            "weight": "200 900",
+            "style": "italic"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/sourcesans3",
+    "licence": "OFL-1.1",
+    "reserved_name": "Source"
+}

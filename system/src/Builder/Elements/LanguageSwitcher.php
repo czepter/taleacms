@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Switcher of the site's language versions as a separate element – e.g. in the footer, when the Navigation element does not have it
- * (the „Přepínač jazyků“ (language switcher) option off). The menu is the Popover API without a script; in the footer it opens upwards.
+ * (the "Language switcher" option off). The menu is the Popover API without a script; in the footer it opens upwards.
  * A site with a single language outputs nothing.
  */
 final class LanguageSwitcher extends Element
 {
-    public const string TYPE = 'jazyky';
+    public const string TYPE = 'language_switcher';
     public const string NAME = 'Language switcher';
     public const string DESCRIPTION = 'Choose the language version of the site – a row of codes or a dropdown (for example in the footer).';
-    public const string ICON = 'svet';
+    public const string ICON = 'globe';
     public const string GROUP = 'Site parts';
     public const array HTML_TAGS = ['nav'];
     public const bool PARTS_ONLY = true;
@@ -25,8 +25,8 @@ final class LanguageSwitcher extends Element
     public static function properties(): array
     {
         return [
-            'styl' => ['typ' => 'vyber', 'popisek' => 'Podoba', 'vychozi' => 'nabidka', 'moznosti' => ['nabidka' => 'dropdown', 'rada' => 'codes in a row']],
-            'smer' => ['typ' => 'vyber', 'popisek' => 'The dropdown opens', 'vychozi' => 'nahoru', 'moznosti' => ['nahoru' => 'upwards (footer)', 'dolu' => 'downwards (header)']],
+            'style' => ['type' => 'choice', 'label' => 'Style', 'default' => 'dropdown', 'options' => ['dropdown' => 'dropdown', 'row' => 'codes in a row']],
+            'direction' => ['type' => 'choice', 'label' => 'The dropdown opens', 'default' => 'up', 'options' => ['up' => 'upwards (footer)', 'down' => 'downwards (header)']],
         ];
     }
 
@@ -38,6 +38,6 @@ final class LanguageSwitcher extends Element
                 . e(t('Language switcher – it shows when the site has more language versions')) . '</span>' : '';
         }
 
-        return $k->app->view->render('front/jazyky', ['jazyky' => $k->languageList, 'styl' => $p['obsah']['styl'] ?? 'nabidka', 'smer' => $p['obsah']['smer'] ?? 'nahoru', 'atributy' => Text::withClass($a, 'ka-jazyky-prvek')]);
+        return $k->app->view->render('front/language-switcher', ['languages' => $k->languageList, 'style' => $p['content']['style'] ?? 'dropdown', 'direction' => $p['content']['direction'] ?? 'up', 'attributes' => Text::withClass($a, 'tl-languages-element')]);
     }
 }

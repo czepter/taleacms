@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Password-protected pages (2.14): a price list for partners, documents for one client, a page for the members of a
  * club – behind one password the administrator gives to the people who should read it. Not an account system: whoever
  * knows the password reads the page.
  *
- *  - Only a password_hash() is stored (ka_stranky.heslo_hash). The visitor who enters the password gets a cookie for
+ *  - Only a password_hash() is stored (tl_pages.heslo_hash). The visitor who enters the password gets a cookie for
  *    30 days bound to the page and to the hash, so a new password locks everyone out again.
  *  - A protected page is never in the page cache, the sitemap, llms.txt or the site search, and it is noindex; users who
  *    can edit pages see it without the password.
@@ -33,13 +33,13 @@ final class PageLock
     /** @param array<string, mixed> $page */
     public static function isProtected(array $page): bool
     {
-        return (string) ($page['heslo_hash'] ?? '') !== '';
+        return (string) ($page['password_hash'] ?? '') !== '';
     }
 
     /** @param array<string, mixed> $page */
     public static function isUnlocked(App $app, array $page): bool
     {
-        $cookie = $_COOKIE[self::cookie((int) $page['ids'])] ?? '';
+        $cookie = $_COOKIE[self::cookie((int) $page['page_id'])] ?? '';
 
         return is_string($cookie) && hash_equals(self::token($app, $page), $cookie);
     }
@@ -52,20 +52,20 @@ final class PageLock
      */
     public static function unlock(App $app, array $page, string $password): string
     {
-        $ip = Firewall::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
-        $pageKey = 'page-' . (int) $page['ids'];
-        if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
+        $ip = Antispam::visitorIp($app->request->serverValues(), $app->settings()->get('trusted_proxy'));
+        $pageKey = 'page-' . (int) $page['page_id'];
+        if (Antispam::tally(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
-        if ($password === '' || !password_verify($password, (string) $page['heslo_hash'])) {
+        if ($password === '' || !password_verify($password, (string) $page['password_hash'])) {
             // only wrong passwords count for the page; past its cap they are refused as "too many attempts" (3.3.3, N58)
-            return Firewall::count($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
+            return Antispam::tally($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
                 ? t('Too many attempts. Try again in a few minutes.') : t('The password is not right.');
         }
         // the right password always opens the page, past the page's cap too (3.3.3, N58): wrong guesses from many addresses
         // must not lock out every reader of it
         if (!headers_sent()) {
-            setcookie(self::cookie((int) $page['ids']), self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
+            setcookie(self::cookie((int) $page['page_id']), self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
                 'httponly' => true, 'samesite' => 'Lax', 'secure' => $app->request->isHttps()]);
         }
 
@@ -96,21 +96,21 @@ final class PageLock
     /** The password form shown instead of the page content, in the site's form styles. @param array<string, mixed> $page */
     public static function form(array $page, string $error): string
     {
-        return '<div class="ka-porovnani-stranka"><h1>' . e((string) $page['titulek']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
-            . ($error !== '' ? '<p class="ka-formular-chyba" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="ka-formular" method="post"><p class="ka-pole"><label for="ka-heslo-stranky">' . e(t('Password')) . '</label>'
-            . '<input type="password" id="ka-heslo-stranky" name="ka_heslo_stranky" autocomplete="current-password" required></p>'
-            . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
+        return '<div class="tl-system-page"><h1>' . e((string) $page['title']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
+            . ($error !== '' ? '<p class="tl-form-error" role="alert">' . e($error) . '</p>' : '')
+            . '<form class="tl-form" method="post"><p class="tl-field"><label for="tl-password-page">' . e(t('Password')) . '</label>'
+            . '<input type="password" id="tl-password-page" name="tl_page_password" autocomplete="current-password" required></p>'
+            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
     }
 
     private static function cookie(int $ids): string
     {
-        return 'ka_stranka_' . $ids;
+        return 'tl_stranka_' . $ids;
     }
 
     /** @param array<string, mixed> $page */
     private static function token(App $app, array $page): string
     {
-        return hash_hmac('sha256', 'page|' . (int) $page['ids'] . '|' . (string) $page['heslo_hash'], (new Antispam($app->db(), $app->settings()))->key());
+        return hash_hmac('sha256', 'page|' . (int) $page['page_id'] . '|' . (string) $page['password_hash'], (new Antispam($app->db(), $app->settings()))->key());
     }
 }

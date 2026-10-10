@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Official notice board (2.11): a collection made from the notices preset (Builder\Presets, system/presets/notices.php)
@@ -16,12 +16,12 @@ use Kaleta\Builder\Presets;
  *  - {{notice_status}} on the item page says whether the notice is posted, to be posted or taken down (statusText);
  *  - a notice cannot go to the trash (admin and MCP refuse), and cannot be hidden once its posting date has come – hiding
  *    is for a notice still to be posted; the collection cannot be deleted while it has notices;
- *  - ka_notice_log is the append-only audit trail: created and changed (what changed: key => [old, new]) on every save
+ *  - tl_notice_log is the append-only audit trail: created and changed (what changed: key => [old, new]) on every save
  *    – admin, MCP, import – and posted / taken_down written once each by the hourly job 'notices' (Core\Scheduler) when
  *    the day comes. Nothing edits or deletes its rows: no UI, no MCP. The admin item form shows it; the administrator
  *    downloads the whole log as CSV; Claude reads it with list_notice_log.
  *
- * The selection and the status are pure helpers (unit-tested); the preset key is remembered in ka_kolekce.preset, so a
+ * The selection and the status are pure helpers (unit-tested); the preset key is remembered in tl_collections.preset, so a
  * board is recognised even after the administrator renames the collection – and only while it still has the posting
  * date field (Presets::field).
  */
@@ -48,7 +48,7 @@ final class Notices
     /** A board the features can work with: made from the preset and the posting date field is still there. */
     public static function isBoard(array $collection): bool
     {
-        return Presets::field($collection, self::PRESET, 'posted', ['datum']) !== null;
+        return Presets::field($collection, self::PRESET, 'posted', ['date']) !== null;
     }
 
     /**
@@ -59,8 +59,8 @@ final class Notices
      */
     public static function dates(array $collection, array $data): array
     {
-        $posted = Presets::field($collection, self::PRESET, 'posted', ['datum']);
-        $takenDown = Presets::field($collection, self::PRESET, 'taken_down', ['datum']);
+        $posted = Presets::field($collection, self::PRESET, 'posted', ['date']);
+        $takenDown = Presets::field($collection, self::PRESET, 'taken_down', ['date']);
 
         return [$posted !== null ? (string) ($data[$posted] ?? '') : '', $takenDown !== null ? (string) ($data[$takenDown] ?? '') : ''];
     }
@@ -140,7 +140,7 @@ final class Notices
     /** How many notices a board has (also hidden ones and the trash – none of them may be lost); 0 for any other collection. */
     public static function count(Db $db, array $collection): int
     {
-        return self::isNotices($collection) ? (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ?', [(int) $collection['idk']]) : 0;
+        return self::isNotices($collection) ? (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ?', [(int) $collection['collection_id']]) : 0;
     }
 
     /* ---------- the audit trail ---------- */
@@ -152,13 +152,13 @@ final class Notices
             return 'Claude';
         }
         $user = $app->auth()->user();
-        $name = (string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? '');
+        $name = (string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? '');
 
         return $name !== '' ? mb_substr($name, 0, 100) : self::SYSTEM;
     }
 
     /**
-     * Appends one row. The only way anything gets into ka_notice_log – there is no update or delete of it anywhere.
+     * Appends one row. The only way anything gets into tl_notice_log – there is no update or delete of it anywhere.
      *
      * @param array<string, mixed> $fields what changed: key => [old, new]; the job writes [action => date]
      */
@@ -167,7 +167,7 @@ final class Notices
         if (!in_array($action, self::ACTIONS, true)) {
             throw new \InvalidArgumentException('Unknown notice log action ' . $action);
         }
-        $db->insert('notice_log', ['idp' => $idp, 'action' => $action, 'at' => date('Y-m-d H:i:s'), 'by' => mb_substr($by, 0, 100),
+        $db->insert('notice_log', ['item_id' => $idp, 'action' => $action, 'at' => date('Y-m-d H:i:s'), 'by' => mb_substr($by, 0, 100),
             'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
 
@@ -202,12 +202,12 @@ final class Notices
     {
         $values = function (array $r) use ($collection): array {
             $data = is_array($r['data'] ?? null) ? $r['data'] : (json_decode((string) ($r['data'] ?? ''), true) ?: []);
-            $out = ['name' => (string) ($r['nazev'] ?? ''), 'slug' => (string) ($r['seo_link'] ?? '')];
-            if (array_key_exists('zobrazit', $r)) {
-                $out['visible'] = (int) $r['zobrazit'] === 1 ? 'yes' : 'no';
+            $out = ['name' => (string) ($r['name'] ?? ''), 'slug' => (string) ($r['slug'] ?? '')];
+            if (array_key_exists('visible', $r)) {
+                $out['visible'] = (int) $r['visible'] === 1 ? 'yes' : 'no';
             }
-            foreach ((array) ($collection['pole'] ?? []) as $f) {
-                $out[(string) $f['klic']] = (string) ($data[$f['klic']] ?? '');
+            foreach ((array) ($collection['fields'] ?? []) as $f) {
+                $out[(string) $f['key']] = (string) ($data[$f['key']] ?? '');
             }
 
             return $out;
@@ -232,8 +232,8 @@ final class Notices
      */
     public static function entries(Db $db, int $idk, ?int $idp = null): array
     {
-        $rows = $db->all('SELECT l.id, l.idp, l.action, l.`at`, l.`by`, l.fields, p.nazev FROM {notice_log} l LEFT JOIN {kolekce_polozky} p ON p.idp = l.idp WHERE '
-            . ($idp !== null ? 'l.idp = ?' : 'l.idp IN (SELECT idp FROM {kolekce_polozky} WHERE idk = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
+        $rows = $db->all('SELECT l.id, l.item_id, l.action, l.' . $db->dialect()->quote('at') . ', l.' . $db->dialect()->quote('by') . ', l.fields, p.name FROM {notice_log} l LEFT JOIN {collection_items} p ON p.item_id = l.item_id WHERE '
+            . ($idp !== null ? 'l.item_id = ?' : 'l.item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
         foreach ($rows as &$r) {
             $r['fields'] = json_decode((string) $r['fields'], true) ?: [];
         }
@@ -253,11 +253,11 @@ final class Notices
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Number'), t('Date'), t('Notice'), t('Název'), t('Action'), t('By'), t('Changes')], ';', '"', '');
-        foreach (self::entries($db, (int) $collection['idk']) as $r) {
+        fputcsv($f, [t('Number'), t('Date'), t('Notice'), t('Name'), t('Action'), t('By'), t('Changes')], ';', '"', '');
+        foreach (self::entries($db, (int) $collection['collection_id']) as $r) {
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $r['id'], (string) $r['at'], (string) $r['idp'], (string) ($r['nazev'] ?? ''), (string) $r['action'], (string) $r['by'], self::changesText($r['fields'])]);
+                [(string) $r['id'], (string) $r['at'], (string) $r['item_id'], (string) ($r['name'] ?? ''), (string) $r['action'], (string) $r['by'], self::changesText($r['fields'])]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
@@ -281,13 +281,13 @@ final class Notices
                 continue;
             }
             $items = [];
-            foreach ($db->all('SELECT idp, zobrazit, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [(int) $collection['idk']]) as $r) {
+            foreach ($db->all('SELECT item_id, visible, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [(int) $collection['collection_id']]) as $r) {
                 [$from, $to] = self::dates($collection, json_decode((string) $r['data'], true) ?: []);
-                $items[] = ['idp' => (int) $r['idp'], 'visible' => (bool) $r['zobrazit'], 'posted' => $from, 'taken_down' => $to];
+                $items[] = ['item_id' => (int) $r['item_id'], 'visible' => (bool) $r['visible'], 'posted' => $from, 'taken_down' => $to];
             }
             $logged = [];
-            foreach ($db->all("SELECT idp, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND idp IN (SELECT idp FROM {kolekce_polozky} WHERE idk = ?)", [(int) $collection['idk']]) as $r) {
-                $logged[(int) $r['idp']][(string) $r['action']] = true;
+            foreach ($db->all("SELECT item_id, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)", [(int) $collection['collection_id']]) as $r) {
+                $logged[(int) $r['item_id']][(string) $r['action']] = true;
             }
             foreach (self::due($items, $logged, $today) as [$idp, $action, $date]) {
                 self::log($db, $idp, $action, [$action => $date], self::SYSTEM);
@@ -295,7 +295,7 @@ final class Notices
             }
         }
         if ($posted + $takenDown > 0) {
-            \Kaleta\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
+            \Talea\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
         }
 
         return 'posted ' . $posted . ', taken down ' . $takenDown;
@@ -314,7 +314,7 @@ final class Notices
     {
         $out = [];
         foreach ($items as $i) {
-            $idp = (int) $i['idp'];
+            $idp = (int) $i['item_id'];
             $wasPosted = isset($logged[$idp]['posted']);
             if (!$wasPosted && !empty($i['visible']) && $i['posted'] !== '' && $i['posted'] <= $today) {
                 $out[] = [$idp, 'posted', $i['posted']];

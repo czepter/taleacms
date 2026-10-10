@@ -1,5 +1,5 @@
-// Kaleta – screenshots of one install (called by tools/screenshots.sh for each starter site).
-// Env: BASE (http://127.0.0.1:8097), SITE (firemni | remeslo | poradenstvi), PASSWORD (admin), OUT (folder), CHROME (browser binary),
+// Talea – screenshots of one install (called by tools/screenshots.sh for each starter site).
+// Env: BASE (http://127.0.0.1:8097), SITE (business | crafts | consulting), PASSWORD (admin), OUT (folder), CHROME (browser binary),
 // NODE_PATH (folder with playwright-core).
 import { createRequire } from 'node:module';
 import { createHash, randomBytes } from 'node:crypto';
@@ -13,9 +13,9 @@ const PHONE = { width: 390, height: 844 };
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: DESKTOP, deviceScaleFactor: 2, colorScheme: 'light', locale: 'en-GB' });
 // the builder's first-run tour would cover the canvas
-await context.addInitScript(() => { try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* ignore */ } });
+await context.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
 const page = await context.newPage();
-const canvas = () => page.frameLocator('.st-platno iframe').first();
+const canvas = () => page.frameLocator('.bd-canvas iframe').first();
 
 async function shot(name, url, { viewport = DESKTOP, dark = false, full = false, before = null } = {}) {
   await page.setViewportSize(viewport);
@@ -32,8 +32,8 @@ async function shot(name, url, { viewport = DESKTOP, dark = false, full = false,
 await shot(`site-${SITE}`, '/');
 await shot(`site-${SITE}-phone`, '/', { viewport: PHONE });
 
-if (SITE === 'firemni') {
-  await shot('site-firemni-full', '/', { full: true });
+if (SITE === 'business') {
+  await shot('site-business-full', '/', { full: true });
 
   // admin: sign in with the throwaway account of this install
   await page.goto(`${BASE}/admin.php`);
@@ -44,8 +44,10 @@ if (SITE === 'firemni') {
   await shot('admin-dashboard', '/admin.php');
   await shot('admin-dashboard-dark', '/admin.php', { dark: true });
   await shot('admin-pages', '/admin.php?module=pages');
+  // the builder of the first page (the administration names a page by its public id)
+  const firstPage = new URL(await page.locator('a[href*="action=builder&id="]').first().getAttribute('href'), BASE).searchParams.get('id');
   // builder: the hero heading selected, its content on the right; then its style on a phone
-  await shot('admin-builder', '/admin.php?module=pages&action=builder&id=1', {
+  await shot('admin-builder', `/admin.php?module=pages&action=builder&id=${firstPage}`, {
     before: async () => { await page.waitForTimeout(1500); await canvas().locator('h1').first().click(); await page.waitForTimeout(600); },
   });
   await shot('admin-builder-dark', null, { dark: true });
@@ -58,7 +60,7 @@ if (SITE === 'firemni') {
       await page.waitForTimeout(600);
     },
   });
-  await shot('admin-site-parts', '/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=', { before: async () => page.waitForTimeout(1500) });
+  await shot('admin-site-parts', '/admin.php?module=parts&action=builder&type=header&language=', { before: async () => page.waitForTimeout(1500) });
   await shot('admin-appearance', '/admin.php?module=appearance');
   await shot('admin-enquiries', '/admin.php?module=enquiries');
   await shot('admin-extensions', '/admin.php?module=extensions');

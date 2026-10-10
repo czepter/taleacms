@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp;
+namespace Talea\Mcp;
 
 /**
- * Every MCP tool once (2.1): its English name => [access, the extension it needs ('' = none)].
+ * Every MCP tool once (2.1): its name => [access, the extension it needs ('' = none)].
  *
  * Access is what an MCP client should confirm with the user: "read" changes nothing, "draft" only saves drafts (a build,
  * a hidden page, a draft look, a news draft – publishing it needs the publishing permission – and since 3.2 a hidden
@@ -14,8 +14,8 @@ namespace Kaleta\Mcp;
  * and "destructive" removes or overwrites something the user may want back, or cannot be taken back (sending). A
  * connection limited to drafts (2.2) may use "read" and "draft" tools and never publishes; a read-only one only "read". The
  * annotations, the change log, the extension gate and tools/list all come from here. The tool itself is the method
- * Tools::tool<Name> (toolSiteInfo for site_info), its English definition is in Translator and its parameter types in
- * Tools::definitions(); tools/unit-tests.php checks that all four agree.
+ * Tools::tool<Name> (toolSiteInfo for site_info) and its definition (description, parameters and their types) is in
+ * Tools::definitions(); tools/unit-tests.php checks that all three agree.
  */
 final class Catalog
 {
@@ -34,6 +34,7 @@ final class Catalog
         'restore_from_trash' => ['write', ''],
         // Builder
         'builder_schema' => ['read', ''],
+        'list_schema_types' => ['read', ''],
         'get_build' => ['read', ''],
         'edit_build' => ['draft', ''],
         'build_from_html' => ['draft', ''],
@@ -61,6 +62,8 @@ final class Catalog
         'update_design_system' => ['draft', ''],
         'publish_look' => ['destructive', ''],
         'discard_look' => ['destructive', ''],
+        'list_looks' => ['read', ''],
+        'apply_look' => ['draft', ''],
         'list_look_versions' => ['read', ''],
         'restore_look_version' => ['draft', ''],
         // Collections
@@ -71,26 +74,20 @@ final class Catalog
         'list_collection_items' => ['read', ''],
         // 3.2: a drafts-only connection saves hidden items only (Handlers\CollectionTools)
         'save_collection_item' => ['draft', ''],
-        // 3.7: many items at once with the same rules – a drafts-only connection saves hidden items only (Builder\ItemBatch)
-        'save_collection_items' => ['draft', ''],
         'delete_collection_item' => ['destructive', ''],
         'list_item_versions' => ['read', ''],
         'restore_item_version' => ['write', ''],
         'get_email_signature' => ['read', ''],
-        // 3.7: collection categories – a drafts-only connection saves hidden categories only (Handlers\CollectionTools)
-        'list_collection_categories' => ['read', ''],
-        'save_collection_category' => ['draft', ''],
-        'delete_collection_category' => ['destructive', ''],
         // News
-        'list_news' => ['read', 'novinky'],
-        'get_news' => ['read', 'novinky'],
-        'create_news' => ['draft', 'novinky'],
-        'update_news' => ['draft', 'novinky'],
-        'trash_news' => ['destructive', 'novinky'],
-        'list_categories' => ['read', 'novinky'],
-        'create_category' => ['write', 'novinky'],
-        'update_category' => ['write', 'novinky'],
-        'delete_category' => ['destructive', 'novinky'],
+        'list_news' => ['read', 'news'],
+        'get_news' => ['read', 'news'],
+        'create_news' => ['draft', 'news'],
+        'update_news' => ['draft', 'news'],
+        'trash_news' => ['destructive', 'news'],
+        'list_categories' => ['read', 'news'],
+        'create_category' => ['write', 'news'],
+        'update_category' => ['write', 'news'],
+        'delete_category' => ['destructive', 'news'],
         // Media
         'list_media' => ['read', ''],
         'upload_file' => ['draft', ''],
@@ -101,20 +98,26 @@ final class Catalog
         // Enquiries and pop-ups
         'list_enquiries' => ['read', ''],
         // 3.2: a drafts-only connection saves only the triage – a suggestion a person's sorting overrides
-        'update_enquiry' => ['draft', 'poptavky'],
-        'delete_enquiry' => ['destructive', 'poptavky'],
-        'find_personal_data' => ['read', 'poptavky'],
-        'erase_personal_data' => ['destructive', 'poptavky'],
-        'import_enquiries' => ['write', 'poptavky'],
+        'update_enquiry' => ['draft', 'enquiries'],
+        'delete_enquiry' => ['destructive', 'enquiries'],
+        'find_personal_data' => ['read', 'enquiries'],
+        'erase_personal_data' => ['destructive', 'enquiries'],
+        'import_enquiries' => ['write', 'enquiries'],
         'list_popups' => ['read', ''],
         'save_popup' => ['write', ''],
         'delete_popup' => ['destructive', ''],
+        // A/B tests (Builder\Experiments): promoting the winner changes the page, so it is "destructive" – only on the user's explicit request
+        'list_experiments' => ['read', 'stats'],
+        'create_experiment' => ['write', 'stats'],
+        'get_experiment_result' => ['read', 'stats'],
+        'update_experiment' => ['write', 'stats'],
+        'promote_experiment_winner' => ['destructive', 'stats'],
+        'delete_experiment' => ['destructive', 'stats'],
         // Settings, redirects and audit
         'update_settings' => ['write', ''],
         'list_redirects' => ['read', ''],
         'save_redirect' => ['write', ''],
-        'ignore_not_found' => ['write', 'presmerovani'],
-        'save_redirects' => ['write', 'presmerovani'],
+        'ignore_not_found' => ['write', 'redirects'],
         'site_audit' => ['read', ''],
         'list_broken_links' => ['read', ''],
         'suggest_internal_links' => ['read', ''],
@@ -124,9 +127,6 @@ final class Catalog
         'get_stats' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
-        // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
-        // records and redirects, so it is not for a drafts-only connection
-        'import_wordpress' => ['write', ''],
         // A site that runs itself (2.8)
         'get_health' => ['read', ''],
         'list_events' => ['read', ''],
@@ -136,22 +136,27 @@ final class Catalog
         'find_claims' => ['read', ''],
         'list_hours' => ['read', ''],
         'list_collection_presets' => ['read', ''],
-        'triage_enquiries' => ['read', 'poptavky'],
-        'request_testimonial' => ['write', 'poptavky'],
+        'triage_enquiries' => ['read', 'enquiries'],
+        'request_testimonial' => ['write', 'enquiries'],
         'get_blueprint' => ['read', ''],
         'list_connectors' => ['read', ''],
         'processing_record' => ['read', ''],
         'accessibility_statement' => ['read', ''],
-        'get_social_drafts' => ['read', 'novinky'],
+        'get_social_drafts' => ['read', 'news'],
         // Agent notebook (2.15)
         'read_notebook' => ['read', ''],
         'write_notebook' => ['draft', ''], // 3.2: internal notes, never shown on the site
         'delete_notebook_entry' => ['destructive', ''],
-        'update_social_draft' => ['write', 'novinky'],
+        // Member login (HF-33): groups and which content they may read; member addresses and invitations stay in the administration
+        'list_member_groups' => ['read', 'members'],
+        'save_member_group' => ['write', 'members'],
+        'delete_member_group' => ['destructive', 'members'],
+        'set_content_groups' => ['write', 'members'],
+        'update_social_draft' => ['write', 'news'],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],
-        'list_notice_log' => ['read', ''],
+        'list_notice_log' => ['read', 'notice_board'],
         // 3.2: from a drafts-only connection a PROPOSED exception the site ignores until a person applies it
         'save_hours_exception' => ['draft', ''],
         'delete_hours_exception' => ['destructive', ''],
@@ -179,37 +184,32 @@ final class Catalog
         // Content hygiene (2.14)
         'translation_status' => ['read', ''],
         // Newsletter
-        'list_newsletters' => ['read', 'newsletter'],
-        'draft_newsletter' => ['draft', 'newsletter'],
-        'send_test_newsletter' => ['write', 'newsletter'],
-        'send_newsletter' => ['destructive', 'newsletter'],
-        'delete_newsletter' => ['destructive', 'newsletter'],
+        'list_newsletters' => ['read', 'newsletter_signup'],
+        'draft_newsletter' => ['draft', 'newsletter_signup'],
+        'send_test_newsletter' => ['write', 'newsletter_signup'],
+        'send_newsletter' => ['destructive', 'newsletter_signup'],
+        'delete_newsletter' => ['destructive', 'newsletter_signup'],
     ];
 
-    /** The English name of a tool given by either name (Czech names are hidden aliases of the older tools). */
-    public static function english(string $name): ?string
+    /** Is this a tool of the system or of an add-on (3.0)? */
+    public static function exists(string $name): bool
     {
-        if (isset(self::TOOLS[$name]) || \Kaleta\Extension\Registry::get()->tool($name) !== null) {
-            return $name; // an add-on's tool (3.0) has only its English name
-        }
-        $english = array_search($name, array_combine(array_keys(self::TOOLS), array_map(fn (string $en): string => Translator::czech($en) ?? $en, array_keys(self::TOOLS))), true);
-
-        return is_string($english) ? $english : null;
+        return isset(self::TOOLS[$name]) || \Talea\Extension\Registry::get()->tool($name) !== null;
     }
 
     public static function access(string $name): string
     {
-        $addon = \Kaleta\Extension\Registry::get()->tool($name);
+        $addon = \Talea\Extension\Registry::get()->tool($name);
         if ($addon !== null) {
             return $addon['access'];
         }
 
-        return self::TOOLS[self::english($name) ?? ''][0] ?? 'read';
+        return self::TOOLS[$name][0] ?? 'read';
     }
 
     public static function extension(string $name): string
     {
-        return self::TOOLS[self::english($name) ?? ''][1] ?? '';
+        return self::TOOLS[$name][1] ?? '';
     }
 
     /** Connection access levels (2.2) => the tool access they allow. */

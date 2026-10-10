@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
+use Talea\Core\Db;
 
 /**
  * A product catalogue without a checkout (2.11): products with parameters to compare, variants, a datasheet and an
  * enquiry basket – the visitor collects products and sends one enquiry instead of ordering and paying.
  *
- *  - Parameters: one "Name: value" per line (field type parametry); {{parameters}} is a table, the comparison page puts
+ *  - Parameters: one "Name: value" per line (field type parameters); {{parameters}} is a table, the comparison page puts
  *    the same names side by side.
- *  - Variants: one "name | code | price" per line (field type varianty); the price is text as written (from 1 200 Kč).
+ *  - Variants: one "name | code | price" per line (field type variants); the price is text as written (from 1 200 EUR).
  *  - The basket lives in the visitor's browser (localStorage, no cookies); the Form field "basket" sends it as JSON and
  *    the server rebuilds every line from the database (basketLines) – a visitor can only send products that exist.
- *  - The comparison: /<collection>/_compare?i=a,b,c (up to four items, Front\Kernel; the Czech _porovnat answers too).
+ *  - The comparison: /<collection>/_compare?i=a,b,c (up to four items, Front\Kernel).
  */
 final class Products
 {
@@ -24,8 +24,8 @@ final class Products
     public const int MAX_COMPARE = 4;
 
     /** Roles of a products collection: role => [field key in the preset, types]. */
-    private const array ROLES = ['parameters' => ['parameters', ['parametry']], 'variants' => ['variants', ['varianty']], 'image' => ['image', ['obrazek']],
-        'code' => ['code', ['text']], 'price' => ['price', ['cislo', 'text']], 'price_note' => ['price_note', ['text']]];
+    private const array ROLES = ['parameters' => ['parameters', ['parameters']], 'variants' => ['variants', ['variants']], 'image' => ['image', ['image']],
+        'code' => ['code', ['text']], 'price' => ['price', ['number', 'text']], 'price_note' => ['price_note', ['text']]];
 
     /** Parameters from a form or Claude: "Name: value" lines, tags removed; null when a line has no name or value. */
     public static function cleanParameters(string $text): ?string
@@ -87,7 +87,7 @@ final class Products
     {
         $rows = self::parameters($text);
 
-        return $rows === [] ? '' : '<table class="ka-parametry"><tbody>' . implode('', array_map(fn (array $r): string => '<tr><th scope="row">' . e($r[0]) . '</th><td>' . e($r[1]) . '</td></tr>', $rows)) . '</tbody></table>';
+        return $rows === [] ? '' : '<table class="tl-parameters"><tbody>' . implode('', array_map(fn (array $r): string => '<tr><th scope="row">' . e($r[0]) . '</th><td>' . e($r[1]) . '</td></tr>', $rows)) . '</tbody></table>';
     }
 
     public static function variantsTable(string $text): string
@@ -99,7 +99,7 @@ final class Products
         $code = array_filter(array_column($rows, 'code')) !== [];
         $price = array_filter(array_column($rows, 'price')) !== [];
 
-        return '<table class="ka-varianty"><thead><tr><th scope="col">' . e(t('Variant')) . '</th>' . ($code ? '<th scope="col">' . e(t('Code')) . '</th>' : '') . ($price ? '<th scope="col">' . e(t('Price')) . '</th>' : '')
+        return '<table class="tl-variants"><thead><tr><th scope="col">' . e(t('Variant')) . '</th>' . ($code ? '<th scope="col">' . e(t('Code')) . '</th>' : '') . ($price ? '<th scope="col">' . e(t('Price')) . '</th>' : '')
             . '</tr></thead><tbody>' . implode('', array_map(fn (array $r): string => '<tr><td>' . e($r['name']) . '</td>' . ($code ? '<td>' . e($r['code']) . '</td>' : '') . ($price ? '<td>' . e($r['price']) . '</td>' : '') . '</tr>', $rows))
             . '</tbody></table>';
     }
@@ -133,12 +133,12 @@ final class Products
     public static function values(array $collection, array $item): array
     {
         $fields = self::fields($collection);
-        if ($fields === null || ($item['seo_link'] ?? '') === '') {
+        if ($fields === null || ($item['slug'] ?? '') === '') {
             return [];
         }
         $variants = $fields['variants'] !== '' ? array_column(self::variants((string) ($item['data'][$fields['variants']] ?? '')), 'name') : [];
 
-        return ['_product' => [(string) json_encode(['c' => (string) $collection['seo_link'], 'i' => (string) $item['seo_link'], 'n' => (string) $item['nazev'], 'v' => $variants],
+        return ['_product' => [(string) json_encode(['c' => (string) $collection['slug'], 'i' => (string) $item['slug'], 'n' => (string) $item['name'], 'v' => $variants],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'text']];
     }
 
@@ -161,12 +161,12 @@ final class Products
         $out = [];
         foreach ($lines as $line) {
             $quantity = is_array($line) && is_int($line['q'] ?? null) ? $line['q'] : 0;
-            $collection = is_array($line) && is_string($line['c'] ?? null) && preg_match('/^[a-z0-9-]{1,110}$/D', $line['c']) === 1 ? Collections::bySlug($db, $line['c']) : null;
+            $collection = is_array($line) && is_string($line['c'] ?? null) && preg_match('/^[a-z0-9-]{1,110}$/', $line['c']) === 1 ? Collections::bySlug($db, $line['c']) : null;
             $fields = $collection !== null ? self::fields($collection) : null;
-            if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/D', $line['i']) !== 1) {
+            if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/', $line['i']) !== 1) {
                 return null;
             }
-            $item = $db->one('SELECT nazev, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);
+            $item = $db->one('SELECT name, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [(int) $collection['collection_id'], $line['i']]);
             if ($item === null) {
                 return null;
             }
@@ -178,7 +178,7 @@ final class Products
                 return null;
             }
             $code = $match !== null ? $match['code'] : ($fields['code'] !== '' ? (string) ($data[$fields['code']] ?? '') : '');
-            $out[] = $quantity . ' × ' . $item['nazev'] . ($variant !== '' ? ' – ' . $variant : '') . ($code !== '' ? ' (' . $code . ')' : '');
+            $out[] = $quantity . ' × ' . $item['name'] . ($variant !== '' ? ' – ' . $variant : '') . ($code !== '' ? ' (' . $code . ')' : '');
         }
 
         return $out;

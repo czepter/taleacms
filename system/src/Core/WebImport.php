@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Admin\Modules\Redirects;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Pages;
+use Talea\Admin\Modules\Redirects;
 
 /**
  * Import from any website by its address (2.6): Wix, Webnode, Jimdo, Squarespace, Joomla, Drupal, a WordPress site
@@ -14,11 +14,7 @@ use Kaleta\Admin\Modules\Redirects;
  *
  * How it holds together:
  *  - Finding the pages: the sitemap (robots.txt, /sitemap.xml and the usual variants, sitemap indexes); a site without one
- *    is crawled from the home page along its own links. At most MAX_PAGES addresses (3.7: thousands, read through the
- *    sitemaps across batches), only the site's own domain.
- *  - Politeness (3.7): it is the owner's old site, but still someone's server. robots.txt is read first – a page it
- *    disallows for Kaleta-import (or for every robot) is never downloaded, its Crawl-delay is kept (at most MAX_DELAY
- *    seconds), and without one there is DEFAULT_DELAY between two requests.
+ *    is crawled from the home page along its own links. At most MAX_PAGES addresses, only the site's own domain.
  *  - Each page is downloaded through Core\ImageDownloader (public addresses only, no redirects elsewhere, limits), its
  *    main content is taken out (main, article, the usual content containers; never the header, footer, navigation,
  *    cookie bars or forms) and turned into a builder page by Builder\HtmlConverter. Images – also from the site's CDN –
@@ -26,37 +22,16 @@ use Kaleta\Admin\Modules\Redirects;
  *    publication date in the page) become news items when the News extension is on.
  *  - Pages are created hidden and outside the menu, so nothing changes for visitors until the administrator looks at
  *    them; old addresses redirect to the new ones.
- *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and ka_import_mapa
+ *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and tl_import_map
  *    remembers what was imported, so running it again skips finished pages.
  * The design is not copied: the pages take the site's design system; Claude can match the look afterwards.
  */
 final class WebImport
 {
-    /** Addresses one import or report goes through (3.7: was 300 – a shop with two languages has a thousand and more). */
-    public const int MAX_PAGES = 3000;
+    public const int MAX_PAGES = 300;
     private const float SECONDS = 15.0;
     private const int IMAGES_PER_PAGE = 40;
-    private const int MAX_SITEMAPS = 100;
-
-    /**
-     * robots.txt of a hostile or broken old site (3.7, N37-23): at most ROBOTS_BYTES of it are read (search engines read
-     * 500 KB) and ROBOTS_RULES rules of the group for Kaleta are kept – the result says when it was cut.
-     */
-    public const int ROBOTS_BYTES = 512 * 1024;
-    public const int ROBOTS_RULES = 500;
-
-    /** Seconds between two saves of the state within one batch: a batch killed by the time limit never starts over (N37-23). */
-    private const float CHECKPOINT_SECONDS = 2.0;
-
-    /** Seconds between two requests to the old site without a Crawl-delay, and the longest Crawl-delay kept (a longer one would stall the batches). */
-    public const float DEFAULT_DELAY = 0.25;
-    public const float MAX_DELAY = 2.0;
-
-    /** The reason a page is not downloaded: robots.txt of the old site disallows it. */
-    public const string ROBOTS_REFUSAL = 'The robots.txt of the old site asks robots not to read this page.';
-
-    /** When the last request to the old site ended (the politeness gap holds across the import, the report and their images). */
-    private static float $lastRequest = 0.0;
+    private const int MAX_SITEMAPS = 20;
 
     /** Addresses that are not content pages. */
     private const string SKIP = '#/(wp-admin|wp-json|wp-login|feed|tag|tags|author|category|kategorie|search|hledat|cart|kosik|checkout|login|account|my-account)(/|$)|/page/\d+/?$|\.(xml|json|rss|atom|pdf|jpe?g|png|gif|webp|svg|zip|docx?|xlsx?|mp3|mp4|css|js)$#i';
@@ -75,19 +50,6 @@ final class WebImport
 
     private float $end = 0.0;
 
-    /** When the state was last handed to the checkpoint of this batch. */
-    private float $saved = 0.0;
-
-    /** @var (\Closure(array<string, mixed>): mixed)|null saves the state between the heavy parts of a batch */
-    private ?\Closure $checkpoint = null;
-
-    /**
-     * The robots.txt rules compiled for matching, with the rules they came from (compiled once per crawl, N37-23).
-     *
-     * @var array{0: array{0: array<mixed>, 1: array<mixed>}, 1: list<array{0: string, 1: list<string>|null, 2: bool, 3: int}>, 2: list<array{0: string, 1: list<string>|null, 2: bool, 3: int}>}|null
-     */
-    private static ?array $matcher = null;
-
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $author, private readonly ImageDownloader $downloader)
     {
     }
@@ -95,7 +57,7 @@ final class WebImport
     /* ---------- state ---------- */
 
     /**
-     * @param array{jazyk?: string, obrazky?: bool, presmerovani?: bool, novinky?: bool} $options
+     * @param array{language?: string, images?: bool, redirects?: bool, news?: bool} $options
      * @return array<string, mixed>
      */
     public static function newState(string $url, array $options = []): array
@@ -104,12 +66,12 @@ final class WebImport
         $origin = strtolower((string) ($c['scheme'] ?? '')) . '://' . strtolower((string) ($c['host'] ?? '')) . (isset($c['port']) ? ':' . $c['port'] : '');
 
         return [
-            'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domena' => ImageDownloader::domainFromUrl($origin), 'faze' => 'hledani',
-            'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'pozice' => 0,
-            'volby' => ['jazyk' => (string) ($options['jazyk'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
-                'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true)],
-            'vysledek' => ['stranky' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
-            'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
+            'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domain' => ImageDownloader::domainFromUrl($origin), 'phase' => 'finding',
+            'queue' => [$origin . '/'], 'maps' => [], 'maps_done' => false, 'urls' => [], 'position' => 0,
+            'options' => ['language' => (string) ($options['language'] ?? ''), 'images' => (bool) ($options['images'] ?? true),
+                'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true)],
+            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0],
+            'errors' => [], 'created' => date('Y-m-d H:i:s'),
         ];
     }
 
@@ -118,13 +80,13 @@ final class WebImport
     {
         $c = parse_url(trim($url));
 
-        return is_array($c) && in_array(strtolower((string) ($c['scheme'] ?? '')), ['http', 'https'], true) && ($c['host'] ?? '') !== '' && !isset($c['user']) && !isset($c['pass']);
+        return is_array($c) && in_array(strtolower((string) ($c['scheme'] ?? '')), ['http', 'https'], true) && ($c['host'] ?? '') !== '' && !isset($c['username']) && !isset($c['pass']);
     }
 
     /** @return array<string, mixed>|null */
     public static function load(string $id): ?array
     {
-        if (!preg_match('/^[a-f0-9]{16}$/D', $id) || !is_file(self::file($id))) {
+        if (!preg_match('/^[a-f0-9]{16}$/', $id) || !is_file(self::file($id))) {
             return null;
         }
         $state = json_decode((string) file_get_contents(self::file($id)), true);
@@ -140,7 +102,7 @@ final class WebImport
 
     public static function delete(string $id): void
     {
-        if (preg_match('/^[a-f0-9]{16}$/D', $id)) {
+        if (preg_match('/^[a-f0-9]{16}$/', $id)) {
             @unlink(self::file($id));
         }
     }
@@ -152,59 +114,12 @@ final class WebImport
 
     /* ---------- one batch ---------- */
 
-    /**
-     * The records the import has created so far (pages, news items, images, redirects); MCP counts the difference of one
-     * step against Claude's hourly change limit (3.7, N37-26).
-     *
-     * @param array<string, mixed> $state
-     */
-    public static function created(array $state): int
-    {
-        $v = is_array($state['vysledek'] ?? null) ? $state['vysledek'] : [];
-
-        return intval($v['stranky'] ?? 0) + intval($v['clanky'] ?? 0) + intval($v['obrazky'] ?? 0) + intval($v['presmerovani'] ?? 0);
-    }
-
-    /**
-     * What the administrator and Claude should know about how the old site was read (3.7, N37-23, N37-24): a robots.txt
-     * that was cut, sitemaps on other hosts or over the limit that were not read.
-     *
-     * @param array<string, mixed> $state the import's state (or a report's discovery with its robots)
-     * @return list<string>
-     */
-    public static function notes(array $state): array
-    {
-        $notes = [];
-        $robots = is_array($state['robots'] ?? null) ? $state['robots'] : [];
-        if (!empty($robots['omezeno'])) {
-            $notes[] = t('The robots.txt of the old site is very long: only its first %s KB and %s rules for Kaleta were read.', self::ROBOTS_BYTES >> 10, self::ROBOTS_RULES);
-        }
-        $foreign = is_array($state['mapy_cizi'] ?? null) ? $state['mapy_cizi'] : [];
-        if (intval($foreign['pocet'] ?? 0) > 0) {
-            $notes[] = t('%s sitemaps on other hosts were not read (%s): only the old site’s own sitemaps are followed.', intval($foreign['pocet']),
-                implode(', ', array_map(strval(...), is_array($foreign['hostitele'] ?? null) ? $foreign['hostitele'] : [])));
-        }
-        if (intval($state['mapy_navic'] ?? 0) > 0) {
-            $notes[] = t('%s more sitemaps were not read: at most %s are read.', intval($state['mapy_navic']), self::MAX_SITEMAPS);
-        }
-
-        return $notes;
-    }
-
-    /**
-     * One batch. $checkpoint saves the state between its heavy parts (after robots.txt, every few seconds), so a batch the
-     * server's time limit kills resumes where it was instead of repeating the same work forever (3.7, N37-23).
-     *
-     * @param array<string, mixed> $state
-     * @param (\Closure(array<string, mixed>): mixed)|null $checkpoint
-     */
-    public function step(array &$state, ?\Closure $checkpoint = null): void
+    /** @param array<string, mixed> $state */
+    public function step(array &$state): void
     {
         $this->end = microtime(true) + self::SECONDS;
-        $this->saved = microtime(true);
-        $this->checkpoint = $checkpoint;
-        match ($state['faze']) {
-            'hledani' => $this->discover($state),
+        match ($state['phase']) {
+            'finding' => $this->discover($state),
             'import' => $this->import($state),
             default => null,
         };
@@ -214,121 +129,51 @@ final class WebImport
     private function discover(array &$state): void
     {
         // first the sitemaps; a site without them is crawled from the home page
-        if (!$state['mapy_hotovo']) {
-            if (!isset($state['robots'])) {
-                // robots.txt is read once, at most ROBOTS_BYTES of it, and the state is saved right after (3.7, N37-23)
-                $robots = (string) $this->fetch($state['web'] . '/robots.txt', [], false, self::ROBOTS_BYTES);
-                $state['robots'] = self::robots($robots);
-                preg_match_all('/^\s*sitemap:\s*(\S+)/mi', $robots, $m);
-                $state['mapy'] = [];
-                $state['mapy_prectene'] = [];
-                foreach (array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']) as $map) {
-                    $this->queueSitemap($state, $map);
-                }
-                $this->checkpoint($state, true);
+        if (!$state['maps_done']) {
+            if ($state['maps'] === []) {
+                $robots = $this->fetch($state['web'] . '/robots.txt');
+                preg_match_all('/^\s*sitemap:\s*(\S+)/mi', (string) $robots, $m);
+                $state['maps'] = array_values(array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']));
+                $state['maps_read'] = [];
             }
-            // 3.7 (N37-24): no further sitemap once MAX_PAGES addresses are known
-            while ($state['mapy'] !== [] && microtime(true) < $this->end && count($state['mapy_prectene']) < self::MAX_SITEMAPS && count($state['adresy']) < self::MAX_PAGES) {
-                $map = array_shift($state['mapy']);
-                if (in_array($map, $state['mapy_prectene'], true) || !$this->downloader->isAllowedUrl($map)) {
+            while ($state['maps'] !== [] && microtime(true) < $this->end && count($state['maps_read']) < self::MAX_SITEMAPS) {
+                $map = array_shift($state['maps']);
+                if (in_array($map, $state['maps_read'], true) || !$this->downloader->isAllowedUrl($map)) {
                     continue;
                 }
-                $state['mapy_prectene'][] = $map;
-                [$pages, $maps] = self::sitemap((string) $this->fetch($map, (array) ($state['robots'] ?? []), false));
+                $state['maps_read'][] = $map;
+                [$pages, $maps] = self::sitemap((string) $this->fetch($map));
                 foreach ($maps as $child) {
-                    $this->queueSitemap($state, $child);
+                    $state['maps'][] = $child;
                 }
                 foreach ($pages as $url) {
-                    if (count($state['adresy']) >= self::MAX_PAGES) {
-                        break;
-                    }
                     $this->add($state, $url);
                 }
-                $this->checkpoint($state);
             }
-            if ($state['mapy'] === [] || count($state['mapy_prectene']) >= self::MAX_SITEMAPS || count($state['adresy']) >= self::MAX_PAGES) {
-                $state['mapy'] = [];
-                $state['mapy_hotovo'] = true;
-                if ($state['adresy'] !== []) {
-                    $state['fronta'] = []; // the sitemap is enough
+            if ($state['maps'] === [] || count($state['maps_read']) >= self::MAX_SITEMAPS) {
+                $state['maps_done'] = true;
+                if ($state['urls'] !== []) {
+                    $state['queue'] = []; // the sitemap is enough
                 }
                 $this->add($state, $state['web'] . '/');
             }
         }
-        // crawling along the site's own links (also adds pages the sitemap forgot about, when there is none); the links of
-        // a page wait in the state, so the time budget holds within a page with thousands of links too (3.7, N37-23)
-        $state['odkazy'] = is_array($state['odkazy'] ?? null) ? array_values($state['odkazy']) : [];
-        while (($state['odkazy'] !== [] || $state['fronta'] !== []) && microtime(true) < $this->end && count($state['adresy']) < self::MAX_PAGES) {
-            if ($state['odkazy'] === []) {
-                $url = array_shift($state['fronta']);
-                $html = $this->fetch($url, (array) ($state['robots'] ?? []));
-                $state['odkazy'] = $html !== null ? self::links($html, $url) : [];
+        // crawling along the site's own links (also adds pages the sitemap forgot about, when there is none)
+        while ($state['queue'] !== [] && microtime(true) < $this->end && count($state['urls']) < self::MAX_PAGES) {
+            $url = array_shift($state['queue']);
+            $html = $this->fetch($url);
+            if ($html === null) {
                 continue;
             }
-            $links = $state['odkazy'];
-            $state['odkazy'] = [];
-            foreach ($links as $i => $link) {
-                if (count($state['adresy']) >= self::MAX_PAGES) {
-                    break;
-                }
-                if (microtime(true) >= $this->end) {
-                    $state['odkazy'] = array_slice($links, $i); // the rest in the next batch
-                    break;
-                }
-                // the site's own links are followed only where its robots.txt lets robots go (its sitemap lists what it wants found)
-                if (self::robotsAllow((array) ($state['robots'] ?? []), (string) $link) && $this->add($state, (string) $link)) {
-                    $state['fronta'][] = $link;
+            foreach (self::links($html, $url) as $link) {
+                if ($this->add($state, $link)) {
+                    $state['queue'][] = $link;
                 }
             }
-            $this->checkpoint($state);
         }
-        if ($state['mapy_hotovo'] && (($state['fronta'] === [] && $state['odkazy'] === []) || count($state['adresy']) >= self::MAX_PAGES)) {
-            $state['faze'] = 'nahled';
-            $state['fronta'] = [];
-            $state['odkazy'] = [];
-        }
-    }
-
-    /**
-     * A sitemap to read (3.7, N37-24): only on the old site's own host or its www twin – a sitemap elsewhere is never
-     * downloaded, only counted for the result – and at most MAX_SITEMAPS of them in the queue.
-     *
-     * @param array<string, mixed> $state
-     */
-    private function queueSitemap(array &$state, string $map): void
-    {
-        $map = trim($map);
-        if ($map === '' || in_array($map, $state['mapy'], true) || in_array($map, $state['mapy_prectene'], true)) {
-            return;
-        }
-        if (ImageDownloader::domainFromUrl($map) !== $state['domena']) {
-            $hosts = is_array($state['mapy_cizi']['hostitele'] ?? null) ? $state['mapy_cizi']['hostitele'] : [];
-            $host = mb_substr((string) parse_url($map, PHP_URL_HOST), 0, 100);
-            if ($host !== '' && count($hosts) < 5 && !in_array($host, $hosts, true)) {
-                $hosts[] = $host;
-            }
-            $state['mapy_cizi'] = ['pocet' => intval($state['mapy_cizi']['pocet'] ?? 0) + 1, 'hostitele' => $hosts];
-
-            return;
-        }
-        if (count($state['mapy']) + count($state['mapy_prectene']) >= self::MAX_SITEMAPS) {
-            $state['mapy_navic'] = intval($state['mapy_navic'] ?? 0) + 1;
-
-            return;
-        }
-        $state['mapy'][] = $map;
-    }
-
-    /**
-     * Hands the state to the batch's checkpoint – right away, or when CHECKPOINT_SECONDS have passed since the last time.
-     *
-     * @param array<string, mixed> $state
-     */
-    private function checkpoint(array $state, bool $now = false): void
-    {
-        if ($this->checkpoint !== null && ($now || microtime(true) - $this->saved >= self::CHECKPOINT_SECONDS)) {
-            ($this->checkpoint)($state);
-            $this->saved = microtime(true);
+        if ($state['maps_done'] && ($state['queue'] === [] || count($state['urls']) >= self::MAX_PAGES)) {
+            $state['phase'] = 'preview';
+            $state['queue'] = [];
         }
     }
 
@@ -336,11 +181,11 @@ final class WebImport
     private function add(array &$state, string $url): bool
     {
         $url = self::normalize($url);
-        if ($url === '' || isset($state['adresy'][$url]) || count($state['adresy']) >= self::MAX_PAGES || !$this->downloader->isAllowedUrl($url)
-            || ImageDownloader::domainFromUrl($url) !== $state['domena'] || preg_match(self::SKIP, (string) parse_url($url, PHP_URL_PATH))) {
+        if ($url === '' || isset($state['urls'][$url]) || count($state['urls']) >= self::MAX_PAGES || !$this->downloader->isAllowedUrl($url)
+            || ImageDownloader::domainFromUrl($url) !== $state['domain'] || preg_match(self::SKIP, (string) parse_url($url, PHP_URL_PATH))) {
             return false;
         }
-        $state['adresy'][$url] = 1;
+        $state['urls'][$url] = 1;
 
         return true;
     }
@@ -348,100 +193,100 @@ final class WebImport
     /** @param array<string, mixed> $state */
     private function import(array &$state): void
     {
-        $urls = array_keys($state['adresy']);
-        while ($state['pozice'] < count($urls) && microtime(true) < $this->end) {
-            $url = $urls[$state['pozice']];
+        $urls = array_keys($state['urls']);
+        while ($state['position'] < count($urls) && microtime(true) < $this->end) {
+            $url = $urls[$state['position']];
             try {
                 $this->importPage($url, $state);
             } catch (\RuntimeException $e) {
-                $state['vysledek']['chyb']++;
-                $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
+                $state['result']['failed']++;
+                $state['errors'] = array_slice([...$state['errors'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
             }
-            $state['pozice']++;
-            $this->checkpoint($state);
+            $state['position']++;
         }
-        if ($state['pozice'] >= count($urls)) {
-            $state['faze'] = 'hotovo';
+        if ($state['position'] >= count($urls)) {
+            $state['phase'] = 'done';
         }
     }
 
     /** @param array<string, mixed> $state */
     private function importPage(string $url, array &$state): void
     {
-        $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
         $key = sha1($url);
-        if ($this->db->value('SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ IN (\'stranka\', \'clanek\') AND cizi_id = ?', [$source, $key]) !== null) {
-            $state['vysledek']['preskoceno']++;
+        if ($this->db->value('SELECT local_id FROM {import_map} WHERE source = ? AND type IN (\'page\', \'news\') AND source_id = ?', [$source, $key]) !== null) {
+            $state['result']['skipped']++;
 
             return;
         }
-        if (!self::robotsAllow((array) ($state['robots'] ?? []), $url)) {
-            throw new \RuntimeException(self::ROBOTS_REFUSAL);
-        }
-        $html = $this->fetch($url, (array) ($state['robots'] ?? []));
+        $html = $this->fetch($url);
         if ($html === null) {
             throw new \RuntimeException('The page could not be downloaded.');
         }
         $page = self::extract($html, $url);
-        if (trim(strip_tags($page['obsah'], '<img>')) === '') {
+        if (trim(strip_tags($page['content'], '<img>')) === '') {
             throw new \RuntimeException('The page has no content to import.');
         }
-        if ($state['volby']['obrazky']) {
-            $page['obsah'] = $this->images($page['obsah'], $state);
+        if ($state['options']['images']) {
+            $page['content'] = $this->images($page['content'], $state);
         }
-        $page['obsah'] = self::safeContent($page['obsah']); // sanitized once more as the very last step before it is stored
-        $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
-        $article = $state['volby']['novinky'] && $page['clanek'] && Extensions::isEnabled($this->settings, 'novinky');
+        $page['content'] = self::safeContent($page['content']); // sanitized once more as the very last step before it is stored
+        $language = Language::column($this->settings, (string) $state['options']['language']);
+        $article = $state['options']['news'] && $page['article'] && Extensions::isEnabled($this->settings, 'news');
         $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
-            $this->map($source, 'clanek', $key, $idc);
-            $state['vysledek']['clanky']++;
-            $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$idc]);
+            $this->map($source, 'news', $key, $idc);
+            $state['result']['articles']++;
+            $new = ($language !== '' ? $language . '/' : '') . 'news/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
             $ids = $this->createPage($page, $old, $language);
-            $this->map($source, 'stranka', $key, $ids);
-            $state['vysledek']['stranky']++;
-            $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+            $this->map($source, 'page', $key, $ids);
+            $state['result']['pages']++;
+            $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
         }
-        if ($state['volby']['presmerovani'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'presmerovani')) {
+        if ($state['options']['redirects'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'redirects')) {
             Redirects::add($this->db, $old, $new);
-            $state['vysledek']['presmerovani']++;
+            $state['result']['redirects']++;
         }
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
+    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
     private function createPage(array $page, string $oldPath, string $language): int
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110));
-        $build = $this->build($page['titulek'], $page['obsah']);
+        $seo = WpImport::availableSlug(
+            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['title'], 110),
+            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
+                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
+        );
+        $build = $this->build($page['title'], $page['content']);
 
-        return $this->db->insert('stranky', [
-            'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 200), 'text' => $page['obsah'], 'stavba' => $build,
-            'popis' => mb_substr($page['popis'], 0, 300),
-            'zobrazit' => 0, // hidden until the administrator checks it – nothing changes for visitors
-            'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
+        return $this->db->insert('pages', [
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['content'], 'build' => $build,
+            'description' => mb_substr($page['description'], 0, 300),
+            'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
+            'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
+    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
     private function createArticle(array $page, string $language): int
     {
-        $category = (int) $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY idt LIMIT 1', [$language]);
+        $category = (int) $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY category_id LIMIT 1', [$language]);
         if ($category === 0) {
-            $name = Language::runWith($language !== '' ? $language : Language::defaults($this->settings), fn (): string => t('Aktuality'));
-            $category = $this->db->insert('kategorie', ['nazev' => $name, 'seo_link' => slugify($name), 'popis' => '', 'jazyk' => $language]);
+            $name = Language::runWith($language !== '' ? $language : Language::defaults($this->settings), fn (): string => t('News'));
+            $category = $this->db->insert('categories', ['name' => $name, 'slug' => slugify($name), 'description' => '', 'language' => $language]);
         }
-        $seo = WpImport::availableSlug(slugify($page['titulek'], 150), fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null);
+        $seo = WpImport::availableSlug(slugify($page['title'], 150), fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null);
         $now = date('Y-m-d H:i:s');
-        $idc = $this->db->insert('novinky', [
-            'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 255), 'uvod' => $page['popis'] !== '' ? '<p>' . e($page['popis']) . '</p>' : '',
-            'text' => $page['obsah'], 'tema' => $category, 'jazyk' => $language, 'autor' => $this->author,
-            'datum' => $page['datum'] !== '' ? $page['datum'] : $now, 'visible' => 0, 'zmeneno' => $now, 'oznameno' => $now, // never announced (webhook, IndexNow)
+        $idc = $this->db->insert('news', [
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['description'] !== '' ? '<p>' . e($page['description']) . '</p>' : '',
+            'text' => $page['content'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
+            'published_at' => $page['date'] !== '' ? $page['date'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
         ]);
         Search::index($this->db, $idc);
-        Media::recordUsage($this->db, $idc, '', '', $page['obsah']);
+        Media::recordUsage($this->db, $idc, '', '', $page['content']);
 
         return $idc;
     }
@@ -450,17 +295,17 @@ final class WebImport
     private function build(string $title, string $html): ?string
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
-        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
-        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
-        foreach ($build['deti'] as &$section) {
-            if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
-                $section['obsah']['sirka'] = 'uzka';
+        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
+        $build = \Talea\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
+        foreach ($build['children'] as &$section) {
+            if ($section['type'] === 'section' && !isset($section['anchor'])) {
+                $section['content']['width'] = 'narrow';
             }
         }
         unset($section);
-        [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
+        [$clean] = \Talea\Builder\Build::sanitize($build, false);
 
-        return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
+        return $clean['children'] === [] ? null : \Talea\Builder\Build::toJson($clean);
     }
 
     /**
@@ -480,13 +325,13 @@ final class WebImport
             }
             $image = $this->image($url, $alt, $state);
 
-            return $image === null ? false : ['src' => (string) $image['obr_poloha'], 'alt' => $alt, 'width' => (int) $image['obr_width'], 'height' => (int) $image['obr_height']];
+            return $image === null ? false : ['src' => (string) $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
         });
     }
 
     /**
      * Safe HTML without the old site's classes, ids and responsive image sets (they mean nothing here and could collide with
-     * Kaleta's). Done on the DOM, never with a regular expression over the sanitized markup.
+     * Talea's). Done on the DOM, never with a regular expression over the sanitized markup.
      */
     public static function safeContent(string $html): string
     {
@@ -508,28 +353,28 @@ final class WebImport
 
     /**
      * @param array<string, mixed> $state
-     * @return array<string, mixed>|null a ka_media row
+     * @return array<string, mixed>|null a tl_media row
      */
     private function image(string $url, string $alt, array &$state): ?array
     {
-        $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
         $key = sha1($url);
-        $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$source, $key]);
-        if ($ido !== null) {
-            return (int) $ido === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
+        $mediaId = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$source, $key]);
+        if ($mediaId !== null) {
+            return (int) $mediaId === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $mediaId]);
         }
-        $temporary = WpFile::folder() . '/web-obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
+        $temporary = WpFile::folder() . '/web-image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
-            file_put_contents($temporary, self::politeDownload($this->downloader, $url, (array) ($state['robots'] ?? []), true, false));
+            file_put_contents($temporary, $this->downloader->download($url));
             $saved = Images::saveFile($temporary, basename((string) parse_url($url, PHP_URL_PATH)) ?: 'image.jpg');
-            $saved['nazev'] = mb_substr($alt !== '' ? $alt : $saved['nazev'], 0, 150);
-            $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
-            $this->map($source, 'obrazek', $key, (int) $saved['ido']);
-            $state['vysledek']['obrazky']++;
+            $saved['name'] = mb_substr($alt !== '' ? $alt : $saved['name'], 0, 150);
+            $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
+            $this->map($source, 'image', $key, (int) $saved['media_id']);
+            $state['result']['images']++;
 
             return $saved;
         } catch (\RuntimeException) {
-            $this->map($source, 'obrazek', $key, 0);
+            $this->map($source, 'image', $key, 0);
 
             return null;
         } finally {
@@ -539,194 +384,18 @@ final class WebImport
 
     private function map(string $source, string $type, string $key, int $id): void
     {
-        $this->db->run('INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)', [$source, $type, $key, $id]);
+        $this->db->upsert('import_map', ['source' => $source, 'type' => $type, 'source_id' => $key, 'local_id' => $id], ['source', 'type', 'source_id']);
     }
 
-    /** @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots */
-    private function fetch(string $url, array $robots, bool $checkRobots = true, int $readAtMost = 0): ?string
+    private function fetch(string $url): ?string
     {
         try {
-            $data = self::politeDownload($this->downloader, $url, $robots, false, $checkRobots, $readAtMost);
+            $data = $this->downloader->download($url, false);
         } catch (\RuntimeException) {
             return null;
         }
 
         return $data !== '' && strlen($data) < 5_000_000 ? $data : null;
-    }
-
-    /**
-     * A request to the old site with the politeness rules: a page robots.txt disallows is refused (ROBOTS_REFUSAL), and
-     * the gap since the previous request (Crawl-delay, else DEFAULT_DELAY) is waited out first. Shared with the report.
-     *
-     * @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots self::robots()
-     * @throws \RuntimeException why it was not downloaded
-     */
-    public static function politeDownload(ImageDownloader $downloader, string $url, array $robots, bool $imagesOnly = false, bool $checkRobots = true, int $readAtMost = 0): string
-    {
-        if ($checkRobots && !self::robotsAllow($robots, $url)) {
-            throw new \RuntimeException(self::ROBOTS_REFUSAL);
-        }
-        $wait = self::$lastRequest + self::delay($robots) - microtime(true);
-        if ($wait > 0) {
-            usleep((int) round(min($wait, self::MAX_DELAY) * 1_000_000));
-        }
-        try {
-            return $downloader->download($url, $imagesOnly, $readAtMost);
-        } finally {
-            self::$lastRequest = microtime(true);
-        }
-    }
-
-    /* ---------- robots.txt (3.7) ---------- */
-
-    /**
-     * The rules of robots.txt that apply to Kaleta: the group for "Kaleta-import" (or "kaleta") when there is one,
-     * else the group for every robot (*). Allow and Disallow paths may use * and a closing $ (as search engines read them).
-     * 3.7 (N37-23): at most ROBOTS_BYTES of the text and ROBOTS_RULES rules per group are kept; omezeno says it was cut.
-     *
-     * @return array{disallow: list<string>, allow: list<string>, delay: ?float, omezeno: bool}
-     */
-    public static function robots(string $text): array
-    {
-        $cut = strlen($text) >= self::ROBOTS_BYTES;
-        if ($cut) {
-            $text = substr($text, 0, self::ROBOTS_BYTES);
-            $text = substr($text, 0, (int) strrpos($text, "\n")); // the last line may be cut in the middle of a rule
-        }
-        $groups = []; // agent => rules
-        $agents = [];
-        $inRules = false;
-        foreach (preg_split('/\R/', $text) ?: [] as $line) {
-            $line = trim((string) preg_replace('/#.*$/', '', $line));
-            if (!preg_match('/^([a-z-]+)\s*:\s*(.*)$/i', $line, $m)) {
-                continue;
-            }
-            [$key, $value] = [strtolower($m[1]), trim($m[2])];
-            if ($key === 'user-agent') {
-                if ($inRules) {
-                    $agents = [];
-                    $inRules = false;
-                }
-                $agents[] = strtolower($value);
-                continue;
-            }
-            if (!in_array($key, ['allow', 'disallow', 'crawl-delay'], true) || $agents === []) {
-                continue;
-            }
-            $inRules = true;
-            foreach ($agents as $agent) {
-                $groups[$agent] ??= ['disallow' => [], 'allow' => [], 'delay' => null, 'omezeno' => $cut];
-                if ($key === 'crawl-delay') {
-                    $groups[$agent]['delay'] = is_numeric($value) ? (float) $value : $groups[$agent]['delay'];
-                } elseif ($value !== '') {
-                    if (count($groups[$agent]['disallow']) + count($groups[$agent]['allow']) >= self::ROBOTS_RULES) {
-                        $groups[$agent]['omezeno'] = true;
-                        continue;
-                    }
-                    $groups[$agent][$key][] = mb_substr($value, 0, 500);
-                }
-            }
-        }
-
-        return $groups['kaleta-import'] ?? $groups['kaleta'] ?? $groups['*'] ?? ['disallow' => [], 'allow' => [], 'delay' => null, 'omezeno' => $cut];
-    }
-
-    /**
-     * Whether robots.txt lets Kaleta read the address: the longest matching rule decides, Allow wins a tie.
-     * 3.7 (N37-23): the rules are compiled once per crawl into plain prefix and wildcard parts and matched without regular
-     * expressions – a hostile pattern can neither burn the CPU nor fail and be skipped (no rule ever fails open).
-     *
-     * @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots
-     */
-    public static function robotsAllow(array $robots, string $url): bool
-    {
-        $c = parse_url($url);
-        $path = (is_array($c) ? ($c['path'] ?? '/') : '/') . (isset($c['query']) ? '?' . $c['query'] : '');
-        $rules = [(array) ($robots['disallow'] ?? []), (array) ($robots['allow'] ?? [])];
-        if (self::$matcher === null || self::$matcher[0] !== $rules) {
-            self::$matcher = [$rules, self::compileRules($rules[0]), self::compileRules($rules[1])];
-        }
-        $decoded = rawurldecode($path);
-        $disallow = self::longestMatch(self::$matcher[1], $path, $decoded);
-
-        return $disallow < 0 || self::longestMatch(self::$matcher[2], $path, $decoded) >= $disallow;
-    }
-
-    /**
-     * Rules as [the part before the first *, the parts after it (null = no *), anchored by $, the length of the rule].
-     *
-     * @param array<mixed> $rules
-     * @return list<array{0: string, 1: list<string>|null, 2: bool, 3: int}>
-     */
-    private static function compileRules(array $rules): array
-    {
-        $compiled = [];
-        foreach (array_unique(array_map(strval(...), array_filter($rules, is_scalar(...)))) as $rule) {
-            $anchored = str_ends_with($rule, '$');
-            $parts = explode('*', $anchored ? substr($rule, 0, -1) : $rule);
-            $prefix = (string) array_shift($parts);
-            $compiled[] = [$prefix, $parts === [] ? null : $parts, $anchored, strlen($rule)];
-        }
-
-        return $compiled;
-    }
-
-    /**
-     * The length of the longest rule matching the path (as sent or decoded), -1 = none.
-     *
-     * @param list<array{0: string, 1: list<string>|null, 2: bool, 3: int}> $rules
-     */
-    private static function longestMatch(array $rules, string $path, string $decoded): int
-    {
-        $best = -1;
-        foreach ($rules as $rule) {
-            if ($rule[3] > $best && (self::ruleMatches($rule, $path) || ($decoded !== $path && self::ruleMatches($rule, $decoded)))) {
-                $best = $rule[3];
-            }
-        }
-
-        return $best;
-    }
-
-    /**
-     * A robots.txt rule against a path: the prefix at the start, then every part after a * in order (the leftmost place
-     * of each part leaves the most room for the rest), a closing $ makes the last part the end of the path.
-     *
-     * @param array{0: string, 1: list<string>|null, 2: bool, 3: int} $rule
-     */
-    private static function ruleMatches(array $rule, string $path): bool
-    {
-        [$prefix, $parts, $anchored] = $rule;
-        if (!str_starts_with($path, $prefix)) {
-            return false;
-        }
-        if ($parts === null) {
-            return !$anchored || $path === $prefix;
-        }
-        $position = strlen($prefix);
-        $last = count($parts) - 1;
-        foreach ($parts as $i => $part) {
-            if ($i === $last && $anchored) {
-                return $part === '' || (str_ends_with($path, $part) && strlen($path) - strlen($part) >= $position);
-            }
-            if ($part === '') {
-                continue;
-            }
-            $found = strpos($path, $part, $position);
-            if ($found === false) {
-                return false;
-            }
-            $position = $found + strlen($part);
-        }
-
-        return true;
-    }
-    /** @param array{delay?: ?float} $robots the seconds between two requests */
-    public static function delay(array $robots): float
-    {
-        $delay = $robots['delay'] ?? null;
-
-        return $delay === null ? self::DEFAULT_DELAY : max(0.0, min(self::MAX_DELAY, (float) $delay));
     }
 
     /* ---------- pure helpers (unit-tested) ---------- */
@@ -829,7 +498,7 @@ final class WebImport
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
      * clean HTML with absolute image addresses.
      *
-     * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool}
+     * @return array{title: string, description: string, content: string, date: string, article: bool}
      */
     public static function extract(string $html, string $url): array
     {
@@ -857,7 +526,7 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['titulek' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'clanek' => false];
+            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false];
         }
         // an element inside one removed earlier is already gone with it
         foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
@@ -896,11 +565,11 @@ final class WebImport
         $article = ($timestamp !== false && $doc->querySelector('article') !== null) || preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1;
 
         return [
-            'titulek' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
-            'popis' => mb_substr(trim($description), 0, 300),
-            'obsah' => self::safeContent($content),
-            'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
-            'clanek' => $article,
+            'title' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
+            'description' => mb_substr(trim($description), 0, 300),
+            'content' => self::safeContent($content),
+            'date' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
+            'article' => $article,
         ];
     }
 }

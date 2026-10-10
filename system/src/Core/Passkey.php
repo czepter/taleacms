@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Login keys (passkeys, the WebAuthn standard): fingerprint, Face ID, Windows Hello or a security key
@@ -68,7 +68,7 @@ final class Passkey
         return [
             'challenge' => $challenge,
             'rp' => ['id' => $rpId, 'name' => $siteName],
-            'user' => ['id' => $userId, 'name' => $login, 'displayName' => $displayName !== '' ? $displayName : $login],
+            'username' => ['id' => $userId, 'name' => $login, 'displayName' => $displayName !== '' ? $displayName : $login],
             'pubKeyCredParams' => array_map(static fn (int $alg): array => ['type' => 'public-key', 'alg' => $alg], self::ALGORITHMS),
             'timeout' => 120000,
             'attestation' => 'none',
@@ -98,7 +98,7 @@ final class Passkey
      * Verifies a registration response and returns what should be stored.
      *
      * @param array<string, mixed> $response clientDataJSON, authenticatorData, publicKey (SPKI DER) - all base64url; publicKeyAlgorithm
-     * @return array{id:string, klic:string, alg:int, pocitadlo:int} key id (base64url), public key (PEM), algorithm, counter
+     * @return array{id:string, key:string, alg:int, counter:int} key id (base64url), public key (PEM), algorithm, counter
      * @throws \RuntimeException with the reason for rejection
      */
     public static function verifyRegistration(array $response, string $challenge, string $origin, string $rpId): array
@@ -138,7 +138,7 @@ final class Passkey
             throw new \RuntimeException('The public key does not match the data from the device.');
         }
 
-        return ['id' => self::b64($id), 'klic' => $pem, 'alg' => $alg, 'pocitadlo' => self::counter($data)];
+        return ['id' => self::b64($id), 'key' => $pem, 'alg' => $alg, 'counter' => self::counter($data)];
     }
 
     /**
@@ -218,7 +218,7 @@ final class Passkey
 
     public static function fromB64(string $text): string
     {
-        if ($text === '' || preg_match('/^[A-Za-z0-9_-]+={0,2}$/D', $text) !== 1) {
+        if ($text === '' || preg_match('/^[A-Za-z0-9_-]+={0,2}$/', $text) !== 1) {
             return '';
         }
 

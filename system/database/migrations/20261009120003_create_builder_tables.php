@@ -1,0 +1,171 @@
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Db\Adapter\MysqlAdapter;
+use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
+
+/** Baseline of the database schema. */
+final class CreateBuilderTables extends AbstractMigration
+{
+    public function change(): void
+    {
+        $prefix = (string) $this->getAdapter()->getOption('table_prefix'); // foreign key names are unique per database
+
+        $this->table('build_revisions', ['id' => false, 'primary_key' => ['revision_id']])
+            ->addColumn('revision_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('page_id', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('part', 'string', ['limit' => 80, 'null' => true])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false])
+            ->addIndex(['page_id', 'revision_id'], ['name' => 'ix_build_revisions_page_id_revision_id'])
+            ->addIndex(['part', 'revision_id'], ['name' => 'ix_build_revisions_part_revision_id'])
+            ->addForeignKey('page_id', 'pages', 'page_id', ['constraint' => $prefix . 'fk_build_revisions_page_id', 'delete' => 'CASCADE'])
+            ->addForeignKey('user_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_build_revisions_user_id', 'delete' => 'SET_NULL'])
+            ->create();
+
+        $this->table('classes', ['id' => false, 'primary_key' => ['name']])
+            ->addColumn('name', 'string', ['limit' => 60, 'null' => false, 'comment' => 'class name in HTML (lowercase letters, digits, hyphens, __)'])
+            ->addColumn('style', 'text', ['null' => false, 'comment' => '{"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}'])
+            ->addColumn('css', 'text', ['null' => true, 'comment' => 'custom declarations (only safe ones, see Builder\\Style::customCss)'])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->create();
+
+        $this->table('sections', ['id' => false, 'primary_key' => ['section_id']])
+            ->addColumn('section_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addColumn('element', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON of one element (usually a section) including its contents'])
+            ->addColumn('kit_key', 'string', ['limit' => 80, 'null' => true, 'comment' => 'the key it came with from a fleet design kit (2.16, Fleet\\Kit): the next kit updates it'])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_sections_public_id', 'unique' => true])
+            ->create();
+
+        $this->table('components', ['id' => false, 'primary_key' => ['component_id']])
+            ->addColumn('component_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addColumn('properties', 'text', ['null' => false])
+            ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('kit_key', 'string', ['limit' => 80, 'null' => true, 'comment' => 'the key it came with from a fleet design kit (2.16, Fleet\\Kit): the next kit updates its draft'])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_components_public_id', 'unique' => true])
+            ->create();
+
+        $this->table('popups', ['id' => false, 'primary_key' => ['popup_id']])
+            ->addColumn('popup_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addColumn('slug', 'string', ['limit' => 60, 'null' => false])
+            ->addColumn('type', 'string', ['limit' => 20, 'null' => false, 'default' => 'window'])
+            ->addColumn('trigger_type', 'string', ['limit' => 20, 'null' => false, 'default' => 'time'])
+            ->addColumn('value', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 5])
+            ->addColumn('rules', 'text', ['null' => false])
+            ->addColumn('frequency', 'string', ['limit' => 20, 'null' => false, 'default' => 'session'])
+            ->addColumn('days', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 7])
+            ->addColumn('active', 'boolean', ['null' => false, 'default' => 0])
+            ->addColumn('valid_until', 'date', ['null' => true, 'comment' => 'true until: the day after, the pop-up switches itself off (2.10, Core\\Validity)'])
+            ->addColumn('review_by', 'date', ['null' => true, 'comment' => 'review by: on this day the site audit asks for a check (2.10)'])
+            ->addColumn('sort_order', 'smallinteger', ['signed' => true, 'null' => false, 'default' => 100])
+            ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('impressions', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('closes', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('conversions', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_popups_public_id', 'unique' => true])
+            ->addIndex(['slug'], ['name' => 'uq_popups_slug', 'unique' => true])
+            ->create();
+
+        $this->table('collections', ['id' => false, 'primary_key' => ['collection_id']])
+            ->addColumn('collection_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addColumn('slug', 'string', ['limit' => 110, 'null' => false])
+            ->addColumn('fields', 'text', ['null' => false])
+            ->addColumn('detail', 'boolean', ['null' => false, 'default' => 0])
+            ->addColumn('hidden_redirect', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'where the page of a hidden or deleted item redirects (2.10); empty = 404'])
+            ->addColumn('preset', 'string', ['limit' => 30, 'null' => false, 'default' => '', 'comment' => 'the ready-made collection it was created from (2.11, Builder\\Presets); empty = its own'])
+            ->addColumn('schema_org', 'text', ['null' => true, 'comment' => 'structured data of item pages: {"type": "Service|Person|Product|Event|FAQPage", "fields": {property: field key}} (1.9)'])
+            ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_collections_public_id', 'unique' => true])
+            ->addIndex(['slug'], ['name' => 'uq_collections_slug', 'unique' => true])
+            ->create();
+
+        $this->table('collection_items', ['id' => false, 'primary_key' => ['item_id']])
+            ->addColumn('item_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
+            ->addColumn('collection_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('name', 'string', ['limit' => 200, 'null' => false])
+            ->addColumn('slug', 'string', ['limit' => 160, 'null' => false])
+            ->addColumn('data', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false])
+            ->addColumn('seo_title', 'string', ['limit' => 200, 'null' => false, 'default' => '', 'comment' => 'custom <title>, empty = the name (1.9)'])
+            ->addColumn('description', 'string', ['limit' => 300, 'null' => false, 'default' => '', 'comment' => 'meta description, empty = from the first text field'])
+            ->addColumn('image', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'image for sharing (og:image), empty = the first image field'])
+            ->addColumn('noindex', 'boolean', ['null' => false, 'default' => 0])
+            ->addColumn('sort_order', 'integer', ['signed' => true, 'null' => false, 'default' => 100])
+            ->addColumn('visible', 'boolean', ['null' => false, 'default' => 1])
+            ->addColumn('publish_at', 'datetime', ['null' => true, 'comment' => 'a hidden item publishes itself at this moment'])
+            ->addColumn('valid_until', 'date', ['null' => true, 'comment' => 'true until: the day after, the item hides itself (2.10, Core\\Validity)'])
+            ->addColumn('review_by', 'date', ['null' => true, 'comment' => 'review by: on this day the site audit asks for a check (2.10)'])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => ''])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addColumn('links_checked', 'datetime', ['null' => true, 'comment' => 'when the links in the item\'s fields were last checked (2.14, Core\\Links)'])
+            ->addColumn('deleted_at', 'datetime', ['null' => true, 'comment' => 'in the trash since (deleted permanently after 30 days); NULL = not in the trash'])
+            ->addIndex(['public_id'], ['name' => 'uq_collection_items_public_id', 'unique' => true])
+            ->addIndex(['collection_id', 'language', 'slug'], ['name' => 'uq_collection_items_collection_id_language_slug', 'unique' => true])
+            ->addIndex(['collection_id', 'visible', 'sort_order'], ['name' => 'ix_collection_items_collection_id_visible_s_8f145d'])
+            ->addIndex(['publish_at'], ['name' => 'ix_collection_items_publish_at'])
+            ->addForeignKey('collection_id', 'collections', 'collection_id', ['constraint' => $prefix . 'fk_collection_items_collection_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('collection_templates', ['id' => false, 'primary_key' => ['collection_id', 'language']])
+            ->addColumn('collection_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false])
+            ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
+            ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addForeignKey('collection_id', 'collections', 'collection_id', ['constraint' => $prefix . 'fk_collection_templates_collection_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('document_versions', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('item_id', 'integer', ['signed' => false, 'null' => false, 'comment' => 'the document (tl_collection_items)'])
+            ->addColumn('file', 'string', ['limit' => 500, 'null' => false, 'comment' => 'the replaced file: a path in Media or an https address'])
+            ->addColumn('version', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the version number the document stated at the time'])
+            ->addColumn('replaced_at', 'datetime', ['null' => false])
+            ->addColumn('replaced_by', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'who replaced it (user name, "(Claude)" over MCP)'])
+            ->addIndex(['item_id', 'id'], ['name' => 'ix_document_versions_item_id_id'])
+            ->addForeignKey('item_id', 'collection_items', 'item_id', ['constraint' => $prefix . 'fk_document_versions_item_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('document_downloads', ['id' => false, 'primary_key' => ['item_id', 'day']])
+            ->addColumn('item_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('count', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addForeignKey('item_id', 'collection_items', 'item_id', ['constraint' => $prefix . 'fk_document_downloads_item_id', 'delete' => 'CASCADE'])
+            ->create();
+
+        $this->table('look_versions', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('data', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => '{design_system, classes: {name: {styl, css}}, menus: {"location|language": items}}'])
+            ->addColumn('summary', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'what the publishing changed, in words'])
+            ->addColumn('author', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('created', 'datetime', ['null' => false])
+            ->create();
+
+        $this->table('blueprints', ['id' => false, 'primary_key' => ['bkey']])
+            ->addColumn('bkey', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('name', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
+            ->addColumn('manifest', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false])
+            ->addColumn('applied_at', 'datetime', ['null' => false])
+            ->create();
+
+    }
+}

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * "Ask Claude" on the dashboard (3.1): one box where staff write what they need – it becomes a request (Core\Requests),
@@ -94,7 +94,7 @@ final class AskClaude
         // the texts for visitors follow the site's form of address, not the one the administration speaks to the person
         $address = $visitorAddress === null ? '' : ' ' . t($visitorAddress === 'informal' ? 'Write German texts for visitors with the informal “du”.' : 'Write German texts for visitors with the formal “Sie”.');
 
-        return t('On my Kaleta site %s (use its connector):', rtrim($siteUrl, '/')) . "\n\n" . '{text}' . "\n\n"
+        return t('On my Talea site %s (use its connector):', rtrim($siteUrl, '/')) . "\n\n" . '{text}' . "\n\n"
             . t('Work as drafts and send me the preview links – do not publish anything.') . $address;
     }
 
@@ -105,49 +105,14 @@ final class AskClaude
      */
     public static function recent(Db $db, int $userId, int $limit = self::RECENT): array
     {
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'status' => (string) $r['status'], 'updated_at' => (string) $r['updated_at']],
-            $db->all('SELECT id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'public_id' => (string) $r['public_id'], 'title' => (string) $r['title'], 'status' => (string) $r['status'], 'updated_at' => (string) $r['updated_at']],
+            $db->all('SELECT id, public_id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
     }
 
-    /**
-     * Whether a Claude connection has ever been used on this site (3.5) – the same test as the step in First steps. Only a
-     * call counts: a personal token nobody used yet is not a connection. Mcp\Server remembers the first call in the
-     * setting claude_first_used; a site connected before 3.5 is recognised by a used token or an OAuth refresh token (the
-     * Claude app holds one only after it signed in), and the moment is remembered then, so revoking a token later does not
-     * bring the "Connect Claude" card back.
-     */
-    public static function connected(Db $db, Settings $settings): bool
+    /** Whether anyone has connected Claude (a connector or a personal token) – the same test as the step in First steps. */
+    public static function connected(Db $db): bool
     {
-        if ($settings->get('claude_first_used') !== '') {
-            return true;
-        }
-        $used = $db->value("SELECT MIN(COALESCE(pouzit, vytvoren)) FROM {api_tokeny} WHERE pouzit IS NOT NULL OR druh = 'obnova'");
-        if ($used === null) {
-            return false;
-        }
-        $settings->set('claude_first_used', (string) $used);
-
-        return true;
-    }
-
-    /** When a Claude connection last called the site (any person, any connection), or null. */
-    public static function lastCall(Db $db): ?string
-    {
-        $last = $db->value('SELECT MAX(pouzit) FROM {api_tokeny}');
-
-        return $last === null ? null : (string) $last;
-    }
-
-    /** The address of the site's MCP endpoint for the Claude connector, with the scheme and host of the request. */
-    public static function mcpUrl(App $app): string
-    {
-        return $app->request->origin() . $app->url('mcp');
-    }
-
-    /** Whether the connector address is on HTTPS – the Claude app adds custom connectors only there. */
-    public static function secure(string $mcpUrl): bool
-    {
-        return str_starts_with($mcpUrl, 'https://');
+        return $db->value("SELECT 1 FROM {api_tokens} WHERE kind IN ('token', 'refresh') LIMIT 1") !== null;
     }
 
     /**
@@ -158,7 +123,7 @@ final class AskClaude
     public static function routine(Db $db): ?array
     {
         try {
-            $row = $db->one("SELECT cadence, day, time, next_due FROM {agent_schedules} WHERE active = 1 AND task = 'requests' ORDER BY next_due IS NULL, next_due LIMIT 1");
+            $row = $db->one("SELECT cadence, day, time, next_due FROM {agent_schedules} WHERE active = TRUE AND task = 'requests' ORDER BY next_due IS NULL, next_due LIMIT 1");
         } catch (\Throwable) {
             return null; // before the 2.17 migration
         }

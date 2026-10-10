@@ -11,12 +11,12 @@ return [
     'redirect_hidden' => false,
     'fields' => [
         ['badge', 'Badge', 'text'],
-        ['price', 'Price', 'cislo'],
+        ['price', 'Price', 'number'],
         ['price_period', 'Billing period', 'text'],
         ['price_note', 'Price note', 'text'],
-        ['summary', 'Who it is for', 'radky'],
-        ['features', 'What is included', 'radky'],
-        ['link', 'Button link', 'odkaz'],
+        ['summary', 'Who it is for', 'lines'],
+        ['features', 'What is included', 'lines'],
+        ['link', 'Button link', 'link'],
     ],
     'schema' => null,
     'claude' => 'One item per plan, in the order the plans should appear (cheapest first is usual) – the name is the plan ("Starter", "Team"), the price a number '
@@ -24,8 +24,8 @@ return [
         . 'What is included: one feature per line, the same wording across plans so they compare. Badge only on the plan to recommend ("Most popular") – '
         . 'leave it empty on the others. Button link: the sign-up, trial or contact address. Never invent prices, limits or discounts – ask the owner; '
         . 'when the price depends on the order, put 0 or leave it empty and say "on request" in the price note. The plans have no pages; the cards show everything.',
-    'list' => ['razeni' => 'poradi'],
+    'list' => ['sort' => 'order'],
     'card' => ['badge', 'price', 'price_period', 'price_note', 'summary', 'features'],
     // the button of each plan leads to its link (sign-up, trial, contact); a plan without a link shows none (Button on a card)
-    'card_extra' => fn (): array => [\Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('Choose this plan'), 'odkaz' => '{{link}}'])],
+    'card_extra' => fn (): array => [\Talea\Builder\Build::fresh('button', ['text' => t('Choose this plan'), 'link' => '{{link}}'])],
 ];

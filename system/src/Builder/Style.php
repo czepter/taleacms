@@ -2,157 +2,169 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
- * Style of an element or class: {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}.
- * The properties are curated (PROPERTIES) and prefer design system tokens (spacing „l“, color „primarni“, step „2“);
+ * Style of an element or class: {"base": {...}, "tablet": {...}, "mobile": {...}, "hover": {...}}.
+ * The properties are curated (PROPERTIES) and prefer design system tokens (spacing “l”, color “primary”, step “2”);
  * a free value works too, but only in a safe form. Editing one breakpoint never touches another.
  */
 final class Style
 {
     /** Breakpoints and states: key => media query or pseudo-class (empty = base). */
     public const array STATUSES = [
-        'zaklad' => '',
+        'base' => '',
         'tablet' => '@media (max-width: 1023px)',
-        'mobil' => '@media (max-width: 767px)',
+        'mobile' => '@media (max-width: 767px)',
         'hover' => ':hover',     // also applies to keyboard focus (:focus-visible) – whoever does not use a mouse sees the same
-        'aktivni' => ':active',  // press (button, card link)
+        'active' => ':active',  // press (button, card link)
         // state on a smaller screen: hover and press can be fine-tuned separately for tablet and mobile
         'hover_tablet' => '@media (max-width: 1023px)',
-        'hover_mobil' => '@media (max-width: 767px)',
-        'aktivni_tablet' => '@media (max-width: 1023px)',
-        'aktivni_mobil' => '@media (max-width: 767px)',
+        'hover_mobile' => '@media (max-width: 767px)',
+        'active_tablet' => '@media (max-width: 1023px)',
+        'active_mobile' => '@media (max-width: 767px)',
     ];
 
     /** Where a state inherits a value it does not have itself (the editor shows it in grey): the nearest first. */
     public const array INHERITANCE = [
-        'zaklad' => [], 'tablet' => ['zaklad'], 'mobil' => ['tablet', 'zaklad'],
-        'hover' => ['zaklad'], 'hover_tablet' => ['hover', 'tablet', 'zaklad'], 'hover_mobil' => ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
-        'aktivni' => ['hover', 'zaklad'], 'aktivni_tablet' => ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
-        'aktivni_mobil' => ['aktivni_tablet', 'aktivni', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
+        'base' => [], 'tablet' => ['base'], 'mobile' => ['tablet', 'base'],
+        'hover' => ['base'], 'hover_tablet' => ['hover', 'tablet', 'base'], 'hover_mobile' => ['hover_tablet', 'hover', 'mobile', 'tablet', 'base'],
+        'active' => ['hover', 'base'], 'active_tablet' => ['active', 'hover_tablet', 'hover', 'tablet', 'base'],
+        'active_mobile' => ['active_tablet', 'active', 'hover_mobile', 'hover_tablet', 'hover', 'mobile', 'tablet', 'base'],
     ];
 
     /**
      * key => [CSS property, type, group, label, enumeration options]
-     * Types: mezera | delka | barva | krok | zaobleni | stin | ramecek | vyber | cislo | obrazek | sloupce | radky | oblasti | oblast | text
+     * Types: column_line | row_line | space | length | color | step | radius | shadow | border | choice | number | image | columns | rows | areas | area | text
      */
     public const array PROPERTIES = [
         // layout
-        'zobrazeni' => ['display', 'vyber', 'rozlozeni', 'Display', ['block' => 'blok', 'flex' => 'flex (row / column)', 'grid' => 'mřížka', 'none' => 'skrýt']],
-        'smer' => ['flex-direction', 'vyber', 'rozlozeni', 'Direction', ['row' => 'side by side', 'column' => 'stacked', 'row-reverse' => 'side by side, reversed', 'column-reverse' => 'stacked, reversed']],
-        'zalamovani' => ['flex-wrap', 'vyber', 'rozlozeni', 'Wrapping', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
-        'sloupce' => ['grid-template-columns', 'sloupce', 'rozlozeni', 'Grid columns', null],
-        'radky' => ['grid-template-rows', 'radky', 'rozlozeni', 'Grid rows', null],
-        'oblasti' => ['grid-template-areas', 'oblasti', 'rozlozeni', 'Grid areas', null],
-        'oblast' => ['grid-area', 'oblast', 'rozlozeni', 'Grid area (name)', null],
-        'rozpeti_sloupcu' => ['grid-column', 'vyber', 'rozlozeni', 'Span columns (in grid)', ['span 2' => '2 columns', 'span 3' => '3 columns', 'span 4' => '4 columns', '1 / -1' => 'full width']],
-        'rozpeti_radku' => ['grid-row', 'vyber', 'rozlozeni', 'Span rows (in grid)', ['span 2' => '2 rows', 'span 3' => '3 rows', 'span 4' => '4 rows']],
-        'mezera' => ['gap', 'mezera', 'rozlozeni', 'Gap between elements', null],
-        'zarovnani' => ['align-items', 'vyber', 'rozlozeni', 'Alignment (cross axis)', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'stretch' => 'roztáhnout', 'baseline' => 'účaří']],
-        'rozmisteni' => ['justify-content', 'vyber', 'rozlozeni', 'Distribution (main axis)', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'space-between' => 'space between', 'space-around' => 'rovnoměrně']],
-        'vlastni_zarovnani' => ['align-self', 'vyber', 'rozlozeni', 'Self alignment', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'stretch' => 'roztáhnout']],
-        'poradi' => ['order', 'cislo', 'rozlozeni', 'Pořadí', null],
-        'rust' => ['flex', 'vyber', 'rozlozeni', 'Flex growth', ['1 1 0%' => 'fill the space', '0 0 auto' => 'by content']],
+        'display' => ['display', 'choice', 'layout', 'Display', ['block' => 'block', 'flex' => 'flex (row / column)', 'grid' => 'grid', 'none' => 'hide']],
+        'direction' => ['flex-direction', 'choice', 'layout', 'Direction', ['row' => 'side by side', 'column' => 'stacked', 'row-reverse' => 'side by side, reversed', 'column-reverse' => 'stacked, reversed']],
+        'wrap' => ['flex-wrap', 'choice', 'layout', 'Wrapping', ['wrap' => 'wrap', 'nowrap' => 'no wrap']],
+        'columns' => ['grid-template-columns', 'columns', 'layout', 'Grid columns', null],
+        'rows' => ['grid-template-rows', 'rows', 'layout', 'Grid rows', null],
+        'areas' => ['grid-template-areas', 'areas', 'layout', 'Grid areas', null],
+        'area' => ['grid-area', 'area', 'layout', 'Grid area (name)', null],
+        'column_span' => ['grid-column', 'choice', 'layout', 'Span columns (in grid)', ['span 2' => '2 columns', 'span 3' => '3 columns', 'span 4' => '4 columns', '1 / -1' => 'full width']],
+        'row_span' => ['grid-row', 'choice', 'layout', 'Span rows (in grid)', ['span 2' => '2 rows', 'span 3' => '3 rows', 'span 4' => '4 rows']],
+        'gap' => ['gap', 'space', 'layout', 'Gap between elements', null],
+        'align_items' => ['align-items', 'choice', 'layout', 'Alignment (cross axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'stretch' => 'stretch', 'baseline' => 'baseline']],
+        'justify_content' => ['justify-content', 'choice', 'layout', 'Distribution (main axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'space-between' => 'space between', 'space-around' => 'evenly']],
+        'align_self' => ['align-self', 'choice', 'layout', 'Self alignment', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'stretch' => 'stretch']],
+        'order' => ['order', 'number', 'layout', 'Order', null],
+        // placement inside a Compose section (Build::sanitize drops these anywhere else): grid lines 1–13 / 1–40 and a layer from a small scale
+        'grid_column_start' => ['grid-column-start', 'column_line', 'layout', 'Compose: first column line (1–13)', null],
+        'grid_column_end' => ['grid-column-end', 'column_line', 'layout', 'Compose: last column line (1–13)', null],
+        'grid_row_start' => ['grid-row-start', 'row_line', 'layout', 'Compose: first row line (1–40)', null],
+        'grid_row_end' => ['grid-row-end', 'row_line', 'layout', 'Compose: last row line (1–40)', null],
+        'layer' => ['z-index', 'choice', 'layout', 'Compose: layer', ['below' => 'below', 'base' => 'base', 'above' => 'above', 'top' => 'top']],
+        'flex' => ['flex', 'choice', 'layout', 'Flex growth', ['1 1 0%' => 'fill the space', '0 0 auto' => 'by content']],
         // dimensions
-        'sirka' => ['width', 'delka', 'rozmery', 'Width', null],
-        'max_sirka' => ['max-width', 'delka', 'rozmery', 'Max width', null],
-        'vyska' => ['height', 'delka', 'rozmery', 'Height', null],
-        'min_vyska' => ['min-height', 'delka', 'rozmery', 'Min height', null],
-        'pomer_stran' => ['aspect-ratio', 'vyber', 'rozmery', 'Aspect ratio', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
-        'prizpusobeni' => ['object-fit', 'vyber', 'rozmery', 'Image fit', ['cover' => 'cover (crop)', 'contain' => 'whole image']],
-        'na_stred' => ['margin-inline', 'vyber', 'rozmery', 'Centre', ['auto' => 'ano']],
+        'width' => ['width', 'length', 'dimensions', 'Width', null],
+        'max_width' => ['max-width', 'length', 'dimensions', 'Max width', null],
+        'height' => ['height', 'length', 'dimensions', 'Height', null],
+        'min_height' => ['min-height', 'length', 'dimensions', 'Min height', null],
+        'aspect_ratio' => ['aspect-ratio', 'choice', 'dimensions', 'Aspect ratio', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
+        'object_fit' => ['object-fit', 'choice', 'dimensions', 'Image fit', ['cover' => 'cover (crop)', 'contain' => 'whole image']],
+        'center' => ['margin-inline', 'choice', 'dimensions', 'Centre', ['auto' => 'yes']],
         // spacing
-        'odsazeni_y' => ['padding-block', 'mezera', 'mezery', 'Padding top and bottom', null],
-        'odsazeni_x' => ['padding-inline', 'mezera', 'mezery', 'Padding left and right', null],
-        'okraj_nahore' => ['margin-block-start', 'mezera', 'mezery', 'Margin top', null],
-        'okraj_dole' => ['margin-block-end', 'mezera', 'mezery', 'Margin bottom', null],
-        'okraj_vlevo' => ['margin-inline-start', 'mezera', 'mezery', 'Outer margin left', null],
-        'okraj_vpravo' => ['margin-inline-end', 'mezera', 'mezery', 'Outer margin right', null],
+        'padding_y' => ['padding-block', 'space', 'spacing', 'Padding top and bottom', null],
+        'padding_x' => ['padding-inline', 'space', 'spacing', 'Padding left and right', null],
+        'margin_top' => ['margin-block-start', 'space', 'spacing', 'Margin top', null],
+        'margin_bottom' => ['margin-block-end', 'space', 'spacing', 'Margin bottom', null],
+        'margin_left' => ['margin-inline-start', 'space', 'spacing', 'Outer margin left', null],
+        'margin_right' => ['margin-inline-end', 'space', 'spacing', 'Outer margin right', null],
         // typography: first the named style from Appearance, the individual properties below it fine-tune it
-        'typ_styl' => ['font', 'vyber', 'typografie', 'Typography style', [
-            'titulek' => 'Main title', 'nadpis-sekce' => 'Section heading', 'podnadpis' => 'Podnadpis', 'perex' => 'Lead',
-            'text' => 'Body text', 'drobny' => 'Small text', 'nadtitulek' => 'Eyebrow',
+        'text_style' => ['font', 'choice', 'typography', 'Typography style', [
+            'title' => 'Main title', 'section-heading' => 'Section heading', 'subheading' => 'Subheading', 'lead' => 'Lead',
+            'text' => 'Body text', 'small' => 'Small text', 'eyebrow' => 'Eyebrow',
         ]],
-        'velikost_pisma' => ['font-size', 'krok', 'typografie', 'Font size', null],
-        'tloustka_pisma' => ['font-weight', 'vyber', 'typografie', 'Font weight', ['300' => 'tenké', '400' => 'normální', '500' => 'střední', '600' => 'polotučné', '700' => 'tučné', '800' => 'extra bold']],
-        'pismo' => ['font-family', 'vyber', 'typografie', 'Font', ['var(--ka-pismo-text)' => 'textové', 'var(--ka-pismo-titulky)' => 'titulkové']],
-        'zarovnani_textu' => ['text-align', 'vyber', 'typografie', 'Text alignment', ['start' => 'vlevo', 'center' => 'na střed', 'end' => 'vpravo']],
-        'radkovani' => ['line-height', 'vyber', 'typografie', 'Line height', ['1.1' => 'těsné', '1.3' => 'menší', '1.6' => 'běžné', '1.8' => 'volné']],
-        'velka_pismena' => ['text-transform', 'vyber', 'typografie', 'Capitals', ['uppercase' => 'UPPERCASE', 'none' => 'normální']],
-        'proklad' => ['letter-spacing', 'vyber', 'typografie', 'Letter spacing', ['-0.02em' => 'užší', '0' => 'normální', '0.06em' => 'širší', '0.12em' => 'široký']],
-        'max_radek' => ['max-width', 'vyber', 'typografie', 'Line length', ['var(--ka-sirka-textu)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
-        'barva' => ['color', 'barva', 'typografie', 'Text colour', null],
+        'font_size' => ['font-size', 'step', 'typography', 'Font size', null],
+        'font_weight' => ['font-weight', 'choice', 'typography', 'Font weight', ['300' => 'thin', '400' => 'normal', '500' => 'medium', '600' => 'semibold', '700' => 'bold', '800' => 'extra bold']],
+        'font' => ['font-family', 'choice', 'typography', 'Font', ['var(--tl-font-body)' => 'body', 'var(--tl-font-heading)' => 'headings']],
+        'text_align' => ['text-align', 'choice', 'typography', 'Text alignment', ['start' => 'left', 'center' => 'centre', 'end' => 'right']],
+        'line_height' => ['line-height', 'choice', 'typography', 'Line height', ['1.1' => 'tight', '1.3' => 'smaller', '1.6' => 'normal', '1.8' => 'loose']],
+        'text_transform' => ['text-transform', 'choice', 'typography', 'Capitals', ['uppercase' => 'UPPERCASE', 'none' => 'normal']],
+        'letter_spacing' => ['letter-spacing', 'choice', 'typography', 'Letter spacing', ['-0.02em' => 'tighter', '0' => 'normal', '0.06em' => 'wider', '0.12em' => 'wide']],
+        'line_length' => ['max-width', 'choice', 'typography', 'Line length', ['var(--tl-text-width)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
+        'color' => ['color', 'color', 'typography', 'Text colour', null],
         // background and border
-        'pozadi' => ['background-color', 'barva', 'pozadi', 'Background colour', null],
-        'obrazek_pozadi' => ['background-image', 'obrazek', 'pozadi', 'Background image', null],
-        'prechod' => ['background-image', 'vyber', 'pozadi', 'Gradient', [
-            'linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))' => 'primary → secondary',
-            'linear-gradient(180deg, var(--ka-barva-primarni-jemna), var(--ka-barva-pozadi))' => 'soft from the top',
-            'linear-gradient(180deg, var(--ka-barva-pozadi), var(--ka-barva-plocha))' => 'background → surface',
-            'radial-gradient(circle at 25% 15%, var(--ka-barva-primarni-jemna), transparent 60%)' => 'glow in the corner',
+        'background' => ['background-color', 'color', 'background', 'Background colour', null],
+        'background_image' => ['background-image', 'image', 'background', 'Background image', null],
+        'gradient' => ['background-image', 'choice', 'background', 'Gradient', [
+            'linear-gradient(135deg, var(--tl-color-primary), var(--tl-color-secondary))' => 'primary → secondary',
+            'linear-gradient(180deg, var(--tl-color-primary-soft), var(--tl-color-background))' => 'soft from the top',
+            'linear-gradient(180deg, var(--tl-color-background), var(--tl-color-surface))' => 'background → surface',
+            'radial-gradient(circle at 25% 15%, var(--tl-color-primary-soft), transparent 60%)' => 'glow in the corner',
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'darken at the bottom (over a photo)',
         ]],
-        'paralaxa' => ['background-attachment', 'vyber', 'pozadi', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
-        'prekryv' => ['--ka-prekryv', 'barva', 'pozadi', 'Image overlay (colour)', null],
-        'ramecek' => ['border', 'ramecek', 'pozadi', 'Border', ['none' => 'žádný', '1px solid var(--ka-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
-        'barva_ramecku' => ['border-color', 'barva', 'pozadi', 'Border colour', null],
-        'linka_nahore' => ['border-block-start', 'vyber', 'pozadi', 'Top line', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
-        'linka_dole' => ['border-block-end', 'vyber', 'pozadi', 'Bottom line', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
-        'zaobleni' => ['border-radius', 'zaobleni', 'pozadi', 'Corner radius', null],
-        'stin' => ['box-shadow', 'stin', 'pozadi', 'Shadow', null],
-        'pruhlednost' => ['opacity', 'vyber', 'pozadi', 'Opacity', ['1' => 'žádná', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
-        'orez' => ['overflow', 'vyber', 'pozadi', 'Overflow', ['hidden' => 'oříznout', 'visible' => 'nechat']],
-        'pozice' => ['position', 'vyber', 'pokrocile', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
-        'odshora' => ['top', 'mezera', 'pokrocile', 'From top', null],
-        'zdola' => ['bottom', 'mezera', 'pokrocile', 'From bottom', null],
-        'zleva' => ['left', 'mezera', 'pokrocile', 'From left', null],
-        'zprava' => ['right', 'mezera', 'pokrocile', 'From right', null],
-        'posun' => ['translate', 'vyber', 'pokrocile', 'Offset', ['0 -4px' => 'nadzvednout', '0 -0.5rem' => 'lift more', '0 4px' => 'snížit', '-50% -50%' => 'centre (with free positioning)']],
-        'meritko' => ['scale', 'vyber', 'pokrocile', 'Scale', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
-        'otoceni' => ['rotate', 'vyber', 'pokrocile', 'Rotation', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
-        'plynule' => ['transition', 'vyber', 'pokrocile', 'Smooth change (on hover)', ['all 0.2s ease' => 'rychlá', 'all 0.4s ease' => 'pomalejší', 'none' => 'žádná']],
-        'vrstva' => ['z-index', 'cislo', 'pokrocile', 'Layer (above other content)', null],
+        'background_attachment' => ['background-attachment', 'choice', 'background', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
+        'overlay' => ['--tl-overlay', 'color', 'background', 'Image overlay (colour)', null],
+        'border' => ['border', 'border', 'background', 'Border', ['none' => 'none', '1px solid var(--tl-color-line)' => 'thin', '2px solid currentColor' => 'strong', '2px solid var(--tl-color-primary)' => 'in the primary colour']],
+        'border_color' => ['border-color', 'color', 'background', 'Border colour', null],
+        'border_top' => ['border-block-start', 'choice', 'background', 'Top line', ['none' => 'none', '1px solid var(--tl-color-line)' => 'thin', '2px solid var(--tl-color-primary)' => 'in the primary colour']],
+        'border_bottom' => ['border-block-end', 'choice', 'background', 'Bottom line', ['none' => 'none', '1px solid var(--tl-color-line)' => 'thin', '2px solid var(--tl-color-primary)' => 'in the primary colour']],
+        'radius' => ['border-radius', 'radius', 'background', 'Corner radius', null],
+        'shadow' => ['box-shadow', 'shadow', 'background', 'Shadow', null],
+        'opacity' => ['opacity', 'choice', 'background', 'Opacity', ['1' => 'none', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
+        'overflow' => ['overflow', 'choice', 'background', 'Overflow', ['hidden' => 'clip', 'visible' => 'keep']],
+        'position' => ['position', 'choice', 'advanced', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
+        'top' => ['top', 'space', 'advanced', 'From top', null],
+        'bottom' => ['bottom', 'space', 'advanced', 'From bottom', null],
+        'left' => ['left', 'space', 'advanced', 'From left', null],
+        'right' => ['right', 'space', 'advanced', 'From right', null],
+        'translate' => ['translate', 'choice', 'advanced', 'Offset', ['0 -4px' => 'lift', '0 -0.5rem' => 'lift more', '0 4px' => 'lower', '-50% -50%' => 'centre (with free positioning)']],
+        'scale' => ['scale', 'choice', 'advanced', 'Scale', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
+        'rotate' => ['rotate', 'choice', 'advanced', 'Rotation', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
+        'transition' => ['transition', 'choice', 'advanced', 'Smooth change (on hover)', ['all 0.2s ease' => 'fast', 'all 0.4s ease' => 'slower', 'none' => 'none']],
+        'z_index' => ['z-index', 'number', 'advanced', 'Layer (above other content)', null],
         // reveal on scroll: an animation driven by page scrolling (CSS scroll-driven), without JavaScript; where the browser cannot do it, the element is visible right away
-        'animace' => ['animation', 'vyber', 'pokrocile', 'Reveal on scroll', ['ka-objevit' => 'prolnutí', 'ka-vyjet' => 'slide up', 'ka-priblizit' => 'přiblížení',
-            'ka-zleva' => 'slide in from the left', 'ka-zprava' => 'slide in from the right', 'ka-rozostreni' => 'from a blur', 'none' => 'žádné']],
+        'animation' => ['animation', 'choice', 'advanced', 'Reveal on scroll', ['tl-appear' => 'fade', 'tl-slide-in' => 'slide up', 'tl-zoom' => 'zoom in',
+            'tl-from-left' => 'slide in from the left', 'tl-from-right' => 'slide in from the right', 'tl-blur' => 'from a blur', 'none' => 'none']],
         // motion while the element crosses the window (2.7): parallax, a slight rotation or growing into view – scroll-driven CSS as well
-        'pohyb' => ['animation', 'vyber', 'pokrocile', 'Motion while scrolling', ['ka-paralaxa' => 'parallax (slower than the page)', 'ka-paralaxa-silna' => 'stronger parallax',
-            'ka-natoceni' => 'slight rotation', 'ka-rust' => 'grows into view', 'none' => 'žádný']],
+        'scroll_motion' => ['animation', 'choice', 'advanced', 'Motion while scrolling', ['tl-parallax' => 'parallax (slower than the page)', 'tl-parallax-strong' => 'stronger parallax',
+            'tl-rotation' => 'slight rotation', 'tl-grow' => 'grows into view', 'none' => 'none']],
         // a ready-made hover effect (2.7): the change and its smooth transition in one choice; the hover state still fine-tunes it
-        'najeti' => ['transition', 'vyber', 'pokrocile', 'Effect on hover', ['zvednout' => 'lift with a shadow', 'zvetsit' => 'grow slightly', 'posunout' => 'nudge to the side',
-            'zesvetlit' => 'fade a little', 'none' => 'žádný']],
+        'hover_effect' => ['transition', 'choice', 'advanced', 'Effect on hover', ['lift' => 'lift with a shadow', 'grow' => 'grow slightly', 'nudge' => 'nudge to the side',
+            'fade' => 'fade a little', 'none' => 'none']],
     ];
 
     /**
      * Keyframes of the scroll animations: name => [keyframes, animation-range]. Build::css adds only those a page uses.
      */
     public const array KEYFRAMES = [
-        'ka-objevit' => ['from { opacity: 0; }', 'entry 0% cover 28%'],
-        'ka-vyjet' => ['from { opacity: 0; translate: 0 2.5rem; }', 'entry 0% cover 28%'],
-        'ka-priblizit' => ['from { opacity: 0; scale: 0.92; }', 'entry 0% cover 28%'],
-        'ka-zleva' => ['from { opacity: 0; translate: -3rem 0; }', 'entry 0% cover 28%'],
-        'ka-zprava' => ['from { opacity: 0; translate: 3rem 0; }', 'entry 0% cover 28%'],
-        'ka-rozostreni' => ['from { opacity: 0; filter: blur(12px); }', 'entry 0% cover 28%'],
-        'ka-paralaxa' => ['from { translate: 0 3rem; } to { translate: 0 -3rem; }', 'cover 0% cover 100%'],
-        'ka-paralaxa-silna' => ['from { translate: 0 7rem; } to { translate: 0 -7rem; }', 'cover 0% cover 100%'],
-        'ka-natoceni' => ['from { rotate: -4deg; } to { rotate: 4deg; }', 'cover 0% cover 100%'],
-        'ka-rust' => ['from { scale: 0.85; } to { scale: 1; }', 'entry 0% cover 45%'],
+        'tl-appear' => ['from { opacity: 0; }', 'entry 0% cover 28%'],
+        'tl-slide-in' => ['from { opacity: 0; translate: 0 2.5rem; }', 'entry 0% cover 28%'],
+        'tl-zoom' => ['from { opacity: 0; scale: 0.92; }', 'entry 0% cover 28%'],
+        'tl-from-left' => ['from { opacity: 0; translate: -3rem 0; }', 'entry 0% cover 28%'],
+        'tl-from-right' => ['from { opacity: 0; translate: 3rem 0; }', 'entry 0% cover 28%'],
+        'tl-blur' => ['from { opacity: 0; filter: blur(12px); }', 'entry 0% cover 28%'],
+        'tl-parallax' => ['from { translate: 0 3rem; } to { translate: 0 -3rem; }', 'cover 0% cover 100%'],
+        'tl-parallax-strong' => ['from { translate: 0 7rem; } to { translate: 0 -7rem; }', 'cover 0% cover 100%'],
+        'tl-rotation' => ['from { rotate: -4deg; } to { rotate: 4deg; }', 'cover 0% cover 100%'],
+        'tl-grow' => ['from { scale: 0.85; } to { scale: 1; }', 'entry 0% cover 45%'],
     ];
 
     /** Hover effects: name => declarations on hover (and on keyboard focus). */
     private const array HOVER_EFFECTS = [
-        'zvednout' => 'translate: 0 -4px; box-shadow: var(--ka-stin-l, 0 12px 28px rgb(0 0 0 / 0.14));',
-        'zvetsit' => 'scale: 1.03;',
-        'posunout' => 'translate: 4px 0;',
-        'zesvetlit' => 'opacity: 0.82;',
+        'lift' => 'translate: 0 -4px; box-shadow: var(--tl-shadow-l, 0 12px 28px rgb(0 0 0 / 0.14));',
+        'grow' => 'scale: 1.03;',
+        'nudge' => 'translate: 4px 0;',
+        'fade' => 'opacity: 0.82;',
     ];
 
-    public const array GROUPS = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Spacing', 'typografie' => 'Typography', 'pozadi' => 'Background and border', 'pokrocile' => 'Pokročilé'];
+    /** Properties that only mean something on a direct child of a Compose section; Build::sanitize drops them elsewhere. */
+    public const array COMPOSE_ONLY = ['grid_column_start', 'grid_column_end', 'grid_row_start', 'grid_row_end', 'layer'];
 
-    /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--ka-…). Never ; { } < > \ or url(). */
-    private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/iD';
-    private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--ka-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/iD';
+    /** The layer scale of a Compose section: name => z-index. */
+    public const array LAYERS = ['below' => -1, 'base' => 0, 'above' => 1, 'top' => 2];
+
+    public const array GROUPS = ['layout' => 'Layout', 'dimensions' => 'Size', 'spacing' => 'Spacing', 'typography' => 'Typography', 'background' => 'Background and border', 'advanced' => 'Advanced'];
+
+    /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--tl-…). Never ; { } < > \ or url(). */
+    private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/i';
+    private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--tl-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/i';
 
     /**
      * Sanitizes a style: it knows only the states from STATUSES and the properties from PROPERTIES; an invalid value is discarded and written to $errors.
@@ -165,12 +177,12 @@ final class Style
         $clean = [];
         foreach (is_array($style) ? $style : [] as $state => $properties) {
             if (!isset(self::STATUSES[$state]) || !is_array($properties)) {
-                $errors[$path . '.' . $state] = 'Neznámý breakpoint nebo stav (povolené: ' . implode(', ', array_keys(self::STATUSES)) . ').';
+                $errors[$path . '.' . $state] = 'Unknown breakpoint or state (allowed: ' . implode(', ', array_keys(self::STATUSES)) . ').';
                 continue;
             }
             foreach ($properties as $key => $value) {
                 if (!isset(self::PROPERTIES[$key])) {
-                    $errors[$path . '.' . $state . '.' . $key] = 'Neznámá vlastnost stylu.';
+                    $errors[$path . '.' . $state . '.' . $key] = 'Unknown style property.';
                     continue;
                 }
                 $value = is_scalar($value) ? trim((string) $value) : '';
@@ -178,7 +190,7 @@ final class Style
                     continue;
                 }
                 if (self::value($key, $value) === null) {
-                    $errors[$path . '.' . $state . '.' . $key] = 'Neplatná hodnota „' . mb_substr($value, 0, 40) . '“.';
+                    $errors[$path . '.' . $state . '.' . $key] = 'Invalid value “' . mb_substr($value, 0, 40) . '”.';
                     continue;
                 }
                 $clean[$state][$key] = $value;
@@ -194,27 +206,29 @@ final class Style
         [, $type, , , $options] = self::PROPERTIES[$key];
 
         return match ($type) {
-            'vyber' => isset($options[$value]) ? $value : null,
-            'mezera' => isset(DesignSystem::SPACES[$value]) ? 'var(--ka-mezera-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
-            'delka' => preg_match(self::LENGTH_PATTERN, $value) ? $value : null,
-            'krok' => in_array($value, DesignSystem::STEPS, true) ? 'var(--ka-krok-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
-            'barva' => self::color($value),
-            'zaobleni' => isset(DesignSystem::RADII[$value]) ? 'var(--ka-zaobleni-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
-            'stin' => isset(DesignSystem::SHADOWS[$value]) ? 'var(--ka-stin-' . $value . ')' : ($value === 'none' ? 'none' : self::shadow($value)),
-            'ramecek' => isset($options[$value]) ? $value : self::border($value),
-            'radky' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
-            'oblasti' => self::areas($value),
-            'oblast' => preg_match('/^[a-z][a-z0-9-]{0,20}$/D', $value) ? $value : null,
-            'cislo' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
-            'sloupce' => self::columns($value),
-            'obrazek' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D', $value) ? $value : null,
+            'choice' => isset($options[$value]) ? ($key === 'layer' ? (string) self::LAYERS[$value] : $value) : null,
+            'space' => isset(DesignSystem::SPACES[$value]) ? 'var(--tl-space-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'length' => preg_match(self::LENGTH_PATTERN, $value) ? $value : null,
+            'step' => in_array($value, DesignSystem::STEPS, true) ? 'var(--tl-step-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'color' => self::color($value),
+            'radius' => isset(DesignSystem::RADII[$value]) ? 'var(--tl-radius-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'shadow' => isset(DesignSystem::SHADOWS[$value]) ? 'var(--tl-shadow-' . $value . ')' : ($value === 'none' ? 'none' : self::shadow($value)),
+            'border' => isset($options[$value]) ? $value : self::border($value),
+            'rows' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
+            'areas' => self::areas($value),
+            'area' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $value) ? $value : null,
+            'column_line' => preg_match('/^([1-9]|1[0-3])$/', $value) ? $value : null,
+            'row_line' => preg_match('/^([1-9]|[1-3]\d|40)$/', $value) ? $value : null,
+            'number' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
+            'columns' => self::columns($value),
+            'image' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $value) ? $value : null,
             default => preg_match(self::FREE_VALUE_PATTERN, $value) ? $value : null,
         };
     }
 
     /**
      * A CSS declaration as style properties (converting <style> from HTML to class states – breakpoints and hover). Tokens are returned
-     * as keys ("var(--ka-mezera-l)" → "l"), the padding/margin shorthands are expanded. What has no counterpart in the style returns null.
+     * as keys ("var(--tl-space-l)" → "l"), the padding/margin shorthands are expanded. What has no counterpart in the style returns null.
      *
      * @return array<string, string>|null style key => value
      */
@@ -225,7 +239,7 @@ final class Style
         // common notations the builder knows under a logical name: margin-top → margin-block-start, flex-start → start
         $property = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end'][$property] ?? $property;
         // the background shorthand with only a color (background: #EFECE5) is the background color
-        if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-barva-[a-z0-9-]+\)|[a-z]+)$/iD', $value)) {
+        if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--tl-color-[a-z0-9-]+\)|[a-z]+)$/i', $value)) {
             $property = 'background-color';
         }
         if (in_array($property, ['align-items', 'align-self', 'justify-content'], true)) {
@@ -234,12 +248,12 @@ final class Style
         if ($property === 'text-align') {
             $value = ['left' => 'start', 'right' => 'end'][$value] ?? $value;
         }
-        $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--ka-(mezera|krok|zaobleni|stin|barva)-([a-z0-9-]{1,20})\)/',
+        $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--tl-(space|step|radius|shadow|color)-([a-z0-9-]{1,20})\)/',
             static fn (array $m): string => match ($m[1]) {
-                'mezera' => isset(DesignSystem::SPACES[$m[2]]) ? $m[2] : $m[0],
-                'krok' => in_array($m[2], DesignSystem::STEPS, true) ? $m[2] : $m[0],
-                'zaobleni' => isset(DesignSystem::RADII[$m[2]]) ? (string) $m[2] : $m[0],
-                'stin' => isset(DesignSystem::SHADOWS[$m[2]]) ? $m[2] : $m[0],
+                'space' => isset(DesignSystem::SPACES[$m[2]]) ? $m[2] : $m[0],
+                'step' => in_array($m[2], DesignSystem::STEPS, true) ? $m[2] : $m[0],
+                'radius' => isset(DesignSystem::RADII[$m[2]]) ? (string) $m[2] : $m[0],
+                'shadow' => isset(DesignSystem::SHADOWS[$m[2]]) ? $m[2] : $m[0],
                 default => isset(DesignSystem::COLOR_TOKENS[$m[2]]) ? $m[2] : $m[0],
             }, $h);
         $pairs = static function (string $h): ?array {
@@ -258,12 +272,12 @@ final class Style
             if ($args === null) {
                 return null;
             }
-            $keys = $property === 'padding' ? ['odsazeni_y', 'odsazeni_x'] : null;
+            $keys = $property === 'padding' ? ['padding_y', 'padding_x'] : null;
             if ($keys === null) {
                 $result = [];
-                foreach (['okraj_nahore' => $args[0], 'okraj_dole' => $args[0], 'okraj_vlevo' => $args[1], 'okraj_vpravo' => $args[1]] as $k => $h) {
-                    if ($h === 'auto' && str_starts_with($k, 'okraj_v')) {
-                        $result['na_stred'] = 'auto';
+                foreach (['margin_top' => $args[0], 'margin_bottom' => $args[0], 'margin_left' => $args[1], 'margin_right' => $args[1]] as $k => $h) {
+                    if ($h === 'auto' && in_array($k, ['margin_left', 'margin_right'], true)) {
+                        $result['center'] = 'auto';
                         continue;
                     }
                     if (self::value($k, $h) === null) {
@@ -310,10 +324,10 @@ final class Style
     public static function color(string $value): ?string
     {
         if (isset(DesignSystem::COLOR_TOKENS[$value])) {
-            return 'var(--ka-barva-' . $value . ')';
+            return 'var(--tl-color-' . $value . ')';
         }
 
-        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/iD', $value) ? $value : null;
+        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--tl-color-[a-z-]{1,30}\))$/i', $value) ? $value : null;
     }
 
     /**
@@ -355,7 +369,7 @@ final class Style
         }
         foreach ($rows as $row) {
             foreach ($row as $name) {
-                if (!preg_match('/^([a-z][a-z0-9-]{0,20}|\.)$/D', $name)) {
+                if (!preg_match('/^([a-z][a-z0-9-]{0,20}|\.)$/', $name)) {
                     return null;
                 }
             }
@@ -389,9 +403,9 @@ final class Style
             $rows = [];
             $image = null;
             $animations = [];
-            if (isset($properties['typ_styl'])) {
+            if (isset($properties['text_style'])) {
                 // the typography style first: a size or weight set separately fine-tunes it (the later declaration wins)
-                $properties = ['typ_styl' => $properties['typ_styl']] + $properties;
+                $properties = ['text_style' => $properties['text_style']] + $properties;
             }
             foreach ($properties as $key => $value) {
                 $css = self::value($key, (string) $value);
@@ -399,33 +413,33 @@ final class Style
                     continue;
                 }
                 [$property, $type] = self::PROPERTIES[$key];
-                if ($key === 'typ_styl') {
-                    $rows[] = 'font: var(--ka-typ-' . $css . ')';
-                    if ($css === 'nadtitulek') {
+                if ($key === 'text_style') {
+                    $rows[] = 'font: var(--tl-type-' . $css . ')';
+                    if ($css === 'eyebrow') {
                         array_push($rows, 'text-transform: uppercase', 'letter-spacing: 0.08em');
                     }
                     continue;
                 }
-                if ($key === 'animace' || $key === 'pohyb') {
+                if ($key === 'animation' || $key === 'scroll_motion') {
                     if (isset(self::KEYFRAMES[$css])) {
                         $animations[] = $css; // a reveal and a motion run together: one animation list
                     }
                     continue;
                 }
-                if ($key === 'najeti') {
+                if ($key === 'hover_effect') {
                     continue; // added by css() with its own hover rule
                 }
-                if ($type === 'obrazek') {
+                if ($type === 'image') {
                     $image = $css;
                     continue;
                 }
                 $rows[] = $property . ': ' . $css;
-                if ($key === 'pozadi' && ($value === 'bila' || $value === 'cerna') && !isset($properties['barva'])) {
+                if ($key === 'background' && ($value === 'white' || $value === 'black') && !isset($properties['color'])) {
                     // white and black do not change in dark mode: the text and derived shades inside adapt to them (otherwise light text on white)
-                    $text = $value === 'bila' ? 'var(--ka-barva-text-svetle)' : 'var(--ka-barva-text-tmave)';
-                    $surface = $value === 'bila' ? '#ffffff' : '#000000';
-                    array_push($rows, '--ka-barva-text: ' . $text, 'color: ' . $text,
-                        '--ka-barva-tlumeny: color-mix(in oklch, ' . $text . ' 64%, ' . $surface . ')', '--ka-barva-linka: color-mix(in oklch, ' . $text . ' 14%, ' . $surface . ')');
+                    $text = $value === 'white' ? 'var(--tl-color-text-light)' : 'var(--tl-color-text-dark)';
+                    $surface = $value === 'white' ? '#ffffff' : '#000000';
+                    array_push($rows, '--tl-color-text: ' . $text, 'color: ' . $text,
+                        '--tl-color-muted: color-mix(in oklch, ' . $text . ' 64%, ' . $surface . ')', '--tl-color-line: color-mix(in oklch, ' . $text . ' 14%, ' . $surface . ')');
                 }
             }
             if ($image !== null) {
@@ -433,8 +447,8 @@ final class Style
                 if (!str_starts_with($image, 'https://') && !str_starts_with($image, '/')) {
                     $image = $base . '/' . $image;
                 }
-                // the background image always covers the area; an optional overlay (--ka-prekryv) goes over it for text legibility
-                $rows[] = 'background-image: linear-gradient(var(--ka-prekryv, transparent), var(--ka-prekryv, transparent)), url("' . $image . '")';
+                // the background image always covers the area; an optional overlay (--tl-overlay) goes over it for text legibility
+                $rows[] = 'background-image: linear-gradient(var(--tl-overlay, transparent), var(--tl-overlay, transparent)), url("' . $image . '")';
                 $rows[] = 'background-size: cover';
                 $rows[] = 'background-position: center';
             }
@@ -447,11 +461,11 @@ final class Style
 
             return $rows === [] ? '' : implode('; ', $rows) . ';';
         };
-        $base = $declarations($style['zaklad'] ?? []) . ($customCss !== '' ? ' ' . $customCss : '');
+        $base = $declarations($style['base'] ?? []) . ($customCss !== '' ? ' ' . $customCss : '');
         if (trim($base) !== '') {
             $css .= $selector . ' { ' . trim($base) . " }\n";
         }
-        $effect = self::HOVER_EFFECTS[$style['zaklad']['najeti'] ?? ''] ?? null;
+        $effect = self::HOVER_EFFECTS[$style['base']['hover_effect'] ?? ''] ?? null;
         if ($effect !== null) {
             // the effect first, so that the element's own hover state wins; motion only for those who did not turn it off
             $css .= '@media (prefers-reduced-motion: no-preference) { ' . $selector . ' { transition: translate 0.2s ease, scale 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; } }' . "\n"
@@ -460,10 +474,10 @@ final class Style
         if (($hover = $declarations($style['hover'] ?? [])) !== '') {
             $css .= $selector . ':is(:hover, :focus-visible) { ' . $hover . " }\n";
         }
-        if (($active = $declarations($style['aktivni'] ?? [])) !== '') {
+        if (($active = $declarations($style['active'] ?? [])) !== '') {
             $css .= $selector . ':active { ' . $active . " }\n";
         }
-        foreach (['tablet', 'mobil'] as $state) {
+        foreach (['tablet', 'mobile'] as $state) {
             $block = '';
             if (($d = $declarations($style[$state] ?? [])) !== '') {
                 $block .= $selector . ' { ' . $d . ' } ';
@@ -471,7 +485,7 @@ final class Style
             if (($d = $declarations($style['hover_' . $state] ?? [])) !== '') {
                 $block .= $selector . ':is(:hover, :focus-visible) { ' . $d . ' } ';
             }
-            if (($d = $declarations($style['aktivni_' . $state] ?? [])) !== '') {
+            if (($d = $declarations($style['active_' . $state] ?? [])) !== '') {
                 $block .= $selector . ':active { ' . $d . ' } ';
             }
             if ($block !== '') {
@@ -495,7 +509,7 @@ final class Style
                 continue;
             }
             // forbidden: loading external resources (url, image-set, image, src), comments and unclosed quotes – they would break the CSS of the rest of the page
-            if (preg_match('/^(--ka-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/iD', $declarations, $m)
+            if (preg_match('/^(--tl-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/i', $declarations, $m)
                 && !preg_match('/url\s*\(|image-set|image\s*\(|src\s*\(|cross-fade|element\s*\(|expression|javascript|behavior|-moz-binding|\/\*|\*\//i', $m[2])
                 && substr_count($m[2], '"') % 2 === 0 && substr_count($m[2], "'") % 2 === 0) {
                 $output[] = strtolower($m[1]) . ': ' . trim($m[2]) . ';';

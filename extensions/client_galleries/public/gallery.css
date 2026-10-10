@@ -1,0 +1,12 @@
+@layer template {
+  :where(.cg-gallery) { max-inline-size: var(--tl-width, 72rem); margin-inline: auto; padding: var(--tl-space-4, 1.5rem) var(--tl-space-3, 1rem); }
+  :where(.cg-gallery h1) { margin-block-end: .25em; }
+  :where(.cg-bar) { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; margin-block: 1rem 1.5rem; }
+  :where(.cg-grid) { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; align-items: start; }
+  :where(.cg-item) { margin: 0; position: relative; }
+  :where(.cg-item img) { display: block; inline-size: 100%; block-size: auto; border-radius: .25rem; background: color-mix(in oklch, currentColor 8%, transparent); }
+  :where(.cg-item figcaption) { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; justify-content: space-between; padding-block: .35rem; font-size: .875em; }
+  :where(.cg-fav button) { cursor: pointer; font: inherit; padding: .25rem .6rem; border-radius: 99px; border: 1px solid currentColor; background: transparent; color: inherit; }
+  :where(.cg-fav button[aria-pressed="true"]) { background: color-mix(in oklch, var(--tl-color-accent, oklch(60% .2 25)) 85%, transparent); border-color: transparent; color: var(--tl-color-on-accent, #fff); }
+  :where(.cg-fav button:focus-visible, .cg-item a:focus-visible) { outline: 2px solid currentColor; outline-offset: 2px; }
+}

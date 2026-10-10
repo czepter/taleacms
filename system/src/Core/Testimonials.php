@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Testimonial requests with consent (2.12): after a won enquiry the site sends the customer a personal link; what they
@@ -35,23 +35,23 @@ final class Testimonials
     public static function request(App $app, int $idp, bool $send): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, email FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $db->one('SELECT enquiry_id, form, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
         if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }
         $token = bin2hex(random_bytes(16));
-        $db->insert('testimonial_requests', ['idp' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
+        $db->insert('testimonial_requests', ['enquiry_id' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
             'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400)]);
         $link = Mailing::absolute($app, '_testimonial/' . $token);
         $sent = false;
         if ($send) {
             $site = $app->settings()->get('site_name');
             // in the language of the site the customer wrote to, not of the admin who clicked
-            [$subject, $text] = Language::runWith($app->settings()->get('site_language') ?: 'cs', fn (): array => [t('Would you share your experience with %s?', $site),
+            [$subject, $text] = Language::runWith($app->settings()->get('site_language') ?: 'en', fn (): array => [t('Would you share your experience with %s?', $site),
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
             $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ' (e-mail)' : ''));
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr((string) $enquiry['form'], 0, 80) . ($sent ? ' (e-mail)' : ''));
 
         return ['link' => $link, 'sent' => $sent];
     }
@@ -59,7 +59,7 @@ final class Testimonials
     /** The open request of a token from a link: not used, not expired; null otherwise. @return array<string, mixed>|null */
     public static function find(Db $db, string $token): ?array
     {
-        if (preg_match('/^[a-f0-9]{32}$/D', $token) !== 1) {
+        if (preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
             return null;
         }
 
@@ -104,45 +104,44 @@ final class Testimonials
     public static function save(App $app, array $request, array $answer, ?array $photo): int
     {
         $db = $app->db();
-        $collection = $db->one("SELECT * FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1", [self::PRESET]);
-        $idk = $collection !== null ? (int) $collection['idk'] : (int) Presets::create($app, self::PRESET);
+        $collection = $db->one("SELECT * FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1", [self::PRESET]);
+        $idk = $collection !== null ? (int) $collection['collection_id'] : (int) Presets::create($app, self::PRESET);
         $collection = (array) Collections::byId($db, $idk);
         $image = '';
         if ($answer['photo'] && $photo !== null && ($photo['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && (int) ($photo['size'] ?? 0) <= self::MAX_PHOTO) {
             try {
                 $saved = Images::save($photo);
-                $saved['nazev'] = $answer['name'];
-                $db->insert('media', $saved + ['vlastnik' => 0, 'datum' => date('Y-m-d H:i:s')]);
-                $image = $saved['obr_poloha'];
+                $saved['name'] = $answer['name'];
+                $db->insert('media', $saved + ['owner_id' => 0, 'created_at' => date('Y-m-d H:i:s')]);
+                $image = $saved['image_path'];
             } catch (\RuntimeException) {
                 $image = ''; // a photo that cannot be read is left out; the words still arrive
             }
         }
-        $keys = array_column((array) $collection['pole'], 'typ', 'klic');
+        $keys = array_column((array) $collection['fields'], 'type', 'key');
         $data = array_filter([
             'quote' => isset($keys['quote']) ? $answer['text'] : null,
             'client' => isset($keys['client']) ? trim($answer['name'] . ($answer['role'] !== '' ? ', ' . $answer['role'] : '')) : null,
             'image' => isset($keys['image']) && $image !== '' ? $image : null,
         ], fn (?string $v): bool => $v !== null);
         $consents = self::consents((string) $app->settings()->get('site_name'));
-        $itemId = $db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr($answer['name'], 0, 200), 'seo_link' => self::slug($db, $idk, $answer['name']),
-            'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zobrazit' => 0, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s'), 'poradi' => 0]);
+        $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => mb_substr($answer['name'], 0, 200), 'slug' => self::slug($db, $idk, $answer['name']),
+            'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'visible' => 0, 'language' => '', 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0]);
         $db->update('testimonial_requests', ['used_at' => date('Y-m-d H:i:s'), 'item_id' => $itemId,
             'consent' => $consents['words'] . ($answer['photo'] && $image !== '' ? "\n" . $consents['photo'] : '')], ['id' => (int) $request['id']]);
-        Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['nazev']), ['item' => $itemId]);
+        Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
 
         return $itemId;
     }
 
     private static function slug(Db $db, int $idk, string $name): string
     {
-        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$idk, $s]) !== null
-            || \Kaleta\Builder\CollectionCategories::slugIsCategory($db, $idk, $s), 160); // never a category's address (3.7, N37-8)
+        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$idk, $s]) !== null, 160);
     }
 
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */
     public static function ofEnquiry(Db $db, int $idp): array
     {
-        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id FROM {testimonial_requests} WHERE idp = ? ORDER BY id DESC', [$idp]);
+        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id FROM {testimonial_requests} WHERE enquiry_id = ? ORDER BY id DESC', [$idp]);
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Downloading images from the old site during an import from WordPress.
@@ -15,7 +15,7 @@ namespace Kaleta\Core;
  *  3. at most 3 redirects, never automatic – every step goes through points 1 and 2 again;
  *  4. connection within 5 s, the whole download within 20 s, at most 15 MB (checked already while reading);
  *  5. only JPEG, PNG, GIF and WebP are accepted – by the response header AND by the actual content. Never SVG;
- *  6. no cookies, credentials or headers from the import are sent; the client identifies itself as „Kaleta-import“.
+ *  6. no cookies, credentials or headers from the import are sent; the client identifies itself as „Talea-import“.
  * The downloaded data goes on only through Core\Images, which re-encodes the image.
  */
 final class ImageDownloader
@@ -24,7 +24,7 @@ final class ImageDownloader
     public const int MAX_REDIRECTS = 3;
     public const int CONNECT_TIMEOUT = 5;
     public const int TOTAL_TIMEOUT = 20;
-    private const string USER_AGENT = 'Kaleta-import';
+    private const string USER_AGENT = 'Talea-import';
     private const array TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
     /**
@@ -45,18 +45,16 @@ final class ImageDownloader
      * @param string $siteUrl URL of the old site from the imported file (<channel><link>)
      * @param bool $anyDomain images may come from any public host (2.6, import from a website: Wix, Squarespace and others
      *        keep images on their CDN); everything else in the rules above still applies
-     * @param int $maxBytes size limit of one download (3.6: a WordPress export for MCP import_wordpress may be larger than an image)
-     * @param int $timeout seconds for the whole download
      */
-    public function __construct(string $siteUrl, private readonly bool $anyDomain = false, private readonly int $maxBytes = self::MAX_BYTES, private readonly int $timeout = self::TOTAL_TIMEOUT)
+    public function __construct(string $siteUrl, private readonly bool $anyDomain = false)
     {
         $this->domain = self::domainFromUrl($siteUrl);
     }
 
-    /** The automated tests download from their own server on 127.0.0.1 (KALETA_IMPORT_LOCAL=1); never set on a real site. */
+    /** The automated tests download from their own server on 127.0.0.1 (TALEA_IMPORT_LOCAL=1); never set on a real site. */
     private static function localTests(): bool
     {
-        return getenv('KALETA_IMPORT_LOCAL') === '1';
+        return getenv('TALEA_IMPORT_LOCAL') === '1';
     }
 
     /** Can the server download at all? Without both curl and allow_url_fopen the images have to be moved manually. */
@@ -88,7 +86,7 @@ final class ImageDownloader
             return false; // Outbound::url: a host with a percent sign or other characters curl would read on its own (3.3.3, N52)
         }
         $c = parse_url($url);
-        if (!is_array($c) || isset($c['user']) || isset($c['pass'])) {
+        if (!is_array($c) || isset($c['username']) || isset($c['pass'])) {
             return false;
         }
         $schema = strtolower($c['scheme'] ?? '');
@@ -169,12 +167,9 @@ final class ImageDownloader
      * Downloads an image and returns its content. With $imagesOnly = false also another file (a font, a PDF for MCP) – its type
      * is then verified only on saving (Core\Files: allowed extensions and actual content, SVG is sanitized by Core\Svg); the other rules apply the same.
      *
-     * $readAtMost > 0 (3.7, N37-23): read at most that many bytes and keep them – a longer answer is cut, not refused
-     * (robots.txt: search engines read its first 500 KB too).
-     *
      * @throws \RuntimeException with the reason why the image cannot be downloaded
      */
-    public function download(string $url, bool $imagesOnly = true, int $readAtMost = 0): string
+    public function download(string $url, bool $imagesOnly = true): string
     {
         if (Demo::active()) {
             throw new \RuntimeException('Downloading from other sites is switched off in the public demo.');
@@ -189,15 +184,15 @@ final class ImageDownloader
                 throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
             }
             // the request goes to the URL with the normalized host – the one that was resolved and is pinned (3.3.3, N52)
-            $response = function_exists('curl_init') ? $this->curlRequest($target, $ip, $readAtMost) : $this->streamRequest($target['url'], $ip, $readAtMost);
-            if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
+            $response = function_exists('curl_init') ? $this->curlRequest($target, $ip) : $this->streamRequest($target['url'], $ip);
+            if (in_array($response['code'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
                 $url = self::redirectTarget($url, $response['location']);
                 continue;
             }
-            if ($response['kod'] !== 200) {
-                throw new \RuntimeException('The old site did not return the image, it responded with error', $response['kod']); // getCode() carries the response code
+            if ($response['code'] !== 200) {
+                throw new \RuntimeException('The old site did not return the image, it responded with error', $response['code']); // getCode() carries the response code
             }
-            if ($imagesOnly && self::imageType($response['typ'], $response['data']) === null) {
+            if ($imagesOnly && self::imageType($response['type'], $response['data']) === null) {
                 throw new \RuntimeException('The file is not a JPG, PNG, GIF or WebP image.');
             }
 
@@ -210,12 +205,11 @@ final class ImageDownloader
      * A single request via curl; the connection is pinned to the verified IP address (Outbound::pin).
      *
      * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
-     * @return array{kod:int, typ:string, location:string, data:string}
+     * @return array{code:int, type:string, location:string, data:string}
      */
-    private function curlRequest(array $target, string $ip, int $readAtMost = 0): array
+    private function curlRequest(array $target, string $ip): array
     {
         $data = '';
-        $cut = false;
         $headers = ['content-type' => '', 'location' => ''];
         $ch = curl_init($target['url']);
         Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
@@ -223,8 +217,8 @@ final class ImageDownloader
             CURLOPT_FOLLOWLOCATION => false, // we handle redirects ourselves, step by step
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
-            CURLOPT_TIMEOUT => $this->timeout,
-            CURLOPT_MAXFILESIZE => $readAtMost > 0 ? max($this->maxBytes, 1 << 30) : $this->maxBytes, // with a cap a longer answer is cut below, not refused
+            CURLOPT_TIMEOUT => self::TOTAL_TIMEOUT,
+            CURLOPT_MAXFILESIZE => self::MAX_BYTES,
             CURLOPT_USERAGENT => self::USER_AGENT,
             CURLOPT_HEADERFUNCTION => function ($ch, string $row) use (&$headers): int {
                 $parts = explode(':', $row, 2);
@@ -234,37 +228,31 @@ final class ImageDownloader
 
                 return strlen($row);
             },
-            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data, &$cut, $readAtMost): int {
+            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data): int {
                 $data .= $chunk;
-                if ($readAtMost > 0 && strlen($data) >= $readAtMost) {
-                    $data = substr($data, 0, $readAtMost);
-                    $cut = true;
 
-                    return -1; // enough read: curl stops, the beginning is kept
-                }
-
-                return strlen($data) > $this->maxBytes ? -1 : strlen($chunk); // a value other than the length = curl stops the download
+                return strlen($data) > self::MAX_BYTES ? -1 : strlen($chunk); // a value other than the length = curl stops the download
             },
         ]);
         curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $error = $cut ? 0 : curl_errno($ch);
-        if ((!$cut && strlen($data) > $this->maxBytes) || $error === CURLE_FILESIZE_EXCEEDED) {
-            throw new \RuntimeException($this->tooLarge());
+        $error = curl_errno($ch);
+        if (strlen($data) > self::MAX_BYTES || $error === CURLE_FILESIZE_EXCEEDED) {
+            throw new \RuntimeException('The image is larger than 15 MB.');
         }
         if ($error !== 0) {
             throw new \RuntimeException('The old site is not responding.');
         }
 
-        return ['kod' => $code, 'typ' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
+        return ['code' => $code, 'type' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
     }
 
     /**
      * The same without curl (allow_url_fopen). Connects directly to the verified IP address; the domain goes in the Host header and into certificate verification.
      *
-     * @return array{kod:int, typ:string, location:string, data:string}
+     * @return array{code:int, type:string, location:string, data:string}
      */
-    private function streamRequest(string $url, string $ip, int $readAtMost = 0): array
+    private function streamRequest(string $url, string $ip): array
     {
         $c = parse_url($url);
         $host = (string) $c['host'];
@@ -278,17 +266,13 @@ final class ImageDownloader
         if ($stream === false) {
             throw new \RuntimeException('The old site is not responding.');
         }
-        $end = microtime(true) + $this->timeout;
+        $end = microtime(true) + self::TOTAL_TIMEOUT;
         $data = '';
         while (!feof($stream)) {
             $data .= (string) fread($stream, 65536);
-            if ($readAtMost > 0 && strlen($data) >= $readAtMost) {
-                $data = substr($data, 0, $readAtMost);
-                break;
-            }
-            if (strlen($data) > $this->maxBytes) {
+            if (strlen($data) > self::MAX_BYTES) {
                 fclose($stream);
-                throw new \RuntimeException($this->tooLarge());
+                throw new \RuntimeException('The image is larger than 15 MB.');
             }
             if (microtime(true) > $end) {
                 fclose($stream);
@@ -297,22 +281,16 @@ final class ImageDownloader
         }
         $headers = stream_get_meta_data($stream)['wrapper_data'] ?? [];
         fclose($stream);
-        $response = ['kod' => 0, 'typ' => '', 'location' => '', 'data' => $data];
+        $response = ['code' => 0, 'type' => '', 'location' => '', 'data' => $data];
         foreach ($headers as $row) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string) $row, $m)) {
-                $response['kod'] = (int) $m[1];
+                $response['code'] = (int) $m[1];
             } elseif (preg_match('#^(content-type|location):\s*(.*)$#i', (string) $row, $m)) {
-                $response[strtolower($m[1]) === 'location' ? 'location' : 'typ'] = trim($m[2]);
+                $response[strtolower($m[1]) === 'location' ? 'location' : 'type'] = trim($m[2]);
             }
         }
 
         return $response;
-    }
-
-    /** The message when a download goes over the limit: the image limit keeps its translated text. */
-    private function tooLarge(): string
-    {
-        return $this->maxBytes === self::MAX_BYTES ? 'The image is larger than 15 MB.' : 'The file is larger than the download limit.';
     }
 
     /** Does the address lie in the network? The first $mask bits are compared. */

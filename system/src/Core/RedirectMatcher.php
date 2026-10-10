@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Admin\Modules\Redirects;
+use Talea\Admin\ChangeLog;
+use Talea\Admin\Modules\Redirects;
 
 /**
  * Redirects for addresses visitors could not find (2.14). For a pending 404 (Core\NotFound) it looks for the page, news
  * item or collection item the visitor most likely meant and says how sure it is (0–100):
  *
  *   100  the same address written differently (/O-nas/, /o-nas.html, /o-nas/index.php)
- *    95  the address without an old prefix (/novinky/x, /clanek/x, /blog/x) or with the language prefix moved (/en/x → /x)
+ *    95  the address without an old prefix (/news/x, /clanek/x, /blog/x) or with the language prefix moved (/en/x → /x)
  *    90  the same last segment elsewhere in the tree (/sluzby/weby → /weby)
  *   <90  a similar slug (a typo, a dropped year: /cenik-2019 → /cenik), nothing below MIN_SCORE
  *
@@ -33,7 +33,7 @@ final class RedirectMatcher
     private const int AMBIGUOUS = 70;
 
     /** First segments other systems and older versions put before articles and pages. */
-    private const array LEGACY_PREFIXES = ['novinky', 'news', 'clanek', 'clanky', 'article', 'articles', 'blog', 'aktuality', 'aktualne', 'stranka', 'stranky', 'page', 'pages', 'kategorie', 'category', 'rubrika'];
+    private const array LEGACY_PREFIXES = ['novinky', 'news', 'article', 'clanky', 'article', 'articles', 'blog', 'aktuality', 'aktualne', 'page', 'pages', 'page', 'pages', 'kategorie', 'category', 'rubrika']; // check-english: allow
 
     /**
      * Every address a visitor can be sent to: published pages, published news items and item pages of visible items,
@@ -48,17 +48,17 @@ final class RedirectMatcher
         $additional = Language::additional($s);
         $prefix = fn (string $language): string => in_array($language, $additional, true) ? $language . '/' : '';
         $out = [];
-        foreach ($db->all('SELECT seo_link, jazyk FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 3000') as $p) {
-            $out[] = $prefix((string) $p['jazyk']) . $p['seo_link'];
+        foreach ($db->all('SELECT slug, language FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL LIMIT 3000') as $p) {
+            $out[] = $prefix((string) $p['language']) . $p['slug'];
         }
-        if (Extensions::isEnabled($s, 'novinky')) {
+        if (Extensions::isEnabled($s, 'news')) {
             $base = strlen($app->request->basePath());
-            foreach ($db->all('SELECT seo_link, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 3000') as $c) {
-                $out[] = ltrim(substr($app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']), $base), '/');
+            foreach ($db->all('SELECT slug, language FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 3000') as $c) {
+                $out[] = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
             }
         }
-        foreach ($db->all('SELECT p.seo_link, p.jazyk, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.smazano IS NULL LIMIT 5000') as $p) {
-            $out[] = $prefix((string) $p['jazyk']) . $p['kolekce'] . '/' . $p['seo_link'];
+        foreach ($db->all('SELECT p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.deleted_at IS NULL LIMIT 5000') as $p) {
+            $out[] = $prefix((string) $p['language']) . $p['collection'] . '/' . $p['slug'];
         }
 
         return array_values(array_unique($out));
@@ -120,7 +120,7 @@ final class RedirectMatcher
     /**
      * Suggestions for the pending 404s (NotFound::pending rows), by path.
      *
-     * @param list<array{cesta: string}> $pending
+     * @param list<array{path: string}> $pending
      * @return array<string, array{to: string, score: int}>
      */
     public static function suggestions(App $app, array $pending): array
@@ -131,9 +131,9 @@ final class RedirectMatcher
         $targets = self::targets($app);
         $out = [];
         foreach ($pending as $n) {
-            $found = self::suggest($app, (string) $n['cesta'], $targets);
+            $found = self::suggest($app, (string) $n['path'], $targets);
             if ($found !== null) {
-                $out[(string) $n['cesta']] = $found;
+                $out[(string) $n['path']] = $found;
             }
         }
 
@@ -151,7 +151,7 @@ final class RedirectMatcher
     public static function run(App $app): string
     {
         $s = $app->settings();
-        if (!$s->bool('redirect_auto') || !Extensions::isEnabled($s, 'presmerovani')) {
+        if (!$s->bool('redirect_auto') || !Extensions::isEnabled($s, 'redirects')) {
             return 'off';
         }
         $db = $app->db();
@@ -162,15 +162,15 @@ final class RedirectMatcher
                 continue;
             }
             Redirects::add($db, $from, $found['to']);
-            $db->run('UPDATE {presmerovani} SET auto_score = ? WHERE z_adresy = ?', [$found['score'], trim($from, '/ ')]);
-            $db->delete('nenalezeno', ['cesta' => trim($from, '/')]);
+            $db->run('UPDATE {redirects} SET auto_score = ? WHERE from_path = ?', [$found['score'], trim($from, '/ ')]);
+            $db->delete('not_found', ['path' => trim($from, '/')]);
             Events::record($db, 'redirect.auto', 'info', t('/%s now redirects to /%s by itself (score %d of 100). Undo: Administration → Redirects.', $from, $found['to'], $found['score']),
                 ['from' => '/' . $from, 'to' => '/' . $found['to'], 'score' => $found['score']]);
             ChangeLog::write($app, 'redirects', 'auto', '/' . $from . ' → /' . $found['to'] . ' (' . $found['score'] . ')');
             $created++;
         }
         if ($created > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return 'created ' . $created;

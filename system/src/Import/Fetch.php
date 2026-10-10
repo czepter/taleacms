@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
-use Kaleta\Core\Demo;
-use Kaleta\Core\ImageDownloader;
+use Talea\Core\Demo;
+use Talea\Core\ImageDownloader;
 
 /**
  * The fetch step of the importers that have no export file (Import\Remote: Joomla, Drupal): the old site's API is read
@@ -31,7 +31,7 @@ final class Fetch
     public const int MAX_REDIRECTS = 3;
     public const int CONNECT_TIMEOUT = 5;
     public const int TIMEOUT = 25;
-    private const string USER_AGENT = 'Kaleta-import';
+    private const string USER_AGENT = 'Talea-import';
 
     /** The session key of the token for a fetched file (one fetch per file at a time). */
     public static function sessionKey(string $file): string
@@ -46,7 +46,7 @@ final class Fetch
     }
 
     /**
-     * A fresh fetch state for the import state's 'stahovani' key.
+     * A fresh fetch state for the import state's 'download' key.
      *
      * @param class-string<Remote> $class
      * @param list<string> $steps the steps the administrator ticked; unknown ones are dropped, the first step is always in
@@ -57,7 +57,7 @@ final class Fetch
         $known = array_keys($class::steps());
         $steps = array_values(array_unique([$known[0], ...array_intersect($known, $steps)]));
 
-        return ['web' => rtrim($siteUrl, '/'), 'kroky' => $steps, 'krok' => 0, 'adresa' => '', 'strana' => 0, 'polozek' => 0, 'bajtu' => 0, 'vynechano' => []];
+        return ['web' => rtrim($siteUrl, '/'), 'steps' => $steps, 'step' => 0, 'url' => '', 'page' => 0, 'items' => 0, 'bytes' => 0, 'left_out' => []];
     }
 
     /**
@@ -68,68 +68,68 @@ final class Fetch
      */
     public static function skeleton(string $key, string $siteUrl): array
     {
-        return ['kaleta_fetch' => ['system' => $key, 'site' => rtrim($siteUrl, '/'), 'fetched' => date('c'), 'done' => false, 'skipped' => []], 'steps' => []];
+        return ['talea_fetch' => ['system' => $key, 'site' => rtrim($siteUrl, '/'), 'fetched' => date('c'), 'done' => false, 'skipped' => []], 'steps' => []];
     }
 
     /**
      * Fetches the next pages (at most $pages) into the file; when the last step is finished, the import state moves on to
-     * the analysis ('analyza') and the file is marked done. An optional step (any but the first) whose endpoint answers
+     * the analysis ('analysis') and the file is marked done. An optional step (any but the first) whose endpoint answers
      * 403, 404 or 405 is skipped and noted – a Joomla without the tags component, a Drupal without that vocabulary.
      *
-     * @param array<string, mixed> $state the import state (Import\Batch::newState with 'stahovani' from state())
+     * @param array<string, mixed> $state the import state (Import\Batch::newState with 'download' from state())
      * @param string $token the API token from the session ('' = none)
      * @throws \RuntimeException with an English message for the user; the caller shows it and forgets the token
      */
     public static function step(array &$state, string $token, int $pages = self::PAGES): void
     {
-        $class = Sources::byKey((string) $state['zdroj']);
+        $class = Sources::byKey((string) $state['source']);
         if ($class === null || !is_subclass_of($class, Remote::class)) {
             throw new \RuntimeException('This system has no fetch step.');
         }
-        $path = Batch::path((string) $state['soubor']) ?? throw new \RuntimeException('The file does not exist.');
-        $f = &$state['stahovani'];
+        $path = Batch::path((string) $state['file']) ?? throw new \RuntimeException('The file does not exist.');
+        $f = &$state['download'];
         $site = (string) $f['web'];
         $document = json_decode((string) file_get_contents($path), true);
-        $document = is_array($document) && isset($document['kaleta_fetch']) ? $document : self::skeleton($class::key(), $site);
+        $document = is_array($document) && isset($document['talea_fetch']) ? $document : self::skeleton($class::key(), $site);
         try {
             for ($n = 0; $n < $pages; $n++) {
-                if ($f['krok'] >= count($f['kroky'])) {
-                    $document['kaleta_fetch']['done'] = true;
-                    $document['kaleta_fetch']['skipped'] = $f['vynechano'];
-                    $state['faze'] = 'analyza';
-                    $state['pozice'] = 0;
+                if ($f['step'] >= count($f['steps'])) {
+                    $document['talea_fetch']['done'] = true;
+                    $document['talea_fetch']['skipped'] = $f['left_out'];
+                    $state['phase'] = 'analysis';
+                    $state['position'] = 0;
 
                     return;
                 }
-                $step = (string) $f['kroky'][$f['krok']];
-                $url = $f['adresa'] !== '' ? (string) $f['adresa'] : $class::firstPage($site, $step);
+                $step = (string) $f['steps'][$f['step']];
+                $url = $f['url'] !== '' ? (string) $f['url'] : $class::firstPage($site, $step);
                 try {
-                    [$json, $bytes] = self::get($url, $class::headers($token), $site, self::TOTAL_BYTES - (int) $f['bajtu']);
+                    [$json, $bytes] = self::get($url, $class::headers($token), $site, self::TOTAL_BYTES - (int) $f['bytes']);
                 } catch (\RuntimeException $e) {
-                    if ($f['krok'] > 0 && $f['adresa'] === '' && in_array($e->getCode(), [403, 404, 405], true)) {
-                        $f['vynechano'][] = $step; // an optional step the site does not offer
-                        $f['krok']++;
+                    if ($f['step'] > 0 && $f['url'] === '' && in_array($e->getCode(), [403, 404, 405], true)) {
+                        $f['left_out'][] = $step; // an optional step the site does not offer
+                        $f['step']++;
                         continue;
                     }
                     throw $e;
                 }
-                $f['bajtu'] += $bytes;
+                $f['bytes'] += $bytes;
                 [$items, $included, $next] = $class::page($json, $step);
                 $document['steps'][$step]['data'] = [...($document['steps'][$step]['data'] ?? []), ...$items];
                 if ($included !== []) {
                     $document['steps'][$step]['included'] = [...($document['steps'][$step]['included'] ?? []), ...$included];
                 }
-                $f['polozek'] += count($items);
-                if (++$f['strana'] > self::MAX_PAGES) {
+                $f['items'] += count($items);
+                if (++$f['page'] > self::MAX_PAGES) {
                     throw new \RuntimeException('The site answers more than 5000 pages – the fetch was stopped.');
                 }
                 if ($next === '' || $items === [] || $next === $url) {
-                    $f['krok']++;
-                    $f['adresa'] = '';
+                    $f['step']++;
+                    $f['url'] = '';
                 } elseif (!self::allowedUrl($next, $site)) {
                     throw new \RuntimeException('The site sent a "next page" link that leads outside the site – the fetch was stopped.');
                 } else {
-                    $f['adresa'] = $next;
+                    $f['url'] = $next;
                 }
             }
         } finally {
@@ -151,7 +151,7 @@ final class Fetch
      */
     public static function allowedSite(string $siteUrl): bool
     {
-        $target = \Kaleta\Core\Outbound::url($siteUrl);
+        $target = \Talea\Core\Outbound::url($siteUrl);
 
         return $target !== null && self::allowedUrl($siteUrl, $siteUrl) && (new ImageDownloader($siteUrl))->verifiedIp($target['host']) !== null;
     }
@@ -175,7 +175,7 @@ final class Fetch
         $downloader = new ImageDownloader($siteUrl);
         $limit = min(self::PAGE_BYTES, max(0, $budget));
         for ($hop = 0; $hop <= self::MAX_REDIRECTS; $hop++) {
-            $target = \Kaleta\Core\Outbound::url($url);
+            $target = \Talea\Core\Outbound::url($url);
             if ($target === null || !$downloader->isAllowedUrl($url)) {
                 throw new \RuntimeException('The address does not belong to the old site, or it is not a public http(s) address on the standard port.');
             }
@@ -184,7 +184,7 @@ final class Fetch
                 throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
             }
             $response = self::request($target, $ip, $headers, $limit); // the URL with the host that was resolved and is pinned (3.3.3, N52)
-            if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
+            if (in_array($response['code'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
                 $next = ImageDownloader::redirectTarget($url, $response['location']);
                 if (self::downgradesCredentials($url, $next, $headers)) {
                     throw new \RuntimeException('The site redirected the API request from https to plain http – the token would travel unencrypted, so the fetch was stopped. Use the https address of the site.');
@@ -192,17 +192,17 @@ final class Fetch
                 $url = $next;
                 continue;
             }
-            if ($response['kod'] === 401 || $response['kod'] === 403) {
-                throw new \RuntimeException('The site refused the request – the API token is wrong or missing, or it has no permission. Response:', $response['kod']);
+            if ($response['code'] === 401 || $response['code'] === 403) {
+                throw new \RuntimeException('The site refused the request – the API token is wrong or missing, or it has no permission. Response:', $response['code']);
             }
-            if ($response['kod'] === 404) {
+            if ($response['code'] === 404) {
                 throw new \RuntimeException('The API is not available at this address (the site answered 404). Check the address and that the API is switched on.', 404);
             }
-            if ($response['kod'] !== 200) {
-                throw new \RuntimeException('The site did not answer the API request, it responded with error', $response['kod']);
+            if ($response['code'] !== 200) {
+                throw new \RuntimeException('The site did not answer the API request, it responded with error', $response['code']);
             }
             $json = json_decode($response['data'], true, 64);
-            if (!is_array($json) || !str_contains(strtolower($response['typ']), 'json')) {
+            if (!is_array($json) || !str_contains(strtolower($response['type']), 'json')) {
                 throw new \RuntimeException('The site did not answer with JSON – this is not the address of the API.');
             }
 
@@ -236,14 +236,14 @@ final class Fetch
      *
      * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
      * @param list<string> $headers
-     * @return array{kod: int, typ: string, location: string, data: string}
+     * @return array{code: int, type: string, location: string, data: string}
      */
     private static function request(array $target, string $ip, array $headers, int $limit): array
     {
         $data = '';
         $found = ['content-type' => '', 'location' => ''];
         $ch = curl_init($target['url']);
-        \Kaleta\Core\Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
+        \Talea\Core\Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
         curl_setopt_array($ch, [
             CURLOPT_HTTPGET => true,
             CURLOPT_FOLLOWLOCATION => false,
@@ -277,6 +277,6 @@ final class Fetch
             throw new \RuntimeException('The old site is not responding.');
         }
 
-        return ['kod' => $code, 'typ' => $found['content-type'], 'location' => $found['location'], 'data' => $data];
+        return ['code' => $code, 'type' => $found['content-type'], 'location' => $found['location'], 'data' => $data];
     }
 }

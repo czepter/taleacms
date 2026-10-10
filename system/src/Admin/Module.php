@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Request;
-use Kaleta\Core\Response;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Request;
+use Talea\Core\Response;
 
 /**
  * Base class of admin modules.
@@ -20,14 +20,17 @@ abstract class Module
     /** Identifier in the URL and in the permissions table. */
     public const string IDENT = '';
 
+    /** The table (one of Db::PUBLIC_ID_TABLES) the module's `id` parameter points to; empty = the module has no such record. */
+    public const string TABLE = '';
+
     /** Title in the menu. */
     public const string NAME = '';
 
-    /** Group in the menu: Obsah | Vzhled | Správa (Content | Appearance | Administration). */
+    /** Group in the menu: Content | Appearance | Administration. */
     public const string GROUP = 'Content';
 
     /** Icon in the menu (key into the set in views/admin/icons.php). */
-    public const string ICON = 'clanek';
+    public const string ICON = 'article';
 
     /** Key of the extension (Core\Extensions) the module belongs to; empty = core, cannot be disabled. */
     public const string EXTENSION = '';
@@ -52,7 +55,7 @@ abstract class Module
 
     /**
      * A last check of whom the module is for, after the permission (3.1.1): a module can narrow it further, so the menu
-     * never offers what then answers 403 (the whistleblowing channel only for its readers and administrators).
+     * never offers what then answers 403.
      */
     public static function availableTo(App $app): bool
     {
@@ -73,7 +76,7 @@ abstract class Module
     public function handle(string $action): Response
     {
         $method = 'action' . str_replace('_', '', ucwords($action, '_'));
-        if (!preg_match('/^[a-z][a-z_]*$/D', $action) || !method_exists($this, $method)) {
+        if (!preg_match('/^[a-z][a-z_]*$/', $action) || !method_exists($this, $method)) {
             return $this->error('Unknown action.', 404);
         }
 
@@ -123,6 +126,34 @@ abstract class Module
         return $this->app;
     }
 
+    /**
+     * The row an id parameter (POST, then the address; `$queryOnly` = only the address, for the builder actions whose POST carries another `id`) points to, as the internal integer: the parameter carries the public id (UUID)
+     * and anything else - an integer included - is 0, like a missing record.
+     */
+    protected function idParam(string $name = 'id', ?string $table = null, bool $queryOnly = false): int
+    {
+        $value = $queryOnly ? '' : $this->request->post($name);
+
+        return $this->db->internalId($table ?? static::TABLE, $value !== '' ? $value : $this->request->get($name));
+    }
+
+    /**
+     * A save that names a record which is not there: the id field carries something but no row has that public id (an integer
+     * from outside included). Without this check it would pass for a new record – only an empty field or 0 means "new".
+     */
+    protected function refuseUnknownId(string $name, string $message, ?string $table = null): ?Response
+    {
+        $value = $this->request->post($name);
+
+        return $value !== '' && $value !== '0' && $this->db->internalId($table ?? static::TABLE, $value) === 0 ? $this->error($message, 404) : null;
+    }
+
+    /** The public id of a row of the module's table (or of `$table`) for a link, a form value or a result. */
+    protected function publicId(int $id, ?string $table = null): string
+    {
+        return $this->db->publicId($table ?? static::TABLE, $id);
+    }
+
     /** @param array<string, scalar> $params */
     public function url(string $action = '', array $params = []): string
     {
@@ -134,18 +165,18 @@ abstract class Module
     /** Redirect back to the module with a message (Post/Redirect/Get pattern). */
     /** Return to the site page after editing "directly on the site": only a local path under the site root, never a foreign URL. */
     /**
-     * Language version filter in lists (pages, categories, collection items) by ?jazyk=code.
+     * Language version filter in lists (pages, categories, collection items) by ?language=code.
      *
      * @return array{0: list<string>, 1: string, 2: ?string} site languages (empty = single language), selected code, value of the jazyk column (null = all)
      */
     protected function readLanguageFilter(): array
     {
         $siteSettings = $this->app->settings();
-        $additional = \Kaleta\Core\Language::additional($siteSettings);
-        $languages = $additional === [] ? [] : [\Kaleta\Core\Language::defaults($siteSettings), ...$additional];
-        $code = in_array($this->request->get('jazyk'), $languages, true) ? $this->request->get('jazyk') : '';
+        $additional = \Talea\Core\Language::additional($siteSettings);
+        $languages = $additional === [] ? [] : [\Talea\Core\Language::defaults($siteSettings), ...$additional];
+        $code = in_array($this->request->get('language'), $languages, true) ? $this->request->get('language') : '';
 
-        return [$languages, $code, $code === '' ? null : \Kaleta\Core\Language::column($siteSettings, $code)];
+        return [$languages, $code, $code === '' ? null : \Talea\Core\Language::column($siteSettings, $code)];
     }
 
     protected function redirectToSite(string $target, string $suffix = ''): Response

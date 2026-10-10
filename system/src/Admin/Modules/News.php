@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
- * News and the company blog (in the database table ka_novinky, categories = ka_kategorie).
+ * News and the company blog (in the database table tl_news, categories = tl_categories).
  *
  * Rules:
  *  - an author sees and edits only their own news items and cannot publish,
@@ -18,24 +18,25 @@ use Kaleta\Core\Response;
 final class News extends Module
 {
     public const string IDENT = 'news';
-    public const string EXTENSION = 'novinky';
-    public const string NAME = 'Novinky';
+    public const string TABLE = 'news';
+    public const string EXTENSION = 'news';
+    public const string NAME = 'News';
     public const string GROUP = 'Content';
-    public const string ICON = 'novinky';
+    public const string ICON = 'news';
 
     private const int PER_PAGE = 20;
 
     /**
      * A draft of a news author (level 0, does not publish themselves) waits until an editor or an administrator publishes it.
-     * Kaleta has no other status "sent for approval" – the author can only save a draft and a message tells them an editor
+     * Talea has no other status "sent for approval" – the author can only save a draft and a message tells them an editor
      * will publish it.
      */
-    public const string AWAITING_PUBLICATION = 'c.visible = 0 AND c.autor IN (SELECT idu FROM {uzivatele} WHERE admin = 0)';
+    public const string AWAITING_PUBLICATION = 'c.visible = FALSE AND c.author_id IN (SELECT user_id FROM {users} WHERE admin = 0)';
 
     /** How many news items from authors wait to be published (for editors and administrators; 0 for authors). */
-    public static function countAwaitingPublication(\Kaleta\Core\App $app): int
+    public static function countAwaitingPublication(\Talea\Core\App $app): int
     {
-        return $app->auth()->canPublish() ? (int) $app->db()->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NULL AND ' . self::AWAITING_PUBLICATION) : 0;
+        return $app->auth()->canPublish() ? (int) $app->db()->value('SELECT COUNT(*) FROM {news} c WHERE c.deleted_at IS NULL AND ' . self::AWAITING_PUBLICATION) : 0;
     }
 
     protected function actionList(): Response
@@ -44,61 +45,61 @@ final class News extends Module
         $where = ['1 = 1'];
         $params = [];
         if (($authors = $auth->managedAuthors()) !== null) {
-            $where[] = 'c.autor IN (' . implode(',', $authors) . ')';
+            $where[] = 'c.author_id IN (' . implode(',', $authors) . ')';
         }
-        if (($colorScheme = $this->request->getInt('tema')) > 0) {
-            $where[] = 'c.tema = ?';
+        if (($colorScheme = $this->idParam('category', 'categories')) > 0) {
+            $where[] = 'c.category_id = ?';
             $params[] = $colorScheme;
         }
         // language version: the site's default language is stored in the column as ''
         $s = $this->app->settings();
-        $siteLanguages = ($additional = \Kaleta\Core\Language::additional($s)) === [] ? [] : [\Kaleta\Core\Language::defaults($s), ...$additional];
-        $language = in_array($this->request->get('jazyk'), $siteLanguages, true) ? $this->request->get('jazyk') : '';
+        $siteLanguages = ($additional = \Talea\Core\Language::additional($s)) === [] ? [] : [\Talea\Core\Language::defaults($s), ...$additional];
+        $language = in_array($this->request->get('language'), $siteLanguages, true) ? $this->request->get('language') : '';
         if ($language !== '') {
-            $where[] = 'c.jazyk = ?';
-            $params[] = \Kaleta\Core\Language::column($s, $language);
+            $where[] = 'c.language = ?';
+            $params[] = \Talea\Core\Language::column($s, $language);
         }
-        if (($search = $this->request->get('hledat')) !== '') {
-            $where[] = 'c.titulek LIKE ?';
+        if (($search = $this->request->get('search')) !== '') {
+            $where[] = $this->db->dialect()->likeInsensitive('c.title');
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
-        $state = $this->request->get('stav');
-        $inTrash = $state === 'kos';
-        $where[] = $inTrash ? 'c.smazano IS NOT NULL' : 'c.smazano IS NULL';
+        $state = $this->request->get('status');
+        $inTrash = $state === 'trash';
+        $where[] = $inTrash ? 'c.deleted_at IS NOT NULL' : 'c.deleted_at IS NULL';
         $statusConditions = [
-            'vydane' => 'c.visible = 1 AND c.datum <= NOW()',
-            'plan' => 'c.visible = 1 AND c.datum > NOW()',
-            'koncepty' => 'c.visible = 0',
-            'ke_vydani' => self::AWAITING_PUBLICATION,
+            'published' => 'c.visible = TRUE AND c.published_at <= NOW()',
+            'scheduled' => 'c.visible = TRUE AND c.published_at > NOW()',
+            'drafts' => 'c.visible = FALSE',
+            'awaiting_publication' => self::AWAITING_PUBLICATION,
         ];
         if (isset($statusConditions[$state])) {
             $where[] = $statusConditions[$state];
         }
         $cond = implode(' AND ', $where);
 
-        $total = (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$cond}", $params);
-        $pageNumber = max(1, $this->request->getInt('strana', 1));
+        $total = (int) $this->db->value("SELECT COUNT(*) FROM {news} c WHERE {$cond}", $params);
+        $pageNumber = max(1, $this->request->getInt('page', 1));
         $news = $this->db->all(
-            "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano, c.valid_until, c.review_by,
-                    t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven,
-                    (SELECT COUNT(*) FROM {social_drafts} d WHERE d.idc = c.idc AND d.copied_at IS NULL) AS social_open
-             FROM {novinky} c
-             JOIN {kategorie} t ON t.idt = c.tema
-             LEFT JOIN {uzivatele} u ON u.idu = c.autor
+            "SELECT c.news_id, c.public_id, c.slug, c.title, c.published_at, c.visible, c.visit, c.deleted_at, c.valid_until, c.review_by,
+                    t.name AS category_name, u.name AS author_name, u.username AS author_login, u.admin AS author_level,
+                    (SELECT COUNT(*) FROM {social_drafts} d WHERE d.news_id = c.news_id AND d.copied_at IS NULL) AS social_open
+             FROM {news} c
+             JOIN {categories} t ON t.category_id = c.category_id
+             LEFT JOIN {users} u ON u.user_id = c.author_id
              WHERE {$cond}
-             ORDER BY " . ($inTrash ? 'c.smazano DESC' : 'c.datum DESC') . ", c.idc DESC
+             ORDER BY " . ($inTrash ? 'c.deleted_at DESC' : 'c.published_at DESC') . ", c.news_id DESC
              LIMIT ? OFFSET ?",
             [...$params, self::PER_PAGE, ($pageNumber - 1) * self::PER_PAGE],
         );
 
-        return $this->view('list', 'Novinky', [
+        return $this->view('list', 'News', [
             'news' => $news,
             'total' => $total,
             'pageNumber' => $pageNumber,
             'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
             'category' => Categories::listAll($this->db),
-            'filter' => ['tema' => $colorScheme, 'jazyk' => $language, 'hledat' => $search, 'stav' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
+            'filter' => ['category' => $colorScheme > 0 ? $this->request->get('category') : '', 'language' => $language, 'search' => $search, 'status' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {news} c WHERE c.deleted_at IS NOT NULL' . $auth->articleScope('c.')),
             'toPublish' => self::countAwaitingPublication($this->app),
             'siteLanguages' => $siteLanguages,
         ]);
@@ -108,7 +109,7 @@ final class News extends Module
     {
         // without a category the news item could not be saved: the default one is created and the editor opens right away (no dead end)
         if (Categories::createDefault($this->db, $this->app->settings()) !== null) {
-            $this->app->session->flash('ok', t('News items need a category, so the category “%s” has been created. You can rename it or add more under News → Categories.', (string) (Categories::listAll($this->db)[0]['nazev'] ?? '')));
+            $this->app->session->flash('ok', t('News items need a category, so the category “%s” has been created. You can rename it or add more under News → Categories.', (string) (Categories::listAll($this->db)[0]['name'] ?? '')));
         }
 
         return $this->form($this->defaults());
@@ -118,12 +119,12 @@ final class News extends Module
     private function defaults(): array
     {
         // from the translation overview (2.14): the original in the default language is filled in
-        $original = $this->request->getInt('preklad_z') > 0 ? $this->db->value("SELECT idc FROM {novinky} WHERE idc = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('preklad_z')]) : null;
+        $original = ($originalId = $this->idParam('translation_of')) > 0 ? $this->db->value("SELECT news_id FROM {news} WHERE news_id = ? AND language = '' AND deleted_at IS NULL", [$originalId]) : null;
 
         return [
-            'idc' => 0, 'seo_link' => '', 'titulek' => '', 'uvod' => '', 'text' => '', 'obrazek' => '', 'obrazek_popis' => '', 'obrazek_autor' => '',
-            'tema' => (int) (Categories::listAll($this->db)[0]['idt'] ?? 0), 'autor' => $this->app->auth()->id(), 'datum' => date('Y-m-d H:i:s'),
-            'visible' => 0, 't_slova' => '', 'seo_titulek' => '', 'seo_popis' => '', 'noindex' => 0, 'preklad_z' => $original === null ? null : (int) $original, 'faq' => '', 'jazyk' => '',
+            'news_id' => 0, 'slug' => '', 'title' => '', 'intro' => '', 'text' => '', 'image' => '', 'image_caption' => '', 'image_author' => '',
+            'category_id' => (int) (Categories::listAll($this->db)[0]['category_id'] ?? 0), 'author_id' => $this->app->auth()->id(), 'published_at' => date('Y-m-d H:i:s'),
+            'visible' => 0, 'keywords' => '', 'seo_title' => '', 'seo_description' => '', 'noindex' => 0, 'translation_of' => $original === null ? null : (int) $original, 'faq' => '', 'language' => '',
             'valid_until' => null, 'review_by' => null,
         ];
     }
@@ -138,69 +139,70 @@ final class News extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $action = $this->request->post('provest');
-        if (!in_array($action, ['vydat', 'koncept', 'kategorie', 'kos'], true)) {
-            return $this->back('Unknown action.', '', [], 'chyba');
+        $action = $this->request->post('bulk');
+        if (!in_array($action, ['publish', 'draft', 'category', 'trash'], true)) {
+            return $this->back('Unknown action.', '', [], 'error');
         }
         $auth = $this->app->auth();
-        $category = $action === 'kategorie' ? $this->db->one('SELECT idt, jazyk FROM {kategorie} WHERE idt = ?', [$this->request->postInt('kategorie')]) : null;
-        if ($action === 'kategorie' && $category === null) {
-            return $this->back('Vyberte kategorii.', '', [], 'chyba');
+        $category = $action === 'category' ? $this->db->one('SELECT category_id, language FROM {categories} WHERE category_id = ?', [$this->idParam('category', 'categories')]) : null;
+        if ($action === 'category' && $category === null) {
+            return $this->back('Choose a category.', '', [], 'error');
         }
         $done = 0;
         $skipped = 0;
         // the list's checkboxes are the ones of "Delete selected" (smaz[]); oznacene[] is what the other lists send
-        foreach (array_unique(array_map(intval(...), [...$this->request->postList('smaz'), ...$this->request->postList('oznacene')])) as $id) {
+        foreach (array_unique(array_map(fn (string $uuid): int => $this->db->internalId('news', $uuid), [...$this->request->postList('delete'), ...$this->request->postList('selected')])) as $id) {
             $newsItem = $this->load($id);
-            if ($newsItem === null || (!$auth->canPublish() && ($newsItem['visible'] || $action === 'vydat'))) {
+            if ($newsItem === null || (!$auth->canPublish() && ($newsItem['visible'] || $action === 'publish'))) {
                 $skipped++;
                 continue;
             }
             $now = date('Y-m-d H:i:s');
             match ($action) {
-                'vydat' => $this->db->update('novinky', ['visible' => 1, 'zmeneno' => $now], ['idc' => $id]),
-                'koncept' => $this->db->update('novinky', ['visible' => 0, 'zmeneno' => $now], ['idc' => $id]),
+                'publish' => $this->db->update('news', ['visible' => 1, 'edited_at' => $now], ['news_id' => $id]),
+                'draft' => $this->db->update('news', ['visible' => 0, 'edited_at' => $now], ['news_id' => $id]),
                 // a translation stays linked to its original only in another language version
-                'kategorie' => $this->db->update('novinky', ['tema' => (int) $category['idt'], 'jazyk' => $category['jazyk'], 'preklad_z' => $category['jazyk'] === '' ? null : $newsItem['preklad_z'], 'zmeneno' => $now], ['idc' => $id]),
-                default => $this->db->update('novinky', ['smazano' => $now, 'visible' => 0], ['idc' => $id]),
+                'category' => $this->db->update('news', ['category_id' => (int) $category['category_id'], 'language' => $category['language'], 'translation_of' => $category['language'] === '' ? null : $newsItem['translation_of'], 'edited_at' => $now], ['news_id' => $id]),
+                default => $this->db->update('news', ['deleted_at' => $now, 'visible' => 0], ['news_id' => $id]),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'bulk ' . ['vydat' => 'published', 'koncept' => 'back to draft', 'kategorie' => 'category', 'kos' => 'moved to trash'][$action], mb_substr($newsItem['titulek'], 0, 80));
+            \Talea\Admin\ChangeLog::write($this->app, 'news', 'bulk ' . ['publish' => 'published', 'draft' => 'back to draft', 'category' => 'category', 'trash' => 'moved to trash'][$action], mb_substr($newsItem['title'], 0, 80));
             $done++;
         }
         if ($done > 0) {
-            \Kaleta\Front\Cache::clear();
-            if ($action === 'vydat') {
-                \Kaleta\Core\Notifications::process($this->app); // newly published news items are announced (webhook, IndexNow)
+            \Talea\Front\Cache::clear();
+            if ($action === 'publish') {
+                \Talea\Core\Notifications::process($this->app); // newly published news items are announced (webhook, IndexNow)
             }
         }
         $message = match ($action) {
-            'vydat' => t('News items published: %d.', $done), 'koncept' => t('News items back as drafts: %d.', $done),
-            'kategorie' => t('News items moved to the category: %d.', $done), default => t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $done),
+            'publish' => t('News items published: %d.', $done), 'draft' => t('News items back as drafts: %d.', $done),
+            'category' => t('News items moved to the category: %d.', $done), default => t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $done),
         };
 
-        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'error');
     }
 
     /** Copy of a news item as a draft (tags included) – a quick start for a similar news item. */
     protected function actionDuplicate(): Response
     {
-        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
+        $newsItem = $this->request->isPost() ? $this->load($this->idParam('news_id')) : null;
         if ($newsItem === null) {
             return $this->back();
         }
-        $copy = array_intersect_key($newsItem, array_flip(['uvod', 'text', 'obrazek', 'obrazek_popis', 'obrazek_autor', 'tema', 't_slova', 'seo_popis', 'noindex', 'faq', 'jazyk']));
-        $seo = \Kaleta\Core\Slug::makeUnique($newsItem['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {novinky} WHERE seo_link = ?', [$a]) !== null);
-        $id = $this->db->insert('novinky', $copy + ['titulek' => mb_substr(t('%s (copy)', $newsItem['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
-            'datum' => date('Y-m-d H:i:s'), 'autor' => $this->app->auth()->id(), 'zmeneno' => date('Y-m-d H:i:s')]);
-        $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $newsItem['idc']]);
-        \Kaleta\Core\Search::index($this->db, $id);
+        $copy = array_intersect_key($newsItem, array_flip(['intro', 'text', 'image', 'image_caption', 'image_author', 'category_id', 'keywords', 'seo_description', 'noindex', 'faq', 'language']));
+        $seo = \Talea\Core\Slug::makeUnique($newsItem['slug'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {news} WHERE slug = ?', [$a]) !== null);
+        $id = $this->db->insert('news', $copy + ['title' => mb_substr(t('%s (copy)', $newsItem['title']), 0, 255), 'slug' => $seo, 'visible' => 0,
+            'published_at' => date('Y-m-d H:i:s'), 'author_id' => $this->app->auth()->id(), 'edited_at' => date('Y-m-d H:i:s')]);
+        $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
+        \Talea\Core\Members::copyGroups($this->db, 'news', (int) $newsItem['news_id'], $id);
+        \Talea\Core\Search::index($this->db, $id);
 
-        return $this->back('The copy of the news item is saved as a draft.', 'edit', ['id' => $id]);
+        return $this->back('The copy of the news item is saved as a draft.', 'edit', ['id' => $this->publicId($id)]);
     }
 
     protected function actionEdit(): Response
     {
-        $newsItem = $this->load($this->request->getInt('id'));
+        $newsItem = $this->load($this->idParam());
 
         return $newsItem === null ? $this->error('The news item does not exist or you do not have access to it.', 404) : $this->form($newsItem);
     }
@@ -212,7 +214,10 @@ final class News extends Module
         }
         $auth = $this->app->auth();
         $r = $this->request;
-        $id = $r->postInt('idc');
+        if (($refusal = $this->refuseUnknownId('news_id', 'The news item does not exist or you do not have access to it.')) !== null) {
+            return $refusal;
+        }
+        $id = $this->idParam('news_id');
 
         $previous = null;
         if ($id > 0) {
@@ -226,161 +231,162 @@ final class News extends Module
         }
 
         $data = [
-            'titulek' => $r->post('titulek'),
-            'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('titulek'), 150),
-            'uvod' => \Kaleta\Core\Html::forUser($r->post('uvod'), $this->app->auth()),
-            'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth()),
-            'obrazek' => $r->post('obrazek'),
-            'obrazek_popis' => mb_substr(trim($r->post('obrazek_popis')), 0, 300),
-            'obrazek_autor' => mb_substr(trim($r->post('obrazek_autor')), 0, 120),
-            'tema' => $r->postInt('tema'),
-            'autor' => $r->postInt('autor'),
-            'datum' => self::parseFormDate($r->post('datum')) ?? date('Y-m-d H:i:s'),
-            'visible' => (int) ($r->post('stav') === 'vydany' && $auth->canPublish()),
-            't_slova' => $r->post('t_slova'),
-            'seo_titulek' => mb_substr($r->post('seo_titulek'), 0, 255),
-            'seo_popis' => mb_substr($r->post('seo_popis'), 0, 320),
+            'title' => $r->post('title'),
+            'slug' => slugify($r->post('slug') !== '' ? $r->post('slug') : $r->post('title'), 150),
+            'intro' => \Talea\Core\Html::forUser($r->post('intro'), $this->app->auth()),
+            'text' => \Talea\Core\Html::forUser($r->post('text'), $this->app->auth()),
+            'image' => $r->post('image'),
+            'image_caption' => mb_substr(trim($r->post('image_caption')), 0, 300),
+            'image_author' => mb_substr(trim($r->post('image_author')), 0, 120),
+            'category_id' => $this->idParam('category_id', 'categories'),
+            'author_id' => $this->idParam('author_id', 'users'),
+            'published_at' => self::parseFormDate($r->post('published_at')) ?? date('Y-m-d H:i:s'),
+            'visible' => (int) ($r->post('status') === 'published' && $auth->canPublish()),
+            'keywords' => $r->post('keywords'),
+            'seo_title' => mb_substr($r->post('seo_title'), 0, 255),
+            'seo_description' => mb_substr($r->post('seo_description'), 0, 320),
             'noindex' => (int) $r->postBool('noindex'),
             'faq' => $r->post('faq'),
-            'zmeneno' => date('Y-m-d H:i:s'),
+            'edited_at' => date('Y-m-d H:i:s'),
             // true until and review by (2.10, Core\Validity): empty or not a date = none
-            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')),
-            'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
+            'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')),
+            'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
         ];
 
         $errors = [];
-        if ($data['titulek'] === '') {
-            $errors['titulek'] = 'Fill in the title.';
+        if ($data['title'] === '') {
+            $errors['title'] = 'Enter a title.';
         }
-        if ($this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$data['tema']]) === null) {
-            $errors['tema'] = 'Vyberte kategorii.';
+        if ($this->db->value('SELECT category_id FROM {categories} WHERE category_id = ?', [$data['category_id']]) === null) {
+            $errors['category_id'] = 'Choose a category.';
         }
         $allowedAuthors = $auth->managedAuthors();
-        if ($allowedAuthors !== null && !in_array($data['autor'], $allowedAuthors, true)) {
-            $data['autor'] = $auth->id();
+        if ($allowedAuthors !== null && !in_array($data['author_id'], $allowedAuthors, true)) {
+            $data['author_id'] = $auth->id();
         }
-        if ($this->db->value('SELECT idu FROM {uzivatele} WHERE idu = ?', [$data['autor']]) === null) {
-            $errors['autor'] = 'Select an author.';
+        if ($this->db->value('SELECT user_id FROM {users} WHERE user_id = ?', [$data['author_id']]) === null) {
+            $errors['author_id'] = 'Select an author.';
         }
         if ($errors !== []) {
-            return $this->form(['idc' => $id] + $data + ($previous ?? $this->defaults()), $errors);
+            return $this->form(['news_id' => $id] + $data + ($previous ?? $this->defaults()), $errors);
         }
         // the language version is taken from the category; a translation is linked to the news item in the default language (slug or number)
-        $data['jazyk'] = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$data['tema']]);
-        $original = trim($r->post('preklad_z'));
-        $data['preklad_z'] = $original === '' || $data['jazyk'] === '' ? null
-            : ($this->db->value("SELECT idc FROM {novinky} WHERE (idc = ? OR seo_link = ?) AND jazyk = '' AND idc <> ?", [(int) $original, basename((string) parse_url($original, PHP_URL_PATH)), $id]) ?: null);
+        $data['language'] = (string) $this->db->value('SELECT language FROM {categories} WHERE category_id = ?', [$data['category_id']]);
+        $original = trim($r->post('translation_of'));
+        $data['translation_of'] = $original === '' || $data['language'] === '' ? null
+            : ($this->db->value("SELECT news_id FROM {news} WHERE (public_id = ? OR slug = ?) AND language = '' AND news_id <> ?", [$original, basename((string) parse_url($original, PHP_URL_PATH)), $id]) ?: null);
 
-        if ($r->postBool('oznacit_aktualizaci') && $data['visible']) {
-            $data['aktualizovano'] = date('Y-m-d H:i:s');
+        if ($r->postBool('mark_updated') && $data['visible']) {
+            $data['updated_at'] = date('Y-m-d H:i:s');
         }
-        $data['seo_link'] = $this->findFreeSlug($data['seo_link'], $id);
+        $data['slug'] = $this->findFreeSlug($data['slug'], $id);
         if ($id > 0) {
-            if ([$previous['titulek'], $previous['uvod'], $previous['text']] !== [$data['titulek'], $data['uvod'], $data['text']]) {
+            if ([$previous['title'], $previous['intro'], $previous['text']] !== [$data['title'], $data['intro'], $data['text']]) {
                 self::version($this->db, $previous, $this->app->auth()->id());
             }
-            $this->db->update('novinky', $data, ['idc' => $id]);
-            if ($previous['seo_link'] !== $data['seo_link'] && $previous['visible']) {
+            $this->db->update('news', $data, ['news_id' => $id]);
+            if ($previous['slug'] !== $data['slug'] && $previous['visible']) {
                 // a published news item changed its slug: the old one is redirected so that links and search engines do not lose the page
-                Redirects::add($this->db, 'novinky/' . $previous['seo_link'], 'novinky/' . $data['seo_link']);
+                Redirects::add($this->db, 'news/' . $previous['slug'], 'news/' . $data['slug']);
             }
         } else {
-            $id = $this->db->insert('novinky', $data);
+            $id = $this->db->insert('news', $data);
         }
+        \Talea\Core\Members::saveFromForm($this->app, 'news', $id);
 
-        Media::recordUsage($this->db, $id, $data['obrazek'], $data['uvod'], $data['text']);
-        \Kaleta\Core\Search::index($this->db, $id);
+        Media::recordUsage($this->db, $id, $data['image'], $data['intro'], $data['text']);
+        \Talea\Core\Search::index($this->db, $id);
         // a saved news item clears the unsaved state on the server (for a new one it is kept under the number 0)
-        $this->db->run('DELETE FROM {novinky_koncepty} WHERE kdo = ? AND idc IN (0, ?)', [$auth->id(), $id]);
-        self::tags($this->db, $id, $r->post('stitky'));
+        $this->db->run('DELETE FROM {news_drafts} WHERE user_id = ? AND news_id IN (0, ?)', [$auth->id(), $id]);
+        self::tags($this->db, $id, $r->post('tags'));
         // a newly published news item is announced (webhook, IndexNow); a scheduled one waits for its time - see Core\Notifications
-        \Kaleta\Core\Notifications::process($this->app);
-        if ($data['visible'] && !empty($previous['visible']) && !$data['noindex'] && strtotime($data['datum']) <= time()) {
-            (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($data['seo_link'], $data['jazyk']));
+        \Talea\Core\Notifications::process($this->app);
+        if ($data['visible'] && !empty($previous['visible']) && !$data['noindex'] && strtotime($data['published_at']) <= time()) {
+            (new \Talea\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($data['slug'], $data['language']));
         }
 
         $message = $auth->canPublish() ? 'News item saved.' : 'News item saved. It will appear on the site once an editor publishes it.';
 
-        return $r->post('po_ulozeni') === 'zustat' ? $this->back($message, 'edit', ['id' => $id]) : $this->back($message);
+        return $r->post('after_save') === 'stay' ? $this->back($message, 'edit', ['id' => $this->publicId($id)]) : $this->back($message);
     }
 
     /**
-     * Saving from editing "directly on the site" (views/front/upravit.php): only the title, intro and text. The same rules
+     * Saving from editing "directly on the site" (views/front/edit.php): only the title, intro and text. The same rules
      * apply as for a regular save - permissions via load(), a published news item only with the permission to publish,
      * versions, search, image usage.
      */
     protected function actionSaveText(): Response
     {
         $r = $this->request;
-        $newsItem = $r->isPost() ? $this->load($r->postInt('id')) : null;
+        $newsItem = $r->isPost() ? $this->load($this->idParam()) : null;
         if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
-            return $this->redirectToSite($r->post('zpet'));
+            return $this->redirectToSite($r->post('back'));
         }
-        $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => \Kaleta\Core\Html::forUser($r->post('uvod'), $this->app->auth()), 'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth())];
+        $data = ['title' => mb_substr($r->post('title'), 0, 255), 'intro' => \Talea\Core\Html::forUser($r->post('intro'), $this->app->auth()), 'text' => \Talea\Core\Html::forUser($r->post('text'), $this->app->auth())];
         // an unpublished news item is visible on the site only in the preview
-        $preview = $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() ? '' : 'nahled=1';
-        if ($data['titulek'] === '') {
-            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&chyba=1');
+        $preview = $newsItem['visible'] && strtotime((string) $newsItem['published_at']) <= time() ? '' : 'preview=1';
+        if ($data['title'] === '') {
+            return $this->redirectToSite($r->post('back'), '?' . ($preview !== '' ? $preview . '&' : '') . 'edit=text&error=1');
         }
-        if ([$newsItem['titulek'], $newsItem['uvod'], $newsItem['text']] !== array_values($data)) {
+        if ([$newsItem['title'], $newsItem['intro'], $newsItem['text']] !== array_values($data)) {
             self::version($this->db, $newsItem, $this->app->auth()->id());
         }
-        $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $newsItem['idc']]);
-        Media::recordUsage($this->db, (int) $newsItem['idc'], (string) $newsItem['obrazek'], $data['uvod'], $data['text']);
-        \Kaleta\Core\Search::index($this->db, (int) $newsItem['idc']);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['titulek'], 0, 80));
-        if ($newsItem['visible'] && !$newsItem['noindex'] && strtotime((string) $newsItem['datum']) <= time()) {
-            (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($newsItem['seo_link'], $newsItem['jazyk']));
+        $this->db->update('news', $data + ['edited_at' => date('Y-m-d H:i:s')], ['news_id' => $newsItem['news_id']]);
+        Media::recordUsage($this->db, (int) $newsItem['news_id'], (string) $newsItem['image'], $data['intro'], $data['text']);
+        \Talea\Core\Search::index($this->db, (int) $newsItem['news_id']);
+        \Talea\Admin\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['title'], 0, 80));
+        if ($newsItem['visible'] && !$newsItem['noindex'] && strtotime((string) $newsItem['published_at']) <= time()) {
+            (new \Talea\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($newsItem['slug'], $newsItem['language']));
         }
 
-        return $this->redirectToSite($r->post('zpet'), $preview !== '' ? '?' . $preview : '');
+        return $this->redirectToSite($r->post('back'), $preview !== '' ? '?' . $preview : '');
     }
 
     /**
      * Autosaving an unsaved news item to the server (image/editor.js). It does not save the news item - only the form state
-     * of the signed-in user, so that they can continue writing elsewhere. A POST without the field "pole" deletes the unsaved state.
+     * of the signed-in user, so that they can continue writing elsewhere. A POST without the field "fields" deletes the unsaved state.
      */
     protected function actionDraft(): Response
     {
         if (!$this->request->isPost()) {
             return Response::json(['ok' => false], 405);
         }
-        $idc = $this->request->postInt('idc');
-        if ($idc > 0 && $this->load($idc) === null) {
+        $idc = $this->idParam('news_id');
+        if ($this->request->post('news_id') !== '' && $this->load($idc) === null) {
             return Response::json(['ok' => false], 404);
         }
         $me = $this->app->auth()->id();
-        $data = (string) ($_POST['pole'] ?? '');
+        $data = (string) ($_POST['fields'] ?? '');
         if ($data === '' || strlen($data) > 3_000_000 || !is_array(json_decode($data, true))) {
-            $this->db->delete('novinky_koncepty', ['kdo' => $me, 'idc' => $idc]);
+            $this->db->delete('news_drafts', ['user_id' => $me, 'news_id' => $idc]);
 
-            return Response::json(['ok' => true, 'smazano' => true]);
+            return Response::json(['ok' => true, 'deleted_at' => true]);
         }
-        $this->db->run('INSERT INTO {novinky_koncepty} (kdo, idc, cas, data) VALUES (?, ?, NOW(), ?) ON DUPLICATE KEY UPDATE cas = NOW(), data = VALUES(data)', [$me, $idc, $data]);
+        $this->db->upsert('news_drafts', ['user_id' => $me, 'news_id' => $idc, 'saved_at' => date('Y-m-d H:i:s'), 'data' => $data], ['user_id', 'news_id']);
         if (random_int(1, 40) === 1) {
-            $this->db->run('DELETE FROM {novinky_koncepty} WHERE cas < NOW() - INTERVAL 30 DAY');
+            $this->db->run('DELETE FROM {news_drafts} WHERE saved_at < NOW() - INTERVAL 30 DAY');
         }
 
         return Response::json(['ok' => true]);
     }
 
-    /** Searching news by title for the link dialog in the editor and for the command palette (?uprava=1). */
+    /** Searching news by title for the link dialog in the editor and for the command palette (?edit=1). */
     protected function actionSearchJson(): Response
     {
         $q = mb_substr(trim($this->request->get('q')), 0, 80);
         if (mb_strlen($q) < 2) {
-            return Response::json(['clanky' => []]);
+            return Response::json(['articles' => []]);
         }
-        $editMode = $this->request->get('uprava') === '1';
+        $editMode = $this->request->get('edit') === '1';
         $news = $this->db->all(
-            'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= NOW() AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
-                . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY datum DESC LIMIT 8',
+            'SELECT public_id, title, slug, language, visible AND published_at <= NOW() AS published FROM {news} WHERE deleted_at IS NULL AND ' . $this->db->dialect()->likeInsensitive('title')
+                . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY published_at DESC LIMIT 8',
             ['%' . addcslashes($q, '%_\\') . '%'],
         );
 
-        return Response::json(['clanky' => array_map(fn (array $c): array => [
-            'titulek' => $c['titulek'], 'vydany' => (bool) $c['vydany'],
-            'url' => $editMode ? $this->url('edit', ['id' => $c['idc']]) : $this->app->url(($c['jazyk'] !== '' ? $c['jazyk'] . '/' : '') . 'novinky/' . $c['seo_link']),
+        return Response::json(['articles' => array_map(fn (array $c): array => [
+            'title' => $c['title'], 'published' => (bool) $c['published'],
+            'url' => $editMode ? $this->url('edit', ['id' => $c['public_id']]) : $this->app->url(($c['language'] !== '' ? $c['language'] . '/' : '') . 'news/' . $c['slug']),
         ], $news)]);
     }
 
@@ -390,33 +396,33 @@ final class News extends Module
      */
     protected function actionAssistant(): Response
     {
-        $assistant = new \Kaleta\Core\Assistant($this->app->settings());
+        $assistant = new \Talea\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
-            return Response::json(['chyba' => t('The writing assistant is not enabled or the key is missing (Features).')], 400);
+            return Response::json(['error' => t('The writing assistant is not enabled or the key is missing (Features).')], 400);
         }
         // safeguard against unwanted spending: at most 60 requests per hour per user
         if ($this->hasTooManyRequests()) {
-            return Response::json(['chyba' => t('You have used the assistant 60 times in the last hour. Please try again later.')], 429);
+            return Response::json(['error' => t('You have used the assistant 60 times in the last hour. Please try again later.')], 429);
         }
-        $task = $this->request->post('ukol');
+        $task = $this->request->post('task');
         $image = null;
         if ($task === 'alt') {
             // only files from media/: the path is assembled from verified parts of the URL
-            $image = preg_match('#media/(\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('obrazek'), PHP_URL_PATH), $m) ? KALETA_ROOT . '/media/' . $m[1] : null;
+            $image = preg_match('#media/(\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('image'), PHP_URL_PATH), $m) ? TALEA_ROOT . '/media/' . $m[1] : null;
             $smaller = $image === null ? null : preg_replace('/\.(\w+)$/', '-1200.$1', $image);
             $image = $smaller !== null && is_file($smaller) ? $smaller : $image;
         }
         try {
             $result = $assistant->suggest($task, [
-                'titulek' => $this->request->post('titulek'),
-                'uvod' => $this->request->post('uvod'),
+                'title' => $this->request->post('title'),
+                'intro' => $this->request->post('intro'),
                 'text' => $this->request->post('text'),
-                'stitky_webu' => $task === 'stitky' ? array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 300'), 'nazev') : [],
+                'site_tags' => $task === 'tags' ? array_column($this->db->all('SELECT name FROM {tags} ORDER BY name LIMIT 300'), 'name') : [],
             ], $image);
         } catch (\RuntimeException $e) {
-            return Response::json(['chyba' => t($e->getMessage())], 502);
+            return Response::json(['error' => t($e->getMessage())], 502);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', $task, mb_substr($this->request->post('titulek'), 0, 80));
+        \Talea\Admin\ChangeLog::write($this->app, 'assistant', $task, mb_substr($this->request->post('title'), 0, 80));
 
         return Response::json($result);
     }
@@ -428,13 +434,13 @@ final class News extends Module
         if ($draft === null) {
             return $this->back();
         }
-        $error = \Kaleta\Core\SocialDrafts::update($this->db, $draft['id'], $this->request->post('text'));
+        $error = \Talea\Core\SocialDrafts::update($this->db, $draft['id'], $this->request->post('text'));
         if ($error !== null) {
-            return $this->backToSocial($draft['idc'], $error, 'chyba');
+            return $this->backToSocial((int) $draft['news_id'], $error, 'error');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
+        \Talea\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ': ' . mb_substr((string) $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [(int) $draft['news_id']]), 0, 80));
 
-        return $this->backToSocial($draft['idc'], 'The post draft is saved.');
+        return $this->backToSocial((int) $draft['news_id'], 'The post draft is saved.');
     }
 
     /** "Mark as posted" (and back) on a social post draft. */
@@ -444,36 +450,36 @@ final class News extends Module
         if ($draft === null) {
             return $this->back();
         }
-        \Kaleta\Core\SocialDrafts::markPosted($this->db, $draft['id'], $this->request->postBool('posted'));
+        \Talea\Core\SocialDrafts::markPosted($this->db, $draft['id'], $this->request->postBool('posted'));
 
-        return $this->backToSocial($draft['idc'], $this->request->postBool('posted') ? 'Marked as posted.' : 'Marked as not posted yet.');
+        return $this->backToSocial((int) $draft['news_id'], $this->request->postBool('posted') ? 'Marked as posted.' : 'Marked as not posted yet.');
     }
 
     /** "Suggest with the assistant": the AI assistant rewrites the drafts of the news item – only on this click. */
     protected function actionSocialSuggest(): Response
     {
-        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
+        $newsItem = $this->request->isPost() ? $this->load($this->idParam('news_id')) : null;
         if ($newsItem === null) {
             return $this->back();
         }
         if ($this->hasTooManyRequests()) {
-            return $this->backToSocial((int) $newsItem['idc'], 'You have used the assistant 60 times in the last hour. Please try again later.', 'chyba');
+            return $this->backToSocial((int) $newsItem['news_id'], 'You have used the assistant 60 times in the last hour. Please try again later.', 'error');
         }
-        $error = \Kaleta\Core\SocialDrafts::suggest($this->app, (int) $newsItem['idc']);
+        $error = \Talea\Core\SocialDrafts::suggest($this->app, (int) $newsItem['news_id']);
         if ($error !== null) {
-            return $this->backToSocial((int) $newsItem['idc'], $error, 'chyba');
+            return $this->backToSocial((int) $newsItem['news_id'], $error, 'error');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', 'prispevky', mb_substr((string) $newsItem['titulek'], 0, 80));
+        \Talea\Admin\ChangeLog::write($this->app, 'assistant', 'posts', mb_substr((string) $newsItem['title'], 0, 80));
 
-        return $this->backToSocial((int) $newsItem['idc'], 'The assistant rewrote the drafts – read them before posting.');
+        return $this->backToSocial((int) $newsItem['news_id'], 'The assistant rewrote the drafts – read them before posting.');
     }
 
     /** The draft from the POST, only when the news item is within the signed-in user's scope. */
     private function socialDraft(): ?array
     {
-        $draft = $this->request->isPost() ? \Kaleta\Core\SocialDrafts::find($this->db, $this->request->postInt('id')) : null;
+        $draft = $this->request->isPost() ? \Talea\Core\SocialDrafts::find($this->db, $this->request->postInt('id')) : null;
 
-        return $draft !== null && $this->load($draft['idc']) !== null ? $draft : null;
+        return $draft !== null && $this->load($draft['news_id']) !== null ? $draft : null;
     }
 
     /** Back to the editor, to the "Social posts" panel. */
@@ -481,34 +487,34 @@ final class News extends Module
     {
         $this->app->session->flash($type, t($message));
 
-        return Response::redirect($this->url('edit', ['id' => $idc]) . '#social-posts');
+        return Response::redirect($this->url('edit', ['id' => $this->publicId($idc)]) . '#social-posts');
     }
 
     /**
-     * "Přeložit asistentem" (Translate with the assistant): from the saved version of the news item in the default language
+     * "Translate with the assistant": from the saved version of the news item in the default language
      * it creates a draft in the category of the target language, linked to the original. The translation always waits to be
      * read by a human – it is never published by itself.
      */
     protected function actionTranslate(): Response
     {
-        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
+        $newsItem = $this->request->isPost() ? $this->load($this->idParam('news_id')) : null;
         if ($newsItem === null) {
-            return $this->back('Save the news item first, then it can be translated.', type: 'chyba');
+            return $this->back('Save the news item first, then it can be translated.', type: 'error');
         }
-        $backToNewsItem = fn (string $message): Response => $this->back($message, 'edit', ['id' => $newsItem['idc']], type: 'chyba');
-        $language = $this->request->post('prelozit_do');
-        $assistant = new \Kaleta\Core\Assistant($this->app->settings());
+        $backToNewsItem = fn (string $message): Response => $this->back($message, 'edit', ['id' => $newsItem['public_id']], type: 'error');
+        $language = $this->request->post('translate_to');
+        $assistant = new \Talea\Core\Assistant($this->app->settings());
         if (!$assistant->isReady()) {
             return $backToNewsItem('The writing assistant is not enabled or the key is missing (Features).');
         }
-        if ($newsItem['jazyk'] !== '' || !in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true)) {
-            return $backToNewsItem('Only a news item in the default language can be translated, into one of the other language versions of the site.');
+        if ($newsItem['language'] !== '' || !in_array($language, \Talea\Core\Language::additional($this->app->settings()), true)) {
+            return $backToNewsItem('Only a news item in the default language can be translated, and only into one of the other language versions of the site.');
         }
-        if (($existing = $this->db->value('SELECT idc FROM {novinky} WHERE preklad_z = ? AND jazyk = ?', [$newsItem['idc'], $language])) !== null) {
-            return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => (int) $existing]);
+        if (($existing = $this->db->value('SELECT news_id FROM {news} WHERE translation_of = ? AND language = ?', [$newsItem['news_id'], $language])) !== null) {
+            return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => $this->publicId((int) $existing)]);
         }
         // target category: the counterpart of the original's category, otherwise the first category of the given language
-        $category = $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY (preklad_z <=> ?) DESC, hodnost DESC, idt LIMIT 1', [$language, $newsItem['tema']]);
+        $category = $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY CASE WHEN translation_of = ? THEN 1 ELSE 0 END DESC, weight DESC, category_id LIMIT 1', [$language, $newsItem['category_id']]);
         if ($category === null) {
             return $backToNewsItem('There is no category in the target language yet. Create one in News → Categories (the Language version field).');
         }
@@ -517,55 +523,55 @@ final class News extends Module
         }
 
         set_time_limit(600); // a long text is translated in batches
-        $plainFields = ['titulek', 'seo_titulek', 'seo_popis', 'faq', 't_slova'];
+        $plainFields = ['title', 'seo_title', 'seo_description', 'faq', 'keywords'];
         try {
-            $translation = $assistant->translate(array_map(strval(...), array_intersect_key($newsItem, array_flip([...$plainFields, 'uvod', 'text']))), $language, $plainFields);
+            $translation = $assistant->translate(array_map(strval(...), array_intersect_key($newsItem, array_flip([...$plainFields, 'intro', 'text']))), $language, $plainFields);
         } catch (\RuntimeException $e) {
             return $backToNewsItem(t($e->getMessage()));
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', 'preklad-' . $language, mb_substr($newsItem['titulek'], 0, 80));
+        \Talea\Admin\ChangeLog::write($this->app, 'assistant', 'preklad-' . $language, mb_substr($newsItem['title'], 0, 80));
 
         // the draft takes everything that is not translated from the original (image, author…); not the counters
-        $data = array_intersect_key($newsItem, array_flip(['obrazek', 'autor', 'noindex'])) + [
-            'tema' => (int) $category, 'jazyk' => $language, 'preklad_z' => $newsItem['idc'], 'visible' => 0, 'datum' => date('Y-m-d H:i:s'),
+        $data = array_intersect_key($newsItem, array_flip(['image', 'author_id', 'noindex'])) + [
+            'category_id' => (int) $category, 'language' => $language, 'translation_of' => $newsItem['news_id'], 'visible' => 0, 'published_at' => date('Y-m-d H:i:s'),
         ];
         foreach ($translation as $field => $value) {
-            $data[$field] = $field === 'titulek' ? mb_substr($value, 0, 255) : $value;
+            $data[$field] = $field === 'title' ? mb_substr($value, 0, 255) : $value;
         }
-        $data['seo_link'] = $this->findFreeSlug(slugify($data['titulek'], 100), 0);
-        $id = $this->db->insert('novinky', $data);
-        Media::recordUsage($this->db, $id, (string) $data['obrazek'], $data['uvod'], $data['text']);
-        $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $newsItem['idc']]);
-        \Kaleta\Core\Search::index($this->db, $id);
+        $data['slug'] = $this->findFreeSlug(slugify($data['title'], 100), 0);
+        $id = $this->db->insert('news', $data);
+        Media::recordUsage($this->db, $id, (string) $data['image'], $data['intro'], $data['text']);
+        $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
+        \Talea\Core\Search::index($this->db, $id);
 
-        return $this->back('The translation has been created as a draft. Read it before publishing – the assistant can make mistakes in names, numbers and technical terms.', 'edit', ['id' => $id]);
+        return $this->back('The translation has been created as a draft. Read it before publishing – the assistant can make mistakes in names, numbers and technical terms.', 'edit', ['id' => $this->publicId($id)]);
     }
 
     private function hasTooManyRequests(): bool
     {
-        return (int) $this->db->value("SELECT COUNT(*) FROM {protokol} WHERE kdo = ? AND modul = 'asistent' AND cas > NOW() - INTERVAL 1 HOUR", [$this->app->auth()->id()]) >= 60;
+        return (int) $this->db->value("SELECT COUNT(*) FROM {change_log} WHERE user_id = ? AND module = 'assistant' AND created_at > NOW() - INTERVAL 1 HOUR", [$this->app->auth()->id()]) >= 60;
     }
 
     /** Loads an older version of the news item into the editor; it is saved only when the form is submitted. */
     protected function actionVersions(): Response
     {
-        $newsItem = $this->load($this->request->getInt('id'));
-        $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {novinky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('idr'), $newsItem['idc']]);
+        $newsItem = $this->load($this->idParam());
+        $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {news_revisions} WHERE revision_id = ? AND news_id = ?', [$this->request->getInt('revision'), $newsItem['news_id']]);
         if ($version === null) {
             return $this->error('This version of the news item does not exist.', 404);
         }
-        $this->app->session->flash('info', t('The editor now contains the version from %s. It takes effect once you save the news item.', format_date($version['datum'], true)));
+        $this->app->session->flash('info', t('The editor now contains the version from %s. It takes effect once you save the news item.', format_date($version['created_at'], true)));
 
-        return $this->form(['titulek' => $version['titulek'], 'uvod' => $version['uvod'], 'text' => $version['text']] + $newsItem);
+        return $this->form(['title' => $version['title'], 'intro' => $version['intro'], 'text' => $version['text']] + $newsItem);
     }
 
     /** What changed since the saved version: comparison of an older version with the current wording. */
     protected function actionCompare(): Response
     {
-        $newsItem = $this->load($this->request->getInt('id'));
+        $newsItem = $this->load($this->idParam());
         $version = $newsItem === null ? null : $this->db->one(
-            "SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idr = ? AND r.idc = ?",
-            [$this->request->getInt('idr'), $newsItem['idc'] ?? 0],
+            "SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name FROM {news_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.revision_id = ? AND r.news_id = ?",
+            [$this->request->getInt('revision'), $newsItem['news_id'] ?? 0],
         );
         if ($version === null) {
             return $this->error('This version of the news item does not exist.', 404);
@@ -574,9 +580,9 @@ final class News extends Module
         return $this->view('compare', 'Compare versions', [
             'newsItem' => $newsItem,
             'versions' => $version,
-            'title' => \Kaleta\Core\Diff::html((string) $version['titulek'], (string) $newsItem['titulek']),
-            'home' => \Kaleta\Core\Diff::html((string) $version['uvod'], (string) $newsItem['uvod']),
-            'text' => \Kaleta\Core\Diff::html((string) $version['text'], (string) $newsItem['text']),
+            'title' => \Talea\Core\Diff::html((string) $version['title'], (string) $newsItem['title']),
+            'home' => \Talea\Core\Diff::html((string) $version['intro'], (string) $newsItem['intro']),
+            'text' => \Talea\Core\Diff::html((string) $version['text'], (string) $newsItem['text']),
         ]);
     }
 
@@ -585,16 +591,17 @@ final class News extends Module
     {
         if ($this->request->isPost()) {
             // "check again": the record is put at the front of the queue
-            \Kaleta\Core\Links::recheck($this->app, $this->request->post('kind') ?: 'news', $this->request->postInt('id') ?: $this->request->postInt('idc'));
+            $kind = $this->request->post('kind') ?: 'news';
+            \Talea\Core\Links::recheck($this->app, $kind, $this->db->internalId(\Talea\Core\Links::KINDS[$kind][0] ?? '', $this->request->post('id')));
 
             return $this->back('It will be checked again within a few minutes.', 'links');
         }
         $pages = $this->app->auth()->hasModule('pages');
 
         return $this->view('links', 'Broken links', [
-            'links' => array_values(array_filter(\Kaleta\Core\Links::broken($this->app, 300, $this->app->auth()->articleScope('c.')), fn (array $l): bool => $l['kind'] === 'news' || $pages)),
-            'checked' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL) + (SELECT COUNT(*) FROM {stranky} WHERE links_checked IS NOT NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE links_checked IS NOT NULL)'),
-            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL) + (SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL)'),
+            'links' => array_values(array_filter(\Talea\Core\Links::broken($this->app, 300, $this->app->auth()->articleScope('c.')), fn (array $l): bool => $l['kind'] === 'news' || $pages)),
+            'checked' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {news} WHERE links_checked_at IS NOT NULL) + (SELECT COUNT(*) FROM {pages} WHERE links_checked IS NOT NULL) + (SELECT COUNT(*) FROM {collection_items} WHERE links_checked IS NOT NULL)'),
+            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL) + (SELECT COUNT(*) FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL) + (SELECT COUNT(*) FROM {collection_items} WHERE visible = TRUE AND deleted_at IS NULL)'),
             'isEnabled' => $this->app->settings()->bool('link_check'),
         ]);
     }
@@ -605,17 +612,17 @@ final class News extends Module
             return $this->back();
         }
         $moved = 0;
-        foreach ($this->request->postList('smaz') as $id) {
-            $newsItem = $this->load((int) $id);
+        foreach ($this->request->postList('delete') as $id) {
+            $newsItem = $this->load($this->db->internalId('news', $id));
             if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
                 continue;
             }
             // trash: the news item disappears from the site and from lists, but can be restored for 30 days; it returns as a draft, never published by itself
-            $moved += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'moved to trash', mb_substr($newsItem['titulek'], 0, 80));
+            $moved += $this->db->update('news', ['deleted_at' => date('Y-m-d H:i:s'), 'visible' => 0], ['news_id' => $newsItem['news_id']]);
+            \Talea\Admin\ChangeLog::write($this->app, 'news', 'moved to trash', mb_substr($newsItem['title'], 0, 80));
         }
 
-        return $this->back(t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $moved), type: $moved > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $moved), type: $moved > 0 ? 'ok' : 'error');
     }
 
     /** Restore from the trash: the news item returns as a draft (not published). */
@@ -625,16 +632,16 @@ final class News extends Module
             return $this->back();
         }
         $restored = 0;
-        foreach ($this->request->postList('smaz') as $id) {
-            $newsItem = $this->load((int) $id, true);
+        foreach ($this->request->postList('delete') as $id) {
+            $newsItem = $this->load($this->db->internalId('news', $id), true);
             if ($newsItem === null) {
                 continue;
             }
-            $restored += $this->db->update('novinky', ['smazano' => null], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['titulek'], 0, 80));
+            $restored += $this->db->update('news', ['deleted_at' => null], ['news_id' => $newsItem['news_id']]);
+            \Talea\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['title'], 0, 80));
         }
 
-        return $this->back(t('News items restored: %d. They are back as drafts.', $restored), '', ['stav' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items restored: %d. They are back as drafts.', $restored), '', ['status' => 'trash'], $restored > 0 ? 'ok' : 'error');
     }
 
     /** Permanent deletion from the trash (only someone who can publish). */
@@ -644,21 +651,21 @@ final class News extends Module
             return $this->back();
         }
         $deleted = 0;
-        foreach ($this->request->postList('smaz') as $id) {
-            $newsItem = $this->load((int) $id, true);
+        foreach ($this->request->postList('delete') as $id) {
+            $newsItem = $this->load($this->db->internalId('news', $id), true);
             if ($newsItem !== null) {
-                $deleted += $this->db->delete('novinky', ['idc' => $newsItem['idc']]);
-                \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'deleted permanently', mb_substr($newsItem['titulek'], 0, 80));
+                $deleted += $this->db->delete('news', ['news_id' => $newsItem['news_id']]);
+                \Talea\Admin\ChangeLog::write($this->app, 'news', 'deleted permanently', mb_substr($newsItem['title'], 0, 80));
             }
         }
 
-        return $this->back(t('News items permanently deleted: %d.', $deleted), '', ['stav' => 'kos'], $deleted > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items permanently deleted: %d.', $deleted), '', ['status' => 'trash'], $deleted > 0 ? 'ok' : 'error');
     }
 
     /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */
-    public static function emptyTrash(\Kaleta\Core\Db $db): int
+    public static function emptyTrash(\Talea\Core\Db $db): int
     {
-        return $db->run('DELETE FROM {novinky} WHERE smazano < NOW() - INTERVAL 30 DAY')->rowCount();
+        return $db->run('DELETE FROM {news} WHERE deleted_at < NOW() - INTERVAL 30 DAY')->rowCount();
     }
 
     /**
@@ -667,85 +674,86 @@ final class News extends Module
      */
     private function form(array $newsItem, array $errors = []): Response
     {
+        $newsItem['public_id'] ??= $this->publicId((int) $newsItem['news_id']);
         $auth = $this->app->auth();
         $allowedIds = $auth->managedAuthors();
         $authors = $allowedIds === null
-            ? $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")
-            : $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
+            ? $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2")
+            : $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE user_id IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
         // social post drafts (2.13): only a published news item has them; a news item published through Claude gets them here at the latest
-        $published = $newsItem['idc'] && $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() && empty($newsItem['smazano']);
+        $published = $newsItem['news_id'] && $newsItem['visible'] && strtotime((string) $newsItem['published_at']) <= time() && empty($newsItem['deleted_at']);
         if ($published) {
-            \Kaleta\Core\SocialDrafts::prepare($this->app, (int) $newsItem['idc']);
+            \Talea\Core\SocialDrafts::prepare($this->app, (int) $newsItem['news_id']);
         }
 
-        return $this->view('form', $newsItem['idc'] ? 'Edit news item' : 'New news item', [
-            'socialDrafts' => $published ? \Kaleta\Core\SocialDrafts::forNews($this->db, (int) $newsItem['idc']) : null,
-            'newsItem' => $newsItem,
+        return $this->view('form', $newsItem['news_id'] ? 'Edit news item' : 'New news item', [
+            'socialDrafts' => $published ? \Talea\Core\SocialDrafts::forNews($this->db, (int) $newsItem['news_id']) : null,
+            'newsItem' => $newsItem, 'categoryPublicId' => $this->publicId((int) $newsItem['category_id'], 'categories'), 'authorPublicId' => $this->publicId((int) $newsItem['author_id'], 'users'),
             'errors' => $errors,
             'category' => Categories::listAll($this->db),
             'authors' => $authors,
             'canPublish' => $auth->canPublish(),
-            'draftOnServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {novinky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $newsItem['idc']]),
-            'siteLanguages' => \Kaleta\Core\Language::additional($this->app->settings()) !== [],
+            'draftOnServer' => $this->request->isPost() ? null : $this->db->one('SELECT saved_at, data FROM {news_drafts} WHERE user_id = ? AND news_id = ?', [$auth->id(), (int) $newsItem['news_id']]),
+            'siteLanguages' => \Talea\Core\Language::additional($this->app->settings()) !== [],
             // for a news item in the default language: which languages it can be translated into and which translations already exist (language => number)
-            'translationLanguages' => $newsItem['idc'] && ($newsItem['jazyk'] ?? '') === '' ? \Kaleta\Core\Language::additional($this->app->settings()) : [],
-            'translations' => $newsItem['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $newsItem['idc']])) : [],
-            'original' => empty($newsItem['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$newsItem['preklad_z']]),
-            'assistant' => (new \Kaleta\Core\Assistant($this->app->settings()))->isReady(),
+            'translationLanguages' => $newsItem['news_id'] && ($newsItem['language'] ?? '') === '' ? \Talea\Core\Language::additional($this->app->settings()) : [],
+            'translations' => $newsItem['news_id'] ? $this->db->pairs("SELECT language, public_id FROM {news} WHERE translation_of = ? AND language <> ''", [(int) $newsItem['news_id']]) : [],
+            'original' => empty($newsItem['translation_of']) ? '' : (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$newsItem['translation_of']]),
+            'assistant' => (new \Talea\Core\Assistant($this->app->settings()))->isReady(),
             // content check of the saved version (2.14, Core\ContentCheck); a news item not saved yet has nothing to check
-            'contentCheck' => $newsItem['idc'] && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forNews($newsItem) : [],
-            'tags' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
-                $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $newsItem['idc']]),
-                'nazev',
+            'contentCheck' => $newsItem['news_id'] && !$this->request->isPost() ? \Talea\Core\ContentCheck::forNews($newsItem) : [],
+            'tags' => $this->request->isPost() ? $this->request->post('tags') : implode(', ', array_column(
+                $this->db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [(int) $newsItem['news_id']]),
+                'name',
             )),
-            'allTags' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 500'), 'nazev'),
+            'allTags' => array_column($this->db->all('SELECT name FROM {tags} ORDER BY name LIMIT 500'), 'name'),
             'versions' => $this->db->all(
-                "SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm
-                 FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idc = ? ORDER BY r.idr DESC",
-                [(int) $newsItem['idc']],
+                "SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name
+                 FROM {news_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.news_id = ? ORDER BY r.revision_id DESC",
+                [(int) $newsItem['news_id']],
             ),
         ]);
     }
 
     /** Saves the previous form of the news item; the last 20 versions are kept. */
     /** The previous form of the news item to the history (the last 20 versions) – admin and MCP. */
-    public static function version(\Kaleta\Core\Db $db, array $previous, ?int $who): void
+    public static function version(\Talea\Core\Db $db, array $previous, ?int $who): void
     {
-        $db->insert('novinky_revize', [
-            'idc' => $previous['idc'], 'datum' => $previous['zmeneno'] ?? $previous['datum'], 'kdo' => $who,
-            'titulek' => $previous['titulek'], 'uvod' => $previous['uvod'], 'text' => $previous['text'],
+        $db->insert('news_revisions', [
+            'news_id' => $previous['news_id'], 'created_at' => $previous['edited_at'] ?? $previous['published_at'], 'user_id' => $who,
+            'title' => $previous['title'], 'intro' => $previous['intro'], 'text' => $previous['text'],
         ]);
-        $boundary = $db->value('SELECT idr FROM {novinky_revize} WHERE idc = ? ORDER BY idr DESC LIMIT 1 OFFSET 20', [$previous['idc']]);
+        $boundary = $db->value('SELECT revision_id FROM {news_revisions} WHERE news_id = ? ORDER BY revision_id DESC LIMIT 1 OFFSET 20', [$previous['news_id']]);
         if ($boundary !== null) {
-            $db->run('DELETE FROM {novinky_revize} WHERE idc = ? AND idr <= ?', [$previous['idc'], $boundary]);
+            $db->run('DELETE FROM {news_revisions} WHERE news_id = ? AND revision_id <= ?', [$previous['news_id'], $boundary]);
         }
     }
 
     /** Tags written with commas (at most 20); unknown ones are created – admin and MCP. */
-    public static function tags(\Kaleta\Core\Db $db, int $idc, string $input): void
+    public static function tags(\Talea\Core\Db $db, int $idc, string $input): void
     {
-        $db->delete('novinky_stitky', ['idc' => $idc]);
+        $db->delete('news_tags', ['news_id' => $idc]);
         $names = array_unique(array_filter(array_map(fn (string $n): string => mb_substr(trim($n), 0, 80), explode(',', $input))));
         foreach (array_slice($names, 0, 20) as $name) {
             $seo = slugify($name, 90);
-            $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
-            $ids = $ids !== null ? (int) $ids : $db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo]);
-            $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
+            $ids = $db->value('SELECT tag_id FROM {tags} WHERE slug = ?', [$seo]);
+            $ids = $ids !== null ? (int) $ids : $db->insert('tags', ['name' => $name, 'slug' => $seo]);
+            $db->insertIgnore('news_tags', ['news_id' => $idc, 'tag_id' => $ids]);
         }
     }
 
     /** Loads a news item only if the signed-in user can manage it. A news item in the trash only with $fromTrash (restore, permanent deletion). */
     private function load(int $id, bool $fromTrash = false): ?array
     {
-        $newsItem = $this->db->one('SELECT * FROM {novinky} WHERE idc = ? AND smazano IS ' . ($fromTrash ? 'NOT NULL' : 'NULL'), [$id]);
+        $newsItem = $this->db->one('SELECT * FROM {news} WHERE news_id = ? AND deleted_at IS ' . ($fromTrash ? 'NOT NULL' : 'NULL'), [$id]);
         $authors = $this->app->auth()->managedAuthors();
 
-        return $newsItem === null || ($authors !== null && !in_array((int) $newsItem['autor'], $authors, true)) ? null : $newsItem;
+        return $newsItem === null || ($authors !== null && !in_array((int) $newsItem['author_id'], $authors, true)) ? null : $newsItem;
     }
 
     private function findFreeSlug(string $seo, int $idc): string
     {
-        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ? AND idc <> ?', [$a, $idc]) !== null);
+        return \Talea\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ? AND news_id <> ?', [$a, $idc]) !== null);
     }
 
     /** Value from <input type="datetime-local"> -> DATETIME; empty or invalid = null. */

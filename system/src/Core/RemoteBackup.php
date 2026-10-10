@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Copy of the database backup off the server: FTP/FTPS (another hosting, NAS) or S3-compatible storage
@@ -13,7 +13,7 @@ namespace Kaleta\Core;
 final class RemoteBackup
 {
     /** Which media files are already copied (path => "size:mtime") and to which target. */
-    public const string MEDIA_MANIFEST = Backup::FOLDER . '/media-kopie.json';
+    public const string MEDIA_MANIFEST = Backup::FOLDER . '/media-copy.json';
 
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;
@@ -62,13 +62,13 @@ final class RemoteBackup
         }
         $target = sha1($s->get('remote_backup') . '|' . $s->get('backup_host') . '|' . $s->get('backup_folder'));
         $manifest = is_file(self::MEDIA_MANIFEST) ? json_decode((string) file_get_contents(self::MEDIA_MANIFEST), true) : null;
-        if (!is_array($manifest) || ($manifest['cil'] ?? '') !== $target) {
-            $manifest = ['cil' => $target, 'soubory' => []]; // a new target gets everything
+        if (!is_array($manifest) || ($manifest['target'] ?? '') !== $target) {
+            $manifest = ['target' => $target, 'files' => []]; // a new target gets everything
         }
         $pending = [];
         foreach (SiteExport::mediaFiles() as $path => $size) {
-            $signature = $size . ':' . (int) @filemtime(KALETA_ROOT . '/' . $path);
-            if (($manifest['soubory'][$path] ?? '') !== $signature) {
+            $signature = $size . ':' . (int) @filemtime(TALEA_ROOT . '/' . $path);
+            if (($manifest['files'][$path] ?? '') !== $signature) {
                 $pending[$path] = $signature;
             }
         }
@@ -83,8 +83,8 @@ final class RemoteBackup
                         if (microtime(true) - $start > $seconds) {
                             break;
                         }
-                        $put($path, KALETA_ROOT . '/' . $path);
-                        $manifest['soubory'][$path] = $signature;
+                        $put($path, TALEA_ROOT . '/' . $path);
+                        $manifest['files'][$path] = $signature;
                         $done++;
                     }
                 } finally {
@@ -142,17 +142,17 @@ final class RemoteBackup
         }
         $connection = @ftp_ssl_connect($host, 21, 15);
         if ($connection === false) {
-            throw new \RuntimeException(t('The FTP server %s does not support an encrypted connection (FTPS). Kaleta does not use unencrypted FTP – choose S3 storage.', $host));
+            throw new \RuntimeException('The FTP server ' . $host . ' does not support an encrypted connection (FTPS). Talea does not use unencrypted FTP – choose S3 storage.');
         }
         if (!@ftp_login($connection, $s->get('backup_user'), $s->get('backup_password'))) {
-            throw new \RuntimeException(t('Signing in to the FTP server %s failed.', $host));
+            throw new \RuntimeException('Could not sign in to the FTP server ' . $host . '.');
         }
         ftp_pasv($connection, true);
         $folder = trim($s->get('backup_folder'), '/');
         if ($folder !== '' && !@ftp_chdir($connection, '/' . $folder)) {
             @ftp_mkdir($connection, '/' . $folder);
             if (!@ftp_chdir($connection, '/' . $folder)) {
-                throw new \RuntimeException(t('The folder %s does not exist on the FTP server and cannot be created.', $folder));
+                throw new \RuntimeException('The folder ' . $folder . ' does not exist on the FTP server and cannot be created.');
             }
         }
         $made = [];
@@ -167,7 +167,7 @@ final class RemoteBackup
                 }
             }
             if (!@ftp_put($connection, $remote, $local, FTP_BINARY)) {
-                throw new \RuntimeException(t('The file could not be uploaded to the FTP server.'));
+                throw new \RuntimeException('The file could not be uploaded to the FTP server.');
             }
         };
 
@@ -178,17 +178,17 @@ final class RemoteBackup
     private static function s3(Settings $s): array
     {
         if (!function_exists('curl_init')) {
-            throw new \RuntimeException(t('The cURL extension is missing on the server.'));
+            throw new \RuntimeException('The cURL extension is missing on the server.');
         }
         $host = preg_replace('#^https?://|/.*$#', '', $s->get('backup_host')) ?? '';
         $bucket = trim($s->get('backup_folder'), '/');
-        if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/iD', $host)) {
-            throw new \RuntimeException(t('Fill in the storage address (e.g. s3.eu-central-1.amazonaws.com) and the bucket name.'));
+        if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/i', $host)) {
+            throw new \RuntimeException('Enter the storage address (e.g. s3.eu-central-1.amazonaws.com) and the bucket name.');
         }
         // tests: the storage can be a local fake server (only through the database, it is not in the admin)
         $base = 'https://' . $host;
         $test = $s->get('backup_test_url');
-        if ($test !== '' && preg_match('#^http://(127\.0\.0\.1:\d+)$#D', $test, $m)) {
+        if ($test !== '' && preg_match('#^http://(127\.0\.0\.1:\d+)$#', $test, $m)) {
             [$base, $host] = [$test, $m[1]];
         }
         $put = function (string $remote, string $local) use ($s, $host, $bucket, $base): void {
@@ -205,7 +205,7 @@ final class RemoteBackup
             $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             fclose($f);
             if ($code < 200 || $code >= 300) {
-                throw new \RuntimeException(t('The storage refused the upload (code %s)', (string) $code) . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : ($code === 0 ? ': ' . t('could not connect') : '')) . '.');
+                throw new \RuntimeException('The storage rejected the upload (code ' . $code . ')' . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : ($code === 0 ? ': could not connect' : '')) . '.');
             }
         };
 

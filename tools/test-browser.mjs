@@ -1,4 +1,4 @@
-// Kaleta – browser test (called by tools/test-browser.sh): walks the admin, the builder, the news editor, the menu
+// Talea – browser test (run by tests/Browser/BrowserWalkTest.php): walks the admin, the builder, the news editor, the menu
 // editor and the public site in Chrome and fails on any uncaught script error or console error.
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
 // for screenshots of new screens, to look at them).
@@ -10,7 +10,7 @@ const { BASE, PASSWORD, CHROME, SHOTS } = process.env;
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
-await context.addInitScript(() => { try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* ignore */ } });
+await context.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
 const page = await context.newPage();
 const errors = [];
 let where = '';
@@ -20,37 +20,46 @@ const watch = (p) => {
 };
 watch(page);
 page.on('frameattached', () => {}); // builder canvases are iframes of the same page: their errors arrive through the page
-const canvas = () => page.frameLocator('.st-platno iframe').first();
+const canvas = () => page.frameLocator('.bd-canvas iframe').first();
 let steps = 0;
 
+const ONLY = process.env.ONLY; // while developing: run only the steps whose name contains this text (the sign-in always runs)
 async function step(name, fn) {
+  if (ONLY && !/^(sign in|find a page)/.test(name) && !name.includes(ONLY)) { return; }
   where = name;
   const before = errors.length;
   try {
     await fn();
     await page.waitForTimeout(300);
   } catch (e) {
-    errors.push(`${name}: ${e.message.split('\n')[0]}`);
+    errors.push(`${name}: ${e.message.split('\n').slice(0, 4).join(' ')}`);
   }
   steps++;
-  console.log(`  ${errors.length === before ? 'ok   ' : 'CHYBA'}  ${name}`);
+  console.log(`  ${errors.length === before ? 'ok   ' : 'FAIL '}  ${name}`);
 }
 const visit = (url) => page.goto(BASE + url, { waitUntil: 'networkidle' });
 
 await step('sign in', async () => {
   await visit('/admin.php');
-  await page.fill('input[name="user"]', 'admin');
+  await page.fill('input[name="username"]', 'admin');
   await page.fill('input[name="password"]', PASSWORD);
   await Promise.all([page.waitForNavigation(), page.press('input[name="password"]', 'Enter')]);
 });
 
-for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', '/admin.php?module=pages&action=edit&id=1',
+// the administration names a page by its public id: take the first one from the list
+let PAGE = '';
+await step('find a page', async () => {
+  await visit('/admin.php?module=pages');
+  PAGE = new URL(await page.locator('a[href*="action=edit&id="]').first().getAttribute('href'), BASE).searchParams.get('id') ?? '';
+});
+
+for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', `/admin.php?module=pages&action=edit&id=${PAGE}`,
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
   '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
-  '/admin.php?module=bookings', '/admin.php?module=whistleblowing']) {
+  '/admin.php?module=bookings']) {
   await step(`open ${url}`, () => visit(url));
 }
 
@@ -62,49 +71,71 @@ await step('appearance: change a colour and preview', async () => {
 
 await step('appearance: save to the draft look, preview bar, publish', async () => {
   await visit('/admin.php?module=appearance');
+  await page.getByRole('tab', { name: 'Colours' }).click(); // the save button is hidden on the tabs outside the form (Style presets, Import and export)
   // the colour field may sit on a tab that is not open – set the value directly
-  await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#335577'; }); });
-  await Promise.all([page.waitForNavigation(), page.locator('.vzhled-ulozit input[type="submit"]').click()]);
-  await page.locator('#vzhled-koncept').waitFor();
+  await page.evaluate(() => { document.querySelectorAll('[name="ds[colors][primary]"]').forEach((i) => { i.value = '#335577'; }); });
+  await Promise.all([page.waitForNavigation(), page.locator('.appearance-save input[type="submit"]').click()]);
+  await page.locator('#appearance-draft').waitFor();
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-draft-bar.png`, fullPage: false }); }
-  await Promise.all([page.waitForNavigation(), page.locator('#vzhled-koncept button.tl').click()]);
-  if (await page.locator('#vzhled-koncept').count()) { throw new Error('the draft look is still there after publishing'); }
+  await Promise.all([page.waitForNavigation(), page.locator('#appearance-draft button.btn').click()]);
+  if (await page.locator('#appearance-draft').count()) { throw new Error('the draft look is still there after publishing'); }
 });
 
-await step('3.5 dashboard: Connect Claude leads until Claude is connected, its Copy button works', async () => {
-  await visit('/admin.php');
-  const card = page.locator('#pripojit-claude');
-  await card.waitFor();
-  const ordered = await page.evaluate(() => {
-    const [a, b, c] = [document.getElementById('pripojit-claude'), document.querySelector('.pruvodce'), document.getElementById('ask-claude-nadpis')];
-    return Boolean(a && b && c && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING && b.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
-  });
-  if (!ordered) { throw new Error('the dashboard does not show Connect Claude, then First steps, then Ask Claude'); }
-  const copy = card.locator('[data-kopirovat]');
-  const label = await copy.textContent();
-  await copy.click();
-  await page.waitForFunction(([el, before]) => el.textContent !== before, [await copy.elementHandle(), label]);
-  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/dashboard-connect-claude.png`, fullPage: false }); }
+const SAMPLE = 'Quick brown fox ÄÖÜäöüß ěščřžýáíéúůťďňĚŠČŘŽ ąćęłńóśźżĄĆĘŁŃÓŚŹŻ € –'; // English, German, Czech, Polish; check-english: allow
+
+await step('fonts: every library family has the glyphs of English, German, Czech and Polish (no fallback)', async () => {
+  await visit('/admin.php?module=appearance');
+  const names = await page.$$eval('#ds-font-heading option[value^="lib:"]', (o) => o.map((x) => x.textContent.trim()));
+  if (names.length < 25) { throw new Error('the font library has only ' + names.length + ' families'); }
+  const lacking = await page.evaluate(async ([names, sample]) => {
+    const ctx = document.createElement('canvas').getContext('2d');
+    const width = (family, ch, fallback) => { ctx.font = `400 48px "${family}", ${fallback}`; return ctx.measureText(ch).width; };
+    const result = [];
+    for (const name of names) {
+      await document.fonts.load(`400 48px "${name}"`, sample);
+      // a glyph the font lacks comes from the fallback – and two different fallbacks measure it differently
+      const missing = [...new Set(sample.replace(/ /g, ''))].filter((ch) => width(name, ch, 'monospace') !== width(name, ch, 'serif'));
+      if (missing.length) { result.push(name + ': ' + missing.join('')); }
+    }
+    return result;
+  }, [names, SAMPLE]);
+  if (lacking.length) { throw new Error('glyphs fall back to another font in ' + lacking.join(' | ')); }
 });
 
-await step('3.5 a new page from a template stays hidden until its build is published, then goes live', async () => {
-  await visit('/admin.php?module=pages&action=new');
-  await page.fill('#titulek', 'Browser template page');
-  await page.selectOption('#sablona', 'landing');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular button[type="submit"]').first().click()]);
-  await page.locator('.st-lista .st-skryta').waitFor();
-  const visitor = await browser.newContext();
-  if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 404) { throw new Error('the empty template page is live before its build is published'); }
-  await page.locator('.st-lista button.st-tl-hlavni').click();
-  const anyway = page.locator('dialog[open] .st-tl-hlavni');
-  if (await anyway.waitFor({ timeout: 1500 }).then(() => true, () => false)) { await anyway.click(); }
-  await page.locator('.st-lista .st-skryta').waitFor({ state: 'detached' });
-  if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 200) { throw new Error('the page is not live after its first publish'); }
-  await visitor.close();
+await step('fonts: choose library fonts, publish, the public page loads only those files from its own host', async () => {
+  await visit('/admin.php?module=appearance');
+  await page.getByRole('tab', { name: 'Fonts and sizes' }).click();
+  await page.locator('#ds-font-heading').selectOption('lib:playfair-display');
+  await page.locator('#ds-font-body').selectOption('lib:source-sans-3');
+  const sample = await page.locator('[data-font-sample="ds[font_heading]"]').evaluate((e) => getComputedStyle(e).fontFamily);
+  if (!sample.startsWith('"Playfair Display"')) { throw new Error('the sample under the picker does not show the chosen font: ' + sample); }
+  await Promise.all([page.waitForNavigation(), page.locator('.appearance-save input[type="submit"]').click()]);
+  await page.locator('#appearance-draft').waitFor();
+  await Promise.all([page.waitForNavigation(), page.locator('#appearance-draft button.btn').click()]);
+
+  const requests = [];
+  const listen = (r) => requests.push(r.url());
+  page.on('request', listen);
+  await visit('/');
+  page.off('request', listen);
+  const outside = requests.filter((u) => !u.startsWith('data:') && !u.startsWith('blob:') && new URL(u).host !== new URL(BASE).host);
+  if (outside.length) { throw new Error('requests to another host: ' + outside.join(', ')); }
+  const fontFiles = requests.filter((u) => /\.woff2?($|\?)/.test(u)).map((u) => new URL(u).pathname.replace(/^.*\/image\/fonts\//, ''));
+  const expected = ['playfair-display/playfair-display.woff2', 'source-sans-3/source-sans-3.woff2'];
+  if (fontFiles.filter((f) => !expected.includes(f)).length) { throw new Error('unexpected font files: ' + fontFiles.join(', ')); }
+  for (const f of expected) { if (!fontFiles.includes(f)) { throw new Error('font file not loaded: ' + f + ' (got ' + fontFiles.join(', ') + ')'); } }
+  await page.evaluate(() => document.fonts.ready);
+  const used = await page.evaluate(() => ({
+    loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')),
+    heading: getComputedStyle(document.querySelector('h1, h2') || document.body).fontFamily,
+    body: getComputedStyle(document.querySelector('p') || document.body).fontFamily,
+  }));
+  if (!used.loaded.includes('Playfair Display') || !used.loaded.includes('Source Sans 3')) { throw new Error('document.fonts: ' + used.loaded.join(', ')); }
+  if (!used.heading.startsWith('"Playfair Display"') || !used.body.startsWith('"Source Sans 3"')) { throw new Error('computed families: ' + used.heading + ' / ' + used.body); }
 });
 
 await step('builder: select, style, mobile, edit text', async () => {
-  await visit('/admin.php?module=pages&action=builder&id=1');
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
   await canvas().locator('h1').first().click();
   await page.waitForTimeout(500);
@@ -116,7 +147,7 @@ await step('builder: select, style, mobile, edit text', async () => {
   await page.waitForTimeout(600);
   await canvas().locator('h1').first().click();
   await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => page.getByText('Content', { exact: true }).first().click());
-  const field = page.locator('.st-panel textarea, .st-panel input[type="text"]').first();
+  const field = page.locator('.bd-panel textarea, .bd-panel input[type="text"]').first();
   if (await field.count()) { await field.fill('Browser test heading'); await page.waitForTimeout(2500); } // autosave of the draft
 });
 
@@ -130,130 +161,476 @@ await step('builder: select the parent element', async () => {
   await page.waitForTimeout(300);
 });
 
-await step('builder: insert elements from the Add panel by click and by drag', async () => {
-  // broken from 1.4.0 to 3.4.0: newElement() built the element under English keys the builder does not read (3.4.1)
-  const count = () => canvas().locator('[data-ka-id]').count();
-  // the canvas redraws after the autosave – on a slow CI runner that can take a few seconds, so wait for the change
-  const grew = async (before) => { for (let i = 0; i < 25; i++) { if ((await count()) > before) { return true; } await page.waitForTimeout(200); } return false; };
-  await page.locator('.st-zalozky [role="tab"]').first().click();
-  await page.waitForTimeout(300);
-  for (const name of ['Heading', 'Image', 'Button']) {
-    const before = await count();
-    await page.locator('.st-prvky button', { hasText: new RegExp(`^${name}$`) }).first().click();
-    if (!(await grew(before))) { throw new Error(`clicking "${name}" in the Add panel inserted nothing`); }
-    await page.locator('.st-zalozky [role="tab"]').first().click();
-    await page.waitForTimeout(300);
-  }
-  const before = await count();
-  await page.locator('.st-prvky button', { hasText: /^Text$/ }).first().dragTo(canvas().locator('h1').first());
-  if (!(await grew(before))) { throw new Error('dragging "Text" from the Add panel onto the canvas inserted nothing'); }
-});
-
 await step('builder: element tree and search', async () => {
-  const search = page.locator('input.st-hledat').first();
+  const search = page.locator('input.bd-search').first();
   if (await search.count()) { await search.fill('text'); await page.waitForTimeout(400); await search.fill(''); }
-  const tree = page.locator('.st-strom [role="treeitem"], .st-strom li').nth(1);
+  const tree = page.locator('.bd-tree [role="treeitem"], .bd-tree li').nth(1);
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
 
-await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" publishes the menu, the colours keep waiting', async () => {
-  await visit('/admin.php?module=appearance');
-  await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#225588'; }); });
-  await Promise.all([page.waitForNavigation(), page.locator('.vzhled-ulozit input[type="submit"]').click()]);
-  await visit('/admin.php?module=menu');
-  await Promise.all([page.waitForNavigation(), page.locator('form[data-menu] button[name="publikovat"]').click()]);
-  const bar = page.locator('#vzhled-koncept');
-  await bar.waitFor();
-  const areas = await bar.locator('summary').textContent();
-  if (!/colours/.test(areas) || /menu/.test(areas)) { throw new Error(`the bar should list only the colours after publishing the menu, it says "${areas.trim()}"`); }
-  const tall = (await bar.boundingBox()).height;
-  await page.setViewportSize({ width: 390, height: 844 });
-  await visit('/admin.php?module=pages');
-  const phone = (await page.locator('#vzhled-koncept').boundingBox()).height;
-  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-bar-phone.png` }); }
-  await page.setViewportSize({ width: 1440, height: 900 });
-  if (tall > 70 || phone > 120) { throw new Error(`the draft look bar is ${tall} px tall on a desktop and ${phone} px on a phone`); }
-  await page.locator('#vzhled-koncept summary').click();
-  if (!(await page.locator('#vzhled-koncept details[open] button.nebezpecne').isVisible())) { throw new Error('the details of the draft look do not open'); }
-  await Promise.all([page.waitForNavigation(), page.locator('#vzhled-koncept button.tl').click()]);
-});
-
-await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspector; a one-line top bar; header options only in the header', async () => {
-  await visit('/admin.php?module=pages&action=builder&id=1');
+await step('builder: dialogs, classes, library and clipboard', async () => {
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
-  await canvas().locator('h1').first().dblclick();
-  await page.keyboard.type('Zq');
-  await page.waitForTimeout(200);
-  const typed = await page.locator('.st-panel [data-pole="text"] input').inputValue();
-  if (!typed.includes('Zq')) { throw new Error(`the inspector still shows "${typed}" while typing on the canvas`); }
-  if (!(await page.locator('.st-lista .st-cip-koncept').count())) { throw new Error('the top bar does not show the draft while typing on the canvas'); }
-  await page.keyboard.press('Enter');
+  for (const title of ['Help and keyboard shortcuts (?)', 'Published versions', 'Share a link to the draft preview']) {
+    const button = page.locator(`[title="${title}"]`).first();
+    if (!(await button.count())) { throw new Error(`no "${title}" button`); }
+    await button.click();
+    await page.waitForTimeout(500);
+    if (title.startsWith('Share')) { await page.getByRole('button', { name: 'Create link' }).click(); await page.waitForTimeout(1200); }
+    await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
+    await page.waitForTimeout(200);
+  }
+  await page.locator('.bd-library button').first().click(); // a ready-made section is inserted
   await page.waitForTimeout(1200);
-  const top = (await page.locator('.st-lista').boundingBox()).height;
-  if (top > 60) { throw new Error(`the builder top bar with a draft is ${top} px tall at 1440 px`); }
-  await page.locator('.st-lista .st-lista-vice').click();
-  if (!(await page.locator('#st-lista-vice button', { hasText: 'Versions' }).isVisible())) { throw new Error('Versions are not in the ⋯ menu'); }
-  await page.keyboard.press('Escape');
-  await canvas().locator('section').first().click({ position: { x: 5, y: 5 } });
+  await canvas().locator('h1').first().click();
   await page.waitForTimeout(400);
-  if (/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('a page section offers the header-only options'); }
-  await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
-  await page.waitForTimeout(1500);
-  await canvas().locator('[data-ka-id]').first().click({ position: { x: 3, y: 3 } });
-  await page.waitForTimeout(400);
-  if (!/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('the header part does not offer the header options'); }
+  await page.getByRole('tab', { name: 'Advanced' }).first().click();
+  const className = page.locator('input[list="bd-dl-classes"]').first();
+  await className.fill('demo-card');
+  await className.press('Enter');
+  await page.waitForTimeout(500);
+  await page.locator('.bd-class a').first().click(); // the panel of the shared class
+  await page.waitForTimeout(800);
+  await page.locator('[title="Back to element"]').click();
+  await page.locator('button[aria-label="More actions"]').first().click();
+  await page.locator('.bd-more button', { hasText: 'Copy for another Talea site' }).first().click();
+  await page.waitForTimeout(800);
+  await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(500);
 });
 
-await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix it" in the check, the image field and the media picker', async () => {
-  await visit('/admin.php?module=pages&action=builder&id=1');
+await step('builder: structured data (Product), preview, checklist, publish, JSON-LD on the page', async () => {
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
-  await canvas().locator('section').first().click({ position: { x: 5, y: 5 } });
-  await page.locator('.st-zalozky [role="tab"]').first().click();
-  await page.locator('.st-knihovna button', { hasText: 'Hero with image' }).first().click();
-  await page.waitForTimeout(1500);
-  const hero = canvas().locator('section').nth(1);
-  if (await hero.locator('h1').count() || !(await hero.locator('h2').count())) { throw new Error('the ready-made section below the first one kept its H1'); }
-  await hero.locator('h2').first().click();
-  await page.locator('.st-uroven button', { hasText: /^H1$/ }).click();
-  await page.waitForTimeout(800);
-  await page.locator('.st-lista .st-tl-hlavni').click();
-  const fix = page.locator('dialog[open] button', { hasText: 'Fix it' });
-  await fix.waitFor();
-  await fix.click();
-  if (/more than one main heading/.test(await page.locator('dialog[open]').textContent())) { throw new Error('"Fix it" left the second H1'); }
-  await page.locator('dialog[open] button', { hasText: 'Back to editing' }).click();
-  await hero.getByText('Choose an image').click();
+  const pageUrl = await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).page.url);
+  await page.locator('.bd-library button, .bd-panel button', { hasText: 'Structured data' }).first().click(); // the element is inserted and selected
+  await page.waitForTimeout(1200);
+  const control = page.locator('.bd-sd');
+  await control.waitFor({ timeout: 5000 });
+  await control.locator('input[type="search"]').fill('prod');
+  await control.locator('.bd-sd-picker select').selectOption('Product');
+  await control.getByLabel('Name *').first().fill('Oak chair');
+  if ((await control.locator('.bd-sd-check').innerText()).includes('Required')) { throw new Error('name is filled but the checklist still lists a required property'); }
+  await control.getByRole('button', { name: 'Add Offers' }).click();
+  await control.locator('.bd-sd-nested').getByLabel('Price').first().fill('149.9');
+  await control.locator('.bd-sd-nested').getByLabel('Price currency').first().fill('EUR');
+  await page.waitForTimeout(300);
+  const preview = await control.locator('.bd-sd-preview').innerText();
+  const ld = JSON.parse(preview);
+  if (ld['@type'] !== 'Product' || ld.name !== 'Oak chair' || String(ld.offers[0].price) !== '149.9' || ld.offers[0]['@type'] !== 'Offer') { throw new Error('the preview does not mirror the form: ' + preview.slice(0, 200)); }
+  if (!(await control.locator('.bd-sd-check').innerText()).includes('Recommended')) { throw new Error('the checklist does not hint at the recommended properties'); }
+  await control.getByRole('button', { name: 'Fill from page' }).click();
+  await page.waitForTimeout(2500); // autosave of the draft
+  await page.getByRole('button', { name: 'Publish' }).first().click();
+  const confirm = page.locator('dialog[open] button', { hasText: /Publish/ }).first();
+  if (await confirm.count()) { await confirm.click(); }
+  await page.waitForTimeout(2000);
+  await visit(pageUrl.replace(BASE, ''));
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const graph = blocks.flatMap((b) => JSON.parse(b)['@graph'] ?? []);
+  if (!graph.some((n) => n['@type'] === 'Product' && n.name === 'Oak chair')) { throw new Error('the Product node is not in the JSON-LD of the public page'); }
+});
+
+
+// ---------- compose: direct manipulation on the canvas (spacing, resize, column dividers, toolbar, move) ----------
+// Each scenario ends as a valid SAVED build that survives a reload: the test reads the draft back from a fresh load of the builder.
+const COMPOSE = JSON.parse(process.env.COMPOSE_PAGES || '{}');
+const TOKENS = ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl'];
+const frameIn = (p) => p.frameLocator('.bd-canvas iframe').first();
+const node = (p, id) => frameIn(p).locator(`[data-tl-id="${id}"]`).first();
+const handle = (p, name) => frameIn(p).locator(`#tl-bd-overlay [data-bdo="${name}"]`).first();
+const find = (children, id) => { for (const c of children ?? []) { if (c.id === id) { return c; } const f = find(c.children, id); if (f) { return f; } } return null; };
+const parentOf = (children, id, parent = null) => { for (const c of children ?? []) { if (c.id === id) { return parent; } const f = parentOf(c.children, id, c); if (f !== undefined) { return f; } } return undefined; };
+const expect = (condition, message) => { if (!condition) { throw new Error(message); } };
+
+async function openBuilder(p, kind) {
+  await p.goto(`${BASE}/admin.php?module=pages&action=builder&id=${COMPOSE[kind]}`, { waitUntil: 'networkidle' });
+  await p.waitForFunction(() => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id="cs1"], [data-tl-id="cf1"]'));
+  await p.waitForTimeout(500);
+}
+/** The draft as the server has it: wait until the autosave is done, then read it from a fresh load. */
+async function savedBuild(p, kind) {
+  await p.waitForFunction(() => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && s.saved === JSON.stringify(s.build); }, null, { timeout: 15000 });
+  await openBuilder(p, kind);
+  return p.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build);
+}
+async function pick(p, id, corner = false) {
+  const b = await node(p, id).boundingBox();
+  await p.mouse.click(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2);
+  await p.waitForFunction((x) => window.taleaBuilder.state.selected === x, id);
+  await handle(p, 'margin-bottom').waitFor({ timeout: 5000 });
+}
+const scaleOf = (p) => p.evaluate(() => window.taleaBuilder.scale());
+const undoDepth = (p) => p.evaluate(() => window.taleaBuilder.state.undo.length);
+async function mouseDrag(p, locator, dx, dy) {
+  await locator.scrollIntoViewIfNeeded();
+  const b = await locator.boundingBox();
+  const x = b.x + b.width / 2;
+  const y = b.y + b.height / 2;
+  await p.mouse.move(x, y);
+  await p.mouse.down();
+  await p.mouse.move(x + dx / 2, y + dy / 2, { steps: 4 });
+  await p.mouse.move(x + dx, y + dy, { steps: 6 });
+  await p.mouse.up();
+  await p.waitForTimeout(300);
+}
+const grid = (p, id) => node(p, id).boundingBox();
+
+await step('compose (mouse): space between two sections, one undo step per gesture', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cs1', true);
+  const m = await scaleOf(page);
+  const before = await undoDepth(page);
+  await mouseDrag(page, handle(page, 'margin-bottom'), 0, 30 * m);
+  expect((await undoDepth(page)) === before + 1, 'one gesture is not exactly one undo step');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  expect((await undoDepth(page)) === before && !find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style.base.margin_bottom, 'undo did not revert the gesture');
+  await pick(page, 'cs1', true);
+  await mouseDrag(page, handle(page, 'margin-bottom'), 0, 30 * m);
+  const build = await savedBuild(page, 'mouse');
+  const value = (find(build.children, 'cs1').style ?? {}).base?.margin_bottom;
+  expect(TOKENS.includes(value), `the section's margin is not a spacing token: ${value}`);
+});
+
+await step('compose (mouse): a phone edit leaves desktop alone, "reset to inherited" removes it', async () => {
+  await openBuilder(page, 'mouse');
+  const desktop = JSON.stringify(find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style.base);
+  await page.getByRole('button', { name: 'Mobile' }).first().click();
+  await page.waitForTimeout(1200);
+  await pick(page, 'cs1', true);
+  await mouseDrag(page, handle(page, 'margin-bottom'), 0, 60 * (await scaleOf(page)));
+  const style = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style;
+  expect(style.mobile && style.mobile.margin_bottom, 'the phone edit did not write the mobile state');
+  expect(JSON.stringify(style.base) === desktop, 'the phone edit changed the desktop style');
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  const reset = page.locator('.bd-property.bd-overridden .bd-reset').first();
+  await reset.waitFor({ timeout: 5000 });
+  await reset.click();
   await page.waitForTimeout(400);
-  if (await page.locator('.st-panel [data-pole="priorita"] select').inputValue() !== '') { throw new Error('the image of a ready-made section does not load automatically'); }
-  await page.locator('.st-obrazek-vybrat').click();
-  const picker = page.locator('dialog.galerie-okno[open]');
-  await picker.waitFor();
+  const after = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style;
+  expect(!after.mobile, 'reset to inherited did not remove the override');
+  await page.getByRole('button', { name: 'Desktop' }).first().click();
+  await page.waitForTimeout(800);
+});
+
+await step('compose (mouse): a failed save mid-gesture never corrupts the tree', async () => {
+  await openBuilder(page, 'mouse');
+  await page.route(/build_save/, (r) => r.abort());
+  await pick(page, 'cs4', true);
+  await mouseDrag(page, handle(page, 'padding-top'), 0, 30 * (await scaleOf(page)));
+  const state = await page.evaluate(() => JSON.parse(JSON.stringify(window.taleaBuilder.state.build)));
+  expect(find(state.children, 'cs4').style.base.padding_y, 'the gesture did not reach the tree while the save failed');
+  expect(state.children.length === 4 && find(state.children, 'cimg'), 'the tree is damaged');
+  await page.unroute(/build_save/);
+  const build = await savedBuild(page, 'mouse');
+  expect(find(build.children, 'cs4').style.base.padding_y, 'the change was lost after the save recovered');
+});
+
+await step('compose (mouse): a row of three columns becomes 2 : 1 : 1 with the dividers', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'txt1');
+  await page.keyboard.press('Escape'); // the parent: the first column; its row shows the dividers
+  await handle(page, 'divider-0').waitFor({ timeout: 5000 });
+  const box = await grid(page, 'cg3');
+  await mouseDrag(page, handle(page, 'divider-0'), (2 / 12) * box.width * 0.97, 0);
+  await mouseDrag(page, handle(page, 'divider-1'), (1 / 12) * box.width * 0.97, 0);
+  const build = await savedBuild(page, 'mouse');
+  expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `the columns are ${find(build.children, 'cg3').style.base.columns}`);
+});
+
+await step('compose (mouse): an image is resized to half width', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const b = await node(page, 'cimg').boundingBox();
+  await mouseDrag(page, handle(page, 'resize-se'), -b.width / 2, 0);
+  const build = await savedBuild(page, 'mouse');
+  const width = find(build.children, 'cimg').style.base.width;
+  expect(width === '50%' || width === '58.33%' || width === '41.67%', `the image width is ${width}`);
+  expect(width === '50%', `the image did not snap to half the width: ${width}`);
+});
+
+await step('compose (mouse): the toolbar groups and ungroups, Shift-click selects several', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'txt4');
+  const second = await node(page, 'btn1').boundingBox();
+  await page.keyboard.down('Shift');
+  await page.mouse.click(second.x + second.width / 2, second.y + second.height / 2);
+  await page.keyboard.up('Shift');
+  await page.waitForFunction(() => window.taleaBuilder.selectedIds().length === 2, null, { timeout: 5000 }).catch(async () => {
+    throw new Error('Shift-click did not add the button to the selection: ' + await page.evaluate(() => JSON.stringify([window.taleaBuilder.state.selected, window.taleaBuilder.state.multi])));
+  });
+  await frameIn(page).locator('#tl-bd-overlay [data-bdo="group"]').first().click();
+  await page.waitForTimeout(400);
+  let build = await savedBuild(page, 'mouse');
+  const wrapper = parentOf(build.children, 'btn1');
+  expect(wrapper && wrapper.type === 'container' && parentOf(build.children, 'txt4').id === wrapper.id && wrapper.id !== 'cola', 'the two elements were not grouped into a container');
+  await page.evaluate((id) => window.taleaBuilder.selection(id), wrapper.id); // a click on the wrapper would hit its content
+  await page.keyboard.press('Control+Shift+g');
+  await page.waitForTimeout(400);
+  build = await savedBuild(page, 'mouse');
+  expect(parentOf(build.children, 'btn1').id === 'cola' && !find(build.children, wrapper.id), 'ungroup did not put the elements back');
+});
+
+await step('compose (mouse): a button moves to the right column with the toolbar grip', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'btn1');
+  const target = await node(page, 'txt5').boundingBox();
+  const grip = await frameIn(page).locator('#tl-bd-overlay [data-bdo="move"]').first().boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height * 0.8, { steps: 12 });
+  await page.waitForTimeout(150);
+  await page.mouse.up();
   await page.waitForTimeout(500);
-  const png = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 64; c.height = 48; const g = c.getContext('2d'); g.fillStyle = '#3366aa'; g.fillRect(0, 0, 64, 48); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
-  await picker.locator('input[type=file]').first().setInputFiles({ name: 'team-photo.png', mimeType: 'image/png', buffer: png });
-  await picker.locator('.galerie-polozka', { hasText: 'team-photo.png' }).waitFor();
-  if (/No images here yet/.test(await picker.locator('.galerie-mrizka').textContent())) { throw new Error('"No images here yet." stays next to the uploaded image'); }
-  await picker.locator('.galerie-polozka').first().click();
-  await page.locator('.st-obrazek-pole img.st-obrazek-nahled:visible').waitFor();
-  await page.locator('.st-obrazek-odebrat').click();
-  if (await page.locator('.st-obrazek-pole img.st-obrazek-nahled:visible').count()) { throw new Error('Remove left the image in the field'); }
+  const build = await savedBuild(page, 'mouse');
+  const owner = parentOf(build.children, 'btn1');
+  expect(owner && owner.id === 'colb', `the button sits in ${owner && owner.id}, not in the right column`);
+});
+
+await step('compose (mouse): the marquee selects several elements, an image file dropped on the canvas is uploaded and inserted', async () => {
+  await openBuilder(page, 'mouse');
+  const a = await node(page, 'cg3').boundingBox();
+  await page.mouse.move(a.x + 2, a.y - 1);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width - 2, a.y + a.height + 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const count = await page.evaluate(() => window.taleaBuilder.selectedIds().length);
+  expect(count >= 1, 'the marquee selected nothing');
+  // a file dragged from the computer: a synthetic drop with a 1x1 PNG
+  const before = await page.evaluate(() => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length);
+  await frameIn(page).locator('body').evaluate(async (body) => {
+    const doc = body.ownerDocument;
+    const canvas = doc.createElement('canvas');
+    canvas.width = canvas.height = 16;
+    canvas.getContext('2d').fillRect(0, 0, 8, 8);
+    const png = await new Promise((done) => canvas.toBlob(done, 'image/png'));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([png], 'dropped.png', { type: 'image/png' }));
+    const r = doc.querySelector('[data-tl-id="cimg"]').getBoundingClientRect();
+    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.8, dataTransfer: transfer, bubbles: true, cancelable: true };
+    doc.querySelector('[data-tl-id="cimg"]').dispatchEvent(new DragEvent('dragover', at));
+    doc.querySelector('[data-tl-id="cimg"]').dispatchEvent(new DragEvent('drop', at));
+  });
+  await page.waitForFunction((n) => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length > n, before, { timeout: 15000 });
+});
+
+// keyboard only
+await step('compose (keyboard): Enter walks the handles, arrows change the spacing', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cs1', true);
+  await page.keyboard.press('Enter');
+  expect(await frameIn(page).locator('#tl-bd-overlay [data-bdo-h]:focus').count() === 1, 'Enter did not move the focus to a handle');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  expect(await frameIn(page).locator('#tl-bd-overlay [data-bdo="margin-bottom"]:focus').count() === 1, 'Tab does not walk the handles in order');
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(150);
+  const build = await savedBuild(page, 'keys');
+  expect(find(build.children, 'cs1').style.base.margin_bottom === 'xs', `margin is ${find(build.children, 'cs1').style.base.margin_bottom}`);
+});
+
+await step('compose (keyboard): the divider handles set 2 : 1 : 1', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'txt1');
+  await page.keyboard.press('Escape');
+  await handle(page, 'divider-0').waitFor({ timeout: 5000 });
+  await handle(page, 'divider-0').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  await handle(page, 'divider-1').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  const build = await savedBuild(page, 'keys');
+  expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `the columns are ${find(build.children, 'cg3').style.base.columns}`);
+});
+
+await step('compose (keyboard): Alt+arrows resize an image to half width', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cimg');
+  for (let i = 0; i < 6; i++) { await page.keyboard.press('Alt+ArrowLeft'); await page.waitForTimeout(120); }
+  const build = await savedBuild(page, 'keys');
+  expect(find(build.children, 'cimg').style.base.width === '50%', `the image width is ${find(build.children, 'cimg').style.base.width}`);
+});
+
+await step('compose (keyboard): Ctrl+Shift+arrow moves the button into the next column, arrows select siblings', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'txt4');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction(() => window.taleaBuilder.state.selected === 'btn1');
+  await page.keyboard.press('Control+Shift+ArrowRight');
+  await page.waitForTimeout(300);
+  const build = await savedBuild(page, 'keys');
+  expect(parentOf(build.children, 'btn1').id === 'colb', `the button is in ${parentOf(build.children, 'btn1').id}`);
+});
+
+// touch
+await step('compose (touch): the four tasks by pointer events of a finger', async () => {
+  const touch = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'en-GB', hasTouch: true });
+  await touch.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
+  const tp = await touch.newPage();
+  watch(tp);
+  await tp.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+  await tp.fill('input[name="username"]', 'admin');
+  await tp.fill('input[name="password"]', PASSWORD);
+  await Promise.all([tp.waitForNavigation(), tp.press('input[name="password"]', 'Enter')]);
+  const cdp = await touch.newCDPSession(tp);
+  const finger = async (from, to) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
+    for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * i / 10, y: from.y + (to.y - from.y) * i / 10 }] }); }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await tp.waitForTimeout(350);
+  };
+  const centre = async (locator) => { const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const tap = async (id, corner) => { const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
+  await openBuilder(tp, 'touch');
+
+  await tap('cs1', true);
+  const m = await scaleOf(tp);
+  const from = await centre(handle(tp, 'margin-bottom'));
+  await finger(from, { x: from.x, y: from.y + 30 * m });
+
+  await tap('txt1');
+  await tp.evaluate(() => window.taleaBuilder.selection('col1'));
+  await handle(tp, 'divider-0').waitFor();
+  await tp.waitForTimeout(1000);
+  const grid3 = await grid(tp, 'cg3');
+  let d = await centre(handle(tp, 'divider-0'));
+  await finger(d, { x: d.x + (2 / 12) * grid3.width * 0.97, y: d.y });
+  d = await centre(handle(tp, 'divider-1'));
+  await finger(d, { x: d.x + (1 / 12) * grid3.width * 0.97, y: d.y });
+
+  await tap('cimg');
+  const image = await node(tp, 'cimg').boundingBox();
+  const corner = await centre(handle(tp, 'resize-se'));
+  await finger(corner, { x: corner.x - image.width / 2, y: corner.y });
+
+  // moving by touch: the toolbar grip starts "tap the place", then the place is tapped
+  await tp.evaluate(() => window.taleaBuilder.selection('btn1')); // the image's toolbar covers the button above it, so it is selected by the editor
+  await handle(tp, 'margin-bottom').waitFor();
+  await tp.waitForTimeout(1000); // the canvas scrolls smoothly to the selection, the toolbar follows
+  const grip = await centre(frameIn(tp).locator('#tl-bd-overlay [data-bdo="move"]').first());
+  await tp.touchscreen.tap(grip.x, grip.y);
+  await tp.waitForFunction(() => !!window.taleaBuilder.state.placing);
+  await tp.waitForTimeout(400);
+  const right = await node(tp, 'txt5').boundingBox();
+  await tp.touchscreen.tap(right.x + right.width / 2, right.y + right.height * 0.8);
+  await tp.waitForTimeout(500);
+
+  const build = await savedBuild(tp, 'touch');
+  expect(TOKENS.includes((find(build.children, 'cs1').style ?? {}).base?.margin_bottom), 'touch: no spacing token written');
+  expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `touch: the columns are ${find(build.children, 'cg3').style.base.columns}`);
+  expect(find(build.children, 'cimg').style.base.width === '50%', `touch: the image width is ${find(build.children, 'cimg').style.base.width}`);
+  expect(parentOf(build.children, 'btn1').id === 'colb', 'touch: the button did not move to the right column');
+  await touch.close();
+});
+
+// free placement: a Compose section (phase B)
+await step('compose (free placement): convert, resize and move by grid lines, overlap with a layer, stack on a phone, tidy up, back to a stack', async () => {
+  await page.goto(`${BASE}/admin.php?module=pages&action=builder&id=${COMPOSE.free}`, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id="cf1"]'));
+  await page.waitForTimeout(500);
+  const buildNow = () => page.evaluate(() => JSON.parse(JSON.stringify(window.taleaBuilder.state.build)));
+  const cell = async (id) => { const s = find((await buildNow()).children, id).style?.base ?? {}; return { c0: +s.grid_column_start, c1: +s.grid_column_end, r0: +s.grid_row_start, r1: +s.grid_row_end, layer: s.layer ?? '' }; };
+  // the canvas is swapped once the autosave is done: wait for it before the next gesture
+  const settle = async () => { await page.waitForFunction(() => { const st = window.taleaBuilder.state; return !st.timer && !st.saving && !st.retries; }, null, { timeout: 15000 }); await page.waitForTimeout(1200); };
+  const select = async (id, wait) => { await settle(); await page.evaluate((x) => window.taleaBuilder.selection(x), id); await handle(page, wait).waitFor({ timeout: 5000 }); await page.waitForTimeout(400); };
+  const pitch = async () => page.evaluate(() => { const d = window.taleaBuilder.previewDoc(); const c = d.querySelector('.tl-compose'); const cs = d.defaultView.getComputedStyle(c); return (c.getBoundingClientRect().width + parseFloat(cs.columnGap)) / 12 * window.taleaBuilder.scale(); });
+  const toggle = () => frameIn(page).locator('#tl-bd-overlay [data-bdo="compose"]').first();
+
+  // Stack -> Compose keeps the positions: every child gets a cell
+  await select('cf1', 'compose');
+  await toggle().click();
+  await page.waitForFunction(() => window.taleaBuilder.previewDoc().querySelector('.tl-compose'), null, { timeout: 15000 });
+  await page.waitForTimeout(1200);
+  let a = await cell('cfa');
+  let b = await cell('cfb');
+  expect(a.c0 === 1 && a.c1 === 13 && a.r0 >= 1 && a.r1 > a.r0 && b.r0 >= a.r1 - 1 && b.r1 > b.r0, `the conversion gave no sane cells: ${JSON.stringify([a, b])}`);
+
+  // resize the text to six columns (the right edge handle), then move it three columns to the right (the grip)
+  await select('cfa', 'resize-se');
+  const p1 = await pitch();
+  await mouseDrag(page, handle(page, 'resize-se'), -6 * p1, 0);
+  a = await cell('cfa');
+  expect(a.c0 === 1 && a.c1 === 7, `the text should span lines 1–7, it is ${a.c0}–${a.c1}`);
+  await select('cfa', 'compose-move');
+  await mouseDrag(page, handle(page, 'compose-move'), 3 * p1, 0);
+  a = await cell('cfa');
+  expect(a.c0 === 4 && a.c1 === 10, `the text should span lines 4–10, it is ${a.c0}–${a.c1}`);
+
+  // the arrow keys step one cell
+  await handle(page, 'compose-move').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(500);
+  a = await cell('cfa');
+  expect(a.c0 === 5 && a.c1 === 11, `ArrowRight should move the text one column, it is ${a.c0}–${a.c1}`);
+
+  // overlap: put the image on top of the text with the layer scale (the grip drags it to the text's rows)
+  const rowOf = async (id) => page.evaluate((x) => window.taleaBuilder.previewDoc().querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect().top, id);
+  await select('cfb', 'compose-move');
+  const dy = ((await rowOf('cfa')) - (await rowOf('cfb'))) * (await scaleOf(page));
+  await mouseDrag(page, handle(page, 'compose-move'), 2 * p1, dy);
+  a = await cell('cfa');
+  b = await cell('cfb');
+  expect(b.r0 < a.r1 && a.r0 < b.r1 && b.c0 < a.c1 && a.c0 < b.c1, `the image does not overlap the text: ${JSON.stringify([a, b])}`);
+  await frameIn(page).locator('#tl-bd-overlay [data-bdo="layer-up"]').first().click();
+  await page.waitForTimeout(400);
+  expect((await cell('cfb')).layer === 'above', 'the layer button did not set "above"');
+
+  // phone: the canvas stacks the section in source order, no overlap
+  await page.getByRole('button', { name: 'Mobile' }).first().click();
+  await page.waitForTimeout(1500);
+  const boxes = await page.evaluate(() => { const d = window.taleaBuilder.previewDoc(); return ['cfa', 'cfb'].map((x) => { const r = d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect(); return [r.top, r.bottom]; }); });
+  expect(boxes[0][1] <= boxes[1][0] + 1, `at phone width the elements still overlap: ${JSON.stringify(boxes)}`);
+  expect(await page.evaluate(() => window.taleaBuilder.previewDoc().defaultView.getComputedStyle(window.taleaBuilder.previewDoc().querySelector('.tl-compose')).display) === 'flex', 'the compose section does not stack on a phone');
+  await page.getByRole('button', { name: 'Desktop' }).first().click();
+  await page.waitForTimeout(1500);
+
+  // tidy up: one clean column in reading order, no overlap
+  await select('cf1', 'tidy');
+  await frameIn(page).locator('#tl-bd-overlay [data-bdo="tidy"]').first().click();
+  await page.waitForTimeout(600);
+  a = await cell('cfa');
+  b = await cell('cfb');
+  const [upper, lower] = a.r0 < b.r0 ? [a, b] : [b, a];
+  const order = find((await buildNow()).children, 'cf1').children.map((c) => c.id);
+  expect(a.c0 === 1 && a.c1 === 13 && b.c0 === 1 && b.c1 === 13 && upper.r1 <= lower.r0, `tidy up did not make a clean column: ${JSON.stringify([a, b])}`);
+  expect(order[0] === (a.r0 < b.r0 ? 'cfa' : 'cfb'), `the source order does not follow the reading order: ${order}`);
+
+  // back to a stack drops every placement; compose again places them anew
+  await select('cf1', 'compose');
+  await toggle().click();
+  await page.waitForTimeout(800);
+  let tree = await buildNow();
+  expect(find(tree.children, 'cf1').content.layout === 'stack' && !find(tree.children, 'cfa').style?.base?.grid_column_start && !find(tree.children, 'cfb').style?.base?.layer, 'switching back to a stack left placements behind');
+  await select('cf1', 'compose');
+  await toggle().click();
+  await page.waitForTimeout(1200);
+  tree = await savedBuild(page, 'free');
+  expect(find(tree.children, 'cf1').content.layout === 'compose' && find(tree.children, 'cfa').style?.base?.grid_row_end && find(tree.children, 'cfb').style?.base?.grid_column_end, 'the saved draft lacks the compose layout or the placements');
 });
 
 await step('builder: site header', async () => {
-  await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
+  await visit('/admin.php?module=parts&action=builder&type=header&language=');
   await page.waitForTimeout(1500);
   await canvas().locator('nav, header').first().click().catch(() => {});
 });
 
 await step('news editor: type and format', async () => {
   await visit('/admin.php?module=news&action=new');
-  await page.fill('input[name="titulek"]', 'Browser test');
+  await page.fill('input[name="title"]', 'Browser test');
   const editor = page.locator('[contenteditable="true"]').first();
   if (await editor.count()) {
     await editor.click();
     await page.keyboard.type('Some text for the browser test.');
     await page.keyboard.press('Control+A');
-    const bold = page.locator('button[data-prikaz="bold"], button[title*="Bold"]').first();
+    const bold = page.locator('button[data-command="bold"], button[title*="Bold"]').first();
     if (await bold.count()) { await bold.click(); }
   }
 });
@@ -265,10 +642,10 @@ await step('newsletter: draft and preview', async () => {
   await page.fill('textarea[name="intro"]', 'Hello,\n\nhere is what we have been working on this spring. The full offer is at https://example.com/offer');
   await page.fill('input[name="button_label"]', 'See all news');
   await page.fill('input[name="button_url"]', '/news');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
-  const preview = page.locator('iframe.rozesilka-nahled');
+  await Promise.all([page.waitForNavigation(), page.locator('form.form input[type="submit"]').first().click()]);
+  const preview = page.locator('iframe.mailing-preview');
   await preview.waitFor();
-  await page.frameLocator('iframe.rozesilka-nahled').locator('h1').waitFor({ timeout: 5000 });
+  await page.frameLocator('iframe.mailing-preview').locator('h1').waitFor({ timeout: 5000 });
   if (SHOTS) {
     await page.screenshot({ path: `${SHOTS}/newsletter-admin.png`, fullPage: true });
     const src = await preview.getAttribute('src');
@@ -282,13 +659,13 @@ await step('newsletter: draft and preview', async () => {
 });
 
 await step('site parts: every header and footer template renders', async () => {
-  for (const [part, templates] of [['hlavicka', ['klasicka', 'na-stred', 's-listou', 'minimalni']], ['paticka', ['sloupce', 'kompaktni', 'tiraz', 'vyzva']]]) {
+  for (const [part, templates] of [['header', ['classic', 'centered', 'with-bar', 'minimal']], ['footer', ['columns', 'compact', 'imprint', 'cta']]]) {
     for (const template of templates) {
-      await visit(`/admin.php?module=parts&action=templates&typ=${part}`);
-      await Promise.all([page.waitForNavigation(), page.locator(`input[name="sablona"][value="${template}"] ~ button`).click()]);
-      await visit(`/?cast=${part}&stavba=koncept`);
+      await visit(`/admin.php?module=parts&action=templates&type=${part}`);
+      await Promise.all([page.waitForNavigation(), page.locator(`input[name="template"][value="${template}"] ~ button`).click()]);
+      await visit(`/?part=${part}&build=draft`);
       if (SHOTS) {
-        const box = page.locator(part === 'hlavicka' ? 'header' : 'footer').last();
+        const box = page.locator(part === 'header' ? 'header' : 'footer').last();
         await box.screenshot({ path: `${SHOTS}/part-${part}-${template}.png` });
       }
     }
@@ -298,17 +675,17 @@ await step('site parts: every header and footer template renders', async () => {
 
 await step('menu editor', async () => {
   await visit('/admin.php?module=menu');
-  const add = page.getByRole('button', { name: /Add|Přidat/ }).first();
+  const add = page.getByRole('button', { name: /Add/ }).first();
   if (await add.count()) { await add.click().catch(() => {}); }
 });
 
 await step('public site: home, phone menu, cookies', async () => {
   await visit('/');
-  const accept = page.getByRole('button', { name: /Accept|Allow|Přijmout/ }).first();
+  const accept = page.getByRole('button', { name: /Accept|Allow/ }).first();
   if (await accept.count()) { await accept.click().catch(() => {}); }
   await page.setViewportSize({ width: 390, height: 844 });
   await visit('/');
-  const toggle = page.locator('.ka-nav-prepinac, button[popovertarget]').first();
+  const toggle = page.locator('.tl-nav-switch, button[popovertarget]').first();
   if (await toggle.count()) { await toggle.click().catch(() => {}); await page.waitForTimeout(300); }
   await page.setViewportSize({ width: 1440, height: 900 });
 });
@@ -317,343 +694,64 @@ for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
   await step(`site ${url}`, () => visit(url));
 }
 
-// 3.5: axe-core (installed next to playwright-core, injected from the local file – no CDN) on the starter's home page, contact
-// page and a news item, light mode, the cookie bar showing (test-browser.sh switches on lead attribution, a policy link and
-// the accessibility toolbar), at 1440 and 390 px; any WCAG 2.0/2.1/2.2 A or AA violation fails. Dark mode: below (3.6).
-const AXE = require.resolve('axe-core/axe.min.js');
-const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const axeViolations = async (p, label) => {
-  await p.addScriptTag({ path: AXE });
-  const result = await p.evaluate((tags) => window.axe.run(document, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
-  return result.violations.map((v) => `${label} ${v.id} (${v.impact}, ${v.nodes.length}×): ${v.nodes[0].target.join(' ')}`);
-};
-// the three starters (test-browser.sh): firemni on BASE, remeslo and poradenstvi on the next two ports
-const STARTER_SITES = Object.fromEntries((process.env.STARTERS || `firemni=${BASE}`).split(',').map((s) => s.split('=')));
-let newsItem = '';
-for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
-  await step(`accessibility (axe, ${label}): home, contact and a news item with the cookie bar`, async () => {
-    const ctx = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: 'light', isMobile: width < 768, hasTouch: width < 768 });
-    const p = await ctx.newPage();
-    watch(p);
-    try {
-      if (!newsItem) {
-        await p.goto(BASE + '/news', { waitUntil: 'networkidle' });
-        newsItem = await p.locator('main a[href*="/news/"]').evaluateAll((links) => links.map((a) => new URL(a.href).pathname).find((path) => /^\/news\/[^/]+$/.test(path) && !path.includes('/category/') && !path.includes('/tag/')) || '');
-        if (!newsItem) { throw new Error('no news item linked from /news'); }
-      }
-      const found = [];
-      for (const url of ['/', '/contact', newsItem]) {
-        await p.goto(BASE + url, { waitUntil: 'networkidle' });
-        if (await p.locator('#cookies-lista:not([hidden])').count() !== 1) { throw new Error(`${url}: the cookie bar is not showing`); }
-        await p.addScriptTag({ path: AXE });
-        const result = await p.evaluate((tags) => window.axe.run(document, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
-        for (const v of result.violations) { found.push(`${url} ${v.id} (${v.impact}, ${v.nodes.length}×): ${v.nodes[0].target.join(' ')}`); }
-      }
-      if (found.length) { throw new Error(`axe found ${found.length} WCAG violation(s): ${found.join(' | ')}`); }
-    } finally {
-      await ctx.close();
-    }
+await step('galleries: justified rows, slideshow, viewer by keyboard and swipe, Esc, focus returns', async () => {
+  await visit('/gallery-test');
+  const accept = page.getByRole('button', { name: /Accept|Allow/ }).first();
+  if (await accept.count()) { await accept.click().catch(() => {}); }
+  // accessibility: every photo has alt text and every gallery a name
+  const bad = await page.evaluate(() => [...document.querySelectorAll('.tl-gallery img')].filter((i) => !i.getAttribute('alt')).length
+    + [...document.querySelectorAll('.tl-gallery')].filter((g) => !g.getAttribute('aria-label')).length);
+  if (bad) { throw new Error(`${bad} gallery photos without alt or galleries without a name`); }
+  // justified rows: every row ends at the same right edge (the script evened them out) and no photo is cropped
+  const rows = await page.evaluate(() => {
+    const g = document.querySelector('.tl-gallery--justified');
+    const box = g.getBoundingClientRect();
+    const lines = new Map();
+    g.querySelectorAll('img').forEach((i) => { const r = i.getBoundingClientRect(); lines.set(Math.round(r.top), Math.max(lines.get(Math.round(r.top)) ?? 0, r.right)); });
+    return { width: box.right, rights: [...lines.values()] };
   });
-}
-
-// 3.6 (UXP-01): every starter in dark mode (dark_mode = auto, the browser prefers dark) – until 3.5 the dark palette kept the
-// light primary and secondary, so links, buttons, the current menu item and focus rings failed (Consulting 1.14 : 1)
-for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
-  await step(`accessibility (axe, dark mode, ${label}): home, services and contact of all three starters`, async () => {
-    const ctx = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: 'dark', isMobile: width < 768, hasTouch: width < 768 });
-    const p = await ctx.newPage();
-    watch(p);
-    try {
-      const found = [];
-      for (const [starter, base] of Object.entries(STARTER_SITES)) {
-        for (const url of ['/', '/services', '/contact']) {
-          await p.goto(base + url, { waitUntil: 'networkidle' });
-          if (!(await p.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.hasAttribute('data-tmavy')))) { throw new Error(`${starter}${url}: not in dark mode`); }
-          found.push(...await axeViolations(p, `${starter}${url}`));
-        }
-        if (SHOTS) { await p.goto(base + '/', { waitUntil: 'networkidle' }); await p.screenshot({ path: `${SHOTS}/dark-${starter}-${label}.png` }); }
-      }
-      if (found.length) { throw new Error(`axe found ${found.length} WCAG violation(s) in dark mode: ${found.join(' | ')}`); }
-    } finally {
-      await ctx.close();
-    }
-  });
-}
-
-// 3.6 (UXP-04, UXM-03): submenus are disclosures – a button with aria-expanded and aria-controls per submenu, opened by click,
-// Enter or Space (on a touch tablet too), Esc closes it and returns focus; the phone menu is an accordion; without JavaScript
-// the submenus are still reachable. Crafts = the built-in header, Consulting = the Navigation element as a mega menu.
-for (const [starter, nav, opener] of [['remeslo', '.navigace', '.menu-tl'], ['poradenstvi', '.ka-nav', '.ka-nav-tl']]) {
-  const base = STARTER_SITES[starter];
-  if (!base) { continue; }
-  await step(`submenus (${starter}): keyboard, touch tablet, phone accordion and no JavaScript; axe with a panel open`, async () => {
-    const problems = [];
-    const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB', colorScheme: 'light' });
-    const p = await desktop.newPage();
-    watch(p);
-    try {
-      await p.goto(base + '/', { waitUntil: 'networkidle' });
-      const toggles = p.locator(`${nav} li.podmenu > button[aria-controls]`);
-      if (await toggles.count() !== 2) { problems.push(`${await toggles.count()} submenu toggles, expected 2 (a linked parent and a group)`); }
-      const states = await toggles.evaluateAll((list) => list.map((b) => [b.getAttribute('aria-expanded'), !!document.getElementById(b.getAttribute('aria-controls'))]));
-      if (states.some(([expanded, target]) => expanded !== 'false' || !target)) { problems.push(`toggles not collapsed disclosures: ${JSON.stringify(states)}`); }
-      // keyboard: Enter opens the linked parent's submenu, Esc closes it and keeps focus on the toggle; Space opens the group
-      const first = toggles.first(), panel = p.locator(`${nav} li.podmenu`).first().locator(':scope > ul');
-      await first.focus();
-      if (await panel.isVisible()) { problems.push('a focused toggle opens its panel by itself (it should wait for Enter or Space)'); }
-      await p.keyboard.press('Enter');
-      if (await first.getAttribute('aria-expanded') !== 'true' || !(await panel.isVisible())) { problems.push('Enter does not open the submenu'); }
-      await p.keyboard.press('Tab');
-      if (!(await p.evaluate(() => !!document.activeElement.closest('li.podmenu > ul')))) { problems.push('Tab after opening does not move into the submenu'); }
-      await p.keyboard.press('Escape');
-      if (await first.getAttribute('aria-expanded') !== 'false' || await panel.isVisible() || !(await first.evaluate((b) => b === document.activeElement))) { problems.push('Esc does not close the submenu and return focus to its toggle'); }
-      const group = toggles.nth(1);
-      await group.focus();
-      await p.keyboard.press(' ');
-      if (await group.getAttribute('aria-expanded') !== 'true') { problems.push('Space does not open the group'); }
-      problems.push(...await axeViolations(p, `${starter} desktop, group open`));
-      if (SHOTS) { await p.screenshot({ path: `${SHOTS}/submenu-${starter}-open.png` }); }
-      await p.mouse.click(5, 600);
-      if (await group.getAttribute('aria-expanded') !== 'false') { problems.push('a click outside does not close the submenu'); }
-      // a mouse still opens a panel on hover
-      await p.locator(`${nav} li.podmenu`).nth(1).hover();
-      if (!(await p.locator(`${nav} li.podmenu`).nth(1).locator(':scope > ul').isVisible())) { problems.push('hover does not open the submenu'); }
-    } finally {
-      await desktop.close();
-    }
-    // a touch tablet: a tap on the toggle opens the submenu (until 3.5 a tap followed the link and the submenu stayed hidden)
-    const tablet = await browser.newContext({ viewport: { width: 1024, height: 768 }, locale: 'en-GB', isMobile: true, hasTouch: true });
-    const t = await tablet.newPage();
-    watch(t);
-    try {
-      await t.goto(base + '/', { waitUntil: 'networkidle' });
-      const toggle = t.locator(`${nav} li.podmenu > button[aria-controls]`).first();
-      await toggle.tap();
-      if (await toggle.getAttribute('aria-expanded') !== 'true' || !(await t.locator(`${nav} li.podmenu`).first().locator(':scope > ul').isVisible())) { problems.push('a tap on a touch tablet does not open the submenu'); }
-      if (new URL(t.url()).pathname !== '/') { problems.push('the tap navigated away'); }
-    } finally {
-      await tablet.close();
-    }
-    // the phone menu: groups collapsed, the one with the current page open; a tap opens another
-    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true });
-    const m = await phone.newPage();
-    watch(m);
-    try {
-      await m.goto(base + '/services', { waitUntil: 'networkidle' });
-      await m.locator(opener).first().tap();
-      await m.waitForTimeout(300);
-      const sheet = await m.locator(`${nav} li.podmenu`).evaluateAll((list) => list.map((li) => [li.classList.contains('aktivni'), li.querySelector(':scope > button[aria-controls]').getAttribute('aria-expanded'), getComputedStyle(li.querySelector(':scope > ul')).display !== 'none']));
-      if (JSON.stringify(sheet) !== JSON.stringify([[true, 'true', true], [false, 'false', false]])) { problems.push(`phone menu: the current group open, the others closed – got ${JSON.stringify(sheet)}`); }
-      if (SHOTS) { await m.screenshot({ path: `${SHOTS}/submenu-${starter}-phone.png` }); }
-      await m.locator(`${nav} li.podmenu > button[aria-controls]`).nth(1).tap();
-      if (!(await m.locator(`${nav} li.podmenu`).nth(1).locator(':scope > ul').isVisible())) { problems.push('phone menu: a tap does not open a group'); }
-    } finally {
-      await phone.close();
-    }
-    // without JavaScript: keyboard focus and hover still open the submenus, the phone menu shows them all
-    for (const [w, h] of [[1440, 900], [390, 844]]) {
-      const plain = await browser.newContext({ viewport: { width: w, height: h }, locale: 'en-GB', javaScriptEnabled: false });
-      const n = await plain.newPage();
-      try {
-        await n.goto(base + '/');
-        if (w > 768) {
-          await n.locator(`${nav} li.podmenu`).first().locator(':scope > a').focus();
-          await n.keyboard.press('Tab');
-          if (!(await n.locator(`${nav} li.podmenu`).first().locator(':scope > ul').isVisible())) { problems.push('without JavaScript keyboard focus does not open the submenu'); }
-        } else {
-          await n.locator(opener).first().click();
-          if (await n.locator(`${nav} li.podmenu > ul:visible`).count() !== 2) { problems.push('without JavaScript the phone menu does not show every submenu'); }
-        }
-      } finally {
-        await plain.close();
-      }
-    }
-    if (problems.length) { throw new Error(problems.join(' | ')); }
-  });
-}
-
-await step('cookie bar (3.5): compact on a phone, reached right after the skip link, never hides keyboard focus', async () => {
-  // until 3.4 the bar took 340 px of a 390×844 phone, came last in the tab order and covered focused links (WCAG 2.2 SC 2.4.11)
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: 'light', isMobile: true, hasTouch: true });
-  const p = await ctx.newPage();
-  watch(p);
-  try {
-    await p.goto(BASE + '/', { waitUntil: 'networkidle' });
-    const bar = await p.evaluate(() => Math.round(document.getElementById('cookies-lista').getBoundingClientRect().height));
-    if (bar > 180) { throw new Error(`the cookie bar is ${bar} px tall on a phone (at most 180)`); }
-    if (SHOTS) { await p.screenshot({ path: `${SHOTS}/cookie-bar-phone.png` }); }
-    await p.keyboard.press('Tab');
-    await p.keyboard.press('Tab');
-    if (!(await p.evaluate(() => !!document.activeElement.closest('#cookies-lista')))) { throw new Error('the second Tab does not reach the cookie bar'); }
-    const hidden = [];
-    for (let i = 0; i < 200; i++) {
-      await p.keyboard.press('Tab');
-      const r = await p.evaluate(() => {
-        const e = document.activeElement;
-        if (!e || e === document.body) { return null; }
-        if (e.hasAttribute('data-test-seen')) { return { again: true }; }
-        e.setAttribute('data-test-seen', '');
-        const b = e.getBoundingClientRect(), c = document.getElementById('cookies-lista').getBoundingClientRect();
-        const covered = !e.closest('#cookies-lista') && b.width > 0 && b.top >= c.top && b.bottom <= c.bottom && b.left >= c.left && b.right <= c.right;
-        return { covered, text: (e.textContent || e.getAttribute('aria-label') || e.tagName).trim().slice(0, 40) };
-      });
-      if (r && r.again) { break; }
-      if (r && r.covered) { hidden.push(r.text); }
-    }
-    if (hidden.length) { throw new Error(`the cookie bar hides keyboard focus on: ${hidden.join(', ')}`); }
-    // the accessibility toolbar sits above the bar; its panel opens above its button, not at the top of the window (UXP-03)
-    const toolbar = await p.evaluate(() => [document.querySelector('.ka-pristupnost-tl').getBoundingClientRect().bottom, document.getElementById('cookies-lista').getBoundingClientRect().top]);
-    if (toolbar[0] > toolbar[1]) { throw new Error('the accessibility toolbar is behind the cookie bar'); }
-    await p.locator('.ka-pristupnost-tl').click();
-    const panel = await p.evaluate(() => document.getElementById('ka-pristupnost-panel').getBoundingClientRect().top);
-    if (panel < 844 / 3) { throw new Error(`the accessibility panel opens at the top of the window (top ${Math.round(panel)} px)`); }
-    await p.locator('[data-pristupnost-volba="text"]').click();
-    if (!/112[.,]5\s?%/.test(await p.locator('[data-pristupnost-volba="text"]').innerText())) { throw new Error('"Larger text" does not show the size it set'); }
-    await p.keyboard.press('Escape');
-    // once the visitor chooses, the bar's scroll padding goes with it
-    await p.locator('#cookies-lista [data-cookies="nic"]').click();
-    const after = await p.evaluate(() => [document.documentElement.style.getPropertyValue('--ka-cookies-vyska'), getComputedStyle(document.documentElement).scrollPaddingBottom]);
-    if (after[0] !== '' || after[1] !== 'auto') { throw new Error(`the bar's scroll padding stays after the choice (${after.join(', ')})`); }
-  } finally {
-    await ctx.close();
-  }
+  if (rows.rights.length > 1 && Math.abs(rows.rights[0] - rows.width) > 2) { throw new Error('the first justified row does not fill the width: ' + JSON.stringify(rows)); }
+  // slideshow: the arrows are shown by the script and move the strip
+  const strip = page.locator('.tl-gallery-strip').first();
+  await page.locator('.tl-gallery--slideshow[data-enabled] .tl-gallery-arrows [data-step="1"]').click();
+  await page.waitForTimeout(700);
+  if ((await strip.evaluate((s) => s.scrollLeft)) < 10) { throw new Error('the slideshow arrow did not scroll the strip'); }
+  // viewer: open with the keyboard from a gallery photo, arrows, swipe, Esc, focus back
+  const photo = page.locator('.tl-gallery--fullscreen img').nth(1);
+  await photo.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.locator('dialog.tl-lightbox[open]');
+  await dialog.waitFor({ timeout: 3000 });
+  const caption = () => dialog.locator('p').innerText();
+  if (!(await caption()).startsWith('2 / 4')) { throw new Error('the viewer did not open on the second photo: ' + await caption()); }
+  await page.keyboard.press('ArrowRight');
+  if (!(await caption()).startsWith('3 / 4')) { throw new Error('ArrowRight did not move on: ' + await caption()); }
+  const box = await dialog.locator('img').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  if (!(await caption()).startsWith('2 / 4')) { throw new Error('a swipe to the right did not go back: ' + await caption()); }
+  if (!(await dialog.count())) { throw new Error('a swipe closed the viewer'); }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  if (await page.locator('dialog.tl-lightbox[open]').count()) { throw new Error('Esc did not close the viewer'); }
+  const back = await page.evaluate(() => { const a = document.activeElement; return a && a.tagName === 'IMG' && !!a.closest('.tl-gallery--fullscreen') && a.getAttribute('alt'); });
+  if (back !== 'Photo gt-b') { throw new Error('the focus did not return to the photo that opened the viewer: ' + back); }
 });
 
 await step('booking: pick a day, the month stays drawn and the free times load', async () => {
   // until 3.2.1 the month and the times shared one request counter: after a day click the month stayed on "Loading…"
   await visit('/booking-test');
-  if (await page.locator('.ka-rezervace [data-bez-skriptu]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
-  const free = page.locator('.ka-rezervace-dny button:not(:disabled)').first();
+  if (await page.locator('.tl-booking [data-no-script]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
+  const free = page.locator('.tl-booking-days button:not(:disabled)').first();
   await free.waitFor({ timeout: 5000 });
   await free.click();
-  await page.locator('.ka-rezervace-casy button').first().waitFor({ timeout: 5000 });
+  await page.locator('.tl-booking-times button').first().waitFor({ timeout: 5000 });
   await page.waitForTimeout(500);
-  if (!(await page.locator('.ka-rezervace-dny button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
-  await page.locator('.ka-rezervace-casy button').first().click();
-  if (!(await page.locator('[data-vybrano]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
-});
-
-await step('3.6 redirects: CSV import shows a preview first, then saves only what passed', async () => {
-  await visit('/admin.php?module=redirects');
-  await page.locator('#import > summary').click();
-  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/redirects-import-form.png`, fullPage: true }); }
-  await page.fill('#import textarea[name="csv"]', '/prohlizec-stara,/kontakt,301\n/prohlizec-blog/*,/novinky/*\n/prohlizec-kruh/*,/prohlizec-kruh/x/*\n/prohlizec-gone,,410');
-  await Promise.all([page.waitForNavigation(), page.locator('#import input[type="submit"]').click()]);
-  await page.locator('#nahled-importu').waitFor();
-  const rows = await page.locator('table.vypis tbody tr').count();
-  const refused = await page.locator('table.vypis tbody .stitek-chyba').count();
-  if (rows !== 4 || refused !== 1) { throw new Error(`the preview shows ${rows} rows and ${refused} refused (expected 4 and 1)`); }
-  if (SHOTS) {
-    await page.screenshot({ path: `${SHOTS}/redirects-csv-preview.png`, fullPage: true });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: `${SHOTS}/redirects-csv-preview-phone.png`, fullPage: true });
-    await page.setViewportSize({ width: 1440, height: 900 });
-  }
-  await Promise.all([page.waitForNavigation(), page.locator('form[action*="import_save"] input[type="submit"]').click()]);
-  await page.locator('.hlaska').first().waitFor();
-  await visit('/admin.php?module=redirects&hledat=prohlizec');
-  const saved = await page.locator('table.vypis').first().locator('tbody tr').count();
-  if (saved !== 3) { throw new Error(`after saving the list has ${saved} rows (expected 3)`); }
-});
-
-await step('3.6 site parts: the variant form offers kinds of content', async () => {
-  await visit('/admin.php?module=parts&action=variant&typ=paticka&jazyk=');
-  await page.locator('input[name="vypis"]').waitFor();
-  if (SHOTS) {
-    await page.screenshot({ path: `${SHOTS}/part-variant-form.png`, fullPage: true });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: `${SHOTS}/part-variant-form-phone.png`, fullPage: true });
-    await page.setViewportSize({ width: 1440, height: 900 });
-  }
-});
-
-await step('3.7 collections: CSV import of items – columns paired by themselves, a preview of every row, then saved hidden', async () => {
-  await visit('/admin.php?module=collections');
-  await Promise.all([page.waitForNavigation(), page.locator('button[name="preset"][value="references"]').click()]);
-  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a[href*="action=import&"]').first().click()]);
-  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/items-import-upload.png`, fullPage: true }); }
-  await page.setInputFiles('#soubor', { name: 'references.csv', mimeType: 'text/csv',
-    buffer: Buffer.from('Name;Client;Year;Whatever\nNew roof;Acme Ltd;2024;x\nOld barn;Farm Co;not a year;\n;Nobody;2020;\n') });
-  await Promise.all([page.waitForNavigation(), page.locator('#import-polozek input[type="submit"]').click()]);
-  const mapped = await page.locator('#import-mapovani select').evaluateAll((list) => list.map((s) => s.value));
-  if (JSON.stringify(mapped) !== JSON.stringify(['_name', 'client', 'year', ''])) { throw new Error(`the columns were paired as ${JSON.stringify(mapped)}`); }
-  const rows = await page.locator('#import-radky tbody tr').count();
-  const refused = await page.locator('#import-radky .stitek-chyba').count();
-  if (rows !== 3 || refused !== 1) { throw new Error(`the preview has ${rows} rows and ${refused} refused (expected 3 and 1)`); }
-  if (SHOTS) {
-    await page.screenshot({ path: `${SHOTS}/items-import-preview.png`, fullPage: true });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: `${SHOTS}/items-import-preview-phone.png`, fullPage: true });
-    await page.setViewportSize({ width: 1440, height: 900 });
-  }
-  await Promise.all([page.waitForNavigation(), page.locator('#import-mapovani button[name="ulozit"]').click()]);
-  await page.locator('#import-hotovo').waitFor({ timeout: 30000 }); // the progress page submits itself batch by batch
-  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/items-import-done.png`, fullPage: true }); }
-  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a[href*="action=items"]').first().click()]);
-  const hidden = await page.locator('tr', { hasText: 'New roof' }).count();
-  if (hidden !== 1) { throw new Error('the imported item is not in the list'); }
-});
-
-let equipment = 0;
-await step('3.7 collection categories: a category and a subcategory in the admin, items ticked into them, the category page', async () => {
-  await visit('/admin.php?module=collections&action=new');
-  await page.fill('#nazev', 'Equipment');
-  await page.fill('#seo_link', 'equipment');
-  await page.check('input[name="detail"]');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
-  equipment = Number(new URL(page.url()).searchParams.get('id'));
-  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a', { hasText: /^Categories$/ }).click()]);
-  await page.locator('.prazdny-stav').waitFor();
-  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a.tl', { hasText: 'Add category' }).click()]);
-  await page.fill('#name', 'Treadmills');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').click()]);
-  await Promise.all([page.waitForNavigation(), page.locator('table.vypis a', { hasText: 'Add subcategory' }).first().click()]);
-  if (await page.locator('#parent_id').inputValue() === '0') { throw new Error('Add subcategory does not preselect the parent'); }
-  await page.fill('#name', 'Medical');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').click()]);
-  const rows = await page.locator('table.vypis tbody tr').allTextContents();
-  if (rows.length !== 2 || !/\/equipment\/treadmills\/medical/.test(rows[1])) { throw new Error(`the category tree: ${rows.join(' | ')}`); }
-  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-categories.png`, fullPage: true }); }
-  for (const name of ['Belt A', 'Belt B', 'Belt C']) {
-    await visit('/admin.php?module=collections&action=categories&id=' + equipment);
-    await Promise.all([page.waitForNavigation(), page.locator('table.vypis tbody tr').nth(1).locator('a', { hasText: 'Add item' }).click()]);
-    if (!(await page.locator('.kategorie-polozky label', { hasText: 'Medical' }).locator('input').isChecked())) { throw new Error('Add item from a category does not tick it'); }
-    await page.fill('#nazev', name);
-    await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
-  }
-  const visitor = await browser.newContext();
-  const v = await visitor.newPage();
-  watch(v);
-  await v.goto(`${BASE}/equipment/treadmills`, { waitUntil: 'networkidle' });
-  if (await v.locator('h1').textContent() !== 'Treadmills') { throw new Error('the category page has no heading'); }
-  if (await v.locator('a[href="/equipment/treadmills/medical"]').count() !== 1 || await v.locator('a[href="/equipment/belt-b"]').count() !== 1) { throw new Error('the category page lists neither the subcategory nor the items'); }
-  if (await v.locator('nav.ka-drobecky [aria-current="page"]').textContent() !== 'Treadmills') { throw new Error('the category page has no breadcrumbs'); }
-  await visitor.close();
-});
-
-await step('3.7 builder: Previous / next item in the item template, a nav landmark with rel links on the item page', async () => {
-  await visit('/admin.php?module=collections&action=builder&id=' + equipment);
-  await page.waitForTimeout(1500);
-  await page.locator('.st-zalozky [role="tab"]').first().click();
-  await page.locator('.st-prvky button', { hasText: /^Previous \/ next item$/ }).first().click();
-  await page.waitForTimeout(900);
-  await canvas().locator('nav.ka-predchozi-dalsi').waitFor();
-  await page.locator('.st-lista button.st-tl-hlavni').click();
-  const anyway = page.locator('dialog[open] .st-tl-hlavni');
-  if (await anyway.waitFor({ timeout: 1500 }).then(() => true, () => false)) { await anyway.click(); }
-  await page.waitForTimeout(1200);
-  const visitor = await browser.newContext();
-  const v = await visitor.newPage();
-  watch(v);
-  await v.goto(`${BASE}/equipment/belt-b`, { waitUntil: 'networkidle' });
-  const nav = v.locator('nav.ka-predchozi-dalsi');
-  if (!(await nav.getAttribute('aria-label'))) { throw new Error('the previous / next navigation has no label'); }
-  if (await nav.locator('a[rel="prev"][href="/equipment/belt-a"]').count() !== 1 || await nav.locator('a[rel="next"][href="/equipment/belt-c"]').count() !== 1) {
-    throw new Error('the item page does not link its neighbours with rel="prev" and rel="next"');
-  }
-  await nav.locator('a[rel="next"]').focus();
-  if (SHOTS) { await v.screenshot({ path: `${SHOTS}/previous-next-item.png`, fullPage: true }); }
-  await visitor.close();
+  if (!(await page.locator('.tl-booking-days button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
+  await page.locator('.tl-booking-times button').first().click();
+  if (!(await page.locator('[data-selected]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
 });
 
 await browser.close();

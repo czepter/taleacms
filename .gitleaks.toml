@@ -1,10 +1,10 @@
-# Gitleaks: výchozí pravidla + výjimka pro smyšlené klíče, kterými testy krmí falešný server Stripe (tools/test.sh, tools/fixtures/).
-# Skutečný klíč sem nikdy nepatří – výjimka je úmyslně jen na tento jeden vymyšlený řetězec.
-title = "Kaleta"
+# Gitleaks: default rules, except for the made-up values that the tests and fixtures feed to the application (wrong passwords, fake
+# provider keys, RFC 6238 test vectors). A real key never belongs in these either; everything else is scanned.
+title = "Talea"
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "made-up test values: a Stripe key for the offline tests, the public TOTP test vector of RFC 6238, the password of the intruder account the demo test tries to create (tools/test-demo.sh), the Claude tokens of the security hygiene test, the password with spaces of the 3.3.3 sign-in test (tools/test.sh)"
-regexes = ['''sk_test_NahrazkaKlice0+''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''', '''Intruder-2026-x''', '''hygiene-(live|old|unused)''', '''Mezera-heslo-123''']
+description = "made-up test values in tests/, tools/fixtures/ and the test harness scripts (including their history)"
+paths = ['''^tests/''', '''^tools/fixtures/''', '''^tools/(test|test-demo|unit-tests)\.(sh|php)$''']

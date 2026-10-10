@@ -1,0 +1,11 @@
+{
+  "name": "Client galleries",
+  "version": "1.0.0",
+  "description": "Private galleries for clients: images shared by a private link or with a member group, favourites the client marks and the owner exports, optional downloads (web size, originals, a zip) and an expiry date. Never cached, indexed or searchable.",
+  "author": "Talea project",
+  "class": "TaleaAddon\\ClientGalleries\\Extension",
+  "entry": "Extension.php",
+  "table_prefix": "cg",
+  "requires": { "talea": ">=3.0", "api": 2 },
+  "capabilities": ["routes", "tables"]
+}

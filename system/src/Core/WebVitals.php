@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\Stats;
+use Talea\Front\Stats;
 
 /**
  * Real-user speed (2.8): Core Web Vitals – LCP, CLS and INP – measured by image/vitals.js in visitors' browsers and sent
@@ -12,7 +12,7 @@ use Kaleta\Front\Stats;
  * (Front\Stats): nothing about the visitor is stored, only aggregated numbers per page path per day.
  *
  * Percentiles need the distribution, not an average, so each metric is kept as a small histogram with fixed buckets
- * (BUCKETS = the upper edge of every bucket, the last one is open): one row of ka_web_vitals per day, path, metric and
+ * (BUCKETS = the upper edge of every bucket, the last one is open): one row of tl_web_vitals per day, path, metric and
  * bucket, with the number of samples in it. The 75th percentile (the number Google rates a page by) is the upper edge of
  * the bucket the 75th sample falls into – an upper estimate, never flattering. Google's thresholds are bucket edges, so the
  * rating is exact. Rows older than 400 days are deleted like the rest of the statistics.
@@ -101,7 +101,7 @@ final class WebVitals
                 $values[$metric] = (float) $raw;
             }
         }
-        if (!Stats::isOn($app) || $values === [] || $ua === '' || Stats::isBot($ua) || !preg_match('#^/[^\s?\#]{0,254}$#D', $path)) {
+        if (!Stats::isOn($app) || $values === [] || $ua === '' || Stats::isBot($ua) || !preg_match('#^/[^\s?\#]{0,254}$#', $path)) {
             return new Response('', 204);
         }
         $db = $app->db();
@@ -111,16 +111,15 @@ final class WebVitals
         }
         $antispam->write($request->ip(), 'vitals', 0);
         // only pages the statistics have seen (the page view is counted before the beacon arrives) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURRENT_DATE - INTERVAL 1 DAY', [$path]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
         foreach ($values as $metric => $value) {
-            $db->run('INSERT INTO {web_vitals} (day, path, metric, bucket, samples) VALUES (?, ?, ?, ?, 1) ON DUPLICATE KEY UPDATE samples = samples + 1',
-                [$today, $path, $metric, self::bucket($metric, $value)]);
+            $db->upsert('web_vitals', ['day' => $today, 'path' => $path, 'metric' => $metric, 'bucket' => self::bucket($metric, $value), 'samples' => 1], ['day', 'path', 'metric', 'bucket'], ['samples' => '{old.samples} + 1']);
         }
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {web_vitals} WHERE day < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {web_vitals} WHERE day < CURRENT_DATE - INTERVAL 400 DAY');
         }
 
         return new Response('', 204);

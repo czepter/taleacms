@@ -1,11 +1,11 @@
-# Kaleta on FrankenPHP. Plain HTTP on :8080 – TLS is terminated by the proxy in front (Traefik, Coolify, nginx, a load balancer).
+# Talea on FrankenPHP. Plain HTTP on :8080 – TLS is terminated by the proxy in front (Traefik, Coolify, nginx, a load balancer).
 # This file replaces .htaccess: without these rules config, system/ and storage/ would be downloadable.
 {
 	auto_https off
 	admin off
 	frankenphp
 	servers {
-		# the proxy's X-Forwarded-Proto/-For reach PHP (Kaleta uses them for HTTPS and the visitor's address)
+		# the proxy's X-Forwarded-Proto/-For reach PHP (Talea uses them for HTTPS and the visitor's address)
 		trusted_proxies static private_ranges
 	}
 }

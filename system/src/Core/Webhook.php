@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Webhooks: after a news item is published and after a new enquiry, sends the data to the URLs from Settings (Make, Zapier,
  * IFTTT, n8n, CRM…). Through such a service a news item can be shared to social networks automatically and an enquiry
  * created in a CRM or sent to Slack.
  *
- * Since 1.8 every call is signed and logged (table ka_webhook_deliveries): the event is stored first and sent after the
+ * Since 1.8 every call is signed and logged (table tl_webhook_deliveries): the event is stored first and sent after the
  * response has gone to the visitor (afterResponse), so a slow receiver never delays the page. A failed call is retried
  * 1, 5 and 30 minutes and 2 and 12 hours later; the administrator sees the log and can send a failed call again.
  *
- * Signature: X-Kaleta-Signature: sha256=<hex HMAC-SHA256 of "<X-Kaleta-Timestamp>.<body>" with the webhook secret>.
+ * Signature: X-Talea-Signature: sha256=<hex HMAC-SHA256 of "<X-Talea-Timestamp>.<body>" with the webhook secret>.
  * The receiver recomputes it and rejects calls older than a few minutes (replay).
  */
 final class Webhook
@@ -31,13 +31,13 @@ final class Webhook
         if (!preg_match('#^https://#i', $url)) {
             return;
         }
-        self::queue($app->settings(), 'nova_poptavka', $url, [
-            'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('site_name'), 'id' => $idp, 'formular' => $form, 'email' => $email,
-            'stranka' => $app->request->origin() . $page, 'prijato' => date('c'),
+        self::queue($app->settings(), 'enquiry_received', $url, [
+            'event' => 'enquiry_received', 'site' => $app->settings()->get('site_name'), 'id' => $app->db()->publicId('enquiries', $idp), 'form' => $form, 'email' => $email,
+            'page' => $app->request->origin() . $page, 'received_at' => date('c'),
             'about' => $about !== '' ? $about : null, // what the form was about (2.12, Front\EnquiryTopic): the item or page it was on
             // 2.3: which form (to route one form elsewhere in Make or Zapier) and where the visit started (with consent)
             'form_id' => $formId, 'first_page' => $landing !== '' ? $app->request->origin() . $landing : null, 'came_from' => $referrer !== '' ? $referrer : null,
-            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], $data),
+            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], $data),
         ] + ($campaign !== '' ? ['utm' => self::utm($campaign)] : []));
     }
 
@@ -145,7 +145,7 @@ final class Webhook
         return $settings->get('webhook_secret');
     }
 
-    /** @return array{0: string, 1: string} headers X-Kaleta-Timestamp and X-Kaleta-Signature for the body */
+    /** @return array{0: string, 1: string} headers X-Talea-Timestamp and X-Talea-Signature for the body */
     public static function signature(string $secret, string $body, int $timestamp): array
     {
         return [(string) $timestamp, 'sha256=' . hash_hmac('sha256', $timestamp . '.' . $body, $secret)];
@@ -156,14 +156,14 @@ final class Webhook
     {
         // tests: the URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $settings->get('webhook_test_url');
-        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#D', $test)) {
+        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#', $test)) {
             $url = $test . (string) parse_url($url, PHP_URL_PATH);
         } elseif (!preg_match('#^https://#i', $url)) {
             return [0, 'Only https:// addresses are allowed.'];
         }
         [$timestamp, $signature] = self::signature(self::secret($settings), $body, time());
-        $headers = ['Content-Type: application/json; charset=utf-8', 'User-Agent: Kaleta/' . KALETA_VERSION, 'X-Kaleta-Event: ' . $event,
-            'X-Kaleta-Delivery: ' . $id, 'X-Kaleta-Timestamp: ' . $timestamp, 'X-Kaleta-Signature: ' . $signature];
+        $headers = ['Content-Type: application/json; charset=utf-8', 'User-Agent: Talea/' . TALEA_VERSION, 'X-Talea-Event: ' . $event,
+            'X-Talea-Delivery: ' . $id, 'X-Talea-Timestamp: ' . $timestamp, 'X-Talea-Signature: ' . $signature];
         $http_response_header = [];
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
             'method' => 'POST', 'timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0,
@@ -184,7 +184,7 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.nazev AS kategorie FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE c.idc = ? AND c.visible = 1 AND c.datum <= NOW() AND c.noindex = 0',
+            'SELECT c.*, t.name AS category FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = TRUE AND c.published_at <= NOW() AND c.noindex = FALSE AND ' . \Talea\Core\Members::notGated('news', 'c.news_id'),
             [$idc],
         );
         if ($c === null) {
@@ -192,13 +192,13 @@ final class Webhook
         }
         $root = $app->request->origin() . $app->request->basePath() . '/'; // files are shared by all languages
         $data = [
-            'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'titulek' => $c['titulek'],
-            'adresa' => $app->request->origin() . $app->newsItemUrl($c['seo_link'], $c['jazyk']), 'perex' => trim(strip_tags($c['uvod'])), 'kategorie' => $c['kategorie'],
-            'obrazek' => $c['obrazek'] === '' ? '' : (preg_match('#^https?://#i', $c['obrazek']) ? $c['obrazek'] : rtrim($root, '/') . '/' . ltrim($c['obrazek'], '/')),
-            'stitky' => array_column($app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$idc]), 'nazev'),
-            'vydano' => date('c', strtotime($c['datum'])),
+            'event' => 'news_published', 'site' => $app->settings()->get('site_name'), 'title' => $c['title'],
+            'url' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'excerpt' => trim(strip_tags($c['intro'])), 'category' => $c['category'],
+            'image' => $c['image'] === '' ? '' : (preg_match('#^https?://#i', $c['image']) ? $c['image'] : rtrim($root, '/') . '/' . ltrim($c['image'], '/')),
+            'tags' => array_column($app->db()->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$idc]), 'name'),
+            'published_at' => date('c', strtotime($c['published_at'])),
         ];
-        self::queue($app->settings(), 'novinka_vydana', $url, $data);
+        self::queue($app->settings(), 'news_published', $url, $data);
     }
 
     /** A test call to every configured URL (Settings → Webhooks); returns the delivery IDs. @return list<int> */
@@ -208,7 +208,7 @@ final class Webhook
         foreach (['webhook_enquiries', 'webhook_url'] as $key) {
             $url = $app->settings()->get($key);
             if (preg_match('#^https://#i', $url)) {
-                $ids[] = (int) self::queue($app->settings(), 'test', $url, ['udalost' => 'test', 'web' => $app->settings()->get('site_name'), 'cas' => date('c')]);
+                $ids[] = (int) self::queue($app->settings(), 'test', $url, ['event' => 'test', 'site' => $app->settings()->get('site_name'), 'time' => date('c')]);
             }
         }
 

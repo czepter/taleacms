@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * The registry of structured importers (Import\Source). A new system is added here and nowhere else: the admin form,

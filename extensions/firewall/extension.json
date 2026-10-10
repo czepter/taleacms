@@ -1,0 +1,10 @@
+{
+  "name": "Firewall",
+  "version": "1.0.0",
+  "description": "Optional hardening of the public site: blocked addresses and networks, blocked countries, a request limit, and a day's block for addresses that probe for other systems. Refuses requests before sessions and routing; never touches the administration.",
+  "author": "Talea project",
+  "class": "TaleaAddon\\Firewall\\Extension",
+  "entry": "Extension.php",
+  "requires": { "talea": ">=3.0", "api": 2 },
+  "capabilities": ["early_request", "tables"]
+}

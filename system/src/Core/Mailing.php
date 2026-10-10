@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Front\Company;
-use Kaleta\Front\Subscription;
+use Talea\Builder\DesignSystem;
+use Talea\Front\Company;
+use Talea\Front\Subscription;
 
 /**
  * Newsletters (Newsletter extension): "send the latest news to subscribers". There is no e-mail builder – one template
@@ -15,7 +15,7 @@ use Kaleta\Front\Subscription;
  * inline styles that mail clients show alike, and a plain-text part.
  *
  * Sending goes only through the SMTP server set in Settings → Mail – mail() of shared hosting is not fit for bulk mail –
- * and only while cron calls /tasks (or the older /ulohy): batches go out there, within the hourly limit, so a low-traffic site does not stall
+ * and only while cron calls /tasks: batches go out there, within the hourly limit, so a low-traffic site does not stall
  * half-way. Every e-mail has its own unsubscribe link and one-click unsubscribe (List-Unsubscribe, RFC 8058); nothing
  * tracks opens. The queue keeps recipients only while sending; a day after the end only the counts and dates remain.
  */
@@ -25,7 +25,7 @@ final class Mailing
 
     public const array NEWS_MODES = ['latest' => 'The latest news', 'chosen' => 'Chosen news items', 'none' => 'No news'];
 
-    /** Cron must have called /tasks (/ulohy) within this many minutes, otherwise a newsletter would stall half-way. */
+    /** Cron must have called /tasks within this many minutes, otherwise a newsletter would stall half-way. */
     public const int CRON_MINUTES = 30;
 
     /** At most this many chosen or latest news items in one newsletter. */
@@ -49,7 +49,7 @@ final class Mailing
     /** @return list<array<string, mixed>> newest first, without the rendered e-mail */
     public static function all(Db $db): array
     {
-        return $db->all('SELECT id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, created, changed, started_at, finished_at
+        return $db->all('SELECT id, public_id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, created, changed, started_at, finished_at
             FROM {newsletters} ORDER BY COALESCE(finished_at, started_at, scheduled_at, changed, created) DESC, id DESC');
     }
 
@@ -77,7 +77,7 @@ final class Mailing
             throw new \InvalidArgumentException('Choose at least one news item, or send the latest news.');
         }
         $url = $value('button_url');
-        if ($url !== '' && !preg_match('~^(https?://[^\s<>"]+|/[^\s<>"]*)$~iD', $url)) {
+        if ($url !== '' && !preg_match('~^(https?://[^\s<>"]+|/[^\s<>"]*)$~i', $url)) {
             throw new \InvalidArgumentException('The button link must be an https:// address or a path on the site starting with /.');
         }
         $label = mb_substr($value('button_label'), 0, 80);
@@ -123,7 +123,7 @@ final class Mailing
         }
 
         return $db->insert('newsletters', self::sanitize($app, $input) + [
-            'status' => 'draft', 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s'), 'changed' => date('Y-m-d H:i:s'),
+            'status' => 'draft', 'author' => $app->auth()->user()['user_id'] ?? null, 'created' => date('Y-m-d H:i:s'), 'changed' => date('Y-m-d H:i:s'),
         ]);
     }
 
@@ -156,7 +156,7 @@ final class Mailing
 
     public static function confirmedCount(Db $db): int
     {
-        return (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1');
+        return (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1');
     }
 
     /**
@@ -207,13 +207,13 @@ final class Mailing
         if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = NOW(), html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [$html, $text, $n['id']])->rowCount() === 0) {
             return;
         }
-        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, NOW() FROM {odberatele} WHERE stav = 1', [$n['id']])->rowCount();
+        $count = $db->insertIgnoreSelect('newsletter_queue', ['newsletter_id', 'subscriber_id', 'next_attempt'], 'SELECT ?, subscriber_id, NOW() FROM {subscribers} WHERE status = 1', [$n['id']]);
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
-        \Kaleta\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
+        \Talea\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
 
     /**
-     * Cron (/tasks, /ulohy): starts scheduled newsletters that are due and sends the next batch within the hourly limit.
+     * Cron (/tasks): starts scheduled newsletters that are due and sends the next batch within the hourly limit.
      * Returns the number of e-mails sent.
      */
     public static function processQueue(App $app): int
@@ -229,15 +229,15 @@ final class Mailing
         $allowed = min(self::BATCH, max(10, $s->int('newsletter_hourly_limit')) - (int) $db->value('SELECT COUNT(*) FROM {newsletter_queue} WHERE sent_at >= NOW() - INTERVAL 1 HOUR'));
         $sent = 0;
         $newsletters = [];
-        $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
-            JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {odberatele} o ON o.ido = q.subscriber_id
+        $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.status FROM {newsletter_queue} q
+            JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {subscribers} o ON o.subscriber_id = q.subscriber_id
             WHERE q.next_attempt <= NOW() ORDER BY q.id LIMIT " . (int) $allowed);
         foreach ($rows as $q) {
             // claim the row first: a concurrent call does not send the same e-mail twice
             if ($db->run('UPDATE {newsletter_queue} SET next_attempt = NOW() + INTERVAL 10 MINUTE, attempts = attempts + 1 WHERE id = ? AND next_attempt <= NOW()', [$q['id']])->rowCount() === 0) {
                 continue;
             }
-            if ($q['email'] === null || (int) $q['stav'] !== 1) {
+            if ($q['email'] === null || (int) $q['status'] !== 1) {
                 $db->update('newsletter_queue', ['next_attempt' => null, 'error' => 'unsubscribed'], ['id' => $q['id']]); // unsubscribed in the meantime
                 continue;
             }
@@ -262,7 +262,7 @@ final class Mailing
         $db->run("UPDATE {newsletters} n SET status = 'sent', finished_at = NOW() WHERE n.status = 'sending'
             AND NOT EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = n.id AND q.next_attempt IS NOT NULL)");
         // recipients are kept only while sending (and a day for the hourly limit)
-        $db->run("DELETE q FROM {newsletter_queue} q JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.status = 'sent' AND n.finished_at < NOW() - INTERVAL 1 DAY");
+        $db->run("DELETE FROM {newsletter_queue} WHERE newsletter_id IN (SELECT id FROM {newsletters} WHERE status = 'sent' AND finished_at < NOW() - INTERVAL 1 DAY)");
 
         return $sent;
     }
@@ -274,7 +274,7 @@ final class Mailing
             throw new \InvalidArgumentException('The test address is not a valid e-mail.');
         }
         [$html, $text] = self::render($app, $n);
-        $placeholder = self::absolute($app, 'odber');
+        $placeholder = self::absolute($app, 'subscribe');
 
         return Mail::send($app->settings(), $email, '[' . t('Test') . '] ' . $n['subject'], str_replace(self::UNSUBSCRIBE, $placeholder, $text),
             str_replace(self::UNSUBSCRIBE, e($placeholder), $html), [], false);
@@ -287,28 +287,28 @@ final class Mailing
      */
     public static function newsItems(App $app, array $n): array
     {
-        if ($n['news_mode'] === 'none' || !Extensions::isEnabled($app->settings(), 'novinky')) {
+        if ($n['news_mode'] === 'none' || !Extensions::isEnabled($app->settings(), 'news')) {
             return [];
         }
         $db = $app->db();
-        $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
+        $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'); // gated news never goes into a newsletter
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
             if ($ids === []) {
                 return [];
             }
-            $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND idc IN (' . implode(',', $ids) . ')');
-            usort($rows, fn (array $a, array $b): int => array_search((int) $a['idc'], $ids, true) <=> array_search((int) $b['idc'], $ids, true));
+            $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND news_id IN (' . implode(',', $ids) . ')');
+            usort($rows, fn (array $a, array $b): int => array_search((int) $a['news_id'], $ids, true) <=> array_search((int) $b['news_id'], $ids, true));
         } else {
-            $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND jazyk = ? ORDER BY datum DESC, idc DESC LIMIT ' . max(1, min(self::MAX_NEWS, (int) $n['news_count'])),
+            $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND language = ? ORDER BY published_at DESC, news_id DESC LIMIT ' . max(1, min(self::MAX_NEWS, (int) $n['news_count'])),
                 [(string) $n['language']]);
         }
 
         return array_map(fn (array $c): array => [
-            'id' => (int) $c['idc'], 'title' => (string) $c['titulek'], 'date' => (string) $c['datum'],
-            'url' => self::campaign($app, self::origin($app) . $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']), $n),
-            'intro' => mb_strimwidth(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], ' ', (string) $c['uvod'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? ''), 0, 320, '…'),
-            'image' => self::image($app, (string) $c['obrazek']),
+            'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'date' => (string) $c['published_at'],
+            'url' => self::campaign($app, self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']), $n),
+            'intro' => mb_strimwidth(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], ' ', (string) $c['intro'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? ''), 0, 320, '…'),
+            'image' => self::image($app, (string) $c['image']),
         ], $rows);
     }
 
@@ -334,10 +334,10 @@ final class Mailing
             $data = [
                 'language' => $language, 'subject' => (string) $n['subject'], 'preheader' => (string) $n['preheader'], 'paragraphs' => $paragraphs,
                 'items' => $items, 'button' => $button, 'siteName' => $siteName, 'siteUrl' => self::absolute($app, ''), 'logo' => $logo, 'company' => $company,
-                'colors' => $ds['barvy'] + ['tlumeny' => '#5b6170', 'na-primarni' => DesignSystem::contrastColor($ds['barvy']['primarni'])],
-                'headingFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-                'textFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-                'radius' => DesignSystem::RADII[$ds['zaobleni']] === '999px' ? '999px' : (string) (int) round((float) DesignSystem::RADII[$ds['zaobleni']] * 16) . 'px',
+                'colors' => $ds['colors'] + ['muted' => '#5b6170', 'on-primary' => DesignSystem::contrastColor($ds['colors']['primary'])],
+                'headingFont' => DesignSystem::fontFamily($ds, (string) $ds['font_heading'], true) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+                'textFont' => DesignSystem::fontFamily($ds, (string) $ds['font_body'], false) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+                'radius' => DesignSystem::RADII[$ds['radius']] === '999px' ? '999px' : (string) (int) round((float) DesignSystem::RADII[$ds['radius']] * 16) . 'px',
                 'unsubscribe' => self::UNSUBSCRIBE,
             ];
             $html = $app->view->render('email/newsletter', $data);
@@ -390,7 +390,7 @@ final class Mailing
             return $path;
         }
         $path = ltrim($path, '/');
-        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#D', $path, $m) && is_file(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
+        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#', $path, $m) && is_file(TALEA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
             $path = $m[1] . '-1200.' . $m[2];
         }
 

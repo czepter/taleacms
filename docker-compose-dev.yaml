@@ -1,0 +1,132 @@
+# Talea development stack. Everything runs in containers, the code is mounted from this folder (edit and reload, no rebuild).
+#
+#   docker compose -f docker-compose-dev.yaml up -d --build
+#
+# Site             http://localhost:8080      (first visit: the installer; database settings come from the environment)
+# Mailpit (mail)   http://localhost:8025      (every e-mail the site sends lands here; nothing leaves your machine)
+# Adminer (DB)     http://localhost:8081      (server db, user talea, password talea; root / root for everything)
+# MySQL            127.0.0.1:33060            (dev database)   127.0.0.1:33061 (throw-away database for the PHPUnit suites)
+# PostgreSQL       127.0.0.1:33062            (throw-away PostgreSQL 18 for the suites: composer test:pg)
+# Develop on PostgreSQL:  TALEA_DB_DRIVER=pgsql TALEA_DB_HOST=db-pg docker compose -f docker-compose-dev.yaml --profile db-pg up -d
+#
+# Mail: in the administration open Settings -> Mail, choose SMTP, host "mailpit", port 1025, encryption "none", no user and password.
+# Xdebug is installed but off; start with XDEBUG_MODE=debug (IDE listens on 9003). Run Composer or PHP in the container:
+#   docker compose -f docker-compose-dev.yaml exec web php bin/migrate
+#   docker compose -f docker-compose-dev.yaml exec web composer install
+#   docker compose -f docker-compose-dev.yaml exec web php tools/unit-tests.php
+# Tests against the throw-away database:
+#   composer test        (uses 127.0.0.1:33061 root/root by default; set TALEA_TEST_DB_* to use another server)
+#   composer test:pg     (the integration suite on PostgreSQL: TALEA_TEST_DB_DRIVER=pgsql, TALEA_TEST_PG_* = 127.0.0.1:33062 postgres/postgres)
+# Reset everything (database, uploads, mail):  docker compose -f docker-compose-dev.yaml down -v
+#
+# Docker CLI without buildx (Colima/Lima): run these commands inside the VM, see docker/README.md.
+# The container runs as your user so files it writes are yours: export DEV_UID=$(id -u) DEV_GID=$(id -g) (default 1000:1000).
+
+name: talea-dev
+
+x-user: &user "${DEV_UID:-1000}:${DEV_GID:-1000}"
+
+services:
+  # one-shot: installs the Composer packages (Phinx) into ./vendor before the site starts
+  vendor:
+    build: {context: ., target: dev}
+    user: *user
+    working_dir: /app
+    entrypoint: ["composer"]
+    command: ["install", "--no-interaction", "--prefer-dist"]
+    volumes: [".:/app"]
+    environment: {COMPOSER_HOME: /tmp/composer}
+
+  web:
+    build: {context: ., target: dev}
+    user: *user
+    ports: ["127.0.0.1:8080:8080"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      TALEA_DB_DRIVER: ${TALEA_DB_DRIVER:-mysql}
+      TALEA_DB_HOST: ${TALEA_DB_HOST:-db}
+      TALEA_DB_NAME: talea
+      TALEA_DB_USER: talea
+      TALEA_DB_PASSWORD: talea
+      TALEA_SITE_URL: http://localhost:8080
+      TALEA_DEBUG: "true"
+      TALEA_AI_URL: ${TALEA_AI_URL:-}
+      XDEBUG_MODE: ${XDEBUG_MODE:-off}
+    volumes: [".:/app"]
+    depends_on:
+      vendor: {condition: service_completed_successfully}
+      db: {condition: service_healthy}
+      mailpit: {condition: service_started}
+
+  db:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: talea
+      MYSQL_USER: talea
+      MYSQL_PASSWORD: talea
+    ports: ["127.0.0.1:${DEV_DB_PORT:-33060}:3306"]
+    volumes: [db:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 5s
+      retries: 20
+
+  # throw-away database for the PHPUnit suites (each test class creates and drops its own database): in memory, gone with the container
+  db-test:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--skip-log-bin", "--innodb-flush-log-at-trx-commit=0", "--innodb-doublewrite=0", "--skip-performance-schema"]
+    environment: {MYSQL_ROOT_PASSWORD: root}
+    ports: ["127.0.0.1:${DEV_TEST_DB_PORT:-33061}:3306"]
+    tmpfs: [/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 5s
+      retries: 20
+
+  # throw-away PostgreSQL for the PHPUnit suites (TALEA_TEST_DB_DRIVER=pgsql): in memory, no fsync, gone with the container
+  db-test-pg:
+    image: postgres:18
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    environment: {POSTGRES_PASSWORD: postgres}
+    ports: ["127.0.0.1:${DEV_TEST_PG_PORT:-33062}:5432"]
+    tmpfs: [/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+
+  # PostgreSQL to develop on (profile db-pg): start the stack with TALEA_DB_DRIVER=pgsql TALEA_DB_HOST=db-pg so the web service uses it (user, password and database are talea)
+  db-pg:
+    image: postgres:18
+    profiles: [db-pg]
+    environment: {POSTGRES_DB: talea, POSTGRES_USER: talea, POSTGRES_PASSWORD: talea}
+    ports: ["127.0.0.1:${DEV_PG_PORT:-33063}:5432"]
+    volumes: [db-pg:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talea -d talea"]
+      interval: 5s
+      retries: 20
+
+  # catches all outgoing mail: SMTP on mailpit:1025 (any login accepted), web UI and API on :8025
+  mailpit:
+    image: axllent/mailpit
+    ports: ["127.0.0.1:8025:8025", "127.0.0.1:1025:1025"]
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "5000"
+      MP_DATABASE: /data/mailpit.db
+    volumes: [mailpit:/data]
+
+  adminer:
+    image: adminer:5
+    ports: ["127.0.0.1:8081:8080"]
+    environment: {ADMINER_DEFAULT_SERVER: db, ADMINER_DESIGN: pepa-linha}
+    depends_on: [db]
+
+volumes:
+  db:
+  db-pg:
+  mailpit:
