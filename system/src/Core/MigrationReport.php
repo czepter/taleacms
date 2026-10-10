@@ -328,11 +328,11 @@ final class MigrationReport
 
         $site = [];
         if (!Extensions::isEnabled($this->app->settings(), 'redirects')) {
-            $site[] = ['right' => t('The Redirects feature is off: no redirect from an old address works.'), 'fix' => 'admin.php?module=extensions'];
+            $site[] = ['message' => t('The Redirects feature is off: no redirect from an old address works.'), 'fix' => 'admin.php?module=extensions'];
         }
         if ($state['phase'] === 'done') {
             foreach ((new Audit($this->app))->handoverFindings() as $f) {
-                $site[] = ['right' => (string) $f['message'], 'fix' => (string) $f['edit']];
+                $site[] = ['message' => (string) $f['message'], 'fix' => (string) $f['edit']];
             }
         }
 

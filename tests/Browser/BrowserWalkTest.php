@@ -36,8 +36,8 @@ final class BrowserWalkTest extends TestCase
         try {
             $site = Site::boot([
                 'web' => 'business', 'siteName' => 'Browser Test Ltd', 'language' => 'en', 'doneText' => 'Done, your website is running',
-                'extensions' => ['news', 'enquiries', 'newsletter_signup', 'bookings', 'stats', 'redirects', 'whistleblowing', 'claude'],
-                'enabledExtensions' => 'news,enquiries,newsletter_signup,bookings,stats,redirects,whistleblowing,claude',
+                'extensions' => ['news', 'enquiries', 'newsletter_signup', 'bookings', 'stats', 'redirects', 'claude'],
+                'enabledExtensions' => 'news,enquiries,newsletter_signup,bookings,stats,redirects,claude',
             ]);
         } catch (\PDOException $e) {
             $this->markTestSkipped('No MySQL reachable: ' . $e->getMessage());

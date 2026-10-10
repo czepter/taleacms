@@ -52,7 +52,7 @@ abstract class Module
 
     /**
      * A last check of whom the module is for, after the permission (3.1.1): a module can narrow it further, so the menu
-     * never offers what then answers 403 (the whistleblowing channel only for its readers and administrators).
+     * never offers what then answers 403.
      */
     public static function availableTo(App $app): bool
     {

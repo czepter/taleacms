@@ -23,19 +23,6 @@ final class Captcha
 
     private static bool $scriptPrinted = false;
 
-    /** No provider's widget or script on this page (offOnThisPage). */
-    private static bool $off = false;
-
-    /**
-     * The page being rendered must not load the provider's script at all – the whistleblowing channel (3.3.3, N53): the
-     * provider would learn the reporter's address, cookies and browser. A form elsewhere on such a page (a site part)
-     * then shows no widget either.
-     */
-    public static function offOnThisPage(): void
-    {
-        self::$off = true;
-    }
-
     /** The configured provider, or null when the CAPTCHA is off or not fully set up. */
     public static function provider(Settings $s): ?string
     {
@@ -48,7 +35,7 @@ final class Captcha
     public static function widget(Settings $s): string
     {
         $provider = self::provider($s);
-        if ($provider === null || self::$off) {
+        if ($provider === null) {
             return '';
         }
         [, $script, $field, , $class] = self::PROVIDERS[$provider];

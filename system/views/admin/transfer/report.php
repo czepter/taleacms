@@ -40,7 +40,7 @@ $severityClass = ['error' => 'badge badge-error', 'warning' => 'badge badge-draf
 <h2><?= e(t('The whole site')) ?></h2>
 <ul>
 <?php foreach ($result['web'] as $c): ?>
-	<li><?= e($c['right']) ?> <a href="<?= e($app->url($c['fix'])) ?>"><?= e(t('Fix')) ?></a></li>
+	<li><?= e($c['message']) ?> <a href="<?= e($app->url($c['fix'])) ?>"><?= e(t('Fix')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

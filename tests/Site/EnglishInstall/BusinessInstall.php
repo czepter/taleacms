@@ -26,6 +26,6 @@ trait BusinessInstall
             'module=parts&action=templates&type=header', 'module=parts&action=templates&type=footer', 'action=account', 'module=settings&tab=general', 'module=business', 'module=settings&tab=seo',
             'module=settings&tab=analytics', 'module=settings&tab=cookies', 'module=settings&tab=mail', 'module=settings&tab=backups', 'module=status',
             'module=popups', 'module=popups&action=new', 'module=notebook', 'module=notebook&action=edit', 'module=requests', 'module=requests&action=new', 'module=schedules', 'module=schedules&action=edit',
-            'module=bookings', 'module=bookings&action=new', 'module=bookings&action=services&new=1', 'module=bookings&action=staff', 'module=bookings&action=staff_edit', 'module=whistleblowing'];
+            'module=bookings', 'module=bookings&action=new', 'module=bookings&action=services&new=1', 'module=bookings&action=staff', 'module=bookings&action=staff_edit'];
     }
 }

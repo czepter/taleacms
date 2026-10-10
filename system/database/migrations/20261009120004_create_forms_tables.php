@@ -161,33 +161,5 @@ final class CreateFormsTables extends AbstractMigration
             ->addForeignKey('request_id', 'requests', 'id', ['constraint' => $prefix . 'fk_request_messages_request_id', 'delete' => 'CASCADE'])
             ->create();
 
-        $this->table('whistleblowing_cases', ['id' => false, 'primary_key' => ['id']])
-            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
-            ->addColumn('number', 'string', ['limit' => 12, 'null' => false, 'comment' => 'the case number the reporter knows: "2026-0007"'])
-            ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addColumn('status', 'string', ['limit' => 12, 'null' => false, 'default' => 'received', 'comment' => 'received | acknowledged | in_progress | closed'])
-            ->addColumn('acknowledged_at', 'datetime', ['null' => true, 'comment' => 'acknowledgement of receipt (due within 7 days)'])
-            ->addColumn('feedback_due', 'datetime', ['null' => false, 'comment' => 'created_at + 3 months'])
-            ->addColumn('closed_at', 'datetime', ['null' => true, 'comment' => 'closed cases are deleted after the retention period'])
-            ->addColumn('flood', 'boolean', ['null' => false, 'default' => 0, 'comment' => 'received when 20 or more came in the hour before (3.3.3)'])
-            ->addColumn('text', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'encrypted'])
-            ->addColumn('contact', 'text', ['null' => true, 'comment' => 'encrypted: name and contact, NULL = anonymous'])
-            ->addColumn('attachments', 'text', ['null' => true, 'comment' => 'encrypted JSON: [{name, path, size}], files in storage/oznameni/'])
-            ->addColumn('code_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the case number and the access code'])
-            ->addIndex(['public_id'], ['name' => 'uq_whistleblowing_cases_public_id', 'unique' => true])
-            ->addIndex(['number'], ['name' => 'uq_whistleblowing_cases_number', 'unique' => true])
-            ->addIndex(['status', 'closed_at'], ['name' => 'ix_whistleblowing_cases_status_closed_at'])
-            ->create();
-
-        $this->table('whistleblowing_messages', ['id' => false, 'primary_key' => ['id']])
-            ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('case_id', 'integer', ['signed' => false, 'null' => false])
-            ->addColumn('sender', 'string', ['limit' => 10, 'null' => false, 'comment' => 'reporter | handler'])
-            ->addColumn('text', 'text', ['null' => false, 'comment' => 'encrypted'])
-            ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addIndex(['case_id', 'id'], ['name' => 'ix_whistleblowing_messages_case_id_id'])
-            ->create();
-
     }
 }

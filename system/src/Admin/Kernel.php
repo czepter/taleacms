@@ -54,7 +54,6 @@ final class Kernel
         Modules\Extensions::class,
         Modules\Addons::class,
         Modules\Transfer::class,
-        Modules\Whistleblowing::class,
         Modules\Fleet::class,
     ];
 

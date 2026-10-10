@@ -96,4 +96,14 @@ final class StructuredDataTest extends TestCase
         $this->assertArrayNotHasKey('cookTime', $clean['fields']);
         $this->assertSame('2026-10-09', $clean['fields']['datePublished']);
     }
+
+    public function testThePrePublishCheckReportsMissingRequiredProperties(): void
+    {
+        $build = ['children' => [['id' => 'a', 'type' => 'structured_data', 'content' => ['data' => ['type' => 'Event', 'fields' => ['name' => 'Open day']]]],
+            ['id' => 'b', 'type' => 'structured_data', 'content' => ['data' => ['type' => 'Nope', 'fields' => []]]]]];
+        $findings = \Kaleta\Builder\Check::builds($build, false);
+
+        $this->assertSame(['a', 'b'], array_column($findings, 'id'));
+        $this->assertStringContainsString('startDate', $findings[0]['message']);
+    }
 }

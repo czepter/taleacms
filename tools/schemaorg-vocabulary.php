@@ -53,6 +53,12 @@ const SPEC = [
     'SoftwareApplication' => ['required' => ['name', 'offers'], 'recommended' => ['applicationCategory', 'operatingSystem', 'aggregateRating'], 'other' => ['url', 'description']],
 ];
 
+/** Properties whose schema.org range is the open "Thing" or too wide: the curated nested types a company site uses. */
+const NESTED = [
+    'FAQPage.mainEntity' => ['Question'], 'Review.itemReviewed' => ['Product', 'Service', 'LocalBusiness', 'Organization', 'Event', 'Course', 'Recipe'],
+    'Review.author' => ['Person', 'Organization'], 'Product.brand' => ['Organization'],
+];
+
 /** Properties whose value is a long text, not a line. */
 const LONG_TEXT = ['description', 'reviewBody', 'text', 'recipeInstructions', 'abstract'];
 
@@ -89,6 +95,7 @@ foreach (SPEC as $name => $spec) {
         foreach ($spec[$group] as $prop) {
             $pn = $nodes["schema:$prop"] ?? exit("Property $prop (of $name) is not in this schema.org release\n");
             $ranges = array_map(fn (string $r): string => substr($r, 7), $ids($pn['schema:rangeIncludes'] ?? []));
+            $ranges = array_merge($ranges, NESTED["$name.$prop"] ?? []);
             $props[$prop] = ['required' => $group === 'required', 'recommended' => $group === 'recommended'] + describe($prop, $pn, $ranges, $known, $nodes, $text);
         }
     }

@@ -119,7 +119,7 @@ final class Audit
             }
             if ($build !== null) {
                 foreach (Check::builds($build, true, 50) as $c) {
-                    $this->add('build', $where, $c['right'], 'admin.php?module=pages&action=builder&id=' . (int) $p['page_id'], $url, $target, $c['id']);
+                    $this->add('build', $where, $c['message'], 'admin.php?module=pages&action=builder&id=' . (int) $p['page_id'], $url, $target, $c['id']);
                 }
             }
             if ($p['noindex']) {
@@ -158,7 +158,7 @@ final class Audit
             $edit = 'admin.php?module=parts&action=builder&type=' . rawurlencode((string) $c['type']) . ($c['variant'] !== '' ? '&variant=' . rawurlencode((string) $c['variant']) : '') . '&language=' . rawurlencode((string) $c['language']);
             $this->links((string) $c['build'], $where, $edit, null, ['part' => (string) $c['type']]);
             foreach (Check::builds((array) Build::fromJson((string) $c['build']), false, 50) as $f) {
-                $this->add('build', $where, $f['right'], $edit, null, ['part' => (string) $c['type']], $f['id']);
+                $this->add('build', $where, $f['message'], $edit, null, ['part' => (string) $c['type']], $f['id']);
             }
         }
         foreach ($db->all('SELECT component_id, name, build FROM {components} WHERE build IS NOT NULL') as $c) {

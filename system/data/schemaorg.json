@@ -429,7 +429,10 @@
                     "recommended": false,
                     "label": "Main Entity",
                     "description": "Indicates the primary entity described in some page or other CreativeWork.",
-                    "type": "text",
+                    "type": "thing",
+                    "of": [
+                        "Question"
+                    ],
                     "multiple": true
                 }
             }
@@ -1631,7 +1634,16 @@
                     "recommended": false,
                     "label": "Item Reviewed",
                     "description": "The item that is being reviewed/rated.",
-                    "type": "text"
+                    "type": "thing",
+                    "of": [
+                        "Product",
+                        "Service",
+                        "Event",
+                        "Course",
+                        "Recipe",
+                        "Organization",
+                        "LocalBusiness"
+                    ]
                 },
                 "reviewRating": {
                     "required": true,

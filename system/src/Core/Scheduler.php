@@ -48,7 +48,6 @@ final class Scheduler
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
-        'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
@@ -130,7 +129,6 @@ final class Scheduler
 
                 return $scan['error'] !== '' ? $scan['error'] : 'pages ' . $scan['pages'] . ', cookies ' . count($scan['cookies']);
             },
-            'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
             'import_recheck' => function (App $app, string $source): string {

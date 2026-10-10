@@ -391,17 +391,6 @@ final class Kernel
             // a comment on a draft from a shared preview link that allows comments (2.15, Core\DraftComments)
             return (new DraftComments($this->app))->post();
         }
-        if (($path === '/_report' || $path === '/_report/follow') && \Kaleta\Core\Whistleblowing::isOn($this->app->settings())) {
-            // the whistleblowing channel (2.14): the report form and the follow-up by case number and code; a private page –
-            // no statistics (noindex), no cache, no tracking codes, no cookie bar (meta soukroma)
-            [$title, $html, $status] = (new Whistleblowing($this->app))->render($path === '/_report/follow');
-            $k = $this->context();
-            $k->types['form'] = true; // the form styles
-            $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
-            $k->withoutCache = true;
-
-            return $this->page($title, $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true, 'private' => true], $status);
-        }
         if (preg_match('#^/([a-z0-9-]{1,110})/_compare$#', $path, $m)) {
             return $this->compareProducts($m[1]);
         }
@@ -1271,6 +1260,9 @@ final class Kernel
             if ($k->faq !== [] && !isset($meta['faq'])) {
                 $meta['faq'] = $k->faq;
             }
+            if ($k->structured !== []) {
+                $meta['structured'] = $k->structured;
+            }
         }
         if ($preview !== '') {
             $meta['noindex'] = true;
@@ -1410,7 +1402,7 @@ final class Kernel
             'content' => $content,
             // add-ons (3.0) may add to <head> and the end of <body> – never on a private page
             'head' => $seo->head($title, $meta + ['languages' => $languages], $newsItem) . (empty($meta['private']) ? \Kaleta\Extension\Registry::applyFilter('head', '') : ''),
-            // a private page (meta soukroma, the whistleblowing channel) carries no marketing code, cookie bar or pop-up; the
+            // a private page (meta private) carries no marketing code, cookie bar or pop-up; the
             // accessibility toolbar for visitors (2.14) is off by default and tracks nothing
             'foot' => (empty($meta['private']) ? $seo->foot() . $popups : '') . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '')
                 . ($this->editHereUrl !== '' ? '<a class="ka-edit-here" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')

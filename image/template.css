@@ -52,8 +52,8 @@
 	.skip { position: absolute; left: -999px; }
 	.skip:focus { left: var(--space); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--base); }
 	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
-	.ka-whistleblowing-hours { background: var(--accent-soft); color: var(--text); border-bottom: 1px solid var(--line); font-size: 0.9375rem; text-align: center; }
-	.ka-whistleblowing-hours p { margin: 0 auto; padding: 0.5rem var(--space); max-width: var(--width); }
+	.ka-notice-hours { background: var(--accent-soft); color: var(--text); border-bottom: 1px solid var(--line); font-size: 0.9375rem; text-align: center; }
+	.ka-notice-hours p { margin: 0 auto; padding: 0.5rem var(--space); max-width: var(--width); }
 
 	.header { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--base) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
 	.header-wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space); min-height: 4.25rem; }

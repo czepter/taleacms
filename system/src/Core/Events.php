@@ -61,9 +61,6 @@ final class Events
         'addon.failed' => 'An add-on threw an error while loading and was switched off (the error is in Add-ons).',
         'claude.session_undone' => 'A Claude session was undone (how many rows were restored, removed or left because they changed since).',
         'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
-        'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
-        'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',
-        'whistleblowing.purged' => 'Closed whistleblowing cases past the retention period were deleted (the count only).',
         'agent_run.missed' => 'A scheduled Claude run was not picked up within 6 hours of its time (Scheduled runs) – the routine in Claude probably stopped.',
     ];
 

@@ -25,7 +25,7 @@ final class Pages extends Module
     public const string ICON = 'pages';
 
     /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', '_report'];
+    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og'];
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;

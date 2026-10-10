@@ -27,6 +27,9 @@ final class Context
     /** @var list<array{0:string, 1:string}> questions and answers from FAQ elements – for the page's structured data */
     public array $faq = [];
 
+    /** @var list<array{type: string, fields: array<string, mixed>}> cleaned nodes of Structured data elements – for the page's JSON-LD graph */
+    public array $structured = [];
+
     /** @var list<array{titulek:string, seo_link:string}> pages of the main navigation (supplied by the site) */
     public array $menu = [];
 

@@ -151,9 +151,7 @@ final class SiteExport
         self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
         self::fields($f, 'notice_log', self::streamRows($db, 'SELECT id, item_id, action, `at`, `by`, fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
-        // deliberately not here: whistleblowing cases and messages (2.14, Core\Whistleblowing) – reports to a company are not
-        // content of its site and are read only by the chosen readers; they stay encrypted in the database they were sent to;
-        // nor the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along);
+        // deliberately not here: the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along);
         // nor the scheduled Claude runs (2.17, Core\AgentSchedules) – a routine in Claude is set up per site and the run history belongs to it
         fwrite($f, "}\n");
         fclose($f);

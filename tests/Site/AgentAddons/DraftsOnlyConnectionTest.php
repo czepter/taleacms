@@ -87,7 +87,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
 
         $this->site()->clearPageCache();
         $home = $this->site()->client('visitor')->get('/');
-        $this->assertStringNotContainsString('ka-whistleblowing-hours', $home->body, '3.2: the site ignores a proposed exception (no notice bar)');
+        $this->assertStringNotContainsString('ka-notice-hours', $home->body, '3.2: the site ignores a proposed exception (no notice bar)');
         $this->assertStringNotContainsString('Navrh Clauda', $home->body, '3.2: the site ignores a proposed exception (no structured data)');
 
         $hours = $this->mcpData('list_hours');
@@ -120,7 +120,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->adminPost('/admin.php?module=business&action=hours_apply', ['exception' => self::$proposed], '/admin.php?module=business');
         $this->assertSame('0', $this->sq('SELECT proposed FROM ka_hours_exceptions WHERE id = ?', [self::$proposed]), '3.2: a person applies the proposal');
         $home = $this->site()->client('visitor')->get('/');
-        $this->assertStringContainsString('ka-whistleblowing-hours', $home->body, '3.2: the applied exception shows on the site (notice bar)');
+        $this->assertStringContainsString('ka-notice-hours', $home->body, '3.2: the applied exception shows on the site (notice bar)');
         $this->assertStringContainsString('Navrh Clauda', $home->body, '3.2: the applied exception shows on the site (text)');
 
         $this->site()->mcp('save_hours_exception', ['from' => self::$tomorrow, 'note' => 'Druhy navrh'], $this->draftsToken());

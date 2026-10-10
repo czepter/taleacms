@@ -164,7 +164,7 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('YYYY-MM-DD', $this->mcpText('save_hours_exception', ['from' => '2026-13-01']), 'hours: a wrong date is refused');
 
         $home = $this->page('/');
-        $this->assertTrue(str_contains($home, 'class="ka-whistleblowing-hours"') && str_contains($home, 'Inventura'), 'hours: the notice bar on the site');
+        $this->assertTrue(str_contains($home, 'class="ka-notice-hours"') && str_contains($home, 'Inventura'), 'hours: the notice bar on the site');
         $this->assertStringContainsString('"specialOpeningHoursSpecification"', $home, 'hours: the exception in the structured data');
 
         $this->mcpText('create_page', ['title' => 'Hodiny test', 'slug' => 'hodiny-test', 'visible' => true, 'text' => '<p>Dnes: {{hours.today}}. {{hours.status}}</p>']);
@@ -192,7 +192,7 @@ final class FactsTest extends SiteTestCase
 
         $this->adminPost('/admin.php?module=settings&action=hours_delete', ['exception' => $exception], '/admin.php?module=business');
         $this->sameValue('0', $site->value('SELECT COUNT(*) FROM ka_hours_exceptions'), 'hours: an exception is deleted in the admin');
-        $this->assertStringNotContainsString('ka-whistleblowing-hours', $this->page('/'), 'hours: without an exception there is no notice bar');
+        $this->assertStringNotContainsString('ka-notice-hours', $this->page('/'), 'hours: without an exception there is no notice bar');
     }
 
     // ---- 54 links between collections, people

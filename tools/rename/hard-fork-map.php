@@ -181,7 +181,7 @@ return [
     'public_ids' => [
         'users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components',
         'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services',
-        'booking_staff', 'requests', 'whistleblowing_cases', 'fleet_sites',
+        'booking_staff', 'requests', 'fleet_sites',
     ],
 
     // Extensions::CATALOG keys (also stored in the setting `extensions` and used by Module::EXTENSION / Element::EXTENSION).

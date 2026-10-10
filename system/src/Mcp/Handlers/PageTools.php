@@ -45,8 +45,6 @@ trait PageTools
             'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
             // what the site has switched on, so Claude does not guess (extension keys: news, enquiries, newsletter_signup…)
             'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
-            // the whistleblowing channel (2.14): Claude learns only that it is on – no tool reads or lists its cases
-            'whistleblowing' => \Kaleta\Core\Whistleblowing::isOn($siteSettings),
             'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
             'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings),
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],

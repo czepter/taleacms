@@ -50,7 +50,7 @@ for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=p
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
   '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
-  '/admin.php?module=bookings', '/admin.php?module=whistleblowing']) {
+  '/admin.php?module=bookings']) {
   await step(`open ${url}`, () => visit(url));
 }
 

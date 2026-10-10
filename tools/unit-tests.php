@@ -282,10 +282,6 @@ $parity = [
         'gbp_locations' => 'admin: which Business Profile location the site syncs is the administrator’s choice (2.13)', 'gbp_sync' => 'admin: the daily job does it by itself; the button is for the administrator checking the connection',
         'sheet' => 'admin: the sheet of enquiries is created with the administrator\'s Google sign-in (2.13); Claude sees the status in list_connectors'],
     'blueprints' => ['list' => 'get_blueprint', 'apply' => 'apply_blueprint', 'remove' => 'remove_blueprint', 'answers' => 'save_fact', 'export' => 'export_blueprint'],
-    // 2.14: whistleblowing reports are for the chosen readers only – deliberately no MCP tool reads, lists or answers them
-    'whistleblowing' => ['list' => 'admin: whistleblowing cases never go through Claude', 'settings' => 'admin: who reads whistleblowing reports is a security decision',
-        'detail' => 'admin: whistleblowing cases never go through Claude', 'reply' => 'admin: whistleblowing cases never go through Claude',
-        'status' => 'admin: whistleblowing cases never go through Claude', 'attachment' => 'admin: whistleblowing cases never go through Claude'],
     'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',
         'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions'],
@@ -822,7 +818,7 @@ foreach (['en', 'de'] as $code) {
     // English: Czech keys to English on top of the English source texts; German (2.5): every source text translated
     $dictionary = (require KALETA_ROOT . '/system/languages/install-' . $code . '.php') + ($code === 'en' ? require KALETA_ROOT . '/system/languages/install-cs.php' : []);
     // international words are not translated (the dictionary tool does not write identical entries)
-    $missing = array_values(array_diff(array_keys($keys), array_keys($dictionary), ['Server', 'Port', 'E-mail', 'Newsletter', 'Whistleblowing']));
+    $missing = array_values(array_diff(array_keys($keys), array_keys($dictionary), ['Server', 'Port', 'E-mail', 'Newsletter']));
     check('instalátor: úplný slovník ' . $code, $missing, []);
 }
 
@@ -2724,39 +2720,13 @@ check('2.14 Links::hint: the archived copy only as a suggestion for outside addr
 check('2.14 Links::isPublic: the test seam is off without the environment variable', Kaleta\Core\Links::isPublic('http://127.0.0.1:1/x'), false);
 check('2.14 InternalLinks::words: title words for the term overlap – lower case, no diacritics, four letters or more', Kaleta\Core\InternalLinks::words('Reference &amp; portfolio: Zateplení domů v Brně'), ['reference', 'portfolio', 'zatepleni', 'domu', 'brne']);
 check('2.14: the redirects job runs daily, redirect.auto is a known event, orphan is an audit kind', [Kaleta\Core\Scheduler::JOBS['redirects'][0], isset(Kaleta\Core\Events::TYPES['redirect.auto']), isset(Kaleta\Core\Audit::KINDS['orphan'])], [86400, true, true]);
-/* ---------- 2.14: whistleblowing channel (Core\Whistleblowing) ---------- */
-$wb = Kaleta\Core\Whistleblowing::class;
-check('2.14 Whistleblowing: the case number is the year and a four-digit sequence', [$wb::number(2026, 7), $wb::number(2026, 12345), $wb::isNumber('2026-0007'), $wb::isNumber('26-7'), $wb::isNumber('2026-0007x')],
-    ['2026-0007', '2026-12345', true, false, false]);
-$wbCode = $wb::newCode();
-check('2.14 Whistleblowing: the access code has 20 unambiguous characters in groups of five; its hash is bound to the case and ignores case and dashes',
-    [strlen($wb::normalizeCode($wbCode)), preg_match('/^[A-Z2-9]{5}(-[A-Z2-9]{5}){3}$/', $wbCode), preg_match('/[01IOL]/', $wbCode), strlen($wb::codeHash('2026-0001', $wbCode)),
-        $wb::codeHash('2026-0001', $wbCode) === $wb::codeHash('2026-0001', strtolower(str_replace('-', '', $wbCode))), $wb::codeHash('2026-0001', $wbCode) === $wb::codeHash('2026-0002', $wbCode)],
-    [20, 1, 0, 64, true, false]);
-$wbSettings = static function (string $key): Kaleta\Core\Settings {
+$keyedSettings = static function (string $key): Kaleta\Core\Settings {
     $s = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
     (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($s, ['secret_key' => $key]);
     (new ReflectionProperty(Kaleta\Core\Settings::class, 'db'))->setValue($s, new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', '')); // never connects: the key is set
 
     return $s;
 };
-$wbSite = $wbSettings(str_repeat('ab', 32));
-$wbSealed = $wb::encrypt($wbSite, 'Vedoucí skladu falšuje evidenci.');
-check('2.14 Whistleblowing: encrypt/decrypt round trip; another site, a damaged value and the connectors key read nothing',
-    [$wb::decrypt($wbSite, $wbSealed), str_contains($wbSealed, 'skladu'), $wbSealed === $wb::encrypt($wbSite, 'Vedoucí skladu falšuje evidenci.'), $wb::decrypt($wbSettings(str_repeat('cd', 32)), $wbSealed),
-        $wb::decrypt($wbSite, substr($wbSealed, 0, 10)), $wb::decrypt($wbSite, null), Kaleta\Core\Connectors::decrypt($wbSite, $wbSealed)],
-    ['Vedoucí skladu falšuje evidenci.', false, false, null, null, null, null]);
-$wbCase = ['created_at' => '2026-01-30 10:00:00', 'acknowledged_at' => null, 'status' => 'received', 'feedback_due' => '2026-04-30 10:00:00'];
-check('2.14 Whistleblowing: deadlines – the acknowledgement in 7 days, the feedback in 3 months; what is overdue when',
-    [$wb::deadlines('2026-01-30 10:00:00'), $wb::overdue($wbCase, '2026-02-06 09:00:00'), $wb::overdue($wbCase, '2026-02-07 09:00:00'), $wb::overdue($wbCase, '2026-05-01 00:00:00'),
-        $wb::overdue(['acknowledged_at' => '2026-02-01 08:00:00', 'status' => 'in_progress'] + $wbCase, '2026-05-01 00:00:00'), $wb::overdue(['status' => 'closed'] + $wbCase, '2027-01-01 00:00:00')],
-    [['acknowledge_by' => '2026-02-06 10:00:00', 'feedback_due' => '2026-04-30 10:00:00'], ['acknowledgement' => false, 'feedback' => false], ['acknowledgement' => true, 'feedback' => false],
-        ['acknowledgement' => true, 'feedback' => true], ['acknowledgement' => false, 'feedback' => true], ['acknowledgement' => false, 'feedback' => false]]);
-$wbTools = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), 'name');
-check('2.14 Whistleblowing: no MCP tool touches the cases, the public address is reserved, the job runs daily, the export leaves the tables out',
-    [array_values(array_filter($wbTools, fn (string $n): bool => str_contains($n, 'whistle') || str_contains($n, 'report_case'))), in_array('_report', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true),
-        Kaleta\Core\Scheduler::JOBS['whistleblowing'][0], preg_match('/whistleblowing_(cases|messages)}/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'))],
-    [[], true, 86400, 0]);
 /* ---------- 2.13: Search Console and Bing data (Core\SearchData) ---------- */
 check('2.13 Bing: a token service whose key goes in the query, never in a header; the daily job search_data', [Kaleta\Core\Connectors::service('bing'), Kaleta\Connectors\Bing::AUTH, Kaleta\Connectors\Bing::authHeaders('k', ''), Kaleta\Connectors\Bing::authQuery('k'),
     Kaleta\Connectors\Google::authQuery('k'), Kaleta\Core\Scheduler::JOBS['search_data'][0], isset(Kaleta\Connectors\Google::settings()['search_console_site']), array_keys(Kaleta\Connectors\Bing::settings())],
@@ -2899,7 +2869,7 @@ check('2.15: the comment event is known, the tools are a read and a write, the r
         Kaleta\Mcp\Translator::arguments('preview_link', ['id' => 3, 'comments' => true])],
     [true, ['read', ''], ['write', ''], ['id' => 3, 'komentare' => true]]);
 // the comments flag is signed into the preview key: a plain key never allows comments and a flag added by hand breaks the signature
-$dcSettings = $wbSettings(str_repeat('ef', 32));
+$dcSettings = $keyedSettings(str_repeat('ef', 32));
 $dcDb = new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''); // never connects: the secret key is set
 $dcPlain = Kaleta\Core\Preview::key($dcDb, $dcSettings, 'page:5', 60);
 $dcComments = Kaleta\Core\Preview::key($dcDb, $dcSettings, 'page:5', 60, true);
@@ -3010,8 +2980,8 @@ check('2.16 Kit::verifyAnswer – the signed kit with the announced hash passes;
 
 /* ---------- 2.17: undo a whole Claude session (Core\AgentJournal) ---------- */
 check('2.17 AgentJournal: content tables are journaled, logs and security tables are not', [Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\AgentJournal::journaled('settings'),
-    Kaleta\Core\AgentJournal::journaled('change_log'), Kaleta\Core\AgentJournal::journaled('api_tokens'), Kaleta\Core\AgentJournal::journaled('agent_journal'), Kaleta\Core\AgentJournal::journaled('whistleblowing_cases')],
-    [true, true, false, false, false, false]);
+    Kaleta\Core\AgentJournal::journaled('change_log'), Kaleta\Core\AgentJournal::journaled('api_tokens'), Kaleta\Core\AgentJournal::journaled('agent_journal')],
+    [true, true, false, false, false]);
 check('2.17 AgentJournal::same – rows compare by value (the database gives strings, JSON numbers), a missing row only equals a missing row', [
     Kaleta\Core\AgentJournal::same(['ids' => '5', 'title' => 'A', 'x' => null], ['ids' => 5, 'title' => 'A', 'x' => null]), Kaleta\Core\AgentJournal::same(['ids' => '5'], ['ids' => '6']),
     Kaleta\Core\AgentJournal::same(null, null), Kaleta\Core\AgentJournal::same(null, ['ids' => 1]), Kaleta\Core\Scheduler::JOBS['agent_journal'][0]],
@@ -3305,11 +3275,10 @@ foreach ($draftTexts as $where => $text) {
 }
 check('3.1.1: drafts routines are only told to use tools a drafts-only connection may call (or told what needs full access)', $draftGaps, []);
 
-check('3.1.1: the Client and Enquiries only presets can ask Claude; Whistleblowing narrows who sees it; every module icon exists and no two menu sections share one by accident', [
+check('3.1.1: the Client and Enquiries only presets can ask Claude; every module icon exists and no two menu sections share one by accident', [
     in_array('requests', Kaleta\Admin\Modules\Roles::PRESETS['client'][3], true), in_array('requests', Kaleta\Admin\Modules\Roles::PRESETS['office'][3], true), in_array('requests', Kaleta\Admin\Modules\Roles::PRESETS['writer'][3], true),
-    (new ReflectionMethod(Kaleta\Admin\Modules\Whistleblowing::class, 'availableTo'))->getDeclaringClass()->getName(),
     array_values(array_diff(array_map(fn (string $c): string => $c::ICON, Kaleta\Admin\Kernel::MODULES), (function (): array { $icon = require KALETA_SYSTEM . '/views/admin/icons.php'; preg_match_all("/^    '([a-z_-]+)' =>/m", (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php'), $m); return $m[1]; })()))],
-    [true, true, false, Kaleta\Admin\Modules\Whistleblowing::class, []]);
+    [true, true, false, []]);
 
 /* ---------- 3.2: what a drafts-only connection may save, and Waiting for you ---------- */
 $adminCs = require KALETA_SYSTEM . '/languages/admin-cs.php';
@@ -3329,22 +3298,19 @@ check('3.2: Waiting for you – every kind opens an admin section that exists, i
     (bool) preg_match("/hours_exceptions} WHERE proposed = 0/", (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Hours.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'AND proposed = 0')],
     [[], [], true, true, true]);
-/* ---------- 3.2: feature defaults – Bookings and Whistleblowing are features, Statistics has one switch ---------- */
-check('3.2: Bookings and Whistleblowing are features that new installations start without; a site that never saved its choice gets neither', [
-    Kaleta\Core\Extensions::CATALOG['bookings'][2], Kaleta\Core\Extensions::CATALOG['whistleblowing'][2],
-    array_values(array_intersect(['bookings', 'whistleblowing', 'stats'], Kaleta\Core\Extensions::enabled($reportSettings(['extensions' => ''])))),
-    Kaleta\Admin\Modules\Bookings::EXTENSION, Kaleta\Admin\Modules\Whistleblowing::EXTENSION, Kaleta\Builder\Elements\Booking::EXTENSION,
+/* ---------- 3.2: feature defaults – Bookings is a feature, Statistics has one switch ---------- */
+check('3.2: Bookings is a feature that new installations start without; a site that never saved its choice does not get it', [
+    Kaleta\Core\Extensions::CATALOG['bookings'][2],
+    array_values(array_intersect(['bookings', 'stats'], Kaleta\Core\Extensions::enabled($reportSettings(['extensions' => ''])))),
+    Kaleta\Admin\Modules\Bookings::EXTENSION, Kaleta\Builder\Elements\Booking::EXTENSION,
     in_array(Kaleta\Builder\Elements\Booking::TYPE, Kaleta\Builder\Build::disabledTypes(['news', 'enquiries']), true), in_array(Kaleta\Builder\Elements\Booking::TYPE, Kaleta\Builder\Build::disabledTypes(['bookings']), true),
     ],
-    [false, false, ['stats'], 'bookings', 'whistleblowing', 'bookings', true, false]);
-check('3.2: the public booking pages, reminders and MCP tools follow the Bookings feature; the whistleblowing channel needs the feature and its own switch; no MCP tool is gated', [
+    [false, ['stats'], 'bookings', 'bookings', true, false]);
+check('3.2: the public booking pages, reminders and MCP tools follow the Bookings feature; no MCP tool is gated', [
     Kaleta\Core\Booking::isOn($reportSettings(['extensions' => 'news,claude'])), Kaleta\Core\Booking::isOn($reportSettings(['extensions' => 'news,bookings'])),
-    Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'claude', 'whistleblowing_enabled' => '1'])),
-    Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'whistleblowing', 'whistleblowing_enabled' => '0'])),
-    Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'whistleblowing', 'whistleblowing_enabled' => '1'])),
     array_values(array_unique(array_map(fn (string $tool): string => Kaleta\Mcp\Catalog::TOOLS[$tool][1], ['list_bookings', 'booking_availability', 'save_booking_service', 'save_booking_staff', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times']))),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/BookingTools.php'), '$this->requireBookings();')],
-    [false, true, false, false, true, [''], 6]);
+    [false, true, [''], 6]);
 check('3.2: Statistics have one switch – the feature; the old setting is not read, not saved by the Analytics tab and still accepted over MCP', [
     Kaleta\Front\Stats::enabled($reportSettings(['extensions' => 'stats', 'stats' => '0'])), Kaleta\Front\Stats::enabled($reportSettings(['extensions' => 'news,claude', 'stats' => '1'])),
     Kaleta\Admin\Modules\Settings::verifyValue('stats', '1'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/analytics.php'), "\$field('stats'"),
@@ -3506,11 +3472,6 @@ check('3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4
     ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), ['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown']);
 check('3.3.2 (N34): a page password has a limit per address and one per page across all addresses', [Kaleta\Core\PageLock::ATTEMPTS, Kaleta\Core\PageLock::PAGE_ATTEMPTS > Kaleta\Core\PageLock::ATTEMPTS,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::network(')], [10, true, true]);
-check('3.3.2 (N28, N35): the whistleblowing channel caps reports per hour, per day and attachment storage, and keeps only a short keyed bucket of an address', [
-    Kaleta\Core\Whistleblowing::REPORTS_PER_HOUR, Kaleta\Core\Whistleblowing::REPORTS_PER_DAY, Kaleta\Core\Whistleblowing::MAX_STORAGE >= 512 * 1048576,
-    (new ReflectionClassConstant(Kaleta\Core\Whistleblowing::class, 'BUCKET_LENGTH'))->getValue() <= 5,
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Whistleblowing.php'), 'Antispam($app->db(), $app->settings()))->write')],
-    [20, 5, true, true, false]);
 $htaccess332 = (string) file_get_contents(KALETA_ROOT . '/.htaccess');
 $router332 = (string) file_get_contents(KALETA_SYSTEM . '/dev-router.php');
 preg_match("/if \\(preg_match\\('(#\\^\\/\\(system.+?#i)', \\\$path\\)\\)/", $router332, $routerRule);
@@ -3597,7 +3558,7 @@ check('3.3.3 N63: the imported-content recheck runs as a background job and Syst
     Kaleta\Core\Scheduler::JOBS['import_recheck'][0] ?? null,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), 'ImportRecheck::state('), Kaleta\Core\Settings::DEFAULTS['imported_recheck'] ?? null],
     [0, true, '']);
-/* ---------- 3.3.3: authentication, sessions, whistleblowing and page passwords ---------- */
+/* ---------- 3.3.3: authentication, sessions and page passwords ---------- */
 $authSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 preg_match('/public function login\(.*?\n    }\n/s', $authSource, $loginSource);
 check('3.3.3 (N51): sign-in checks the lock and the block before the password, verifies the dummy hash for them, and answers every failure with one text', [
@@ -3627,32 +3588,11 @@ check('3.3.3 (N54): the sign-in, reset and MCP limits count the visitor behind C
     Kaleta\Core\Firewall::visitorKey(new Kaleta\Core\Request([], [], ['REMOTE_ADDR' => '203.0.113.9', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $cloudflareSettings),
     Kaleta\Core\Firewall::visitorKey(new Kaleta\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $reportSettings(['firewall_proxy' => ''])),
     array_map(fn (string $file): bool => str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/' . $file . '.php'), 'Firewall::visitorKey(') && !str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/' . $file . '.php'), "hash('sha256', 'kaleta|' . \$this->app->request->ip())"),
-        ['Admin/Kernel', 'Admin/PasswordReset', 'Mcp/Server', 'Core/Whistleblowing'])],
-    ['2001:db8:1:2::/64', '203.0.113.9', '162.158.1.1', [true, true, true, true]]);
+        ['Admin/Kernel', 'Admin/PasswordReset', 'Mcp/Server'])],
+    ['2001:db8:1:2::/64', '203.0.113.9', '162.158.1.1', [true, true, true]]);
 check('3.3.3 (N62): the MCP wrong-token count only caps the rows it writes – it never refuses a request', [
     (bool) preg_match('/if \(\$token === null\) \{\s+if \(!\$limited\) \{\s+\$db->insert/', (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), 'it never refuses a request')], [true, true]);
-$frontReport = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Whistleblowing.php');
-check('3.3.3 (N53): the whistleblowing pages never load a third-party CAPTCHA, and the widget stays off on such a page', [
-    str_contains($frontReport, 'Captcha::verify'), str_contains($frontReport, 'Captcha::widget'), str_contains($frontReport, 'Captcha::offOnThisPage()'),
-    (function () use ($reportSettings): string {
-        $off = new ReflectionProperty(Kaleta\Core\Captcha::class, 'off');
-        $off->setValue(null, true);
-        $widget = Kaleta\Core\Captcha::widget($reportSettings(['captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'k', 'captcha_secret' => 's']));
-        $off->setValue(null, false);
-
-        return $widget;
-    })(),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Whistleblowing.php'), 'no third-party scripts on that page – the site\'s')],
-    [false, false, true, '', true]);
-$wbSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Whistleblowing.php');
-preg_match('/public static function acceptsReport\(.*?\n    }\n/s', $wbSource, $acceptsSource);
-check('3.3.3 (N57): the hourly cap marks reports instead of refusing them, attachments over the storage cap are dropped instead of the report, and the checks run under a lock', [
-    str_contains($acceptsSource[0] ?? '', 'REPORTS_PER_HOUR'), str_contains($wbSource, "'flood' => \$flood ? 1 : 0"),
-    str_contains($wbSource, 'Attachments cannot be accepted right now'), str_contains($wbSource, 'GET_LOCK(?, 10)') && str_contains($wbSource, 'RELEASE_LOCK'),
-    str_contains($migrationSource, "'flood', 'boolean'"),
-    isset($adminCs['received during a flood'], $adminDe['received during a flood'])],
-    [false, true, false, true, true, true]);
 $pageLockSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/PageLock.php');
 check('3.3.3 (N58): the page cap is checked only after a wrong password – the right one always opens the page', [
     strpos($pageLockSource, "'page-lock-all'") > strpos($pageLockSource, 'password_verify('), str_contains($pageLockSource, ", 'page-lock-all', self::WINDOW, false)")], [true, false]);

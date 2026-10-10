@@ -15,7 +15,6 @@ $extensionSettings = [
     'redirects' => [[$adminUrl('module=redirects'), 'Redirects']],
     'languages' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
     'assistant' => [['#assistant', 'Provider, key and model']],
-    'whistleblowing' => [[$adminUrl('module=whistleblowing'), 'Channel set-up and readers']],
     'claude' => [['#claude', 'How to connect Claude']],
 ];
 ?>

@@ -44,7 +44,7 @@ final class Build
         Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
         Elements\News::class, Elements\GoogleReviews::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\Booking::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
-        Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\CompanyDetails::class, Elements\PageContent::class,
+        Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\StructuredData::class, Elements\CompanyDetails::class, Elements\PageContent::class,
     ];
 
     /** @return class-string<Element>|null */
@@ -283,6 +283,8 @@ final class Build
                 'choice' => is_scalar($value) && isset($def['options'][(string) $value]) ? (string) $value : (string) $def['default'],
                 'number' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['default'],
                 'boolean' => (bool) $value,
+                // typed schema.org data: {type, fields}, cleaned against the curated vocabulary (Builder\StructuredData); anything else becomes empty
+                'structured' => StructuredData::sanitize($value)[0] ?? [],
                 // component property values: only key => text; they are checked by the property type when rendering
                 'values' => array_slice(array_filter(
                     array_map(fn (mixed $v): ?string => is_scalar($v) ? mb_substr((string) $v, 0, 20000) : null, is_array($value) ? $value : []),

@@ -161,13 +161,22 @@ final class StructuredData
         return preg_match('#^https?://#i', $v) === 1 && filter_var($v, FILTER_VALIDATE_URL) !== false && !preg_match('/[<>"\'\s]/', $v) ? $v : null;
     }
 
+    /** type => [property => 'company'|'web']: links to the site's own nodes, set when the editor left the property empty. */
+    private const array LINKS = [
+        'Service' => ['provider' => 'company'], 'Event' => ['organizer' => 'company'], 'JobPosting' => ['hiringOrganization' => 'company'], 'Course' => ['provider' => 'company'],
+        'Article' => ['publisher' => 'company', 'isPartOf' => 'web'], 'BlogPosting' => ['publisher' => 'company', 'isPartOf' => 'web'], 'WebPage' => ['isPartOf' => 'web'],
+        'Recipe' => ['publisher' => 'company'], 'HowTo' => ['publisher' => 'company'], 'VideoObject' => ['publisher' => 'company'], 'Offer' => ['seller' => 'company'],
+    ];
+
     /**
-     * The JSON-LD node of a cleaned node. $absolute turns a site path into an address (Seo passes the origin); enum values become schema.org addresses.
+     * The JSON-LD node of a cleaned node. $absolute turns a site path into an address (Seo passes the origin); enum values become schema.org addresses;
+     * $ids ({company, web}: the @id of the site's own nodes) links the node to them where the type has a natural link (LINKS).
      *
      * @param array{type: string, fields: array<string, mixed>} $node
+     * @param array{company?: string, web?: string} $ids
      * @return array<string, mixed>
      */
-    public static function render(array $node, callable $absolute): array
+    public static function render(array $node, callable $absolute, array $ids = []): array
     {
         $definition = self::vocabulary()[$node['type']]['properties'] ?? [];
         $out = ['@type' => $node['type']];
@@ -180,10 +189,15 @@ final class StructuredData
                 'url' => $absolute($v),
                 'image' => ['@type' => 'ImageObject', 'url' => $absolute($v)],
                 'enum' => 'https://schema.org/' . $v,
-                'thing' => self::render($v, $absolute),
+                'thing' => self::render($v, $absolute, $ids),
                 default => $v,
             };
             $out[$name] = !empty($p['multiple']) ? array_map($render, (array) $value) : $render($value);
+        }
+        foreach (self::LINKS[$node['type']] ?? [] as $property => $target) {
+            if (!isset($out[$property]) && isset($ids[$target])) {
+                $out[$property] = ['@id' => $ids[$target]];
+            }
         }
 
         return $out;

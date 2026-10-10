@@ -7,8 +7,8 @@ namespace Kaleta\Tests\Site\EnglishInstall;
 /** Every visible page, news, search, 404 and the privacy policy of an English install, as a visitor sees them (was public_site in tools/test-english.sh). */
 trait PublicSiteWalk
 {
-    /** Every extension (3.2: Bookings and Whistleblowing are features, off unless ticked). */
-    private const array ALL = ['news', 'enquiries', 'newsletter_signup', 'bookings', 'stats', 'redirects', 'languages', 'api', 'assistant', 'whistleblowing', 'claude'];
+    /** Every extension (3.2: Bookings is a feature, off unless ticked). */
+    private const array ALL = ['news', 'enquiries', 'newsletter_signup', 'bookings', 'stats', 'redirects', 'languages', 'api', 'assistant', 'claude'];
 
     private function walkPublicSite(string $starter): void
     {

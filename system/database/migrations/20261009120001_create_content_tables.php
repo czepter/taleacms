@@ -223,7 +223,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('draft_comments', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('target', 'string', ['limit' => 80, 'null' => false, 'comment' => 'the draft the comment is about, as Core\\Preview signs it: \'page:12\''])
+            ->addColumn('target', 'string', ['limit' => 80, 'null' => false, 'comment' => 'the draft the comment is about, as Core\\Preview signs it: \'stranka:12\''])
             ->addColumn('element', 'string', ['limit' => 40, 'null' => true, 'comment' => 'builder element id the comment points at; NULL = the page as a whole'])
             ->addColumn('quote', 'string', ['limit' => 300, 'null' => false, 'default' => '', 'comment' => 'the text the visitor had selected when writing'])
             ->addColumn('name', 'string', ['limit' => 80, 'null' => false])

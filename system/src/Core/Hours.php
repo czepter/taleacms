@@ -247,7 +247,7 @@ final class Hours
             return '';
         }
 
-        return '<div class="ka-whistleblowing-hours" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
+        return '<div class="ka-notice-hours" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
     }
 
     /**

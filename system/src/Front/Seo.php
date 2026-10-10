@@ -243,10 +243,7 @@ final class Seo
     {
         $s = $this->app->settings();
         $h = [];
-        // a private page (the whistleblowing channel, 2.14): no consent service, no tracking codes, no site-wide head code –
-        // nothing that could tell a third party who opened it
-        $private = !empty($meta['private']);
-        if (!$private && $s->get('cookies_mode') === 'external' && trim($s->get('cookies_external_code')) !== '') {
+        if ($s->get('cookies_mode') === 'external' && trim($s->get('cookies_external_code')) !== '') {
             $h[] = $s->get('cookies_external_code');
         }
         if (!$s->bool('indexing')) {
@@ -469,6 +466,15 @@ final class Seo
                 $chart[] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
                     '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
                 ], $meta['faq'])];
+            }
+            foreach ($meta['structured'] ?? [] as $i => $node) {
+                // typed structured data of the page (the Structured data element): joins the same graph, linked to the company and website nodes;
+                // a manual FAQPage replaces the automatic one so the page never carries two
+                $rendered = \Kaleta\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']);
+                if (($rendered['@type'] ?? '') === 'FAQPage') {
+                    $chart = array_values(array_filter($chart, fn (array $c): bool => ($c['@type'] ?? '') !== 'FAQPage'));
+                }
+                $chart[] = ['@id' => $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . '#data-' . ($i + 1)] + $rendered;
             }
             if (!empty($meta['item'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)

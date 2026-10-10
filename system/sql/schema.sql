@@ -1098,39 +1098,6 @@ CREATE TABLE ka_connector_log (
     KEY ix_connector_log_service_id (service, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Whistleblowing channel (2.14, Core\Whistleblowing): reports under the EU Whistleblower Directive. The text, the contact,
--- the attachment list and every message are encrypted with the site's key; only a hash of the reporter's access code is
--- stored; no IP address anywhere. Not exported with the site, not reachable over MCP.
-CREATE TABLE ka_whistleblowing_cases (
-    id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
-    number          VARCHAR(12) NOT NULL,              -- the case number the reporter knows: "2026-0007"
-    created_at      DATETIME NOT NULL,
-    status          VARCHAR(12) NOT NULL DEFAULT 'received', -- received | acknowledged | in_progress | closed
-    acknowledged_at DATETIME NULL,                     -- acknowledgement of receipt (due within 7 days)
-    feedback_due    DATETIME NOT NULL,                 -- created_at + 3 months
-    closed_at       DATETIME NULL,                     -- closed cases are deleted after the retention period
-    flood           TINYINT(1) NOT NULL DEFAULT 0,     -- received when 20 or more came in the hour before (3.3.3)
-    text            MEDIUMTEXT NOT NULL,               -- encrypted
-    contact         TEXT NULL,                         -- encrypted: name and contact, NULL = anonymous
-    attachments     TEXT NULL,                         -- encrypted JSON: [{name, path, size}], files in storage/oznameni/
-    code_hash       CHAR(64) NOT NULL,                 -- sha256 of the case number and the access code
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_whistleblowing_cases_public_id (public_id),
-    UNIQUE KEY uq_whistleblowing_cases_number (number),
-    KEY ix_whistleblowing_cases_status_closed_at (status, closed_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-
-CREATE TABLE ka_whistleblowing_messages (
-    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    case_id    INT UNSIGNED NOT NULL,
-    sender     VARCHAR(10) NOT NULL,                   -- reporter | handler
-    text       TEXT NOT NULL,                          -- encrypted
-    created_at DATETIME NOT NULL,
-    PRIMARY KEY (id),
-    KEY ix_whistleblowing_messages_case_id_id (case_id, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-
 -- Search data (2.13, Core\SearchData): what Google Search Console and Bing Webmaster Tools know about the site, stored
 -- once a day by the job search_data as a snapshot of the last 28 days – the top queries and pages with clicks,
 -- impressions, CTR and the average position, and for Google the sitemaps (kind sitemap: key = the sitemap address,
