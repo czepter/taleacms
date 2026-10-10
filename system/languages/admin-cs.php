@@ -5690,4 +5690,6 @@ return [
     'above' => 'nad',
     'top' => 'nahoře',
     'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Aplikace připojené k tomuto účtu (konektor Claude) se novým heslem odpojí – připojte je znovu v aplikaci Claude.',
+    'Banner text and policy link in other language versions' => 'Text lišty a odkaz na zásady v dalších jazykových verzích',
+    'Visitors of each language version read the banner in its language. An empty field means the same as in the default language.' => 'Návštěvníci každé jazykové verze čtou lištu v jejím jazyce. Prázdné pole znamená totéž co ve výchozím jazyce.',
 ];

@@ -5694,4 +5694,6 @@ return [
     'above' => 'darüber',
     'top' => 'ganz oben',
     'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Mit diesem Konto verbundene Apps (der Claude-Konnektor) werden mit dem neuen Passwort getrennt – verbinden Sie sie in der Claude-App erneut.',
+    'Banner text and policy link in other language versions' => 'Bannertext und Link zur Datenschutzerklärung in weiteren Sprachversionen',
+    'Visitors of each language version read the banner in its language. An empty field means the same as in the default language.' => 'Besucher jeder Sprachversion lesen den Banner in ihrer Sprache. Ein leeres Feld bedeutet dasselbe wie in der Standardsprache.',
 ];

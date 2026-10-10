@@ -102,6 +102,12 @@ class Settings extends Module
             }
             $field['screen_collections'] = 'list:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
+        if ($tab === 'cookies') {
+            // the cookie bar text and the policy link for each further language version; empty = as in the default language
+            foreach (\Talea\Core\Language::additional($this->app->settings()) as $language) {
+                $field += ['cookies_text_' . $language => $field['cookies_text'], 'cookies_policy_url_' . $language => $field['cookies_policy_url']];
+            }
+        }
 
         return $field;
     }
@@ -693,13 +699,27 @@ class Settings extends Module
      */
     public static function checkable(string $key): bool
     {
+        $type = self::fieldType($key);
+
+        return $type !== null && !str_starts_with($type, 'secret') && !str_starts_with($type, 'list');
+    }
+
+    /**
+     * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
+     * cookies_text_de, cookies_policy_url_de) has the type of its base. null = not a field of the admin form.
+     */
+    private static function fieldType(string $key): ?string
+    {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
-                return !str_starts_with($field[$key], 'secret') && !str_starts_with($field[$key], 'list');
+                return $field[$key];
             }
         }
+        if (preg_match('/^(.+)_([a-z]{2})$/D', $key, $m) === 1 && in_array($m[1], \Talea\Core\Settings::PER_LANGUAGE, true)) {
+            return self::fieldType($m[1]);
+        }
 
-        return false;
+        return null;
     }
 
     /**
@@ -708,13 +728,7 @@ class Settings extends Module
      */
     public static function verifyValue(string $key, string $value): ?string
     {
-        $type = null;
-        foreach (self::FIELDS as $field) {
-            $type ??= $field[$key] ?? null;
-        }
-        if ($type === null && preg_match('/^(site_name|site_description)_([a-z]{2})$/', $key, $m)) {
-            $type = $m[1] === 'site_name' ? 'text' : 'lines';
-        }
+        $type = self::fieldType($key);
         if ($type === null || str_starts_with($type, 'secret') || str_starts_with($type, 'list')) {
             return null;
         }
