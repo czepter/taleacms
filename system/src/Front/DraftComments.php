@@ -25,6 +25,9 @@ final class DraftComments
     {
         $r = $this->app->request;
         $target = $r->post('target');
+        if (preg_match('/^page:(.+)$/', $target, $m)) {
+            $target = 'page:' . $this->app->db()->internalId('pages', $m[1]); // the page prints its public id, the signed key covers the internal target
+        }
         $parsed = Comments::parseTarget($target);
         if (!$r->isPost() || $parsed === null || !Preview::allowsComments($this->app->db(), $this->app->settings(), $target, $r->post('key'))) {
             return new Response(e(t('This preview link does not allow comments.')), 403, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);

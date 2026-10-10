@@ -20,7 +20,7 @@
 <div class="row"><label for="name"><?= e(t('Variant name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($name) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Landing page')) ?>"></div></div>
 <div class="row"><span class="caption"><?= e(t('Pages')) ?></span><div class="options">
 <?php foreach ($pages as $s): ?>
-	<label><input type="checkbox" name="pages[]" value="<?= (int) $s['page_id'] ?>"<?= in_array((int) $s['page_id'], $selected, true) ? ' checked' : '' ?>> <?= e($s['title']) ?></label><br>
+	<label><input type="checkbox" name="pages[]" value="<?= e($s['public_id']) ?>"<?= in_array((int) $s['page_id'], $selected, true) ? ' checked' : '' ?>> <?= e($s['title']) ?></label><br>
 <?php endforeach ?>
 </div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t($variant === '' ? 'Create and open in the builder' : 'Save')) ?>"> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>

@@ -138,7 +138,7 @@ PHP);
         $site = $this->site();
         $page = $this->firstId($site->mcp('create_page', ['title' => 'Leads 23', 'visible' => true]));
         $this->assertGreaterThan(0, $page, 'the lead page was created');
-        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $site->mcp('save_build', ['id' => $site->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'form', 'content' => ['name' => 'Enquiry 23', 'fields' => [
                 ['label' => 'Services', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kitchen\nBathroom"],
                 ['label' => 'Product', 'type' => 'hidden', 'value' => 'Oak chair'],
@@ -158,7 +158,7 @@ PHP);
         $this->assertStringContainsString('<meta name="kaleta-test" content="23">', $form->body, 'code in the head of the page');
         $this->assertStringNotContainsString('kaleta-test', $site->client()->get('/')->body, 'code in the head of one page only');
 
-        $answer = $this->answerRaw($site->mcp('update_page', ['id' => $page, 'head_code' => '<script>x()</script>']));
+        $answer = $this->answerRaw($site->mcp('update_page', ['id' => $site->publicId('pages', $page), 'head_code' => '<script>x()</script>']));
         $this->assertStringContainsString('only in the administration', $answer, 'MCP cannot set head code, not even with full access (2.5.1)');
         $answer = $this->answerRaw($site->mcp('update_settings', ['settings' => ['head_code' => '<script>x()</script>', 'marketing_code' => '<script>y()</script>']]));
         $this->assertStringContainsString('set only in the administration', $answer, 'MCP refuses code for the whole site with a reason');

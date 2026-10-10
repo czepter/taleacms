@@ -156,7 +156,7 @@ final class Settings
         'fleet_console_url' => '',     // the fleet console this site reports to (2.9, Fleet\Link)
         'fleet_console_key' => '',     // its public key: the console's answers must be signed by it
         'fleet_console_name' => '',
-        'fleet_site_id' => '',         // this site's number on the console
+        'fleet_site_id' => '',         // this site's public id on the console
         'fleet_updates' => '0',        // the console decides when new versions install here
         'fleet_update_allowed' => '',  // the version the console allowed in its last answer
         'fleet_last_sent' => '',

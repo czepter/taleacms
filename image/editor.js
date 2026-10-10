@@ -18,7 +18,7 @@
 	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-page') || '2000', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	var GALLERY = ADMIN + '?module=media';
-	var NEWS_ID = parseInt((document.querySelector('form[data-draft] input[name="news_id"]') || {}).value || '0', 10);
+	var NEWS_ID = (document.querySelector('form[data-draft] input[name="news_id"]') || {}).value || ''; // public id of the news item ('' = a new one)
 	var LANGUAGE = document.documentElement.lang || 'cs'; // date and time format by the page language
 	var time = function (t, timeOnly) { return window.kaletaTime ? window.kaletaTime(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
 
@@ -129,7 +129,7 @@
 		var data = new FormData();
 		var folder = document.querySelector('.gallery-window[open] select');
 		data.append('_csrf', CSRF);
-		data.append('folder_id', folder && /^\d+$/.test(folder.value) ? folder.value : '0');
+		data.append('folder_id', folder && folder.value !== '' && folder.value !== 'article' ? folder.value : '0');
 		files.forEach(function (s) { data.append('soubory[]', s); });
 		return fetch(GALLERY + '&action=upload&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
@@ -203,7 +203,7 @@
 		}
 		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
 		function load(filter) {
-			var query = filter === 'article' ? '&article=' + NEWS_ID : (filter !== '' ? '&section=' + filter : '');
+			var query = filter === 'article' ? '&article=' + encodeURIComponent(NEWS_ID) : (filter !== '' ? '&section=' + filter : '');
 			var search = modal.querySelector('input[type=search]').value.trim();
 			if (search !== '') { query += '&search=' + encodeURIComponent(search); }
 			grid.textContent = T('Loading…');
@@ -521,7 +521,7 @@
 			if (!draftUrl || !lastData) { return; }
 			var fd = new FormData();
 			fd.append('_csrf', CSRF);
-			fd.append('news_id', String(NEWS_ID || 0));
+			fd.append('news_id', NEWS_ID);
 			fd.append('fields', JSON.stringify(lastData.fields));
 			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				if (j.ok) { editors.forEach(function (ed) { ed.status.textContent = T('draft also saved on the server at ') + time(Date.now(), true); }); }
@@ -531,7 +531,7 @@
 			if (!draftUrl) { return; }
 			var fd = new FormData();
 			fd.append('_csrf', CSRF);
-			fd.append('news_id', String(NEWS_ID || 0));
+			fd.append('news_id', NEWS_ID);
 			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).catch(function () { /* nothing */ });
 		}
 		form.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(save, 1500); });

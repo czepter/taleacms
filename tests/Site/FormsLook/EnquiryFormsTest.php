@@ -122,7 +122,7 @@ final class EnquiryFormsTest extends SiteTestCase
         $id = $this->sql('SELECT enquiry_id FROM ka_enquiries');
 
         $this->assertPage('/admin.php?module=enquiries', 200, 'jane@example.org', message: 'enquiries in the admin');
-        $detail = $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $id, 200, 'I want a custom kitchen.', message: 'enquiry detail');
+        $detail = $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $this->site()->publicId('enquiries', (int) $id), 200, 'I want a custom kitchen.', message: 'enquiry detail');
         $this->assertStringContainsString('>Tester</option>', $detail->body, 'the assignee list offers the administrator');
         $this->assertStringNotContainsString('>Author</option>', $detail->body, 'only someone with access to Enquiries can handle one');
         $this->assertSame('1', $this->sql('SELECT status FROM ka_enquiries'), 'an opened enquiry is read');

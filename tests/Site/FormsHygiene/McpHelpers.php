@@ -23,9 +23,9 @@ trait McpHelpers
     private function createPage(array $arguments, string $tool = 'create_page'): int
     {
         $text = $this->mcpText($tool, $arguments);
-        $this->assertSame(1, preg_match('/"id":(\d+)/', $text, $m), "$tool answered without an id: " . mb_substr($text, 0, 200));
+        $this->assertSame(1, preg_match('/"id":"?([0-9a-f-]{36}|\d+)"?/', $text, $m), "$tool answered without an id: " . mb_substr($text, 0, 200));
 
-        return (int) $m[1];
+        return strlen($m[1]) === 36 ? $this->site()->rowId($m[1]) : (int) $m[1];
     }
 
     /** A page id by its address. */

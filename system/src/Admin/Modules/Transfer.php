@@ -269,7 +269,7 @@ final class Transfer extends Module
         return $this->view('preview', 'Import from WordPress', [
             'state' => $state,
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'categories' => $this->db->all('SELECT category_id, name, language FROM {categories} ORDER BY language, name'),
+            'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'redirects'),
         ]);
     }
@@ -285,7 +285,7 @@ final class Transfer extends Module
         $state['options'] = [
             'language' => in_array($r->post('language'), Language::additional($this->app->settings()), true) ? $r->post('language') : '',
             'drafts' => $r->postBool('drafts'), 'pages' => $r->postBool('pages'), 'builder' => $r->postBool('builder'),
-            'redirects' => $r->postBool('redirects'), 'category' => $r->postInt('category'), 'collections' => $r->postBool('collections'),
+            'redirects' => $r->postBool('redirects'), 'category' => $this->db->internalId('categories', $r->post('category')), 'collections' => $r->postBool('collections'),
         ];
         $state['phase'] = 'import';
         $state['position'] = 0;
@@ -494,8 +494,8 @@ final class Transfer extends Module
             'state' => $state,
             'source' => Sources::byKey($state['source']),
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'categories' => $this->db->all('SELECT category_id, name, language FROM {categories} ORDER BY language, name'),
-            'users' => $this->db->all('SELECT user_id, name, username FROM {users} WHERE blocked = 0 ORDER BY name, username'),
+            'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
+            'users' => $this->db->all('SELECT user_id, public_id, name, username FROM {users} WHERE blocked = 0 ORDER BY name, username'),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'redirects'),
         ]);
     }
@@ -510,13 +510,13 @@ final class Transfer extends Module
         $r = $this->request;
         $authors = [];
         foreach ($state['dictionary']['authors'] as $key => $name) {
-            $authors[$key] = $r->postInt('author_' . substr(sha1((string) $key), 0, 12));
+            $authors[$key] = $this->db->internalId('users', $r->post('author_' . substr(sha1((string) $key), 0, 12)));
         }
         $state['mapping'] = Mapping::normalize([
             'posts' => $r->post('posts'), 'pages' => $r->post('pages'), 'categories' => $r->post('categories'), 'tags' => $r->post('tags'),
             'authors' => $authors, 'language' => $r->post('language'),
             'drafts' => $r->postBool('drafts'), 'builder' => $r->postBool('builder'), 'redirects' => $r->postBool('redirects'),
-            'default_category' => $r->postInt('default_category'), 'site_url' => $r->post('site_url'),
+            'default_category' => $this->db->internalId('categories', $r->post('default_category')), 'site_url' => $r->post('site_url'),
         ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT user_id FROM {users} WHERE blocked = 0'), 'user_id')));
         if ($state['web']['url'] === '' && $state['mapping']['site_url'] === '' && $r->post('site_url') !== '') {
             return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['file']], 'error');

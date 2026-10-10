@@ -165,7 +165,7 @@ final class DraftComments
         $s = $app->settings();
         $editor = $db->one('SELECT u.user_id, u.email, u.language, u.register FROM {build_revisions} r JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? AND u.blocked = 0 AND u.email <> ? ORDER BY r.revision_id DESC LIMIT 1', [(int) $page['page_id'], '']);
         $recipients = $editor !== null ? [$editor] : $db->all('SELECT user_id, email, language, register FROM {users} WHERE admin = 2 AND blocked = 0 AND email <> ? ORDER BY user_id LIMIT 10', ['']);
-        $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['page_id']);
+        $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . $app->db()->publicId('pages', (int) $page['page_id']));
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');
         foreach ($recipients as $recipient) {
             Language::runWith((string) $recipient['language'] !== '' ? (string) $recipient['language'] : Language::defaults($s), function () use ($s, $recipient, $page, $name, $excerpt, $url): void {

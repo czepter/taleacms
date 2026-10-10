@@ -74,7 +74,7 @@ PHP);
         $this->assertSame('ok/0', $this->site()->value("SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM ka_subscription_queue)) FROM ka_subscribers"), 'the subscriber is in the service');
         $this->assertPage('/admin.php?module=subscribers', 200, 'sent', message: 'service state at the subscribers');
 
-        $this->subscriberAction('delete', ['subscriber_id' => $this->site()->value('SELECT subscriber_id FROM ka_subscribers')]);
+        $this->subscriberAction('delete', ['subscriber_id' => $this->site()->value('SELECT public_id FROM ka_subscribers')]);
         $this->subscriberAction('retry');
         $this->assertSame('POST /brevo/v3/contacts/lists/7/contacts/remove brevo-klic {"emails":["sluzba@example.cz"]}', $this->lastRequest(), 'Brevo: the deleted subscriber is removed from the list');
     }

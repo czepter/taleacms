@@ -34,7 +34,7 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testItemPageHasItsOwnSeoFieldsAndDropsAnUnsafeImage(): void
     {
         $site = $this->site();
-        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $this->jane(), 'seo_title' => 'Jane Novak, managing director', 'description' => 'Runs the workshop for twenty years.', 'share_image' => 'javascript:x']);
+        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $site->publicId('collection_items', $this->jane()), 'seo_title' => 'Jane Novak, managing director', 'description' => 'Runs the workshop for twenty years.', 'share_image' => 'javascript:x']);
         $site->clearPageCache();
         $body = $site->client()->get('/team/jane-novak')->body;
 
@@ -48,8 +48,8 @@ final class CollectionItemPagesTest extends SiteTestCase
     {
         $site = $this->site();
         $jana = $this->jane();
-        $versions = $site->mcpResult('list_item_versions', ['collection' => 'team', 'id' => $jana]);
-        $site->mcp('restore_item_version', ['collection' => 'team', 'id' => $jana, 'version' => $versions['versions'][0]['id']]);
+        $versions = $site->mcpResult('list_item_versions', ['collection' => 'team', 'id' => $site->publicId('collection_items', $jana)]);
+        $site->mcp('restore_item_version', ['collection' => 'team', 'id' => $site->publicId('collection_items', $jana), 'version' => $versions['versions'][0]['id']]);
 
         $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'item:$jana') >= 2) FROM ka_collection_items WHERE item_id = $jana"),
             'item versions: the earlier version comes back, the newer one goes to the history');
@@ -59,21 +59,21 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testNoindexItemIsOutOfSearchEnginesSitemapAndLlmsTxt(): void
     {
         $site = $this->site();
-        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $this->jane(), 'noindex' => true]);
+        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $site->publicId('collection_items', $this->jane()), 'noindex' => true]);
         $site->clearPageCache();
         $visitor = $site->client();
 
         $this->assertStringContainsString('content="noindex', $visitor->get('/team/jane-novak')->body, 'a noindex item says so');
         $this->assertStringNotContainsString('/team/jane-novak', $visitor->get('/sitemap.xml')->body, 'a noindex item is out of the sitemap');
         $this->assertStringNotContainsString('/team/jane-novak', $visitor->get('/llms.txt')->body, 'a noindex item is out of llms.txt');
-        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $this->jane(), 'noindex' => false]);
+        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $site->publicId('collection_items', $this->jane()), 'noindex' => false]);
     }
 
     #[Depends('testNoindexItemIsOutOfSearchEnginesSitemapAndLlmsTxt')]
     public function testScheduledItemWaitsHiddenAndPublishesItself(): void
     {
         $site = $this->site();
-        $plan = (int) $site->mcpResult('save_collection_item', ['collection' => 'team', 'name' => 'Planned Member', 'publish_at' => '2099-01-01 08:00'])['id'];
+        $plan = $site->rowId($site->mcpResult('save_collection_item', ['collection' => 'team', 'name' => 'Planned Member', 'publish_at' => '2099-01-01 08:00'])['id']);
 
         $this->assertSame('0|1', (string) $site->value("SELECT CONCAT(visible, '|', publish_at IS NOT NULL) FROM ka_collection_items WHERE item_id = ?", [$plan]), 'a scheduled item waits hidden');
 
@@ -87,9 +87,9 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testItemFormAndCollectionFormOfferTheNewFields(): void
     {
         $site = $this->site();
-        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
+        $idk = (string) $site->value("SELECT public_id FROM ka_collections WHERE slug = 'team'");
 
-        $response = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item={$this->jane()}", 200, 'Item history', message: 'the item form has SEO fields, scheduling and the history');
+        $response = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item={$site->publicId('collection_items', $this->jane())}", 200, 'Item history', message: 'the item form has SEO fields, scheduling and the history');
         $this->assertStringContainsString('name="seo_title"', $response->body, 'item form: the SEO title field');
         $this->assertStringContainsString('name="publish_at"', $response->body, 'item form: the scheduling field');
         $this->assertPage("/admin.php?module=collections&action=edit&id=$idk", 200, 'Structured data for search engines', message: 'the collection form offers structured data');

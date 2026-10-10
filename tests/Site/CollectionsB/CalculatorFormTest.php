@@ -16,8 +16,8 @@ final class CalculatorFormTest extends SiteTestCase
     public function testStepsConditionsAndTheServerSideEstimate(): void
     {
         $site = $this->site();
-        $page = (int) $site->mcpResult('create_page', ['title' => 'Calculator 212', 'visible' => true])['id'];
-        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Calculation', 'no_captcha' => true, 'fields' => [
+        $page = $site->rowId($site->mcpResult('create_page', ['title' => 'Calculator 212', 'visible' => true])['id']);
+        $site->mcp('save_build', ['id' => $site->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Calculation', 'no_captcha' => true, 'fields' => [
             ['label' => 'Type', 'type' => 'radio', 'required' => true, 'choices' => "Windows | 1200\nDoors | 9 900"],
             ['label' => 'Count', 'type' => 'number', 'unit_price' => '1500'],
             ['label' => 'Details', 'type' => 'step'],

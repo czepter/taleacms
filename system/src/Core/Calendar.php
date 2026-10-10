@@ -280,7 +280,7 @@ final class Calendar
             }
             $end = $get('end');
             $wholeDay = strlen($start) === 10;
-            $event = ['BEGIN:VEVENT', 'UID:kaleta-' . (int) $item['item_id'] . '@' . $host, 'DTSTAMP:' . self::utc((string) ($item['updated_at'] ?? $item['created_at'] ?? 'now'))];
+            $event = ['BEGIN:VEVENT', 'UID:kaleta-' . ($item['public_id'] ?? '') . '@' . $host, 'DTSTAMP:' . self::utc((string) ($item['updated_at'] ?? $item['created_at'] ?? 'now'))];
             if ($wholeDay) {
                 $event[] = 'DTSTART;VALUE=DATE:' . str_replace('-', '', $start);
                 $event[] = 'DTEND;VALUE=DATE:' . (new \DateTimeImmutable(substr($end !== '' ? $end : $start, 0, 10)))->modify('+1 day')->format('Ymd');

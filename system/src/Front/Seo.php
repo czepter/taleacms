@@ -135,7 +135,7 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'news-' . $c['news_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
+                'id' => 'news-' . $c['public_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
                 'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
                 'image' => $c['image'] !== '' ? $this->absoluteUrl($c['image']) : null,
                 'date_published' => date('c', strtotime($c['published_at'])), 'date_modified' => $c['edited_at'] ? date('c', strtotime($c['edited_at'])) : null,

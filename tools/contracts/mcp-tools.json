@@ -40,8 +40,8 @@
     "booking_availability": {
         "parameters": {
             "day": "string",
-            "service": "integer",
-            "staff": "integer"
+            "service": "string",
+            "staff": "string"
         },
         "required": [],
         "annotations": {
@@ -54,12 +54,12 @@
         "parameters": {
             "collection": "string",
             "html": "string",
-            "id": "integer",
+            "id": "string",
             "language": "string",
             "mode": "string",
             "overwrite_classes": "boolean",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "publish": "boolean",
             "title": "string",
             "variant": "string"
@@ -88,7 +88,7 @@
     "cancel_booking": {
         "parameters": {
             "confirm": "boolean",
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -102,7 +102,7 @@
     "confirm_booking": {
         "parameters": {
             "confirm": "boolean",
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -182,14 +182,14 @@
             "language": "string",
             "noindex": "boolean",
             "order": "integer",
-            "parent": "integer",
+            "parent": "string",
             "publish_at": "string",
             "review_by": "string",
             "seo_title": "string",
             "share_image": "string",
             "slug": "string",
             "title": "string",
-            "translation_of": "integer",
+            "translation_of": "string",
             "valid_until": "string",
             "visible": "boolean"
         },
@@ -205,7 +205,7 @@
     "decline_booking": {
         "parameters": {
             "confirm": "boolean",
-            "id": "integer",
+            "id": "string",
             "message": "string"
         },
         "required": [
@@ -219,7 +219,7 @@
     },
     "delete_category": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -246,7 +246,7 @@
     "delete_collection_item": {
         "parameters": {
             "collection": "string",
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "collection",
@@ -260,7 +260,7 @@
     },
     "delete_component": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -273,7 +273,7 @@
     },
     "delete_enquiry": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -312,7 +312,7 @@
     },
     "delete_media": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -325,7 +325,7 @@
     },
     "delete_newsletter": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -351,7 +351,7 @@
     },
     "delete_popup": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -364,7 +364,7 @@
     },
     "delete_section": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -378,11 +378,11 @@
     "discard_draft": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "variant": "string"
         },
         "required": [],
@@ -405,7 +405,7 @@
         "parameters": {
             "button_label": "string",
             "button_url": "string",
-            "id": "integer",
+            "id": "string",
             "intro": "string",
             "language": "string",
             "news_count": "integer",
@@ -424,12 +424,12 @@
     "edit_build": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "operations": "array",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "publish": "boolean",
             "variant": "string"
         },
@@ -508,11 +508,11 @@
     "get_build": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "texts_only": "boolean",
             "variant": "string"
         },
@@ -535,7 +535,7 @@
     "get_email_signature": {
         "parameters": {
             "collection": "string",
-            "id": "integer",
+            "id": "string",
             "slug": "string"
         },
         "required": [
@@ -570,7 +570,7 @@
     },
     "get_news": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -583,7 +583,7 @@
     },
     "get_page": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -596,7 +596,7 @@
     },
     "get_site": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -609,7 +609,7 @@
     },
     "get_social_drafts": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -679,12 +679,12 @@
     "insert_section": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
-            "saved_section": "integer",
+            "popup": "string",
+            "saved_section": "string",
             "section": "string",
             "variant": "string"
         },
@@ -710,8 +710,8 @@
         "parameters": {
             "from": "string",
             "limit": "integer",
-            "service": "integer",
-            "staff": "integer",
+            "service": "string",
+            "staff": "string",
             "status": "string",
             "to": "string"
         },
@@ -737,11 +737,11 @@
     "list_build_versions": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "variant": "string"
         },
         "required": [],
@@ -843,7 +843,7 @@
         "parameters": {
             "include_resolved": "boolean",
             "limit": "integer",
-            "page_id": "integer"
+            "page_id": "string"
         },
         "required": [],
         "annotations": {
@@ -906,7 +906,7 @@
     "list_item_versions": {
         "parameters": {
             "collection": "string",
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "collection",
@@ -976,7 +976,7 @@
     "list_notice_log": {
         "parameters": {
             "collection": "string",
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "collection"
@@ -1025,7 +1025,7 @@
     },
     "list_requests": {
         "parameters": {
-            "id": "integer",
+            "id": "string",
             "limit": "integer",
             "status": "string"
         },
@@ -1081,12 +1081,12 @@
         "parameters": {
             "collection": "string",
             "comments": "boolean",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "minutes": "integer",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "site": "boolean",
             "variant": "string"
         },
@@ -1109,7 +1109,7 @@
     "propose_booking_times": {
         "parameters": {
             "confirm": "boolean",
-            "id": "integer",
+            "id": "string",
             "message": "string",
             "times": "array"
         },
@@ -1126,11 +1126,11 @@
     "publish_build": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "variant": "string"
         },
         "required": [],
@@ -1195,7 +1195,7 @@
     },
     "request_testimonial": {
         "parameters": {
-            "id": "integer",
+            "id": "string",
             "send": "boolean"
         },
         "required": [
@@ -1223,11 +1223,11 @@
     "restore_build_version": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "variant": "string",
             "version_id": "integer"
         },
@@ -1242,7 +1242,7 @@
     },
     "restore_from_trash": {
         "parameters": {
-            "id": "integer",
+            "id": "string",
             "type": "string"
         },
         "required": [
@@ -1258,7 +1258,7 @@
     "restore_item_version": {
         "parameters": {
             "collection": "string",
-            "id": "integer",
+            "id": "string",
             "version": "integer"
         },
         "required": [
@@ -1291,7 +1291,7 @@
             "buffer_min": "integer",
             "description": "string",
             "duration_min": "integer",
-            "id": "integer",
+            "id": "string",
             "name": "string",
             "price_text": "string",
             "requires_confirmation": "boolean",
@@ -1311,7 +1311,7 @@
             "days_off": "array",
             "email": "string",
             "hours": "object",
-            "id": "integer",
+            "id": "string",
             "name": "string",
             "services": "array",
             "sort_order": "integer"
@@ -1327,11 +1327,11 @@
         "parameters": {
             "build": "object",
             "collection": "string",
-            "component": "integer",
-            "id": "integer",
+            "component": "string",
+            "id": "string",
             "language": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "publish": "boolean",
             "variant": "string"
         },
@@ -1361,7 +1361,7 @@
         "parameters": {
             "collection": "string",
             "description": "string",
-            "id": "integer",
+            "id": "string",
             "language": "string",
             "name": "string",
             "noindex": "boolean",
@@ -1386,7 +1386,7 @@
     },
     "save_component": {
         "parameters": {
-            "id": "integer",
+            "id": "string",
             "name": "string",
             "properties": "array"
         },
@@ -1477,7 +1477,7 @@
             "active": "boolean",
             "days": "integer",
             "frequency": "string",
-            "id": "integer",
+            "id": "string",
             "name": "string",
             "order": "integer",
             "review_by": "string",
@@ -1515,13 +1515,13 @@
     "save_section": {
         "parameters": {
             "collection": "string",
-            "component": "integer",
+            "component": "string",
             "element": "string",
-            "id": "integer",
+            "id": "string",
             "language": "string",
             "name": "string",
             "part": "string",
-            "popup": "integer",
+            "popup": "string",
             "variant": "string"
         },
         "required": [
@@ -1537,7 +1537,7 @@
     "send_newsletter": {
         "parameters": {
             "at": "string",
-            "id": "integer",
+            "id": "string",
             "unschedule": "boolean"
         },
         "required": [
@@ -1551,7 +1551,7 @@
     },
     "send_test_newsletter": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -1607,7 +1607,7 @@
     },
     "trash_news": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -1620,7 +1620,7 @@
     },
     "trash_page": {
         "parameters": {
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -1661,7 +1661,7 @@
     "update_category": {
         "parameters": {
             "description": "string",
-            "id": "integer",
+            "id": "string",
             "name": "string",
             "order": "integer",
             "slug": "string"
@@ -1710,7 +1710,7 @@
         "parameters": {
             "category": "string",
             "draft_reply": "string",
-            "id": "integer",
+            "id": "string",
             "note": "string",
             "priority": "string",
             "status": "string"
@@ -1729,7 +1729,7 @@
             "alt": "string",
             "author": "string",
             "caption": "string",
-            "id": "integer"
+            "id": "string"
         },
         "required": [
             "id"
@@ -1746,7 +1746,7 @@
             "content": "string",
             "date": "string",
             "faq": "string",
-            "id": "integer",
+            "id": "string",
             "image": "string",
             "image_caption": "string",
             "intro": "string",
@@ -1773,19 +1773,19 @@
             "copy_build": "boolean",
             "description": "string",
             "head_code": "string",
-            "id": "integer",
+            "id": "string",
             "in_menu": "boolean",
             "language": "string",
             "noindex": "boolean",
             "order": "integer",
-            "parent": "integer",
+            "parent": "string",
             "publish_at": "string",
             "review_by": "string",
             "seo_title": "string",
             "share_image": "string",
             "slug": "string",
             "title": "string",
-            "translation_of": "integer",
+            "translation_of": "string",
             "valid_until": "string",
             "visible": "boolean"
         },
@@ -1800,7 +1800,7 @@
     },
     "update_request": {
         "parameters": {
-            "id": "integer",
+            "id": "string",
             "links": "array",
             "note": "string",
             "status": "string"

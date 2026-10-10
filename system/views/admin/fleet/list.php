@@ -46,7 +46,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <tbody>
 <?php foreach ($sites as $s): ?>
 <tr>
-	<td><a href="<?= e($module->url('detail', ['id' => (int) $s['id']])) ?>"><strong><?= e((string) $s['name'] !== '' ? (string) $s['name'] : (string) $s['url']) ?></strong></a><br><span class="small-text"><?= e((string) $s['url']) ?><?= $s['ring'] === 'canary' ? ' · ' . e(t('test site')) : '' ?></span></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $s['public_id']])) ?>"><strong><?= e((string) $s['name'] !== '' ? (string) $s['name'] : (string) $s['url']) ?></strong></a><br><span class="small-text"><?= e((string) $s['url']) ?><?= $s['ring'] === 'canary' ? ' · ' . e(t('test site')) : '' ?></span></td>
 	<td><?php if ($s['reasons'] === []): ?><span class="badge badge-published"><?= e(t('ok')) ?></span><?php endif ?><?php foreach ($s['reasons'] as $r): ?><span class="badge<?= $severity($r) !== '' ? ' badge-' . $severity($r) : '' ?>"><?= e($reasonLabels[$r]) ?></span> <?php endforeach ?></td>
 	<td><?= e((string) $s['version'] !== '' ? (string) $s['version'] : '–') ?><?php if ((string) $s['update_allowed'] !== ''): ?><br><span class="small-text"><?= e(t('allowed %s', (string) $s['update_allowed'])) ?></span><?php endif ?></td>
 	<td><?= $s['last_seen'] !== null ? e(format_date(new DateTimeImmutable((string) $s['last_seen']), true)) : '–' ?></td>

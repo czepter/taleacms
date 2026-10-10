@@ -39,7 +39,7 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <?php if (($beat['jobs_failing'] ?? []) !== []): ?><p class="notice notice-error"><?= e(t('Background jobs that fail: %s', implode(', ', $beat['jobs_failing']))) ?></p><?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('ring')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="id" value="<?= (int) $site['id'] ?>">
+<input type="hidden" name="id" value="<?= e($site['public_id']) ?>">
 <fieldset>
 <legend><?= e(t('Updates')) ?></legend>
 <?php if ((int) $site['manage_updates'] !== 1): ?>

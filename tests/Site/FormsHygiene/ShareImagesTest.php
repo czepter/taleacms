@@ -68,7 +68,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testMcpShowsTheGeneratedAddress(): void
     {
-        $page = $this->site()->mcpResult('get_page', ['id' => self::$page]);
+        $page = $this->site()->mcpResult('get_page', ['id' => $this->site()->publicId('pages', self::$page)]);
 
         $this->assertSame(self::$imageUrl, $page['share_image_generated'] ?? null, 'get_page shows the generated address as share_image_generated');
     }
@@ -101,11 +101,11 @@ final class ShareImagesTest extends SiteTestCase
         $this->assertFalse($response->contains('og:image'), 'the setting off – no og:image, as before');
         $this->assertTrue($response->contains('twitter:card" content="summary"'), 'the Twitter card is the small one');
         $this->assertSame(404, $this->site()->client()->get(self::$imageUrl)->status, 'the setting off – the picture is not served either');
-        $page = $this->site()->mcpResult('get_page', ['id' => self::$page]);
+        $page = $this->site()->mcpResult('get_page', ['id' => $this->site()->publicId('pages', self::$page)]);
         $this->assertNull($page['share_image_generated'] ?? null, 'get_page without share_image_generated when the setting is off');
         $this->assertPage('/admin.php?module=settings&tab=seo', 200, 'name="share_image_auto"', message: 'settings → SEO offers the switch');
 
         $this->site()->exec("DELETE FROM ka_settings WHERE name = 'share_image_auto'");
-        $this->mcpText('trash_page', ['id' => self::$page]);
+        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', self::$page)]);
     }
 }

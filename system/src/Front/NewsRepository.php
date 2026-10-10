@@ -26,7 +26,7 @@ final class NewsRepository
      * Columns for listings: without the long texts (text, FAQ) that a listing does not print. The keys stay in the array
      * (empty) so that templates do not break. A new ka_news column that should be visible in listings must be added here too.
      */
-    private const string LIST_COLUMNS = "c.news_id, c.slug, c.title, c.intro, '' AS text, c.image, c.category_id, c.author_id, c.published_at, c.visible, c.keywords, c.noindex, '' AS faq, c.visit,
+    private const string LIST_COLUMNS = "c.news_id, c.public_id, c.slug, c.title, c.intro, '' AS text, c.image, c.category_id, c.author_id, c.published_at, c.visible, c.keywords, c.noindex, '' AS faq, c.visit,
         c.edited_at, c.updated_at, c.language, c.translation_of";
 
     private const string PUBLISHED = 'c.visible = 1 AND c.published_at <= NOW()';

@@ -25,6 +25,7 @@ final class Popups extends Module
     public const string GROUP = 'Appearance';
     public const string ICON = 'popups';
     public const bool ADMIN_ONLY = true;
+    public const string TABLE = 'popups';
 
     protected function actionList(): Response
     {
@@ -51,12 +52,12 @@ final class Popups extends Module
             'build_draft' => Build::toJson(Okna::libraryBuild((string) $r->post('template'), Language::defaults($this->app->settings()))), 'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        return Response::redirect($this->url('builder', ['id' => $id]));
+        return Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
     }
 
     protected function actionEdit(): Response
     {
-        $p = Okna::byId($this->db, $this->request->getInt('id'));
+        $p = Okna::byId($this->db, $this->idParam());
 
         return $p === null ? $this->error('The pop-up does not exist.', 404) : $this->view('form', $p['name'], ['p' => $p] + $this->options());
     }
@@ -64,23 +65,24 @@ final class Popups extends Module
     protected function actionSave(): Response
     {
         $r = $this->request;
-        $p = $r->isPost() ? Okna::byId($this->db, $r->postInt('popup_id')) : null;
+        $p = $r->isPost() ? Okna::byId($this->db, $this->idParam('popup_id')) : null;
         if ($p === null) {
             return $this->back();
         }
         $name = mb_substr(trim($r->post('name')), 0, 100);
         if ($name === '') {
-            return $this->back('The pop-up needs a name.', 'edit', ['id' => $p['popup_id']], 'error');
+            return $this->back('The pop-up needs a name.', 'edit', ['id' => $p['public_id']], 'error');
         }
         $url = $r->post('slug') !== '' ? slugify($r->post('slug'), 60) : $p['slug'];
         if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$url, $p['popup_id']]) !== null) {
-            return $this->back(t('Another window already uses the address “%s”.', $url), 'edit', ['id' => $p['popup_id']], 'error');
+            return $this->back(t('Another window already uses the address “%s”.', $url), 'edit', ['id' => $p['public_id']], 'error');
         }
         // "on the whole site": the choice of places is inactive in the form and is not sent – it stays saved in case you return to it
         $selected = $r->post('where') === 'selected';
         $rules = Okna::sanitizeRules([
             'where' => $r->post('where'),
-            'pages' => $selected ? (is_array($_POST['pages'] ?? null) ? $_POST['pages'] : []) : $p['rules']['pages'],
+            // the form carries public ids of the pages; the rules keep the numbers the site matches against
+            'pages' => $selected ? array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('pages', $uuid), $r->postList('pages')))) : $p['rules']['pages'],
             'collections' => $selected ? (is_array($_POST['collections'] ?? null) ? $_POST['collections'] : []) : $p['rules']['collections'],
             'news' => $selected ? $r->postBool('news') : $p['rules']['news'], 'language' => $r->post('language'), 'from' => $r->post('from'), 'to' => $r->post('to'),
             'device' => $r->post('device'), 'campaign' => $r->post('campaign'), 'referrer' => $r->post('referrer'),
@@ -105,12 +107,12 @@ final class Popups extends Module
     /** Enable or disable the popup on the site; only a published one can be enabled. */
     protected function actionToggle(): Response
     {
-        $p = $this->request->isPost() ? Okna::byId($this->db, $this->request->postInt('popup_id')) : null;
+        $p = $this->request->isPost() ? Okna::byId($this->db, $this->idParam('popup_id')) : null;
         if ($p === null) {
             return $this->back();
         }
         // from the popup settings you stay in the settings, from the list in the list
-        [$action, $args] = $this->request->post('back_to') === 'edit' ? ['edit', ['id' => $p['popup_id']]] : ['', []];
+        [$action, $args] = $this->request->post('back_to') === 'edit' ? ['edit', ['id' => $p['public_id']]] : ['', []];
         if (!$p['active'] && $p['build'] === null) {
             return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'error');
         }
@@ -123,7 +125,7 @@ final class Popups extends Module
     protected function actionReset(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->update('popups', ['impressions' => 0, 'closes' => 0, 'conversions' => 0], ['popup_id' => $this->request->postInt('popup_id')]);
+            $this->db->update('popups', ['impressions' => 0, 'closes' => 0, 'conversions' => 0], ['popup_id' => $this->idParam('popup_id')]);
         }
 
         return $this->back('The pop-up counters were reset.');
@@ -132,7 +134,7 @@ final class Popups extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('popups', ['popup_id' => $this->request->postInt('popup_id')]);
+            $this->db->delete('popups', ['popup_id' => $this->idParam('popup_id')]);
             \Kaleta\Front\Cache::clear();
         }
 
@@ -146,7 +148,7 @@ final class Popups extends Module
         $languages = array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings));
 
         return [
-            'pages' => $this->db->all('SELECT page_id, title, language FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 500'),
+            'pages' => $this->db->all('SELECT page_id, public_id, title, language FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 500'),
             'collection' => $this->db->all('SELECT slug, name FROM {collections} WHERE detail = 1 ORDER BY name'),
             'languages' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
         ];
@@ -156,11 +158,11 @@ final class Popups extends Module
 
     protected function loadBuildTarget(): ?array
     {
-        $p = Okna::byId($this->db, $this->request->getInt('id'));
+        $p = Okna::byId($this->db, $this->idParam('id', null, true));
 
         return $p === null ? null : [
             'row' => $p, 'build' => $p['build'], 'draft' => $p['build_draft'], 'language' => Language::defaults($this->app->settings()),
-            'title' => t('Pop-up: %s', $p['name']), 'revisions' => ['part' => 'popup:' . $p['popup_id']], 'params' => ['id' => $p['popup_id']],
+            'title' => t('Pop-up: %s', $p['name']), 'revisions' => ['part' => 'popup:' . $p['popup_id']], 'params' => ['id' => $p['public_id']],
         ];
     }
 
@@ -177,11 +179,11 @@ final class Popups extends Module
     protected function describeTarget(array $target): array
     {
         $p = $target['row'];
-        $url = $this->app->url('_popup/' . $p['popup_id']);
+        $url = $this->app->url('_popup/' . $p['public_id']);
 
         return [
             'url' => $url . '?build=draft', 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $p['active'], 'parts' => false,
-            'back' => ['url' => $this->url(), 'text' => t('Pop-ups')], 'settings' => $this->url('edit', ['id' => $p['popup_id']]),
+            'back' => ['url' => $this->url(), 'text' => t('Pop-ups')], 'settings' => $this->url('edit', ['id' => $p['public_id']]),
             'settings_text' => t('Pop-up settings (when and where it shows)'), 'signature' => 'popup:' . $p['popup_id'],
         ];
     }

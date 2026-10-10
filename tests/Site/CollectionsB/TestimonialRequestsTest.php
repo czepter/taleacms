@@ -19,9 +19,9 @@ final class TestimonialRequestsTest extends SiteTestCase
         $enquiry = $this->insertEnquiry('customer@example.com', '[["Message","Thank you"]]', 2);
         $noMail = $this->insertEnquiry('', '[]', 2);
 
-        $this->assertStringContainsString('no e-mail address', $this->mcpText('request_testimonial', ['id' => $noMail]), 'testimonials: an enquiry without an e-mail cannot be asked');
+        $this->assertStringContainsString('no e-mail address', $this->mcpText('request_testimonial', ['id' => $this->site()->publicId('enquiries', $noMail)]), 'testimonials: an enquiry without an e-mail cannot be asked');
 
-        $answer = $site->mcpResult('request_testimonial', ['id' => $enquiry, 'send' => false]);
+        $answer = $site->mcpResult('request_testimonial', ['id' => $site->publicId('enquiries', $enquiry), 'send' => false]);
         $link = ltrim((string) parse_url((string) ($answer['link'] ?? ''), PHP_URL_PATH), '/');
         $this->assertNotSame('', $link, 'testimonials: request_testimonial returns the link');
         $token = substr($link, strlen('_testimonial/'));
@@ -47,6 +47,6 @@ final class TestimonialRequestsTest extends SiteTestCase
         $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' FROM ka_testimonial_requests WHERE item_id = ?", [$item]);
         $this->assertSame('1|404', $kept . '|' . $customer->get("/$link")->status, 'testimonials: the consent the customer saw is kept, the link works once');
 
-        $this->assertPage("/admin.php?module=enquiries&action=detail&id=$enquiry", 200, "item=$item", message: 'testimonials: the enquiry detail shows the request and links the draft');
+        $this->assertPage("/admin.php?module=enquiries&action=detail&id=" . $site->publicId('enquiries', (int) $enquiry), 200, 'item=' . $site->publicId('collection_items', (int) $item), message: 'testimonials: the enquiry detail shows the request and links the draft');
     }
 }

@@ -105,8 +105,8 @@ final class AskClaude
      */
     public static function recent(Db $db, int $userId, int $limit = self::RECENT): array
     {
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'status' => (string) $r['status'], 'updated_at' => (string) $r['updated_at']],
-            $db->all('SELECT id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'public_id' => (string) $r['public_id'], 'title' => (string) $r['title'], 'status' => (string) $r['status'], 'updated_at' => (string) $r['updated_at']],
+            $db->all('SELECT id, public_id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
     }
 
     /** Whether anyone has connected Claude (a connector or a personal token) – the same test as the step in First steps. */

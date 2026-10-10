@@ -42,7 +42,7 @@ final class McpSiteBuildTest extends SiteTestCase
         }
         $this->site()->mcp('build_from_html', ['title' => 'From HTML', 'html' => '<section><h1>Page from Claude</h1></section>']);
         $id = $this->pageId('from-html');
-        $this->site()->mcp('publish_build', ['id' => $id]);
+        $this->site()->mcp('publish_build', ['id' => $this->site()->publicId('pages', $id)]);
         $this->site()->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [$id]);
         $this->site()->clearPageCache();
     }
@@ -55,13 +55,13 @@ final class McpSiteBuildTest extends SiteTestCase
 
         $this->assertSame('{"mobile":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
 
-        $loaded = $this->raw('get_build', ['id' => $id]);
+        $loaded = $this->raw('get_build', ['id' => $this->site()->publicId('pages', $id)]);
         $this->assertStringContainsString('mriz-t', $loaded);
         $this->assertStringNotContainsString('display', $loaded, 'get_build without default values');
         $this->assertStringNotContainsString('"link":""', $loaded, 'an element with a class has no default style');
         $heading = json_decode($loaded, true)['build']['children'][0]['children'][0]['children'][0]['children'][0]['id'];
 
-        $edited = $this->raw('edit_build', ['id' => $id, 'operations' => [['op' => 'update', 'id' => $heading, 'content' => ['text' => 'Corrected']], ['op' => 'delete', 'id' => 'missing']]]);
+        $edited = $this->raw('edit_build', ['id' => $this->site()->publicId('pages', $id), 'operations' => [['op' => 'update', 'id' => $heading, 'content' => ['text' => 'Corrected']], ['op' => 'delete', 'id' => 'missing']]]);
         $this->assertStringContainsString('operation_errors":{"op[1', $edited, 'a bad operation is reported');
         $this->assertSame('1', (string) $this->site()->value('SELECT build_draft LIKE ? FROM ka_pages WHERE page_id = ?', ['%Corrected%', $id]), 'MCP: partial edit of an element by id');
 
@@ -82,7 +82,7 @@ final class McpSiteBuildTest extends SiteTestCase
 
         $this->assertStringContainsString('part=footer&build=draft&preview_key=', $this->raw('preview_link', ['part' => 'footer']), 'MCP: link to the preview of a site part');
 
-        $this->site()->mcp('trash_page', ['id' => $id]);
+        $this->site()->mcp('trash_page', ['id' => $this->site()->publicId('pages', $id)]);
         $this->assertSame('1', (string) $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [$id]), 'MCP: page to the trash');
         $this->assertTrue($this->isError('trash_page', ['id' => (int) $this->site()->settingValue('home_page')]), 'MCP: the home page cannot be deleted');
     }

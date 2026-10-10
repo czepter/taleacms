@@ -42,14 +42,14 @@ $moves = Requests::TRANSITIONS[$r['status']] ?? [];
 <?php endforeach ?>
 <?php endif ?>
 <form method="post" action="<?= e($module->url('reply')) ?>">
-	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+	<?= $csrf ?><input type="hidden" name="id" value="<?= e($r['public_id']) ?>">
 	<div class="row"><label for="req-reply"><?= e(t('Reply')) ?></label><div><textarea class="textbox low" id="req-reply" name="text" rows="4" maxlength="<?= Requests::MAX_MESSAGE ?>" required></textarea>
 		<span class="help"><?= e(t('Claude reads the reply with the request the next time it works on the site.')) ?></span></div></div>
 	<p class="buttons"><button class="btn" type="submit"><?= e(t('Add the reply')) ?></button></p>
 </form>
 <?php if ($moves !== []): ?>
 <form class="inline" method="post" action="<?= e($module->url('status')) ?>">
-	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+	<?= $csrf ?><input type="hidden" name="id" value="<?= e($r['public_id']) ?>">
 	<label for="req-status"><?= e(t('Status')) ?></label> <select id="req-status" name="status" required>
 		<option value="" selected disabled><?= e(t('— choose —')) ?></option>
 <?php foreach ($moves as $key): ?>

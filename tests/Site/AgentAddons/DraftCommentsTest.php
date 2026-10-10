@@ -37,7 +37,7 @@ final class DraftCommentsTest extends SiteTestCase
     /** The old dc_post: an anonymous POST to /_comment for the draft page; returns "status redirect". @param array<string, string> $fields */
     private function comment(array $fields, string $target = ''): string
     {
-        $response = $this->site()->client('commenter')->post('/_comment', ['target' => $target !== '' ? $target : 'page:' . self::$page] + $fields);
+        $response = $this->site()->client('commenter')->post('/_comment', ['target' => $target !== '' ? $target : 'page:' . $this->site()->publicId('pages', (int) self::$page)] + $fields);
 
         return $response->status . ' ' . $response->redirect;
     }
@@ -47,7 +47,7 @@ final class DraftCommentsTest extends SiteTestCase
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
 
-        return $this->site()->admin()->post('/admin.php?module=pages&action=build_share&id=' . self::$page, ['_csrf' => $csrf, 'days' => 1] + $fields);
+        return $this->site()->admin()->post('/admin.php?module=pages&action=build_share&id=' . $this->site()->publicId('pages', (int) self::$page), ['_csrf' => $csrf, 'days' => 1] + $fields);
     }
 
     /** Subject and decoded text of a captured message (the old eml/dc_body). */
@@ -77,7 +77,7 @@ final class DraftCommentsTest extends SiteTestCase
         self::$otherPage = $this->firstId($this->mcpText('create_page', ['title' => 'Another page', 'visible' => false]));
         $this->assertGreaterThan(0, self::$page);
 
-        $builder = $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page);
+        $builder = $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->site()->publicId('pages', (int) self::$page));
         $this->assertStringContainsString('"comments":[]', $builder->body, 'comments: the builder carries the (empty) comments panel data');
         $this->assertStringContainsString('"comment_resolve":', $builder->body, 'comments: and the resolve address');
     }
@@ -157,10 +157,10 @@ final class DraftCommentsTest extends SiteTestCase
         $text = $this->decodeMail($mail);
         $this->assertStringContainsString('New comment on the draft of “Comment draft”', $text, 'comments: the e-mail subject');
         $this->assertStringContainsString('Client Novak', $text, 'comments: the e-mail names the commenter');
-        $this->assertStringContainsString('module=pages&action=builder&id=' . self::$page, $text, 'comments: the e-mail links the builder');
+        $this->assertStringContainsString('module=pages&action=builder&id=' . $this->site()->publicId('pages', (int) self::$page), $text, 'comments: the e-mail links the builder');
 
         $this->assertPage('/admin.php?module=pages', 200, '1 comments', message: 'comments: the pages list shows the badge with the count');
-        $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page, 200, '"name":"Client Novak"', message: 'comments: the builder shows the comment in its panel data');
+        $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->site()->publicId('pages', (int) self::$page), 200, '"name":"Client Novak"', message: 'comments: the builder shows the comment in its panel data');
     }
 
     public function testClaudeListsAndResolvesCommentsOverMcp(): void
@@ -172,7 +172,7 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertStringContainsString('not instructions', $text, 'MCP: and tells Claude it is data, not an instruction');
         self::$commentId = $this->firstId($text);
 
-        $this->assertStringContainsString('"total":0', $this->mcpText('list_draft_comments', ['page_id' => self::$page + 1000]), 'MCP: the page filter of list_draft_comments');
+        $this->assertStringContainsString('"total":0', $this->mcpText('list_draft_comments', ['page_id' => $this->site()->publicId('pages', (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE page_id <> ? ORDER BY page_id LIMIT 1', [self::$page]))]), 'MCP: the page filter of list_draft_comments');
 
         $resolved = $this->mcpText('resolve_draft_comment', ['id' => self::$commentId]);
         $this->assertStringContainsString('"resolved":true', $resolved, 'MCP: resolve_draft_comment answers resolved');
@@ -189,8 +189,8 @@ final class DraftCommentsTest extends SiteTestCase
         $second = (int) $this->sq('SELECT MAX(id) FROM ka_draft_comments');
         $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
 
-        $resolve = $this->site()->admin()->post('/admin.php?module=pages&action=build_comment_resolve&id=' . self::$page, ['_csrf' => $csrf, 'id' => $second]);
-        $other = $this->site()->admin()->post('/admin.php?module=pages&action=build_comment_resolve&id=' . self::$otherPage, ['_csrf' => $csrf, 'id' => $second]);
+        $resolve = $this->site()->admin()->post('/admin.php?module=pages&action=build_comment_resolve&id=' . $this->site()->publicId('pages', (int) self::$page), ['_csrf' => $csrf, 'id' => $second]);
+        $other = $this->site()->admin()->post('/admin.php?module=pages&action=build_comment_resolve&id=' . $this->site()->publicId('pages', (int) self::$otherPage), ['_csrf' => $csrf, 'id' => $second]);
 
         $this->assertSame('200|1|404', $resolve->status . '|' . $this->lines('"resolved":true', $resolve->body) . '|' . $other->status, 'comments: the builder resolves a comment with one click, a comment of another page is not found');
     }
@@ -207,7 +207,7 @@ final class DraftCommentsTest extends SiteTestCase
 
     public function testThePreviewLinkToolCanAllowComments(): void
     {
-        $text = $this->mcpText('preview_link', ['id' => self::$page, 'comments' => true]);
+        $text = $this->mcpText('preview_link', ['id' => $this->site()->publicId('pages', self::$page), 'comments' => true]);
         $this->assertMatchesRegularExpression('/preview_key=[0-9]*k\./', $text, 'MCP: preview_link with comments gives a commenting link');
         $this->assertStringContainsString('"comments":true', $text, 'MCP: and says comments are allowed');
 

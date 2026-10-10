@@ -62,7 +62,7 @@ final class Health
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it
         $hygiene = SecurityHygiene::findings($app);
         $suspend = SecurityHygiene::autoSuspend($siteSettings);
-        $userLink = static fn (array $a, string $text): array => ['text' => $text, 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $a['user_id'])];
+        $userLink = static fn (array $a, string $text): array => ['text' => $text, 'url' => $app->url('admin.php?module=users&action=edit&id=' . $app->db()->publicId('users', (int) $a['user_id']))];
         $accountLinks = static fn (array $accounts, string $suffix = ''): array => array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . $suffix), $accounts);
         $group = t('Accounts and access');
         $add($group, t('Two-step sign-in for administrators'), $hygiene['two_step'] === [] ? 'ok' : 'warning',
@@ -74,7 +74,7 @@ final class Health
             in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) => t('%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
             default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
         }, array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . ' (' . t('last activity %s', format_date((string) $a['last'])) . ')'), $unusedAccounts));
-        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['username'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#connections')];
+        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['username'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . $app->db()->publicId('users', (int) $c['user_id']) . '#connections')];
         $unusedConnections = $hygiene['unused_connections'];
         $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'warning', match (true) {
             $unusedConnections === [] => t('every connection has been used in the last %d days', SecurityHygiene::CONNECTION_DAYS),

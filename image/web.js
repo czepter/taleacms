@@ -225,7 +225,7 @@
 		var report = function (modal, event) {
 			if (!modal.getAttribute('data-counter')) { return; } // signed-in administrator – not counted
 			var data = new FormData();
-			data.append('id', modal.getAttribute('data-popup'));
+			data.append('popup', modal.getAttribute('data-popup'));
 			data.append('event', event);
 			try { navigator.sendBeacon(modal.getAttribute('data-counter'), data); } catch (error) { /* no counter */ }
 		};

@@ -280,6 +280,35 @@ final class Site
         return $statement->rowCount();
     }
 
+    /** The public id (UUID v4) of a row, as a link or an MCP argument must carry it: tests look rows up by their integer key and address them by this. */
+    public function publicId(string $table, int $id): string
+    {
+        $pk = \Kaleta\Core\Db::PRIMARY_KEYS[$table] ?? throw new \InvalidArgumentException("No public ids for $table");
+
+        return (string) $this->value("SELECT public_id FROM ka_$table WHERE $pk = ?", [$id]);
+    }
+
+    /** The integer key (internal, only for tests that query the database) of the row with this public id. */
+    public function internalId(string $table, string $uuid): int
+    {
+        $pk = \Kaleta\Core\Db::PRIMARY_KEYS[$table] ?? throw new \InvalidArgumentException("No public ids for $table");
+
+        return (int) $this->value("SELECT $pk FROM ka_$table WHERE public_id = ?", [$uuid]);
+    }
+
+    /** The integer key of the row with this public id in whichever table holds it – for a test that reads an id out of a tool answer and queries the database with it. */
+    public function rowId(string $uuid): int
+    {
+        foreach (\Kaleta\Core\Db::PRIMARY_KEYS as $table => $pk) {
+            $id = $this->value("SELECT $pk FROM ka_$table WHERE public_id = ?", [$uuid]);
+            if ($id !== null) {
+                return (int) $id;
+            }
+        }
+
+        return 0;
+    }
+
     public function setting(string $name, string $value): void
     {
         $this->exec('INSERT INTO ka_settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [$name, $value]);

@@ -121,7 +121,7 @@ final class BusinessProfileTest extends SiteTestCase
 
         $site->mcp('create_page', ['title' => 'Reviews GBP', 'slug' => 'reviews-gbp', 'visible' => true]);
         $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'reviews-gbp'");
-        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $site->mcp('save_build', ['id' => $site->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Reviews']],
             ['type' => 'google_reviews', 'content' => ['count' => 5, 'min_stars' => 4, 'summary' => true, 'link' => 'https://maps.google.com/?cid=1']],
             ['type' => 'text', 'content' => ['html' => '<p>Rating {{fact.google_rating}} of {{fact.google_reviews}}</p>']],

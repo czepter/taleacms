@@ -14,23 +14,24 @@ use Kaleta\Core\Settings;
  *
  * On import a class the target site already has is kept as it is (the site's look wins); a missing class is created.
  * A component with the same name and the same build is reused, any other is created, and the page's uses are pointed
- * at the new IDs. Everything goes through the same validators as when saving in the builder.
+ * at the new IDs. In the file a component is identified by its public id (a package from before public ids carries integers,
+ * which only match inside the file); the integer keys of the database are never in it. Everything goes through the same validators as when saving in the builder.
  */
 final class PagePackage
 {
-    /** @return array{classes: list<array{name: string, style: mixed, css: string}>, components: list<array{id: int, name: string, properties: array, build: array}>} */
+    /** @return array{classes: list<array{name: string, style: mixed, css: string}>, components: list<array{id: string, name: string, properties: array, build: array}>} */
     public static function collect(Db $db, array $build): array
     {
         $classes = [];
         $components = [];
         $queue = self::componentIds($build['children'] ?? [], $classes);
         while ($queue !== [] && count($components) < 50) {
-            $idm = array_shift($queue);
+            $idm = (int) array_shift($queue);
             if (isset($components[$idm]) || ($c = Components::byId($db, $idm)) === null) {
                 continue;
             }
             $componentBuild = Build::fromJson($c['build'] ?? $c['build_draft']) ?? ['v' => Build::VERSION, 'children' => []];
-            $components[$idm] = ['id' => $idm, 'name' => $c['name'], 'properties' => $c['properties'], 'build' => $componentBuild];
+            $components[$idm] = ['id' => $db->publicId('components', $idm), 'name' => $c['name'], 'properties' => $c['properties'], 'build' => self::toPublic($db, $componentBuild)];
             array_push($queue, ...self::componentIds($componentBuild['children'] ?? [], $classes));
         }
         $rows = $classes === [] ? [] : $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($classes), '?')) . ') ORDER BY name', array_keys($classes));
@@ -51,7 +52,7 @@ final class PagePackage
     {
         $created = ['classes' => 0, 'components' => 0];
         if (!$admin) {
-            return [$pageBuild, $created];
+            return [self::pointAt($pageBuild, []), $created]; // the other site's components mean nothing here
         }
         $db = $s->db();
         foreach (array_slice(is_array($data['classes'] ?? null) ? $data['classes'] : [], 0, 200) as $t) {
@@ -67,9 +68,9 @@ final class PagePackage
         // components: a component used inside another one goes first, so the outer one can point at its final ID
         $pending = [];
         foreach (array_slice(is_array($data['components'] ?? null) ? $data['components'] : [], 0, 50) as $k) {
-            $old = is_array($k) ? (int) ($k['id'] ?? 0) : 0;
+            $old = is_array($k) && is_scalar($k['id'] ?? null) ? (string) $k['id'] : '';
             $name = mb_substr(trim(strip_tags((string) ($k['name'] ?? ''))), 0, 100);
-            if ($old > 0 && $name !== '' && !isset($pending[$old])) {
+            if ($old !== '' && $old !== '0' && $name !== '' && !isset($pending[$old])) {
                 $pending[$old] = [$name, (string) json_encode(Components::sanitizeProperties($k['properties'] ?? []), JSON_UNESCAPED_UNICODE),
                     is_array($k['build'] ?? null) ? $k['build'] : ['v' => Build::VERSION, 'children' => []]];
             }
@@ -79,7 +80,7 @@ final class PagePackage
             $ready = null;
             foreach ($pending as $old => [, , $componentBuild]) {
                 $unused = [];
-                if (array_intersect(array_diff(self::componentIds($componentBuild['children'] ?? [], $unused), [$old]), array_keys($pending)) === []) {
+                if (array_intersect(array_diff(self::componentIds($componentBuild['children'] ?? [], $unused), [(string) $old]), array_map('strval', array_keys($pending))) === []) {
                     $ready = $old;
                     break;
                 }
@@ -128,7 +129,33 @@ final class PagePackage
         return $build;
     }
 
-    /** @param array<string, true> $classes collected class names @return list<int> components the elements use */
+    /**
+     * The build with the component and booking references turned into public ids (what a file carries).
+     *
+     * @param array<string, mixed> $build
+     * @return array<string, mixed>
+     */
+    public static function toPublic(Db $db, array $build): array
+    {
+        $map = fn (string $table, mixed $id): string|int => (int) $id > 0 ? ($db->publicId($table, (int) $id) ?: 0) : 0;
+
+        return json_decode(\Kaleta\Core\SiteExport::mapReferences('build', (string) json_encode($build), $map), true) ?: $build;
+    }
+
+    /**
+     * The opposite, for a build that stays on the site it came from: public ids back to this site's keys.
+     *
+     * @param array<string, mixed> $build
+     * @return array<string, mixed>
+     */
+    public static function toInternal(Db $db, array $build): array
+    {
+        $map = fn (string $table, mixed $id): int => $db->internalId($table, $id);
+
+        return json_decode(\Kaleta\Core\SiteExport::mapReferences('build', (string) json_encode($build), $map), true) ?: $build;
+    }
+
+    /** @param array<string, true> $classes collected class names @return list<string> the references (public ids; integers in an older file) of the components the elements use */
     private static function componentIds(array $nodes, array &$classes): array
     {
         $ids = [];
@@ -141,8 +168,8 @@ final class PagePackage
                     $classes[$t] = true;
                 }
             }
-            if (($n['type'] ?? '') === 'component' && (int) ($n['content']['component'] ?? 0) > 0) {
-                $ids[] = (int) $n['content']['component'];
+            if (($n['type'] ?? '') === 'component' && is_scalar($n['content']['component'] ?? null) && !in_array((string) $n['content']['component'], ['', '0'], true)) {
+                $ids[] = (string) $n['content']['component'];
             }
             array_push($ids, ...self::componentIds(is_array($n['children'] ?? null) ? $n['children'] : [], $classes));
         }
@@ -154,7 +181,7 @@ final class PagePackage
      * The build with component uses pointed at this site: a component that did not come with the export is dropped from
      * the use (an empty component element), never pointed at an unrelated component of this site.
      *
-     * @param array<int, int> $map exported ID => ID on this site
+     * @param array<int|string, int> $map exported reference (public id) => ID on this site
      */
     private static function pointAt(array $build, array $map): array
     {
@@ -164,8 +191,8 @@ final class PagePackage
                     continue;
                 }
                 if (($n['type'] ?? '') === 'component' && isset($n['content']) && is_array($n['content'])) {
-                    $id = (int) ($n['content']['component'] ?? 0);
-                    $n['content']['component'] = isset($map[$id]) ? (string) $map[$id] : '';
+                    $ref = is_scalar($n['content']['component'] ?? null) ? (string) $n['content']['component'] : '';
+                    $n['content']['component'] = $ref !== '' && isset($map[$ref]) ? (string) $map[$ref] : '';
                 }
                 if (is_array($n['children'] ?? null)) {
                     $n['children'] = $walk($n['children']);

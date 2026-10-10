@@ -44,8 +44,8 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->assertSame("$base/$docs/price-list/latest", $saved['latest_url'] ?? null, 'save_collection_item returns the stable address of the file');
         $this->assertSame('0', $this->sq('SELECT COUNT(*) FROM ka_document_versions WHERE item_id = ?', [self::$doc]), 'a new document has no previous version');
 
-        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => (int) self::$doc, 'values' => ['file' => '/media/pricelist-v2.pdf', 'version' => '2.0']]);
-        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => (int) self::$doc, 'values' => ['summary' => 'Current price list, new prices.']]);
+        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $this->site()->publicId('collection_items', (int) self::$doc), 'values' => ['file' => '/media/pricelist-v2.pdf', 'version' => '2.0']]);
+        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $this->site()->publicId('collection_items', (int) self::$doc), 'values' => ['summary' => 'Current price list, new prices.']]);
         $this->assertSame('1|/media/pricelist-v1.pdf|1.0|1', $this->sq("SELECT CONCAT(COUNT(*), '|', MAX(file), '|', MAX(version), '|', MAX(replaced_by) LIKE 'Tester%') FROM ka_document_versions WHERE item_id = ?", [self::$doc]), 'a changed file keeps the previous file and its version for good, a save without a file change keeps nothing');
 
         $page = $this->visitor()->get("/$docs/price-list");
@@ -66,7 +66,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->visitor()->get("/$docs/price-list/latest", userAgent: 'curl/8.0'); // curl's own user agent counts as a bot
         $this->assertSame('1', $this->sq('SELECT COALESCE(SUM(d.count), 0) FROM ka_document_downloads d WHERE d.item_id = ?', [self::$doc]), 'two downloads from one address within an hour count once, a bot never');
 
-        $list = $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$docsIdk, 200, '<td class="number download">1 / 1</td>', message: 'the admin items list shows the downloads (30 days / total)');
+        $list = $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->site()->publicId('collections', (int) self::$docsIdk), 200, '<td class="number download">1 / 1</td>', message: 'the admin items list shows the downloads (30 days / total)');
         $this->assertStringContainsString("href=\"/$docs/price-list/latest\"", $list->body, 'the admin items list links the stable address');
 
         $items = $this->mcpData('list_collection_items', ['collection' => $docs]);
@@ -77,15 +77,15 @@ final class DocumentLibraryTest extends SiteTestCase
     {
         $docs = self::$docs;
         $id = (int) self::$doc;
-        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $id, 'visible' => false]);
+        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $this->site()->publicId('collection_items', $id), 'visible' => false]);
         $this->assertSame(404, $this->visitor()->get("/$docs/price-list/latest")->status, 'a hidden document has no download address');
 
-        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $id, 'visible' => true, 'valid_until' => $this->siteDate('yesterday')]);
+        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $this->site()->publicId('collection_items', $id), 'visible' => true, 'valid_until' => $this->siteDate('yesterday')]);
         $this->assertSame(404, $this->visitor()->get("/$docs/price-list/latest")->status, 'an expired document has no download address even before the hourly job hides it');
 
-        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $id, 'visible' => true, 'valid_until' => date('Y-m-d', strtotime('+10 days'))]);
+        $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => $this->site()->publicId('collection_items', $id), 'visible' => true, 'valid_until' => date('Y-m-d', strtotime('+10 days'))]);
         $audit = $this->mcpData('site_audit', ['kind' => 'document']);
-        $this->assertSame('1|' . self::$doc, ($audit['total'] ?? '') . '|' . ($audit['findings'][0]['target']['item'] ?? ''), 'the site audit warns 30 days before a document expires, with the item to fix');
+        $this->assertSame('1|' . $this->site()->publicId('collection_items', (int) self::$doc), ($audit['total'] ?? '') . '|' . ($audit['findings'][0]['target']['item'] ?? ''), 'the site audit warns 30 days before a document expires, with the item to fix');
         $this->assertPage('/admin.php?module=audit', 200, 'The document is valid until', message: 'Administration → Site audit shows the expiring document');
     }
 
@@ -105,7 +105,7 @@ final class DocumentLibraryTest extends SiteTestCase
 
         $this->mcpText('create_page', ['title' => 'Price list by e-mail', 'slug' => 'price-list-by-email', 'visible' => true]);
         $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'price-list-by-email'");
-        $this->mcpText('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $this->mcpText('save_build', ['id' => $this->site()->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['id' => 'gate123', 'type' => 'form', 'content' => ['name' => 'Price list by e-mail', 'send_file' => '/media/pricelist-v2.pdf', 'fields' => [['label' => 'E-mail', 'type' => 'email', 'required' => true]]]],
         ]]]]]);
         $this->assertSame('1', $this->sq('SELECT build LIKE \'%"send_file":"/media/pricelist-v2.pdf"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'the published form keeps the file to send');

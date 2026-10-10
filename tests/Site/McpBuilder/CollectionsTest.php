@@ -18,12 +18,12 @@ final class CollectionsTest extends SiteTestCase
 
     private function saveItem(array $fields): void
     {
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => self::$idk, 'item_id' => 0] + $fields);
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $this->site()->publicId('collections', self::$idk), 'item_id' => 0] + $fields);
     }
 
     private function listBuild(array $children): array
     {
-        return ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => $children]]]];
+        return ['id' => $this->site()->publicId('pages', $this->zPage()), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => $children]]]];
     }
 
     public function testCollectionIsCreatedWithItsFields(): void
@@ -43,7 +43,7 @@ final class CollectionsTest extends SiteTestCase
     {
         $this->saveItem(['name' => 'Jane Novak', 'data' => ['role' => 'Managing director', 'bio' => '<p>Twenty years <b>in the field</b>.</p><script>x</script>'], 'sort_order' => 1, 'visible' => 1]);
         $this->saveItem(['name' => 'Hidden Member', 'data' => ['role' => 'Secret'], 'sort_order' => 2]);
-        $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$idk, 200, 'Jane Novak', message: 'collection items');
+        $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->site()->publicId('collections', self::$idk), 200, 'Jane Novak', message: 'collection items');
 
         $text = $this->rawText('save_build', $this->listBuild([['id' => 'smy1', 'type' => 'collection_list', 'content' => ['collection' => 'team'], 'children' => [
             ['id' => 'kar1', 'type' => 'container', 'style' => ['base' => ['background' => 'surface']], 'children' => [
@@ -73,7 +73,7 @@ final class CollectionsTest extends SiteTestCase
         $this->assertPage('/team/jane-novak', 200, '<h1>Jane Novak</h1>', message: 'detail has the item heading');
         $this->assertSame(404, $this->visitor()->get('/team/hidden-member')->status, 'a hidden item has no detail');
         $this->assertPage('/sitemap.xml', 200, '/team/jane-novak', message: 'sitemap has the item page');
-        $this->assertPage('/admin.php?module=collections&action=builder&id=' . self::$idk, 200, 'id="builder-data"', message: 'item template in the builder');
+        $this->assertPage('/admin.php?module=collections&action=builder&id=' . $this->site()->publicId('collections', self::$idk), 200, 'id="builder-data"', message: 'item template in the builder');
     }
 
     public function testMcpCollectionTools(): void
@@ -133,10 +133,10 @@ final class CollectionsTest extends SiteTestCase
         // ... and set the logo (section 10) and a header with the logo element (section 11)
         $site->setting('logo', 'image/kaleta-logo.svg');
         $site->mcp('save_build', ['part' => 'header', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'logo']]]]]]);
-        $site->mcp('create_page', ['title' => 'Startseite', 'slug' => 'startseite', 'language' => 'de', 'translation_of' => (int) $site->settingValue('home_page'), 'content' => '<p>Startseite</p>', 'visible' => true]);
+        $site->mcp('create_page', ['title' => 'Startseite', 'slug' => 'startseite', 'language' => 'de', 'translation_of' => $site->publicId('pages', (int) $site->settingValue('home_page')), 'content' => '<p>Startseite</p>', 'visible' => true]);
         $site->mcp('create_page', ['title' => 'Our team', 'slug' => 'team', 'content' => '<p>Team</p>', 'visible' => true]);
         self::$idTym = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'team'");
-        $site->mcp('create_page', ['title' => 'Unser Team', 'slug' => 'unser-team', 'language' => 'de', 'translation_of' => self::$idTym, 'content' => '<p>Team</p>', 'visible' => true]);
+        $site->mcp('create_page', ['title' => 'Unser Team', 'slug' => 'unser-team', 'language' => 'de', 'translation_of' => $site->publicId('pages', self::$idTym), 'content' => '<p>Team</p>', 'visible' => true]);
 
         $first = $this->mcpText('save_collection_item', ['collection' => 'team', 'name' => 'Zdenek Zeman DE', 'slug' => 'zdenek', 'language' => 'de', 'values' => ['role' => 'Workshop lead'], 'visible' => true]);
         $this->assertStringContainsString('de/team/zdenek"', $first, 'the translation of an item keeps the same slug');
@@ -161,7 +161,7 @@ final class CollectionsTest extends SiteTestCase
         $this->assertStringNotContainsString('src="/de/image/', $body, 'images of the template get no language prefix');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = ?", ['collection:' . self::$idk . ':de']), 'versions of the language template are kept apart');
         $this->assertStringContainsString('de/unser-team', $this->mcpText('list_pages'), 'the page list shows the address with the language prefix');
-        $this->assertPage('/admin.php?module=collections&action=builder&id=' . self::$idk . '&language=de', 200, 'de/team/zdenek', message: 'language item template in the builder');
+        $this->assertPage('/admin.php?module=collections&action=builder&id=' . $this->site()->publicId('collections', self::$idk) . '&language=de', 200, 'de/team/zdenek', message: 'language item template in the builder');
     }
 
     public function testTranslatingAPageFromTheBuild(): void
@@ -170,11 +170,11 @@ final class CollectionsTest extends SiteTestCase
         $this->assertStringContainsString('needs translation_of', $this->mcpText('create_page', ['title' => 'Without original', 'slug' => 'without-original', 'copy_build' => true]), 'a build copy needs the original');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE slug = 'without-original'"), 'a build copy without the original creates no page');
 
-        $site->mcp('create_page', ['title' => 'From HTML', 'slug' => 'from-html', 'language' => 'de', 'translation_of' => $this->zPage(), 'copy_build' => true]);
+        $site->mcp('create_page', ['title' => 'From HTML', 'slug' => 'from-html', 'language' => 'de', 'translation_of' => $site->publicId('pages', $this->zPage()), 'copy_build' => true]);
         $idEn = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'from-html'");
         $this->assertSame('1', (string) $site->value('SELECT n.build_draft = COALESCE(o.build_draft, o.build) FROM ka_pages n JOIN ka_pages o ON o.page_id = n.translation_of WHERE n.page_id = ?', [$idEn]), 'the translation starts as a copy of the original build');
 
-        $texts = $this->mcpText('get_build', ['id' => $idEn, 'texts_only' => true]);
+        $texts = $this->mcpText('get_build', ['id' => $this->site()->publicId('pages', $idEn), 'texts_only' => true]);
         $this->assertStringContainsString('texts', $texts, 'only texts');
         $this->assertStringContainsString('{{name}}', $texts, 'the texts of the build');
         $this->assertStringNotContainsString('"build"', $texts, 'without the structure');

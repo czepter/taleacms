@@ -18,6 +18,7 @@ use Kaleta\Core\Language;
 use Kaleta\Core\Mailing;
 
 $id = (int) $n['id'];
+$publicId = (string) ($n['public_id'] ?? '');
 $editable = in_array($n['status'], ['draft', 'scheduled'], true);
 $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
 ?>
@@ -32,7 +33,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="id" value="<?= $id ?>">
+<input type="hidden" name="id" value="<?= e($publicId) ?>">
 <div class="row"><label for="subject"><?= e(t('Subject')) ?></label><div><input class="textfield wide" id="subject" name="subject" value="<?= e($n['subject']) ?>" maxlength="200" required></div></div>
 <div class="row"><label for="preheader"><?= e(t('Preview text')) ?></label><div><input class="textfield wide" id="preheader" name="preheader" value="<?= e($n['preheader']) ?>" maxlength="200"><span class="help"><?= e(t('Shown next to the subject in the inbox. Optional.')) ?></span></div></div>
 <div class="row"><label for="intro"><?= e(t('Introduction')) ?></label><div><textarea class="textfield wide" id="intro" name="intro" rows="6" maxlength="5000"><?= e($n['intro']) ?></textarea><span class="help"><?= e(t('Plain text; an empty line starts a new paragraph, web addresses become links.')) ?></span></div></div>
@@ -46,7 +47,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 </div></div>
 <div class="row" data-active-when="news_mode=chosen"><span class="caption"><?= e(t('Chosen news items')) ?></span><div class="options options-list">
 <?php foreach ($news as $c): ?>
-	<label><input type="checkbox" name="news_ids[]" value="<?= (int) $c['news_id'] ?>"<?= in_array((int) $c['news_id'], $chosen, true) ? ' checked' : '' ?>> <?= e(($c['language'] !== '' ? strtoupper((string) $c['language']) . ' · ' : '') . $c['title']) ?> <span class="help"><?= e(format_date((string) $c['published_at'])) ?></span></label>
+	<label><input type="checkbox" name="news_ids[]" value="<?= e($c['public_id']) ?>"<?= in_array((int) $c['news_id'], $chosen, true) ? ' checked' : '' ?>> <?= e(($c['language'] !== '' ? strtoupper((string) $c['language']) . ' · ' : '') . $c['title']) ?> <span class="help"><?= e(format_date((string) $c['published_at'])) ?></span></label>
 <?php endforeach ?>
 <?php if ($news === []): ?><p class="help"><?= e(t('No published news items yet.')) ?></p><?php endif ?>
 </div></div>
@@ -75,20 +76,20 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php endif ?>
 <?php if ($id > 0): ?>
 <h2><?= e(t('Preview')) ?></h2>
-<iframe class="mailing-preview" src="<?= e($module->url('preview', ['id' => $id])) ?>" title="<?= e(t('Preview of the e-mail')) ?>" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+<iframe class="mailing-preview" src="<?= e($module->url('preview', ['id' => $publicId])) ?>" title="<?= e(t('Preview of the e-mail')) ?>" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
 <?php if ($editable): ?>
 <h2><?= e(t('Send to subscribers')) ?></h2>
 <?php if ($n['status'] === 'scheduled'): ?>
 <p><?= e(t('Scheduled for %s – the latest news items are taken at that moment.', format_date((string) $n['scheduled_at'], true))) ?></p>
 <?php if ($canPublish): ?>
-<form method="post" action="<?= e($module->url('unschedule')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigation" type="submit"><?= e(t('Cancel scheduling')) ?></button></form>
+<form method="post" action="<?= e($module->url('unschedule')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($publicId) ?>"><button class="navigation" type="submit"><?= e(t('Cancel scheduling')) ?></button></form>
 <?php endif ?>
 <?php elseif (!$canPublish): ?>
 <p class="help"><?= e(t('Sending to subscribers needs the publishing permission – ask an editor or an administrator.')) ?></p>
 <?php else: ?>
 <form class="form" method="post" action="<?= e($module->url('send')) ?>" data-confirm="<?= e(t('Send the newsletter to %d confirmed subscribers? Save your changes first – the saved version goes out.', $confirmed)) ?>">
 <?= $csrf ?>
-<input type="hidden" name="id" value="<?= $id ?>">
+<input type="hidden" name="id" value="<?= e($publicId) ?>">
 <div class="row"><span class="caption"><?= e(t('When')) ?></span><div class="options">
 	<label><input type="radio" name="when" value="now" checked> <?= e(t('now')) ?></label>
 	<label><input type="radio" name="when" value="later"> <?= e(t('at')) ?> <span data-active-when="when=later"><input class="textfield" type="datetime-local" name="at" aria-label="<?= e(t('Date and time of sending')) ?>"></span></label>
@@ -101,6 +102,6 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <div class="navigation-row actions-bottom">
 <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('All newsletters')) ?></a>
 <?php if ($id > 0 && $n['status'] !== 'sending'): ?>
-<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the newsletter?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigation danger" type="submit"><?= e(t('Delete the newsletter')) ?></button></form>
+<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the newsletter?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($publicId) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete the newsletter')) ?></button></form>
 <?php endif ?>
 </div>

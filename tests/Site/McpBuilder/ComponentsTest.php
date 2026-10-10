@@ -17,7 +17,7 @@ final class ComponentsTest extends SiteTestCase
 
     private function componentAction(string $action, array $fields = []): \Kaleta\Tests\Site\Support\Response
     {
-        return $this->adminPost('/admin.php?module=components&action=' . $action . '&id=' . self::$idm, $fields);
+        return $this->adminPost('/admin.php?module=components&action=' . $action . '&id=' . $this->site()->publicId('components', self::$idm), $fields);
     }
 
     public function testComponentIsCreatedAndGuideLinksAreThere(): void
@@ -30,9 +30,9 @@ final class ComponentsTest extends SiteTestCase
         ]);
         self::$idm = (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1');
 
-        $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, 'id="builder-data"', message: 'component in the builder');
-        $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, '"guide":"https:', message: '2.4: builder links to its guide article');
-        $this->assertMatchesRegularExpression('/"guide":"https:[^"]*guide[^"]*components"/', $this->site()->admin()->get('/admin.php?module=components&action=builder&id=' . self::$idm)->body, '2.4: the guide is the components article');
+        $this->assertPage('/admin.php?module=components&action=builder&id=' . $this->site()->publicId('components', self::$idm), 200, 'id="builder-data"', message: 'component in the builder');
+        $this->assertPage('/admin.php?module=components&action=builder&id=' . $this->site()->publicId('components', self::$idm), 200, '"guide":"https:', message: '2.4: builder links to its guide article');
+        $this->assertMatchesRegularExpression('/"guide":"https:[^"]*guide[^"]*components"/', $this->site()->admin()->get('/admin.php?module=components&action=builder&id=' . $this->site()->publicId('components', self::$idm))->body, '2.4: the guide is the components article');
         $this->assertMatchesRegularExpression('/class="guide-link" href="https:\/\/kaletacms.com\/[a-z\/]*guide\/backups-updates"/', $this->site()->admin()->get('/admin.php?module=settings&tab=backups')->body, '2.4: settings tab links to its guide article');
         $this->assertPage('/admin.php', 200, 'guide/first-steps#the-dashboard', message: '2.4: dashboard links to the guide');
     }
@@ -42,18 +42,18 @@ final class ComponentsTest extends SiteTestCase
         $build = ['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'section', 'children' => [
             ['id' => 'kna1', 'type' => 'heading', 'tag' => 'h3', 'content' => ['text' => '{{heading}}'], 'style' => ['base' => ['color' => 'primary']]],
             ['type' => 'button', 'content' => ['text' => 'More', 'link' => '{{target}}']],
-            ['type' => 'component', 'content' => ['component' => (string) self::$idm]],
+            ['type' => 'component', 'content' => ['component' => $this->site()->publicId('components', self::$idm)]],
         ]]]];
         $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
         $this->assertSame(200, $this->componentAction('build_publish')->status, 'publishing the component');
-        $this->assertPage('/_component/' . self::$idm . '?build=draft&editor=1', 200, 'Default heading', message: 'component preview for the editor');
+        $this->assertPage('/_component/' . $this->site()->publicId('components', (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1')) . '?build=draft&editor=1', 200, 'Default heading', message: 'component preview for the editor');
     }
 
     public function testComponentOnAPage(): void
     {
-        $idm = (string) self::$idm;
-        $this->site()->mcp('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [
+        $idm = $this->site()->publicId('components', self::$idm);
+        $this->site()->mcp('save_build', ['id' => $this->site()->publicId('pages', $this->zPage()), 'publish' => true, 'build' => ['v' => 1, 'children' => [
             ['type' => 'component', 'content' => ['component' => $idm, 'values' => ['heading' => 'First <b>card</b>', 'target' => 'javascript:alert(1)']]],
             ['type' => 'component', 'content' => ['component' => $idm]],
         ]]]);

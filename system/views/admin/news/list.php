@@ -8,7 +8,7 @@
  * @var int $pageNumber
  * @var int $pageCount
  * @var list<array<string, mixed>> $category
- * @var array{category:int, language:string, search:string, status:string} $filter
+ * @var array{category:string, language:string, search:string, status:string} $filter
  * @var list<string> $siteLanguages  language versions of the site (empty = the site has only one language)
  * @var int $inTrash  number of news items in the trash (within the signed-in user's scope)
  * @var int $toPublish  authors' drafts waiting to be published (seen by editors and administrators)
@@ -44,7 +44,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 		<select name="category">
 			<option value="0"><?= e(t('all')) ?></option>
 <?php foreach ($category as $k): ?>
-			<option value="<?= (int) $k['category_id'] ?>"<?= $filter['category'] === (int) $k['category_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
+			<option value="<?= e($k['public_id']) ?>"<?= $filter['category'] === $k['public_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>
@@ -89,8 +89,8 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	<td><?= e($c['title']) ?></td>
 	<td><?= e($c['category_name']) ?></td>
 	<td class="number"><?= e(format_date($c['deleted_at'], true)) ?></td>
-	<td class="actions"><button class="navigation" type="submit" form="restore-one" name="delete[]" value="<?= (int) $c['news_id'] ?>"><?= e(t('Restore')) ?></button></td>
-	<td class="center"><input type="checkbox" name="delete[]" value="<?= (int) $c['news_id'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
+	<td class="actions"><button class="navigation" type="submit" form="restore-one" name="delete[]" value="<?= e($c['public_id']) ?>"><?= e(t('Restore')) ?></button></td>
+	<td class="center"><input type="checkbox" name="delete[]" value="<?= e($c['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -115,7 +115,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['news_id']])) ?>"><?= e($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>"><?= e($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
 	<td><?= e($c['category_name']) ?></td>
 	<td><?= e($c['author_name'] ?: $c['author_login']) ?></td>
 	<td class="number"><?= e(format_date($c['published_at'], true)) ?></td>
@@ -124,12 +124,12 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <?php else: ?>
 	<td><span class="badge badge-<?= !$c['visible'] ? 'draft' : (strtotime($c['published_at']) > time() ? 'plan' : 'published') ?>"><?= e(t(!$c['visible'] ? 'draft' : (strtotime($c['published_at']) > time() ? 'scheduled' : 'published'))) ?></span></td>
 <?php endif ?>
-	<td class="actions"><a href="<?= e($module->url('edit', ['id' => $c['news_id']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('news/' . $c['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
+	<td class="actions"><a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('news/' . $c['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
 <?php if ((int) $c['social_open'] > 0): // social post drafts not posted yet (2.13) ?>
-		<a href="<?= e($module->url('edit', ['id' => $c['news_id']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
+		<a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
 <?php endif ?>
-		<button class="navigation" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="news_id" value="<?= (int) $c['news_id'] ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
-	<td class="center"><input type="checkbox" name="delete[]" value="<?= (int) $c['news_id'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
+		<button class="navigation" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="news_id" value="<?= e($c['public_id']) ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
+	<td class="center"><input type="checkbox" name="delete[]" value="<?= e($c['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -147,7 +147,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	</select></label>
 	<select name="category" aria-label="<?= e(t('Category')) ?>">
 <?php foreach ($category as $t): ?>
-		<option value="<?= (int) $t['category_id'] ?>"><?= e($t['name']) ?><?= $t['language'] !== '' ? ' (' . e(strtoupper($t['language'])) . ')' : '' ?></option>
+		<option value="<?= e($t['public_id']) ?>"><?= e($t['name']) ?><?= $t['language'] !== '' ? ' (' . e(strtoupper($t['language'])) . ')' : '' ?></option>
 <?php endforeach ?>
 	</select>
 	<button class="navigation" type="submit" formaction="<?= e($module->url('bulk')) ?>" data-confirm="<?= e(t('Apply the action to the selected items?')) ?>"><?= e(t('Apply')) ?></button>

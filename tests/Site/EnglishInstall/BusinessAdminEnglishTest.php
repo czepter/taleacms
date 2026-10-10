@@ -66,7 +66,7 @@ final class BusinessAdminEnglishTest extends SiteTestCase
         $author = $this->site()->client('tom');
         $this->site()->signIn($author, 'tom');
         $form = $this->assertCzechFree('/admin.php?module=news&action=new', 200, $author, label: 'author: new news item');
-        $saved = $author->post('/admin.php?module=news&action=save', ['_csrf' => $form->csrf(), 'news_id' => 0, 'title' => 'Draft', 'category_id' => 1, 'intro' => '<p>Lead</p>']);
+        $saved = $author->post('/admin.php?module=news&action=save', ['_csrf' => $form->csrf(), 'news_id' => 0, 'title' => 'Draft', 'category_id' => $this->site()->publicId('categories', 1), 'intro' => '<p>Lead</p>']);
         $this->assertMessageWithoutCzech($this->follow($author, $saved, 'author: save'), 'author: message after saving a news item');
     }
 
@@ -74,12 +74,12 @@ final class BusinessAdminEnglishTest extends SiteTestCase
     {
         $token = $this->site()->csrf(null, '/admin.php?module=popups&action=new');
         $this->site()->admin()->post('/admin.php?module=popups&action=create', ['_csrf' => $token, 'template' => 'lead_magnet', 'name' => '']);
-        $popup = (int) $this->site()->value('SELECT popup_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1');
-        $this->assertGreaterThan(0, $popup, 'the pop-up from the template was created');
+        $popup = (string) $this->site()->value('SELECT public_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1');
+        $this->assertNotSame('', $popup, 'the pop-up from the template was created');
         $admin = $this->site()->admin();
         $this->assertCzechFree("/admin.php?module=popups&action=edit&id=$popup", 200, $admin, label: 'pop-up settings');
         $this->assertCzechFree("/admin.php?module=popups&action=builder&id=$popup", 200, $admin, label: 'pop-up in the builder');
-        $this->assertCzechFree("/_popup/$popup?build=draft&editor=1", 200, $admin, label: 'pop-up template on the builder canvas');
+        $this->assertCzechFree("/_popup/" . $this->site()->publicId('popups', (int) $this->site()->value('SELECT popup_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1')) . "?build=draft&editor=1", 200, $admin, label: 'pop-up template on the builder canvas');
         $toggle = $admin->post('/admin.php?module=popups&action=toggle', ['_csrf' => $token, 'popup_id' => $popup]);
         $this->assertMessageWithoutCzech($this->follow($admin, $toggle, 'toggle'), 'message: an unpublished pop-up cannot be turned on');
         $this->assertCzechFree('/admin.php?module=popups', 200, $admin, label: 'pop-up list');

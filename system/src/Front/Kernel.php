@@ -225,9 +225,10 @@ final class Kernel
             // popup counters: views, closes, conversions – without cookies and without data about the visitor
             $column = ['view' => 'impressions', 'close' => 'closes', 'conversion' => 'conversions'][$request->post('event')] ?? null;
             $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
-            if ($column !== null && $request->postInt('id') > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
+            $popupId = $this->app->db()->internalId('popups', $request->post('popup'));
+            if ($column !== null && $popupId > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
                 $antispam->write($request->ip(), 'popup', 0);
-                $this->app->db()->run('UPDATE {popups} SET ' . $column . ' = ' . $column . ' + 1 WHERE popup_id = ? AND active = 1', [$request->postInt('id')]);
+                $this->app->db()->run('UPDATE {popups} SET ' . $column . ' = ' . $column . ' + 1 WHERE popup_id = ? AND active = 1', [$popupId]);
             }
 
             return new Response('', 204);
@@ -375,11 +376,11 @@ final class Kernel
         if (preg_match('#^/_section/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->hasModule('pages')) {
             return $this->previewSection($m[1]);
         }
-        if (preg_match('#^/_popup/(\d+)$#', $path, $m)) {
-            return $this->previewPopup((int) $m[1]);
+        if (preg_match('#^/_popup/([a-f0-9-]{36})$#', $path, $m)) {
+            return $this->previewPopup($this->app->db()->internalId('popups', $m[1]));
         }
-        if (preg_match('#^/_component/(\d+)$#', $path, $m) && $this->app->auth()->isAdmin()) {
-            return $this->previewComponent((int) $m[1]);
+        if (preg_match('#^/_component/([a-f0-9-]{36})$#', $path, $m) && $this->app->auth()->isAdmin()) {
+            return $this->previewComponent($this->app->db()->internalId('components', $m[1]));
         }
         if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
             return $calendar;
@@ -633,7 +634,7 @@ final class Kernel
             $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)
         }
         $k->editor = $draft && $r->get('editor') === '1';
-        $k->source = 'collection:' . (int) $collection['collection_id'];
+        $k->source = 'collection:' . $this->app->db()->publicId('collections', (int) $collection['collection_id']);
         $this->pageCollection = (string) $collection['slug'];
         $html = \Kaleta\Builder\Build::html($build, $k);
         [$k->item, $k->editor] = [null, false];
@@ -741,14 +742,14 @@ final class Kernel
             $previewKey = $this->app->request->get('preview_key');
             $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Kaleta\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'page:' . (int) $page['page_id'], $previewKey);
             if ($k->markIds) {
-                $meta['comments'] = (new DraftComments($this->app))->widget('page:' . (int) $page['page_id'], $previewKey, $path);
+                $meta['comments'] = (new DraftComments($this->app))->widget('page:' . $this->app->db()->publicId('pages', (int) $page['page_id']), $previewKey, $path);
             }
-            $k->source = 'page:' . (int) $page['page_id'];
+            $k->source = 'page:' . $this->app->db()->publicId('pages', (int) $page['page_id']);
             $html = \Kaleta\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
-                $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . (int) $page['page_id']);
+                $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $page['page_id']));
             }
 
             if ($meta['description'] === '') {
@@ -1282,7 +1283,8 @@ final class Kernel
             return ''; // the preview in Appearance and the builder canvas (outside the popup builder) show the page without popups
         }
         $db = $this->app->db();
-        $preview = $this->previewPopup ?: ($r->get('build') === 'draft' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
+        $queryPopup = $r->get('build') === 'draft' ? $db->internalId('popups', $r->get('popup')) : 0;
+        $preview = $this->previewPopup ?: ($queryPopup > 0 && $this->canSeeDraft('popup:' . $queryPopup) ? $queryPopup : 0);
         try {
             $popups = \Kaleta\Builder\Popups::forPage($db, ['page_id' => ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null,
                 'collection' => $this->pageCollection, 'news' => $news, 'language' => Language::code(), 'today' => date('Y-m-d')]);
@@ -1305,7 +1307,7 @@ final class Kernel
             if ($p['rules']['from'] !== '' || $p['rules']['to'] !== '') {
                 $k->withoutCache = true; // a popup with a date range must not stay in the page cache after it ends
             }
-            $k->source = 'popup:' . $p['popup_id'];
+            $k->source = 'popup:' . ($p['public_id'] ?? $db->publicId('popups', (int) $p['popup_id']));
             // signed-in users (administrators, editors) view the popups, but are not counted in the counters
             $html .= \Kaleta\Builder\Popups::wrapper($p, \Kaleta\Builder\Build::html($build, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['preview']));
         }
@@ -1331,7 +1333,7 @@ final class Kernel
         if ($this->app->request->get('editor') === '1' && $this->app->auth()->isAdmin()) {
             $k = $this->context();
             $k->editor = true;
-            $k->source = 'popup:' . $idpp;
+            $k->source = 'popup:' . $this->app->db()->publicId('popups', $idpp);
             $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['children' => []], $k);
             $k->editor = false;
             $content = '<div class="ka-popup-canvas">' . \Kaleta\Builder\Popups::editorWrapper($p, $html) . '</div>';

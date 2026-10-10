@@ -157,7 +157,7 @@ final class Html
             foreach (iterator_to_array($n->attributes) as $a) {
                 $name = strtolower($a->name);
                 $ok = (in_array($name, self::ATTRIBUTES, true) || preg_match('/^aria-[a-z]{2,20}$/', $name)
-                        || ($name === 'data-id' && strtolower($n->localName) === 'img' && ctype_digit($a->value))) // the Media number the editor puts on an image
+                        || ($name === 'data-id' && strtolower($n->localName) === 'img' && (ctype_digit($a->value) || Uuid::valid($a->value)))) // the Media public id the editor puts on an image (older texts carry the number)
                     && (!in_array($name, ['href', 'src', 'poster', 'cite'], true) || WpContent::isSafeUrl($a->value))
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'target' || $a->value === '_blank');

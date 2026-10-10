@@ -54,15 +54,15 @@ final class SecurityHygieneTest extends SiteTestCase
         $this->assertStringContainsString('action=reactivate', $users->body, 'Users: the automatic block can be reactivated');
 
         $old = (int) $site->value("SELECT user_id FROM ka_users WHERE username = 'old-editor'");
-        $this->assertPage("/admin.php?module=users&action=edit&id=$old", 200, 'Untick the box and save', message: 'the user form explains the automatic block');
-        $this->adminPost('/admin.php?module=users&action=reactivate', ['user_id' => $old, 'username' => 'old-editor'], '/admin.php?module=users');
+        $this->assertPage("/admin.php?module=users&action=edit&id=" . $site->publicId('users', $old), 200, 'Untick the box and save', message: 'the user form explains the automatic block');
+        $this->adminPost('/admin.php?module=users&action=reactivate', ['user_id' => $site->publicId('users', $old), 'username' => 'old-editor'], '/admin.php?module=users');
         $this->assertSame('011', (string) $site->value("SELECT CONCAT(blocked, auto_blocked_at IS NULL, confirmed_at > NOW() - INTERVAL 1 MINUTE) FROM ka_users WHERE username = 'old-editor'"), 'reactivation unblocks the account and confirms it');
         $this->assertSame('{"blocked":[],"revoked":[]}', $this->runHygiene(), 'a reactivated account is not blocked again by the next run');
 
         $admin = (int) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'");
         $live = (int) $site->value("SELECT token_id FROM ka_api_tokens WHERE name = 'live token'");
-        $this->assertPage("/admin.php?module=users&action=edit&id=$admin", 200, 'id="connections"', message: 'the administrator sees the connections of an account');
-        $this->adminPost('/admin.php?module=users&action=revoke_connection', ['user_id' => $admin, 'token_id' => $live, 'username' => 'admin'], '/admin.php?module=users');
+        $this->assertPage("/admin.php?module=users&action=edit&id=" . $site->publicId('users', $admin), 200, 'id="connections"', message: 'the administrator sees the connections of an account');
+        $this->adminPost('/admin.php?module=users&action=revoke_connection', ['user_id' => $site->publicId('users', $admin), 'token_id' => $site->publicId('api_tokens', $live), 'username' => 'admin'], '/admin.php?module=users');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_api_tokens WHERE name = 'live token'"), 'the administrator revokes a connection from the user form');
         $site->exec("UPDATE ka_settings SET value = '' WHERE name = 'auto_suspend'");
     }

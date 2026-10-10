@@ -108,7 +108,7 @@ final class PendingReview
                     . ' AND COALESCE(p.updated_at, p.created_at) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY';
                 $collections = array_map(intval(...), array_column($db->all('SELECT DISTINCT p.collection_id ' . $where), 'collection_id'));
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
+                return [(int) $db->value('SELECT COUNT(*) ' . $where), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', $collections[0]) : 'admin.php?module=collections',
                     array_map(fn (array $r): string => $r['name'] . ' (' . $r['collection'] . ')', $db->all('SELECT p.name, k.name AS collection ' . $where . ' ORDER BY COALESCE(p.updated_at, p.created_at) DESC' . $limit))];
             case 'proposed_hours':
                 $proposed = Hours::proposed($db);

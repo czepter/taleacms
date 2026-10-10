@@ -361,9 +361,11 @@ from old addresses. You can run the import again – whatever it already convert
 in the installer. Sign in, open **Import and export → Import from Kaleta** and upload the `.zip` (a larger one over FTP
 into `storage/import/`). The preview shows what the export holds; after you confirm, a database backup is made and the
 import runs in batches on its own – pages, news, collections, components, shared classes, site parts, menus, pop-ups,
-redirects, the media library and its files, the site name, company details, languages and the look. Every row keeps its
-number, so all links between pages, menus and components stay valid, and every build goes through the same checks as
-a save in the builder. User accounts, passwords, keys, tokens and the mail and backup settings are never in an export,
+redirects, the media library and its files, the site name, company details, languages and the look. Every row has a public
+id (a UUID) in the export and keeps it on the new site, so exporting the new site again gives the same ids; the database's
+own numbers are not in the file. Every link between rows – a page's parent, a news item's category and tags, the pages of a
+menu or a pop-up, a component or a booking service inside a build, the home page – is the public id of the row it points to,
+and the import points it at the new site's own keys. Every build goes through the same checks as a save in the builder. User accounts, passwords, keys, tokens and the mail and backup settings are never in an export,
 so the new site keeps its own; imported news belong to you. The import works only on an empty site – a fresh install,
 optionally with a starter site.
 
@@ -371,6 +373,7 @@ optionally with a starter site.
 its components (including components inside components). **Pages → Import** on another site creates the page hidden,
 adds the missing classes (a class the site already has keeps its own look) and the components, and reuses a component
 imported before.
+In the file a component is identified by its public id, never by a number of the database.
 
 ## 12. Site audit and System status
 

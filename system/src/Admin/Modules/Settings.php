@@ -168,7 +168,7 @@ class Settings extends Module
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
-            'pages' => $tab === 'general' ? $this->db->pairs("SELECT page_id, title FROM {pages} WHERE visible = 1 AND language = '' ORDER BY sort_order, title") : [],
+            'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = 1 AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
@@ -197,7 +197,7 @@ class Settings extends Module
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
-                ? $this->db->one('SELECT page_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
+                ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
         ]);
     }
 
@@ -234,6 +234,9 @@ class Settings extends Module
                     $settings->set($key, mb_substr($value, 0, 300));
                 }
                 continue;
+            }
+            if ($key === 'home_page') {
+                $value = (string) $this->db->internalId('pages', $value); // the form carries the public id of the page (0 = news listing)
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
             if ($clean !== null && $key === 'news_slug' && \Kaleta\Core\Routes::slugError($clean, $this->db) !== null) {
@@ -709,7 +712,7 @@ class Settings extends Module
         }
         $id = \Kaleta\Core\Privacy::saveStatementDraft($this->app);
 
-        return $this->back(t('The accessibility statement is ready as a hidden page – review it, then publish it: %s', $this->app->url('admin.php?module=pages&action=builder&id=' . $id)), '', ['tab' => 'cookies']);
+        return $this->back(t('The accessibility statement is ready as a hidden page – review it, then publish it: %s', $this->app->url('admin.php?module=pages&action=builder&id=' . $this->db->publicId('pages', (int) $id))), '', ['tab' => 'cookies']);
     }
 
     protected function tab(string $tab): string

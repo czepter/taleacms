@@ -15,7 +15,7 @@ final class NewElementsTest extends SiteTestCase
 
     public function testNewElementsPassTheValidatorAndAreShown(): void
     {
-        $text = $this->rawText('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $text = $this->rawText('save_build', ['id' => $this->site()->publicId('pages', $this->zPage()), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'breadcrumbs'],
             ['type' => 'icon', 'content' => ['icon' => 'phone', 'shape' => 'circle']],
             ['type' => 'gallery', 'content' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Workshop'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],

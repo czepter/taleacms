@@ -84,27 +84,27 @@ final class BookingFlowTest extends SiteTestCase
         $this->assertStringContainsString('petr-bk@example.cz', $list, 'booking: Claude lists the bookings of the day');
         $this->assertStringContainsString('"count":2', $list, 'booking: the list counts both bookings');
         $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_change_log WHERE action = 'list_bookings' AND description LIKE '%2%'"), 'booking: every read of bookings by Claude is in the change log');
-        $availability = $this->bookingText('booking_availability', ['service' => self::$service, 'day' => $day]);
+        $availability = $this->bookingText('booking_availability', ['service' => $this->site()->publicId('booking_services', self::$service), 'day' => $day]);
         $this->assertStringContainsString('"slots"', $availability, 'booking: booking_availability returns slots');
         $this->assertStringContainsString('"09:00"', $availability, 'booking: booking_availability shows the free times');
         $this->assertStringNotContainsString('petr', $availability, 'booking: booking_availability shows no personal data');
         $this->assertPage('/admin.php?module=bookings', 200, 'Peter Booker', message: 'booking: the admin list shows the booking by day');
         $id = (int) $this->q("SELECT id FROM ka_bookings WHERE starts_at = '$day 11:00:00'");
-        $this->assertPage("/admin.php?module=bookings&action=detail&id=$id", 200, 'petr-bk@example.cz', message: 'booking: the admin detail with the customer');
-        $this->assertPage('/admin.php?module=bookings&action=services&id=' . self::$service, 200, 'Haircut test', message: 'booking: the services screen');
-        $this->assertPage('/admin.php?module=bookings&action=staff_edit&id=' . self::$staff, 200, 'name="hours_1"', message: "booking: the person's form with the weekly hours");
+        $this->assertPage("/admin.php?module=bookings&action=detail&id=" . $this->site()->publicId('bookings', $id), 200, 'petr-bk@example.cz', message: 'booking: the admin detail with the customer');
+        $this->assertPage('/admin.php?module=bookings&action=services&id=' . $this->site()->publicId('booking_services', self::$service), 200, 'Haircut test', message: 'booking: the services screen');
+        $this->assertPage('/admin.php?module=bookings&action=staff_edit&id=' . $this->site()->publicId('booking_staff', self::$staff), 200, 'name="hours_1"', message: "booking: the person's form with the weekly hours");
         $this->assertPage('/admin.php?module=bookings&action=new', 200, 'name="day"', message: 'booking: the manual booking form');
 
         $form = '/admin.php?module=bookings&action=new';
-        $this->adminPost('/admin.php?module=bookings&action=create', ['service' => self::$service, 'staff_member' => 0, 'day' => $day, 'time' => '14:00', 'name' => 'Phone Customer', 'email' => '', 'phone' => '777000222'], $form);
+        $this->adminPost('/admin.php?module=bookings&action=create', ['service' => $this->site()->publicId('booking_services', self::$service), 'staff_member' => 0, 'day' => $day, 'time' => '14:00', 'name' => 'Phone Customer', 'email' => '', 'phone' => '777000222'], $form);
         $this->assertSame('1|admin', $this->q("SELECT CONCAT(COUNT(*), '|', MAX(source)) FROM ka_bookings WHERE name = 'Phone Customer' AND status = 'confirmed'"), 'booking: a booking taken by phone, without an e-mail');
-        $this->adminPost('/admin.php?module=bookings&action=create', ['service' => self::$service, 'staff_member' => self::$staff, 'day' => $day, 'time' => '14:00', 'name' => 'Collision', 'email' => ''], $form);
+        $this->adminPost('/admin.php?module=bookings&action=create', ['service' => $this->site()->publicId('booking_services', self::$service), 'staff_member' => $this->site()->publicId('booking_staff', self::$staff), 'day' => $day, 'time' => '14:00', 'name' => 'Collision', 'email' => ''], $form);
         $this->assertSame('0', $this->q("SELECT COUNT(*) FROM ka_bookings WHERE name = 'Collision'"), 'booking: the admin cannot double-book either');
 
         $phone = (int) $this->q("SELECT id FROM ka_bookings WHERE name = 'Phone Customer'");
-        $this->assertStringContainsString('confirm', $this->bookingRaw('cancel_booking', ['id' => $phone]), 'booking: cancel_booking needs an explicit confirmation');
-        $site->mcp('cancel_booking', ['id' => $phone, 'confirm' => true]);
-        $this->assertSame('cancelled|claude|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'bookings' AND action = 'cancel' AND description = CONCAT('#', $phone))) FROM ka_bookings WHERE id = $phone"), 'booking: Claude cancels a booking, the change is logged');
+        $this->assertStringContainsString('confirm', $this->bookingRaw('cancel_booking', ['id' => $this->site()->publicId('bookings', $phone)]), 'booking: cancel_booking needs an explicit confirmation');
+        $site->mcp('cancel_booking', ['id' => $site->publicId('bookings', $phone), 'confirm' => true]);
+        $this->assertSame('cancelled|claude|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'bookings' AND action = 'cancel' AND description = (SELECT CONCAT(s.name, ' ', LEFT(b.starts_at, 16)) FROM ka_bookings b JOIN ka_booking_services s ON s.id = b.service_id WHERE b.id = $phone))) FROM ka_bookings WHERE id = $phone"), 'booking: Claude cancels a booking, the change is logged');
     }
 
     public function testPersonalDataAndRetention(): void

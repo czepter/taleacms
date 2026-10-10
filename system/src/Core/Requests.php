@@ -255,7 +255,7 @@ final class Requests
     /** The administration address of a request, absolute – for e-mails. */
     public static function adminUrl(App $app, int $id): string
     {
-        return rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=requests&action=detail&id=' . $id);
+        return rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=requests&action=detail&id=' . $app->db()->publicId('requests', $id));
     }
 
     /** "New request for Claude: <title>" to every administrator with an e-mail address – except the requester, who knows. */

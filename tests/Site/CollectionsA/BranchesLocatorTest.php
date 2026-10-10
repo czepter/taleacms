@@ -25,7 +25,7 @@ final class BranchesLocatorTest extends SiteTestCase
         $this->mcpText('save_collection_item', ['collection' => 'branches', 'name' => 'Praha', 'slug' => 'praha', 'values' => ['address' => 'Station Road 1, 110 00 Prague', 'location' => '50.0813, 14.4275', 'phone' => '+420 987 654 321', 'hours' => 'by appointment'], 'visible' => true]);
         $this->mcpText('create_page', ['title' => 'Find us', 'slug' => 'find-us', 'visible' => true]);
         $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'find-us'");
-        $saved = $this->mcpText('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'store_locator']]]]]]);
+        $saved = $this->mcpText('save_build', ['id' => $this->site()->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'store_locator']]]]]]);
         $this->assertStringContainsString('published', $saved);
         $this->assertSame('1', $this->sq('SELECT build LIKE \'%"type":"store_locator"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'Claude places the element by its English name, stored under its own type');
 
@@ -79,7 +79,7 @@ final class BranchesLocatorTest extends SiteTestCase
 
     public function testSchemaFormAndATeamLinkedToTheBranches(): void
     {
-        $form = $this->assertPage('/admin.php?module=collections&action=edit&id=' . $this->sq("SELECT collection_id FROM ka_collections WHERE slug = 'branches'"), 200, 'value="LocalBusiness"', message: 'the collection form offers the LocalBusiness type with its properties');
+        $form = $this->assertPage('/admin.php?module=collections&action=edit&id=' . $this->sq("SELECT public_id FROM ka_collections WHERE slug = 'branches'"), 200, 'value="LocalBusiness"', message: 'the collection form offers the LocalBusiness type with its properties');
         $this->assertStringContainsString('name="schema[fields][openingHours]"', $form->body, 'opening hours can be mapped in the form');
         $this->assertStringContainsString('name="schema[fields][geo]"', $form->body, 'geo can be mapped in the form');
 

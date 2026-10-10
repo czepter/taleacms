@@ -607,7 +607,7 @@ return [
     'The sign-in could not be verified. Try connecting again.' => 'Die Anmeldung konnte nicht geprüft werden. Verbinde erneut.',
     'The sign-in expired – connect %s again.' => 'Die Anmeldung ist abgelaufen – verbinde %s erneut.',
     'Tick that you want to erase the data.' => 'Bestätige, dass du die Daten löschen möchtest.',
-    'A testimonial the person sent stays in References (items %s) – remove it there if they ask.' => 'Eine Referenz der Person bleibt in den Referenzen (Einträge %s) – entferne sie dort, wenn sie darum bittet.',
+    'A testimonial the person sent stays in References – remove it there if they ask.' => 'Eine Referenz der Person bleibt in den Referenzen – entferne sie dort, wenn sie darum bittet.',
     'When someone asks what the site keeps about them, or asks to be deleted: enter their e-mail address. The search covers enquiries (the sender and every field), the newsletter subscription, e-mails waiting to be sent and testimonial requests.' => 'Wenn jemand fragt, was die Website über ihn speichert, oder um Löschung bittet: Gib seine E-Mail-Adresse ein. Durchsucht werden Anfragen (Absender und alle Felder), das Newsletter-Abonnement, wartende E-Mails und Referenzanfragen.',
     'An account of the administration (%s) – change or remove it in Users; it is not erased here.' => 'Ein Konto der Verwaltung (%s) – ändere oder entferne es unter Benutzer; hier wird es nicht gelöscht.',
     '%d files in Media. The site found what can be cleaned up – nothing changes until you decide.' => '%d Dateien in den Medien. Die Website hat gefunden, was aufgeräumt werden kann – nichts ändert sich, bis du entscheidest.',

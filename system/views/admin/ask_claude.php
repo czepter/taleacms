@@ -59,7 +59,7 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 	<h3><?= e(t('Your requests')) ?></h3>
 	<ul class="ask-claude-my">
 <?php foreach ($ask['recent'] as $r): ?>
-		<li><a href="<?= e($requestsUrl('detail', ['id' => $r['id']])) ?>"><?= e($r['title']) ?></a>
+		<li><a href="<?= e($requestsUrl('detail', ['id' => $r['public_id']])) ?>"><?= e($r['title']) ?></a>
 			<span class="badge<?= match ($r['status']) { 'done' => ' badge-published', 'new' => ' badge-draft', 'declined' => ' badge-error', default => '' } ?>"><?= e(t(Requests::STATUSES[$r['status']] ?? $r['status'])) ?></span>
 			<span class="small-text"><?= e(format_date($r['updated_at'], true)) ?></span></li>
 <?php endforeach ?>

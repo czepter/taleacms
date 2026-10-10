@@ -56,8 +56,8 @@ trait McpBuilderHelpers
         $site = $this->site();
         $site->mcp('build_from_html', ['title' => 'Z HTML', 'html' => self::Z_HTML]);
         self::$zPage = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'z-html'");
-        $site->mcp('insert_section', ['id' => self::$zPage, 'section' => 'faq']);
-        $site->mcp('publish_build', ['id' => self::$zPage]);
+        $site->mcp('insert_section', ['id' => $site->publicId('pages', self::$zPage), 'section' => 'faq']);
+        $site->mcp('publish_build', ['id' => $site->publicId('pages', self::$zPage)]);
         $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 

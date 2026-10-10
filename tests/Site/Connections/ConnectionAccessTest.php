@@ -63,7 +63,7 @@ final class ConnectionAccessTest extends SiteTestCase
         $this->assertStringContainsString('can only read the site', $this->answerRaw($answer), 'a read-only connection is told it can only read');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE title = 'From a read-only connection'"), 'a read-only connection changes nothing');
 
-        $answer = $site->mcp('get_page', ['id' => 1], self::$readToken);
+        $answer = $site->mcp('get_page', ['id' => $site->publicId('pages', 1)], self::$readToken);
         $this->assertArrayNotHasKey('isError', $answer['result'] ?? [], 'a read-only connection reads');
         $this->assertArrayNotHasKey('error', $answer, 'a read-only connection reads (no protocol error)');
     }
@@ -77,12 +77,12 @@ final class ConnectionAccessTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value('SELECT visible FROM ka_pages WHERE page_id = ?', [self::$draftPage]), 'a drafts-only connection creates a page, but hidden');
 
         $build = ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => 'Draft']]]]]];
-        $answer = $site->mcp('save_build', ['id' => self::$draftPage, 'publish' => true, 'build' => $build], self::$draftToken);
+        $answer = $site->mcp('save_build', ['id' => $site->publicId('pages', self::$draftPage), 'publish' => true, 'build' => $build], self::$draftToken);
         $this->assertStringContainsString('Publishing needs', $this->answerRaw($answer), 'publishing over a drafts-only connection is refused');
         $this->assertSame('none', $site->value("SELECT COALESCE(build_draft, 'none') FROM ka_pages WHERE page_id = ?", [self::$draftPage]),
             'publishing over a drafts-only connection is refused before anything is saved');
 
-        $answer = $site->mcp('save_build', ['id' => self::$draftPage, 'build' => $build], self::$draftToken);
+        $answer = $site->mcp('save_build', ['id' => $site->publicId('pages', self::$draftPage), 'build' => $build], self::$draftToken);
         $this->assertStringContainsString('"status":"draft', $this->answerText($answer), 'a drafts-only connection saves a draft build');
 
         $answer = $site->mcp('update_settings', ['settings' => ['site_name' => 'Hijacked']], self::$draftToken);
@@ -90,13 +90,13 @@ final class ConnectionAccessTest extends SiteTestCase
 
         // 2.5.1: a drafts-only connection must not reach the administrator's browser through a draft preview
         $html = ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'custom_html', 'content' => ['code' => '<p>drafted-code</p>']]]]]];
-        $site->mcp('save_build', ['id' => self::$draftPage, 'build' => $html], self::$draftToken);
+        $site->mcp('save_build', ['id' => $site->publicId('pages', self::$draftPage), 'build' => $html], self::$draftToken);
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE page_id = ? AND build_draft LIKE '%drafted-code%'", [self::$draftPage]),
             'a drafts-only connection cannot insert Custom HTML');
 
         $site->exec("INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', NOW() + INTERVAL 1 DAY, NOW())");
         $newsletter = (int) $site->value("SELECT id FROM ka_newsletters WHERE subject = 'Scheduled 251'");
-        $site->mcp('draft_newsletter', ['id' => $newsletter, 'intro' => 'Changed by a drafts connection'], self::$draftToken);
+        $site->mcp('draft_newsletter', ['id' => $site->publicId('newsletters', $newsletter), 'intro' => 'Changed by a drafts connection'], self::$draftToken);
         $this->assertSame('Original intro', $site->value('SELECT intro FROM ka_newsletters WHERE id = ?', [$newsletter]), 'a drafts-only connection cannot change a scheduled newsletter');
         $site->exec('DELETE FROM ka_newsletters WHERE id = ?', [$newsletter]);
     }
@@ -107,9 +107,9 @@ final class ConnectionAccessTest extends SiteTestCase
         $site = $this->site();
         $wrong = 'kaleta_' . str_repeat('0', 48);
         for ($i = 0; $i < 21; $i++) {
-            $site->mcp('get_page', ['id' => 1], $wrong);
+            $site->mcp('get_page', ['id' => $site->publicId('pages', 1)], $wrong);
         }
-        $answer = $site->mcp('get_page', ['id' => 1]);
+        $answer = $site->mcp('get_page', ['id' => $site->publicId('pages', 1)]);
         $this->assertArrayNotHasKey('error', $answer, 'wrong tokens do not lock out a valid token (protocol error)');
         $this->assertArrayNotHasKey('isError', $answer['result'] ?? [], 'wrong tokens do not lock out a valid token');
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'mcp'");

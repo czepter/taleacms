@@ -54,7 +54,8 @@ final class Forms
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
-        $source = $r->post('source');
+        $posted = $r->post('source'); // as the page printed it (public ids): the antispam signature covers this form
+        $source = self::internalSource($this->app->db(), $posted);
         $back = $r->post('back');
         $back = preg_match('#^/[^\s\\\\]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = $this->element($source, $r->post('element'));
@@ -64,7 +65,7 @@ final class Forms
         $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->reason($r, 'form|' . $source . '|' . $element['id']);
+        $reason = $antispam->reason($r, 'form|' . $posted . '|' . $element['id']);
         if ($reason === 'robot') {
             return $redirectUri('ok'); // the robot does not learn that it failed
         }
@@ -225,6 +226,20 @@ final class Forms
         return $redirectUri('ok');
     }
 
+    /**
+     * The source a form carries (page:<uuid>, collection:<uuid>, popup:<uuid>, part:…) as the system stores it (with the integer key).
+     * A page, collection or pop-up that is not a public id of an existing row gives '' – integer keys from outside are never accepted.
+     */
+    public static function internalSource(\Kaleta\Core\Db $db, string $source): string
+    {
+        if (!preg_match('/^(page|collection|popup):(.*)$/s', $source, $m)) {
+            return $source;
+        }
+        $id = $db->internalId(['page' => 'pages', 'collection' => 'collections', 'popup' => 'popups'][$m[1]], $m[2]);
+
+        return $id > 0 ? $m[1] . ':' . $id : '';
+    }
+
     /** Form from the published build of a page or site part. @return array<string, mixed>|null */
     private function element(string $source, string $id): ?array
     {
@@ -242,7 +257,7 @@ final class Forms
     {
         $build = match (true) {
             (bool) preg_match('/^page:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = 1', [(int) $m[1]])),
-            (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
+            (bool) preg_match('/^part:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
             (bool) preg_match('/^collection:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = 1', [(int) $m[1]])),
             (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = 1', [(int) $m[1]])),
             default => null,
@@ -319,7 +334,7 @@ final class Forms
         $text = ($about !== '' ? t('Topic') . ":\n" . $about . "\n\n" : '')
             . implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
-            . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
+            . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $this->app->db()->publicId('enquiries', $idp)));
         Mail::send($siteSettings, $recipient, t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
     }
 }

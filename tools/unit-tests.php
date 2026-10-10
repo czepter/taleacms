@@ -2114,10 +2114,10 @@ check('2.11 Calendar::escape and fold – RFC 5545 text, lines of at most 75 oct
     ['a\\;b\\,c\\\\d\\nnext', [74, 59], 'SUMMARY:short']);
 $icsCollection = ['collection_id' => 1, 'slug' => 'action', 'preset' => 'events', 'detail' => 1, 'fields' => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2], 'options' => $f[3]['options'] ?? []],
     (array) (Kaleta\Builder\Presets::get('events')['fields'] ?? [])))];
-$ics = Calendar::ics($icsCollection, [[['item_id' => 7, 'name' => 'Jóga, pro začátečníky', 'updated_at' => '2026-10-01 10:00:00', 'data' => ['start' => '2026-10-06 18:00', 'end' => '2026-10-06 19:30', 'venue' => 'Sál', 'address' => 'Hlavní 1, Brno', 'repeat' => 'weekly', 'repeat_until' => '2026-12-15', 'summary' => 'Přineste podložku.']], 'https://example.cz/akce/joga'], // check-english: allow
+$ics = Calendar::ics($icsCollection, [[['item_id' => 7, 'public_id' => '0b1c2d3e-0000-4000-8000-000000000007', 'name' => 'Jóga, pro začátečníky', 'updated_at' => '2026-10-01 10:00:00', 'data' => ['start' => '2026-10-06 18:00', 'end' => '2026-10-06 19:30', 'venue' => 'Sál', 'address' => 'Hlavní 1, Brno', 'repeat' => 'weekly', 'repeat_until' => '2026-12-15', 'summary' => 'Přineste podložku.']], 'https://example.cz/akce/joga'], // check-english: allow
     [['item_id' => 8, 'name' => 'Den otevřených dveří', 'data' => ['start' => '2026-11-02']], ''], [['item_id' => 9, 'name' => 'Bez data', 'data' => []], '']], 'Web – Akce', 'example.cz'); // check-english: allow
 $utc = fn (string $local): string => (new DateTimeImmutable($local))->setTimezone(new DateTimeZone('UTC'))->format('Ymd\THis\Z');
-check('2.11 Calendar::ics – a timed series with RRULE in UTC, a whole day as DATE, an event without a date left out', [str_starts_with($ics, "BEGIN:VCALENDAR\r\n"), str_contains($ics, "UID:kaleta-7@example.cz\r\n"),
+check('2.11 Calendar::ics – a timed series with RRULE in UTC, a whole day as DATE, an event without a date left out', [str_starts_with($ics, "BEGIN:VCALENDAR\r\n"), str_contains($ics, "UID:kaleta-0b1c2d3e-0000-4000-8000-000000000007@example.cz\r\n"),
     str_contains($ics, 'DTSTART:' . $utc('2026-10-06 18:00') . "\r\n"), str_contains($ics, 'RRULE:FREQ=WEEKLY;UNTIL=' . $utc('2026-12-15 23:59')), str_contains($ics, "SUMMARY:Jóga\\, pro začátečníky\r\n"), // check-english: allow
     str_contains($ics, 'LOCATION:Sál\\, Hlavní 1\\, Brno'), str_contains($ics, "DTSTART;VALUE=DATE:20261102\r\nDTEND;VALUE=DATE:20261103\r\n"), substr_count($ics, 'BEGIN:VEVENT'), str_ends_with($ics, "END:VCALENDAR\r\n")], // check-english: allow
     [true, true, true, true, true, true, true, 2, true]);
@@ -2933,6 +2933,13 @@ check('2.16 Kit::compose – the design system is sanitized and comes without cu
 check('2.16 Kit::sanitize – unknown keys and wrong shapes are dropped, the result always has the three lists; a sanitized manifest sanitizes to itself except for fresh element ids',
     [$kit::sanitize(['foo' => 1, 'classes' => 'x', 'components' => 'y']), $kit::sanitize(null), preg_replace('/"id":"[a-z0-9]+"/', '', $kit::encode($kit::sanitize($kitManifest))) === preg_replace('/"id":"[a-z0-9]+"/', '', $kit::encode($kitManifest))],
     [['classes' => [], 'components' => [], 'sections' => []], ['classes' => [], 'components' => [], 'sections' => []], true]);
+$kitRefs = $kit::compose(null, [], [
+    ['component_id' => 7, 'name' => 'Inner card', 'properties' => '[]', 'build' => '{"v":1,"children":[{"type":"section","children":[{"type":"text","content":{"html":"<p>x</p>"}}]}]}', 'build_draft' => null],
+    ['component_id' => 9, 'name' => 'Outer card', 'properties' => '[]', 'build' => json_encode(['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'component', 'content' => ['component' => '7']], ['type' => 'component', 'content' => ['component' => '55']]]]]]), 'build_draft' => null]], []);
+check('2.16 Kit – a component used inside a kit component travels by the kit key, a foreign integer never; a manifest from outside is cleaned the same way',
+    [$kitRefs['components'][1]['build']['children'][0]['children'][0]['content']['component'], $kitRefs['components'][1]['build']['children'][0]['children'][1]['content']['component'],
+        $kit::sanitize(['components' => [['key' => 'x', 'name' => 'X', 'build' => ['v' => 1, 'children' => [['type' => 'component', 'content' => ['component' => '3']]]]]]])['components'][0]['build']['children'][0]['content']['component']],
+    ['@inner-card', '', '']);
 check('2.16 Kit::announced – only a well-formed announcement of a newer version is fetched', [
     $kit::announced(['version' => 2, 'sha256' => str_repeat('a', 64)], 1), $kit::announced(['version' => 1, 'sha256' => str_repeat('a', 64)], 1), $kit::announced(['version' => '2', 'sha256' => str_repeat('a', 64)], 1),
     $kit::announced(['version' => 2, 'sha256' => 'xyz'], 1), $kit::announced(['version' => 2], 1), $kit::announced(null, 0), $kit::announced(['version' => 5_000_000, 'sha256' => str_repeat('a', 64)], 0)],

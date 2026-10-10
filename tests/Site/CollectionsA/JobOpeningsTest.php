@@ -55,7 +55,7 @@ final class JobOpeningsTest extends SiteTestCase
         self::$element = $job->field('element');
         self::$time = $job->field('as_time');
         self::$signature = $job->field('as_signature');
-        $this->assertSame('collection:' . self::$idk, self::$source, "the form is served from the collection's item template (the source of its enquiries)");
+        $this->assertSame('collection:' . $this->site()->publicId('collections', (int) $this->sq('SELECT collection_id FROM ka_collections WHERE preset = \'jobs\' LIMIT 1')), self::$source, "the form is served from the collection's item template (the source of its enquiries)");
     }
 
     /** A job whose closing date passed hides itself and its address leads to the jobs page; a job without a closing date is in the audit. */

@@ -18,6 +18,7 @@ use Kaleta\Core\Response;
 final class News extends Module
 {
     public const string IDENT = 'news';
+    public const string TABLE = 'news';
     public const string EXTENSION = 'news';
     public const string NAME = 'News';
     public const string GROUP = 'Content';
@@ -46,7 +47,7 @@ final class News extends Module
         if (($authors = $auth->managedAuthors()) !== null) {
             $where[] = 'c.author_id IN (' . implode(',', $authors) . ')';
         }
-        if (($colorScheme = $this->request->getInt('category')) > 0) {
+        if (($colorScheme = $this->idParam('category', 'categories')) > 0) {
             $where[] = 'c.category_id = ?';
             $params[] = $colorScheme;
         }
@@ -79,7 +80,7 @@ final class News extends Module
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {news} c WHERE {$cond}", $params);
         $pageNumber = max(1, $this->request->getInt('page', 1));
         $news = $this->db->all(
-            "SELECT c.news_id, c.slug, c.title, c.published_at, c.visible, c.visit, c.deleted_at, c.valid_until, c.review_by,
+            "SELECT c.news_id, c.public_id, c.slug, c.title, c.published_at, c.visible, c.visit, c.deleted_at, c.valid_until, c.review_by,
                     t.name AS category_name, u.name AS author_name, u.username AS author_login, u.admin AS author_level,
                     (SELECT COUNT(*) FROM {social_drafts} d WHERE d.news_id = c.news_id AND d.copied_at IS NULL) AS social_open
              FROM {news} c
@@ -97,7 +98,7 @@ final class News extends Module
             'pageNumber' => $pageNumber,
             'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
             'category' => Categories::listAll($this->db),
-            'filter' => ['category' => $colorScheme, 'language' => $language, 'search' => $search, 'status' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
+            'filter' => ['category' => $colorScheme > 0 ? $this->request->get('category') : '', 'language' => $language, 'search' => $search, 'status' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {news} c WHERE c.deleted_at IS NOT NULL' . $auth->articleScope('c.')),
             'toPublish' => self::countAwaitingPublication($this->app),
             'siteLanguages' => $siteLanguages,
@@ -118,7 +119,7 @@ final class News extends Module
     private function defaults(): array
     {
         // from the translation overview (2.14): the original in the default language is filled in
-        $original = $this->request->getInt('translation_of') > 0 ? $this->db->value("SELECT news_id FROM {news} WHERE news_id = ? AND language = '' AND deleted_at IS NULL", [$this->request->getInt('translation_of')]) : null;
+        $original = ($originalId = $this->idParam('translation_of')) > 0 ? $this->db->value("SELECT news_id FROM {news} WHERE news_id = ? AND language = '' AND deleted_at IS NULL", [$originalId]) : null;
 
         return [
             'news_id' => 0, 'slug' => '', 'title' => '', 'intro' => '', 'text' => '', 'image' => '', 'image_caption' => '', 'image_author' => '',
@@ -143,14 +144,14 @@ final class News extends Module
             return $this->back('Unknown action.', '', [], 'error');
         }
         $auth = $this->app->auth();
-        $category = $action === 'category' ? $this->db->one('SELECT category_id, language FROM {categories} WHERE category_id = ?', [$this->request->postInt('category')]) : null;
+        $category = $action === 'category' ? $this->db->one('SELECT category_id, language FROM {categories} WHERE category_id = ?', [$this->idParam('category', 'categories')]) : null;
         if ($action === 'category' && $category === null) {
             return $this->back('Choose a category.', '', [], 'error');
         }
         $done = 0;
         $skipped = 0;
         // the list's checkboxes are the ones of "Delete selected" (smaz[]); oznacene[] is what the other lists send
-        foreach (array_unique(array_map(intval(...), [...$this->request->postList('delete'), ...$this->request->postList('selected')])) as $id) {
+        foreach (array_unique(array_map(fn (string $uuid): int => $this->db->internalId('news', $uuid), [...$this->request->postList('delete'), ...$this->request->postList('selected')])) as $id) {
             $newsItem = $this->load($id);
             if ($newsItem === null || (!$auth->canPublish() && ($newsItem['visible'] || $action === 'publish'))) {
                 $skipped++;
@@ -184,7 +185,7 @@ final class News extends Module
     /** Copy of a news item as a draft (tags included) – a quick start for a similar news item. */
     protected function actionDuplicate(): Response
     {
-        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('news_id')) : null;
+        $newsItem = $this->request->isPost() ? $this->load($this->idParam('news_id')) : null;
         if ($newsItem === null) {
             return $this->back();
         }
@@ -195,12 +196,12 @@ final class News extends Module
         $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
         \Kaleta\Core\Search::index($this->db, $id);
 
-        return $this->back('The copy of the news item is saved as a draft.', 'edit', ['id' => $id]);
+        return $this->back('The copy of the news item is saved as a draft.', 'edit', ['id' => $this->publicId($id)]);
     }
 
     protected function actionEdit(): Response
     {
-        $newsItem = $this->load($this->request->getInt('id'));
+        $newsItem = $this->load($this->idParam());
 
         return $newsItem === null ? $this->error('The news item does not exist or you do not have access to it.', 404) : $this->form($newsItem);
     }
@@ -212,7 +213,10 @@ final class News extends Module
         }
         $auth = $this->app->auth();
         $r = $this->request;
-        $id = $r->postInt('news_id');
+        if (($refusal = $this->refuseUnknownId('news_id', 'The news item does not exist or you do not have access to it.')) !== null) {
+            return $refusal;
+        }
+        $id = $this->idParam('news_id');
 
         $previous = null;
         if ($id > 0) {
@@ -233,8 +237,8 @@ final class News extends Module
             'image' => $r->post('image'),
             'image_caption' => mb_substr(trim($r->post('image_caption')), 0, 300),
             'image_author' => mb_substr(trim($r->post('image_author')), 0, 120),
-            'category_id' => $r->postInt('category_id'),
-            'author_id' => $r->postInt('author_id'),
+            'category_id' => $this->idParam('category_id', 'categories'),
+            'author_id' => $this->idParam('author_id', 'users'),
             'published_at' => self::parseFormDate($r->post('published_at')) ?? date('Y-m-d H:i:s'),
             'visible' => (int) ($r->post('status') === 'published' && $auth->canPublish()),
             'keywords' => $r->post('keywords'),
@@ -269,7 +273,7 @@ final class News extends Module
         $data['language'] = (string) $this->db->value('SELECT language FROM {categories} WHERE category_id = ?', [$data['category_id']]);
         $original = trim($r->post('translation_of'));
         $data['translation_of'] = $original === '' || $data['language'] === '' ? null
-            : ($this->db->value("SELECT news_id FROM {news} WHERE (news_id = ? OR slug = ?) AND language = '' AND news_id <> ?", [(int) $original, basename((string) parse_url($original, PHP_URL_PATH)), $id]) ?: null);
+            : ($this->db->value("SELECT news_id FROM {news} WHERE (public_id = ? OR slug = ?) AND language = '' AND news_id <> ?", [$original, basename((string) parse_url($original, PHP_URL_PATH)), $id]) ?: null);
 
         if ($r->postBool('mark_updated') && $data['visible']) {
             $data['updated_at'] = date('Y-m-d H:i:s');
@@ -301,7 +305,7 @@ final class News extends Module
 
         $message = $auth->canPublish() ? 'News item saved.' : 'News item saved. It will appear on the site once an editor publishes it.';
 
-        return $r->post('after_save') === 'stay' ? $this->back($message, 'edit', ['id' => $id]) : $this->back($message);
+        return $r->post('after_save') === 'stay' ? $this->back($message, 'edit', ['id' => $this->publicId($id)]) : $this->back($message);
     }
 
     /**
@@ -312,7 +316,7 @@ final class News extends Module
     protected function actionSaveText(): Response
     {
         $r = $this->request;
-        $newsItem = $r->isPost() ? $this->load($r->postInt('id')) : null;
+        $newsItem = $r->isPost() ? $this->load($this->idParam()) : null;
         if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
             return $this->redirectToSite($r->post('back'));
         }
@@ -345,8 +349,8 @@ final class News extends Module
         if (!$this->request->isPost()) {
             return Response::json(['ok' => false], 405);
         }
-        $idc = $this->request->postInt('news_id');
-        if ($idc > 0 && $this->load($idc) === null) {
+        $idc = $this->idParam('news_id');
+        if ($this->request->post('news_id') !== '' && $this->load($idc) === null) {
             return Response::json(['ok' => false], 404);
         }
         $me = $this->app->auth()->id();
@@ -373,14 +377,14 @@ final class News extends Module
         }
         $editMode = $this->request->get('edit') === '1';
         $news = $this->db->all(
-            'SELECT news_id, title, slug, language, visible AND published_at <= NOW() AS published FROM {news} WHERE deleted_at IS NULL AND title LIKE ?'
+            'SELECT public_id, title, slug, language, visible AND published_at <= NOW() AS published FROM {news} WHERE deleted_at IS NULL AND title LIKE ?'
                 . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY published_at DESC LIMIT 8',
             ['%' . addcslashes($q, '%_\\') . '%'],
         );
 
         return Response::json(['articles' => array_map(fn (array $c): array => [
             'title' => $c['title'], 'published' => (bool) $c['published'],
-            'url' => $editMode ? $this->url('edit', ['id' => $c['news_id']]) : $this->app->url(($c['language'] !== '' ? $c['language'] . '/' : '') . 'news/' . $c['slug']),
+            'url' => $editMode ? $this->url('edit', ['id' => $c['public_id']]) : $this->app->url(($c['language'] !== '' ? $c['language'] . '/' : '') . 'news/' . $c['slug']),
         ], $news)]);
     }
 
@@ -430,11 +434,11 @@ final class News extends Module
         }
         $error = \Kaleta\Core\SocialDrafts::update($this->db, $draft['id'], $this->request->post('text'));
         if ($error !== null) {
-            return $this->backToSocial($draft['news_id'], $error, 'error');
+            return $this->backToSocial((int) $draft['news_id'], $error, 'error');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['news_id']);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ': ' . mb_substr((string) $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [(int) $draft['news_id']]), 0, 80));
 
-        return $this->backToSocial($draft['news_id'], 'The post draft is saved.');
+        return $this->backToSocial((int) $draft['news_id'], 'The post draft is saved.');
     }
 
     /** "Mark as posted" (and back) on a social post draft. */
@@ -446,13 +450,13 @@ final class News extends Module
         }
         \Kaleta\Core\SocialDrafts::markPosted($this->db, $draft['id'], $this->request->postBool('posted'));
 
-        return $this->backToSocial($draft['news_id'], $this->request->postBool('posted') ? 'Marked as posted.' : 'Marked as not posted yet.');
+        return $this->backToSocial((int) $draft['news_id'], $this->request->postBool('posted') ? 'Marked as posted.' : 'Marked as not posted yet.');
     }
 
     /** "Suggest with the assistant": the AI assistant rewrites the drafts of the news item – only on this click. */
     protected function actionSocialSuggest(): Response
     {
-        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('news_id')) : null;
+        $newsItem = $this->request->isPost() ? $this->load($this->idParam('news_id')) : null;
         if ($newsItem === null) {
             return $this->back();
         }
@@ -481,7 +485,7 @@ final class News extends Module
     {
         $this->app->session->flash($type, t($message));
 
-        return Response::redirect($this->url('edit', ['id' => $idc]) . '#social-posts');
+        return Response::redirect($this->url('edit', ['id' => $this->publicId($idc)]) . '#social-posts');
     }
 
     /**
@@ -491,11 +495,11 @@ final class News extends Module
      */
     protected function actionTranslate(): Response
     {
-        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('news_id')) : null;
+        $newsItem = $this->request->isPost() ? $this->load($this->idParam('news_id')) : null;
         if ($newsItem === null) {
             return $this->back('Save the news item first, then it can be translated.', type: 'error');
         }
-        $backToNewsItem = fn (string $message): Response => $this->back($message, 'edit', ['id' => $newsItem['news_id']], type: 'error');
+        $backToNewsItem = fn (string $message): Response => $this->back($message, 'edit', ['id' => $newsItem['public_id']], type: 'error');
         $language = $this->request->post('translate_to');
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$assistant->isReady()) {
@@ -505,7 +509,7 @@ final class News extends Module
             return $backToNewsItem('Only a news item in the default language can be translated, and only into one of the other language versions of the site.');
         }
         if (($existing = $this->db->value('SELECT news_id FROM {news} WHERE translation_of = ? AND language = ?', [$newsItem['news_id'], $language])) !== null) {
-            return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => (int) $existing]);
+            return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => $this->publicId((int) $existing)]);
         }
         // target category: the counterpart of the original's category, otherwise the first category of the given language
         $category = $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY (translation_of <=> ?) DESC, weight DESC, category_id LIMIT 1', [$language, $newsItem['category_id']]);
@@ -538,7 +542,7 @@ final class News extends Module
         $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
         \Kaleta\Core\Search::index($this->db, $id);
 
-        return $this->back('The translation has been created as a draft. Read it before publishing – the assistant can make mistakes in names, numbers and technical terms.', 'edit', ['id' => $id]);
+        return $this->back('The translation has been created as a draft. Read it before publishing – the assistant can make mistakes in names, numbers and technical terms.', 'edit', ['id' => $this->publicId($id)]);
     }
 
     private function hasTooManyRequests(): bool
@@ -549,7 +553,7 @@ final class News extends Module
     /** Loads an older version of the news item into the editor; it is saved only when the form is submitted. */
     protected function actionVersions(): Response
     {
-        $newsItem = $this->load($this->request->getInt('id'));
+        $newsItem = $this->load($this->idParam());
         $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {news_revisions} WHERE revision_id = ? AND news_id = ?', [$this->request->getInt('revision'), $newsItem['news_id']]);
         if ($version === null) {
             return $this->error('This version of the news item does not exist.', 404);
@@ -562,7 +566,7 @@ final class News extends Module
     /** What changed since the saved version: comparison of an older version with the current wording. */
     protected function actionCompare(): Response
     {
-        $newsItem = $this->load($this->request->getInt('id'));
+        $newsItem = $this->load($this->idParam());
         $version = $newsItem === null ? null : $this->db->one(
             "SELECT r.*, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_name FROM {news_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.revision_id = ? AND r.news_id = ?",
             [$this->request->getInt('revision'), $newsItem['news_id'] ?? 0],
@@ -585,7 +589,8 @@ final class News extends Module
     {
         if ($this->request->isPost()) {
             // "check again": the record is put at the front of the queue
-            \Kaleta\Core\Links::recheck($this->app, $this->request->post('kind') ?: 'news', $this->request->postInt('id') ?: $this->request->postInt('news_id'));
+            $kind = $this->request->post('kind') ?: 'news';
+            \Kaleta\Core\Links::recheck($this->app, $kind, $this->db->internalId(\Kaleta\Core\Links::KINDS[$kind][0] ?? '', $this->request->post('id')));
 
             return $this->back('It will be checked again within a few minutes.', 'links');
         }
@@ -606,7 +611,7 @@ final class News extends Module
         }
         $moved = 0;
         foreach ($this->request->postList('delete') as $id) {
-            $newsItem = $this->load((int) $id);
+            $newsItem = $this->load($this->db->internalId('news', $id));
             if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
                 continue;
             }
@@ -626,7 +631,7 @@ final class News extends Module
         }
         $restored = 0;
         foreach ($this->request->postList('delete') as $id) {
-            $newsItem = $this->load((int) $id, true);
+            $newsItem = $this->load($this->db->internalId('news', $id), true);
             if ($newsItem === null) {
                 continue;
             }
@@ -645,7 +650,7 @@ final class News extends Module
         }
         $deleted = 0;
         foreach ($this->request->postList('delete') as $id) {
-            $newsItem = $this->load((int) $id, true);
+            $newsItem = $this->load($this->db->internalId('news', $id), true);
             if ($newsItem !== null) {
                 $deleted += $this->db->delete('news', ['news_id' => $newsItem['news_id']]);
                 \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'deleted permanently', mb_substr($newsItem['title'], 0, 80));
@@ -667,11 +672,12 @@ final class News extends Module
      */
     private function form(array $newsItem, array $errors = []): Response
     {
+        $newsItem['public_id'] ??= $this->publicId((int) $newsItem['news_id']);
         $auth = $this->app->auth();
         $allowedIds = $auth->managedAuthors();
         $authors = $allowedIds === null
-            ? $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2")
-            : $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} WHERE user_id IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
+            ? $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2")
+            : $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} WHERE user_id IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
         // social post drafts (2.13): only a published news item has them; a news item published through Claude gets them here at the latest
         $published = $newsItem['news_id'] && $newsItem['visible'] && strtotime((string) $newsItem['published_at']) <= time() && empty($newsItem['deleted_at']);
         if ($published) {
@@ -680,7 +686,7 @@ final class News extends Module
 
         return $this->view('form', $newsItem['news_id'] ? 'Edit news item' : 'New news item', [
             'socialDrafts' => $published ? \Kaleta\Core\SocialDrafts::forNews($this->db, (int) $newsItem['news_id']) : null,
-            'newsItem' => $newsItem,
+            'newsItem' => $newsItem, 'categoryPublicId' => $this->publicId((int) $newsItem['category_id'], 'categories'), 'authorPublicId' => $this->publicId((int) $newsItem['author_id'], 'users'),
             'errors' => $errors,
             'category' => Categories::listAll($this->db),
             'authors' => $authors,
@@ -689,7 +695,7 @@ final class News extends Module
             'siteLanguages' => \Kaleta\Core\Language::additional($this->app->settings()) !== [],
             // for a news item in the default language: which languages it can be translated into and which translations already exist (language => number)
             'translationLanguages' => $newsItem['news_id'] && ($newsItem['language'] ?? '') === '' ? \Kaleta\Core\Language::additional($this->app->settings()) : [],
-            'translations' => $newsItem['news_id'] ? array_map(intval(...), $this->db->pairs("SELECT language, news_id FROM {news} WHERE translation_of = ? AND language <> ''", [(int) $newsItem['news_id']])) : [],
+            'translations' => $newsItem['news_id'] ? $this->db->pairs("SELECT language, public_id FROM {news} WHERE translation_of = ? AND language <> ''", [(int) $newsItem['news_id']]) : [],
             'original' => empty($newsItem['translation_of']) ? '' : (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$newsItem['translation_of']]),
             'assistant' => (new \Kaleta\Core\Assistant($this->app->settings()))->isReady(),
             // content check of the saved version (2.14, Core\ContentCheck); a news item not saved yet has nothing to check

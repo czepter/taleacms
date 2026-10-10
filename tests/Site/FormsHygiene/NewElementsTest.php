@@ -33,7 +33,7 @@ final class NewElementsTest extends SiteTestCase
     public function testSaveBuildReportsARejectedPlanLinkInsideAnItem(): void
     {
         self::$page = $this->createPage(['title' => 'Elements 2.12', 'slug' => 'elements-2-12', 'visible' => true]);
-        $answer = $this->mcpRawAnswer('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $answer = $this->mcpRawAnswer('save_build', ['id' => $this->site()->publicId('pages', self::$page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Elements']],
             ['type' => 'pricing_table', 'content' => ['plans' => [
                 ['name' => 'Basic', 'price' => '9', 'period' => '/ month', 'features' => "One\n- Two", 'button_text' => 'Choose', 'link' => '/contact'],
@@ -88,10 +88,10 @@ final class NewElementsTest extends SiteTestCase
 
     public function testGetBuildAnswersWithEnglishElementAndItemNames(): void
     {
-        $build = $this->site()->mcpResult('get_build', ['id' => self::$page])['build']['children'][0]['children'] ?? [];
+        $build = $this->site()->mcpResult('get_build', ['id' => $this->site()->publicId('pages', self::$page)])['build']['children'][0]['children'] ?? [];
 
         $this->assertSame('pricing_table|Most popular|Workshop|2020', ($build[1]['type'] ?? '') . '|' . ($build[1]['content']['plans'][1]['badge'] ?? '') . '|' . ($build[3]['content']['points'][1]['name'] ?? '') . '|' . ($build[4]['content']['milestones'][0]['date'] ?? ''),
             'MCP: get_build answers with the English element and item names');
-        $this->mcpText('trash_page', ['id' => self::$page]);
+        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', self::$page)]);
     }
 }

@@ -329,7 +329,7 @@ final class WpContent
             $ok = in_array($name, self::ALLOWED[$tag], true) && match ($name) {
                 'href', 'src' => self::isSafeUrl($a->value),
                 'width', 'height', 'colspan', 'rowspan' => ctype_digit($a->value),
-                'data-id' => $mediaIds && ctype_digit($a->value), // the Media number of an image the editor or an import put there
+                'data-id' => $mediaIds && (ctype_digit($a->value) || Uuid::valid($a->value)), // the Media public id (older texts: number) of an image the editor or an import put there
                 'target' => $a->value === '_blank',
                 'class' => preg_match('/(^|\s)gallery(\s|$)/', $a->value) === 1,
                 default => true,

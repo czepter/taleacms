@@ -87,7 +87,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <div class="row"><label for="category"><?= e(t('Put posts without a category into')) ?></label><div><select id="category" name="category">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
-	<option value="<?= (int) $r['category_id'] ?>"<?= (int) $r['category_id'] === (int) $options['category'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
+	<option value="<?= e($r['public_id']) ?>"<?= (int) $r['category_id'] === (int) $options['category'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 </fieldset>

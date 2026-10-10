@@ -57,7 +57,7 @@ final class PersonalDataTest extends SiteTestCase
         $this->site()->exec("INSERT INTO ka_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT ?, 1, 'delete_enquiry', 'enquiries', CONCAT('{\"enquiry_id\":', enquiry_id, '}'),
             JSON_OBJECT('enquiry_id', enquiry_id, 'created_at', created_at, 'form', form, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM ka_enquiries WHERE enquiry_id = ?", [self::$oldSession, self::$enquiry]);
 
-        $this->mcpText('update_enquiry', ['id' => self::$enquiry, 'status' => 'read']);
+        $this->mcpText('update_enquiry', ['id' => $this->site()->publicId('enquiries', self::$enquiry), 'status' => 'read']);
         $this->mcpText('erase_personal_data', ['email' => 'pd.person@example.com', 'confirm' => true]);
 
         $this->assertSame('1|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE form = 'PD'), '|', (SELECT COUNT(*) FROM ka_subscribers WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))"),

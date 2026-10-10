@@ -81,7 +81,7 @@
 <tbody>
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['status'] === 0 ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['enquiry_id'])) ?>"><?= e($p['form'] !== '' ? $p['form'] : t('Enquiry')) ?></a><?= (int) $p['status'] === 0 ? ' <span class="badge badge-draft">' . e(t('new')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . $p['public_id'])) ?>"><?= e($p['form'] !== '' ? $p['form'] : t('Enquiry')) ?></a><?= (int) $p['status'] === 0 ? ' <span class="badge badge-draft">' . e(t('new')) . '</span>' : '' ?></td>
 	<td><?= e($p['email']) ?></td>
 	<td class="number"><?= e(format_date($p['created_at'], true)) ?></td>
 </tr>

@@ -58,7 +58,7 @@ trait BookingFixture
         $this->bookingText('save_booking_service', ['name' => 'Haircut test', 'duration_min' => 30, 'buffer_min' => 10, 'price_text' => '$45', 'description' => 'Wash, cut, blow-dry']);
         self::$service = $this->firstId($this->site()->value('SELECT id FROM ka_booking_services ORDER BY id DESC LIMIT 1'));
         $hours = array_fill_keys(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], '9:00-17:00');
-        $text = $this->bookingText('save_booking_staff', ['name' => 'Jane Booking', 'email' => 'jana-bk@example.cz', 'services' => [self::$service], 'hours' => $hours]);
+        $text = $this->bookingText('save_booking_staff', ['name' => 'Jane Booking', 'email' => 'jana-bk@example.cz', 'services' => [$this->site()->publicId('booking_services', self::$service)], 'hours' => $hours]);
         self::$staff = $this->firstId($this->site()->value('SELECT id FROM ka_booking_staff ORDER BY id DESC LIMIT 1'));
 
         return $text;
@@ -85,7 +85,7 @@ trait BookingFixture
     {
         $this->site()->mcp('create_page', ['title' => 'Booking test', 'slug' => 'booking-test', 'visible' => true]);
         self::$page = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'booking-test'");
-        $this->site()->mcp('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $this->site()->mcp('save_build', ['id' => $this->site()->publicId('pages', self::$page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Book a time']],
             ['id' => 'bk1', 'type' => 'booking', 'content' => new \stdClass()],
         ]]]]]);
@@ -108,13 +108,13 @@ trait BookingFixture
     {
         return $this->site()->client('visitor')->post('/_booking', [
             'source' => self::$source, 'element' => 'bk1', 'back' => '/booking-test', 'as_time' => self::$formTime, 'as_signature' => self::$signature,
-            'service' => self::$service, 'staff' => 0,
+            'service' => $this->site()->publicId('booking_services', self::$service), 'staff' => 0,
         ] + $fields)->redirect;
     }
 
     private function slots(): Response
     {
-        return $this->site()->client()->get('/_booking/slots?service=' . self::$service . '&staff=0&day=' . self::$day);
+        return $this->site()->client()->get('/_booking/slots?service=' . $this->site()->publicId('booking_services', self::$service) . '&staff=0&day=' . self::$day);
     }
 
     /** The cancel token in the confirmation e-mail of petr-bk (first or last one). */

@@ -31,11 +31,11 @@ $newest = $kits[0]['version'] ?? 0;
 <?php endif ?></div></div>
 <div class="row"><span class="caption"><?= e(t('Components')) ?></span><div class="options">
 <?php if ($components === []): ?><span class="small-text"><?= e(t('The console has no components.')) ?></span><?php endif ?>
-<?php foreach ($components as $k): ?><label><input type="checkbox" name="components[]" value="<?= (int) $k['component_id'] ?>"> <?= e((string) $k['name']) ?><?= $k['build'] === null ? ' <span class="small-text">(' . e(t('draft only')) . ')</span>' : '' ?></label> <?php endforeach ?>
+<?php foreach ($components as $k): ?><label><input type="checkbox" name="components[]" value="<?= e($k['public_id']) ?>"> <?= e((string) $k['name']) ?><?= $k['build'] === null ? ' <span class="small-text">(' . e(t('draft only')) . ')</span>' : '' ?></label> <?php endforeach ?>
 </div></div>
 <div class="row"><span class="caption"><?= e(t('Saved sections')) ?></span><div class="options">
 <?php if ($sections === []): ?><span class="small-text"><?= e(t('The console has no saved sections.')) ?></span><?php endif ?>
-<?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= (int) $sec['section_id'] ?>"> <?= e((string) $sec['name']) ?></label> <?php endforeach ?>
+<?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= e($sec['public_id']) ?>"> <?= e((string) $sec['name']) ?></label> <?php endforeach ?>
 </div></div>
 <p><button class="btn" type="submit" data-confirm="<?= e(t('Publish kit version %d? Every site that receives the kit gets it as drafts with its next report.', $newest + 1)) ?>"><?= e(t('Publish a new kit version')) ?></button>
 <span class="help"><?= e(t('A component or section keeps a stable key (from its name): a site updates its copy instead of adding another.')) ?></span></p>
@@ -57,7 +57,7 @@ $newest = $kits[0]['version'] ?? 0;
 <thead><tr><th scope="col"><?= e(t('Site')) ?></th><th scope="col"><?= e(t('Kit version')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($sites as $site): $v = $applied[(int) $site['id']] ?? 0; ?>
-<tr><td><a href="<?= e($module->url('detail', ['id' => (int) $site['id']])) ?>"><?= e((string) $site['name'] !== '' ? (string) $site['name'] : (string) $site['url']) ?></a></td>
+<tr><td><a href="<?= e($module->url('detail', ['id' => $site['public_id']])) ?>"><?= e((string) $site['name'] !== '' ? (string) $site['name'] : (string) $site['url']) ?></a></td>
 <td><?php if ($v === 0): ?><span class="small-text"><?= e(t('does not receive the kit')) ?></span><?php else: ?><?= $v ?><?= $v < $newest ? ' <span class="badge badge-draft">' . e(t('older')) . '</span>' : '' ?><?php endif ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>

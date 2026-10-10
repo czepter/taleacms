@@ -26,7 +26,7 @@ $role = [
 <?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>" autocomplete="off">
 <?= $csrf ?>
-<input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>">
+<input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>">
 <div class="row">
 	<label for="name"><?= e(t('First and last name')) ?></label>
 	<div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($author['name']) ?>" maxlength="100"><span class="help"><?= e(t('Shown with news items.')) ?></span></div>
@@ -115,15 +115,15 @@ $role = [
 <p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
 <?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
 <?php foreach ($connections as $c): ?>
-<form class="inline" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-confirm="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">
+<form class="inline" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-confirm="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">
 <p><span class="badge"><?= e($c['name']) ?></span> <span class="badge"><?= e(t($c['kind'] === 'token' ? 'personal token' : 'connected application')) ?></span> <span class="badge"><?= e($accessLabel[$c['access']] ?? $accessLabel['read']) ?></span>
 	<?= e(t('created %s', format_date($c['created']))) ?>, <?= e($c['used'] ? t('last used %s', format_date($c['last'], true)) : t('never used')) ?>, <?= e($c['expiry'] !== null ? t('valid until %s', format_date($c['expiry'])) : t('no expiry')) ?>
-	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="token_id" value="<?= (int) $c['id'] ?>"><?php else: ?><input type="hidden" name="client_id" value="<?= e($c['id']) ?>"><?php endif ?>
+	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="token_id" value="<?= e($c['public_id']) ?>"><?php else: ?><input type="hidden" name="client_id" value="<?= e($c['id']) ?>"><?php endif ?>
 	<button class="navigation danger" type="submit"><?= e(t('Revoke')) ?></button></p>
 </form>
 <?php endforeach ?>
 </fieldset>
 <?php endif ?>
 <?php if ($author['user_id'] && $author['email'] !== '' && !$author['blocked']): ?>
-<div class="navigation-row actions-bottom"><form class="inline" method="post" action="<?= e($module->url('password_link')) ?>" data-confirm="<?= e(t('Send the user an e-mail link to set a new password?')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>"><button class="navigation" type="submit"><?= e(t('Send a new password link')) ?></button></form></div>
+<div class="navigation-row actions-bottom"><form class="inline" method="post" action="<?= e($module->url('password_link')) ?>" data-confirm="<?= e(t('Send the user an e-mail link to set a new password?')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>"><button class="navigation" type="submit"><?= e(t('Send a new password link')) ?></button></form></div>
 <?php endif ?>

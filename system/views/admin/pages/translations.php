@@ -16,15 +16,15 @@ use Kaleta\Core\Language;
 use Kaleta\Core\Translations;
 
 $types = ['page' => t('Pages'), 'news' => t('News'), 'collection_item' => t('Collection items')];
-$editUrl = fn (array $row, int $id): string => match ($row['type']) {
+$editUrl = fn (array $row, string $id): string => match ($row['type']) {
     'page' => $module->url('edit', ['id' => $id]),
     'news' => $app->url('admin.php?module=news&action=edit&id=' . $id),
-    default => $app->url('admin.php?module=collections&action=item&id=' . (int) $row['collection']['collection_id'] . '&item=' . $id),
+    default => $app->url('admin.php?module=collections&action=item&id=' . $row['collection']['public_id'] . '&item=' . $id),
 };
 $createUrl = fn (array $row, string $code): string => match ($row['type']) {
     'page' => $module->url('new', ['language' => $code, 'translation_of' => $row['id']]),
     'news' => $app->url('admin.php?module=news&action=new&translation_of=' . $row['id']),
-    default => $app->url('admin.php?module=collections&action=item&id=' . (int) $row['collection']['collection_id'] . '&item=0&language=' . $code . '&original=' . $row['id']),
+    default => $app->url('admin.php?module=collections&action=item&id=' . $row['collection']['public_id'] . '&item=0&language=' . $code . '&original=' . $row['id']),
 };
 $counts = ['missing' => 0, 'outdated' => 0];
 foreach ($rows as $row) {
@@ -48,7 +48,7 @@ foreach ($rows as $row) {
 <tbody>
 <?php foreach ($ofType as $row): ?>
 <tr>
-	<td><a href="<?= e($editUrl($row, (int) $row['id'])) ?>"><?= e($row['title']) ?></a><?= $type === 'collection_item' ? ' <small>' . e($row['collection']['name']) . '</small>' : '' ?></td>
+	<td><a href="<?= e($editUrl($row, $row['id'])) ?>"><?= e($row['title']) ?></a><?= $type === 'collection_item' ? ' <small>' . e($row['collection']['name']) . '</small>' : '' ?></td>
 	<td class="number"><?= $row['changed'] ? e(format_date($row['changed'])) : '–' ?></td>
 <?php foreach ($languages as $code): $cell = $row['translations'][$code]; ?>
 	<td data-status="<?= e($cell['status']) ?>"><?php if ($cell['status'] === Translations::MISSING): ?>
@@ -59,9 +59,9 @@ foreach ($rows as $row) {
 		<a class="navigation" href="<?= e($createUrl($row, $code)) ?>"><?= e(t('Create')) ?></a>
 <?php endif ?>
 <?php elseif ($cell['status'] === Translations::OUTDATED): ?>
-		<a class="badge badge-draft" href="<?= e($editUrl($row, (int) $cell['id'])) ?>" title="<?= e(t('The original changed after this translation was saved.')) ?>"><?= e(t('older than original')) ?></a>
+		<a class="badge badge-draft" href="<?= e($editUrl($row, $cell['id'])) ?>" title="<?= e(t('The original changed after this translation was saved.')) ?>"><?= e(t('older than original')) ?></a>
 <?php else: ?>
-		<a class="badge badge-published" href="<?= e($editUrl($row, (int) $cell['id'])) ?>"><?= e(t('translated')) ?></a>
+		<a class="badge badge-published" href="<?= e($editUrl($row, $cell['id'])) ?>"><?= e(t('translated')) ?></a>
 <?php endif ?></td>
 <?php endforeach ?>
 </tr>

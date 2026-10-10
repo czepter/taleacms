@@ -20,7 +20,7 @@ final class EuDutiesTest extends SiteTestCase
     public function testTheCookieTableListsTheConsentStorageAndTheYouTubeCookies(): void
     {
         self::$page = $this->createPage(['title' => 'Video 2.14', 'slug' => 'video-2-14', 'visible' => true]);
-        $this->mcpText('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $this->mcpText('save_build', ['id' => $this->site()->publicId('pages', self::$page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Video']],
             ['type' => 'video', 'content' => ['url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'title' => 'Clip']],
             ['type' => 'form', 'content' => ['name' => 'Service 2.14', 'fields' => [
@@ -69,11 +69,11 @@ final class EuDutiesTest extends SiteTestCase
     {
         $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, email, data, status) VALUES (NOW(), 'Service 2.14', '/video-2-14', 'new@example.com', ?, 0)", ['[["Name","New Customer"],["E-mail","new@example.com"]]']);
         self::$new = (int) $this->site()->pdo->lastInsertId();
-        $detail = '/admin.php?module=enquiries&action=detail&id=' . self::$new;
+        $detail = '/admin.php?module=enquiries&action=detail&id=' . $this->site()->publicId('enquiries', self::$new);
 
         $this->assertPage($detail, 200, 'action=anonymise', message: '2.14: the enquiry detail offers Anonymise');
 
-        $this->adminPost('/admin.php?module=enquiries&action=anonymise', ['enquiry_id' => self::$new], formPage: $detail);
+        $this->adminPost('/admin.php?module=enquiries&action=anonymise', ['enquiry_id' => $this->site()->publicId('enquiries', self::$new)], formPage: $detail);
         $this->assertSame('|[["Name",""],["E-mail",""]]|1', (string) $this->site()->value("SELECT CONCAT(email, '|', data, '|', anonymised_at IS NOT NULL) FROM ka_enquiries WHERE enquiry_id = ?", [self::$new]),
             '2.14: a per-enquiry Anonymise blanks the person and keeps the row');
 
@@ -128,6 +128,6 @@ final class EuDutiesTest extends SiteTestCase
 
         $this->site()->setting('accessibility_toolbar', '0');
         $this->site()->clearPageCache();
-        $this->mcpText('trash_page', ['id' => self::$page]);
+        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', self::$page)]);
     }
 }

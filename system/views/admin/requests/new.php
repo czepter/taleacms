@@ -24,13 +24,13 @@
 <div class="row"><label for="req-about"><?= e(t('It is about')) ?></label><div><select id="req-about" name="about">
 	<option value=""><?= e(t('— the site in general —')) ?></option>
 <?php if ($pages !== []): ?>
-	<optgroup label="<?= e(t('Pages')) ?>"><?php foreach ($pages as $id => $title): ?><option value="page:<?= (int) $id ?>"><?= e($title) ?></option><?php endforeach ?></optgroup>
+	<optgroup label="<?= e(t('Pages')) ?>"><?php foreach ($pages as $id => $title): ?><option value="page:<?= e((string) $id) ?>"><?= e($title) ?></option><?php endforeach ?></optgroup>
 <?php endif ?>
 <?php if ($news !== []): ?>
-	<optgroup label="<?= e(t('News')) ?>"><?php foreach ($news as $id => $title): ?><option value="news:<?= (int) $id ?>"><?= e($title) ?></option><?php endforeach ?></optgroup>
+	<optgroup label="<?= e(t('News')) ?>"><?php foreach ($news as $id => $title): ?><option value="news:<?= e((string) $id) ?>"><?= e($title) ?></option><?php endforeach ?></optgroup>
 <?php endif ?>
 <?php if ($items !== []): ?>
-	<optgroup label="<?= e(t('Collection items')) ?>"><?php foreach ($items as $id => $title): ?><option value="item:<?= (int) $id ?>"><?= e($title) ?></option><?php endforeach ?></optgroup>
+	<optgroup label="<?= e(t('Collection items')) ?>"><?php foreach ($items as $id => $title): ?><option value="item:<?= e((string) $id) ?>"><?= e($title) ?></option><?php endforeach ?></optgroup>
 <?php endif ?>
 </select>
 	<input class="textfield wide" type="text" name="about_url" maxlength="500" placeholder="<?= e(t('or paste the address, e.g. /price-list')) ?>" aria-label="<?= e(t('Address of the page it is about')) ?>"></div></div>

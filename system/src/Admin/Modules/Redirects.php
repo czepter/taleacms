@@ -20,6 +20,7 @@ use Kaleta\Core\Response;
 final class Redirects extends Module
 {
     public const string IDENT = 'redirects';
+    public const string TABLE = 'redirects';
     public const string NAME = 'Redirects';
     public const string GROUP = 'Site care';
     public const string ICON = 'redirects';
@@ -58,7 +59,7 @@ final class Redirects extends Module
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {redirects} ' . $whereParts . ' ORDER BY redirect_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
-            'edit' => $this->request->getInt('edit') > 0 ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$this->request->getInt('edit')]) : null,
+            'edit' => ($editId = $this->idParam('edit')) > 0 ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$editId]) : null,
             'notFound' => $notFound,
             'suggestions' => \Kaleta\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
@@ -92,7 +93,10 @@ final class Redirects extends Module
             return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'error');
         }
         $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
-        $idp = $this->request->postInt('redirect_id');
+        if (($guard = $this->refuseUnknownId('redirect_id', 'Enter the old address (a path on this site) and the target – a path or a full https://… URL')) !== null) {
+            return $guard;
+        }
+        $idp = $this->idParam('redirect_id');
         if ($idp > 0) {
             // editing an existing record
             $this->db->update('redirects', ['from_path' => mb_substr(trim($z, '/ '), 0, 255), 'to_path' => mb_substr($target, 0, 255)], ['redirect_id' => $idp]);
@@ -137,7 +141,7 @@ final class Redirects extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('redirects', ['redirect_id' => $this->request->postInt('redirect_id')]);
+            $this->db->delete('redirects', ['redirect_id' => $this->idParam('redirect_id')]);
         }
 
         return $this->back('Redirect deleted.');

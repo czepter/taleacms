@@ -32,7 +32,7 @@ trait ConnectionHelpers
     /** The first "id" number in a tool's text, like the old grep. @param array<string, mixed> $answer */
     protected function firstId(array $answer): int
     {
-        return preg_match('/"id":(\d+)/', $this->answerText($answer), $m) === 1 ? (int) $m[1] : 0;
+        return preg_match('/"id":"?([0-9a-f-]{36}|\d+)"?/', $this->answerText($answer), $m) === 1 ? (strlen($m[1]) === 36 ? $this->site()->rowId($m[1]) : (int) $m[1]) : 0;
     }
 
     protected function pkceVerifier(): string

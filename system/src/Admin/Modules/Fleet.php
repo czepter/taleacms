@@ -21,6 +21,7 @@ final class Fleet extends Module
     public const string NAME = 'Fleet';
     public const string GROUP = 'Administration';
     public const string ICON = 'site';
+    public const string TABLE = 'fleet_sites';
     public const string EXTENSION = 'fleet';
     public const bool ADMIN_ONLY = true;
 
@@ -72,7 +73,7 @@ final class Fleet extends Module
             ChangeLog::write($this->app, 'fleet', 'ring', $site['url'] . ': ' . $ring);
         }
 
-        return $this->back('Saved.', $site !== null ? 'detail' : '', $site !== null ? ['id' => (int) $site['id']] : []);
+        return $this->back('Saved.', $site !== null ? 'detail' : '', $site !== null ? ['id' => (string) $site['public_id']] : []);
     }
 
     /** Allows the newest version now – one site (id) or every site that lets the console decide. */
@@ -81,22 +82,24 @@ final class Fleet extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         $count = Console::allowNow($this->app, $id > 0 ? $id : null);
-        ChangeLog::write($this->app, 'fleet', 'allow_update', ($id > 0 ? '#' . $id : 'all') . ': ' . $count);
+        ChangeLog::write($this->app, 'fleet', 'allow_update', ($id > 0 ? (string) $this->db->value('SELECT url FROM {fleet_sites} WHERE id = ?', [$id]) : 'all') . ': ' . $count);
 
         return $this->back($count > 0 ? t('The new version is allowed on %d sites; each installs it with its next report (within an hour).', $count) : 'No site waits for a new version it may install.',
-            $id > 0 ? 'detail' : '', $id > 0 ? ['id' => $id] : []);
+            $id > 0 ? 'detail' : '', $id > 0 ? ['id' => $this->publicId($id)] : []);
     }
 
     protected function actionCheck(): Response
     {
         if ($this->request->isPost()) {
-            $id = $this->request->postInt('id');
+            $id = $this->idParam();
             Console::checkUptime($this->app, $id > 0 ? $id : null);
         }
 
-        return $this->back('Checked.', $this->request->postInt('id') > 0 ? 'detail' : '', $this->request->postInt('id') > 0 ? ['id' => $this->request->postInt('id')] : []);
+        $uuid = $this->request->post('id');
+
+        return $this->back('Checked.', $this->idParam() > 0 ? 'detail' : '', $this->idParam() > 0 ? ['id' => $uuid] : []);
     }
 
     protected function actionRemove(): Response
@@ -117,7 +120,7 @@ final class Fleet extends Module
 
         return $this->view('kit', 'Shared kit', [
             'designSystem' => \Kaleta\Builder\DesignSystem::load($s), 'classes' => \Kaleta\Core\Look::classes($this->db, $s, false),
-            'components' => \Kaleta\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT section_id, name FROM {sections} ORDER BY name'),
+            'components' => \Kaleta\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT section_id, public_id, name FROM {sections} ORDER BY name'),
             'kits' => Kit::history($this->db), 'sites' => Console::sites($this->db), 'applied' => Kit::appliedVersions($this->db),
         ]);
     }
@@ -128,10 +131,10 @@ final class Fleet extends Module
         if (!$this->request->isPost()) {
             return $this->back('', 'kit');
         }
-        $ids = fn (string $key): array => array_values(array_filter(array_map('intval', is_array($_POST[$key] ?? null) ? $_POST[$key] : []), fn (int $id): bool => $id > 0));
+        $ids = fn (string $key, string $table): array => array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId($table, $uuid), $this->request->postList($key))));
         $classes = $this->request->postBool('classes_all') ? null : array_values(array_filter(is_array($_POST['classes'] ?? null) ? $_POST['classes'] : [], 'is_string'));
         try {
-            $kit = Kit::publish($this->app, ['design_system' => $this->request->postBool('design_system'), 'classes' => $classes, 'components' => $ids('components'), 'sections' => $ids('sections')]);
+            $kit = Kit::publish($this->app, ['design_system' => $this->request->postBool('design_system'), 'classes' => $classes, 'components' => $ids('components', 'components'), 'sections' => $ids('sections', 'sections')]);
         } catch (\RuntimeException $e) {
             return $this->back($e->getMessage(), 'kit', [], 'error');
         }
@@ -143,7 +146,7 @@ final class Fleet extends Module
     /** @return array<string, mixed>|null the site from ?id= or the posted id, with its attention and decoded report */
     private function site(): ?array
     {
-        $id = $this->request->isPost() ? $this->request->postInt('id') : $this->request->getInt('id');
+        $id = $this->idParam();
         $row = $this->db->one('SELECT * FROM {fleet_sites} WHERE id = ?', [$id]);
         if ($row === null) {
             return null;

@@ -49,7 +49,7 @@ final class PersonalData
         $like = '%' . addcslashes($email, '%_\\') . '%';
         $subscriber = $db->one('SELECT subscriber_id, email, status, source, campaign, landing_page, created_at, confirmed_at, sync FROM {subscribers} WHERE LOWER(email) = ?', [$email]);
         try {
-            $bookings = $db->all('SELECT b.id, b.starts_at, b.ends_at, b.name, b.email, b.phone, b.note, b.status, b.created_at, s.name AS service, p.name AS staff FROM {bookings} b LEFT JOIN {booking_services} s ON s.id = b.service_id LEFT JOIN {booking_staff} p ON p.id = b.staff_id WHERE LOWER(b.email) = ? ORDER BY b.id', [$email]);
+            $bookings = $db->all('SELECT b.id, b.public_id, b.starts_at, b.ends_at, b.name, b.email, b.phone, b.note, b.status, b.created_at, s.name AS service, p.name AS staff FROM {bookings} b LEFT JOIN {booking_services} s ON s.id = b.service_id LEFT JOIN {booking_staff} p ON p.id = b.staff_id WHERE LOWER(b.email) = ? ORDER BY b.id', [$email]);
         } catch (\Throwable) {
             $bookings = []; // before the 3.0 migration
         }
@@ -57,7 +57,7 @@ final class PersonalData
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
             'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
-                $db->all('SELECT enquiry_id, created_at, form, page, topic, email, data, campaign, landing_page, referrer FROM {enquiries} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY enquiry_id', [$email, $like])),
+                $db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, data, campaign, landing_page, referrer FROM {enquiries} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY enquiry_id', [$email, $like])),
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT action, created_at, attempts FROM {subscription_queue} WHERE LOWER(email) = ?', [$email]),
             'mail' => $db->all('SELECT mail_id, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY mail_id', [$email]),

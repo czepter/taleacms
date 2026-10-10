@@ -40,7 +40,7 @@ final class ValidityTest extends SiteTestCase
 
         $popup = $this->mcpText('save_popup', ['name' => 'Review popup', 'template' => 'blank', 'review_by' => self::$yesterday]);
         $this->assertStringContainsString('"review_by":"' . self::$yesterday, $popup, 'MCP: save_popup takes review_by');
-        $this->assertStringContainsString('must be a date', $this->mcpText('update_page', ['id' => self::$page, 'valid_until' => 'nonsense']), 'MCP: a value that is not a date is refused');
+        $this->assertStringContainsString('must be a date', $this->mcpText('update_page', ['id' => $this->site()->publicId('pages', self::$page), 'valid_until' => 'nonsense']), 'MCP: a value that is not a date is refused');
         $this->sameValue('1|1', $site->value('SELECT CONCAT((SELECT visible FROM ka_pages WHERE page_id = ?), \'|\', (SELECT visible FROM ka_news WHERE news_id = ?))', [self::$page, self::$news]), 'before the job both are still visible');
     }
 
@@ -72,20 +72,20 @@ final class ValidityTest extends SiteTestCase
         }
         $this->assertPage('/admin.php?module=audit', 200, 'Expired offer', message: 'Administration → Site audit shows the review-by findings');
 
-        $form = $this->assertPage('/admin.php?module=pages&action=edit&id=' . self::$page, 200, 'name="valid_until" value="' . self::$yesterday . '"', message: 'the page form shows true until and review by');
+        $form = $this->assertPage('/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', self::$page), 200, 'name="valid_until" value="' . self::$yesterday . '"', message: 'the page form shows true until and review by');
         $this->assertStringContainsString('name="review_by" value="' . self::$today . '"', $form->body, 'the page form shows the review-by date');
 
         $this->adminPost('/admin.php?module=pages&action=save', [
-            'page_id' => self::$page, 'title' => 'Expired offer', 'slug' => 'expired-offer', 'text' => '<p>x</p>', 'poradi' => 100, 'valid_until' => '', 'review_by' => '2030-01-01',
-        ], '/admin.php?module=pages&action=edit&id=' . self::$page);
+            'page_id' => $site->publicId('pages', self::$page), 'title' => 'Expired offer', 'slug' => 'expired-offer', 'text' => '<p>x</p>', 'poradi' => 100, 'valid_until' => '', 'review_by' => '2030-01-01',
+        ], '/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', self::$page));
         $this->sameValue('null|2030-01-01', $site->value("SELECT CONCAT(IFNULL(valid_until, 'null'), '|', IFNULL(review_by, 'null')) FROM ka_pages WHERE page_id = ?", [self::$page]), 'saving the page form clears true until and keeps the new review-by date');
 
         $this->assertPage('/admin.php?module=pages', 200, 'badge badge-draft" title="Asks for a review on this day."', message: 'the pages list shows the review-by badge');
-        $this->assertPage('/admin.php?module=news&action=edit&id=' . self::$news, 200, 'name="review_by" value="' . self::$today . '"', message: 'the news form shows the two fields');
-        $popup = (int) $site->value("SELECT popup_id FROM ka_popups WHERE name = 'Review popup'");
+        $this->assertPage('/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) self::$news), 200, 'name="review_by" value="' . self::$today . '"', message: 'the news form shows the two fields');
+        $popup = (string) $site->value("SELECT public_id FROM ka_popups WHERE name = 'Review popup'");
         $this->assertPage("/admin.php?module=popups&action=edit&id=$popup", 200, 'name="review_by" value="' . self::$yesterday . '"', message: 'the pop-up form shows the two fields');
 
-        $this->mcpText('update_page', ['id' => self::$page, 'review_by' => '']);
+        $this->mcpText('update_page', ['id' => $this->site()->publicId('pages', self::$page), 'review_by' => '']);
         $this->sameValue('null', $site->value('SELECT IFNULL(review_by, \'null\') FROM ka_pages WHERE page_id = ?', [self::$page]), 'MCP: an empty string clears review by');
     }
 }

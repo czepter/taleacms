@@ -108,8 +108,8 @@ final class Report
             'popups' => array_map(fn (array $r): array => ['popup' => $r['name'], 'active' => (bool) $r['active'], 'views' => (int) $r['impressions'], 'closes' => (int) $r['closes'],
                 'conversions' => (int) $r['conversions'], 'conversion' => (int) $r['impressions'] > 0 ? round(100 * (int) $r['conversions'] / (int) $r['impressions'], 1) : null],
                 $db->all('SELECT name, active, impressions, closes, conversions FROM {popups} ORDER BY conversions DESC, impressions DESC LIMIT 20')),
-            'news' => array_map(fn (array $r): array => ['id' => (int) $r['news_id'], 'title' => $r['title'], 'views' => (int) $r['n']],
-                $db->all('SELECT c.news_id, c.title, SUM(s.views) AS n FROM {stats_news} s JOIN {news} c ON c.news_id = s.news_id WHERE s.day >= ? GROUP BY c.news_id, c.title ORDER BY n DESC LIMIT 10', [$since])),
+            'news' => array_map(fn (array $r): array => ['id' => $r['public_id'], 'title' => $r['title'], 'views' => (int) $r['n']],
+                $db->all('SELECT c.public_id, c.title, SUM(s.views) AS n FROM {stats_news} s JOIN {news} c ON c.news_id = s.news_id WHERE s.day >= ? GROUP BY c.news_id, c.public_id, c.title ORDER BY n DESC LIMIT 10', [$since])),
             // real-user speed (2.8): p75 of LCP (ms), CLS and INP (ms) per page with Google's rating – good | needs_improvement | poor
             'web_vitals' => WebVitals::pages($db, $since),
             // contact clicks (2.12): calls, e-mails and WhatsApp in total and by page, each counted once per visitor, page and day

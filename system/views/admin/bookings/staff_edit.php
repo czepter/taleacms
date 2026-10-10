@@ -19,16 +19,16 @@ $isNew = $m === [];
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url('staff')) ?>">← <?= e(t('People')) ?></a></p>
 <form class="form" method="post" action="<?= e($module->url('staff_save')) ?>">
-<?= $csrf ?><input type="hidden" name="id" value="<?= (int) ($m['id'] ?? 0) ?>">
+<?= $csrf ?><input type="hidden" name="id" value="<?= e((string) ($m['public_id'] ?? '')) ?>">
 <fieldset><legend><?= e($isNew ? t('New person') : t('Person')) ?></legend>
 <div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" required maxlength="150" value="<?= e((string) ($m['name'] ?? '')) ?>"></div></div>
 <div class="row"><label for="email"><?= e(t('E-mail for notifications')) ?></label><div><input class="textfield wide" type="email" id="email" name="email" maxlength="190" value="<?= e((string) ($m['email'] ?? '')) ?>"><span class="help"><?= e(t('New and cancelled bookings arrive here; empty = the site e-mail from Settings.')) ?></span></div></div>
 <div class="row"><label for="user_id"><?= e(t('Account')) ?></label><div><select id="user_id" name="user_id"><option value="0">—</option>
-<?php foreach ($users as $user_id => $displayName): ?><option value="<?= (int) $user_id ?>"<?= (int) ($m['user_id'] ?? 0) === (int) $user_id ? ' selected' : '' ?>><?= e($displayName) ?></option><?php endforeach ?>
+<?php foreach ($users as $user_id => $displayName): ?><option value="<?= e((string) $user_id) ?>"<?= $userPublicId === (string) $user_id ? ' selected' : '' ?>><?= e($displayName) ?></option><?php endforeach ?>
 </select><span class="help"><?= e(t('Optional: the administration user this person is.')) ?></span></div></div>
 <div class="row"><span><?= e(t('Services')) ?></span><div>
 <?php if ($services === []): ?><span class="help"><?= e(t('Add services first.')) ?></span><?php endif ?>
-<?php foreach ($services as $s): ?><label class="inline"><input type="checkbox" name="services[]" value="<?= (int) $s['id'] ?>"<?= in_array($s['id'], $m['services'] ?? [], true) ? ' checked' : '' ?>> <?= e($s['name']) ?></label> <?php endforeach ?>
+<?php foreach ($services as $s): ?><label class="inline"><input type="checkbox" name="services[]" value="<?= e($s['public_id']) ?>"<?= in_array($s['id'], $m['services'] ?? [], true) ? ' checked' : '' ?>> <?= e($s['name']) ?></label> <?php endforeach ?>
 </div></div>
 <div class="row"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textfield short" type="number" id="sort_order" name="sort_order" value="<?= (int) ($m['sort_order'] ?? 0) ?>"></div></div>
 <div class="row"><span></span><div><label><input type="checkbox" name="active" value="1"<?= ($m['active'] ?? true) ? ' checked' : '' ?>> <?= e(t('Takes bookings')) ?></label></div></div>
@@ -47,12 +47,12 @@ $isNew = $m === [];
 <ul>
 <?php foreach ($offs as $o): ?>
 <li><?= e(format_date($o['from'], true)) ?> – <?= e(format_date($o['to'], true)) ?><?= $o['staff_id'] === null ? ' (' . e(t('everyone')) . ')' : '' ?><?= $o['note'] !== '' ? ': ' . e($o['note']) : '' ?>
-<?php if ($o['staff_id'] !== null): ?><form class="inline" method="post" action="<?= e($module->url('off_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><input type="hidden" name="staff_id" value="<?= (int) $m['id'] ?>"><button class="navigation" type="submit"><?= e(t('Remove')) ?></button></form><?php endif ?></li>
+<?php if ($o['staff_id'] !== null): ?><form class="inline" method="post" action="<?= e($module->url('off_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><input type="hidden" name="staff_id" value="<?= e($m['public_id']) ?>"><button class="navigation" type="submit"><?= e(t('Remove')) ?></button></form><?php endif ?></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('off_save')) ?>">
-<?= $csrf ?><input type="hidden" name="staff_id" value="<?= (int) $m['id'] ?>">
+<?= $csrf ?><input type="hidden" name="staff_id" value="<?= e($m['public_id']) ?>">
 <div class="row"><label for="off_from"><?= e(t('Off from')) ?></label><div><input class="textfield" type="date" id="off_from" name="off_from" required> <label><?= e(t('to')) ?> <input class="textfield" type="date" name="off_to"></label> <label><?= e(t('Note')) ?> <input class="textfield" name="note" maxlength="150" placeholder="<?= e(t('e.g. holiday')) ?>"></label> <input class="btn" type="submit" value="<?= e(t('Add')) ?>"></div></div>
 </form>
 <?php endif ?>

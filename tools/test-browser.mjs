@@ -44,7 +44,14 @@ await step('sign in', async () => {
   await Promise.all([page.waitForNavigation(), page.press('input[name="password"]', 'Enter')]);
 });
 
-for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', '/admin.php?module=pages&action=edit&id=1',
+// the administration names a page by its public id: take the first one from the list
+let PAGE = '';
+await step('find a page', async () => {
+  await visit('/admin.php?module=pages');
+  PAGE = new URL(await page.locator('a[href*="action=edit&id="]').first().getAttribute('href'), BASE).searchParams.get('id') ?? '';
+});
+
+for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', `/admin.php?module=pages&action=edit&id=${PAGE}`,
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
@@ -73,7 +80,7 @@ await step('appearance: save to the draft look, preview bar, publish', async () 
 });
 
 await step('builder: select, style, mobile, edit text', async () => {
-  await visit('/admin.php?module=pages&action=builder&id=1');
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
   await canvas().locator('h1').first().click();
   await page.waitForTimeout(500);
@@ -107,7 +114,7 @@ await step('builder: element tree and search', async () => {
 });
 
 await step('builder: dialogs, classes, library and clipboard', async () => {
-  await visit('/admin.php?module=pages&action=builder&id=1');
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
   for (const title of ['Help and keyboard shortcuts (?)', 'Published versions', 'Share a link to the draft preview']) {
     const button = page.locator(`[title="${title}"]`).first();

@@ -45,7 +45,7 @@ final class ProductCatalogueTest extends SiteTestCase
     /** Without the script: Add to enquiry opens the list page with the product, the basket field has it. */
     public function testBasketGoesIntoAnEnquiry(): void
     {
-        $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'products-test'"), 'visible' => true]);
+        $this->mcpText('update_page', ['id' => $this->site()->publicId('pages', (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'products-test'")), 'visible' => true]);
         $visitor = $this->visitor();
         $page = $visitor->get('/products-test?product=products-test/lounger-basic&variant=' . rawurlencode('Grey') . '&quantity=2');
         $this->assertStringContainsString('data-basket-field', $page->body, 'the enquiry form has the basket field');

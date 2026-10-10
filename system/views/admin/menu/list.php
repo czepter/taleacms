@@ -39,7 +39,7 @@ $choice = ['location' => $location, 'language' => $language];
 	<label><?= e(t('Page')) ?>
 		<select data-menu-page>
 <?php foreach ($pages as $s): ?>
-			<option value="<?= $s['page_id'] ?>"><?= e($s['title']) ?><?= $s['hidden'] ? ' (' . e(t('hidden')) . ')' : '' ?></option>
+			<option value="<?= e($s['page_id']) ?>"><?= e($s['title']) ?><?= $s['hidden'] ? ' (' . e(t('hidden')) . ')' : '' ?></option>
 <?php endforeach ?>
 		</select>
 	</label>

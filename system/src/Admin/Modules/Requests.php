@@ -20,6 +20,7 @@ final class Requests extends Module
     public const string NAME = 'Ask Claude';
     public const string GROUP = 'Claude';
     public const string ICON = 'comments';
+    public const string TABLE = 'requests';
 
     protected function actionList(): Response
     {
@@ -34,9 +35,9 @@ final class Requests extends Module
     protected function actionNew(): Response
     {
         return $this->view('new', 'New request', [
-            'pages' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT news_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
-            'items' => $this->db->pairs('SELECT p.item_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
+            'pages' => $this->db->pairs('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
+            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT public_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
+            'items' => $this->db->pairs('SELECT p.public_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
             'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
         ]);
     }
@@ -69,16 +70,18 @@ final class Requests extends Module
             }
         }
         $about = $this->request->post('about_url') !== '' ? $this->request->post('about_url') : $this->request->post('about');
+        // the select carries the public id of the page, news item or collection item; the request stores its number
+        $about = preg_replace_callback('/^(page|news|item):([0-9a-f-]{36})$/', fn (array $m): string => $m[1] . ':' . $this->db->internalId(['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'][$m[1]], $m[2]), $about) ?? '';
         try {
             $id = Inbox::create($this->app, $this->app->auth()->id(), $title, $this->request->post('text'), $about, $attachments);
         } catch (\DomainException $e) {
             return $fromDashboard ? $this->toDashboard($e->getMessage(), 'error') : $this->back($e->getMessage(), 'new', [], 'error');
         }
         if ($fromDashboard) {
-            return $this->toDashboard(t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id));
+            return $this->toDashboard(t('Sent to Claude as a request. Claude does it as drafts the next time it works on the site; its notes appear in the request.'));
         }
 
-        return $this->back('The request is saved. Claude will see it the next time it works on the site; you will read its notes here.', 'detail', ['id' => $id]);
+        return $this->back('The request is saved. Claude will see it the next time it works on the site; you will read its notes here.', 'detail', ['id' => $this->publicId($id)]);
     }
 
     private function toDashboard(string $message, string $type = 'ok'): Response
@@ -90,12 +93,12 @@ final class Requests extends Module
 
     protected function actionDetail(): Response
     {
-        $request = Inbox::get($this->app, $this->request->getInt('id'));
+        $request = Inbox::get($this->app, $this->idParam());
         if ($request === null) {
             return $this->error('The request does not exist.', 404);
         }
 
-        return $this->view('detail', t('Request #%d', (int) $request['id']), [
+        return $this->view('detail', (string) $request['title'], [
             'r' => $request, 'about' => Inbox::describeAbout($this->app, (string) $request['about']), 'attachments' => Inbox::attachments($this->app, $request['attachments']),
             'messages' => Inbox::messages($this->db, (int) $request['id']), 'mine' => (int) $request['author_id'] === $this->app->auth()->id(),
         ]);
@@ -104,32 +107,32 @@ final class Requests extends Module
     /** The person's reply to Claude's notes. */
     protected function actionReply(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         $request = $this->request->isPost() ? Inbox::get($this->app, $id) : null;
         if ($request === null) {
             return $this->back();
         }
         $user = $this->app->auth()->user();
         if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['name'] ?? '') !== '' ? $user['name'] : ($user['username'] ?? '')), $this->request->post('text'))) {
-            return $this->back('Write the reply first.', 'detail', ['id' => $id], 'error');
+            return $this->back('Write the reply first.', 'detail', ['id' => $this->publicId($id)], 'error');
         }
 
-        return $this->back('The reply is added – Claude reads it with the request.', 'detail', ['id' => $id]);
+        return $this->back('The reply is added – Claude reads it with the request.', 'detail', ['id' => $this->publicId($id)]);
     }
 
     /** A person changes the status: closes a request, declines it, or reopens a done one. */
     protected function actionStatus(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         $request = $this->request->isPost() ? Inbox::get($this->app, $id) : null;
         if ($request === null) {
             return $this->back();
         }
         // the requester closing their own request needs no e-mail about it
         if (!Inbox::setStatus($this->app, $request, $this->request->post('status'), '', (int) $request['author_id'] !== $this->app->auth()->id())) {
-            return $this->back('This status change is not possible.', 'detail', ['id' => $id], 'error');
+            return $this->back('This status change is not possible.', 'detail', ['id' => $this->publicId($id)], 'error');
         }
 
-        return $this->back('The status is saved.', 'detail', ['id' => $id]);
+        return $this->back('The status is saved.', 'detail', ['id' => $this->publicId($id)]);
     }
 }

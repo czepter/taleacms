@@ -18,7 +18,7 @@
  */
 use Kaleta\Core\Booking;
 
-$query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' => $filter['staff'] ?: '', 'service' => $filter['service'] ?: '']);
+$query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' => $filter['staff_public'], 'service' => $filter['service_public']]);
 ?>
 <nav class="tabs" aria-label="<?= e(t('Bookings')) ?>">
 <?php foreach (['upcoming' => 'Upcoming', 'today' => 'Today', 'past' => 'Last 30 days', 'all' => 'All'] as $key => $name): ?>
@@ -27,8 +27,8 @@ $query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' =>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text">
 	<input type="hidden" name="module" value="bookings"><input type="hidden" name="view" value="<?= e($shown === 'upcoming' ? '' : $shown) ?>">
-	<label><?= e(t('Person')) ?> <select name="staff"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
-	<label><?= e(t('Service')) ?> <select name="service"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
+	<label><?= e(t('Person')) ?> <select name="staff"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= e($m['public_id']) ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
+	<label><?= e(t('Service')) ?> <select name="service"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= e($s['public_id']) ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
 	<label><?= e(t('Status')) ?> <select name="status"><option value=""><?= e($shown === 'upcoming' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'upcoming' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
 	<input class="btn" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
@@ -49,7 +49,7 @@ $query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' =>
 <tbody>
 <?php foreach ($rows as $b): ?>
 <tr<?= !in_array($b['status'], ['confirmed', 'pending'], true) ? ' class="unpublished"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => (int) $b['id']])) ?>"><strong><?= e(substr((string) $b['starts_at'], 11, 5)) ?>–<?= e(substr((string) $b['ends_at'], 11, 5)) ?></strong></a></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $b['public_id']])) ?>"><strong><?= e(substr((string) $b['starts_at'], 11, 5)) ?>–<?= e(substr((string) $b['ends_at'], 11, 5)) ?></strong></a></td>
 	<td><?= e((string) ($b['service'] ?? '')) ?></td>
 	<td><?= e((string) ($b['staff'] ?? '')) ?></td>
 	<td><?= $b['anonymised_at'] !== null ? '<span class="small-text">' . e(t('anonymised')) . '</span>' : e((string) $b['name']) . ((string) $b['phone'] !== '' ? ' · ' . e((string) $b['phone']) : '') ?></td>

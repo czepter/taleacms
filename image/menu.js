@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (type === 'page') {
 			const selection = formEl.querySelector('[data-menu-page]');
 			if (!selection.value) { return; }
-			newVersion.page_id = Number(selection.value);
+			newVersion.page_id = selection.value;
 		}
 		if (type === 'link') { newVersion.url = ''; newVersion.new_window = false; }
 		items.push(newVersion);

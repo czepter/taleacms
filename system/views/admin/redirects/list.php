@@ -19,7 +19,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>" id="edit">
 <?= $csrf ?>
-<input type="hidden" name="redirect_id" value="<?= (int) ($u['redirect_id'] ?? 0) ?>">
+<input type="hidden" name="redirect_id" value="<?= e($u['public_id'] ?? '') ?>">
 <div class="row"><label for="from_path"><?= e(t('Old address')) ?></label><div><input class="textfield wide" type="text" id="from_path" name="from_path" value="<?= e($u !== null ? '/' . $u['from_path'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="help"><?= e(t('A path on this site that no longer exists.')) ?></span></div></div>
 <div class="row"><label for="to_path"><?= e(t('Redirect to')) ?></label><div><input class="textfield wide" type="text" id="to_path" name="to_path" value="<?= e($u !== null ? $path($u['to_path']) : '') ?>" maxlength="255" required placeholder="<?= e(t('/new-address or https://…')) ?>"></div></div>
 <div class="row"><label for="typ"><?= e(t('Type')) ?></label><select id="typ" name="type">
@@ -45,8 +45,8 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 	<td><?= e($path($z['to_path'])) ?><?= (int) ($z['type'] ?? 301) === 302 ? ' <span class="badge">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="badge" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
 	<td class="number"><?= (int) $z['hits'] ?>×</td>
 	<td class="number"><?= e(format_date($z['created_at'])) ?></td>
-	<td class="actions"><a href="<?= e($module->url('', ['edit' => (int) $z['redirect_id']])) ?>#edit"><?= e(t('Edit')) ?></a> ·
-		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= $csrf ?><input type="hidden" name="redirect_id" value="<?= (int) $z['redirect_id'] ?>"><input type="hidden" name="title" value="<?= e('/' . $z['from_path']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td class="actions"><a href="<?= e($module->url('', ['edit' => $z['public_id']])) ?>#edit"><?= e(t('Edit')) ?></a> ·
+		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= $csrf ?><input type="hidden" name="redirect_id" value="<?= e($z['public_id']) ?>"><input type="hidden" name="title" value="<?= e('/' . $z['from_path']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

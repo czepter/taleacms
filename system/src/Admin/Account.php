@@ -31,7 +31,7 @@ final class Account
 
         if ($r->isPost()) {
             $message = null;
-            switch ($r->postInt('delete_token') > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : $r->post('op'))) {
+            switch ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : $r->post('op'))) {
                 case 'profile':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $message = ['error', 'The e-mail address is not valid.'];
@@ -91,7 +91,7 @@ final class Account
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_delete':
-                    $db->delete('api_tokens', ['token_id' => $r->postInt('delete_token'), 'user_id' => $user['user_id']]);
+                    $db->delete('api_tokens', ['token_id' => $db->internalId('api_tokens', $r->post('delete_token')), 'user_id' => $user['user_id']]);
                     $message = ['ok', 'Token revoked.'];
                     break;
                 case 'app_disconnect':
@@ -118,7 +118,7 @@ final class Account
                 case 'passkey_save':
                     return $this->key($r->post('op') === 'passkey_save', $user);
                 case 'passkey_delete':
-                    $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$r->postInt('passkey_id'), $user['user_id']]);
+                    $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$db->internalId('user_passkeys', $r->post('passkey_id')), $user['user_id']]);
                     ChangeLog::write($app, 'account', 'passkey_removed');
                     $message = ['ok', 'The passkey has been removed.'];
                     break;

@@ -89,7 +89,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<div><select id="home_page" name="home_page">
 		<option value="0"><?= e(t('– news list –')) ?></option>
 <?php foreach ($pages as $pageId => $pageTitle): ?>
-		<option value="<?= (int) $pageId ?>"<?= (int) $values['home_page'] === (int) $pageId ? ' selected' : '' ?>><?= e($pageTitle) ?></option>
+		<option value="<?= e((string) $pageId) ?>"<?= $app->db()->publicId('pages', (int) $values['home_page']) === (string) $pageId ? ' selected' : '' ?>><?= e($pageTitle) ?></option>
 <?php endforeach ?>
 	</select>
 	<span class="help"><?= e(t('The page shown at the site address. News is always at %s.', substr($app->url('news'), strlen($app->request->basePath())))) ?></span></div>

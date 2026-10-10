@@ -23,7 +23,7 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
         $this->assertGreaterThan(0, self::$guardPage);
         $this->assertGreaterThan(0, self::$freePage);
 
-        $this->site()->mcp('update_page', ['id' => self::$freePage, 'description' => 'New description', 'reason' => 'Request 7: the client asked for a shorter description']);
+        $this->site()->mcp('update_page', ['id' => $this->site()->publicId('pages', self::$freePage), 'description' => 'New description', 'reason' => 'Request 7: the client asked for a shorter description']);
 
         $this->assertSame('Request 7: the client asked for a shorter description', $this->sq("SELECT reason FROM ka_change_log WHERE module = 'claude' ORDER BY log_id DESC LIMIT 1"), 'reason: a write tool\'s reason is in the change log');
         $this->assertStringContainsString('"reason":"Request 7', $this->mcpText('list_changes', ['by' => 'claude', 'limit' => 5]), 'reason: list_changes returns it');
@@ -33,19 +33,19 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
     {
         $this->site()->setting('claude_protected_pages', (string) self::$guardPage);
 
-        $raw = $this->mcpRawText('update_page', ['id' => self::$guardPage, 'description' => 'x']);
+        $raw = $this->mcpRawText('update_page', ['id' => $this->site()->publicId('pages', self::$guardPage), 'description' => 'x']);
         $this->assertStringContainsString('isError', $raw, 'guardrails: a protected page refuses update_page (error)');
         $this->assertStringContainsString('protected from changes', $raw, 'guardrails: a protected page refuses update_page (reason)');
 
-        $this->assertStringContainsString('protected from changes', $this->mcpRawText('save_build', ['id' => self::$guardPage, 'build' => ['v' => 1, 'children' => []]]), 'guardrails: and its build');
+        $this->assertStringContainsString('protected from changes', $this->mcpRawText('save_build', ['id' => $this->site()->publicId('pages', self::$guardPage), 'build' => ['v' => 1, 'children' => []]]), 'guardrails: and its build');
 
         // 3.3.2 (N31): an empty other target does not take the protection off
-        $popup = $this->mcpRawText('save_build', ['id' => self::$guardPage, 'popup' => 0, 'build' => ['v' => 1, 'children' => []]]);
-        $part = $this->mcpRawText('save_build', ['id' => self::$guardPage, 'part' => '', 'build' => ['v' => 1, 'children' => []]]);
+        $popup = $this->mcpRawText('save_build', ['id' => $this->site()->publicId('pages', self::$guardPage), 'popup' => 0, 'build' => ['v' => 1, 'children' => []]]);
+        $part = $this->mcpRawText('save_build', ['id' => $this->site()->publicId('pages', self::$guardPage), 'part' => '', 'build' => ['v' => 1, 'children' => []]]);
         $this->assertStringContainsString('protected from changes', $popup, 'guardrails: an empty pop-up does not unprotect the page');
         $this->assertStringContainsString('protected from changes', $part, 'guardrails: an empty part does not unprotect the page');
 
-        $this->assertStringNotContainsString('isError', $this->mcpRawText('update_page', ['id' => self::$freePage, 'description' => 'Still free']), 'guardrails: other pages stay free');
+        $this->assertStringNotContainsString('isError', $this->mcpRawText('update_page', ['id' => $this->site()->publicId('pages', self::$freePage), 'description' => 'Still free']), 'guardrails: other pages stay free');
         $this->site()->setting('claude_protected_pages', '');
     }
 
@@ -53,7 +53,7 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
     {
         $this->site()->setting('claude_destructive', '0');
 
-        $raw = $this->mcpRawText('trash_page', ['id' => self::$freePage]);
+        $raw = $this->mcpRawText('trash_page', ['id' => $this->site()->publicId('pages', self::$freePage)]);
         $this->assertStringContainsString('switched off deleting', $raw, 'guardrails: deleting switched off - trash_page refused');
         $this->assertSame('1', $this->sq('SELECT deleted_at IS NULL FROM ka_pages WHERE page_id = ?', [self::$freePage]), 'guardrails: the page stays');
 
@@ -74,8 +74,8 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
     {
         $this->site()->setting('claude_change_limit', '1');
 
-        $this->assertStringContainsString('reached the limit of 1 changes an hour', $this->mcpRawText('update_page', ['id' => self::$freePage, 'description' => 'Over the limit']), 'guardrails: the hourly limit stops a connection');
-        $this->assertStringNotContainsString('isError', $this->mcpRawText('get_page', ['id' => self::$freePage]), 'guardrails: reading is never limited');
+        $this->assertStringContainsString('reached the limit of 1 changes an hour', $this->mcpRawText('update_page', ['id' => $this->site()->publicId('pages', self::$freePage), 'description' => 'Over the limit']), 'guardrails: the hourly limit stops a connection');
+        $this->assertStringNotContainsString('isError', $this->mcpRawText('get_page', ['id' => $this->site()->publicId('pages', self::$freePage)]), 'guardrails: reading is never limited');
 
         $this->site()->setting('claude_change_limit', '0');
         $this->assertPage('/admin.php?module=claude_settings', 200, 'claude_protected_pages', message: 'guardrails: the settings are in Claude settings');

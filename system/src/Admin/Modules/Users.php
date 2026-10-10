@@ -19,6 +19,7 @@ final class Users extends Module
     public const string GROUP = 'Administration';
     public const string ICON = 'users';
     public const bool ADMIN_ONLY = true;
+    public const string TABLE = 'users';
 
     protected function actionList(): Response
     {
@@ -37,12 +38,12 @@ final class Users extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form(['user_id' => 0, 'username' => '', 'name' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blocked' => 0]);
+        return $this->form(['user_id' => 0, 'public_id' => '', 'username' => '', 'name' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blocked' => 0]);
     }
 
     protected function actionEdit(): Response
     {
-        $author = $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$this->request->getInt('id')]);
+        $author = $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$this->idParam()]);
 
         return $author === null ? $this->error('User does not exist.', 404) : $this->form($author);
     }
@@ -53,7 +54,10 @@ final class Users extends Module
             return $this->back();
         }
         $r = $this->request;
-        $id = $r->postInt('user_id');
+        if (($refusal = $this->refuseUnknownId('user_id', 'User does not exist.')) !== null) {
+            return $refusal;
+        }
+        $id = $this->idParam('user_id');
         $isSelf = $id === $this->app->auth()->id();
         $data = [
             'username' => $r->post('username'),
@@ -149,7 +153,7 @@ final class Users extends Module
     /** The administrator sends the user a link to set a new password (valid for 3 days). */
     protected function actionPasswordLink(): Response
     {
-        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = 0", [$this->request->postInt('user_id')]) : null;
+        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = 0", [$this->idParam('user_id')]) : null;
         if ($user === null) {
             return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }
@@ -167,7 +171,7 @@ final class Users extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('user_id');
+        $id = $this->idParam('user_id');
         $user = $this->db->one('SELECT user_id, blocked FROM {users} WHERE user_id = ?', [$id]);
         if ($user === null || !$user['blocked']) {
             return $this->back('The account is not blocked.', type: 'error');
@@ -183,12 +187,12 @@ final class Users extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('user_id');
-        $token = $this->request->postInt('token_id');
+        $id = $this->idParam('user_id');
+        $token = $this->idParam('token_id', 'api_tokens');
         $client = $this->request->post('client_id');
         $removed = $token > 0 ? $this->db->delete('api_tokens', ['token_id' => $token, 'user_id' => $id]) : ($client !== '' ? $this->db->delete('api_tokens', ['user_id' => $id, 'client_id' => $client]) : 0);
 
-        return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'error');
+        return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $this->publicId($id)], $removed > 0 ? 'ok' : 'error');
     }
 
     /**
@@ -256,7 +260,7 @@ final class Users extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('user_id');
+        $id = $this->idParam('user_id');
         if ($id === $this->app->auth()->id()) {
             return $this->back('You cannot delete yourself.', type: 'error');
         }
@@ -272,6 +276,7 @@ final class Users extends Module
     private function form(array $author, array $errors = []): Response
     {
         $id = (int) $author['user_id'];
+        $author['public_id'] ??= $this->publicId($id);
         $configurable = [];
         foreach (Kernel::MODULES as $class) {
             if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && $class::SHARES_PERMISSION_OF === '') {

@@ -44,13 +44,13 @@ final class DraftLookTest extends SiteTestCase
 
         $draftPage = (int) $this->sql('SELECT page_id FROM ka_pages WHERE deleted_at IS NULL AND visible = 1 AND build IS NOT NULL ORDER BY page_id LIMIT 1');
         $slug = $this->sql("SELECT slug FROM ka_pages WHERE page_id = $draftPage");
-        $this->call('edit_build', ['id' => $draftPage, 'operations' => [['op' => 'insert', 'elements' => [['type' => 'heading', 'content' => ['text' => 'Only in the draft']]], 'into' => null, 'position' => 0]]]);
+        $this->call('edit_build', ['id' => $this->site()->publicId('pages', $draftPage), 'operations' => [['op' => 'insert', 'elements' => [['type' => 'heading', 'content' => ['text' => 'Only in the draft']]], 'into' => null, 'position' => 0]]]);
         $body = $preview->get("/$slug")->body;
         $this->assertSame('1|1', $this->lines($body, 'Only in the draft') . '|' . $this->lines($body, 'ka-color-primary: #123456'), 'browsing on in the preview (cookie) shows page drafts too');
         $this->assertStringNotContainsString('Only in the draft', $this->site()->client()->get("/$slug")->body, 'without the preview the page draft stays hidden');
         $preview->get("/$slug?preview_end=1");
         $this->assertStringNotContainsString('Only in the draft', $preview->get("/$slug")->body, 'ending the preview shows the published site again');
-        $this->call('discard_draft', ['id' => $draftPage]);
+        $this->call('discard_draft', ['id' => $this->site()->publicId('pages', $draftPage)]);
 
         $this->assertPage('/admin.php?module=pages', 200, 'Publish the look', message: 'the admin shows the look bar on every screen');
 

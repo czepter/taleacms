@@ -112,7 +112,7 @@ final class SiteParts extends Module
         return $this->view('variant', t('Variant: %s', t(CastiWebu::TYPES[$type][0])), [
             'type' => $type, 'language' => $language, 'variant' => $row['variant'] ?? '', 'name' => $row['name'] ?? '',
             'selected' => array_map('intval', json_decode((string) ($row['pages'] ?? '[]'), true) ?: []),
-            'pages' => $this->db->all('SELECT page_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]),
+            'pages' => $this->db->all('SELECT page_id, public_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]),
         ]);
     }
 
@@ -127,7 +127,7 @@ final class SiteParts extends Module
         if ($name === '') {
             return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'error');
         }
-        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('variant'), $name, array_map('intval', $this->request->postList('pages')), $this->contentLanguage($language));
+        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('variant'), $name, array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('pages', $uuid), $this->request->postList('pages')))), $this->contentLanguage($language));
         \Kaleta\Front\Cache::clear();
 
         return \Kaleta\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));

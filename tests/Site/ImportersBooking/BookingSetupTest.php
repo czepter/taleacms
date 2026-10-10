@@ -54,7 +54,7 @@ final class BookingSetupTest extends SiteTestCase
         $this->assertStringContainsString('"09:00"', $slots, 'booking: /_booking/slots returns the first free time');
         $this->assertStringContainsString('"16:30"', $slots, 'booking: /_booking/slots returns the last free time');
         $this->assertStringNotContainsString('"17:00"', $slots, 'booking: no time starts when the day ends');
-        $days = $this->site()->client()->get('/_booking/days?service=' . self::$service . '&staff=0&month=' . substr(self::$day, 0, 7))->body;
+        $days = $this->site()->client()->get('/_booking/days?service=' . $this->site()->publicId('booking_services', self::$service) . '&staff=0&month=' . substr(self::$day, 0, 7))->body;
         $this->assertStringContainsString('"' . self::$day . '"', $days, 'booking: /_booking/days lists the day among the days with free times');
     }
 }

@@ -42,6 +42,9 @@ final class NewslettersTest extends SiteTestCase
     /** @param array<string, mixed> $fields */
     private function newsletterAction(string $action, array $fields = []): void
     {
+        if (isset($fields['id']) && is_int($fields['id']) && $fields['id'] > 0) {
+            $fields['id'] = $this->site()->publicId('newsletters', $fields['id']); // the administration addresses a newsletter by its public id
+        }
         $this->adminPost('/admin.php?module=newsletters&action=' . $action, $fields, '/admin.php?module=newsletters');
     }
 
@@ -142,7 +145,7 @@ final class NewslettersTest extends SiteTestCase
         $nl = $this->nl();
         $this->assertSame('draft|Spring news|2', $site->value("SELECT CONCAT(status, '|', subject, '|', news_count) FROM ka_newsletters WHERE id = ?", [$nl]), 'newsletter draft saved');
 
-        $preview = $this->assertPage("/admin.php?module=newsletters&action=preview&id=$nl", 200, 'utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=spring-news', message: 'newsletter: e-mail preview');
+        $preview = $this->assertPage("/admin.php?module=newsletters&action=preview&id=" . $this->site()->publicId('newsletters', $nl), 200, 'utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=spring-news', message: 'newsletter: e-mail preview');
         $text = $preview->body;
         $this->assertSame([2, 1, 1, 1], [$this->lines($text, 'Read more'), $this->lines($text, 'href="https://example.cz/akce"'), $this->lines($text, 'All news'), $this->lines($text, 'Unsubscribe')], 'preview: 2 news items, linked address, button and unsubscribe');
 
@@ -154,7 +157,7 @@ final class NewslettersTest extends SiteTestCase
         }
         $this->newsletterAction('send', ['id' => $nl, 'when' => 'now']);
         $this->assertSame('draft', $this->statusOf($nl), 'no sending while cron does not run');
-        $this->assertPage("/admin.php?module=newsletters&action=edit&id=$nl", 200, 'Cron has not called the tasks address in the last 30 minutes', message: 'newsletter form tells why it cannot send');
+        $this->assertPage("/admin.php?module=newsletters&action=edit&id=" . $this->site()->publicId('newsletters', $nl), 200, 'Cron has not called the tasks address in the last 30 minutes', message: 'newsletter form tells why it cannot send');
     }
 
     #[Depends('testDraftPreviewAndNoSendingWithoutSmtpOrCron')]
@@ -198,7 +201,7 @@ final class NewslettersTest extends SiteTestCase
         }
         $this->assertSame('sent|2|1|1', $site->value("SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL) FROM ka_newsletters WHERE id = ?", [$nl]), 'a refused address is given up after three attempts, the newsletter is sent');
         $this->assertPage('/admin.php?module=newsletters', 200, 'Sent', message: 'newsletters: list with counts');
-        $sent = $this->assertPage("/admin.php?module=newsletters&action=edit&id=$nl", 200, 'Recipients', message: 'a sent newsletter is read-only');
+        $sent = $this->assertPage("/admin.php?module=newsletters&action=edit&id=" . $this->site()->publicId('newsletters', $nl), 200, 'Recipients', message: 'a sent newsletter is read-only');
         $this->assertStringNotContainsString('name="subject"', $sent->body, 'a sent newsletter has no form');
     }
 
@@ -215,13 +218,13 @@ final class NewslettersTest extends SiteTestCase
 
         $site->exec("DELETE FROM ka_subscribers WHERE email LIKE 'odmitnout%'");
         $draft = $site->mcpResult('draft_newsletter', ['subject' => 'News via Claude', 'intro' => "Hi,\n\na short message.", 'news_mode' => 'none', 'button_label' => 'Contact', 'button_url' => '/contact']);
-        $nl2 = (int) $draft['id'];
+        $nl2 = $site->rowId($draft['id']);
         $this->assertSame([ 'draft', 1], [$draft['status'], $this->lines((string) $draft['text'], 'Contact: http://127.0.0.1', true)], 'MCP: draft_newsletter returns the text version');
 
-        $test = $site->mcpResult('send_test_newsletter', ['id' => $nl2]);
+        $test = $site->mcpResult('send_test_newsletter', ['id' => $site->publicId('newsletters', $nl2)]);
         $this->assertSame('admin@example.cz', $test['sent_to'], 'MCP: test goes to the connected user');
 
-        $scheduled = $site->mcpResult('send_newsletter', ['id' => $nl2, 'at' => '2099-01-01 08:00']);
+        $scheduled = $site->mcpResult('send_newsletter', ['id' => $site->publicId('newsletters', $nl2), 'at' => '2099-01-01 08:00']);
         $this->assertSame(['scheduled', '2099-01-01 08:00'], [$scheduled['status'], $scheduled['scheduled_at']], 'MCP: send_newsletter schedules');
 
         $site->exec('UPDATE ka_newsletters SET scheduled_at = NOW() - INTERVAL 1 MINUTE WHERE id = ?', [$nl2]);
@@ -231,7 +234,7 @@ final class NewslettersTest extends SiteTestCase
         $all = $site->mcpResult('list_newsletters');
         $this->assertSame([1, null, 'sent'], [$all['confirmed_subscribers'], $all['sending_problem'] ?? null, $all['newsletters'][0]['status'] ?? null], 'MCP: list_newsletters with subscribers and no sending problem');
 
-        $site->mcp('delete_newsletter', ['id' => $nl2]);
+        $site->mcp('delete_newsletter', ['id' => $site->publicId('newsletters', $nl2)]);
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_newsletters WHERE id = ?', [$nl2]), 'MCP: delete_newsletter');
 
         $site->exec('UPDATE ka_newsletters SET finished_at = NOW() - INTERVAL 2 DAY WHERE id = ?', [$nl]);

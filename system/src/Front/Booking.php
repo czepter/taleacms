@@ -43,17 +43,18 @@ final class Booking
             return Response::json(['error' => 'limit'], 429);
         }
         $antispam->write($r->ip(), 'booking_query', 0);
-        $service = Bookings::service($this->app->db(), $r->getInt('service'), true);
+        $service = Bookings::service($this->app->db(), $this->app->db()->internalId('booking_services', $r->get('service')), true);
+        $staffId = $this->app->db()->internalId('booking_staff', $r->get('staff')); // 0 = anyone
         if ($service === null) {
             return Response::json(['error' => 'service'], 404);
         }
         $headers = ['Cache-Control' => 'no-store'];
         if ($what === 'days') {
-            $days = Bookings::days($this->app, $service, $r->getInt('staff'), $r->get('month'));
+            $days = Bookings::days($this->app, $service, $staffId, $r->get('month'));
 
             return new Response((string) json_encode(['month' => $r->get('month'), 'days' => $days]), 200, $headers + ['Content-Type' => 'application/json; charset=utf-8']);
         }
-        $slots = Bookings::availability($this->app, $service, $r->getInt('staff'), $r->get('day'));
+        $slots = Bookings::availability($this->app, $service, $staffId, $r->get('day'));
 
         return new Response((string) json_encode(['day' => $r->get('day'), 'slots' => array_keys($slots)]), 200, $headers + ['Content-Type' => 'application/json; charset=utf-8']);
     }
@@ -65,7 +66,8 @@ final class Booking
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
-        $source = $r->post('source');
+        $posted = $r->post('source'); // public ids, as printed (the antispam signature covers this)
+        $source = Forms::internalSource($this->app->db(), $posted);
         $back = $r->post('back');
         $back = preg_match('#^/[^\s\\\\?]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = Forms::findElement($this->app->db(), $source, $r->post('element'), Element::TYPE);
@@ -74,7 +76,7 @@ final class Booking
         }
         $redirect = fn (string $result): Response => Response::redirect($back . '?booking=' . rawurlencode($element['id']) . '&result=' . $result . '#' . Element::anchor($element), 303);
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->reason($r, 'booking|' . $source . '|' . $element['id']);
+        $reason = $antispam->reason($r, 'booking|' . $posted . '|' . $element['id']);
         if ($reason === 'robot') {
             return $redirect('ok'); // the robot does not learn that it failed
         }
@@ -92,8 +94,8 @@ final class Booking
         }
         $o = $element['content'];
         // the element may fix the service or the person – then the visitor's choice does not count
-        $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $r->postInt('service');
-        $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $r->postInt('staff');
+        $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $this->app->db()->internalId('booking_services', $r->post('service'));
+        $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $this->app->db()->internalId('booking_staff', $r->post('staff'));
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('name'), 'email' => $r->post('email'),
             'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
@@ -189,6 +191,6 @@ final class Booking
             return null;
         }
 
-        return new Response(Bookings::ics($this->app, $booking, $token), 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Content-Disposition' => 'attachment; filename="appointment-' . (int) $booking['id'] . '.ics"', 'Cache-Control' => 'no-store']);
+        return new Response(Bookings::ics($this->app, $booking, $token), 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Content-Disposition' => 'attachment; filename="appointment-' . $this->app->db()->publicId('bookings', (int) $booking['id']) . '.ics"', 'Cache-Control' => 'no-store']);
     }
 }

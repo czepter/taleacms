@@ -22,10 +22,10 @@ $staffNames = array_column($staff, 'name', 'id');
 <tbody>
 <?php foreach ($staff as $m): ?>
 <tr<?= $m['active'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('staff_edit', ['id' => $m['id']])) ?>"><strong><?= e($m['name']) ?></strong></a><?= $m['active'] ? '' : ' <span class="small-text">(' . e(t('switched off')) . ')</span>' ?></td>
+	<td><a href="<?= e($module->url('staff_edit', ['id' => $m['public_id']])) ?>"><strong><?= e($m['name']) ?></strong></a><?= $m['active'] ? '' : ' <span class="small-text">(' . e(t('switched off')) . ')</span>' ?></td>
 	<td><?= $m['email'] !== '' ? e($m['email']) : '<span class="small-text">' . e(t('the site e-mail')) . '</span>' ?></td>
-	<td><?= $m['services'] === [] ? '<span class="small-text">' . e(t('none yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '#' . $id), $m['services']))) ?></td>
-	<td class="center"><form method="post" action="<?= e($module->url('staff_delete')) ?>" data-confirm="<?= e(t('Remove the person?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $m['id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Remove')) ?></button></form></td>
+	<td><?= $m['services'] === [] ? '<span class="small-text">' . e(t('none yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '–'), $m['services']))) ?></td>
+	<td class="center"><form method="post" action="<?= e($module->url('staff_delete')) ?>" data-confirm="<?= e(t('Remove the person?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($m['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Remove')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
@@ -35,7 +35,7 @@ $staffNames = array_column($staff, 'name', 'id');
 <?php if ($offs !== []): ?>
 <ul>
 <?php foreach ($offs as $o): ?>
-<li><?= e(format_date($o['from'], true)) ?> – <?= e(format_date($o['to'], true)) ?>: <?= e($o['staff_id'] === null ? t('everyone') : (string) ($staffNames[$o['staff_id']] ?? '#' . $o['staff_id'])) ?><?= $o['note'] !== '' ? ' (' . e($o['note']) . ')' : '' ?>
+<li><?= e(format_date($o['from'], true)) ?> – <?= e(format_date($o['to'], true)) ?>: <?= e($o['staff_id'] === null ? t('everyone') : (string) ($staffNames[$o['staff_id']] ?? '–')) ?><?= $o['note'] !== '' ? ' (' . e($o['note']) . ')' : '' ?>
 <form class="inline" method="post" action="<?= e($module->url('off_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="navigation" type="submit"><?= e(t('Remove')) ?></button></form></li>
 <?php endforeach ?>
 </ul>

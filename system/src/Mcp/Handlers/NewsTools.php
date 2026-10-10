@@ -151,7 +151,7 @@ trait NewsTools
         if ($error !== null) {
             throw new \DomainException($error);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['news_id']);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' – ' . (string) $db->value('SELECT title FROM {news} WHERE news_id = ?', [$draft['news_id']]));
 
         return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['news_id' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
     }

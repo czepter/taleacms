@@ -17,7 +17,7 @@ final class MoreElementsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('social_instagram', 'https://instagram.com/company');
-        $text = $this->rawText('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'content' => ['background_video' => 'media/2026/01/background.mp4'], 'children' => [
+        $text = $this->rawText('save_build', ['id' => $this->site()->publicId('pages', $this->zPage()), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'content' => ['background_video' => 'media/2026/01/background.mp4'], 'children' => [
             ['type' => 'counter', 'content' => ['number' => 1200, 'suffix' => '+']],
             ['type' => 'progress_bars', 'content' => ['items' => [['name' => 'Deadlines', 'value' => 96]]]],
             ['type' => 'rating', 'content' => ['value' => '4.5']],

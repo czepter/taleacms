@@ -22,13 +22,13 @@ $selection = function (string $displayName, array $options, string $value, bool 
     return $html . '</select>';
 };
 ?>
-<div class="navigation-row"><a class="btn" href="<?= e($module->url('builder', ['id' => $p['popup_id']])) ?>"><?= e(t('Edit the content in the builder')) ?></a>
-	<form class="inline" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><input type="hidden" name="back_to" value="edit"><button class="navigation" type="submit"><?= e($p['active'] ? t('Turn off') : t('Turn on')) ?></button></form>
+<div class="navigation-row"><a class="btn" href="<?= e($module->url('builder', ['id' => $p['public_id']])) ?>"><?= e(t('Edit the content in the builder')) ?></a>
+	<form class="inline" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= e($p['public_id']) ?>"><input type="hidden" name="back_to" value="edit"><button class="navigation" type="submit"><?= e($p['active'] ? t('Turn off') : t('Turn on')) ?></button></form>
 	<?php if ($p['active']): ?><span class="badge badge-published"><?= e(t('on')) ?></span><?php elseif ($p['build'] === null): ?><span class="badge badge-draft"><?= e(t('unpublished')) ?></span><?php else: ?><span class="badge"><?= e(t('off')) ?></span><?php endif ?>
 	<span class="help"><?= e(t('Views')) ?>: <?= (int) $p['impressions'] ?> · <?= e(t('Closes')) ?>: <?= (int) $p['closes'] ?> · <?= e(t('Conversions')) ?>: <?= (int) $p['conversions'] ?></span></div>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>">
+<input type="hidden" name="popup_id" value="<?= e($p['public_id']) ?>">
 <div class="row"><label for="name"><?= e(t('Pop-up name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($p['name']) ?>" maxlength="100" required></div></div>
 <div class="row"><label for="slug"><?= e(t('URL')) ?></label><div><input class="textfield" id="slug" name="slug" value="<?= e($p['slug']) ?>" maxlength="60" pattern="[a-z0-9][a-z0-9\-]*"><span class="help"><?= e(t('A link or button to #popup-%s opens the pop-up at any time – even when it does not show on its own.', $p['slug'])) ?></span></div></div>
 <div class="row"><label for="typ"><?= e(t('Type')) ?></label><div><?= $selection('type', Popups::TYPES, $p['type']) ?></div></div>
@@ -47,7 +47,7 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <div data-active-when="where=selected">
 <div class="row"><span class="caption"><?= e(t('Pages')) ?></span><div class="options options-list">
 <?php foreach ($pages as $s): ?>
-<label><input type="checkbox" name="pages[]" value="<?= (int) $s['page_id'] ?>"<?= in_array((int) $s['page_id'], $rules['pages'], true) ? ' checked' : '' ?>> <?= e(($s['language'] !== '' ? strtoupper($s['language']) . ' · ' : '') . $s['title']) ?></label>
+<label><input type="checkbox" name="pages[]" value="<?= e($s['public_id']) ?>"<?= in_array((int) $s['page_id'], $rules['pages'], true) ? ' checked' : '' ?>> <?= e(($s['language'] !== '' ? strtoupper($s['language']) . ' · ' : '') . $s['title']) ?></label>
 <?php endforeach ?>
 </div></div>
 <?php if ($collection !== []): ?>
@@ -82,6 +82,6 @@ $selection = function (string $displayName, array $options, string $value, bool 
 </form>
 <div class="navigation-row actions-bottom">
 <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('All pop-ups')) ?></a>
-<form class="inline" method="post" action="<?= e($module->url('reset')) ?>" data-confirm="<?= e(t('Reset the counters of views, closes and conversions?')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigation" type="submit"><?= e(t('Reset the counters')) ?></button></form>
-<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the pop-up? It disappears from the site at once.')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete the pop-up')) ?></button></form>
+<form class="inline" method="post" action="<?= e($module->url('reset')) ?>" data-confirm="<?= e(t('Reset the counters of views, closes and conversions?')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= e($p['public_id']) ?>"><button class="navigation" type="submit"><?= e(t('Reset the counters')) ?></button></form>
+<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the pop-up? It disappears from the site at once.')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= e($p['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete the pop-up')) ?></button></form>
 </div>

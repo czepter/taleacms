@@ -187,12 +187,12 @@ final class Links
         foreach ($rows as $r) {
             $id = (int) $r['target_id'];
             [$title, $edit, $page, $target] = match ((string) $r['kind']) {
-                'news' => [(string) $r['news_title'], 'admin.php?module=news&action=edit&id=' . $id, ltrim(substr($app->newsItemUrl((string) $r['news_slug'], (string) $r['news_language']), strlen($app->request->basePath())), '/'), ['news' => $id]],
-                'page' => [(string) $r['page_title'], 'admin.php?module=pages&action=' . ($r['page_build'] ? 'builder' : 'edit') . '&id=' . $id, $prefix($r['page_language']) . $r['page_slug'], ['page' => $id]],
-                default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . (int) $r['collection_id'] . '&item=' . $id, $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
+                'news' => [(string) $r['news_title'], 'admin.php?module=news&action=edit&id=' . $app->db()->publicId('news', $id), ltrim(substr($app->newsItemUrl((string) $r['news_slug'], (string) $r['news_language']), strlen($app->request->basePath())), '/'), ['news' => $id]],
+                'page' => [(string) $r['page_title'], 'admin.php?module=pages&action=' . ($r['page_build'] ? 'builder' : 'edit') . '&id=' . $app->db()->publicId('pages', $id), $prefix($r['page_language']) . $r['page_slug'], ['page' => $id]],
+                default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . $app->db()->publicId('collections', (int) $r['collection_id']) . '&item=' . $app->db()->publicId('collection_items', $id), $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
             };
             $url = (string) $r['url'];
-            $out[] = ['kind' => (string) $r['kind'], 'id' => $id, 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['status'], 'found' => (string) $r['checked_at'],
+            $out[] = ['kind' => (string) $r['kind'], 'id' => $app->db()->publicId(self::KINDS[(string) $r['kind']][0], $id), 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['status'], 'found' => (string) $r['checked_at'],
                 'edit' => $app->url($edit), 'page' => $page, 'target' => $target, 'hint' => self::hint($url, (int) $r['status'])];
         }
 

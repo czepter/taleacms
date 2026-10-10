@@ -88,7 +88,7 @@ function czechWords(string $text): array
 const STATIC_EXTENSIONS = ['php', 'js', 'mjs', 'css', 'md', 'json', 'yml', 'yaml', 'sh', 'txt', 'xml', 'html', 'neon', 'toml', 'conf', 'ini', 'example'];
 const STATIC_ALLOWED = [
     '#^system/languages/#', '#^image/languages/#', '#^tools/fixtures/#', '#^tools/rename/#', // the dictionaries are in many languages (French é, Spanish á …): Czech is one of them
-    '#^tools/(hard-fork-[a-z-]+|schema-to-phinx|compare-schemas|rekey-dictionaries|english-sources|check-english)\.php$#',
+    '#^tools/(hard-fork-[a-z-]+|schema-to-phinx|compare-schemas|rekey-dictionaries|english-sources|check-english|rebrand-talea)\.php$#',
     '#^(vendor|node_modules|\.git|\.claude|\.phpunit\.cache|dist|storage|media)/#', '#^docs/screenshots/#', '#^tests/Fixtures/#',
 ];
 

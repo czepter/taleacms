@@ -11,7 +11,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a></p>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="category_id" value="<?= (int) $category['category_id'] ?>">
+<input type="hidden" name="category_id" value="<?= e($category['public_id']) ?>">
 <div class="row">
 	<label for="name"><?= e(t('Category name')) ?></label>
 	<div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($category['name']) ?>" maxlength="100" required><?= $error('name') ?></div>
@@ -31,6 +31,6 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<div><input class="textfield" type="number" id="weight" name="weight" value="<?= (int) $category['weight'] ?>" min="0" max="65535">
 	<span class="help"><?= e(t('Higher number = higher in the list.')) ?></span></div>
 </div>
-<?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($category['language'] ?? ''), 'translationOf' => (int) ($category['translation_of'] ?? 0), 'originals' => $app->db()->pairs("SELECT category_id, name FROM {categories} WHERE language = '' ORDER BY name"), 'hint' => t('News in this category belongs to this language version of the site.')]) ?>
+<?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($category['language'] ?? ''), 'translationOf' => $app->db()->publicId('categories', (int) ($category['translation_of'] ?? 0)), 'originals' => $app->db()->pairs("SELECT public_id, name FROM {categories} WHERE language = '' ORDER BY name"), 'hint' => t('News in this category belongs to this language version of the site.')]) ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t($category['category_id'] ? 'Save' : 'Add')) ?>"></p>
 </form>

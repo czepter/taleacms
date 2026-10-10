@@ -87,7 +87,7 @@ trait BookingTools
             throw new \InvalidArgumentException($result);
         }
 
-        return ['service' => $result, 'next' => $result['staff'] === [] ? 'Nobody offers this service yet – save_booking_staff with services [' . $result['id'] . '], or save_booking_service with staff. Then a Booking element (type booking, content service ' . $result['id'] . ' or 0 for a choice) on a page.' : null];
+        return ['service' => $result, 'next' => $result['staff'] === [] ? 'Nobody offers this service yet – save_booking_staff with services [' . $this->pid('booking_services', $result['id']) . '], or save_booking_service with staff. Then a Booking element (type booking, content service ' . $this->pid('booking_services', $result['id']) . ' or empty for a choice) on a page.' : null];
     }
 
     /** save_booking_staff */

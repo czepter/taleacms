@@ -718,7 +718,7 @@ CREATE TABLE ka_popups (
     conversions       INT UNSIGNED NOT NULL DEFAULT 0,
     updated_at        DATETIME NULL,
     PRIMARY KEY (popup_id),
-    UNIQUE KEY uq_popups_public_id (public_id)
+    UNIQUE KEY uq_popups_public_id (public_id),
     UNIQUE KEY uq_popups_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 

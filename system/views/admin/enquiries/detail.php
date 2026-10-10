@@ -8,7 +8,7 @@
  * @var string $csrf
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
- * @var array<int, string> $users
+ * @var array<string, string> $users  public id => name
  */
 use Kaleta\Admin\Modules\Enquiries;
 
@@ -34,12 +34,12 @@ use Kaleta\Admin\Modules\Enquiries;
 	<dt><?= e(t('Anonymised')) ?></dt><dd><?= e(format_date((string) $p['anonymised_at'], true)) ?> · <?= e(t('the row stays for statistics without the person')) ?></dd>
 <?php endif ?>
 <?php foreach ($data as $i => $d): [$labelText, $value] = $d; ?>
-	<dt><?= e($labelText) ?></dt><dd><?= $value === '' ? '<span class="help">—</span>' : (isset($d[2]) ? '<a href="' . e($module->url('attachment', ['id' => (int) $p['enquiry_id'], 'field' => $i])) . '">' . e($value) . '</a>' : nl2br(e($value))) ?></dd>
+	<dt><?= e($labelText) ?></dt><dd><?= $value === '' ? '<span class="help">—</span>' : (isset($d[2]) ? '<a href="' . e($module->url('attachment', ['id' => $p['public_id'], 'field' => $i])) . '">' . e($value) . '</a>' : nl2br(e($value))) ?></dd>
 <?php endforeach ?>
 </dl>
 <h2><?= e(t('Triage')) ?></h2>
 <form method="post" action="<?= e($module->url('triage')) ?>">
-	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['enquiry_id'] ?>">
+	<?= $csrf ?><input type="hidden" name="id" value="<?= e($p['public_id']) ?>">
 	<div class="row"><label for="category"><?= e(t('Kind')) ?></label><div><select id="category" name="category"><option value="">—</option>
 <?php foreach (Kaleta\Core\Triage::CATEGORIES as $key => $name): ?>
 		<option value="<?= e($key) ?>"<?= $p['category'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
@@ -56,10 +56,10 @@ use Kaleta\Admin\Modules\Enquiries;
 	<p class="buttons"><button class="navigation" type="submit"><?= e(t('Save triage')) ?></button><?php if ($p['category'] !== 'spam'): ?> <button class="navigation" type="submit" name="category" value="spam"><?= e(t('Mark as spam')) ?></button><?php endif ?></p>
 </form>
 <form method="post" action="<?= e($module->url('note')) ?>">
-	<?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>">
+	<?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>">
 	<div class="row"><label for="assigned_to"><?= e(t('Handled by')) ?></label><select id="assigned_to" name="assigned_to"><option value="0">—</option>
 <?php foreach ($users as $userId => $displayName): ?>
-		<option value="<?= (int) $userId ?>"<?= (int) ($p['assigned_to'] ?? 0) === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
+		<option value="<?= e((string) $userId) ?>"<?= $assignedPublicId === (string) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></div>
 	<div class="row"><label for="note"><?= e(t('Internal note')) ?></label><div><textarea class="textbox low" id="note" name="note" rows="3"><?= e((string) ($p['note'] ?? '')) ?></textarea>
@@ -70,10 +70,10 @@ use Kaleta\Admin\Modules\Enquiries;
 <h2><?= e(t('Testimonial')) ?></h2>
 <?php foreach ($testimonials as $req): ?>
 <p class="small-text"><?= e(format_date((string) $req['created_at'], true)) ?> · <?= $req['used_at'] !== null
-    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT collection_id FROM {collection_items} WHERE item_id = ?', [(int) $req['item_id']]) . '&item=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
+    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . $app->db()->publicId('collections', (int) $app->db()->value('SELECT collection_id FROM {collection_items} WHERE item_id = ?', [(int) $req['item_id']])) . '&item=' . $app->db()->publicId('collection_items', (int) $req['item_id']))) . '">' . e(t('the draft reference')) . '</a>' : '')
     : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
 <?php endforeach ?>
-<form class="inline" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['enquiry_id'] ?>">
+<form class="inline" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($p['public_id']) ?>">
 	<button class="navigation" type="submit" name="send" value="1"><?= e(t('Ask for a testimonial by e-mail')) ?></button> <button class="navigation" type="submit" name="send" value="0"><?= e(t('Only create the link')) ?></button>
 	<span class="help"><?= e(t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave.')) ?></span></form>
 <?php endif ?>
@@ -81,10 +81,10 @@ use Kaleta\Admin\Modules\Enquiries;
 <?php if ($p['email'] !== ''): ?>
 	<a class="btn" href="mailto:<?= e($p['email']) ?>?subject=<?= e(rawurlencode('Re: ' . $p['form'])) ?><?= ($p['suggested_reply'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['suggested_reply'])) : '' ?>"><?= e(t(($p['suggested_reply'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a>
 <?php endif ?>
-	<form class="inline" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><input type="hidden" name="status" value="<?= (int) $p['status'] === 2 ? 1 : 2 ?>"><button class="btn<?= (int) $p['status'] === 2 ? ' btn-secondary' : '' ?>" type="submit"><?= e(t((int) $p['status'] === 2 ? 'Reopen' : 'Mark as resolved')) ?></button></form>
+	<form class="inline" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><input type="hidden" name="status" value="<?= (int) $p['status'] === 2 ? 1 : 2 ?>"><button class="btn<?= (int) $p['status'] === 2 ? ' btn-secondary' : '' ?>" type="submit"><?= e(t((int) $p['status'] === 2 ? 'Reopen' : 'Mark as resolved')) ?></button></form>
 <?php if (($p['anonymised_at'] ?? null) === null): ?>
-	<form class="inline" method="post" action="<?= e($module->url('anonymise')) ?>" data-confirm="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><button class="navigation" type="submit"><?= e(t('Anonymise')) ?></button></form>
+	<form class="inline" method="post" action="<?= e($module->url('anonymise')) ?>" data-confirm="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button class="navigation" type="submit"><?= e(t('Anonymise')) ?></button></form>
 <?php endif ?>
-	<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
+	<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
 </div>
 </div>

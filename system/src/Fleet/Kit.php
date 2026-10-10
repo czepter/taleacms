@@ -57,8 +57,15 @@ final class Kit
         if ($designSystem !== null) {
             $manifest['design_system'] = $designSystem;
         }
+        // the console's integer ids mean nothing on a member site: a component used inside a kit component travels by its kit key ("@key")
+        $keys = [];
+        foreach ($components as $r) {
+            if (isset($r['component_id'])) {
+                $keys[(int) $r['component_id']] = slugify((string) $r['name'], 80);
+            }
+        }
         $manifest['components'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['name'], 80), 'name' => (string) $r['name'],
-            'build' => Build::fromJson($r['build'] ?? $r['build_draft'] ?? null) ?? [], 'properties' => is_array($r['properties']) ? $r['properties'] : (json_decode((string) $r['properties'], true) ?: [])], $components);
+            'build' => self::mapRefs(Build::fromJson($r['build'] ?? $r['build_draft'] ?? null) ?? [], fn (string $ref): string => isset($keys[(int) $ref]) && ctype_digit($ref) ? '@' . $keys[(int) $ref] : ''), 'properties' => is_array($r['properties']) ? $r['properties'] : (json_decode((string) $r['properties'], true) ?: [])], $components);
         $manifest['sections'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['name'], 80), 'name' => (string) $r['name'],
             'element' => is_array($r['element']) ? $r['element'] : (json_decode((string) $r['element'], true) ?: [])], $sections);
 
@@ -100,6 +107,7 @@ final class Kit
                 continue;
             }
             [$build] = Build::sanitize($c['build'] ?? null, false);
+            $build = self::mapRefs($build, fn (string $ref): string => str_starts_with($ref, '@') && preg_match(self::KEY_PATTERN, substr($ref, 1)) ? $ref : ''); // never a foreign integer
             if ($build['children'] === []) {
                 continue;
             }
@@ -112,6 +120,7 @@ final class Kit
                 continue;
             }
             [$build] = Build::sanitize(['children' => [$sec['element'] ?? null]], false);
+            $build = self::mapRefs($build, fn (string $ref): string => '');
             if (($build['children'][0] ?? null) === null) {
                 continue;
             }
@@ -120,6 +129,30 @@ final class Kit
         }
 
         return $clean;
+    }
+
+    /**
+     * A build with every reference to another row (the component of a use, the service of a booking) passed through `$map`
+     * (the reference as text => the new one); a service never travels, a component only by its kit key.
+     *
+     * @param array<mixed> $node
+     * @return array<mixed>
+     */
+    private static function mapRefs(array $node, callable $map): array
+    {
+        foreach ($node as $key => $value) {
+            if ($key === 'content' && is_array($value)) {
+                if (isset($value['component']) && is_scalar($value['component'])) {
+                    $node[$key]['component'] = $map((string) $value['component']);
+                }
+                unset($node[$key]['service']);
+            }
+            if (is_array($node[$key])) {
+                $node[$key] = self::mapRefs($node[$key], $map);
+            }
+        }
+
+        return $node;
     }
 
     /** The given key when it is one, otherwise the slug of the name; null for an item without a usable name. */
@@ -228,7 +261,7 @@ final class Kit
         }
         $in = fn (array $ids): string => $ids === [] ? '0' : implode(',', array_map('intval', $ids));
         $manifest = self::compose($choice['design_system'] ? DesignSystem::load($s) : null, $classes,
-            $db->all('SELECT name, properties, build, build_draft FROM {components} WHERE component_id IN (' . $in($choice['components']) . ') ORDER BY name'),
+            $db->all('SELECT component_id, name, properties, build, build_draft FROM {components} WHERE component_id IN (' . $in($choice['components']) . ') ORDER BY name'),
             $db->all('SELECT name, element FROM {sections} WHERE section_id IN (' . $in($choice['sections']) . ') ORDER BY name'));
         if (!isset($manifest['design_system']) && $manifest['classes'] === [] && $manifest['components'] === [] && $manifest['sections'] === []) {
             throw new \RuntimeException(t('Choose at least one thing for the kit: the design system, a class, a component or a section.'));
@@ -287,7 +320,7 @@ final class Kit
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT id, public_key FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->byPublicId('fleet_sites', $d['site_id'] ?? null) : null;
         if ($site === null) {
             return Response::json(['error' => 'This console does not know the site.'], 404);
         }
@@ -339,7 +372,7 @@ final class Kit
         if (!Link::isPaired($s)) {
             throw new \RuntimeException('The site is not paired with a console.');
         }
-        $answer = Http::post($s->get('fleet_console_url') . '/fleet/kit', ['action' => 'kit', 'site_id' => $s->int('fleet_site_id'), 'ts' => time()],
+        $answer = Http::post($s->get('fleet_console_url') . '/fleet/kit', ['action' => 'kit', 'site_id' => $s->get('fleet_site_id'), 'ts' => time()],
             fn (string $body): string => Keys::sign($s, $body), 30);
         $manifest = self::verifyAnswer($answer, $s->get('fleet_console_key'), $version, $sha256);
 
@@ -372,6 +405,11 @@ final class Kit
                 // the properties of a component that is already published change what its uses show – they stay until a person decides
                 $db->update('components', ['name' => $c['name'], 'build_draft' => Build::toJson($c['build']), 'updated_at' => $now] + ($row['build'] === null ? ['properties' => $properties] : []), ['component_id' => (int) $row['component_id']]);
             }
+        }
+        $local = $db->pairs('SELECT kit_key, component_id FROM {components} WHERE kit_key IS NOT NULL');
+        foreach ($clean['components'] as $c) { // "@key" -> the id of that component on this site (the kit's own components only)
+            $draft = self::mapRefs($c['build'], fn (string $ref): string => isset($local[substr($ref, 1)]) ? (string) $local[substr($ref, 1)] : '');
+            $db->update('components', ['build_draft' => Build::toJson($draft)], ['kit_key' => $c['key']]);
         }
         foreach ($clean['sections'] as $sec) {
             $json = (string) json_encode($sec['element'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

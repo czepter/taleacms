@@ -141,10 +141,19 @@ final class Server
             $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
             unset($arguments['reason']);
             $unknownParams = self::unknownParams($items, $name, $arguments);
+            // rows are named by their public id (HF-16): the tools below work with the numbers, so the guardrails and the journal see them
+            $given = $arguments;
+            $ownTool = \Kaleta\Extension\Registry::get()->tool($name) === null;
+            if ($ownTool) {
+                $arguments = \Kaleta\Mcp\PublicIds::in($this->app->db(), $name, $arguments, false);
+            }
             // the site owner's guardrails (2.15) hold for every connection, on top of its access
             $refusal = \Kaleta\Core\Guardrails::refusal($this->app, $name, Catalog::access($name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
             if ($refusal !== null) {
                 return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
+            }
+            if ($ownTool) {
+                $arguments = \Kaleta\Mcp\PublicIds::in($this->app->db(), $name, $given); // now an id that names no row is refused
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
@@ -152,11 +161,12 @@ final class Server
                 ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), $name) : null;
             try {
                 $result = $tools->call($name, $arguments);
+                $result = \Kaleta\Mcp\PublicIds::out($this->app->db(), $name, $result, $arguments);
             } finally {
                 $db->journal = null;
             }
             if ($tools->isWriteTool($name)) {
-                ChangeLog::write($this->app, 'claude', $name, mb_substr((string) ($arguments['title'] ?? $arguments['name'] ?? $arguments['template'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
+                ChangeLog::write($this->app, 'claude', $name, mb_substr((string) ($given['title'] ?? $given['name'] ?? $given['template'] ?? $given['id'] ?? ''), 0, 200), $reason);
                 \Kaleta\Front\Cache::clear();
             }
             if ($name === 'list_enquiries') {

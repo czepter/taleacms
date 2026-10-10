@@ -81,8 +81,8 @@ final class PageLockTest extends SiteTestCase
 
     public function testClaudeSeesThatThePageIsProtectedNeverTheHash(): void
     {
-        $text = $this->mcpText('get_page', ['id' => self::$page]);
-        $raw = $this->mcpRawAnswer('get_page', ['id' => self::$page]);
+        $text = $this->mcpText('get_page', ['id' => $this->site()->publicId('pages', self::$page)]);
+        $raw = $this->mcpRawAnswer('get_page', ['id' => $this->site()->publicId('pages', self::$page)]);
 
         $this->assertStringContainsString('"password_protected":true', $text, 'page lock: Claude sees that the page is protected');
         $this->assertDoesNotMatchRegularExpression('/heslo_hash|\$2y\$/', $raw, 'page lock: never the hash');
@@ -90,9 +90,9 @@ final class PageLockTest extends SiteTestCase
 
     public function testRemovingThePasswordInTheAdminMakesThePagePublic(): void
     {
-        $this->site()->admin()->get('/admin.php?module=pages&action=edit&id=' . self::$page);
-        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => self::$page, 'title' => 'Partner prices', 'slug' => 'partner-ceny', 'visible' => 1, 'remove_password' => 1, 'text' => '<p>Secret partner price 42</p>'],
-            formPage: '/admin.php?module=pages&action=edit&id=' . self::$page);
+        $this->site()->admin()->get('/admin.php?module=pages&action=edit&id=' . $this->site()->publicId('pages', self::$page));
+        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => $this->site()->publicId('pages', self::$page), 'title' => 'Partner prices', 'slug' => 'partner-ceny', 'visible' => 1, 'remove_password' => 1, 'text' => '<p>Secret partner price 42</p>'],
+            formPage: '/admin.php?module=pages&action=edit&id=' . $this->site()->publicId('pages', self::$page));
 
         $this->assertSame('1', (string) $this->site()->value('SELECT password_hash IS NULL FROM ka_pages WHERE page_id = ?', [self::$page]), 'page lock: removing the password in the admin clears the hash');
         $this->assertTrue($this->secretOn($this->site()->client('lock-anonymous')), 'page lock: the page is public');

@@ -28,9 +28,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php if (!empty($draftOnServer)): ?>
 <script type="application/json" id="draft-server"><?= json_encode(['time' => strtotime($draftOnServer['saved_at']) * 1000, 'fields' => json_decode($draftOnServer['data'], true)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php endif ?>
-<form class="form form-article" method="post" action="<?= e($module->url('save')) ?>" data-draft="news-<?= (int) $newsItem['news_id'] ?>" data-draft-url="<?= e($module->url('draft')) ?>"<?= $assistant ? ' data-assistant="' . e($module->url('assistant')) . '"' : '' ?>>
+<form class="form form-article" method="post" action="<?= e($module->url('save')) ?>" data-draft="news-<?= e($newsItem['public_id'] ?: 'new') ?>" data-draft-url="<?= e($module->url('draft')) ?>"<?= $assistant ? ' data-assistant="' . e($module->url('assistant')) . '"' : '' ?>>
 <?= $csrf ?>
-<input type="hidden" name="news_id" value="<?= (int) $newsItem['news_id'] ?>">
+<input type="hidden" name="news_id" value="<?= e($newsItem['public_id']) ?>">
 
 <div class="article-main">
 	<div class="row span-all">
@@ -99,25 +99,25 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <fieldset>
 <legend><?= e(t('Classification')) ?></legend>
 <?php if (count($category) < 2): ?>
-<input type="hidden" name="category_id" value="<?= (int) ($category[0]['category_id'] ?? $newsItem['category_id']) ?>">
+<input type="hidden" name="category_id" value="<?= e($category[0]['public_id'] ?? $categoryPublicId) ?>">
 <?php else: ?>
 <div class="row">
 	<label for="category"><?= e(t('Categories')) ?></label>
 	<div><select id="category" name="category_id" required>
 <?php foreach ($category as $k): ?>
-		<option value="<?= (int) $k['category_id'] ?>"<?= (int) $newsItem['category_id'] === (int) $k['category_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
+		<option value="<?= e($k['public_id']) ?>"<?= (int) $newsItem['category_id'] === (int) $k['category_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
 <?php endforeach ?>
 	</select><?= $error('category_id') ?></div>
 </div>
 <?php endif ?>
 <?php if (count($authors) < 2): ?>
-<input type="hidden" name="author_id" value="<?= (int) (array_key_first($authors) ?? $newsItem['author_id']) ?>">
+<input type="hidden" name="author_id" value="<?= e((string) (array_key_first($authors) ?? $authorPublicId)) ?>">
 <?php else: ?>
 <div class="row">
 	<label for="author_id"><?= e(t('Author')) ?></label>
 	<div><select id="author_id" name="author_id">
 <?php foreach ($authors as $userId => $displayName): ?>
-		<option value="<?= (int) $userId ?>"<?= (int) $newsItem['author_id'] === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
+		<option value="<?= e((string) $userId) ?>"<?= (string) $userId === $authorPublicId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select><?= $error('author_id') ?></div>
 </div>
@@ -217,7 +217,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <summary><?= e(t('Version history (%s)', count($versions))) ?></summary>
 <ul class="revisions">
 <?php foreach ($versions as $version): ?>
-	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['news_id'], 'revision' => $version['revision_id']])) ?>" title="<?= e($version['title']) ?>"><?= e(format_date($version['created_at'], true)) ?></a> <span class="help inline"><?= e($version['user_name'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['news_id'], 'revision' => $version['revision_id']])) ?>"><?= e(t('what changed')) ?></a></li>
+	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['public_id'], 'revision' => $version['revision_id']])) ?>" title="<?= e($version['title']) ?>"><?= e(format_date($version['created_at'], true)) ?></a> <span class="help inline"><?= e($version['user_name'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['public_id'], 'revision' => $version['revision_id']])) ?>"><?= e(t('what changed')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <p class="help"><?= e(t('Click to load an older version into the editor. The last 20 versions are kept.')) ?></p>
@@ -235,7 +235,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php if ($assistant): ?>
 <form method="post" action="<?= e($module->url('social_suggest')) ?>" class="inline">
 <?= $csrf ?>
-<input type="hidden" name="news_id" value="<?= (int) $newsItem['news_id'] ?>">
+<input type="hidden" name="news_id" value="<?= e($newsItem['public_id']) ?>">
 <button class="navigation" type="submit" data-confirm="<?= e(t('Rewrite all the drafts with the assistant? Your edits to them are replaced. Hashtags and the link are added back.')) ?>"><?= e(t('Suggest with the assistant')) ?></button>
 </form>
 <?php endif ?>

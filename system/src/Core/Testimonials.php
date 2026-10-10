@@ -35,7 +35,7 @@ final class Testimonials
     public static function request(App $app, int $idp, bool $send): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT enquiry_id, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
+        $enquiry = $db->one('SELECT enquiry_id, form, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
         if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }
@@ -51,7 +51,7 @@ final class Testimonials
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
             $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ' (e-mail)' : ''));
+        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr((string) $enquiry['form'], 0, 80) . ($sent ? ' (e-mail)' : ''));
 
         return ['link' => $link, 'sent' => $sent];
     }

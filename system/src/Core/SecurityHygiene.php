@@ -78,7 +78,7 @@ final class SecurityHygiene
             foreach (self::blockable(self::unusedAccounts($accounts, $now), $accounts, $app->auth()->id()) as $a) {
                 $db->update('users', ['blocked' => 1, 'auto_blocked_at' => $now->format('Y-m-d H:i:s')], ['user_id' => (int) $a['user_id']]);
                 ChangeLog::write($app, 'users', 'auto_block', sprintf('%s – not used for %d days (last activity %s)', self::displayName($a), self::ACCOUNT_DAYS, (string) $a['last']));
-                Events::record($db, 'security.account_suspended', 'warning', t('An account not used for %d days was suspended (user #%d).', self::ACCOUNT_DAYS, (int) $a['user_id']), ['username' => (int) $a['user_id']]);
+                Events::record($db, 'security.account_suspended', 'warning', t('An account not used for %d days was suspended (%s).', self::ACCOUNT_DAYS, self::displayName($a)), ['username' => self::displayName($a)]);
                 $done['blocked'][] = self::displayName($a);
             }
         }
@@ -90,7 +90,7 @@ final class SecurityHygiene
                     $db->delete('api_tokens', ['user_id' => (int) $c['user_id'], 'client_id' => (string) $c['id']]);
                 }
                 ChangeLog::write($app, 'claude', 'auto_revoke', sprintf('%s (%s) – not used for %d days (last activity %s)', (string) $c['name'], (string) $c['username'], self::CONNECTION_DAYS, (string) $c['last']));
-                Events::record($db, 'security.connection_revoked', 'warning', t('A Claude connection not used for %d days was revoked (user #%d).', self::CONNECTION_DAYS, (int) $c['user_id']), ['username' => (int) $c['user_id'], 'kind' => (string) $c['kind']]);
+                Events::record($db, 'security.connection_revoked', 'warning', t('A Claude connection not used for %d days was revoked (%s).', self::CONNECTION_DAYS, (string) $c['username']), ['username' => (string) $c['username'], 'kind' => (string) $c['kind']]);
                 $done['revoked'][] = $c['name'] . ' (' . $c['username'] . ')';
             }
         }
@@ -202,14 +202,14 @@ final class SecurityHygiene
         $out = [];
         $apps = [];
         $now = date('Y-m-d H:i:s');
-        $rows = $db->all('SELECT t.token_id, t.user_id, t.name, t.client_id, t.kind, t.access, t.expires_at, t.created_at, t.used_at, u.username, u.name AS user_name FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id ORDER BY t.token_id');
+        $rows = $db->all('SELECT t.token_id, t.public_id, t.user_id, t.name, t.client_id, t.kind, t.access, t.expires_at, t.created_at, t.used_at, u.username, u.name AS user_name FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id ORDER BY t.token_id');
         foreach ($rows as $r) {
             $user = self::displayName(['name' => $r['user_name'], 'username' => $r['username']]);
             if ($r['client_id'] === null) {
                 if ($r['kind'] !== 'token') {
                     continue;
                 }
-                $out[] = ['kind' => 'token', 'id' => (int) $r['token_id'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['name'], 'access' => (string) $r['access'],
+                $out[] = ['kind' => 'token', 'id' => (int) $r['token_id'], 'public_id' => (string) $r['public_id'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['name'], 'access' => (string) $r['access'],
                     'last' => (string) ($r['used_at'] ?? $r['created_at']), 'used' => $r['used_at'] !== null, 'expiry' => $r['expires_at'], 'created' => (string) $r['created_at']];
                 continue;
             }

@@ -24,7 +24,7 @@ final class LinkHealingTest extends SiteTestCase
         $this->site()->exec('UPDATE ka_pages SET build = ?, text = ? WHERE page_id = ?', [json_encode($build, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), '<p><a href="/lh-stare">t</a></p>', $source]);
         $this->site()->exec("INSERT INTO ka_menus (location, language, items) VALUES ('lhtest', '', ?)", ['[{"type":"link","url":"/lh-stare","text":"M"}]']);
 
-        $this->mcpText('update_page', ['id' => $target, 'slug' => 'lh-nove']);
+        $this->mcpText('update_page', ['id' => $this->site()->publicId('pages', $target), 'slug' => 'lh-nove']);
 
         $this->assertSame('11111', (string) $this->site()->value("SELECT CONCAT(build LIKE '%/lh-nove#cast%', build LIKE '%/en/lh-nove%', build LIKE '%/lh-stare-jina%', build NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM ka_pages WHERE page_id = ?", [$source]),
             'link healing: a renamed page – button, text and the language form point to the new address, a longer address is left alone');

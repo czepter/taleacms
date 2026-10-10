@@ -43,7 +43,7 @@ trait BuilderTools
 
         return $this->describeTarget($target) + ['published' => $target['build'] !== null,
             'unsaved_changes' => $target['draft'] !== null && $target['draft'] !== $target['build']]
-            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => Build::compact($this->targetBuild($target))]);
+            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => \Kaleta\Mcp\PublicIds::buildOut($this->app->db(), Build::compact($this->targetBuild($target)))]);
     }
 
     /** edit_build */
@@ -52,7 +52,7 @@ trait BuilderTools
         $this->mayPublish($a);
         $target = $this->loadBuildTarget($a);
         $operationErrors = [];
-        $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operations'] ?? null) ? $a['operations'] : [], $operationErrors);
+        $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operations'] ?? null) ? \Kaleta\Mcp\PublicIds::buildIn($this->app->db(), $a['operations']) : [], $operationErrors);
 
         return $this->saveBuild($target, $build, !empty($a['publish'])) + ['operation_errors' => $operationErrors];
     }
@@ -85,7 +85,7 @@ trait BuilderTools
         }
         $this->mayPublish($a);
 
-        return $this->saveBuild($this->loadBuildTarget($a), $a['build'], !empty($a['publish']));
+        return $this->saveBuild($this->loadBuildTarget($a), \Kaleta\Mcp\PublicIds::buildIn($this->app->db(), $a['build']), !empty($a['publish']));
     }
 
     /** insert_section */
@@ -184,7 +184,7 @@ trait BuilderTools
         }
         $sectionId = $db->insert('sections', ['name' => $name, 'element' => (string) json_encode($element, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')]);
 
-        return ['id' => $sectionId, 'name' => $name, 'insert' => 'insert_section with saved_section: ' . $sectionId];
+        return ['id' => $sectionId, 'name' => $name, 'insert' => 'insert_section with saved_section: ' . $this->pid('sections', $sectionId)];
     }
 
     /** delete_section */
@@ -242,8 +242,8 @@ trait BuilderTools
         \Kaleta\Front\Cache::clear();
         $k = (array) \Kaleta\Builder\Components::byId($db, $id);
 
-        return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","content":{"component":"' . $id . '","values":{}}}',
-            'build' => 'edit it with get_build / save_build / edit_build and component: ' . $id . ', then publish_build'];
+        return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","content":{"component":"' . $this->pid('components', $id) . '","values":{}}}',
+            'build' => 'edit it with get_build / save_build / edit_build and component: ' . $this->pid('components', $id) . ', then publish_build'];
     }
 
     /** delete_component */

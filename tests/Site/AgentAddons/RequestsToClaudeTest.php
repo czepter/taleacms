@@ -36,7 +36,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->site()->signIn(self::$staff, 'reception');
         $form = $this->assertPage('/admin.php?module=requests&action=new', 200, as: self::$staff, message: 'requests: the staff user opens the form');
         $this->assertStringContainsString('name="attachments[]"', $form->body, 'requests: the form offers attachments');
-        $this->assertStringContainsString('value="page:1"', $form->body, 'requests: the form offers the pages to choose from');
+        $this->assertStringContainsString('value="page:' . $this->site()->publicId('pages', 1) . '"', $form->body, 'requests: the form offers the pages to choose from');
     }
 
     public function testARequestWithAnAttachmentIsSavedAndTheAdministratorIsNotified(): void
@@ -44,8 +44,8 @@ final class RequestsToClaudeTest extends SiteTestCase
         $pdf = $this->site()->workDir('requests') . '/pricelist-f19.pdf';
         file_put_contents($pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
         $csrf = $this->staff()->get('/admin.php?module=requests&action=new')->csrf();
-        $response = $this->staff()->upload('/admin.php?module=requests&action=save', ['_csrf' => $csrf, 'title' => 'New price list for the Services page', 'text' => 'Please replace the old price list with the attached PDF.', 'about' => 'page:1', 'about_url' => ''], ['attachments[]' => $pdf]);
-        self::$request = preg_match('/id=(\d+)/', $response->redirect, $m) ? (int) $m[1] : 0;
+        $response = $this->staff()->upload('/admin.php?module=requests&action=save', ['_csrf' => $csrf, 'title' => 'New price list for the Services page', 'text' => 'Please replace the old price list with the attached PDF.', 'about' => 'page:' . $this->site()->publicId('pages', 1), 'about_url' => ''], ['attachments[]' => $pdf]);
+        self::$request = preg_match('/id=([0-9a-f-]{36})/', $response->redirect, $m) ? $this->site()->internalId('requests', $m[1]) : 0;
         $this->assertGreaterThan(0, self::$request, 'the save redirects to the new request');
         $id = self::$request;
 
@@ -63,17 +63,17 @@ final class RequestsToClaudeTest extends SiteTestCase
         $id = self::$request;
 
         $list = $this->mcpText('list_requests');
-        $this->assertStringContainsString("\"id\":$id,", $list, 'requests: list_requests returns the request');
+        $this->assertStringContainsString('"id":"' . $this->site()->publicId('requests', $id) . '",', $list, 'requests: list_requests returns the request');
         $this->assertStringContainsString("\"url\":\"$base/media/", $list, 'requests: list_requests returns the Media url');
         $this->assertStringContainsString('"author":"Reception"', $list, 'requests: list_requests names the author');
         $this->assertStringContainsString('"written_by_staff"', $list, 'requests: list_requests warns that staff wrote it');
 
-        $this->site()->mcp('update_request', ['id' => $id, 'status' => 'in_progress', 'note' => 'I am looking into it.']);
+        $this->site()->mcp('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'in_progress', 'note' => 'I am looking into it.']);
         $this->assertSame('in_progress|1', $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM ka_request_messages WHERE request_id = r.id AND sender = 'claude' AND text = 'I am looking into it.')) FROM ka_requests r WHERE r.id = ?", [$id]), 'requests: update_request marks it in progress with a note');
 
-        $this->assertStringContainsString('needs a note', $this->mcpRawText('update_request', ['id' => $id, 'status' => 'declined']), 'requests: declining without a reason is refused');
+        $this->assertStringContainsString('needs a note', $this->mcpRawText('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'declined']), 'requests: declining without a reason is refused');
 
-        $done = $this->mcpText('update_request', ['id' => $id, 'status' => 'done', 'note' => 'The price list is in the draft of the Services page.', 'links' => [['label' => 'Services – draft', 'url' => "$base/services"], ['url' => 'javascript:alert(1)']]]);
+        $done = $this->mcpText('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'done', 'note' => 'The price list is in the draft of the Services page.', 'links' => [['label' => 'Services – draft', 'url' => "$base/services"], ['url' => 'javascript:alert(1)']]]);
         $this->assertStringContainsString('"requester_notified":true', $done, 'requests: done - the result says the requester was notified');
         $this->assertSame(
             'done|1|1|1',
@@ -87,20 +87,20 @@ final class RequestsToClaudeTest extends SiteTestCase
         $base = $this->site()->base;
         $id = self::$request;
 
-        $detail = $this->assertPage('/admin.php?module=requests&action=detail&id=' . $id, 200, as: self::$staff, message: 'requests: the requester\'s detail');
+        $detail = $this->assertPage('/admin.php?module=requests&action=detail&id=' . $this->site()->publicId('requests', $id), 200, as: self::$staff, message: 'requests: the requester\'s detail');
         $this->assertStringContainsString('The price list is in the draft of the Services page.', $detail->body, 'requests: the detail shows Claude\'s note');
         $this->assertStringContainsString("href=\"$base/services\"", $detail->body, 'requests: the detail shows the draft link');
         $this->assertStringContainsString('pricelist-f19', $detail->body, 'requests: the detail shows the attachment');
 
-        $this->staff()->post('/admin.php?module=requests&action=reply', ['_csrf' => $detail->csrf(), 'id' => $id, 'text' => 'Thanks, I will publish it.']);
-        $this->assertStringContainsString('"from":"person","name":"Reception","text":"Thanks, I will publish it."', $this->mcpText('list_requests', ['id' => $id]), 'requests: the reply is in the conversation Claude reads');
-        $this->assertStringNotContainsString("\"id\":$id,", $this->mcpText('list_requests', ['status' => 'open']), 'requests: a done request is not among the open ones');
+        $this->staff()->post('/admin.php?module=requests&action=reply', ['_csrf' => $detail->csrf(), 'id' => $this->site()->publicId('requests', $id), 'text' => 'Thanks, I will publish it.']);
+        $this->assertStringContainsString('"from":"person","name":"Reception","text":"Thanks, I will publish it."', $this->mcpText('list_requests', ['id' => $this->site()->publicId('requests', $id)]), 'requests: the reply is in the conversation Claude reads');
+        $this->assertStringNotContainsString('"id":"' . $this->site()->publicId('requests', $id) . '",', $this->mcpText('list_requests', ['status' => 'open']), 'requests: a done request is not among the open ones');
     }
 
     public function testADraftsOnlyConnectionAnswersRequestsButCannotPublish(): void
     {
         $id = self::$request;
-        $this->site()->mcp('update_request', ['id' => $id, 'status' => 'in_progress', 'note' => 'Reopened by a drafts connection'], $this->draftsToken());
+        $this->site()->mcp('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'in_progress', 'note' => 'Reopened by a drafts connection'], $this->draftsToken());
 
         $this->assertSame('in_progress|1', $this->sq("SELECT CONCAT(status, '|', (SELECT COUNT(*) FROM ka_request_messages WHERE request_id = $id AND text = 'Reopened by a drafts connection')) FROM ka_requests WHERE id = ?", [$id]), 'requests: a drafts-only connection reopens the request with a note');
         $this->assertStringContainsString('can only save drafts', $this->mcpRawText('publish_build', ['id' => 1], $this->draftsToken()), 'requests: the same drafts-only connection cannot publish');
@@ -109,8 +109,8 @@ final class RequestsToClaudeTest extends SiteTestCase
     public function testAPersonClosesTheRequestAndAnAuthorHasNoAccess(): void
     {
         $id = self::$request;
-        $detail = $this->staff()->get('/admin.php?module=requests&action=detail&id=' . $id);
-        $this->staff()->post('/admin.php?module=requests&action=status', ['_csrf' => $detail->csrf(), 'id' => $id, 'status' => 'done']);
+        $detail = $this->staff()->get('/admin.php?module=requests&action=detail&id=' . $this->site()->publicId('requests', $id));
+        $this->staff()->post('/admin.php?module=requests&action=status', ['_csrf' => $detail->csrf(), 'id' => $this->site()->publicId('requests', $id), 'status' => 'done']);
         $this->assertSame('done', $this->sq('SELECT status FROM ka_requests WHERE id = ?', [$id]), 'requests: the person marks it done in the detail');
 
         // the author-level session of section 5 (JAR2): a user without the section

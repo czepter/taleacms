@@ -45,7 +45,7 @@ trait AgentHelpers
     /** The first "id":N in a text (grep -o '"id":[0-9]*' | head -1). */
     private function firstId(string $text): int
     {
-        return preg_match('/"id":(\d+)/', $text, $m) ? (int) $m[1] : 0;
+        return preg_match('/"id":"?([0-9a-f-]{36}|\d+)"?/', $text, $m) ? (strlen($m[1]) === 36 ? $this->site()->rowId($m[1]) : (int) $m[1]) : 0;
     }
 
     /** grep -c: the number of lines that contain the text. */

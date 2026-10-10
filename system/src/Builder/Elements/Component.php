@@ -25,7 +25,7 @@ final class Component extends Element
     public static function properties(): array
     {
         return [
-            'component' => ['type' => 'text', 'label' => 'Component', 'default' => '', 'max' => 12],
+            'component' => ['type' => 'text', 'label' => 'Component', 'default' => '', 'max' => 90],
             'values' => ['type' => 'values', 'label' => 'Properties', 'default' => []],
         ];
     }

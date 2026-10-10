@@ -18,6 +18,7 @@ final class Enquiries extends Module
     public const string NAME = 'Enquiries';
     public const string GROUP = 'Customers';
     public const string ICON = 'enquiries';
+    public const string TABLE = 'enquiries';
 
     public const array STATUSES = [0 => 'new', 1 => 'read', 2 => 'resolved'];
     private const int PER_PAGE = 50;
@@ -57,7 +58,7 @@ final class Enquiries extends Module
         $pageNumber = max(1, $this->request->getInt('page', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT enquiry_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to FROM {enquiries} ' . $whereParts . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to FROM {enquiries} ' . $whereParts . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2"),
@@ -70,7 +71,7 @@ final class Enquiries extends Module
 
     protected function actionDetail(): Response
     {
-        $p = $this->db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$this->request->getInt('id')]);
+        $p = $this->db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam()]);
         if ($p === null) {
             return $this->error('The enquiry does not exist.', 404);
         }
@@ -79,9 +80,9 @@ final class Enquiries extends Module
             $p['status'] = 1;
         }
 
-        return $this->view('detail', t('Enquiry') . ' #' . $p['enquiry_id'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+        return $this->view('detail', t('Enquiry') . ' – ' . ($p['email'] !== '' ? $p['email'] : format_date($p['created_at'], true)), ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
             'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
-            'users' => $this->listAssignees((int) $p['assigned_to'])]);
+            'users' => $this->listAssignees((int) $p['assigned_to']), 'assignedPublicId' => $this->publicId((int) $p['assigned_to'], 'users')]);
     }
 
     /**
@@ -89,12 +90,12 @@ final class Enquiries extends Module
      * who does not see them). An already assigned user stays in the list even if they lost the permission in the meantime –
      * saving the note does not silently remove them.
      *
-     * @return array<int, string>
+     * @return array<string, string> public id => name
      */
     private function listAssignees(int $assignee = 0): array
     {
         return $this->db->pairs(
-            "SELECT user_id, IF(name = '', username, name) FROM {users} u WHERE (blocked = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
+            "SELECT public_id, IF(name = '', username, name) FROM {users} u WHERE (blocked = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
             [\Kaleta\Core\Auth::ADMIN, self::IDENT, $assignee],
         );
     }
@@ -103,48 +104,48 @@ final class Enquiries extends Module
     /** Asks the customer of an enquiry for a testimonial (2.12, Core\Testimonials): the link by e-mail, or only to copy. */
     protected function actionTestimonial(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         if (!$this->request->isPost()) {
             return $this->back();
         }
         try {
             $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('send'));
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'error');
+            return $this->back($e->getMessage(), 'detail', ['id' => $this->publicId($id)], 'error');
         }
 
-        return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $id]);
+        return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $this->publicId($id)]);
     }
 
     /** A person's triage (2.12): the kind, the priority and the drafted reply – Claude and the assistant never overwrite it. */
     protected function actionTriage(): Response
     {
-        $id = $this->request->postInt('id');
+        $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
             \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
                 (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
         }
 
-        return $this->back('Saved.', 'detail', ['id' => $id]);
+        return $this->back('Saved.', 'detail', ['id' => $this->publicId($id)]);
     }
 
     protected function actionNote(): Response
     {
-        $idp = $this->request->postInt('enquiry_id');
+        $idp = $this->idParam('enquiry_id');
         if ($this->request->isPost()) {
-            $who = $this->request->postInt('assigned_to');
+            $who = $this->idParam('assigned_to', 'users');
             $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
-                'assigned_to' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT assigned_to FROM {enquiries} WHERE enquiry_id = ?', [$idp]))[$who]) ? $who : null], ['enquiry_id' => $idp]);
+                'assigned_to' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT assigned_to FROM {enquiries} WHERE enquiry_id = ?', [$idp]))[$this->publicId($who, 'users')]) ? $who : null], ['enquiry_id' => $idp]);
         }
 
-        return $this->back('The note has been saved.', 'detail', ['id' => $idp]);
+        return $this->back('The note has been saved.', 'detail', ['id' => $this->publicId($idp)]);
     }
 
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
     protected function actionAttachment(): Response
     {
-        $p = $this->db->one('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->request->getInt('id')]);
+        $p = $this->db->one('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam()]);
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/attachments/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
@@ -159,7 +160,7 @@ final class Enquiries extends Module
     /** In bulk: mark as handled, or delete (including attachments). */
     protected function actionBulk(): Response
     {
-        $ids = array_map('intval', $this->request->postList('selected'));
+        $ids = array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('enquiries', $uuid), $this->request->postList('selected'))));
         if (!$this->request->isPost() || $ids === []) {
             return $this->back();
         }
@@ -191,7 +192,7 @@ final class Enquiries extends Module
     {
         if ($this->request->isPost()) {
             $state = $this->request->postInt('status');
-            $this->db->update('enquiries', ['status' => isset(self::STATUSES[$state]) ? $state : 1], ['enquiry_id' => $this->request->postInt('enquiry_id')]);
+            $this->db->update('enquiries', ['status' => isset(self::STATUSES[$state]) ? $state : 1], ['enquiry_id' => $this->idParam('enquiry_id')]);
         }
 
         return $this->back($this->request->postInt('status') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
@@ -200,8 +201,8 @@ final class Enquiries extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->request->postInt('enquiry_id')]));
-            $this->db->delete('enquiries', ['enquiry_id' => $this->request->postInt('enquiry_id')]);
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam('enquiry_id')]));
+            $this->db->delete('enquiries', ['enquiry_id' => $this->idParam('enquiry_id')]);
         }
 
         return $this->back('The enquiry was deleted.');
@@ -229,7 +230,7 @@ final class Enquiries extends Module
             $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials']);
             if ($result['kept_testimonials'] !== []) {
-                $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
+                $message .= ' ' . t('A testimonial the person sent stays in References – remove it there if they ask.');
             }
 
             return $this->back($message, 'personal');
@@ -297,11 +298,11 @@ final class Enquiries extends Module
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */
     protected function actionAnonymise(): Response
     {
-        $idp = $this->request->postInt('enquiry_id');
+        $idp = $this->idParam('enquiry_id');
         if ($this->request->isPost() && \Kaleta\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '#' . $idp);
+            \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '');
         }
 
-        return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $idp]);
+        return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $this->publicId($idp)]);
     }
 }

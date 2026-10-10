@@ -28,6 +28,7 @@ final class Components extends Module
     public const string GROUP = 'Appearance';
     public const string ICON = 'component';
     public const bool ADMIN_ONLY = true;
+    public const string TABLE = 'components';
 
     protected function actionList(): Response
     {
@@ -43,12 +44,12 @@ final class Components extends Module
 
     protected function actionNew(): Response
     {
-        return $this->view('form', 'New component', ['k' => ['component_id' => 0, 'name' => '', 'properties' => []]]);
+        return $this->view('form', 'New component', ['k' => ['component_id' => 0, 'public_id' => '', 'name' => '', 'properties' => []]]);
     }
 
     protected function actionEdit(): Response
     {
-        $k = KomponentyStavby::byId($this->db, $this->request->getInt('id'));
+        $k = KomponentyStavby::byId($this->db, $this->idParam());
 
         return $k === null ? $this->error('The component does not exist.', 404) : $this->view('form', $k['name'], ['k' => $k]);
     }
@@ -58,10 +59,13 @@ final class Components extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('component_id');
+        if (($refusal = $this->refuseUnknownId('component_id', 'The component does not exist.')) !== null) {
+            return $refusal;
+        }
+        $id = $this->idParam('component_id');
         $name = mb_substr(trim($this->request->post('name')), 0, 100);
         if ($name === '') {
-            return $this->back('The component needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'error');
+            return $this->back('The component needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
         $data = ['name' => $name, 'properties' => (string) json_encode(KomponentyStavby::sanitizeProperties(is_array($_POST['properties'] ?? null) ? $_POST['properties'] : []), JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
         if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
@@ -77,7 +81,7 @@ final class Components extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('components', ['component_id' => $this->request->postInt('component_id')]);
+            $this->db->delete('components', ['component_id' => $this->idParam('component_id')]);
             \Kaleta\Front\Cache::clear();
         }
 
@@ -116,11 +120,11 @@ final class Components extends Module
 
     protected function loadBuildTarget(): ?array
     {
-        $k = KomponentyStavby::byId($this->db, $this->request->getInt('id'));
+        $k = KomponentyStavby::byId($this->db, $this->idParam('id', null, true));
 
         return $k === null ? null : [
             'row' => $k, 'build' => $k['build'], 'draft' => $k['build_draft'], 'language' => Language::defaults($this->app->settings()),
-            'title' => t('Component: %s', $k['name']), 'revisions' => ['part' => 'component:' . (int) $k['component_id']], 'params' => ['id' => (int) $k['component_id']],
+            'title' => t('Component: %s', $k['name']), 'revisions' => ['part' => 'component:' . (int) $k['component_id']], 'params' => ['id' => $k['public_id']],
         ];
     }
 
@@ -137,11 +141,11 @@ final class Components extends Module
     protected function describeTarget(array $target): array
     {
         $k = $target['row'];
-        $url = $this->app->url('_component/' . (int) $k['component_id']);
+        $url = $this->app->url('_component/' . $k['public_id']);
 
         return [
             'url' => $url . '?build=draft', 'preview' => $url . '?build=draft&editor=1', 'visible' => true, 'parts' => false,
-            'back' => ['url' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => (int) $k['component_id']]),
+            'back' => ['url' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => $k['public_id']]),
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
             'collection' => ['slug' => '', 'name' => $k['name'], 'fields' => $k['properties'], 'detail' => false, 'builtin' => false],
         ];

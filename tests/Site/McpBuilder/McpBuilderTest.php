@@ -29,7 +29,8 @@ final class McpBuilderTest extends SiteTestCase
         $this->assertStringContainsString('"in_menu":', $english, 'English keys');
         $this->assertStringContainsString('"url":', $english, 'English keys');
         $this->assertStringContainsString('Unknown tool: seznam_stranek', $this->mcpText('seznam_stranek'), 'a Czech tool name is an unknown tool');
-        $this->assertStringContainsString('The page does not exist. Use list_pages.', $this->mcpText('get_page', ['id' => 99999]), 'the error of an English tool is English');
+        $this->assertStringContainsString('is not valid', $this->mcpText('get_page', ['id' => '3f1c2b4a-0000-4000-8000-000000000000']), 'an unknown id is refused in English');
+        $this->assertStringContainsString('is not valid', $this->mcpText('get_page', ['id' => 99999]), 'a number is not an id');
     }
 
     public function testServerInstructionsUseEnglishNames(): void
@@ -70,8 +71,8 @@ final class McpBuilderTest extends SiteTestCase
     public function testPublishedPageIsOnTheSite(): void
     {
         $site = $this->site();
-        $site->mcp('insert_section', ['id' => self::$zPage, 'section' => 'faq']);
-        $site->mcp('publish_build', ['id' => self::$zPage]);
+        $site->mcp('insert_section', ['id' => $site->publicId('pages', self::$zPage), 'section' => 'faq']);
+        $site->mcp('publish_build', ['id' => $site->publicId('pages', self::$zPage)]);
         $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 

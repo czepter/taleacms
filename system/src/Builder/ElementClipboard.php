@@ -39,6 +39,7 @@ final class ElementClipboard
     public static function pack(Db $db, array $elements, string $origin): array
     {
         $package = PagePackage::collect($db, ['children' => $elements]);
+        $elements = array_values((array) (PagePackage::toPublic($db, ['children' => $elements])['children'] ?? $elements)); // components by public id
 
         return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['components']];
     }
@@ -78,7 +79,7 @@ final class ElementClipboard
     {
         $elements = self::fresh($package['elements']);
         if ($package['site'] !== '' && $package['site'] === strtolower(rtrim($thisSite, '/'))) {
-            return [$elements, ['classes' => 0, 'components' => 0], 0];
+            return [array_values((array) (PagePackage::toInternal($s->db(), ['children' => $elements])['children'] ?? $elements)), ['classes' => 0, 'components' => 0], 0];
         }
         $images = 0;
         $elements = self::relinkMedia($elements, $package['site'], $images);

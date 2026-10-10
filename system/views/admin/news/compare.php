@@ -13,8 +13,8 @@ $added = $title['added'] + $home['added'] + $text['added'];
 $deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];
 ?>
 <p class="navigation-row">
-	<a class="navigation" href="<?= e($module->url('edit', ['id' => (int) $newsItem['news_id']])) ?>"><?= e(t('Back to the news item')) ?></a>
-	<a class="navigation" href="<?= e($module->url('versions', ['id' => (int) $newsItem['news_id'], 'revision' => (int) $versions['revision_id']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
+	<a class="navigation" href="<?= e($module->url('edit', ['id' => $newsItem['public_id']])) ?>"><?= e(t('Back to the news item')) ?></a>
+	<a class="navigation" href="<?= e($module->url('versions', ['id' => $newsItem['public_id'], 'revision' => (int) $versions['revision_id']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
 </p>
 <p><?= e(t('Version from %s', format_date($versions['created_at'], true))) ?><?= ($versions['user_name'] ?? '') !== '' ? ' · ' . e($versions['user_name']) : '' ?> → <?= e(t('current text')) ?>.
 	<ins><?= e(t('added')) ?>: <?= $added ?></ins> · <del><?= e(t('deleted')) ?>: <?= $deleted ?></del></p>

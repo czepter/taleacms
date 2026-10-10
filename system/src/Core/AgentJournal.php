@@ -226,7 +226,8 @@ final class AgentJournal
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition(array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
                 if (!$force && !self::same($current, $expected)) {
-                    $result['conflicts'][] = ['table' => $row['table'], 'key' => $row['key']];
+                    $pk = Db::PRIMARY_KEYS[$row['table']] ?? null; // a row of a public-id table is named by its public id, never by the integer key
+                    $result['conflicts'][] = ['table' => $row['table'], 'key' => $pk !== null && count($row['key']) === 1 && isset($row['key'][$pk]) ? $db->publicId($row['table'], (int) $row['key'][$pk]) : $row['key']];
 
                     continue;
                 }

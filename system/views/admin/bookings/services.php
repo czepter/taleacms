@@ -21,12 +21,12 @@ $names = array_column($staff, 'name', 'id');
 <tbody>
 <?php foreach ($services as $s): ?>
 <tr<?= $s['active'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('services', ['id' => $s['id']])) ?>"><strong><?= e($s['name']) ?></strong></a><?= $s['active'] ? '' : ' <span class="small-text">(' . e(t('switched off')) . ')</span>' ?><?= $s['requires_confirmation'] ? ' <span class="small-text">(' . e(t('requires confirmation')) . ')</span>' : '' ?><?= $s['description'] !== '' ? '<br><span class="small-text">' . e($s['description']) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('services', ['id' => $s['public_id']])) ?>"><strong><?= e($s['name']) ?></strong></a><?= $s['active'] ? '' : ' <span class="small-text">(' . e(t('switched off')) . ')</span>' ?><?= $s['requires_confirmation'] ? ' <span class="small-text">(' . e(t('requires confirmation')) . ')</span>' : '' ?><?= $s['description'] !== '' ? '<br><span class="small-text">' . e($s['description']) . '</span>' : '' ?></td>
 	<td><?= e(t('%d min', $s['duration_min'])) ?></td>
 	<td><?= $s['buffer_min'] > 0 ? e(t('%d min', $s['buffer_min'])) : '—' ?></td>
 	<td><?= e($s['price_text']) ?></td>
-	<td><?= $s['staff'] === [] ? '<span class="small-text">' . e(t('nobody yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '#' . $id), $s['staff']))) ?></td>
-	<td class="center"><form method="post" action="<?= e($module->url('service_delete')) ?>" data-confirm="<?= e(t('Delete the service?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td><?= $s['staff'] === [] ? '<span class="small-text">' . e(t('nobody yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '–'), $s['staff']))) ?></td>
+	<td class="center"><form method="post" action="<?= e($module->url('service_delete')) ?>" data-confirm="<?= e(t('Delete the service?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($s['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
@@ -34,7 +34,7 @@ $names = array_column($staff, 'name', 'id');
 <?php if ($edit !== null): ?>
 <h2><?= e($edit === [] ? t('New service') : (string) $edit['name']) ?></h2>
 <form class="form" method="post" action="<?= e($module->url('service_save')) ?>">
-<?= $csrf ?><input type="hidden" name="id" value="<?= (int) ($edit['id'] ?? 0) ?>">
+<?= $csrf ?><input type="hidden" name="id" value="<?= e((string) ($edit['public_id'] ?? '')) ?>">
 <div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" required maxlength="150" value="<?= e((string) ($edit['name'] ?? '')) ?>" placeholder="<?= e(t('e.g. Haircut')) ?>"></div></div>
 <div class="row"><label for="duration_min"><?= e(t('Duration')) ?></label><div><input class="textfield short" type="number" id="duration_min" name="duration_min" min="5" max="480" step="5" required value="<?= (int) ($edit['duration_min'] ?? 30) ?>"> <?= e(t('minutes')) ?>
 <span class="help"><?= e(t('The offered times step by the duration (up to an hour; longer services every 15 minutes).')) ?></span></div></div>
@@ -43,7 +43,7 @@ $names = array_column($staff, 'name', 'id');
 <div class="row"><label for="description"><?= e(t('Description')) ?></label><div><input class="textfield wide" id="description" name="description" maxlength="500" value="<?= e((string) ($edit['description'] ?? '')) ?>"></div></div>
 <div class="row"><span><?= e(t('Offered by')) ?></span><div>
 <?php if ($staff === []): ?><span class="help"><?= e(t('Add people first.')) ?></span><?php endif ?>
-<?php foreach ($staff as $m): ?><label class="inline"><input type="checkbox" name="staff[]" value="<?= (int) $m['id'] ?>"<?= in_array($m['id'], $edit['staff'] ?? [], true) ? ' checked' : '' ?>> <?= e($m['name']) ?></label> <?php endforeach ?>
+<?php foreach ($staff as $m): ?><label class="inline"><input type="checkbox" name="staff[]" value="<?= e($m['public_id']) ?>"<?= in_array($m['id'], $edit['staff'] ?? [], true) ? ' checked' : '' ?>> <?= e($m['name']) ?></label> <?php endforeach ?>
 </div></div>
 <div class="row"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textfield short" type="number" id="sort_order" name="sort_order" value="<?= (int) ($edit['sort_order'] ?? 0) ?>"></div></div>
 <div class="row"><span></span><div><label><input type="checkbox" name="requires_confirmation" value="1"<?= !empty($edit['requires_confirmation']) ? ' checked' : '' ?>> <?= e(t('Requires confirmation')) ?></label>

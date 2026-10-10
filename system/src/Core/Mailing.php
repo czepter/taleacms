@@ -49,7 +49,7 @@ final class Mailing
     /** @return list<array<string, mixed>> newest first, without the rendered e-mail */
     public static function all(Db $db): array
     {
-        return $db->all('SELECT id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, created, changed, started_at, finished_at
+        return $db->all('SELECT id, public_id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, created, changed, started_at, finished_at
             FROM {newsletters} ORDER BY COALESCE(finished_at, started_at, scheduled_at, changed, created) DESC, id DESC');
     }
 

@@ -275,9 +275,9 @@ final class Blueprint
                     'setting' => [trim($settings->get($r['setting'])) !== '', 'admin.php?module=settings&action=company'],
                     'page' => [$db->value('SELECT 1 FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND slug IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
                     'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id']]) >= $r['min'],
-                        $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['collection_id'] : 'admin.php?module=collections'],
+                        $collection !== null ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', (int) $collection['collection_id']) : 'admin.php?module=collections'],
                     'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(updated_at, created_at)) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$collection['collection_id']])) === null
-                        || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['collection_id'] : 'admin.php?module=collections'],
+                        || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', (int) $collection['collection_id']) : 'admin.php?module=collections'],
                     default => [true, ''], // sanitize() keeps only the known checks
                 };
                 if (!$ok) {

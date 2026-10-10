@@ -25,14 +25,14 @@ final class EnquiryTriageTest extends SiteTestCase
         $id = self::$enquiry;
 
         $text = $this->mcpText('triage_enquiries');
-        $this->assertStringContainsString("\"id\":$id", $text, 'triage: Claude gets the unsorted enquiry');
+        $this->assertStringContainsString('"id":"' . $site->publicId('enquiries', $id) . '"', $text, 'triage: Claude gets the unsorted enquiry');
         $this->assertStringContainsString('40 windows', $text, 'triage: Claude gets the enquiries as text');
 
-        $site->mcp('update_enquiry', ['id' => $id, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Hello, thank you for your enquiry.']);
-        $site->mcp('update_enquiry', ['id' => $spam, 'category' => 'spam']);
+        $site->mcp('update_enquiry', ['id' => $site->publicId('enquiries', $id), 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Hello, thank you for your enquiry.']);
+        $site->mcp('update_enquiry', ['id' => $site->publicId('enquiries', $spam), 'category' => 'spam']);
         $this->assertSame('sales|3|Hello, thank you for your enquiry.|claude', $site->value('SELECT CONCAT(category, \'|\', priority, \'|\', suggested_reply, \'|\', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?', [$id]), "triage: Claude's sorting is saved");
 
-        $this->assertStringContainsString('category must be one of', $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'nonsense']), 'triage: an unknown kind is refused');
+        $this->assertStringContainsString('category must be one of', $this->mcpText('update_enquiry', ['id' => $this->site()->publicId('enquiries', $id), 'category' => 'nonsense']), 'triage: an unknown kind is refused');
 
         $list = $this->mcpText('list_enquiries', ['limit' => 50]);
         $this->assertStringContainsString('draft_reply', $list, 'triage: list_enquiries carries the triage');
@@ -41,7 +41,7 @@ final class EnquiryTriageTest extends SiteTestCase
         $admin = $this->assertPage('/admin.php?module=enquiries', 200, 'category=spam', message: 'triage: the admin list has the spam filter');
         $this->assertStringNotContainsString('first page of Google', $admin->body, 'triage: spam is not in the default list');
 
-        $this->assertPage("/admin.php?module=enquiries&action=detail&id=$id", 200, 'body=Hello%2C%20thank', message: 'triage: the detail has the kind, the priority and the draft in the e-mail reply');
+        $this->assertPage("/admin.php?module=enquiries&action=detail&id=" . $this->site()->publicId('enquiries', (int) $id), 200, 'body=Hello%2C%20thank', message: 'triage: the detail has the kind, the priority and the draft in the e-mail reply');
     }
 
     #[Depends('testClaudeSortsEnquiriesOverMcp')]
@@ -50,9 +50,9 @@ final class EnquiryTriageTest extends SiteTestCase
         $site = $this->site();
         $id = self::$enquiry;
         $token = $this->assertPage('/admin.php?module=enquiries')->csrf();
-        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'category' => 'support', 'priority' => 1, 'suggested_reply' => 'Own reply']);
+        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $site->publicId('enquiries', (int) $id), 'category' => 'support', 'priority' => 1, 'suggested_reply' => 'Own reply']);
 
-        $text = $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'sales']);
+        $text = $this->mcpText('update_enquiry', ['id' => $this->site()->publicId('enquiries', $id), 'category' => 'sales']);
         $this->assertStringContainsString('A person sorted this enquiry already', $text, 'triage: Claude is told a person sorted this enquiry already');
         $this->assertSame('support|1', $site->value("SELECT CONCAT(category, '|', triaged_by <> 'claude') FROM ka_enquiries WHERE enquiry_id = ?", [$id]), "triage: a person's sorting wins over Claude");
     }

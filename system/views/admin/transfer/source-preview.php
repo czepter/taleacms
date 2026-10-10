@@ -77,7 +77,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <div class="row"><label for="default_category"><?= e(t('Put posts without a category into')) ?></label><div><select id="default_category" name="default_category">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
-	<option value="<?= (int) $r['category_id'] ?>"<?= (int) $r['category_id'] === (int) $m['default_category'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
+	<option value="<?= e($r['public_id']) ?>"<?= (int) $r['category_id'] === (int) $m['default_category'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php if (count($languages) > 1): ?>
@@ -104,7 +104,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <div class="row"><label for="<?= e($field) ?>"><?= e($name) ?></label><div><select id="<?= e($field) ?>" name="<?= e($field) ?>">
 	<option value="0"><?= e(t('me (the importing user)')) ?></option>
 <?php foreach ($users as $u): ?>
-	<option value="<?= (int) $u['user_id'] ?>"<?= (int) $u['user_id'] === (int) ($m['authors'][$key] ?? 0) ? ' selected' : '' ?>><?= e($u['name'] !== '' ? $u['name'] : $u['username']) ?></option>
+	<option value="<?= e($u['public_id']) ?>"<?= (int) $u['user_id'] === (int) ($m['authors'][$key] ?? 0) ? ' selected' : '' ?>><?= e($u['name'] !== '' ? $u['name'] : $u['username']) ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php endforeach ?>

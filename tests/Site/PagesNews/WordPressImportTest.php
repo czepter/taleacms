@@ -157,7 +157,7 @@ final class WordPressImportTest extends SiteTestCase
         $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Team', 'detail' => 1,
             'fields' => [['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html']]], '/admin.php?module=collections');
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jane Novak', 'data' => ['role' => 'Managing director'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $site->publicId('collections', $idk), 'item_id' => 0, 'name' => 'Jane Novak', 'data' => ['role' => 'Managing director'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
         $site->mcpResult('save_build', ['part' => 'footer', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
         $popup = $site->mcpResult('save_popup', ['template' => 'blank', 'name' => 'Event window']);
         $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['event-window']);

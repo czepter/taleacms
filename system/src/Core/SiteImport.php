@@ -15,8 +15,10 @@ use Kaleta\Builder\Style;
 /**
  * Import of a Kaleta export (1.8): moves a whole site into a new, empty installation – the counterpart of SiteExport.
  *
- * The site is empty, so every row keeps its number from the export and all references between pages, news, collections,
- * components, menus and media stay valid without remapping. What comes in goes through the same validators as when saving
+ * The site is empty, so the rows get their integer keys from their order in the export (the first row of a table is 1) and keep
+ * the public_id (UUID v4) the export gave them: the file has no integer keys. Every reference between rows is a public id
+ * (see SiteExport); prepare() reads all public ids once into ids.json (public id => the new integer key), and every row, build,
+ * menu and rule is pointed at the new keys before it is validated and stored. What comes in goes through the same validators as when saving
  * in the administration: builds (Build::sanitize), classes (Style), menus, collection data, pop-up rules, design system.
  * Users, passwords, keys and tokens are never in an export, so they are never imported; the imported news belong to the
  * administrator who runs the import.
@@ -48,6 +50,9 @@ final class SiteImport
     /** @var array<string, list<string>> columns of the tables on this site */
     private array $columns = [];
 
+    /** @var array<string, array<string, int>>|null table => public id => the integer key the row gets (ids.json of the working folder) */
+    private ?array $ids = null;
+
     /** The export brings the notice log itself (2.11) – otherwise every imported notice gets a 'created' row. */
     private bool $exportHasNoticeLog = false;
 
@@ -56,6 +61,18 @@ final class SiteImport
 
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin)
     {
+    }
+
+    /** The integer key the exported row with this public id gets (0: not a public id of the export). */
+    private function ref(string $table, mixed $publicId): int
+    {
+        return Uuid::valid($publicId) ? (int) ($this->ids[$table][(string) $publicId] ?? 0) : 0;
+    }
+
+    /** The row's public id when it is a valid one (the import keeps it), otherwise a new one. */
+    private static function publicId(array $r): string
+    {
+        return Uuid::valid($r['public_id'] ?? null) ? (string) $r['public_id'] : Uuid::v4();
     }
 
     /* ---------- files in storage/import ---------- */
@@ -197,6 +214,9 @@ final class SiteImport
         if (($header['format'] ?? '') !== 'kaleta-export') {
             throw new \RuntimeException('The file is not a Kaleta export.');
         }
+        if ((int) ($header['format_version'] ?? 0) < 3) {
+            throw new \RuntimeException('This export is from before public ids (format version 2 or older) – export the site again with a current Kaleta.');
+        }
         if ((int) ($header['format_version'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
             throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
         }
@@ -217,13 +237,17 @@ final class SiteImport
     {
         $parts = [];
         $counts = [];
-        $write = function (string $table, array $row) use (&$parts, &$counts, $work): void {
+        $ids = [];
+        $write = function (string $table, array $row) use (&$parts, &$counts, &$ids, $work): void {
             if (!in_array($table, self::TABLES, true)) {
                 return;
             }
             $parts[$table] ??= fopen($work . '/' . $table . '.ndjson', 'wb');
             fwrite($parts[$table], json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
             $counts[$table] = ($counts[$table] ?? 0) + 1;
+            if (in_array($table, Db::PUBLIC_ID_TABLES, true) && Uuid::valid($row['public_id'] ?? null)) {
+                $ids[$table][(string) $row['public_id']] = $counts[$table]; // the row's number in its table is its key on this site
+            }
         };
         $f = fopen($json, 'rb');
         $first = (string) fgets($f);
@@ -272,6 +296,7 @@ final class SiteImport
         foreach ($parts as $h) {
             fclose($h);
         }
+        file_put_contents($work . '/ids.json', (string) json_encode($ids === [] ? new \stdClass() : $ids));
         if (is_array($header['settings'] ?? null)) {
             file_put_contents($work . '/settings.json', (string) json_encode($header['settings'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
@@ -306,6 +331,7 @@ final class SiteImport
         $start = microtime(true);
         $done = 0;
         $this->exportHasNoticeLog = (int) ($state['counts']['notice_log'] ?? 0) > 0;
+        $this->loadIds((string) $state['file']);
         while ($state['table'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
             $table = self::TABLES[$state['table']];
             $file = self::workFolder((string) $state['file']) . '/' . $table . '.ndjson';
@@ -323,12 +349,13 @@ final class SiteImport
                     $state['position']++;
                     $done++;
                     $row = $line === '' ? null : json_decode($line, true);
-                    $ok = is_array($row) && $this->insert($table, $row);
+                    $ok = is_array($row) && $this->insert($table, $row, (int) $state['position']);
                     $state['result'][$table][$ok ? 'ok' : 'skipped'] = ($state['result'][$table][$ok ? 'ok' : 'skipped'] ?? 0) + 1;
                 }
             });
         }
         if ($state['table'] >= count(self::TABLES)) {
+            $this->loadIds((string) $state['file']);
             $this->applySettings((string) $state['file'], (string) ($state['header']['kaleta'] ?? ''));
             $state['phase'] = $state['media_total'] > 0 ? 'media' : 'done';
             if ($state['phase'] === 'done') {
@@ -337,9 +364,15 @@ final class SiteImport
         }
     }
 
-    /** One row: cleaned by the table's rules, only columns this site has; false = skipped. */
-    private function insert(string $table, array $r): bool
+    private function loadIds(string $file): void
     {
+        $this->ids ??= (array) json_decode((string) @file_get_contents(self::workFolder($file) . '/ids.json'), true);
+    }
+
+    /** One row: cleaned by the table's rules, only columns this site has; false = skipped. $ordinal = its number in the table = its key. */
+    private function insert(string $table, array $r, int $ordinal): bool
+    {
+        $r['_id'] = $ordinal;
         $clean = match ($table) {
             'categories' => $this->category($r),
             'tags' => $this->tag($r),
@@ -354,19 +387,19 @@ final class SiteImport
             'collections' => $this->collection($r),
             'collection_templates' => $this->collectionTemplate($r),
             'collection_items' => $this->collectionItem($r),
-            'document_versions' => self::documentVersion($r),
+            'document_versions' => $this->documentVersion($r),
             'popups' => $this->popup($r),
-            'media_folders' => (int) ($r['folder_id'] ?? 0) > 0 ? ['folder_id' => (int) $r['folder_id'], 'name' => mb_substr(trim(strip_tags((string) ($r['name'] ?? ''))), 0, 100)] : null,
+            'media_folders' => ['folder_id' => $ordinal, 'public_id' => self::publicId($r), 'name' => mb_substr(trim(strip_tags((string) ($r['name'] ?? ''))), 0, 100)],
             'media' => $this->mediaRow($r),
             'facts' => self::fact($r),
             'hours_exceptions' => self::hoursException($r),
             'booking_services' => self::bookingService($r),
             'booking_staff' => self::bookingStaff($r),
-            'booking_staff_services' => (int) ($r['staff_id'] ?? 0) > 0 && (int) ($r['service_id'] ?? 0) > 0 ? ['staff_id' => (int) $r['staff_id'], 'service_id' => (int) $r['service_id']] : null,
-            'booking_hours' => self::bookingHours($r),
-            'booking_off' => self::bookingOff($r),
+            'booking_staff_services' => ($staff = $this->ref('booking_staff', $r['staff_id'] ?? null)) > 0 && ($service = $this->ref('booking_services', $r['service_id'] ?? null)) > 0 ? ['staff_id' => $staff, 'service_id' => $service] : null,
+            'booking_hours' => $this->bookingHours($r),
+            'booking_off' => $this->bookingOff($r),
             'blueprints' => self::blueprint($r),
-            'notice_log' => self::noticeLogRow($r),
+            'notice_log' => $this->noticeLogRow($r),
             'notebook' => self::note($r),
         };
         if ($clean === null) {
@@ -380,8 +413,8 @@ final class SiteImport
         } catch (\PDOException) {
             return false; // a duplicate number or address in the export
         }
-        foreach ($tags as $ids) {
-            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$clean['news_id'], $ids]);
+        foreach ($tags as $tagId) {
+            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$clean['news_id'], $tagId]);
         }
         if ($table === 'collection_items' && !$this->exportHasNoticeLog) {
             $this->logImportedNotice($clean);
@@ -501,11 +534,11 @@ final class SiteImport
     {
         $name = self::text(strip_tags((string) ($r['name'] ?? '')), 150);
         $duration = (int) ($r['duration_min'] ?? 0);
-        if ((int) ($r['id'] ?? 0) <= 0 || trim($name) === '' || $duration < 5 || $duration > Booking::MAX_DURATION) {
+        if (trim($name) === '' || $duration < 5 || $duration > Booking::MAX_DURATION) {
             return null;
         }
 
-        return ['id' => (int) $r['id'], 'name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($r['buffer_min'] ?? 0))), 'price_text' => self::text(strip_tags((string) ($r['price_text'] ?? '')), 60),
+        return ['id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($r['buffer_min'] ?? 0))), 'price_text' => self::text(strip_tags((string) ($r['price_text'] ?? '')), 60),
             'description' => self::text(strip_tags((string) ($r['description'] ?? '')), 500), 'active' => !empty($r['active']) ? 1 : 0, 'requires_confirmation' => !empty($r['requires_confirmation']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
     }
 
@@ -514,34 +547,35 @@ final class SiteImport
     {
         $name = self::text(strip_tags((string) ($r['name'] ?? '')), 150);
         $email = trim((string) ($r['email'] ?? ''));
-        if ((int) ($r['id'] ?? 0) <= 0 || trim($name) === '') {
+        if (trim($name) === '') {
             return null;
         }
 
-        return ['id' => (int) $r['id'], 'name' => $name, 'email' => filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($email, 0, 190) : '', 'active' => !empty($r['active']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
+        return ['id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'email' => filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($email, 0, 190) : '', 'active' => !empty($r['active']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
     }
 
     /** @param array<string, mixed> $r */
-    private static function bookingHours(array $r): ?array
+    private function bookingHours(array $r): ?array
     {
         $ranges = Booking::parseHours([(int) ($r['weekday'] ?? 0) => (string) ($r['time_from'] ?? '') . '-' . (string) ($r['time_to'] ?? '')]);
-        if ((int) ($r['staff_id'] ?? 0) <= 0 || $ranges === null || $ranges === []) {
+        $staff = $this->ref('booking_staff', $r['staff_id'] ?? null);
+        if ($staff <= 0 || $ranges === null || $ranges === []) {
             return null;
         }
         [$from, $to] = $ranges[(int) $r['weekday']][0];
 
-        return ['staff_id' => (int) $r['staff_id'], 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
+        return ['staff_id' => $staff, 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
     }
 
     /** @param array<string, mixed> $r */
-    private static function bookingOff(array $r): ?array
+    private function bookingOff(array $r): ?array
     {
         $range = Booking::offRange(substr((string) ($r['off_from'] ?? ''), 0, 16), substr((string) ($r['off_to'] ?? ''), 0, 16));
         if ($range === null) {
             return null;
         }
 
-        return ['staff_id' => (int) ($r['staff_id'] ?? 0) > 0 ? (int) $r['staff_id'] : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150)];
+        return ['staff_id' => ($staff = $this->ref('booking_staff', $r['staff_id'] ?? null)) > 0 ? $staff : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150)];
     }
 
     private static function hoursException(array $r): ?array
@@ -559,15 +593,16 @@ final class SiteImport
     }
 
     /** A row of the notice log (2.11, Core\Notices) as exported – the trail is kept as it was. @return array<string, mixed>|null */
-    private static function noticeLogRow(array $r): ?array
+    private function noticeLogRow(array $r): ?array
     {
         $at = (string) ($r['at'] ?? '');
-        if ((int) ($r['id'] ?? 0) <= 0 || (int) ($r['item_id'] ?? 0) <= 0 || !in_array($r['action'] ?? '', Notices::ACTIONS, true) || strtotime($at) === false) {
+        $item = $this->ref('collection_items', $r['item_id'] ?? null);
+        if ((int) ($r['id'] ?? 0) <= 0 || $item <= 0 || !in_array($r['action'] ?? '', Notices::ACTIONS, true) || strtotime($at) === false) {
             return null;
         }
         $fields = is_array($r['fields'] ?? null) ? $r['fields'] : json_decode((string) ($r['fields'] ?? ''), true);
 
-        return ['id' => (int) $r['id'], 'item_id' => (int) $r['item_id'], 'action' => (string) $r['action'], 'at' => date('Y-m-d H:i:s', (int) strtotime($at)),
+        return ['id' => (int) $r['id'], 'item_id' => $item, 'action' => (string) $r['action'], 'at' => date('Y-m-d H:i:s', (int) strtotime($at)),
             'by' => self::text(strip_tags((string) ($r['by'] ?? '')), 100), 'fields' => (string) json_encode(is_array($fields) ? $fields : [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
     }
 
@@ -585,64 +620,72 @@ final class SiteImport
     }
 
     /** A builder build from the export: through the validator like any save; null for an empty or broken one. */
-    private static function build(mixed $v): ?string
+    private function build(mixed $v): ?string
     {
         $build = is_array($v) ? $v : (is_string($v) && $v !== '' ? json_decode($v, true) : null);
         if (!is_array($build)) {
             return null;
         }
+        // components and booking elements point at public ids in the export: now at the keys they get on this site
+        $build = json_decode(SiteExport::mapReferences('build', (string) json_encode($build), $this->mapper()), true) ?: $build;
         [$clean] = Build::sanitize($build, true);
 
         return Build::toJson($clean);
+    }
+
+    /** @return \Closure(string, mixed): int the reference map for SiteExport::mapReferences – a public id of the export to the new key (0 = none) */
+    private function mapper(): \Closure
+    {
+        return fn (string $table, mixed $publicId): int => $this->ref($table, $publicId);
     }
 
     private function category(array $r): ?array
     {
         $name = self::text(strip_tags((string) ($r['name'] ?? '')), 100);
 
-        return (int) ($r['category_id'] ?? 0) > 0 && $name !== '' ? ['category_id' => (int) $r['category_id'], 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
+        return $name !== '' ? ['category_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
             'description' => self::text($r['description'] ?? '', 5000), 'weight' => (int) ($r['weight'] ?? 0), 'language' => self::language($r['language'] ?? ''),
-            'translation_of' => (int) ($r['translation_of'] ?? 0) ?: null] : null;
+            'translation_of' => $this->ref('categories', $r['translation_of'] ?? null) ?: null] : null;
     }
 
     private function tag(array $r): ?array
     {
         $name = self::text(strip_tags((string) ($r['name'] ?? '')), 100);
 
-        return (int) ($r['tag_id'] ?? 0) > 0 && $name !== '' ? ['tag_id' => (int) $r['tag_id'], 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
+        return $name !== '' ? ['tag_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
             'description' => self::text($r['description'] ?? '', 5000), 'image' => self::file($r['image'] ?? '')] : null;
     }
 
     private function page(array $r): ?array
     {
         $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 200);
-        if ((int) ($r['page_id'] ?? 0) <= 0 || $title === '') {
+        if ($title === '') {
             return null;
         }
 
-        return ['page_id' => (int) $r['page_id'], 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 120), 'description' => self::text($r['description'] ?? '', 300),
+        return ['page_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 120), 'description' => self::text($r['description'] ?? '', 300),
             'seo_title' => self::text($r['seo_title'] ?? '', 200), 'image' => self::file($r['image'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
             'text' => self::html($r['text'] ?? '', 4_000_000), 'visible' => (int) !empty($r['visible']), 'publish_at' => self::date($r['publish_at'] ?? null),
             'in_menu' => (int) !empty($r['in_menu']), 'sort_order' => (int) ($r['sort_order'] ?? 0), 'updated_at' => self::date($r['updated_at'] ?? null) ?? date('Y-m-d H:i:s'),
-            'language' => self::language($r['language'] ?? ''), 'translation_of' => (int) ($r['translation_of'] ?? 0) ?: null, 'parent_id' => (int) ($r['parent_id'] ?? 0) ?: null,
-            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null)] + self::validity($r);
+            'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('pages', $r['translation_of'] ?? null) ?: null, 'parent_id' => $this->ref('pages', $r['parent_id'] ?? null) ?: null,
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r);
     }
 
     private function newsItem(array $r): ?array
     {
         $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 255);
-        if ((int) ($r['news_id'] ?? 0) <= 0 || $title === '') {
+        if ($title === '') {
             return null;
         }
-        $row = ['news_id' => (int) $r['news_id'], 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 160), 'intro' => self::html($r['intro'] ?? '', 100_000),
+        $row = ['news_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 160), 'intro' => self::html($r['intro'] ?? '', 100_000),
             'text' => self::html($r['text'] ?? '', 4_000_000), 'image' => self::file($r['image'] ?? ''), 'image_caption' => self::text($r['image_caption'] ?? '', 300),
-            'image_author' => self::text($r['image_author'] ?? '', 120), 'category_id' => (int) ($r['category_id'] ?? 0), 'author_id' => $this->admin,
+            'image_author' => self::text($r['image_author'] ?? '', 120), 'category_id' => $this->ref('categories', $r['category_id'] ?? null), 'author_id' => $this->admin,
             'published_at' => self::date($r['published_at'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 'keywords' => self::text($r['keywords'] ?? '', 500),
             'seo_title' => self::text($r['seo_title'] ?? '', 255), 'seo_description' => self::text($r['seo_description'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
             'visit' => (int) ($r['visit'] ?? 0), 'edited_at' => self::date($r['edited_at'] ?? null), 'updated_at' => self::date($r['updated_at'] ?? null),
             // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
-            'announced_at' => date('Y-m-d H:i:s'), 'language' => self::language($r['language'] ?? ''), 'translation_of' => (int) ($r['translation_of'] ?? 0) ?: null, 'search_text' => null,
-            '_tags' => array_values(array_filter(array_map('intval', is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r);
+            'announced_at' => date('Y-m-d H:i:s'), 'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('news', $r['translation_of'] ?? null) ?: null, 'search_text' => null,
+            '_tags' => array_values(array_filter(array_map(fn (mixed $t): int => $this->ref('tags', $t), is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r);
         if (is_string($r['faq'] ?? null)) {
             $row['faq'] = self::text($r['faq'], 60_000);
         }
@@ -656,8 +699,8 @@ final class SiteImport
         $from = is_string($r['from_path'] ?? null) ? trim($r['from_path'], '/ ') : '';
         $to = is_string($r['to_path'] ?? null) ? trim($r['to_path']) : '';
 
-        return (int) ($r['redirect_id'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
-            ? ['redirect_id' => (int) $r['redirect_id'], 'from_path' => $from, 'to_path' => $to, 'type' => (int) ($r['type'] ?? 301) === 302 ? 302 : 301, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
+        return preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
+            ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'type' => (int) ($r['type'] ?? 301) === 302 ? 302 : 301, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
@@ -683,10 +726,11 @@ final class SiteImport
             return null;
         }
         $pages = is_array($r['pages'] ?? null) ? $r['pages'] : json_decode((string) ($r['pages'] ?? ''), true);
+        $pages = is_array($pages) ? array_map(fn (mixed $p): int => $this->ref('pages', $p), $pages) : $pages;
 
         return ['type' => $type, 'language' => self::language($r['language'] ?? ''), 'variant' => $variant, 'name' => self::text(strip_tags((string) ($r['name'] ?? '')), 100),
             'pages' => is_array($pages) ? (string) json_encode(array_values(array_filter(array_map('intval', $pages), fn (int $i): bool => $i > 0))) : null,
-            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')];
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')];
     }
 
     private function component(array $r): ?array
@@ -694,9 +738,9 @@ final class SiteImport
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
         $properties = is_array($r['properties'] ?? null) ? $r['properties'] : json_decode((string) ($r['properties'] ?? ''), true);
 
-        return (int) ($r['component_id'] ?? 0) > 0 && $name !== '' ? ['component_id' => (int) $r['component_id'], 'name' => $name,
+        return $name !== '' ? ['component_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name,
             'properties' => (string) json_encode(Components::sanitizeProperties($properties), JSON_UNESCAPED_UNICODE),
-            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
     /** The key a component or section got from a fleet design kit (2.16, Fleet\Kit) – kept, so the next kit updates it instead of adding a copy. */
@@ -708,17 +752,19 @@ final class SiteImport
     private function section(array $r): ?array
     {
         $element = is_array($r['element'] ?? null) ? $r['element'] : json_decode((string) ($r['element'] ?? ''), true);
-        $build = is_array($element) ? json_decode((string) self::build(['v' => Build::VERSION, 'children' => [$element]]), true) : null;
+        $element = is_array($element) ? json_decode(SiteExport::mapReferences('element', (string) json_encode($element), $this->mapper()), true) : $element;
+        $build = is_array($element) ? json_decode((string) $this->build(['v' => Build::VERSION, 'children' => [$element]]), true) : null;
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
 
-        return (int) ($r['section_id'] ?? 0) > 0 && $name !== '' && isset($build['children'][0])
-            ? ['section_id' => (int) $r['section_id'], 'name' => $name, 'element' => (string) json_encode($build['children'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
+        return $name !== '' && isset($build['children'][0])
+            ? ['section_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'element' => (string) json_encode($build['children'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
     private function menu(array $r): ?array
     {
         $location = (string) ($r['location'] ?? '');
         $items = is_array($r['items'] ?? null) ? $r['items'] : json_decode((string) ($r['items'] ?? ''), true);
+        $items = is_array($items) ? json_decode(SiteExport::mapReferences('menu', (string) json_encode($items), $this->mapper()), true) : $items;
 
         return isset(Menu::LOCATIONS[$location]) ? ['location' => $location, 'language' => self::language($r['language'] ?? ''),
             'items' => (string) json_encode(Menu::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'updated_at' => date('Y-m-d H:i:s')] : null;
@@ -729,32 +775,32 @@ final class SiteImport
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
         $fields = is_array($r['fields'] ?? null) ? $r['fields'] : json_decode((string) ($r['fields'] ?? ''), true);
 
-        return (int) ($r['collection_id'] ?? 0) > 0 && $name !== '' ? ['collection_id' => (int) $r['collection_id'], 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 110),
+        return $name !== '' ? ['collection_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 110),
             'fields' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
             'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
             'preset' => \Kaleta\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
             'schema_org' => ($schema = \Kaleta\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
                 ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
-            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
     private function collectionTemplate(array $r): ?array
     {
-        return (int) ($r['collection_id'] ?? 0) > 0 ? ['collection_id' => (int) $r['collection_id'], 'language' => self::language($r['language'] ?? ''), 'build' => self::build($r['build'] ?? null),
-            'build_draft' => self::build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
+        return ($idk = $this->ref('collections', $r['collection_id'] ?? null)) > 0 ? ['collection_id' => $idk, 'language' => self::language($r['language'] ?? ''), 'build' => $this->build($r['build'] ?? null),
+            'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
     private function collectionItem(array $r): ?array
     {
-        $idk = (int) ($r['collection_id'] ?? 0);
+        $idk = $this->ref('collections', $r['collection_id'] ?? null);
         $fields = $idk > 0 ? json_decode((string) $this->db->value('SELECT fields FROM {collections} WHERE collection_id = ?', [$idk]), true) : null;
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 200);
-        if ((int) ($r['item_id'] ?? 0) <= 0 || !is_array($fields) || $name === '') {
+        if (!is_array($fields) || $name === '') {
             return null; // an item without its collection
         }
         $data = is_array($r['data'] ?? null) ? $r['data'] : json_decode((string) ($r['data'] ?? ''), true);
 
-        return ['item_id' => (int) $r['item_id'], 'collection_id' => $idk, 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 160),
+        return ['item_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'collection_id' => $idk, 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 160),
             'data' => (string) json_encode(Collections::sanitizeData($fields, is_array($data) ? $data : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'sort_order' => (int) ($r['sort_order'] ?? 0), 'visible' => (int) !empty($r['visible']), 'language' => self::language($r['language'] ?? ''),
             'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
@@ -763,14 +809,15 @@ final class SiteImport
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */
-    private static function documentVersion(array $r): ?array
+    private function documentVersion(array $r): ?array
     {
         $file = is_string($r['file'] ?? null) ? trim($r['file']) : '';
-        if ((int) ($r['item_id'] ?? 0) <= 0 || preg_match(Collections::MEDIA_PATTERN, $file) !== 1 || str_contains($file, '..')) {
+        $item = $this->ref('collection_items', $r['item_id'] ?? null);
+        if ($item <= 0 || preg_match(Collections::MEDIA_PATTERN, $file) !== 1 || str_contains($file, '..')) {
             return null;
         }
 
-        return ['item_id' => (int) $r['item_id'], 'file' => $file, 'version' => self::text(strip_tags((string) ($r['version'] ?? '')), 100),
+        return ['item_id' => $item, 'file' => $file, 'version' => self::text(strip_tags((string) ($r['version'] ?? '')), 100),
             'replaced_at' => self::date($r['replaced_at'] ?? null) ?? date('Y-m-d H:i:s'), 'replaced_by' => self::text(strip_tags((string) ($r['replaced_by'] ?? '')), 100)];
     }
 
@@ -778,29 +825,30 @@ final class SiteImport
     {
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
         $address = (string) ($r['slug'] ?? '');
-        if ((int) ($r['popup_id'] ?? 0) <= 0 || $name === '' || !preg_match(Popups::ADDRESS_PATTERN, $address)) {
+        if ($name === '' || !preg_match(Popups::ADDRESS_PATTERN, $address)) {
             return null;
         }
         $rules = is_array($r['rules'] ?? null) ? $r['rules'] : json_decode((string) ($r['rules'] ?? ''), true);
+        $rules = is_array($rules) ? json_decode(SiteExport::mapReferences('rules', (string) json_encode($rules), $this->mapper()), true) : $rules;
 
-        return ['popup_id' => (int) $r['popup_id'], 'name' => $name, 'slug' => $address,
+        return ['popup_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => $address,
             'type' => self::pick(Popups::TYPES, $r['type'] ?? ''), 'trigger_type' => self::pick(Popups::TRIGGERS, $r['trigger_type'] ?? ''),
             'value' => max(0, min(100_000, (int) ($r['value'] ?? 0))), 'rules' => (string) json_encode(Popups::sanitizeRules(is_array($rules) ? $rules : []), JSON_UNESCAPED_UNICODE),
             'frequency' => self::pick(Popups::FREQUENCIES, $r['frequency'] ?? ''),
             'days' => max(0, min(3650, (int) ($r['days'] ?? 0))), 'active' => (int) !empty($r['active']), 'sort_order' => (int) ($r['sort_order'] ?? 0),
-            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] + self::validity($r);
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] + self::validity($r);
     }
 
     private function mediaRow(array $r): ?array
     {
         // format 1 named the columns differently (file, width, height)
         $file = self::file($r['image_path'] ?? ($r['file'] ?? ''));
-        if ((int) ($r['media_id'] ?? 0) <= 0 || !str_starts_with(ltrim($file, '/'), 'media/')) {
+        if (!str_starts_with(ltrim($file, '/'), 'media/')) {
             return null;
         }
-        $folder = (int) ($r['folder_id'] ?? 0);
+        $folder = $this->ref('media_folders', $r['folder_id'] ?? null);
 
-        return ['media_id' => (int) $r['media_id'], 'owner_id' => $this->admin,
+        return ['media_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'owner_id' => $this->admin,
             'folder_id' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null ? $folder : null,
             'name' => self::text($r['name'] ?? '', 150), 'description' => self::text($r['description'] ?? '', 500), 'author' => self::text($r['author'] ?? '', 120),
             'image_path' => ltrim($file, '/'), 'image_width' => max(0, min(65535, (int) ($r['image_width'] ?? ($r['width'] ?? 0)))),
@@ -824,7 +872,8 @@ final class SiteImport
             $value = match ($key) {
                 'design_system' => (string) json_encode(DesignSystem::sanitize(json_decode($value, true) ?: []), JSON_UNESCAPED_SLASHES),
                 'logo', 'favicon', 'share_image' => self::file($value),
-                'home_page', 'news_per_page' => (string) max(0, (int) $value),
+                'home_page' => (string) $this->ref('pages', $value),
+                'news_per_page' => (string) max(0, (int) $value),
                 'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
                 'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,

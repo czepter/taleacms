@@ -35,7 +35,7 @@ $tag = fn (string $status): string => '<span class="badge' . match ($status) { '
 <tbody>
 <?php foreach ($requests as $r): ?>
 <tr<?= in_array($r['status'], ['done', 'declined'], true) ? ' class="unpublished"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => (int) $r['id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $r['attachments'] !== [] ? ' <span class="small-text">(' . e(t('%d attachments', count($r['attachments']))) . ')</span>' : '' ?><br><span class="small-text"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $r['public_id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $r['attachments'] !== [] ? ' <span class="small-text">(' . e(t('%d attachments', count($r['attachments']))) . ')</span>' : '' ?><br><span class="small-text"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
 	<td><?= e((string) $r['author']) ?></td>
 	<td><?= $tag((string) $r['status']) ?></td>
 	<td><?= e(format_date((string) $r['created_at'], true)) ?></td>

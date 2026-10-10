@@ -32,7 +32,7 @@ final class Webhook
             return;
         }
         self::queue($app->settings(), 'enquiry_received', $url, [
-            'event' => 'enquiry_received', 'site' => $app->settings()->get('site_name'), 'id' => $idp, 'form' => $form, 'email' => $email,
+            'event' => 'enquiry_received', 'site' => $app->settings()->get('site_name'), 'id' => $app->db()->publicId('enquiries', $idp), 'form' => $form, 'email' => $email,
             'page' => $app->request->origin() . $page, 'received_at' => date('c'),
             'about' => $about !== '' ? $about : null, // what the form was about (2.12, Front\EnquiryTopic): the item or page it was on
             // 2.3: which form (to route one form elsewhere in Make or Zapier) and where the visit started (with consent)

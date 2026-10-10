@@ -80,7 +80,7 @@ final class Console
         $db->update('fleet_pairing', ['used_at' => date('Y-m-d H:i:s'), 'site_id' => $id], ['code_hash' => $hash]);
         Events::record($db, 'fleet.site_paired', 'info', t('%s was paired with the console.', $row['url']), ['site' => $id]);
 
-        return self::signed($app->settings(), ['ok' => true, 'site_id' => $id, 'console_name' => $app->settings()->get('site_name')]);
+        return self::signed($app->settings(), ['ok' => true, 'site_id' => $db->publicId('fleet_sites', $id), 'console_name' => $app->settings()->get('site_name')]);
     }
 
     /** POST /fleet/heartbeat */
@@ -88,7 +88,7 @@ final class Console
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT * FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->byPublicId('fleet_sites', $d['site_id'] ?? null) : null; // the site's public id: its row number never leaves the console
         if ($site === null) {
             return Response::json(['error' => 'This console does not know the site.'], 404);
         }
@@ -135,7 +135,7 @@ final class Console
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT id, url, public_key FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->byPublicId('fleet_sites', $d['site_id'] ?? null) : null;
         if ($site === null || !Keys::verify($body, $signature, (string) $site['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW) {
             return Response::json(['error' => 'Not a valid request of a paired site.'], 403);
         }

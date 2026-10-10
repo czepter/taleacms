@@ -14,7 +14,7 @@
 <?php if ($result !== null && ($result['conflicts'] !== [] || $result['untracked'] !== [])): ?>
 <div class="notice error" role="alert">
 <?php if ($result['conflicts'] !== []): ?><p><?= e(t('%d rows were changed after the session (by a person or another session) and were left as they are. Undo again with “Also overwrite later changes” to put them back too.', count($result['conflicts']))) ?></p>
-<ul><?php foreach (array_slice($result['conflicts'], 0, 20) as $c): ?><li><code><?= e($c['table']) ?> <?= e((string) json_encode($c['key'], JSON_UNESCAPED_UNICODE)) ?></code></li><?php endforeach ?></ul><?php endif ?>
+<ul><?php foreach (array_slice($result['conflicts'], 0, 20) as $c): ?><li><code><?= e($c['table']) ?> <?= e(is_string($c['key']) ? $c['key'] : (string) json_encode($c['key'], JSON_UNESCAPED_UNICODE)) ?></code></li><?php endforeach ?></ul><?php endif ?>
 <?php if ($result['untracked'] !== []): ?><p><?= e(t('These changes could not be followed row by row and stay as they are – check them by hand:')) ?></p>
 <ul><?php foreach ($result['untracked'] as $u): ?><li><?= e($u) ?></li><?php endforeach ?></ul><?php endif ?>
 </div>

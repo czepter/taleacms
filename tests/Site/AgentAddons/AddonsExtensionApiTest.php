@@ -123,7 +123,7 @@ PHP . "\n");
     public function testWithoutTheNewsSectionAnEditorReadsOnlyPublishedNews(): void
     {
         // 3.3.2 (N12)
-        $draft = (int) $this->pick($this->mcpData('create_news', ['title' => 'N12 draft only for News', 'category' => self::$category]), 'id');
+        $draft = $this->site()->rowId((string) $this->pick($this->mcpData('create_news', ['title' => 'N12 draft only for News', 'category' => self::$category]), 'id'));
         $this->site()->exec("INSERT INTO ka_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW())");
         $this->site()->exec("INSERT INTO ka_user_permissions (user_id, module) SELECT user_id, 'pages' FROM ka_users WHERE username = 'n12-editor'");
         $editor = $this->tokenOf('n12-editor', 'editor', 'd');
@@ -131,10 +131,10 @@ PHP . "\n");
         $this->assertGreaterThan(0, $draft, 'the draft news was created');
         $this->assertSame(
             '0|1|1',
-            $this->lines('N12 draft only', $this->mcpRawText('list_news', ['limit' => 50], $editor)) . '|' . $this->lines('"isError":true', $this->mcpRawText('get_news', ['id' => $draft], $editor)) . '|' . $this->lines('N12 draft only', $this->mcpRawText('list_news', ['limit' => 50])),
+            $this->lines('N12 draft only', $this->mcpRawText('list_news', ['limit' => 50], $editor)) . '|' . $this->lines('"isError":true', $this->mcpRawText('get_news', ['id' => $this->site()->publicId('news', $draft)], $editor)) . '|' . $this->lines('N12 draft only', $this->mcpRawText('list_news', ['limit' => 50])),
             '3.3.2 MCP: list_news and get_news without the News section show no drafts; with it they do',
         );
-        $this->site()->mcp('trash_news', ['id' => $draft]);
+        $this->site()->mcp('trash_news', ['id' => $this->site()->publicId('news', $draft)]);
     }
 
     public function testAnAuthorLevelRoleWithCategoriesNeitherRenamesNorDeletesACategory(): void

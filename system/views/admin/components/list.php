@@ -18,11 +18,11 @@
 <tbody>
 <?php foreach ($components as $k): ?>
 <tr>
-	<td><a href="<?= e($module->url('builder', ['id' => $k['component_id']])) ?>"><strong><?= e($k['name']) ?></strong></a><?= $k['build_draft'] !== null && $k['build'] !== null ? ' <span class="badge badge-draft">' . e(t('unpublished changes')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('builder', ['id' => $k['public_id']])) ?>"><strong><?= e($k['name']) ?></strong></a><?= $k['build_draft'] !== null && $k['build'] !== null ? ' <span class="badge badge-draft">' . e(t('unpublished changes')) . '</span>' : '' ?></td>
 	<td><?= $k['properties'] === [] ? '—' : implode(' ', array_map(fn (array $v): string => '<code>{{' . e($v['key']) . '}}</code>', $k['properties'])) ?></td>
 	<td<?= $k['places'] !== [] ? ' title="' . e(implode(', ', $k['places'])) . '"' : '' ?>><?= e(t('%s×', (string) $k['usage'])) ?></td>
-	<td class="actions"><a href="<?= e($module->url('builder', ['id' => $k['component_id']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $k['component_id']])) ?>"><?= e(t('Name and properties')) ?></a> ·
-		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e($k['usage'] > 0 ? t('The component “%s” is used on: %s. Deleting it leaves an empty space there. Delete it anyway?', $k['name'], implode(', ', array_slice($k['places'], 0, 8)) . (count($k['places']) > 8 ? ' ' . t('and %d more', count($k['places']) - 8) : '')) : t('Really delete this component?')) ?>"><?= $csrf ?><input type="hidden" name="component_id" value="<?= (int) $k['component_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td class="actions"><a href="<?= e($module->url('builder', ['id' => $k['public_id']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $k['public_id']])) ?>"><?= e(t('Name and properties')) ?></a> ·
+		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e($k['usage'] > 0 ? t('The component “%s” is used on: %s. Deleting it leaves an empty space there. Delete it anyway?', $k['name'], implode(', ', array_slice($k['places'], 0, 8)) . (count($k['places']) > 8 ? ' ' . t('and %d more', count($k['places']) - 8) : '')) : t('Really delete this component?')) ?>"><?= $csrf ?><input type="hidden" name="component_id" value="<?= e($k['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

@@ -791,7 +791,7 @@ final class WpImport
     public static function mediaImage(string $base, array $image, string $alt): array
     {
         return ['src' => $base . '/' . $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height'],
-            'loading' => 'lazy', 'data-id' => (int) $image['media_id']];
+            'loading' => 'lazy', 'data-id' => $image['public_id'] ?? (int) $image['media_id']];
     }
 
     /**
@@ -849,6 +849,7 @@ final class WpImport
             $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
             $this->writeMap('image', $key, (int) $saved['media_id']);
             $state['images']['downloaded']++;
+            $saved['public_id'] = $this->db->publicId('media', (int) $saved['media_id']);
 
             return $saved;
         } catch (\RuntimeException $e) {

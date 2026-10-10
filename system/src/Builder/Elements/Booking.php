@@ -126,7 +126,10 @@ final class Booking extends Element
             return $k->editor ? '<div' . Text::withClass($a, 'ka-booking-empty') . '><p>' . e(t('Add a service and a person who offers it in Administration → Bookings; the form appears here.')) . '</p></div>' : '';
         }
         // the plain form (no script) shows the next free times of one service: the only one, the fixed one, or the one asked for
-        $chosen = $r->get('booking') === $p['id'] && $r->getInt('service') > 0 ? $r->getInt('service') : (count($services) === 1 ? $services[0]['id'] : 0);
+        $asked = $r->get('booking') === $p['id'] ? $db->internalId('booking_services', $r->get('service')) : 0;
+        $chosen = $asked > 0 ? $asked : (count($services) === 1 ? $services[0]['id'] : 0);
+        $serviceKey = fn (int $id): string => $db->publicId('booking_services', $id); // what the page shows: public ids, never the row numbers
+        $staffKey = fn (int $id): string => $db->publicId('booking_staff', $id);
         $chosenService = null;
         foreach ($services as $s) {
             if ($s['id'] === $chosen) {
@@ -144,7 +147,7 @@ final class Booking extends Element
         $html .= '<fieldset class="ka-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend><div class="ka-booking-options">';
         foreach ($services as $i => $s) {
             $meta = implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']]));
-            $html .= '<label><input type="radio" name="service" value="' . $s['id'] . '" required data-duration="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
+            $html .= '<label><input type="radio" name="service" value="' . $serviceKey($s['id']) . '" required data-duration="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
                 . '<span>' . e($s['name']) . '<small>' . e($meta) . ($s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span></label>';
         }
         $html .= '</div></fieldset>';
@@ -152,12 +155,12 @@ final class Booking extends Element
         // 2. the person – only when there is a choice
         $offering = array_values(array_filter($staff, fn (array $m): bool => array_intersect($m['services'], array_column($services, 'id')) !== []));
         if ($fixedStaff !== null) {
-            $html .= '<input type="hidden" name="staff" value="' . $fixedStaff['id'] . '">';
+            $html .= '<input type="hidden" name="staff" value="' . $staffKey($fixedStaff['id']) . '">';
         } elseif (count($offering) > 1) {
             $html .= '<fieldset class="ka-booking-step" data-step="person"><legend>' . e(t('Who')) . '</legend><div class="ka-booking-options">'
                 . '<label><input type="radio" name="staff" value="0" checked><span>' . e(t('Anyone available')) . '</span></label>';
             foreach ($offering as $m) {
-                $html .= '<label data-services="' . e(implode(',', $m['services'])) . '"><input type="radio" name="staff" value="' . $m['id'] . '"><span>' . e($m['name']) . '</span></label>';
+                $html .= '<label data-services="' . e(implode(',', array_map($serviceKey, $m['services']))) . '"><input type="radio" name="staff" value="' . $staffKey($m['id']) . '"><span>' . e($m['name']) . '</span></label>';
             }
             $html .= '</div></fieldset>';
         } else {

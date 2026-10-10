@@ -29,7 +29,7 @@ final class BookingSwitchOffTest extends SiteTestCase
         $this->assertPage("/_booking/cancel/$token", 200, 'zrusit', $site->client(), "3.2.3 bookings off: the customer's cancel page still works");
         $site->client()->post("/_booking/cancel/$token", ['zrusit' => '1']);
         $this->assertSame('cancelled|customer', $this->q("SELECT CONCAT(status, '|', cancelled_by) FROM ka_bookings WHERE email = 'off-bk@example.cz'"), '3.2.3 bookings off: the customer can still cancel');
-        $this->assertPage('/_booking/slots?service=' . self::$service . '&staff=0&day=2026-01-05', 404, as: $site->client(), message: '3.2.3 bookings off: new bookings are not taken');
+        $this->assertPage('/_booking/slots?service=' . $site->publicId('booking_services', self::$service) . '&staff=0&day=2026-01-05', 404, as: $site->client(), message: '3.2.3 bookings off: new bookings are not taken');
         $this->assertPage('/admin.php?module=bookings', 403, message: '3.2 bookings off: no admin module');
         $this->assertStringContainsString('switched off on this site', $this->bookingRaw('list_bookings', []), '3.2 bookings off: list_bookings says so');
         $this->assertSame('1|1', $this->q('SELECT CONCAT((SELECT COUNT(*) > 0 FROM ka_booking_services), \'|\', (SELECT COUNT(*) > 0 FROM ka_bookings))'), '3.2 bookings off: the services and bookings stay');

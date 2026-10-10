@@ -28,7 +28,7 @@ final class SocialDraftsTest extends SiteTestCase
         $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'New hall for production'");
         $this->assertGreaterThan(0, $news);
 
-        $result = $site->mcpResult('get_social_drafts', ['id' => $news]);
+        $result = $site->mcpResult('get_social_drafts', ['id' => $site->publicId('news', $news)]);
         $this->assertSame('facebook', $result['drafts'][0]['network'], 'social drafts: the first draft is for Facebook');
         $this->assertSame('linkedin', $result['drafts'][1]['network'], 'social drafts: the second draft is for LinkedIn');
         $this->assertArrayNotHasKey(2, $result['drafts'], 'social drafts: none for X by default');
@@ -55,14 +55,14 @@ final class SocialDraftsTest extends SiteTestCase
     {
         $site = $this->site();
         $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'New hall for production'");
-        $editor = $site->admin()->get('/admin.php?module=news&action=edit&id=' . $news)->body;
+        $editor = $site->admin()->get('/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $news))->body;
         $this->assertStringContainsString('id="social-posts"', $editor, 'social drafts: the editor shows the panel');
         $this->assertSame(2, preg_match_all('/data-copy="#social-text-[0-9]*"/', $editor), 'social drafts: a Copy button per draft');
         $this->assertStringContainsString('action=social_posted', $editor, 'social drafts: Mark as posted');
         $this->assertStringNotContainsString('action=social_suggest', $editor, 'social drafts: no assistant button while the assistant is off');
 
         $facebook = (int) $site->value("SELECT id FROM ka_social_drafts WHERE news_id = ? AND network = 'facebook'", [$news]);
-        $editPage = '/admin.php?module=news&action=edit&id=' . $news;
+        $editPage = '/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $news);
         $this->adminPost('/admin.php?module=news&action=social_save', ['id' => (string) $facebook,
             'text' => 'Edited text <b>without HTML</b> ' . $site->base . '/news/new-hall-for-production?utm_source=facebook&utm_medium=social&utm_campaign=new-hall-for-production'], $editPage);
         $this->assertSame('1', (string) $site->value('SELECT text LIKE ? FROM ka_social_drafts WHERE id = ?', ['Edited text without HTML http%', $facebook]), 'social drafts: a draft edited in the admin before copying (HTML stripped)');
@@ -72,7 +72,7 @@ final class SocialDraftsTest extends SiteTestCase
 
         $list = $site->admin()->get('/admin.php?module=news');
         $this->assertSame(200, $list->status);
-        $this->assertMatchesRegularExpression('~id=' . $news . '#social-posts"[^>]*>[^<]* \(1\)</a>~', $list->body, 'social drafts: the news list links the drafts still waiting to be posted');
+        $this->assertMatchesRegularExpression('~id=' . $site->publicId('news', (int) $news) . '#social-posts"[^>]*>[^<]* \(1\)</a>~', $list->body, 'social drafts: the news list links the drafts still waiting to be posted');
 
         $linkedin = (int) $site->value("SELECT id FROM ka_social_drafts WHERE news_id = ? AND network = 'linkedin'", [$news]);
         $result = $site->mcpResult('update_social_draft', ['id' => $linkedin, 'text' => 'Text from Claude']);
@@ -86,7 +86,7 @@ final class SocialDraftsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_news', ['title' => 'Draft without posts', 'category' => $this->newsCategory()]);
         $id = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Draft without posts'");
-        $result = $site->mcpResult('get_social_drafts', ['id' => $id]);
+        $result = $site->mcpResult('get_social_drafts', ['id' => $site->publicId('news', $id)]);
         $this->assertEmpty($result['published'] ?? null, 'social drafts: an unpublished news item is not published');
         $this->assertSame([], $result['drafts'], 'social drafts: an unpublished news item has none (answer)');
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_social_drafts WHERE news_id = ?', [$id]), 'social drafts: an unpublished news item has none (stored)');
@@ -99,14 +99,14 @@ final class SocialDraftsTest extends SiteTestCase
         $site->exec("INSERT INTO ka_settings VALUES ('social_networks', 'facebook,linkedin,x,instagram') ON DUPLICATE KEY UPDATE value = VALUES(value)");
         $lead = '<p>' . str_repeat('We opened a new production hall with modern machines. ', 12) . '</p>';
         $this->adminPost('/admin.php?module=news&action=save', [
-            'news_id' => '0', 'title' => 'Long news item for X', 'category_id' => (string) $site->value("SELECT category_id FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1"),
-            'author_id' => (string) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'"), 'status' => 'published', 'intro' => $lead, 'tags' => 'hall F14, machines F14',
+            'news_id' => '0', 'title' => 'Long news item for X', 'category_id' => (string) $site->value("SELECT public_id FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1"),
+            'author_id' => (string) $site->value("SELECT public_id FROM ka_users WHERE username = 'admin'"), 'status' => 'published', 'intro' => $lead, 'tags' => 'hall F14, machines F14',
         ], '/admin.php?module=news&action=new');
         $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Long news item for X'");
         $this->assertGreaterThan(0, $news, 'the news item was saved');
         $this->assertSame('facebook,instagram,linkedin,x', $site->value('SELECT GROUP_CONCAT(network ORDER BY network) FROM ka_social_drafts WHERE news_id = ?', [$news]), 'social drafts: publishing in the admin prepares a draft for each of the four chosen networks');
 
-        $drafts = $site->mcpResult('get_social_drafts', ['id' => $news])['drafts'];
+        $drafts = $site->mcpResult('get_social_drafts', ['id' => $site->publicId('news', $news)])['drafts'];
         $x = $drafts[2]['text'];
         $length = mb_strlen((string) preg_replace('#https?://\S+#', str_repeat('x', 23), trim($x)));
         $this->assertLessThanOrEqual(280, $length, 'social drafts: the X draft fits 280 characters with the link counted as 23');

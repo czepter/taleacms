@@ -32,10 +32,10 @@ $admin = $app->auth()->isAdmin();
 <tbody>
 <?php foreach ($collection as $k): ?>
 <tr>
-	<td><a href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"><strong><?= e($k['name']) ?></strong></a></td>
+	<td><a href="<?= e($module->url('items', ['id' => $k['public_id']])) ?>"><strong><?= e($k['name']) ?></strong></a></td>
 	<td><?= (int) $k['count'] ?></td>
 	<td><?= $k['detail'] ? '/' . e($k['slug']) . '/…' : e(t('no')) ?></td>
-	<td class="actions"><a href="<?= e($module->url('item', ['id' => $k['collection_id']])) ?>"><?= e(t('Add item')) ?></a><?php if ($admin): ?> · <a href="<?= e($module->url('edit', ['id' => $k['collection_id']])) ?>"><?= e(t('Fields and settings')) ?></a><?php if ($k['detail']): ?> · <a href="<?= e($module->url('builder', ['id' => $k['collection_id']])) ?>"><?= e(t('Detail template')) ?></a><?php endif ?><?php endif ?></td>
+	<td class="actions"><a href="<?= e($module->url('item', ['id' => $k['public_id']])) ?>"><?= e(t('Add item')) ?></a><?php if ($admin): ?> · <a href="<?= e($module->url('edit', ['id' => $k['public_id']])) ?>"><?= e(t('Fields and settings')) ?></a><?php if ($k['detail']): ?> · <a href="<?= e($module->url('builder', ['id' => $k['public_id']])) ?>"><?= e(t('Detail template')) ?></a><?php endif ?><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

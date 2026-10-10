@@ -119,7 +119,7 @@ final class AdministrationTest extends SiteTestCase
     public function testNewsValidationAndDefaultCategory(): void
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=news&action=new')->csrf();
-        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'news_id' => 0, 'title' => '', 'category_id' => 1]);
+        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'news_id' => 0, 'title' => '', 'category_id' => $this->site()->publicId('categories', 1)]);
         $this->assertSame(200, $failed->status, 'a failed news validation returns the form, not error 500');
         $this->assertStringContainsString('name="title"', $failed->body, 'the form comes back');
 
@@ -145,7 +145,7 @@ final class AdministrationTest extends SiteTestCase
     #[Depends('testNewsValidationAndDefaultCategory')]
     public function testNewsAuthorSeesOnlyTheirOwnAndPublishesNothing(): void
     {
-        $newsId = (int) $this->site()->value('SELECT news_id FROM ka_news ORDER BY news_id LIMIT 1');
+        $newsId = $this->site()->publicId('news', (int) $this->site()->value('SELECT news_id FROM ka_news ORDER BY news_id LIMIT 1'));
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Author', 'username' => 'author', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
         $author = $this->site()->client('author');
         $this->site()->signIn($author, 'author');
@@ -158,7 +158,7 @@ final class AdministrationTest extends SiteTestCase
 
         $csrf = $author->get('/admin.php?module=news&action=new')->csrf();
         $author->post('/admin.php?module=news&action=save', [
-            '_csrf' => $csrf, 'news_id' => 0, 'title' => 'XSS-test', 'category_id' => 1,
+            '_csrf' => $csrf, 'news_id' => 0, 'title' => 'XSS-test', 'category_id' => $this->site()->publicId('categories', 1),
             'intro' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">link</a></p>',
         ]);
         $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');

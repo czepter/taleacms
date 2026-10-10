@@ -19,6 +19,7 @@ final class Media extends Module
     public const string NAME = 'Media';
     public const string GROUP = 'Content';
     public const string ICON = 'media';
+    public const string TABLE = 'media';
 
     /** Everyone who writes news must be able to upload; but only the administrator changes and deletes other people's images. */
     public const bool FOR_ALL_USERS = true;
@@ -50,7 +51,7 @@ final class Media extends Module
 
         return Response::json([
             'images' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
-            'folders' => array_map(fn (array $s): array => ['id' => (int) $s['folder_id'], 'name' => $s['name']], $this->folders()),
+            'folders' => array_map(fn (array $s): array => ['id' => $s['public_id'], 'name' => $s['name']], $this->folders()),
         ]);
     }
 
@@ -61,21 +62,21 @@ final class Media extends Module
         if (!$this->request->isPost() || $name === '') {
             return $this->back();
         }
-        $ids = $this->request->postInt('folder_id');
+        $ids = $this->idParam('folder_id', 'media_folders');
         if ($ids > 0) {
             $this->db->update('media_folders', ['name' => $name], ['folder_id' => $ids]);
         } else {
             $ids = $this->db->insert('media_folders', ['name' => $name]);
         }
 
-        return $this->back('Folder saved.', '', ['section' => $ids]);
+        return $this->back('Folder saved.', '', ['section' => $this->publicId($ids, 'media_folders')]);
     }
 
     /** Deleting a folder; the images stay and move to the unsorted ones. */
     protected function actionFolderDelete(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->db->delete('media_folders', ['folder_id' => $this->request->postInt('folder_id')]);
+            $this->db->delete('media_folders', ['folder_id' => $this->idParam('folder_id', 'media_folders')]);
         }
 
         return $this->back('Folder deleted, its images are now uncategorized.');
@@ -88,8 +89,9 @@ final class Media extends Module
     public static function recordUsage(\Kaleta\Core\Db $db, int $idc, string ...$html): void
     {
         $all = implode(' ', $html);
-        preg_match_all('/data-id="(\d+)"/', $all, $m);
-        $ids = array_map(intval(...), $m[1]);
+        preg_match_all('/data-id="(\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/', $all, $m);
+        // the editor puts the public id of the image there; the number is what older texts carry
+        $ids = array_map(fn (string $id): int => ctype_digit($id) ? (int) $id : $db->internalId('media', $id), $m[1]);
         preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
         foreach (array_unique($paths[0]) as $path) {
             $ido = $db->value('SELECT media_id FROM {media} WHERE image_path = ? OR thumb_path = ?', [$path, $path]);
@@ -156,8 +158,7 @@ final class Media extends Module
     protected function actionUpload(): Response
     {
         $json = $this->request->get('format') === 'json';
-        $section = $this->db->value('SELECT folder_id FROM {media_folders} WHERE folder_id = ?', [$this->request->postInt('folder_id')]);
-        $section = $section === null ? null : (int) $section;
+        $section = $this->idParam('folder_id', 'media_folders') ?: null;
         $uploaded = [];
         $errors = [];
         $imageCount = 0;
@@ -182,7 +183,7 @@ final class Media extends Module
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
-        return $this->back($message, '', $section !== null ? ['section' => $section] : []);
+        return $this->back($message, '', $section !== null ? ['section' => $this->publicId($section, 'media_folders')] : []);
     }
 
     /**
@@ -255,7 +256,7 @@ final class Media extends Module
     /** A new file in place of the old one with the same URL: links on the site stay and show the new version. */
     protected function actionReplace(): Response
     {
-        $ido = $this->request->postInt('media_id');
+        $ido = $this->idParam('media_id');
         $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$ido]) : null;
         $file = $_FILES['file'] ?? null;
         if ($image === null || !is_array($file)) {
@@ -264,17 +265,17 @@ final class Media extends Module
         try {
             $new = Images::replace($image['image_path'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'list', ['edit' => $ido], 'error');
+            return $this->back(t($e->getMessage()), 'list', ['edit' => $image['public_id']], 'error');
         }
         $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $ido]);
+        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $image['public_id']]);
     }
 
     protected function actionSave(): Response
     {
-        if ($this->request->isPost() && $this->canEdit($this->request->postInt('media_id'))) {
+        if ($this->request->isPost() && $this->canEdit($this->idParam('media_id'))) {
             $x = max(0, min(100, $this->request->postInt('focus_x', 50)));
             $y = max(0, min(100, $this->request->postInt('focus_y', 50)));
             $this->db->update('media', [
@@ -282,7 +283,7 @@ final class Media extends Module
                 'description' => mb_substr($this->request->post('description'), 0, 500),
                 'author' => mb_substr(trim($this->request->post('author')), 0, 120),
                 'focal_point' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
-            ], ['media_id' => $this->request->postInt('media_id')]);
+            ], ['media_id' => $this->idParam('media_id')]);
             \Kaleta\Front\Cache::clear();
         }
 
@@ -292,7 +293,7 @@ final class Media extends Module
     /** Description for the blind (alt = field "nazev", as in the detail and in the editor) directly from the grid – without reloading (image/admin.js). */
     protected function actionSaveCaption(): Response
     {
-        $ido = $this->request->postInt('media_id');
+        $ido = $this->idParam('media_id');
         if (!$this->request->isPost() || !$this->canEdit($ido)) {
             return Response::json(['ok' => false, 'error' => t('You cannot edit this image.')], 403);
         }
@@ -329,12 +330,13 @@ final class Media extends Module
             return $this->back('', 'cleanup');
         }
         $saved = 0;
-        foreach (is_array($_POST['alt'] ?? null) ? $_POST['alt'] : [] as $ido => $alt) {
+        foreach (is_array($_POST['alt'] ?? null) ? $_POST['alt'] : [] as $uuid => $alt) {
+            $ido = $this->db->internalId('media', $uuid);
             $alt = mb_substr(trim((string) $alt), 0, 150);
-            if ($alt === '' || !$this->canEdit((int) $ido)) {
+            if ($alt === '' || !$this->canEdit($ido)) {
                 continue;
             }
-            $saved += $this->db->update('media', ['name' => $alt], ['media_id' => (int) $ido, 'name' => '']);
+            $saved += $this->db->update('media', ['name' => $alt], ['media_id' => $ido, 'name' => '']);
         }
         if ($saved > 0) {
             \Kaleta\Front\Cache::clear();
@@ -347,7 +349,7 @@ final class Media extends Module
     /** An oversized image re-encoded to the usual size in place (Core\Images::shrinkFile) – its address and every use stay. */
     protected function actionShrink(): Response
     {
-        $ido = $this->request->postInt('media_id');
+        $ido = $this->idParam('media_id');
         $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$ido]) : null;
         if ($image === null) {
             return $this->back('', 'cleanup');
@@ -372,12 +374,12 @@ final class Media extends Module
         }
         $backTo = $this->request->post('back') === 'cleanup' ? 'cleanup' : '';
         $move = $this->request->post('bulk') === 'move';
-        $target = $this->request->postInt('to_folder') ?: null;
+        $target = $this->idParam('to_folder', 'media_folders') ?: null;
         $count = 0;
         $skipped = 0;
         $elsewhere = $move ? [] : self::findUsagesElsewhere($this->db);
         foreach ($this->request->postList('selected') as $id) {
-            $image = $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $id]);
+            $image = $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$this->db->internalId('media', $id)]);
             if ($image === null || !$this->canEdit((int) $image['media_id'])) {
                 continue;
             }
@@ -399,7 +401,7 @@ final class Media extends Module
             \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
 
-        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $target] : []);
+        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $this->publicId($target, 'media_folders')] : []);
     }
 
     private function canEdit(int $ido): bool
@@ -412,20 +414,22 @@ final class Media extends Module
     /**
      * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, search (name, label or file name).
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, news_item: int, unused: bool, search: string, sort: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, search: string, sort: string}}
      */
     private function filter(): array
     {
         $where = ['1 = 1'];
         $params = [];
-        $section = $this->request->get('section') === '' ? null : $this->request->getInt('section');
+        // section: the public id of a folder, 0 = unsorted, nothing (or an unknown folder) = all
+        $sectionParam = $this->request->get('section');
+        $section = $sectionParam === '0' ? 0 : ($this->idParam('section', 'media_folders') ?: null);
         if ($section !== null) {
             $where[] = $section > 0 ? 'o.folder_id = ?' : 'o.folder_id IS NULL';
             if ($section > 0) {
                 $params[] = $section;
             }
         }
-        $newsItem = $this->request->getInt('article');
+        $newsItem = $this->idParam('article', 'news');
         if ($newsItem > 0) {
             $where[] = 'EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id AND p.news_id = ?)';
             $params[] = $newsItem;
@@ -447,7 +451,7 @@ final class Media extends Module
 
         $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'newest';
 
-        return [implode(' AND ', $where), $params, ['section' => $section, 'article' => $newsItem, 'unused' => $unused, 'search' => $search, 'sort' => $sort]];
+        return [implode(' AND ', $where), $params, ['section' => $section, 'section_public' => $section === null ? null : ($section === 0 ? '0' : $sectionParam), 'article' => $newsItem, 'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'search' => $search, 'sort' => $sort]];
     }
 
     /** @return list<array<string, mixed>> folders with the number of images */
@@ -485,7 +489,7 @@ final class Media extends Module
     private function toJson(array $o): array
     {
         return [
-            'id' => (int) $o['media_id'], 'name' => $o['name'], 'description' => $o['description'] ?? '',
+            'id' => $o['public_id'] ?? $this->publicId((int) $o['media_id']), 'name' => $o['name'], 'description' => $o['description'] ?? '',
             'url' => $this->app->url($o['image_path']), 'thumbnail' => $o['thumb_path'] === '' ? '' : $this->app->url($o['thumb_path']),
             'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link

@@ -188,7 +188,7 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t('The comment does not exist.')], 404);
         }
         if (\Kaleta\Core\DraftComments::resolve($this->app, $comment['id'])) {
-            ChangeLog::write($this->app, static::IDENT, 'comment resolved', mb_substr($target['title'], 0, 80) . ' (#' . $comment['id'] . ')');
+            ChangeLog::write($this->app, static::IDENT, 'comment resolved', mb_substr($target['title'], 0, 80));
         }
 
         return Response::json(['ok' => true, 'comments' => $this->commentsForEditor($signature)]);
@@ -288,11 +288,11 @@ trait BuilderActions
         return Response::json(['ok' => true, 'element' => $section['element'], 'classes' => $this->loadBuilderClasses()]);
     }
 
-    /** @return list<array{id:int, name:string, element:array<string, mixed>}> the site's custom sections (panel Add → My sections) */
+    /** @return list<array{id:string, name:string, element:array<string, mixed>}> the site's custom sections (panel Add → My sections) */
     public static function listMySections(\Kaleta\Core\Db $db): array
     {
-        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['element'], true)) ? ['id' => (int) $r['section_id'], 'name' => $r['name'], 'element' => $p] : null,
-            $db->all('SELECT section_id, name, element FROM {sections} ORDER BY name LIMIT 200'))));
+        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['element'], true)) ? ['id' => $r['public_id'], 'name' => $r['name'], 'element' => $p] : null,
+            $db->all('SELECT section_id, public_id, name, element FROM {sections} ORDER BY name LIMIT 200'))));
     }
 
     /** Saves the selected element to the custom section library (it goes through the validator like every build). */
@@ -318,7 +318,7 @@ trait BuilderActions
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return Response::json(['ok' => false, 'error' => t('Only an administrator can remove sections.')], 403);
         }
-        $this->db->delete('sections', ['section_id' => $this->request->postInt('section_id')]);
+        $this->db->delete('sections', ['section_id' => $this->idParam('section_id', 'sections')]);
 
         return Response::json(['ok' => true, 'sections' => self::listMySections($this->db)]);
     }

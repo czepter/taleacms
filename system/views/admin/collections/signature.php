@@ -14,7 +14,7 @@
 <p class="help"><?= e(t('Made from the record of %s in the look of your site. When the record or the site changes, open this page again and copy the signature anew.', $p['name'])) ?></p>
 <div class="signature-preview" data-signature-preview><?= $signature['html'] ?></div>
 <p class="buttons"><button type="button" class="btn" data-copy-signature><?= e(t('Copy signature')) ?></button>
-	<a class="navigation" href="<?= e($module->url('item', ['id' => (int) $k['collection_id'], 'item' => (int) $p['item_id']])) ?>"><?= e(t('Back to the item')) ?></a></p>
+	<a class="navigation" href="<?= e($module->url('item', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e(t('Back to the item')) ?></a></p>
 <details class="advanced">
 <summary><?= e(t('Plain-text version')) ?></summary>
 <textarea class="textbox low" rows="6" readonly data-signature-text><?= e($signature['text']) ?></textarea>

@@ -58,11 +58,11 @@ $preview = function (string $data): string {
 <tbody>
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['status'] === 2 ? ' class="unpublished"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => $p['enquiry_id']])) ?>"><?= (int) $p['status'] === 0 ? '<strong>' . e(format_date($p['created_at'], true)) . '</strong>' : e(format_date($p['created_at'], true)) ?></a></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $p['public_id']])) ?>"><?= (int) $p['status'] === 0 ? '<strong>' . e(format_date($p['created_at'], true)) . '</strong>' : e(format_date($p['created_at'], true)) ?></a></td>
 	<td><?= e($p['form']) ?><?= ($p['topic'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . e($p['topic']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['category'] !== '' ? '<br><span class="badge">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['category']] ?? $p['category'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? ' <span class="badge badge-draft">' . e(t('urgent')) . '</span>' : '' ?></td>
-	<td><a href="<?= e($module->url('detail', ['id' => $p['enquiry_id']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $p['public_id']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
 	<td><span class="badge<?= (int) $p['status'] === 0 ? ' badge-draft' : ((int) $p['status'] === 2 ? ' badge-published' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['status']])) ?></span><?= $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '<br><small>' . e($users[(int) $p['assigned_to']]) . '</small>' : '' ?></td>
-	<td class="center"><input type="checkbox" name="selected[]" value="<?= (int) $p['enquiry_id'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['enquiry_id'] ?>"></td>
+	<td class="center"><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e(format_date($p['created_at'], true)) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>

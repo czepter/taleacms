@@ -119,8 +119,23 @@ final class Events
         array_push($params, ...$levels);
 
         return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'created_at' => (string) $r['created_at'], 'type' => (string) $r['type'],
-            'severity' => (string) $r['severity'], 'message' => (string) $r['message'], 'data' => json_decode((string) $r['data'], true) ?: []],
+            'severity' => (string) $r['severity'], 'message' => (string) $r['message'], 'data' => self::withPublicIds($db, json_decode((string) $r['data'], true) ?: [])],
             $db->all('SELECT id, created_at, type, severity, message, data FROM {events} WHERE ' . implode(' AND ', $where) . ' ORDER BY id LIMIT ' . max(1, min(500, $limit)), $params));
+    }
+
+    /** Event data keep the integer keys inside the database; what leaves it (MCP, alerts) names the rows by their public id. */
+    private static function withPublicIds(Db $db, array $data): array
+    {
+        $tables = ['site' => 'fleet_sites', 'booking' => 'bookings', 'page' => 'pages', 'item' => 'collection_items', 'username' => 'users'];
+        $kinds = ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items', 'popup' => 'popups'];
+        foreach ($data as $key => $value) {
+            $table = $key === 'id' ? ($kinds[(string) ($data['kind'] ?? '')] ?? null) : ($tables[$key] ?? null);
+            if ($table !== null && is_int($value)) {
+                $data[$key] = $db->publicId($table, $value);
+            }
+        }
+
+        return $data;
     }
 
     /** The id of the newest event (a starting cursor). */

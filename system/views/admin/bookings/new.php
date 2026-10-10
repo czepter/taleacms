@@ -15,10 +15,10 @@
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Appointment')) ?></legend>
 <div class="row"><label for="service"><?= e(t('Service')) ?></label><div><select id="service" name="service" required><option value=""><?= e(t('— choose —')) ?></option>
-<?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= (int) ($old['service'] ?? 0) === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?> (<?= e(t('%d min', $s['duration_min'])) ?>)</option><?php endforeach ?>
+<?php foreach ($services as $s): ?><option value="<?= e($s['public_id']) ?>"<?= (string) ($old['service'] ?? '') === $s['public_id'] ? ' selected' : '' ?>><?= e($s['name']) ?> (<?= e(t('%d min', $s['duration_min'])) ?>)</option><?php endforeach ?>
 </select></div></div>
 <div class="row"><label for="staff_member"><?= e(t('Person')) ?></label><div><select id="staff_member" name="staff_member"><option value="0"><?= e(t('Anyone available')) ?></option>
-<?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= (int) ($old['staff_member'] ?? 0) === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?>
+<?php foreach ($staff as $m): ?><option value="<?= e($m['public_id']) ?>"<?= (string) ($old['staff_member'] ?? '') === $m['public_id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?>
 </select></div></div>
 <div class="row"><label for="day"><?= e(t('Day and time')) ?></label><div><input class="textfield" type="date" id="day" name="day" required value="<?= e((string) ($old['day'] ?? date('Y-m-d'))) ?>"> <input class="textfield short" type="time" name="time" required step="300" value="<?= e((string) ($old['time'] ?? '')) ?>" aria-label="<?= e(t('Time')) ?>">
 <span class="help"><?= e(t('The time must be free for the person within their hours; the lead time for visitors does not apply here.')) ?></span></div></div>

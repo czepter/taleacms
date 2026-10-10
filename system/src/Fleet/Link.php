@@ -23,7 +23,7 @@ final class Link
 
     public static function isPaired(Settings $s): bool
     {
-        return $s->get('fleet_console_url') !== '' && $s->int('fleet_site_id') > 0;
+        return $s->get('fleet_console_url') !== '' && $s->get('fleet_site_id') !== '';
     }
 
     /**
@@ -67,12 +67,12 @@ final class Link
             'action' => 'pair', 'code' => $key['code'], 'url' => rtrim($s->get('site_url'), '/'), 'name' => $s->get('site_name'), 'version' => KALETA_VERSION,
             'public_key' => Keys::publicKey($s), 'manage_updates' => $manageUpdates, 'ts' => time(),
         ], fn (string $body): string => Keys::sign($s, $body), 20);
-        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $key['key']) || (int) ($answer['json']['site_id'] ?? 0) <= 0) {
+        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $key['key']) || !\Kaleta\Core\Uuid::valid($answer['json']['site_id'] ?? null)) {
             $reason = (string) ($answer['json']['error'] ?? ($answer['error'] !== '' ? $answer['error'] : 'HTTP ' . $answer['status']));
             throw new \RuntimeException(t('The console refused the pairing: %s', mb_substr($reason, 0, 200)));
         }
         foreach (['fleet_console_url' => $key['url'], 'fleet_console_key' => $key['key'], 'fleet_console_name' => mb_substr((string) ($answer['json']['console_name'] ?? $key['name']), 0, 150),
-            'fleet_site_id' => (string) (int) $answer['json']['site_id'], 'fleet_updates' => $manageUpdates ? '1' : '0', 'fleet_update_allowed' => '', 'fleet_last_error' => ''] as $name => $value) {
+            'fleet_site_id' => (string) $answer['json']['site_id'], 'fleet_updates' => $manageUpdates ? '1' : '0', 'fleet_update_allowed' => '', 'fleet_last_error' => ''] as $name => $value) {
             $s->set($name, $value);
         }
         ChangeLog::write($app, 'settings', 'fleet_pair', $key['url'] . ($manageUpdates ? ', updates by the console' : ''));
@@ -97,7 +97,7 @@ final class Link
     {
         $s = $app->settings();
         if (self::isPaired($s)) {
-            Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->int('fleet_site_id'), 'ts' => time()],
+            Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->get('fleet_site_id'), 'ts' => time()],
                 fn (string $body): string => Keys::sign($s, $body), 10);
         }
         // the kit counter goes too, so another console's first kit is applied; the drafts that arrived stay for the person to decide
@@ -115,7 +115,7 @@ final class Link
         if (!self::isPaired($s)) {
             return 'not paired';
         }
-        $payload = ['action' => 'heartbeat', 'site_id' => $s->int('fleet_site_id'), 'ts' => time(), 'manage_updates' => $s->bool('fleet_updates')] + Heartbeat::build($app);
+        $payload = ['action' => 'heartbeat', 'site_id' => $s->get('fleet_site_id'), 'ts' => time(), 'manage_updates' => $s->bool('fleet_updates')] + Heartbeat::build($app);
         $answer = Http::post($s->get('fleet_console_url') . '/fleet/heartbeat', $payload, fn (string $body): string => Keys::sign($s, $body), 20);
         if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $s->get('fleet_console_key'))) {
             // stored as an English sentence and translated where it is shown; the detail goes to the job's error

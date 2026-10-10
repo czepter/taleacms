@@ -45,7 +45,7 @@ final class MoveSiteTest extends SiteTestCase
 
     private function sameNumbers(Site $site): string
     {
-        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT value FROM ka_settings WHERE name = 'home_page'), (SELECT value FROM ka_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.colors.primary') FROM ka_settings WHERE name = 'design_system'))");
+        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT public_id FROM ka_pages WHERE page_id = (SELECT value FROM ka_settings WHERE name = 'home_page')), (SELECT value FROM ka_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.colors.primary') FROM ka_settings WHERE name = 'design_system'))");
     }
 
     /** Builds the content of the old site and downloads its export; returns the export file. */
@@ -141,7 +141,7 @@ final class MoveSiteTest extends SiteTestCase
         $this->assertStringNotContainsString('data-auto-submit', $result->body, 'the result no longer submits itself');
 
         $this->assertSame($this->counts($old), $this->counts($new), 'the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)');
-        $this->assertSame($this->sameNumbers($old), $this->sameNumbers($new), 'same numbers: home page, site name and the design system came along');
+        $this->assertSame($this->sameNumbers($old), $this->sameNumbers($new), 'same public ids and values: home page, site name and the design system came along');
         $this->assertSame('1/0', (string) $new->value("SELECT CONCAT(SUM(text LIKE '%<p class=\"n6\">N6 check</p>%'), '/', SUM(text LIKE '%onclick%' OR text LIKE '%<script%')) FROM ka_news WHERE text LIKE '%N6 check%'"),
             '3.3.2: news HTML from the export is sanitized, its structure and classes kept');
         $old->exec('UPDATE ka_news SET text = REPLACE(text, ?, \'\')', [self::N6_PAYLOAD]);

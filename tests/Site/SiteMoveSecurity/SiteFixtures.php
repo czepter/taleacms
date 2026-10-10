@@ -26,7 +26,7 @@ trait SiteFixtures
             ['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html'],
         ]]);
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
-        $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'collection_id' => $idk, 'item_id' => 0] + $fields);
+        $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'collection_id' => $site->publicId('collections', $idk), 'item_id' => 0] + $fields);
         $save(['name' => 'Jane Novak', 'data' => ['role' => 'Managing director', 'bio' => '<p>Twenty years <b>in the trade</b>.</p>'], 'sort_order' => 1, 'visible' => 1]);
         $save(['name' => 'Hidden Member', 'data' => ['role' => 'Secret'], 'sort_order' => 2]);
         $site->mcp('save_collection_item', ['collection' => 'team', 'name' => 'Susan Green', 'values' => ['role' => 'Managing director'], 'visible' => true]);

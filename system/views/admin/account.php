@@ -110,7 +110,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 	<td><?= e($k['name']) ?></td>
 	<td class="number"><?= e(format_date((string) $k['created_at'])) ?></td>
 	<td class="number"><?= $k['used_at'] !== null ? e(format_date((string) $k['used_at'])) : '–' ?></td>
-	<td class="actions"><button class="navigation danger" type="submit" name="passkey_id" value="<?= (int) $k['passkey_id'] ?>" data-confirm="<?= e(t('Remove this passkey? You can still sign in with the code from the app.')) ?>"><?= e(t('Delete')) ?></button></td>
+	<td class="actions"><button class="navigation danger" type="submit" name="passkey_id" value="<?= e($k['public_id']) ?>" data-confirm="<?= e(t('Remove this passkey? You can still sign in with the code from the app.')) ?>"><?= e(t('Delete')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -154,7 +154,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php foreach ($tokens as $t): ?>
 <p><span class="badge"><?= e($t['name']) ?></span> <span class="badge"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= e(t('created %s', format_date($t['created_at']))) ?>, <?= e($t['used_at'] ? t('last used %s', format_date($t['used_at'], true)) : t('not used yet')) ?>,
 	<?= $t['expires_at'] === null ? e(t('no expiry')) : ($t['expires_at'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expires_at']))) . '</strong>' : e(t('valid until %s', format_date($t['expires_at'])))) ?>
-	<button class="navigation danger" type="submit" name="delete_token" value="<?= (int) $t['token_id'] ?>" data-confirm="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
+	<button class="navigation danger" type="submit" name="delete_token" value="<?= e($t['public_id']) ?>" data-confirm="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
 <?php endforeach ?>
 <div class="row"><label for="token-name"><?= e(t('Name of the new token')) ?></label><div><input class="textfield" type="text" id="token-name" name="name" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
 <div class="row"><label for="token-lifetime"><?= e(t('Valid for')) ?></label><div><select id="token-lifetime" name="lifetime">

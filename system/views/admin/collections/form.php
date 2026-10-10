@@ -24,7 +24,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>" data-switch="schema[type]">
 <?= $csrf ?>
-<input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
+<input type="hidden" name="collection_id" value="<?= e($k['public_id']) ?>">
 <div class="row"><label for="name"><?= e(t('Collection name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Testimonials, Team, Products')) ?>"></div></div>
 <div class="row"><label for="slug"><?= e(t('URL')) ?></label><div><input class="textfield" id="slug" name="slug" value="<?= e($k['slug']) ?>" maxlength="110"><span class="help"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Item pages')) ?></span><div class="options"><label><input type="checkbox" name="detail" value="1"<?= $k['detail'] ? ' checked' : '' ?>> <?= e(t('each item has its own page (detail)')) ?></label>
@@ -90,5 +90,5 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save collection')) ?>"> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>
 <?php if ($k['collection_id'] > 0): ?>
-<div class="navigation-row actions-bottom"><form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the collection with all its items? Lists on the site will disappear.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete collection')) ?></button></form></div>
+<div class="navigation-row actions-bottom"><form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the collection with all its items? Lists on the site will disappear.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= e($k['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete collection')) ?></button></form></div>
 <?php endif ?>

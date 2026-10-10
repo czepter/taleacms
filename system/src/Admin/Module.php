@@ -20,6 +20,9 @@ abstract class Module
     /** Identifier in the URL and in the permissions table. */
     public const string IDENT = '';
 
+    /** The table (one of Db::PUBLIC_ID_TABLES) the module's `id` parameter points to; empty = the module has no such record. */
+    public const string TABLE = '';
+
     /** Title in the menu. */
     public const string NAME = '';
 
@@ -121,6 +124,34 @@ abstract class Module
     public function app(): App
     {
         return $this->app;
+    }
+
+    /**
+     * The row an id parameter (POST, then the address; `$queryOnly` = only the address, for the builder actions whose POST carries another `id`) points to, as the internal integer: the parameter carries the public id (UUID)
+     * and anything else - an integer included - is 0, like a missing record.
+     */
+    protected function idParam(string $name = 'id', ?string $table = null, bool $queryOnly = false): int
+    {
+        $value = $queryOnly ? '' : $this->request->post($name);
+
+        return $this->db->internalId($table ?? static::TABLE, $value !== '' ? $value : $this->request->get($name));
+    }
+
+    /**
+     * A save that names a record which is not there: the id field carries something but no row has that public id (an integer
+     * from outside included). Without this check it would pass for a new record – only an empty field or 0 means "new".
+     */
+    protected function refuseUnknownId(string $name, string $message, ?string $table = null): ?Response
+    {
+        $value = $this->request->post($name);
+
+        return $value !== '' && $value !== '0' && $this->db->internalId($table ?? static::TABLE, $value) === 0 ? $this->error($message, 404) : null;
+    }
+
+    /** The public id of a row of the module's table (or of `$table`) for a link, a form value or a result. */
+    protected function publicId(int $id, ?string $table = null): string
+    {
+        return $this->db->publicId($table ?? static::TABLE, $id);
     }
 
     /** @param array<string, scalar> $params */

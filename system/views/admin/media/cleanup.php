@@ -40,7 +40,7 @@ $deletable = 0;
 <tbody>
 <?php foreach ($unused as $o): $editable = $canEdit($o); $deletable += $editable ? 1 : 0; ?>
 <tr>
-	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="cleanup" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= e($o['public_id']) ?>" form="cleanup" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></td>
@@ -62,7 +62,7 @@ $deletable = 0;
 <tbody>
 <?php foreach ($duplicates as $i => $group): foreach ($group as $j => $o): $editable = $canEdit($o) && $o['used_at'] === 0; $deletable += $editable ? 1 : 0; ?>
 <tr<?= $j === 0 && $i > 0 ? ' class="cleanup-group"' : '' ?>>
-	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="cleanup" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= e($o['public_id']) ?>" form="cleanup" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= $o['used_at'] > 0 ? e(t('used %s×', (int) $o['used_at'])) . ($o['used_in'] !== [] ? '<br><small>' . e(implode(', ', $o['used_in'])) . '</small>' : '') : e(t('unused')) ?></td>
@@ -97,7 +97,7 @@ $deletable = 0;
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></td>
 	<td class="actions"><?php if ($canShrink && $canEdit($o) && preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
-		<form class="inline" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>"><button class="navigation" type="submit"><?= e(t('Make smaller')) ?></button></form>
+		<form class="inline" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="media_id" value="<?= e($o['public_id']) ?>"><button class="navigation" type="submit"><?= e(t('Make smaller')) ?></button></form>
 <?php else: ?><span class="help"><?= e(t('cannot be made smaller here')) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
@@ -121,7 +121,7 @@ $deletable = 0;
 	<tr>
 		<td><?= $thumbnail($o) ?></td>
 		<td><?= $file($o) ?></td>
-		<td><input class="textfield wide" type="text" name="alt[<?= (int) $o['media_id'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
+		<td><input class="textfield wide" type="text" name="alt[<?= e($o['public_id']) ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
 	</tr>
 <?php endforeach ?>
 	</tbody>

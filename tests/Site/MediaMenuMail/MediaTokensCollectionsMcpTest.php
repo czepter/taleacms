@@ -27,7 +27,7 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         $this->assertPage('/admin.php?module=media&search=jpg&sort=size', 200, 'data-description-media=', message: 'media: search and sorting');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
-        $reply = $this->site()->admin()->post('/admin.php?module=media&action=save_caption', ['_csrf' => $csrf, 'media_id' => $ido, 'name' => 'Dilna zevnitr']);
+        $reply = $this->site()->admin()->post('/admin.php?module=media&action=save_caption', ['_csrf' => $csrf, 'media_id' => $this->site()->publicId('media', $ido), 'name' => 'Dilna zevnitr']);
         $this->assertSame('{"ok":true}|Dilna zevnitr', $reply->body . '|' . $this->site()->value('SELECT name FROM ka_media WHERE media_id = ?', [$ido]), 'the picture caption without reloading');
     }
 
@@ -64,7 +64,7 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         $this->assertStringContainsString('"total":1', $filtered, 'collection through MCP: filter by field (the total)');
 
         $idp = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE name = 'Peter Smith'");
-        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $idp, 'values' => ['role' => 'Workshop lead']]);
+        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $site->publicId('collection_items', $idp), 'values' => ['role' => 'Workshop lead']]);
         $this->assertSame('Peter Smith|1', $site->value("SELECT CONCAT(name, '|', data LIKE '%Workshop lead%') FROM ka_collection_items WHERE item_id = ?", [$idp]), 'collection through MCP: editing an item without a name keeps the name');
     }
 

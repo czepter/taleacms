@@ -88,7 +88,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('"page":"/portfolio-orphan"', $json, 'MCP: suggest_internal_links returns the orphan');
         $this->assertStringContainsString('"page":"/services/reference-portfolio","shared_words":["reference","portfolio"]', $json, 'MCP: a candidate page shares title words');
 
-        $site->mcp('update_page', ['id' => $this->pageId('services/reference-portfolio'), 'content' => '<p>Our references – <a href="/portfolio-orphan">detail</a>.</p>']);
+        $site->mcp('update_page', ['id' => $site->publicId('pages', $this->pageId('services/reference-portfolio')), 'content' => '<p>Our references – <a href="/portfolio-orphan">detail</a>.</p>']);
         $site->clearPageCache();
         $this->assertStringNotContainsString('"page":"/portfolio-orphan","target"', $this->mcpJson('suggest_internal_links', ['limit' => 100]), 'a page linked from a text is no orphan any more');
     }
@@ -98,8 +98,8 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $site = $this->site();
         $site->mcp('create_page', ['title' => 'Links test', 'slug' => 'links-test', 'visible' => true]);
         $id = $this->pageId('links-test');
-        $site->mcp('save_build', ['id' => $id, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'button', 'content' => ['text' => 'Old partner', 'link' => 'http://127.0.0.1:1/partner']]]]]]]);
-        $site->mcp('publish_build', ['id' => $id]);
+        $site->mcp('save_build', ['id' => $site->publicId('pages', $id), 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'button', 'content' => ['text' => 'Old partner', 'link' => 'http://127.0.0.1:1/partner']]]]]]]);
+        $site->mcp('publish_build', ['id' => $site->publicId('pages', $id)]);
         $element = (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[0].id')) FROM ka_pages WHERE page_id = ?", [$id]);
         $this->assertNotSame('', $element, 'the published build has the button element');
 
@@ -112,7 +112,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertSame("page|$id|$element|0", $site->value("SELECT CONCAT(kind, '|', target_id, '|', element, '|', status) FROM ka_broken_links WHERE url = 'http://127.0.0.1:1/partner'"), 'the link check finds the dead link in the page build with its element');
 
         $json = $this->mcpJson('list_broken_links');
-        $this->assertStringContainsString('"kind":"page","id":' . $id . ',"title":"Links test"', $json, 'MCP: list_broken_links says where the link is');
+        $this->assertStringContainsString('"kind":"page","id":"' . $site->publicId('pages', $id) . '","title":"Links test"', $json, 'MCP: list_broken_links says where the link is');
         $this->assertStringContainsString('"element":"' . $element . '"', $json, 'MCP: list_broken_links names the element');
         $this->assertStringContainsString('web.archive.org/web/2020/http://127.0.0.1:1/partner', $json, 'MCP: list_broken_links carries the archive hint');
 
@@ -123,7 +123,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('127.0.0.1:1/partner', $audit, 'site_audit reports the broken build link');
         $this->assertStringContainsString('"element":"' . $element . '"', $audit, 'site_audit reports the element');
 
-        $this->adminPost('/admin.php?module=news&action=links', ['kind' => 'page', 'id' => (string) $id], '/admin.php?module=news&action=links');
+        $this->adminPost('/admin.php?module=news&action=links', ['kind' => 'page', 'id' => $site->publicId('pages', (int) $id)], '/admin.php?module=news&action=links');
         $this->assertSame('1|0', $site->value("SELECT CONCAT((SELECT links_checked IS NULL FROM ka_pages WHERE page_id = $id), '|', (SELECT COUNT(*) FROM ka_broken_links WHERE kind = 'page' AND target_id = $id))"), 'Check again puts the page at the front of the queue');
     }
 }

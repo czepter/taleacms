@@ -28,8 +28,8 @@ final class UndoClaudeSessionTest extends SiteTestCase
         $this->newSession();
         self::$old = $this->firstId($this->mcpText('create_page', ['title' => 'Undo original', 'visible' => false]));
         $this->newSession();
-        $this->site()->mcp('update_page', ['id' => self::$old, 'title' => 'Changed by Claude']);
-        $this->site()->mcp('save_build', ['id' => self::$old, 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'content' => ['text' => 'Draft by Claude']]]]]);
+        $this->site()->mcp('update_page', ['id' => $this->site()->publicId('pages', self::$old), 'title' => 'Changed by Claude']);
+        $this->site()->mcp('save_build', ['id' => $this->site()->publicId('pages', self::$old), 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'content' => ['text' => 'Draft by Claude']]]]]);
         self::$new = $this->firstId($this->mcpText('create_page', ['title' => 'Undo new page', 'visible' => false]));
         self::$conflict = $this->firstId($this->mcpText('create_page', ['title' => 'Undo conflict', 'visible' => false]));
         $this->site()->exec("UPDATE ka_pages SET title = 'Edited by a person' WHERE page_id = ?", [self::$conflict]);

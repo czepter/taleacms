@@ -241,14 +241,14 @@ final class Kernel
         // recently edited content: pages and news together
         $edited = [];
         if (isset($modules['pages'])) {
-            foreach ($db->all('SELECT page_id, title, updated_at, visible, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'edited' => (string) $r['updated_at'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['page_id']),
+            foreach ($db->all('SELECT public_id, title, updated_at, visible, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 6') as $r) {
+                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'edited' => (string) $r['updated_at'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . $r['public_id']),
                     'status' => !$r['visible'] ? t('hidden') : ($r['has_draft'] ? t('unpublished changes') : '')];
             }
         }
         if (isset($modules['news'])) {
-            foreach ($db->all('SELECT c.news_id, c.title, COALESCE(c.edited_at, c.published_at) AS edited, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('News item'), 'title' => $r['title'], 'edited' => (string) $r['edited'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['news_id']),
+            foreach ($db->all('SELECT c.public_id, c.title, COALESCE(c.edited_at, c.published_at) AS edited, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
+                $edited[] = ['kind' => t('News item'), 'title' => $r['title'], 'edited' => (string) $r['edited'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . $r['public_id']),
                     'status' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('scheduled') : '')];
             }
         }
@@ -283,7 +283,7 @@ final class Kernel
                 'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=published'] : null,
                 'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=drafts'] : null,
             ]),
-            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
+            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, public_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
             'edited' => array_slice($edited, 0, 8),
         ];
     }

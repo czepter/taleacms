@@ -69,7 +69,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_page', ['title' => 'Enquiry CRM', 'visible' => true]);
         $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'enquiry-crm'");
-        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Enquiry CRM', 'fields' => [
+        $site->mcp('save_build', ['id' => $site->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Enquiry CRM', 'fields' => [
             ['label' => 'Full name', 'type' => 'text', 'required' => true], ['label' => 'Email', 'type' => 'email', 'required' => true], ['label' => 'Phone', 'type' => 'tel'],
             ['label' => 'Message', 'type' => 'textarea'], ['label' => 'Consent', 'type' => 'checkbox', 'required' => true],
         ]]]]]]]]);

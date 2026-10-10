@@ -44,8 +44,10 @@ if (SITE === 'business') {
   await shot('admin-dashboard', '/admin.php');
   await shot('admin-dashboard-dark', '/admin.php', { dark: true });
   await shot('admin-pages', '/admin.php?module=pages');
+  // the builder of the first page (the administration names a page by its public id)
+  const firstPage = new URL(await page.locator('a[href*="action=builder&id="]').first().getAttribute('href'), BASE).searchParams.get('id');
   // builder: the hero heading selected, its content on the right; then its style on a phone
-  await shot('admin-builder', '/admin.php?module=pages&action=builder&id=1', {
+  await shot('admin-builder', `/admin.php?module=pages&action=builder&id=${firstPage}`, {
     before: async () => { await page.waitForTimeout(1500); await canvas().locator('h1').first().click(); await page.waitForTimeout(600); },
   });
   await shot('admin-builder-dark', null, { dark: true });

@@ -23,7 +23,8 @@ final class ChangeLog extends Module
 
     protected function actionList(): Response
     {
-        $who = $this->request->getInt('username');
+        $whoId = $this->idParam('username', 'users');
+        $who = $whoId > 0 ? $this->request->get('username') : '';
         $whereParts = $this->request->get('area');
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         $by = in_array($this->request->get('by'), ['people', 'claude'], true) ? $this->request->get('by') : '';
@@ -32,9 +33,9 @@ final class ChangeLog extends Module
         if ($by !== '') {
             $conditions[] = $by === 'claude' ? "via <> ''" : "via = ''"; // made through a Claude connection or by a person in the admin (2.2)
         }
-        if ($who > 0) {
+        if ($whoId > 0) {
             $conditions[] = 'user_id = ?';
-            $params[] = $who;
+            $params[] = $whoId;
         }
         if ($whereParts !== '' && preg_match('/^[a-z_]{2,30}$/', $whereParts)) {
             $conditions[] = 'module = ?';
@@ -51,7 +52,7 @@ final class ChangeLog extends Module
 
         return $this->view('list', 'Change log', [
             'records' => $this->db->all('SELECT * FROM {change_log}' . $sql . ' ORDER BY log_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'users' => $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} ORDER BY 2"),
+            'users' => $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} ORDER BY 2"),
             'modules' => array_column($this->db->all('SELECT DISTINCT module FROM {change_log} ORDER BY module'), 'module'),
             'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);

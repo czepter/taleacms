@@ -16,8 +16,8 @@ $languages = Language::additional($app->settings());
 ?>
 <form class="form" method="post" action="<?= e($module->url('save_item')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
-<input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>">
+<input type="hidden" name="collection_id" value="<?= e($k['public_id']) ?>">
+<input type="hidden" name="item_id" value="<?= e($p['public_id']) ?>">
 <div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
 <?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'field-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
 <div class="row<?= $field['type'] === 'html' ? ' span-all' : '' ?>">
@@ -82,8 +82,8 @@ $languages = Language::additional($app->settings());
 </select></div></div>
 <?php endif ?>
 </details>
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigation" href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['item_id'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
-	<a class="navigation" href="<?= e($module->url('signature', ['id' => (int) $k['collection_id'], 'item' => (int) $p['item_id']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigation" href="<?= e($module->url('items', ['id' => $k['public_id']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['item_id'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
+	<a class="navigation" href="<?= e($module->url('signature', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
 <?php if (($versions ?? []) !== []): ?>
 <details class="advanced">
@@ -91,7 +91,7 @@ $languages = Language::additional($app->settings());
 <ul class="revisions">
 <?php foreach ($versions as $v): ?>
 	<li><?= e(format_date($v['created_at'], true)) ?><?= $v['user_name'] ? ' · ' . e($v['user_name']) : '' ?>
-		<form class="inline" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-confirm="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><input type="hidden" name="revision_id" value="<?= (int) $v['revision_id'] ?>"><button class="navigation" type="submit"><?= e(t('Restore')) ?></button></form></li>
+		<form class="inline" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-confirm="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= e($k['public_id']) ?>"><input type="hidden" name="item_id" value="<?= e($p['public_id']) ?>"><input type="hidden" name="revision_id" value="<?= (int) $v['revision_id'] ?>"><button class="navigation" type="submit"><?= e(t('Restore')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 </details>
@@ -100,7 +100,7 @@ $languages = Language::additional($app->settings());
 <details class="advanced" open>
 <summary><?= e(t('Notice log (%s)', count($noticeLog))) ?></summary>
 <p class="help"><?= e(t('Every creation and change of the notice and the day it was posted and taken down. The log is append-only – nothing in it can be edited or deleted.')) ?>
-<?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($module->url('notice_log', ['id' => (int) $k['collection_id']])) ?>"><?= e(t('Download the whole log as CSV')) ?></a><?php endif ?></p>
+<?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($module->url('notice_log', ['id' => $k['public_id']])) ?>"><?= e(t('Download the whole log as CSV')) ?></a><?php endif ?></p>
 <div class="tab-wrap">
 <table class="listing">
 <thead><tr><th scope="col"><?= e(t('Date')) ?></th><th scope="col"><?= e(t('Action')) ?></th><th scope="col"><?= e(t('By')) ?></th><th scope="col"><?= e(t('Changes')) ?></th></tr></thead>

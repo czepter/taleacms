@@ -490,14 +490,14 @@ final class Privacy
         $id = $s->int('accessibility_statement_page');
         if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {
             $db->update('pages', $record, ['page_id' => $id]);
-            \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated #' . $id);
+            \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated: ' . $statement['title']);
 
             return $id;
         }
         $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$u]) !== null);
         $id = $db->insert('pages', $record + ['slug' => $slug, 'visible' => 0, 'in_menu' => 1, 'sort_order' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created #' . $id);
+        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created: ' . $statement['title']);
 
         return $id;
     }

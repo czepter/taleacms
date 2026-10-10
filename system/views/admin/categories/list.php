@@ -21,13 +21,13 @@
 <tbody>
 <?php foreach ($category as $k): ?>
 <tr>
-	<td><a href="<?= e($module->url('edit', ['id' => $k['category_id']])) ?>"><?= e($k['name']) ?></a><?= ($k['language'] ?? '') !== '' ? ' <span class="badge">' . e(strtoupper($k['language'])) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $k['public_id']])) ?>"><?= e($k['name']) ?></a><?= ($k['language'] ?? '') !== '' ? ' <span class="badge">' . e(strtoupper($k['language'])) . '</span>' : '' ?></td>
 	<td><?= e('/' . (($k['language'] ?? '') !== '' ? $k['language'] . '/' : '') . ltrim(substr($app->url('news/category/' . $k['slug']), strlen($app->request->basePath())), '/')) ?></td>
 	<td class="number"><?= (int) $k['news_count'] ?></td>
 	<td class="number"><?= (int) $k['weight'] ?></td>
 	<td class="actions">
-		<a href="<?= e($module->url('edit', ['id' => $k['category_id']])) ?>"><?= e(t('Edit')) ?></a> ·
-		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Really delete the category?')) ?>"><?= $csrf ?><input type="hidden" name="category_id" value="<?= (int) $k['category_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
+		<a href="<?= e($module->url('edit', ['id' => $k['public_id']])) ?>"><?= e(t('Edit')) ?></a> ·
+		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Really delete the category?')) ?>"><?= $csrf ?><input type="hidden" name="category_id" value="<?= e($k['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>

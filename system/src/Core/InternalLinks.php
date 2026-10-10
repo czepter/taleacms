@@ -115,7 +115,7 @@ final class InternalLinks
         foreach ($db->all('SELECT page_id, title, slug, language, build IS NOT NULL AS build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND page_id <> ? ORDER BY sort_order, title', [$home]) as $p) {
             $path = $prefix((string) $p['language']) . $p['slug'];
             if (!isset($linked[$path])) {
-                $out[] = ['kind' => 'page', 'id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['page_id'], 'target' => ['page' => (int) $p['page_id']]];
+                $out[] = ['kind' => 'page', 'id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . $db->publicId('pages', (int) $p['page_id']), 'target' => ['page' => (int) $p['page_id']]];
             }
         }
         if (!$newsListed && Extensions::isEnabled($s, 'news')) {
@@ -123,14 +123,14 @@ final class InternalLinks
             foreach ($db->all('SELECT news_id, title, slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 1000') as $c) {
                 $path = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
                 if (!isset($linked[$path])) {
-                    $out[] = ['kind' => 'news', 'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $c['news_id'], 'target' => ['news' => (int) $c['news_id']]];
+                    $out[] = ['kind' => 'news', 'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . $db->publicId('news', (int) $c['news_id']), 'target' => ['news' => (int) $c['news_id']]];
                 }
             }
         }
         foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
             $path = $prefix((string) $p['language']) . $p['collection'] . '/' . $p['slug'];
             if (!isset($listedCollections[(string) $p['collection']]) && !isset($linked[$path])) {
-                $out[] = ['kind' => 'item', 'id' => (int) $p['item_id'], 'title' => (string) $p['name'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['collection_id'] . '&item=' . (int) $p['item_id'], 'target' => ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]];
+                $out[] = ['kind' => 'item', 'id' => (int) $p['item_id'], 'title' => (string) $p['name'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . $db->publicId('collections', (int) $p['collection_id']) . '&item=' . $db->publicId('collection_items', (int) $p['item_id']), 'target' => ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]];
             }
         }
 

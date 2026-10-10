@@ -19,6 +19,7 @@ final class Subscribers extends Module
     public const string NAME = 'Subscribers';
     public const string GROUP = 'Customers';
     public const string ICON = 'newsletter_signup';
+    public const string TABLE = 'subscribers';
 
     protected function actionList(): Response
     {
@@ -39,9 +40,9 @@ final class Subscribers extends Module
 
     protected function actionDelete(): Response
     {
-        $o = $this->request->isPost() ? $this->db->one('SELECT email, status FROM {subscribers} WHERE subscriber_id = ?', [$this->request->postInt('subscriber_id')]) : null;
+        $o = $this->request->isPost() ? $this->db->one('SELECT email, status FROM {subscribers} WHERE subscriber_id = ?', [$this->idParam('subscriber_id')]) : null;
         if ($o !== null) {
-            $this->db->delete('subscribers', ['subscriber_id' => $this->request->postInt('subscriber_id')]);
+            $this->db->delete('subscribers', ['subscriber_id' => $this->idParam('subscriber_id')]);
             if ((int) $o['status'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
             }

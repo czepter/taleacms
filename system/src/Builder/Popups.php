@@ -151,7 +151,7 @@ final class Popups
         $type = isset(self::TYPES[$p['type']]) ? $p['type'] : 'window';
         $id = 'popup-' . $p['slug'];
         $dialog = in_array($type, ['window', 'fullscreen'], true);
-        $data = ['popup' => (string) $p['popup_id'], 'trigger' => $p['trigger_type'], 'value' => (string) $p['value'], 'frequency' => $p['frequency'],
+        $data = ['popup' => (string) $p['public_id'], 'trigger' => $p['trigger_type'], 'value' => (string) $p['value'], 'frequency' => $p['frequency'],
             'days' => (string) $p['days'], 'device' => $p['rules']['device'], 'campaign' => $p['rules']['campaign'], 'referrer' => $p['rules']['referrer'],
             'counter' => $counterUrl] + ($open ? ['open' => '1'] : []);
 

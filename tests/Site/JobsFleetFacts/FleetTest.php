@@ -72,7 +72,7 @@ final class FleetTest extends SiteTestCase
         $this->assertStringContainsString('name="pairing_key"', $tab->body, 'Settings → Fleet console offers pairing');
         $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey, 'fleet_updates' => '1'], '/admin.php?module=settings&tab=console');
 
-        $this->sameValue($console->base . '|1|1', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_console_url'), '|', (SELECT value > 0 FROM ka_settings WHERE name = 'fleet_site_id'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_updates'))"), 'pairing: the site knows its console and its number there');
+        $this->sameValue($console->base . '|1|1', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_console_url'), '|', (SELECT value <> '' FROM ka_settings WHERE name = 'fleet_site_id'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_updates'))"), 'pairing: the site knows its console and its number there');
         $this->sameValue('1|1|1|1|1', $console->value("SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites"), 'pairing: the console has the site with its first report');
         $this->sameValue('1', $console->value('SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL'), 'pairing: the code works only once');
         $this->assertStringNotContainsString('@', (string) $console->value('SELECT heartbeat FROM ka_fleet_sites'), 'the report carries no e-mail addresses');
@@ -80,15 +80,15 @@ final class FleetTest extends SiteTestCase
         $name = $site->settingValue('site_name');
         $this->assertStringContainsString($name, $console->admin()->get('/admin.php?module=fleet&show=all')->body, 'console: the site is in the list');
         self::$fleetId = (int) $console->value('SELECT id FROM ka_fleet_sites LIMIT 1');
-        $this->assertStringContainsString('name="ring"', $console->admin()->get('/admin.php?module=fleet&action=detail&id=' . self::$fleetId)->body, 'console: the detail of a site with its update ring');
+        $this->assertStringContainsString('name="ring"', $console->admin()->get('/admin.php?module=fleet&action=detail&id=' . $console->publicId('fleet_sites', self::$fleetId))->body, 'console: the detail of a site with its update ring');
     }
 
     public function testForgedAndRepeatedReportsAreRefused(): void
     {
         $console = $this->console();
         $id = self::$fleetId;
-        $this->assertSame(403, $console->client()->post('/fleet/heartbeat', '{"site_id":' . $id . ',"ts":' . time() . '}', ['X-Kaleta-Signature: AAAA'])->status, 'console: a report with a wrong signature is refused');
-        $this->assertSame(404, $console->client()->post('/fleet/heartbeat', '{"site_id":99999}')->status, 'console: a report of an unknown site is refused');
+        $this->assertSame(403, $console->client()->post('/fleet/heartbeat', '{"site_id":"' . $console->publicId('fleet_sites', $id) . '","ts":' . time() . '}', ['X-Kaleta-Signature: AAAA'])->status, 'console: a report with a wrong signature is refused');
+        $this->assertSame(404, $console->client()->post('/fleet/heartbeat', '{"site_id":"' . $id . '"}')->status, 'console: a report of an unknown site is refused');
         $key = (string) $console->value('SELECT public_key FROM ka_fleet_sites LIMIT 1');
         $this->assertSame(403, $console->client()->post('/fleet/pair', json_encode(['action' => 'pair', 'code' => str_repeat('0', 32), 'public_key' => $key, 'url' => 'http://x.test', 'ts' => 0]))->status, 'console: pairing with an unknown code is refused');
     }
@@ -113,7 +113,7 @@ final class FleetTest extends SiteTestCase
         $site = $this->site();
         $console = $this->console();
         $this->sameValue('', $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: a normal site waits for the test sites');
-        $this->postAs($console, '/admin.php?module=fleet&action=ring', ['id' => self::$fleetId, 'ring' => 'canary'], '/admin.php?module=fleet&action=detail&id=' . self::$fleetId);
+        $this->postAs($console, '/admin.php?module=fleet&action=ring', ['id' => $console->publicId('fleet_sites', self::$fleetId), 'ring' => 'canary'], '/admin.php?module=fleet&action=detail&id=' . $console->publicId('fleet_sites', self::$fleetId));
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
         // HF-12: the in-app updater is off, so a site reports no available update and the console has nothing to allow (the staging returns with HF-13)
@@ -147,7 +147,7 @@ final class FleetTest extends SiteTestCase
         $list = $this->consoleMcp('list_sites');
         $this->assertStringContainsString('console_decides_updates', $list, 'MCP list_sites on the console: who decides updates');
         $this->assertStringContainsString('newest_version', $list, 'MCP list_sites on the console: the newest version');
-        $this->assertStringContainsString('jobs_failing', $this->consoleMcp('get_site', ['id' => self::$fleetId]), 'MCP get_site: the last report');
+        $this->assertStringContainsString('jobs_failing', $this->consoleMcp('get_site', ['id' => $this->console()->publicId('fleet_sites', self::$fleetId)]), 'MCP get_site: the last report');
         $this->assertStringNotContainsString('newest_version', $this->mcpText('list_sites'), 'list_sites exists only on a console');
     }
 
@@ -165,8 +165,8 @@ final class FleetTest extends SiteTestCase
         $section = (int) $console->value("SELECT section_id FROM ka_sections WHERE name = 'Kit banner'");
 
         $page = $console->admin()->get('/admin.php?module=fleet&action=kit');
-        $this->assertTrue($page->contains('name="design_system"') && $page->contains('value="kit-band"') && $page->contains('value="' . self::$kitComponent . '"'), 'console: the shared kit screen offers the design system, classes, components and sections');
-        $this->postAs($console, '/admin.php?module=fleet&action=kit_publish', ['design_system' => '1', 'classes' => ['kit-band'], 'components' => [self::$kitComponent], 'sections' => [$section]], '/admin.php?module=fleet&action=kit');
+        $this->assertTrue($page->contains('name="design_system"') && $page->contains('value="kit-band"') && $page->contains('value="' . $console->publicId('components', self::$kitComponent) . '"'), 'console: the shared kit screen offers the design system, classes, components and sections');
+        $this->postAs($console, '/admin.php?module=fleet&action=kit_publish', ['design_system' => '1', 'classes' => ['kit-band'], 'components' => [$console->publicId('components', self::$kitComponent)], 'sections' => [$console->publicId('sections', $section)]], '/admin.php?module=fleet&action=kit');
         $this->sameValue('1|1|1|1|1|0|64|design system, 1 class, 1 component, 1 section', $console->value("SELECT CONCAT(version, '|', manifest LIKE '%#aa0000%', '|', manifest LIKE '%kit-band%', '|', manifest LIKE '%Kit card v1%', '|', manifest LIKE '%Kit banner%', '|', manifest LIKE '%<script%', '|', LENGTH(sha256), '|', summary) FROM ka_fleet_kits"), 'console: kit version 1 is published – signed content without the custom-code element');
         $this->postAs($console, '/admin.php?module=fleet&action=kit_publish', [], '/admin.php?module=fleet&action=kit');
         $this->sameValue('1', $console->value('SELECT COUNT(*) FROM ka_fleet_kits'), 'console: an empty kit is not published');
@@ -198,7 +198,7 @@ final class FleetTest extends SiteTestCase
         $site = $this->site();
         $console = $this->console();
         $console->exec("UPDATE ka_components SET build = REPLACE(build, 'Kit card v1', 'Kit card v2') WHERE component_id = ?", [self::$kitComponent]);
-        $this->postAs($console, '/admin.php?module=fleet&action=kit_publish', ['components' => [self::$kitComponent]], '/admin.php?module=fleet&action=kit');
+        $this->postAs($console, '/admin.php?module=fleet&action=kit_publish', ['components' => [$console->publicId('components', self::$kitComponent)]], '/admin.php?module=fleet&action=kit');
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
         $this->sameValue('1|1|2', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_components WHERE kit_key = 'kit-card'), '|', (SELECT build_draft LIKE '%Kit card v2%' FROM ka_components WHERE kit_key = 'kit-card'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_kit_version'))"), "kit version 2 updates the component's draft (no duplicate)");
@@ -214,8 +214,8 @@ final class FleetTest extends SiteTestCase
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
         $this->sameValue('2|0|1|1', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_kit_version'), '|', (SELECT value LIKE '%#bb0000%' FROM ka_settings WHERE name = 'look_draft'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.kit_refused'), '|', (SELECT value <> '' FROM ka_settings WHERE name = 'fleet_kit_error'))"), 'a tampered kit is refused: the version stays, the draft does not change, the refusal is an event');
-        $this->assertSame(403, $console->client()->post('/fleet/kit', json_encode(['action' => 'kit', 'site_id' => self::$fleetId, 'ts' => time()]), ['X-Kaleta-Signature: AAAA'])->status, 'console: a kit request without a valid signature is refused');
-        $this->assertSame(404, $console->client()->post('/fleet/kit', '{"action":"kit","site_id":99999}')->status, 'console: a kit request of an unknown site is refused');
+        $this->assertSame(403, $console->client()->post('/fleet/kit', json_encode(['action' => 'kit', 'site_id' => $console->publicId('fleet_sites', self::$fleetId), 'ts' => time()]), ['X-Kaleta-Signature: AAAA'])->status, 'console: a kit request without a valid signature is refused');
+        $this->assertSame(404, $console->client()->post('/fleet/kit', '{"action":"kit","site_id":"' . self::$fleetId . '"}')->status, 'console: a kit request of an unknown site is refused');
     }
 
     public function testMcpReportsTheKitVersions(): void

@@ -10,12 +10,13 @@
  * @var string $back      url to return to after saving or cancelling
  * @var bool $error       saving failed (empty title)
  */
+$recordId = $app->db()->publicId($type === 'news' ? 'news' : 'pages', (int) ($record['news_id'] ?? $record['page_id']));
 ?>
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 <article class="article article-full ka-edit-text ka-ui">
 	<form method="post" action="<?= e($action) ?>">
 		<input type="hidden" name="_csrf" value="<?= e($app->session->csrfToken()) ?>">
-		<input type="hidden" name="id" value="<?= (int) ($record['news_id'] ?? $record['page_id']) ?>">
+		<input type="hidden" name="id" value="<?= e($recordId) ?>">
 		<input type="hidden" name="back" value="<?= e($back) ?>">
 <?php if ($error): ?>
 		<p class="ka-edit-notice"><?= e(t('The title must not be empty.')) ?></p>
@@ -31,7 +32,7 @@
 		<div class="ka-edit-bar">
 			<button class="ka-btn" type="submit"><?= e(t('Save')) ?></button>
 			<a class="ka-btn ka-btn-secondary" href="<?= e($back) ?>"><?= e(t('Cancel')) ?></a>
-			<a class="ka-edit-all" href="<?= e($app->url('admin.php?module=' . ($type === 'news' ? 'news' : 'pages') . '&action=edit&id=' . (int) ($record['news_id'] ?? $record['page_id']))) ?>"><?= e(t('All settings in the administration')) ?></a>
+			<a class="ka-edit-all" href="<?= e($app->url('admin.php?module=' . ($type === 'news' ? 'news' : 'pages') . '&action=edit&id=' . $recordId)) ?>"><?= e(t('All settings in the administration')) ?></a>
 		</div>
 	</form>
 </article>

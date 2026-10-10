@@ -51,7 +51,7 @@ final class EventsCalendarTest extends SiteTestCase
 
     public function testListPageEventPageAndCalendarFiles(): void
     {
-        $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'events-test'"), 'visible' => true]);
+        $this->mcpText('update_page', ['id' => $this->site()->publicId('pages', (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'events-test'")), 'visible' => true]);
         $this->site()->clearPageCache();
         $list = $this->visitor()->get('/events-test');
         $this->assertStringContainsString('Yoga, for beginners', $list->body, 'the list page shows an upcoming event');

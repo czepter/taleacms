@@ -21,7 +21,7 @@ final class Prompts
             [],
             'Run site_audit. Fix what is safe to fix without asking – missing descriptions of pages and item pages, broken internal links, images without alternative text, buttons without links – as drafts or small edits, and tell me what you changed. List the rest (for example addresses that need a redirect, or duplicate titles that need a decision) with a suggestion for each, and wait for my answer.'],
         'translate_page' => ['Translate a page into another language version of the site.',
-            ['page_id' => ['ID of the page to translate (list_pages)', true], 'language' => ['Language code, e.g. de', true]],
+            ['page_id' => ['Public id (UUID) of the page to translate (list_pages)', true], 'language' => ['Language code, e.g. de', true]],
             'Translate page {page_id} into the language version {language}. Read the site instructions first. Create the translation with create_page (language, translation_of: {page_id}, copy_build: true), then get_build with texts_only and translate the texts with edit_build "update" operations; point internal links to the translated pages where they exist. Keep it hidden, give me the preview link and a list of links you could not translate.'],
         'write_news' => ['Write a news item for the company blog, as a draft.',
             ['topic' => ['What the news item is about', true]],
@@ -165,7 +165,8 @@ final class Prompts
     /** How to work with Kaleta through MCP – the first part of the server instructions (response to initialize). */
     private static function guide(): string
     {
-        return 'A business website on Kaleta. Write texts in the language of the site; pages and news as clean semantic HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
+        return 'A business website on Kaleta. Every row (a page, news item, media file, collection item, pop-up, component…) is named by its public id – a UUID, exactly as the list and get tools return it – in every id argument; a number is refused. '
+            . 'Write texts in the language of the site; pages and news as clean semantic HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
             . 'BUILDING A SITE: (1) site_info and builder_schema (a short overview; full element definitions through the elements parameter). '
             . '(2) The look of the whole site: update_design_system (colours, fonts, sizes); upload a custom font with upload_file (.woff2) and add it to custom_fonts. A repeated look (cards, labels, a dark band) belongs in shared classes – save_classes or <style> in build_from_html; a dark band = a class that overrides the tokens (--ka-color-text, --ka-color-background, --ka-color-primary…) so links and buttons stay readable. '
             . '(3) Pages: create_page (it stays hidden) and build_from_html – semantic HTML by sections + <style> with rules of one class and tokens var(--ka-…), breakpoints @media (max-width: 1023px) and (max-width: 767px), no inline styles; or save_build with JSON according to the schema. Upload images with upload_file. Build the header and footer with save_build and the part parameter. '

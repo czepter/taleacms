@@ -30,13 +30,13 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
 
         $text = $this->mcpText('save_collection_item', ['collection' => 'team', 'name' => 'Member Proposal', 'values' => ['role' => 'Joiner'], 'visible' => true], $token);
         $created = json_decode($text, true);
-        self::$draftItem = (int) $this->pick($created, 'id');
+        self::$draftItem = $this->site()->rowId((string) $this->pick($created, 'id'));
         $this->assertSame('0||1', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]) . '|' . $this->pick($created, 'visible') . '|' . $this->lines('Saved hidden', $text), '3.2: a drafts-only connection creates a collection item - hidden, whatever visible says, and says so');
 
-        $this->site()->mcp('save_collection_item', ['collection' => 'team', 'id' => self::$draftItem, 'values' => ['role' => 'Master joiner']], $token);
+        $this->site()->mcp('save_collection_item', ['collection' => 'team', 'id' => $this->site()->publicId('collection_items', self::$draftItem), 'values' => ['role' => 'Master joiner']], $token);
         $this->assertSame('0|1', $this->sq("SELECT CONCAT(visible, '|', data LIKE '%Master joiner%') FROM ka_collection_items WHERE item_id = ?", [self::$draftItem]), '3.2: a drafts-only connection changes a hidden item');
 
-        $this->assertStringContainsString('cannot make an item visible', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'id' => self::$draftItem, 'visible' => true], $token), '3.2: a drafts-only connection cannot make an item visible (refused)');
+        $this->assertStringContainsString('cannot make an item visible', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'id' => $this->site()->publicId('collection_items', self::$draftItem), 'visible' => true], $token), '3.2: a drafts-only connection cannot make an item visible (refused)');
         $this->assertSame('0', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]), '3.2: and the item stays hidden');
 
         $this->assertStringContainsString('cannot schedule an item', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'name' => 'Scheduled Proposal', 'publish_at' => '2099-01-01 08:00'], $token), '3.2: a drafts-only connection cannot schedule an item (refused)');
@@ -45,7 +45,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $live = (int) $this->sq("SELECT p.item_id FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'team' AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.item_id LIMIT 1");
         $before = $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM ka_collection_items WHERE item_id = ?', [$live]);
         $this->assertNotSame('', $before, 'there is a visible item');
-        $this->assertStringContainsString('propose', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'id' => $live, 'name' => 'Overwritten by Claude'], $token), '3.2: a drafts-only connection is told to propose the change of a visible item');
+        $this->assertStringContainsString('propose', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'id' => $this->site()->publicId('collection_items', $live), 'name' => 'Overwritten by Claude'], $token), '3.2: a drafts-only connection is told to propose the change of a visible item');
         $this->assertSame($before, $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM ka_collection_items WHERE item_id = ?', [$live]), '3.2: a drafts-only connection cannot change a visible item');
     }
 
@@ -55,10 +55,10 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, email, data) VALUES (NOW(), 'Navrh trideni', 'navrh@example.com', '[]')");
         $enquiry = (int) $this->sq("SELECT MAX(enquiry_id) FROM ka_enquiries WHERE form = 'Navrh trideni'");
 
-        $this->assertStringContainsString('triage', $this->mcpRawText('update_enquiry', ['id' => $enquiry, 'status' => 'resolved', 'category' => 'sales'], $token), '3.2: setting the status of an enquiry is refused (triage only)');
+        $this->assertStringContainsString('triage', $this->mcpRawText('update_enquiry', ['id' => $this->site()->publicId('enquiries', $enquiry), 'status' => 'resolved', 'category' => 'sales'], $token), '3.2: setting the status of an enquiry is refused (triage only)');
         $this->assertSame('0|', $this->sq("SELECT CONCAT(status, '|', category) FROM ka_enquiries WHERE enquiry_id = ?", [$enquiry]), '3.2: a drafts-only connection cannot set the status of an enquiry (nothing saved)');
 
-        $this->site()->mcp('update_enquiry', ['id' => $enquiry, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Hello, we will get back to you.'], $token);
+        $this->site()->mcp('update_enquiry', ['id' => $this->site()->publicId('enquiries', $enquiry), 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Hello, we will get back to you.'], $token);
         $this->assertSame('0|sales|3|claude', $this->sq("SELECT CONCAT(status, '|', category, '|', priority, '|', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?", [$enquiry]), '3.2: a drafts-only connection saves the triage of an enquiry');
         $this->site()->exec('DELETE FROM ka_enquiries WHERE enquiry_id = ?', [$enquiry]);
 

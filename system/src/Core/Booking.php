@@ -71,7 +71,7 @@ final class Booking
         $out = [];
         foreach ($rows as $r) {
             $id = (int) $r['id'];
-            $out[] = ['id' => $id, 'name' => (string) $r['name'], 'duration_min' => (int) $r['duration_min'], 'buffer_min' => (int) $r['buffer_min'], 'price_text' => (string) $r['price_text'],
+            $out[] = ['id' => $id, 'public_id' => (string) $r['public_id'], 'name' => (string) $r['name'], 'duration_min' => (int) $r['duration_min'], 'buffer_min' => (int) $r['buffer_min'], 'price_text' => (string) $r['price_text'],
                 'description' => (string) $r['description'], 'active' => (int) $r['active'] === 1, 'requires_confirmation' => (int) $r['requires_confirmation'] === 1, 'sort_order' => (int) $r['sort_order'],
                 'staff' => array_values(array_map(fn (array $l): int => (int) $l['staff_id'], array_filter($links, fn (array $l): bool => (int) $l['service_id'] === $id)))];
         }
@@ -105,7 +105,7 @@ final class Booking
         $out = [];
         foreach ($rows as $r) {
             $id = (int) $r['id'];
-            $out[] = ['id' => $id, 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'active' => (int) $r['active'] === 1, 'user_id' => $r['user_id'] === null ? null : (int) $r['user_id'],
+            $out[] = ['id' => $id, 'public_id' => (string) $r['public_id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'active' => (int) $r['active'] === 1, 'user_id' => $r['user_id'] === null ? null : (int) $r['user_id'],
                 'sort_order' => (int) $r['sort_order'], 'services' => array_values(array_map(fn (array $l): int => (int) $l['service_id'], array_filter($links, fn (array $l): bool => (int) $l['staff_id'] === $id)))];
         }
 
@@ -359,7 +359,7 @@ final class Booking
             return 'The person does not exist.';
         }
         $app->db()->insert('booking_off', ['staff_id' => $staffId > 0 ? $staffId : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => mb_substr(trim(strip_tags($note)), 0, 150)]);
-        ChangeLog::write($app, 'bookings', 'off_create', ($staffId > 0 ? '#' . $staffId . ' ' : '') . $range[0] . ' – ' . $range[1]);
+        ChangeLog::write($app, 'bookings', 'off_create', ($staffId > 0 ? (string) self::member($app->db(), $staffId)['name'] . ' ' : '') . $range[0] . ' – ' . $range[1]);
         \Kaleta\Front\Cache::clear();
 
         return null;
@@ -369,7 +369,7 @@ final class Booking
     {
         $deleted = $app->db()->delete('booking_off', ['id' => $id]) > 0;
         if ($deleted) {
-            ChangeLog::write($app, 'bookings', 'off_delete', '#' . $id);
+            ChangeLog::write($app, 'bookings', 'off_delete');
             \Kaleta\Front\Cache::clear();
         }
 
@@ -399,8 +399,9 @@ final class Booking
         if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE service_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
             return 'The service has upcoming bookings – cancel them first, or switch the service off instead.';
         }
+        $name = (string) $db->value('SELECT name FROM {booking_services} WHERE id = ?', [$id]);
         $db->delete('booking_services', ['id' => $id]);
-        ChangeLog::write($app, 'bookings', 'service_delete', '#' . $id);
+        ChangeLog::write($app, 'bookings', 'service_delete', $name);
         \Kaleta\Front\Cache::clear();
 
         return null;
@@ -416,8 +417,9 @@ final class Booking
         if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
             return 'The person has upcoming bookings – cancel or move them first, or switch the person off instead.';
         }
+        $name = (string) $db->value('SELECT name FROM {booking_staff} WHERE id = ?', [$id]);
         $db->delete('booking_staff', ['id' => $id]);
-        ChangeLog::write($app, 'bookings', 'staff_delete', '#' . $id);
+        ChangeLog::write($app, 'bookings', 'staff_delete', $name);
         \Kaleta\Front\Cache::clear();
 
         return null;
@@ -720,7 +722,7 @@ final class Booking
         Events::record($db, 'booking.created', 'info', t('An appointment was booked: %s, %s', $service['name'], self::when($booking['starts_at'], $booking['ends_at'])),
             ['booking' => (int) $booking['id'], 'service' => $service['id'], 'staff' => (int) $booking['staff_id'], 'by' => $by]); // never the customer
         if ($by !== 'customer') {
-            ChangeLog::write($app, 'bookings', 'create', '#' . $booking['id'] . ' ' . $service['name'] . ' ' . $booking['starts_at']);
+            ChangeLog::write($app, 'bookings', 'create', $service['name'] . ' ' . $booking['starts_at']);
         }
         if ($booking['status'] === 'pending') {
             self::sendPending($app, $booking);
@@ -792,13 +794,19 @@ final class Booking
     }
 
     /** Marks a booking done or did not come (only a confirmed one, after it started). */
+    /** What a booking is called in the change log: its service and time (never its row number or the customer). */
+    private static function label(Db $db, array $booking): string
+    {
+        return trim((string) ($booking['service'] ?? $db->value('SELECT name FROM {booking_services} WHERE id = ?', [(int) ($booking['service_id'] ?? 0)])) . ' ' . substr((string) ($booking['starts_at'] ?? ''), 0, 16));
+    }
+
     public static function setStatus(App $app, array $booking, string $status): bool
     {
         if (!in_array($status, ['done', 'no_show'], true) || $booking['status'] !== 'confirmed') {
             return false;
         }
         $app->db()->update('bookings', ['status' => $status], ['id' => (int) $booking['id']]);
-        ChangeLog::write($app, 'bookings', $status, '#' . $booking['id']);
+        ChangeLog::write($app, 'bookings', $status, self::label($app->db(), $booking));
 
         return true;
     }
@@ -820,7 +828,7 @@ final class Booking
         Events::record($db, 'booking.cancelled', 'info', t('An appointment was cancelled: %s, %s', (string) ($booking['service'] ?? ''), self::when($booking['starts_at'], $booking['ends_at'])),
             ['booking' => (int) $booking['id'], 'by' => $by]);
         if ($by !== 'customer') {
-            ChangeLog::write($app, 'bookings', 'cancel', '#' . $booking['id']);
+            ChangeLog::write($app, 'bookings', 'cancel', self::label($app->db(), $booking));
             self::sendCancelled($app, $booking);
         }
         self::notifyStaff($app, $booking, 'cancelled');
@@ -865,7 +873,7 @@ final class Booking
         $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
         $token = self::rotateToken($db, (int) $booking['id']);
         $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
-        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'confirm', '#' . $booking['id']);
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'confirm', self::label($app->db(), $booking));
         Events::record($db, 'booking.confirmed', 'info', t('An appointment was accepted: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => $by]);
         self::sendConfirmation($app, $booking);
 
@@ -882,7 +890,7 @@ final class Booking
         }
         $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
         $booking = self::find($db, (int) $booking['id']) ?? $booking;
-        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'decline', '#' . $booking['id']);
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'decline', self::label($app->db(), $booking));
         Events::record($db, 'booking.declined', 'info', t('An appointment request was declined: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => $by]);
         self::sendDeclined($app, $booking, mb_substr(trim(strip_tags($message)), 0, 1000));
 
@@ -938,7 +946,7 @@ final class Booking
         });
         $token = self::rotateToken($db, (int) $booking['id']);
         $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
-        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'propose', '#' . $booking['id']);
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'propose', self::label($app->db(), $booking));
         self::sendProposal($app, $booking, self::proposals($db, (int) $booking['id']), mb_substr(trim(strip_tags($message)), 0, 1000));
 
         return null;
@@ -1108,7 +1116,7 @@ final class Booking
                 $customer[] = t('Note') . ': ' . (string) $booking['note'];
             }
             $text = implode("\n", self::details($app, $booking)) . "\n\n" . implode("\n", $customer)
-                . "\n\n—\n" . t('The booking in the administration: %s', self::absolute($app, 'admin.php?module=bookings&action=detail&id=' . (int) $booking['id']));
+                . "\n\n—\n" . t('The booking in the administration: %s', self::absolute($app, 'admin.php?module=bookings&action=detail&id=' . $app->db()->publicId('bookings', (int) $booking['id'])));
             $when = self::when((string) $booking['starts_at'], (string) $booking['ends_at']);
             $subject = match ($what) {
                 'cancelled' => t('Booking cancelled: %s, %s', (string) $booking['service'], $when),
@@ -1283,7 +1291,7 @@ final class Booking
     {
         $done = $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = NOW() WHERE id = ? AND anonymised_at IS NULL", [$id])->rowCount() > 0;
         if ($done) {
-            ChangeLog::write($app, 'bookings', 'anonymise', '#' . $id);
+            ChangeLog::write($app, 'bookings', 'anonymise');
         }
 
         return $done;
@@ -1297,7 +1305,7 @@ final class Booking
         $s = $app->settings();
         $host = (string) (parse_url($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), PHP_URL_HOST) ?: 'kaleta.invalid');
         $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kaleta//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-            'BEGIN:VEVENT', 'UID:kaleta-booking-' . (int) $booking['id'] . '@' . $host, 'DTSTAMP:' . Calendar::utc((string) $booking['created_at']),
+            'BEGIN:VEVENT', 'UID:kaleta-booking-' . $app->db()->publicId('bookings', (int) $booking['id']) . '@' . $host, 'DTSTAMP:' . Calendar::utc((string) $booking['created_at']),
             'DTSTART:' . Calendar::utc((string) $booking['starts_at']), 'DTEND:' . Calendar::utc((string) $booking['ends_at']),
             'SUMMARY:' . Calendar::escape((string) $booking['service'] . ' – ' . $s->get('site_name'))];
         if (self::place($s) !== '') {

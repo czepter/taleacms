@@ -21,12 +21,18 @@ final class BuilderPagesTest extends SiteTestCase
         return (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
     }
 
+    /** The page as the administration addresses it. */
+    private function pagePublicId(): string
+    {
+        return $this->site()->publicId('pages', $this->pageId());
+    }
+
     /** The old page_action(): a POST of the builder with the session token. @param array<string, string> $fields */
     private function pageAction(string $action, array $fields = [], bool $csrf = true): Response
     {
         $fields = ($csrf ? ['_csrf' => $this->site()->csrf()] : []) + $fields;
 
-        return $this->site()->admin()->post('/admin.php?module=pages&action=' . $action . '&id=' . $this->pageId(), $fields);
+        return $this->site()->admin()->post('/admin.php?module=pages&action=' . $action . '&id=' . $this->pagePublicId(), $fields);
     }
 
     private function publishLook(): void
@@ -37,7 +43,7 @@ final class BuilderPagesTest extends SiteTestCase
 
     public function testBuilderOpensAndConvertsATextPage(): void
     {
-        $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->pageId(), 200, 'id="builder-data"', message: 'builder opens and converts a text page');
+        $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->pagePublicId(), 200, 'id="builder-data"', message: 'builder opens and converts a text page');
     }
 
     public function testDraftSaveReturnsTheCleanedBuildAndErrors(): void
@@ -65,7 +71,7 @@ final class BuilderPagesTest extends SiteTestCase
     public function testBuilderRequiresCsrfAndTheLibraryOnlyPost(): void
     {
         $this->assertSame(400, $this->pageAction('build_save', ['build' => self::BUILD], csrf: false)->status, 'builder without CSRF refused');
-        $this->assertPage('/admin.php?module=pages&action=build_section&id=' . $this->pageId() . '&key=faq', 404, message: 'section library only via POST');
+        $this->assertPage('/admin.php?module=pages&action=build_section&id=' . $this->pagePublicId() . '&key=faq', 404, message: 'section library only via POST');
     }
 
     public function testLibrarySectionAndClasses(): void
@@ -132,9 +138,9 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertStringContainsString('Second version', $this->pageAction('build_discard')->body, 'discarding changes returns the published build');
 
         $author = $this->authorClient();
-        $this->assertSame(403, $author->get('/admin.php?module=pages&action=builder&id=' . $id)->status, 'a news author may not use the builder');
+        $this->assertSame(403, $author->get('/admin.php?module=pages&action=builder&id=' . $this->site()->publicId('pages', $id))->status, 'a news author may not use the builder');
 
-        $this->pageAction('build_text', ['page_id' => (string) $id]);
+        $this->pageAction('build_text', ['page_id' => $this->site()->publicId('pages', $id)]);
         $this->site()->clearPageCache();
         $body = $this->site()->client()->get('/about-us')->body;
         $this->assertStringContainsString('<h1>Second version</h1>', $body, 'return to text keeps the content');

@@ -43,13 +43,18 @@ final class PagesFlowTest extends SiteTestCase
     /** POST pages&action=save as the administrator (the old save_page). @param array<string, mixed> $fields */
     private function savePage(array $fields): Response
     {
+        foreach (['page_id', 'parent_id'] as $key) {
+            if (isset($fields[$key]) && is_int($fields[$key]) && $fields[$key] > 0) {
+                $fields[$key] = $this->site()->publicId('pages', $fields[$key]); // the administration addresses a page by its public id
+            }
+        }
         return $this->adminPost('/admin.php?module=pages&action=save', $fields, '/admin.php?module=pages');
     }
 
     /** @param array<string, mixed> $fields */
     private function pageAction(string $action, int $id, array $fields = []): Response
     {
-        return $this->adminPost("/admin.php?module=pages&action=$action&id=$id", $fields, '/admin.php?module=pages');
+        return $this->adminPost('/admin.php?module=pages&action=' . $action . '&id=' . $this->site()->publicId('pages', $id), $fields, '/admin.php?module=pages');
     }
 
     private function idOf(string $seo): int
@@ -70,7 +75,7 @@ final class PagesFlowTest extends SiteTestCase
     {
         $this->assertPage('/admin.php?module=categories', 200, 'Categories', message: 'category form');
         $idt = (int) $this->site()->value("SELECT category_id FROM ka_categories WHERE slug = 'news'");
-        $this->adminPost('/admin.php?module=categories&action=save', ['category_id' => $idt, 'name' => 'Updates', 'slug' => 'company-updates', 'weight' => 100], '/admin.php?module=categories');
+        $this->adminPost('/admin.php?module=categories&action=save', ['category_id' => $this->site()->publicId('categories', $idt), 'name' => 'Updates', 'slug' => 'company-updates', 'weight' => 100], '/admin.php?module=categories');
         $this->assertRedirect('/news/category/news', '/news/category/company-updates', 'the old address of a category redirects to the new one');
 
         $ids = $this->idOf('contact');
@@ -95,18 +100,18 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertMatchesRegularExpression('#og:image" content="http[^"]*/media/2026/01/sharing.jpg"#', $body, 'page: full address of the sharing image');
         $this->assertStringContainsString('noindex, follow', $body, 'page: noindex');
 
-        $this->adminPost('/admin.php?module=pages&action=duplicate', ['page_id' => $ids], '/admin.php?module=pages');
+        $this->adminPost('/admin.php?module=pages&action=duplicate', ['page_id' => $site->publicId('pages', $ids)], '/admin.php?module=pages');
         $this->assertSame('0/contacts-copy', (string) $site->value("SELECT CONCAT(visible, '/', slug) FROM ka_pages ORDER BY page_id DESC LIMIT 1"), 'the duplicate is hidden and has a free address');
 
-        $this->adminPost('/admin.php?module=pages&action=delete', ['page_id' => $ids], '/admin.php?module=pages');
+        $this->adminPost('/admin.php?module=pages&action=delete', ['page_id' => $site->publicId('pages', $ids)], '/admin.php?module=pages');
         $this->assertPage('/contacts', 404, message: 'a page in the trash is not on the web');
         $this->assertPage('/admin.php?module=pages&status=trash', 200, 'Contact', message: 'Trash tab of pages');
-        $this->adminPost('/admin.php?module=pages&action=restore', ['page_id' => $ids], '/admin.php?module=pages');
+        $this->adminPost('/admin.php?module=pages&action=restore', ['page_id' => $site->publicId('pages', $ids)], '/admin.php?module=pages');
         $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(visible, '/', deleted_at IS NULL) FROM ka_pages WHERE page_id = ?", [$ids]), 'a restored page is hidden');
 
         $home = $this->idOf('about-us');
         $site->setting('home_page', (string) $home);
-        $this->adminPost('/admin.php?module=pages&action=delete', ['page_id' => $home], '/admin.php?module=pages');
+        $this->adminPost('/admin.php?module=pages&action=delete', ['page_id' => $site->publicId('pages', $home)], '/admin.php?module=pages');
         $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM ka_pages WHERE page_id = ?', [$home]), 'the home page cannot be deleted');
     }
 
@@ -124,7 +129,7 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringNotContainsString('hreflang="cs"', $page, 'a language without a translated home page is not in hreflang');
         $this->assertStringNotContainsString('/cs/</loc>', $map, 'a language without a translated home page is not in the sitemap');
 
-        $site->mcp('create_page', ['title' => 'Home in Czech', 'slug' => 'home-cs', 'language' => 'cs', 'translation_of' => $home, 'content' => '<p>Home</p>', 'visible' => 1]);
+        $site->mcp('create_page', ['title' => 'Home in Czech', 'slug' => 'home-cs', 'language' => 'cs', 'translation_of' => $site->publicId('pages', $home), 'content' => '<p>Home</p>', 'visible' => 1]);
         $this->noCache();
         $this->assertStringContainsString('hreflang="cs"', $this->visitor()->get('/')->body, 'with a published translation of the home page the language is offered (hreflang)');
         $this->assertStringContainsString('/cs/</loc>', $this->visitor()->get('/sitemap.xml')->body, 'with a published translation of the home page the language is in the sitemap');
@@ -204,7 +209,7 @@ final class PagesFlowTest extends SiteTestCase
     {
         $site = $this->site();
         $dir = $site->workDir('pages');
-        $export = $site->admin()->get('/admin.php?module=pages&action=export&id=' . self::$offer)->body;
+        $export = $site->admin()->get('/admin.php?module=pages&action=export&id=' . $site->publicId('pages', self::$offer))->body;
         $this->assertStringContainsString('"format": "kaleta-page"', $export, 'page export to JSON');
         file_put_contents("$dir/page.json", $export);
         $import = fn (string $file) => $site->admin()->upload('/admin.php?module=pages&action=import', ['_csrf' => $site->csrf()], ['file' => $file]);
@@ -232,7 +237,7 @@ final class PagesFlowTest extends SiteTestCase
         $import("$dir/bundle.json");
         $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_components WHERE name LIKE 'Bundle%'"), 'a second import of the same page reuses the components');
         $idb = (int) $site->value("SELECT MIN(page_id) FROM ka_pages WHERE title = 'Bundle'");
-        $out = json_decode($site->admin()->get('/admin.php?module=pages&action=export&id=' . $idb)->body, true);
+        $out = json_decode($site->admin()->get('/admin.php?module=pages&action=export&id=' . $site->publicId('pages', $idb))->body, true);
         $this->assertSame('2|bundle-karta,bundle-own,card|Bundle outer,Bundle inner',
             $out['version'] . '|' . implode(',', preg_grep('/^(bundle|card$)/', array_column($out['classes'], 'name'))) . '|' . implode(',', array_column($out['components'], 'name')),
             'the export lists the used classes and both components');
@@ -262,7 +267,7 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertSame("200|ok/new-id/no-anchor/https://other.example/media/2026/x.jpg/$pasted/2/class", $got, 'paste from another site: new ids, no anchor, the image points at the https source, the component use at the new component');
         $this->assertSame('color: red;|color: blue', (string) $site->value("SELECT CONCAT((SELECT css FROM ka_classes WHERE name = 'clipboard-new'), '|', (SELECT css FROM ka_classes WHERE name = 'bundle-own'))"), "paste creates the missing class and keeps the site's own");
         $this->assertSame(400, $this->pageAction('build_paste', self::$offer, ['clipboard' => 'just some text'])->status, 'paste of plain text is refused');
-        $this->assertSame(400, $site->admin()->post('/admin.php?module=pages&action=build_paste&id=' . self::$offer, ['clipboard' => $foreign])->status, 'paste without the form token is refused');
+        $this->assertSame(400, $site->admin()->post('/admin.php?module=pages&action=build_paste&id=' . $site->publicId('pages', self::$offer), ['clipboard' => $foreign])->status, 'paste without the form token is refused');
 
         $own = $this->pageAction('build_paste', self::$offer, ['clipboard' => '{"kaleta":"elements","v":1,"site":"' . $base . '","elements":[{"id":"own1","type":"heading","classes":["clipboard-same"],"content":{"text":"From here"}}],"classes":[{"name":"clipboard-same","style":{},"css":""}],"components":[]}']);
         $this->assertSame('200|1|0', $own->status . '|' . (int) str_contains($own->body, '"text":"From here"') . '|' . $site->value("SELECT COUNT(*) FROM ka_classes WHERE name = 'clipboard-same'"), 'paste from this site inserts the elements without importing anything');

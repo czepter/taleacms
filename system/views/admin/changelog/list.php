@@ -3,8 +3,8 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\ChangeLog $module
  * @var list<array<string, mixed>> $records
- * @var array<int, string> $users
- * @var int $who
+ * @var array<string, string> $users  public id => name
+ * @var string $who  public id of the user the list is filtered by ('' = all)
  * @var string $by  people | claude | '' (everyone)
  * @var string $whereParts
  * @var string $search
@@ -31,7 +31,7 @@ $action = ['save' => 'save', 'delete' => 'deletion', 'delete_permanently' => 'de
 	<input type="hidden" name="module" value="changelog">
 	<label><?= e(t('User:')) ?> <select name="username" data-submit-on-change><option value="0"><?= e(t('all')) ?></option>
 <?php foreach ($users as $userId => $displayName): ?>
-		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
+		<option value="<?= e((string) $userId) ?>"<?= $who === (string) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></label>
 	<label><?= e(t('Made by:')) ?> <select name="by" data-submit-on-change><option value=""><?= e(t('people and Claude')) ?></option>

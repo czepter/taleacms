@@ -106,7 +106,7 @@ $table('Pop-ups', $report['popups'], [
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
 ], 'The site has no pop-ups.');
 $table('Most read news', $report['news'], [
-    'News item' => fn (array $r): string => '<a href="' . e($app->url('admin.php?module=news&action=edit&id=' . (int) $r['id'])) . '">' . e($r['title']) . '</a>',
+    'News item' => fn (array $r): string => '<a href="' . e($app->url('admin.php?module=news&action=edit&id=' . $r['id'])) . '">' . e($r['title']) . '</a>',
     'Views' => fn (array $r): string => format_count((int) $r['views']),
 ]);
 // search engines (2.13, Core\SearchData): per connected engine the latest 28-day snapshot of the period – queries, pages, Google's sitemaps

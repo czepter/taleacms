@@ -20,7 +20,7 @@ final class McpVariantsTest extends SiteTestCase
     {
         // the old section 15 had created this header variant for the Claude page
         $idz = $this->zPage();
-        $this->adminPost('/admin.php?module=parts&action=save_variant&type=header&language=', ['name' => 'Landing page', 'pages' => [$idz]]);
+        $this->adminPost('/admin.php?module=parts&action=save_variant&type=header&language=', ['name' => 'Landing page', 'pages' => [$this->site()->publicId('pages', $idz)]]);
 
         $this->assertStringContainsString('"variant":"landing-page"', $this->mcpText('list_site_parts'), 'MCP lists the parts of the site with their variants');
     }
@@ -28,9 +28,9 @@ final class McpVariantsTest extends SiteTestCase
     public function testFooterVariantForOnePage(): void
     {
         $idz = $this->zPage();
-        $answer = $this->mcpData('save_part_variant', ['part' => 'footer', 'name' => 'Campaign', 'pages' => [$idz]]);
+        $answer = $this->mcpData('save_part_variant', ['part' => 'footer', 'name' => 'Campaign', 'pages' => [$this->site()->publicId('pages', $idz)]]);
         self::$variant = (string) $answer['variant'];
-        $this->assertSame('campaign|[' . $idz . ']', self::$variant . '|' . json_encode($answer['pages']), 'the footer variant is created');
+        $this->assertSame('campaign|["' . $this->site()->publicId('pages', $idz) . '"]', self::$variant . '|' . json_encode($answer['pages']), 'the footer variant is created');
 
         $saved = $this->mcpData('save_build', ['part' => 'footer', 'variant' => self::$variant, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'heading', 'tag' => 'p', 'content' => ['text' => 'Campaign footer']]]]]]]);
         $preview = (string) $saved['preview'];
@@ -51,20 +51,20 @@ final class McpVariantsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('build_from_html', ['title' => 'Version test', 'html' => '<section><h1>Version A</h1></section>', 'publish' => true]);
         self::$idv = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'version-test'");
-        $site->mcp('build_from_html', ['id' => self::$idv, 'html' => '<section><h1>Version B</h1></section>', 'publish' => true]);
+        $site->mcp('build_from_html', ['id' => $site->publicId('pages', self::$idv), 'html' => '<section><h1>Version B</h1></section>', 'publish' => true]);
 
-        $versionId = $this->mcpData('list_build_versions', ['id' => self::$idv])['versions'][0]['version_id'];
-        $site->mcp('restore_build_version', ['id' => self::$idv, 'version_id' => $versionId]);
+        $versionId = $this->mcpData('list_build_versions', ['id' => $this->site()->publicId('pages', self::$idv)])['versions'][0]['version_id'];
+        $site->mcp('restore_build_version', ['id' => $site->publicId('pages', self::$idv), 'version_id' => $versionId]);
         $this->assertSame('11', (string) $site->value("SELECT CONCAT(build_draft LIKE '%Version A%', build LIKE '%Version B%') FROM ka_pages WHERE page_id = ?", [self::$idv]), 'the older version is in the draft, the published one stays');
 
-        $site->mcp('discard_draft', ['id' => self::$idv]);
+        $site->mcp('discard_draft', ['id' => $site->publicId('pages', self::$idv)]);
         $this->assertSame('1', (string) $site->value('SELECT build_draft IS NULL FROM ka_pages WHERE page_id = ?', [self::$idv]), 'the draft is discarded');
     }
 
     public function testSubpageWithAScheduledPublication(): void
     {
         $parent = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
-        $this->site()->mcp('create_page', ['title' => 'MCP subpage', 'parent' => $parent, 'publish_at' => '2099-01-01 10:00']);
+        $this->site()->mcp('create_page', ['title' => 'MCP subpage', 'parent' => $this->site()->publicId('pages', $parent), 'publish_at' => '2099-01-01 10:00']);
 
         $this->assertSame('about-us/mcp-subpage|2099-01-01 10:00:00|0', (string) $this->site()->value("SELECT CONCAT(slug, '|', publish_at, '|', visible) FROM ka_pages WHERE title = 'MCP subpage'"), 'a subpage with a scheduled publication stays hidden');
     }

@@ -33,7 +33,7 @@ final class FormContextTest extends SiteTestCase
 
         // section 72: a form on an ordinary page with the next steps
         self::$page = $this->createPage(['title' => 'Bathrooms F7', 'visible' => true]);
-        $this->mcpText('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => [
+        $this->mcpText('save_build', ['id' => $this->site()->publicId('pages', self::$page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => [
             'name' => 'Enquiry F7', 'fields' => [['label' => 'Email', 'type' => 'email', 'required' => true]],
             'next_steps' => "We will call you\nWe will visit to measure", 'reply_within_hours' => 4, 'who_replies' => 'Jane from the office']]]]]]]);
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
@@ -71,7 +71,7 @@ final class FormContextTest extends SiteTestCase
     public function testTheTopicIsShownInTheEnquiriesAdminAndOverMcp(): void
     {
         $this->assertPage('/admin.php?module=enquiries', 200, 'Topic: <a href="/bathrooms-f7"', message: 'topic: the Enquiries list shows it with a link to the page');
-        $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . self::$enquiry, 200, '<dt>Topic</dt><dd><a href="/bathrooms-f7"', message: 'topic: the enquiry detail shows it');
+        $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $this->site()->publicId('enquiries', (int) self::$enquiry), 200, '<dt>Topic</dt><dd><a href="/bathrooms-f7"', message: 'topic: the enquiry detail shows it');
 
         $list = $this->site()->mcpResult('list_enquiries', ['limit' => 1]);
         $this->assertSame('Bathrooms F7', $list[0]['about'] ?? null, 'MCP: list_enquiries has about');
