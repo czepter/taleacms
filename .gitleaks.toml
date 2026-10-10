@@ -1,10 +1,10 @@
-# Gitleaks: default rules + an exception for the made-up keys the tests feed to the fake Stripe server (tools/test.sh, tools/fixtures/).
-# A real key never belongs here – the exception is deliberately just this one invented string.
+# Gitleaks: default rules, except for the made-up values that the tests and fixtures feed to the application (wrong passwords, fake
+# provider keys, RFC 6238 test vectors). A real key never belongs in tests/ or tools/fixtures/ either; everything else is scanned.
 title = "Talea"
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "made-up test values: a Stripe key for the offline tests, the public TOTP test vector of RFC 6238, the password of the intruder account the demo test tries to create (tools/test-demo.sh), the Claude tokens of the security hygiene test, the password with spaces of the 3.3.3 sign-in test (tools/test.sh)"
-regexes = ['''sk_test_NahrazkaKlice0+''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''', '''Intruder-2026-x''', '''hygiene-(live|old|unused)''', '''Mezera-heslo-123''']
+description = "made-up test values in tests/ and tools/fixtures/"
+paths = ['''^tests/''', '''^tools/fixtures/''']
