@@ -10,6 +10,41 @@
 <fieldset data-section="smtp"<?= $values['mail_mode'] === 'smtp' ? '' : ' hidden' ?>>
 <legend><?= e(t('SMTP server')) ?></legend>
 <?php
+// Core\MailServices: a mail service fills the server, port and encryption and says what the user name and password are;
+// the choice shown is derived from the saved server, so a working configuration is shown as it is and saved unchanged
+$serviceChoice = Talea\Core\MailServices::choice($app->settings());
+$sesRegion = Talea\Core\MailServices::region($values['smtp_host']) ?: Talea\Core\MailServices::DEFAULT_REGION;
+?>
+<div class="row">
+	<label for="smtp_provider"><?= e(t('Send through')) ?></label>
+	<div><select id="smtp_provider" name="smtp_provider" data-smtp-service>
+		<option value="<?= e(Talea\Core\MailServices::OTHER) ?>"<?= $serviceChoice === Talea\Core\MailServices::OTHER ? ' selected' : '' ?>><?= e(t('Other server – your host, Google Workspace…')) ?></option>
+		<optgroup label="<?= e(t('Mail services with an SMTP relay')) ?>">
+<?php foreach (Talea\Core\MailServices::PROVIDERS as $key => $service): ?>
+		<option value="<?= e($key) ?>" data-host="<?= e(Talea\Core\MailServices::host($key, $sesRegion)) ?>" data-port="<?= $service['port'] ?>" data-encryption="<?= e($service['encryption']) ?>"<?= $serviceChoice === $key ? ' selected' : '' ?>><?= e($service['name']) ?></option>
+<?php endforeach ?>
+		</optgroup>
+	</select>
+	<span class="help"><?= e(t('A mail service fills in the server, the port and the encryption. The user name and the password stay yours to paste – the service’s SMTP credentials, not its API key unless the service says so.')) ?></span></div>
+</div>
+<div class="row" data-smtp-tip="ses"<?= $serviceChoice === 'ses' ? '' : ' hidden' ?>>
+	<label for="smtp_ses_region"><?= e(t('Amazon SES region')) ?></label>
+	<div><select id="smtp_ses_region" name="smtp_ses_region" data-smtp-region>
+<?php foreach (Talea\Core\MailServices::SES_REGIONS + [$sesRegion => $sesRegion] as $region => $regionName): ?>
+		<option value="<?= e($region) ?>"<?= $region === $sesRegion ? ' selected' : '' ?>><?= e($regionName . ' – ' . $region) ?></option>
+<?php endforeach ?>
+	</select>
+	<span class="help"><?= e(t('The region where the sending domain is verified in Amazon SES – the SMTP credentials work only there.')) ?></span></div>
+</div>
+<?php foreach (Talea\Core\MailServices::PROVIDERS as $key => $service): ?>
+<div class="notice" data-smtp-tip="<?= e($key) ?>"<?= $serviceChoice === $key ? '' : ' hidden' ?>>
+	<p><strong><?= e(t('User name')) ?>:</strong> <?= e(t($service['user'])) ?></p>
+	<p><strong><?= e(t('Password')) ?>:</strong> <?= e(t($service['password'])) ?></p>
+	<p><strong><?= e(t('DNS records')) ?>:</strong> <?= e(t($service['dns'])) ?></p>
+	<p><a href="<?= e($service['docs']) ?>" target="_blank" rel="noopener noreferrer"><?= e(t('%s: SMTP guide', $service['name'])) ?></a></p>
+</div>
+<?php endforeach ?>
+<?php
 $field('smtp_host', 'Server address', 'text', 'For example smtp.gmail.com, smtp.seznam.cz, smtp-relay.brevo.com or smtp.vasedomena.cz.', 'maxlength="120" placeholder="smtp.example.com" autocomplete="off"');
 ?>
 <div class="row">

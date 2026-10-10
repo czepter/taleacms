@@ -73,7 +73,7 @@ class Settings extends Module
         'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
             'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
         'mail' => ['mail_mode' => 'choice:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'pattern:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'number:1:65535',
-            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000',
+            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000',
             'report_monthly' => 'flag', 'report_recipients' => 'emails'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
@@ -244,6 +244,11 @@ class Settings extends Module
                 continue;
             }
             $settings->set($key, $clean);
+        }
+        // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
+        // a server that already is the service's stays as it is – the user name and the password are never touched
+        if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Talea\Core\Demo::active()) {
+            \Talea\Core\MailServices::settle($settings, $this->request->post('smtp_ses_region'));
         }
         if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
             $settings->set('indexnow_key', bin2hex(random_bytes(16)));
@@ -586,9 +591,11 @@ class Settings extends Module
         ], 'admin-');
         $ok = \Talea\Core\Mail::send($this->app->settings(), $recipient, $subject, $text, queueOnFailure: false);
         $back = $this->request->post('tab') === 'mail' ? 'mail' : 'health';
+        $service = \Talea\Core\MailServices::current($this->app->settings()); // a failed sign-in says what this service wants as the password
 
         return $this->back(
             match (true) {
+                !$ok && $service !== null => t('Sending failed: %s', t(\Talea\Core\Mail::$error)) . ' ' . t('%s – password: %s', \Talea\Core\MailServices::PROVIDERS[$service]['name'], t(\Talea\Core\MailServices::PROVIDERS[$service]['password'])),
                 !$ok => t('Sending failed: %s', t(\Talea\Core\Mail::$error)),
                 $this->app->settings()->get('mail_mode') === 'smtp' => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder.', $recipient),
                 default => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder – or set up sending via SMTP (Settings → Mail).', $recipient),

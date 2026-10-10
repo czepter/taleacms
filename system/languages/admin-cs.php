@@ -5692,4 +5692,13 @@ return [
     'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Aplikace připojené k tomuto účtu (konektor Claude) se novým heslem odpojí – připojte je znovu v aplikaci Claude.',
     'Banner text and policy link in other language versions' => 'Text lišty a odkaz na zásady v dalších jazykových verzích',
     'Visitors of each language version read the banner in its language. An empty field means the same as in the default language.' => 'Návštěvníci každé jazykové verze čtou lištu v jejím jazyce. Prázdné pole znamená totéž co ve výchozím jazyce.',
+    'Send through' => 'Odesílat přes',
+    'Other server – your host, Google Workspace…' => 'Jiný server – váš hosting, Google Workspace…',
+    'Mail services with an SMTP relay' => 'Poštovní služby s SMTP relay',
+    'A mail service fills in the server, the port and the encryption. The user name and the password stay yours to paste – the service’s SMTP credentials, not its API key unless the service says so.' => 'Poštovní služba doplní server, port a šifrování. Uživatelské jméno a heslo vložíte sami – přihlašovací údaje SMTP služby, ne její API klíč, pokud služba neříká jinak.',
+    'Amazon SES region' => 'Oblast Amazon SES',
+    'The region where the sending domain is verified in Amazon SES – the SMTP credentials work only there.' => 'Oblast, kde je odesílací doména ověřena v Amazon SES – přihlašovací údaje SMTP fungují jen tam.',
+    'DNS records' => 'Záznamy DNS',
+    '%s: SMTP guide' => '%s: návod k SMTP',
+    '%s – password: %s' => '%s – heslo: %s',
 ];
