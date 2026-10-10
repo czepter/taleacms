@@ -293,7 +293,7 @@ final class Kernel
         }
         if (($routed = \Talea\Extension\Registry::runRoute($this->app, $path)) !== null) {
             // an address of an add-on (Api::route): private, no-store, noindex, never cached
-            return $routed instanceof Response ? new Response($routed->body, $routed->status, $routed->headers + ['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex']) : $this->gatedPage($routed);
+            return $routed instanceof Response ? new Response($routed->body, $routed->status, array_merge($routed->headers, ['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex'])) : $this->gatedPage($routed);
         }
         if ($path === '/form' && Extensions::isEnabled($this->app->settings(), 'enquiries')) {
             return (new Forms($this->app))->process();

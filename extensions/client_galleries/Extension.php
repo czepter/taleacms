@@ -48,7 +48,7 @@ final class Extension implements ExtensionInterface, LifecycleInterface
                 $gallery = Galleries::byPublicId($api->app()->db(), (string) ($arguments['gallery'] ?? '')) ?? throw new \InvalidArgumentException('Unknown gallery.');
 
                 return ['gallery' => $gallery['title'], 'favourites' => Galleries::favourites($api->app()->db(), (int) $gallery['id'])];
-            }, 'editor');
+            }, 'admin');
         $api->mcpTool('create', 'Client galleries: creates a CLOSED gallery (nobody can open it) from the images of a Media folder (public id from list_media_folders, optional). It does not create an address – the owner shares it afterwards, or asks Claude to with "share".',
             ['properties' => ['title' => ['type' => 'string'], 'folder' => ['type' => 'string', 'description' => 'Public id of a Media folder whose images are copied in (optional)'],
                 'expires' => ['type' => 'string', 'description' => 'Last day, YYYY-MM-DD (optional)'], 'allow_web' => ['type' => 'boolean', 'description' => 'Clients may download web size (default true)'],
@@ -72,7 +72,7 @@ final class Extension implements ExtensionInterface, LifecycleInterface
                 $gallery = Galleries::byPublicId($db, (string) $gallery['public_id']) ?? $gallery;
 
                 return ['gallery' => $gallery['public_id'], 'access' => $gallery['access'], 'address' => $gallery['access'] === 'closed' ? null : $this->address($api->app(), $gallery)];
-            }, 'editor');
+            }, 'admin');
     }
 
     /** @return array<string, mixed> what Claude may see of a gallery: never the private address */
