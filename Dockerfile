@@ -22,7 +22,8 @@ WORKDIR /app
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader
+# the PHP extensions (pdo_mysql …) live in the base stage, not in the composer image: platform checks are skipped here
+RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
 # ---- dev: the code is mounted from the host (docker-compose-dev.yaml), Composer and Xdebug are inside
 FROM base AS dev
