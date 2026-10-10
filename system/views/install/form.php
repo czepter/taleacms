@@ -69,11 +69,15 @@ $n = function () use (&$step): int {
 <?php if (empty($envDb)): ?>
 <section class="step">
 	<h2><span><?= $n() ?></span> <?= e(t('Database')) ?></h2>
-	<p><?= e(t('MySQL or MariaDB. Create an empty database beforehand – in your hosting control panel.')) ?></p>
+	<p><?= e(t('MySQL, MariaDB or PostgreSQL. Create an empty database beforehand – in your hosting control panel.')) ?></p>
 	<div class="field">
+		<div class="full"><label for="db_driver"><?= e(t('Database type')) ?></label><select id="db_driver" name="db_driver">
+			<option value="mysql"<?= $data['db_driver'] === 'mysql' ? ' selected' : '' ?>>MySQL / MariaDB</option>
+			<option value="pgsql"<?= $data['db_driver'] === 'pgsql' ? ' selected' : '' ?>>PostgreSQL</option>
+		</select><?= $error('db_driver') ?></div>
 		<div class="full with-port">
 			<div><label for="db_host"><?= e(t('Server')) ?></label><input type="text" id="db_host" name="db_host" value="<?= e($data['db_host']) ?>"><?= $error('db_host') ?></div>
-			<div><label for="db_port"><?= e(t('Port')) ?></label><input type="number" id="db_port" name="db_port" value="<?= e($data['db_port']) ?>"></div>
+			<div><label for="db_port"><?= e(t('Port')) ?></label><input type="number" id="db_port" name="db_port" value="<?= e($data['db_port']) ?>" placeholder="3306 / 5432"></div>
 		</div>
 		<div><label for="db_name"><?= e(t('Database name')) ?></label><input type="text" id="db_name" name="db_name" value="<?= e($data['db_name']) ?>" required><?= $error('db_name') ?></div>
 		<div><label for="db_prefix"><?= e(t('Table prefix')) ?></label><input type="text" id="db_prefix" name="db_prefix" value="<?= e($data['db_prefix']) ?>" required><?= $error('db_prefix') ?></div>

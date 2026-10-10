@@ -7,6 +7,7 @@ namespace Talea\Install;
 use Talea\Core\Auth;
 use Talea\Core\Config;
 use Talea\Core\Db;
+use Talea\Core\Dialect\Dialect;
 use Talea\Core\Migrator;
 use Talea\Core\Request;
 use Talea\Core\Response;
@@ -79,14 +80,14 @@ final class Installer
         \Talea\Core\Language::set($this->language, 'install-', $this->register);
         $requirements = $this->requirements();
         $data = [
-            'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'tl_',
+            'db_driver' => 'mysql', 'db_host' => 'localhost', 'db_port' => '', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'tl_',
             'site_name' => t('My website'), 'username' => 'admin', 'name' => '', 'email' => '',
             'time_zone' => self::TIME_ZONES[$this->language], 'starter' => 'business', 'site_language' => $this->language,
         ];
         $errors = [];
         $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
         if ($envDb !== null) {
-            $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
+            $data = ['db_driver' => $envDb['driver'], 'db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                 'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
         }
         // extensions enabled after installation: the default set, after the form is submitted the user's choice
@@ -98,9 +99,10 @@ final class Installer
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             }
             if ($envDb !== null) { // the database is not a form field here
-                $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
+                $data = ['db_driver' => $envDb['driver'], 'db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                     'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
+            $data['db_driver'] = in_array($data['db_driver'], ['mysql', 'pgsql'], true) ? $data['db_driver'] : 'mysql';
             $data['site_language'] = isset(\Talea\Core\Language::AVAILABLE[$data['site_language']]) ? $data['site_language'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('extensions'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
@@ -138,7 +140,7 @@ final class Installer
 
         $requirements = [
             ['name' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
-            ['name' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
+            ['name' => t('pdo_mysql or pdo_pgsql extension'), 'ok' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql'), 'info' => t('connection to a MySQL / MariaDB or PostgreSQL database')],
             ['name' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
             ['name' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
             ['name' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
@@ -179,10 +181,14 @@ final class Installer
             return $errors;
         }
 
+        if (!extension_loaded('pdo_' . $d['db_driver'])) {
+            return ['db_driver' => t('The PHP extension for this database type is missing (pdo_mysql or pdo_pgsql).')];
+        }
         $config = [
             'db' => [
+                'driver' => $d['db_driver'],
                 'host' => $d['db_host'] !== '' ? $d['db_host'] : 'localhost',
-                'port' => (int) $d['db_port'] ?: 3306,
+                'port' => (int) $d['db_port'] ?: Dialect::forDriver($d['db_driver'])->defaultPort(),
                 'name' => $d['db_name'],
                 'username' => $d['db_user'],
                 'password' => $d['db_password'],
@@ -197,11 +203,7 @@ final class Installer
         } catch (\PDOException $e) {
             return self::connectionError($e);
         }
-        $exists = $db->value(
-            'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
-            [$d['db_prefix'] . 'users'],
-        );
-        if ((int) $exists > 0) {
+        if ($db->tableExists('users')) {
             return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];
         }
 
@@ -224,12 +226,24 @@ final class Installer
     }
 
     /**
-     * A database connection error in human terms and at the field that needs fixing (MySQL/MariaDB error code); an unknown error with the driver's text.
+     * A database connection error in human terms and at the field that needs fixing (MySQL/MariaDB error code, PostgreSQL SQLSTATE); an unknown error with the driver's text.
      *
      * @return array<string, string>
      */
     private static function connectionError(\PDOException $e): array
     {
+        // PostgreSQL has no numeric codes of its own: the SQLSTATE (28P01 password, 3D000 no database, 08xxx connection) is in the message or errorInfo
+        $state = (string) ($e->errorInfo[0] ?? (preg_match('/SQLSTATE\[(\w+)\]/', $e->getMessage(), $m) ? $m[1] : ''));
+        if (str_starts_with($e->getMessage(), 'SQLSTATE[08') || str_contains($e->getMessage(), 'could not translate host name') || str_contains($e->getMessage(), 'Connection refused')) {
+            return ['db_host' => t('Could not connect to the database server. Check the server and port.')];
+        }
+        if (in_array($state, ['28P01', '28000'], true)) {
+            return ['db_user' => t('The database user name or password is wrong. Check them in your hosting control panel.')];
+        }
+        if ($state === '3D000' || (str_contains($e->getMessage(), 'database "') && str_contains($e->getMessage(), 'does not exist'))) {
+            return ['db_name' => t('There is no database with this name on the server. Create it in your hosting control panel or correct the name.')];
+        }
+
         return match ((int) ($e->errorInfo[1] ?? $e->getCode())) {
             1045 => ['db_user' => t('The database user name or password is wrong. Check them in your hosting control panel.')],
             1044 => ['db_name' => t('This user has no access to the database. Grant it in your hosting control panel.')],
@@ -248,7 +262,7 @@ final class Installer
         // the chosen time zone already applies to the initial content: otherwise the welcome news item could have a date "in the future" and the site would not show it
         $timeZone = in_array($d['time_zone'], \DateTimeZone::listIdentifiers(), true) ? $d['time_zone'] : self::TIME_ZONES[$this->language];
         date_default_timezone_set($timeZone);
-        $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
+        $db->dialect()->setTimeZone($db->pdo(), date('P'));
         $d['time_zone'] = $timeZone;
         $this->tasksToken = bin2hex(random_bytes(16));
         $db->transaction(function (Db $db) use ($d, $password, $extensions): void {

@@ -34,6 +34,7 @@ final class Catalog
         'restore_from_trash' => ['write', ''],
         // Builder
         'builder_schema' => ['read', ''],
+        'list_schema_types' => ['read', ''],
         'get_build' => ['read', ''],
         'edit_build' => ['draft', ''],
         'build_from_html' => ['draft', ''],

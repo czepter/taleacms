@@ -106,4 +106,23 @@ final class StructuredDataTest extends TestCase
         $this->assertSame(['a', 'b'], array_column($findings, 'id'));
         $this->assertStringContainsString('startDate', $findings[0]['message']);
     }
+
+    public function testTheEditorVocabularyCoversEveryTypeAndPropertyWithAType(): void
+    {
+        $editor = StructuredData::forEditor();
+        $this->assertSame(StructuredData::types(), array_keys($editor));
+        foreach ($editor as $type => $t) {
+            $this->assertNotSame('', $t['label'], $type);
+            $this->assertSame(array_keys(StructuredData::vocabulary()[$type]['properties']), array_keys($t['properties']), $type);
+            foreach ($t['properties'] as $name => $p) {
+                $this->assertNotEmpty($p['type'], "$type.$name");
+                $this->assertNotSame('', $p['label'], "$type.$name");
+                $this->assertLessThanOrEqual(141, mb_strlen($p['hint']), "$type.$name hint stays short");
+                $this->assertTrue($p['type'] !== 'thing' || !empty($p['of']), "$type.$name nested type lists its types");
+                $this->assertTrue($p['type'] !== 'enum' || !empty($p['options']), "$type.$name enum has options");
+            }
+        }
+        $this->assertLessThan(60000, strlen((string) json_encode($editor)), 'small enough for the builder page');
+        $this->assertTrue($editor['Product']['properties']['name']['required']);
+    }
 }

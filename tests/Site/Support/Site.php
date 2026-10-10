@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\Support;
 
 use PDO;
+use Talea\Tests\Support\TestDatabase;
 
 /**
  * One complete, isolated installation for a test class: a copy of the code in a temporary folder, its own database, its own PHP
@@ -46,8 +47,8 @@ final class Site
         // whatever the constructor has started is stopped even when it fails halfway (a failed installer must not leak servers or databases)
         register_shutdown_function(fn () => $this->close());
         $project = dirname(__DIR__, 3);
-        $server = ['host' => (string) getenv('TALEA_TEST_DB_HOST'), 'port' => (int) getenv('TALEA_TEST_DB_PORT'), 'username' => (string) getenv('TALEA_TEST_DB_USER'), 'password' => (string) getenv('TALEA_TEST_DB_PASSWORD')];
-        $admin = new PDO(sprintf('mysql:host=%s;port=%d', $server['host'], $server['port']), $server['username'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $server = TestDatabase::server();
+        $admin = TestDatabase::admin();
 
         $this->work = sys_get_temp_dir() . '/talea-site-' . getmypid() . '-' . bin2hex(random_bytes(3));
         mkdir($this->work . '/jars', 0775, true);
@@ -57,10 +58,9 @@ final class Site
         $this->keepDatabase = $templateBuild !== null;
         // an installed site is built once per run and set of installer options and cloned for every class; freshInstall runs the real installer
         $template = $templateBuild === null && !($this->options['freshInstall'] ?? false) ? self::template($this->options, $server, $admin) : null;
-        $admin->exec('CREATE DATABASE `' . $this->database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
-        $this->pdo = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $server['host'], $server['port'], $this->database), $server['username'], $server['password'], [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
+        // PostgreSQL clones the template database natively; MySQL gets an empty one and cloneTemplate() copies the tables
+        $this->cloneLocked($admin, $template);
+        $this->pdo = TestDatabase::connect($this->database);
 
         $this->copyProject($project);
         $this->ports = ['captcha' => $this->freePort(), 'fake' => $this->freePort()];
@@ -93,8 +93,7 @@ final class Site
         $this->mcpToken = 'talea_' . bin2hex(random_bytes(24));
         $this->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
         $this->setting('tasks_token', $this->tasksToken());
-        $this->exec("INSERT INTO tl_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
-            [$this->options['enabledExtensions'] ?? 'news,enquiries,newsletter_signup,stats,redirects,assistant,languages,claude']);
+        $this->setting('extensions', $this->options['enabledExtensions'] ?? 'news,enquiries,newsletter_signup,stats,redirects,assistant,languages,claude');
     }
 
     // ---- installed-site template (built once per run, cloned per class)
@@ -123,21 +122,22 @@ final class Site
         flock($lock, LOCK_EX);
         try {
             if (!is_file($marker)) {
-                foreach ($admin->query("SHOW DATABASES LIKE 'talea\\_tpl\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $old) {
-                    if (!str_starts_with((string) $old, "talea_tpl_{$code}_")) {
-                        $admin->exec('DROP DATABASE IF EXISTS `' . $old . '`');
+                foreach (TestDatabase::find($admin, 'talea\\_tpl\\_%') as $old) {
+                    if (!str_starts_with($old, "talea_tpl_{$code}_")) {
+                        TestDatabase::drop($admin, $old);
                         @unlink(sys_get_temp_dir() . '/' . $old . '.json');
                     }
                 }
-                $admin->exec('DROP DATABASE IF EXISTS `' . $name . '`');
+                TestDatabase::drop($admin, $name);
                 $built = new self(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])) + ['_templateBuild' => $name]);
                 $config = require $built->root . '/config.php';
                 $ddl = [];
-                foreach ($built->pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) {
+                foreach (TestDatabase::isPostgres() ? [] : $built->pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) { // PostgreSQL clones the whole database instead
                     $ddl[(string) $table] = (string) $built->pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(PDO::FETCH_NUM)[1];
                 }
                 file_put_contents($marker . '.tmp', json_encode(['password' => $built->password, 'body' => $built->installerResponse->body, 'base' => $built->base, 'config' => $config, 'ddl' => $ddl]));
                 $built->close();
+                TestDatabase::disconnectOthers($admin, $name); // a template database must have no sessions
                 rename($marker . '.tmp', $marker);
             }
         } finally {
@@ -151,16 +151,42 @@ final class Site
     /** Tables (structure with keys and foreign keys, then rows) and config.php of the template into this site's database and folder. @param array<string, mixed> $template */
     private function cloneTemplate(array $template): void
     {
+        if (!TestDatabase::isPostgres()) {
+            $this->copyTables($template);
+        }
+        $config = $template['config'];
+        $config['db']['name'] = $this->database;
+        file_put_contents($this->root . '/config.php', "<?php\n\nreturn " . var_export($config, true) . ";\n");
+        @unlink($this->root . '/install.php'); // the installer deletes itself when it is done
+    }
+
+    /** @param array<string, mixed> $template */
+    private function copyTables(array $template): void
+    {
         $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         foreach ($template['ddl'] as $table => $create) {
             $this->pdo->exec($create);
             $this->pdo->exec('INSERT INTO `' . $table . '` SELECT * FROM `' . $template['database'] . '`.`' . $table . '`');
         }
         $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
-        $config = $template['config'];
-        $config['db']['name'] = $this->database;
-        file_put_contents($this->root . '/config.php', "<?php\n\nreturn " . var_export($config, true) . ";\n");
-        @unlink($this->root . '/install.php'); // the installer deletes itself when it is done
+    }
+
+    /** Creates this site's database: empty, or (PostgreSQL, with a template) a clone of it. Clones of one template are made one at a time: the source must be quiet while PostgreSQL copies it. @param array<string, mixed>|null $template */
+    private function cloneLocked(PDO $admin, ?array $template): void
+    {
+        if ($template === null || !TestDatabase::isPostgres()) {
+            TestDatabase::create($admin, $this->database);
+
+            return;
+        }
+        $lock = fopen(sys_get_temp_dir() . '/' . $template['database'] . '.clone.lock', 'c');
+        flock($lock, LOCK_EX);
+        try {
+            TestDatabase::create($admin, $this->database, $template['database']);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     // ---- background jobs
@@ -311,7 +337,7 @@ final class Site
 
     public function setting(string $name, string $value): void
     {
-        $this->exec('INSERT INTO tl_settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [$name, $value]);
+        $this->exec(strtr(TestDatabase::dialect()->upsert('settings', ['name', 'value'], ['name'], ['value']), ['{settings}' => TestDatabase::dialect()->quote('tl_settings')]), [$name, $value]);
     }
 
     public function settingValue(string $name): string
@@ -434,7 +460,7 @@ final class Site
         }
         try {
             if (isset($this->pdo, $this->database) && !$this->keepDatabase) {
-                $this->pdo->exec('DROP DATABASE IF EXISTS `' . $this->database . '`');
+                TestDatabase::drop(TestDatabase::admin(), $this->database);
             }
         } catch (\Throwable) {
         }
@@ -472,7 +498,7 @@ final class Site
     {
         $visitor = $this->client('installer');
         $fields = [
-            'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
+            'db_driver' => $server['driver'], 'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
             'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
             'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects'],

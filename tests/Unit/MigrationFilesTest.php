@@ -78,4 +78,15 @@ final class MigrationFilesTest extends TestCase
         $this->assertSame('/run/mysqld.sock', $env['unix_socket']);
         $this->assertArrayNotHasKey('host', $env);
     }
+
+    public function testThePostgresAdapterNeedsNoCollationAndKeepsThePrefix(): void
+    {
+        $config = Migrator::phinxConfig(['driver' => 'pgsql', 'name' => 'x', 'username' => 'u', 'password' => '', 'prefix' => 'web_', 'host' => 'db']);
+        $env = $config['environments']['default'];
+
+        $this->assertSame('pgsql', $env['adapter']);
+        $this->assertSame(5432, $env['port']);
+        $this->assertArrayNotHasKey('collation', $env);
+        $this->assertSame('web_', $env['table_prefix']);
+    }
 }

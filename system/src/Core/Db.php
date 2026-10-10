@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 use PDO;
 use PDOStatement;
+use Talea\Core\Dialect\Dialect;
 
 /**
  * A thin layer over PDO.
@@ -23,6 +24,9 @@ final class Db
     public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites'];
 
     private ?PDO $pdo = null;
+    private ?Dialect $dialect = null;
+    /** @var array<string, ?string> memo of identityColumn() */
+    private array $identity = [];
     /** @var array<string, array<int, string>> memo of publicId() */
     private array $publicIds = [];
 
@@ -39,14 +43,19 @@ final class Db
     ) {
     }
 
-    /** @param array{host?:string,port?:int,socket?:string,name:string,user:string,password:string,prefix?:string} $c */
+    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username:string,password:string,prefix?:string} $c driver: mysql (default) | pgsql */
     public static function fromConfig(array $c): self
     {
-        $dsn = !empty($c['socket'])
-            ? sprintf('mysql:unix_socket=%s;dbname=%s;charset=utf8mb4', $c['socket'], $c['name'])
-            : sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'] ?? 'localhost', $c['port'] ?? 3306, $c['name']);
+        $dialect = Dialect::forDriver($c['driver'] ?? 'mysql');
+        $c['port'] ??= $dialect->defaultPort();
 
-        return new self($dsn, $c['username'], $c['password'], $c['prefix'] ?? 'tl_');
+        return new self($dialect->dsn($c), $c['username'], $c['password'], $c['prefix'] ?? 'tl_');
+    }
+
+    /** The SQL differences of the engine this connection talks to (upsert, JSON, intervals, locks, full-text …). */
+    public function dialect(): Dialect
+    {
+        return $this->dialect ??= Dialect::forDriver(str_starts_with($this->dsn, 'pgsql:') ? 'pgsql' : 'mysql');
     }
 
     public function pdo(): PDO
@@ -60,20 +69,22 @@ final class Db
             // The database must count time the same way as PHP: PHP writes article dates (date()), but queries compare them with NOW().
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
-            $this->pdo->exec("SET time_zone = '" . date('P') . "'");
+            $this->dialect()->setTimeZone($this->pdo, date('P'));
         }
 
         return $this->pdo;
     }
 
-    /** Fills in the table prefix: {news} -> `tl_news`. */
+    /** Fills in the table prefix: {news} -> `tl_news` (quoted the way the engine wants). */
     public function sql(string $sql): string
     {
-        return preg_replace_callback(
+        $dialect = $this->dialect();
+
+        return $dialect->rewrite(preg_replace_callback(
             '/\{([a-z][a-z0-9_]*)\}/',
-            fn (array $m): string => '`' . $this->prefix . $m[1] . '`',
+            fn (array $m): string => $dialect->quote($this->prefix . $m[1]),
             $sql,
-        ) ?? $sql;
+        ) ?? $sql);
     }
 
     /** @param array<int|string, scalar|null> $params */
@@ -136,16 +147,62 @@ final class Db
         $sql = sprintf(
             'INSERT INTO {%s} (%s) VALUES (%s)',
             $table,
-            implode(', ', array_map(self::quoteName(...), $columns)),
+            implode(', ', array_map($this->quoteName(...), $columns)),
             implode(', ', array_fill(0, count($columns), '?')),
         );
-        $this->withoutJournal(fn (): PDOStatement => $this->run($sql, array_values($data)));
-        $id = (int) $this->pdo()->lastInsertId();
+        $pg = $this->dialect()->name() === 'pgsql'; // PostgreSQL has no LAST_INSERT_ID: the new key comes back with the INSERT
+        $key = $pg ? (self::PRIMARY_KEYS[$table] ?? $this->identityColumn($table)) : null;
+        $statement = $this->withoutJournal(fn (): PDOStatement => $this->run($sql . ($key !== null ? $this->dialect()->returning($key) : ''), array_values($data)));
+        $id = $key !== null ? (int) $statement->fetchColumn() : ($pg ? 0 : (int) $this->pdo()->lastInsertId());
         if ($this->journal !== null && AgentJournal::journaled($table)) {
             $this->journal->inserted($table, $data, $id);
         }
 
         return $id;
+    }
+
+    /** Inserts a row, or updates $update (default: all other columns) of the row that has the same $keys (a unique key). */
+    public function upsert(string $table, array $data, array $keys, ?array $update = null): void
+    {
+        $columns = array_keys($data);
+        $this->run($this->dialect()->upsert($table, $columns, $keys, $update ?? array_values(array_diff($columns, $keys))), array_values($data));
+    }
+
+    /** Inserts a row unless it violates a unique key (then nothing happens); returns whether a row was added. */
+    public function insertIgnore(string $table, array $data): bool
+    {
+        return $this->run($this->dialect()->insertIgnore($table, array_keys($data)), array_values($data))->rowCount() > 0;
+    }
+
+    /** Takes a named lock (between processes) for at most $timeout seconds; false = somebody else holds it. Released with unlock() or when the connection ends. */
+    public function lock(string $name, int $timeout = 0): bool
+    {
+        return $this->dialect()->lock($this->pdo(), $name, $timeout);
+    }
+
+    public function unlock(string $name): void
+    {
+        $this->dialect()->unlock($this->pdo(), $name);
+    }
+
+    /** Does the table (name without prefix) exist in the current database? */
+    public function tableExists(string $table): bool
+    {
+        return (int) $this->value($this->dialect()->tableExistsSql(), [$this->prefix . $table]) > 0;
+    }
+
+    public function databaseName(): string
+    {
+        return (string) $this->value($this->dialect()->currentDatabaseSql());
+    }
+
+    /** PostgreSQL only: the auto-numbered column of a table (it has no LAST_INSERT_ID), null when there is none. */
+    private function identityColumn(string $table): ?string
+    {
+        return $this->identity[$table] ??= ($this->value(
+            "SELECT a.attname FROM pg_attribute a WHERE a.attrelid = ?::regclass AND a.attidentity <> '' AND NOT a.attisdropped",
+            ['"' . $this->prefix . $table . '"'],
+        ) ?: null);
     }
 
     /**
@@ -170,7 +227,7 @@ final class Db
             return 0;
         }
 
-        return (int) $this->value('SELECT `' . $pk . '` FROM {' . $table . '} WHERE public_id = ?', [$uuid]);
+        return (int) $this->value('SELECT ' . $this->dialect()->quote($pk) . ' FROM {' . $table . '} WHERE public_id = ?', [$uuid]);
     }
 
     /** The public id (UUID v4) of the row with this integer key, '' when there is none: what a link, a result or a payload carries instead of the number. */
@@ -181,7 +238,7 @@ final class Db
             return '';
         }
 
-        return (string) ($this->publicIds[$table][$id] ??= (string) $this->value('SELECT public_id FROM {' . $table . '} WHERE `' . $pk . '` = ?', [$id]));
+        return (string) ($this->publicIds[$table][$id] ??= (string) $this->value('SELECT public_id FROM {' . $table . '} WHERE ' . $this->dialect()->quote($pk) . ' = ?', [$id]));
     }
 
     /**
@@ -190,8 +247,8 @@ final class Db
      */
     public function update(string $table, array $data, array $where): int
     {
-        $set = implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data)));
-        $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
+        $set = implode(', ', array_map(fn (string $c): string => $this->quoteName($c) . ' = ?', array_keys($data)));
+        $cond = implode(' AND ', array_map(fn (string $c): string => $this->quoteName($c) . ' = ?', array_keys($where)));
         $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $table, $set, $cond);
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
         $count = $this->withoutJournal(fn (): int => $this->run($sql, [...array_values($data), ...array_values($where)])->rowCount());
@@ -208,7 +265,7 @@ final class Db
         if ($where === []) {
             throw new \LogicException('Deleting without a condition is not allowed.');
         }
-        $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
+        $cond = implode(' AND ', array_map(fn (string $c): string => $this->quoteName($c) . ' = ?', array_keys($where)));
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
         $count = $this->withoutJournal(fn (): int => $this->run(sprintf('DELETE FROM {%s} WHERE %s', $table, $cond), array_values($where))->rowCount());
         if ($before !== null) {
@@ -251,12 +308,12 @@ final class Db
         }
     }
 
-    private static function quoteName(string $name): string
+    private function quoteName(string $name): string
     {
         if (!preg_match('/^[a-z][a-z0-9_]*$/i', $name)) {
             throw new \InvalidArgumentException("Invalid column name: {$name}");
         }
 
-        return '`' . $name . '`';
+        return $this->dialect()->quote($name);
     }
 }

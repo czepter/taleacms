@@ -30,7 +30,7 @@ async function step(name, fn) {
     await fn();
     await page.waitForTimeout(300);
   } catch (e) {
-    errors.push(`${name}: ${e.message.split('\n')[0]}`);
+    errors.push(`${name}: ${e.message.split('\n').slice(0, 4).join(' ')}`);
   }
   steps++;
   console.log(`  ${errors.length === before ? 'ok   ' : 'FAIL '}  ${name}`);
@@ -143,6 +143,38 @@ await step('builder: dialogs, classes, library and clipboard', async () => {
   await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(500);
+});
+
+await step('builder: structured data (Product), preview, checklist, publish, JSON-LD on the page', async () => {
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await page.waitForTimeout(1500);
+  const pageUrl = await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).page.url);
+  await page.locator('.bd-library button, .bd-panel button', { hasText: 'Structured data' }).first().click(); // the element is inserted and selected
+  await page.waitForTimeout(1200);
+  const control = page.locator('.bd-sd');
+  await control.waitFor({ timeout: 5000 });
+  await control.locator('input[type="search"]').fill('prod');
+  await control.locator('.bd-sd-picker select').selectOption('Product');
+  await control.getByLabel('Name *').first().fill('Oak chair');
+  if ((await control.locator('.bd-sd-check').innerText()).includes('Required')) { throw new Error('name is filled but the checklist still lists a required property'); }
+  await control.getByRole('button', { name: 'Add Offers' }).click();
+  await control.locator('.bd-sd-nested').getByLabel('Price').first().fill('149.9');
+  await control.locator('.bd-sd-nested').getByLabel('Price currency').first().fill('EUR');
+  await page.waitForTimeout(300);
+  const preview = await control.locator('.bd-sd-preview').innerText();
+  const ld = JSON.parse(preview);
+  if (ld['@type'] !== 'Product' || ld.name !== 'Oak chair' || String(ld.offers[0].price) !== '149.9' || ld.offers[0]['@type'] !== 'Offer') { throw new Error('the preview does not mirror the form: ' + preview.slice(0, 200)); }
+  if (!(await control.locator('.bd-sd-check').innerText()).includes('Recommended')) { throw new Error('the checklist does not hint at the recommended properties'); }
+  await control.getByRole('button', { name: 'Fill from page' }).click();
+  await page.waitForTimeout(2500); // autosave of the draft
+  await page.getByRole('button', { name: 'Publish' }).first().click();
+  const confirm = page.locator('dialog[open] button', { hasText: /Publish/ }).first();
+  if (await confirm.count()) { await confirm.click(); }
+  await page.waitForTimeout(2000);
+  await visit(pageUrl.replace(BASE, ''));
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const graph = blocks.flatMap((b) => JSON.parse(b)['@graph'] ?? []);
+  if (!graph.some((n) => n['@type'] === 'Product' && n.name === 'Oak chair')) { throw new Error('the Product node is not in the JSON-LD of the public page'); }
 });
 
 await step('builder: site header', async () => {

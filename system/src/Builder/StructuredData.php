@@ -62,6 +62,28 @@ final class StructuredData
     }
 
     /**
+     * The vocabulary for the editor forms (the builder gets it as JSON, never from the network): per type the label and the properties
+     * with type, label, a short hint and the flags; false flags and empty lists are left out to keep the page small.
+     *
+     * @return array<string, array{label: string, properties: array<string, array<string, mixed>>}>
+     */
+    public static function forEditor(): array
+    {
+        $out = [];
+        foreach (self::vocabulary() as $type => $t) {
+            $props = [];
+            foreach ($t['properties'] as $name => $p) {
+                $props[$name] = ['type' => $p['type'], 'label' => $p['label'], 'hint' => mb_strimwidth(trim((string) preg_replace('/\[\[(\w+)\]\]/', '$1', $p['description'] ?? '')), 0, 140, '…')]
+                    + (!empty($p['required']) ? ['required' => true] : []) + (!empty($p['recommended']) ? ['recommended' => true] : [])
+                    + (!empty($p['multiple']) ? ['multiple' => true] : []) + (!empty($p['of']) ? ['of' => $p['of']] : []) + (!empty($p['options']) ? ['options' => $p['options']] : []);
+            }
+            $out[$type] = ['label' => $t['label'], 'properties' => $props];
+        }
+
+        return $out;
+    }
+
+    /**
      * @param mixed $node {type, fields}
      * @return array{0: ?array{type: string, fields: array<string, mixed>}, 1: list<string>} the cleaned node (null when the type is unknown) and the notes about what was dropped
      */

@@ -43,7 +43,8 @@ trait BuilderTools
 
         return $this->describeTarget($target) + ['published' => $target['build'] !== null,
             'unsaved_changes' => $target['draft'] !== null && $target['draft'] !== $target['build']]
-            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => \Talea\Mcp\PublicIds::buildOut($this->app->db(), Build::compact($this->targetBuild($target)))]);
+            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => \Talea\Mcp\PublicIds::buildOut($this->app->db(), Build::compact($this->targetBuild($target)))]
+                + $this->checkTarget($target, $this->targetBuild($target)));
     }
 
     /** edit_build */
@@ -203,6 +204,18 @@ trait BuilderTools
         $need($db->delete('sections', ['section_id' => $id]) > 0, 'The saved section does not exist – saved_sections in builder_schema lists them.');
 
         return ['deleted' => $id];
+    }
+
+    /** list_schema_types (HF-11) */
+    private function toolListSchemaTypes(string $name, array $a): mixed
+    {
+        $type = (string) ($a['type'] ?? '');
+        $types = \Talea\Builder\StructuredData::compact($type !== '' ? $type : null);
+        if ($type !== '' && $types === []) {
+            throw new \InvalidArgumentException('Unknown type – list_schema_types without a type lists them: ' . implode(', ', \Talea\Builder\StructuredData::types()) . '.');
+        }
+
+        return ['types' => $types];
     }
 
     /** list_components */

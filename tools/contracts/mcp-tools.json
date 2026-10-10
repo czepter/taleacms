@@ -1036,6 +1036,17 @@
             "openWorldHint": false
         }
     },
+    "list_schema_types": {
+        "parameters": {
+            "type": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_site_parts": {
         "parameters": [],
         "required": [],

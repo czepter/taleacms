@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Talea\Core;
 
+use Talea\Core\Dialect\Dialect;
+
 /**
  * Where the site's configuration comes from. Two sources, the environment wins:
  *
- *  1. Environment variables (Docker): TALEA_DB_NAME turns this mode on, see docker/README.md for the full list.
+ *  1. Environment variables (Docker): TALEA_DB_NAME turns this mode on (TALEA_DB_DRIVER = mysql | pgsql), see docker/README.md for the full list.
  *     Every variable also has a TALEA_…_FILE twin (Docker / Kubernetes secrets): the value is read from that file.
  *  2. config.php (classic hosting), written by the web installer.
  *
@@ -43,7 +45,7 @@ final class Config
         }
         try {
             $db = Db::fromConfig(self::fromEnvironment()['db']);
-            if ((int) $db->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db->prefix . 'users']) === 0) {
+            if (!$db->tableExists('users')) {
                 return false;
             }
         } catch (\PDOException) {
@@ -68,8 +70,9 @@ final class Config
 
         return [
             'db' => [
+                'driver' => $driver = self::env('DB_DRIVER', 'mysql'),
                 'host' => self::env('DB_HOST', 'localhost'),
-                'port' => (int) self::env('DB_PORT', '3306') ?: 3306,
+                'port' => (int) self::env('DB_PORT', '0') ?: Dialect::forDriver($driver)->defaultPort(),
                 'name' => self::env('DB_NAME'),
                 'username' => self::env('DB_USER'),
                 'password' => self::env('DB_PASSWORD'),

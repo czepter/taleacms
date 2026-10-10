@@ -68,6 +68,14 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   **back-to-top button** and **newsletter sign-up**. Sections support a **background video**, videos a **poster**,
   navigation a **mega menu** and background images **parallax**.
 
+- **Structured data:** the **Structured data** element (Advanced) puts markup for search engines into the page – a product,
+  an event, a recipe, a job, an FAQ and about 30 other schema.org types. It shows nothing to visitors; on the canvas it is a
+  dashed badge. Choose a type (the search field filters the list), fill in the form – required properties are marked with *,
+  recommended ones are hinted – and watch the JSON-LD preview and the list of what is still missing. **Fill from page** copies
+  the page title, description and image into empty properties. On the site the data joins the page's single JSON-LD block,
+  linked to your company details. Claude reads the available types with `list_schema_types`, writes the element with the build
+  tools and gets the missing properties in the answer; the Site audit lists incomplete nodes too.
+
 A page that used to be plain text is converted by the builder automatically. You can switch it back to text in the page settings.
 
 **Pages** have their own search-engine title, sharing image and a noindex option (page settings → Search engines and

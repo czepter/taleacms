@@ -35,7 +35,7 @@ try {
     if (in_array('--backup', $argv, true)) {
         $db = \Talea\Core\Db::fromConfig($config['db']);
         $pending = Migrator::pending($db);
-        if ($pending !== [] && $db->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", [$db->prefix . 'settings']) > 0) {
+        if ($pending !== [] && $db->tableExists('settings')) {
             echo 'Backing up the database before applying ' . count($pending) . " migration(s)...\n";
             echo \Talea\Core\Backup::create($db, 'before-update') . "\n";
         }

@@ -28,7 +28,7 @@ abstract class SiteTestCase extends TestCase
     {
         parent::setUpBeforeClass();
         try {
-            new \PDO(sprintf('mysql:host=%s;port=%d', getenv('TALEA_TEST_DB_HOST'), (int) getenv('TALEA_TEST_DB_PORT')), (string) getenv('TALEA_TEST_DB_USER'), (string) getenv('TALEA_TEST_DB_PASSWORD'));
+            \Talea\Tests\Support\TestDatabase::admin();
         } catch (\PDOException) {
             self::$unavailable = true;
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
 
 /** Baseline of the database schema. */
 final class CreateFormsTables extends AbstractMigration
@@ -14,7 +15,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('enquiries', ['id' => false, 'primary_key' => ['enquiry_id']])
             ->addColumn('enquiry_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('form', 'string', ['limit' => 120, 'null' => false, 'default' => ''])
             ->addColumn('source', 'string', ['limit' => 40, 'null' => false, 'default' => ''])
@@ -51,7 +52,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('subscribers', ['id' => false, 'primary_key' => ['subscriber_id']])
             ->addColumn('subscriber_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('email', 'string', ['limit' => 190, 'null' => false])
             ->addColumn('status', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => '0 awaiting confirmation, 1 confirmed'])
             ->addColumn('token', 'char', ['limit' => 32, 'null' => false, 'comment' => 'confirming and unsubscribing via a link'])
@@ -80,7 +81,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('newsletters', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('subject', 'string', ['limit' => 200, 'null' => false])
             ->addColumn('preheader', 'string', ['limit' => 200, 'null' => false, 'default' => '', 'comment' => 'preview text shown next to the subject in the inbox'])
             ->addColumn('intro', 'text', ['null' => false])
@@ -135,7 +136,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('requests', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('updated_at', 'datetime', ['null' => false])
             ->addColumn('author_id', 'integer', ['signed' => false, 'null' => false, 'comment' => 'tl_users.user_id of the staff member who wrote it'])

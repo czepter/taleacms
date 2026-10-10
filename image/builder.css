@@ -225,3 +225,24 @@ body.bd-placing .bd-node { cursor: copy; }
 .bd-comments blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid var(--line-field); color: var(--text-weak); font-size: 13px; }
 .bd-comments p { margin: 6px 0; white-space: pre-line; }
 .bd-comment-actions { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+
+/* structured data control (builder-structured.js) */
+.bd-sd-picker { display: grid; gap: 6px; margin-bottom: 8px; }
+.bd-sd-props, .bd-sd-list, .bd-sd-nested { display: grid; gap: 8px; }
+.bd-sd-prop { display: grid; gap: 3px; }
+.bd-sd-prop > label, .bd-sd-title { font-size: 12px; font-weight: 600; color: var(--text-weak); }
+.bd-sd-prop > label em { font-weight: 400; font-style: normal; opacity: .8; }
+.bd-sd-title { display: block; margin-top: 8px; }
+.bd-sd-tick { display: flex; align-items: center; gap: 8px; }
+.bd-sd-row { display: flex; gap: 6px; align-items: start; }
+.bd-sd-row > :first-child { flex: 1; min-width: 0; }
+.bd-sd-details { border: 1px solid var(--line-field); border-radius: 8px; padding: 6px 8px; }
+.bd-sd-details > summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+.bd-sd-nested { margin-top: 8px; }
+.bd-sd-tools { margin-top: 8px; }
+.bd-sd-hint { margin: 4px 0 0; font-size: 12px; color: var(--text-weak); }
+.bd-sd-check { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
+.bd-sd-required { color: var(--error); }
+.bd-sd-recommended { color: var(--text-weak); }
+.bd-sd-ok { color: var(--text-weak); list-style: none; margin-left: -18px; }
+.bd-sd-preview { max-height: 260px; overflow: auto; margin: 4px 0 0; padding: 8px; border: 1px solid var(--line-field); border-radius: 6px; background: var(--surface); font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }

@@ -1473,6 +1473,9 @@
 				wrapper.append(el('span', { class: 'bd-field-row' }, inputEl, btn), imagePreview);
 				return wrapper;
 			}
+			case 'structured': // typed schema.org data: the control is in builder-structured.js
+				if (window.taleaStructuredField) { return window.taleaStructuredField(def, value, change, { page: D.page }); }
+				return wrapper;
 			case 'items':
 				return itemField(def, Array.isArray(value) ? value : [], change);
 			default:

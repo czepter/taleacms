@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
 
 /** Baseline of the database schema. */
 final class CreateSystemTables extends AbstractMigration
@@ -166,7 +167,7 @@ final class CreateSystemTables extends AbstractMigration
 
         $this->table('fleet_sites', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false, 'default' => ''])
             ->addColumn('url', 'string', ['limit' => 255, 'null' => false])
             ->addColumn('public_key', 'string', ['limit' => 64, 'null' => false, 'comment' => 'base64 Ed25519 key of the site'])

@@ -6,7 +6,7 @@ return [
     'The server does not meet the requirements. Fix the items marked with a cross and reload the page.' => 'Der Server erfüllt die Anforderungen nicht. Behebe die mit einem Kreuz markierten Punkte und lade die Seite neu.',
     'The installation could not be completed – check the highlighted fields.' => 'Die Installation konnte nicht abgeschlossen werden – prüfe die markierten Felder.',
     'The server has set up the database for you: %s on %s.' => 'Die Datenbank hat der Server für dich eingerichtet: %s auf %s.',
-    'MySQL or MariaDB. Create an empty database beforehand – in your hosting control panel.' => 'MySQL oder MariaDB. Lege vorher eine leere Datenbank an – im Kontrollpanel deines Hostings.',
+    'MySQL, MariaDB or PostgreSQL. Create an empty database beforehand – in your hosting control panel.' => 'MySQL, MariaDB oder PostgreSQL. Lege vorher eine leere Datenbank an – im Kontrollpanel deines Hostings.',
     'The account you will first sign in to the administration with.' => 'Das Konto, mit dem du dich zuerst in der Verwaltung anmeldest.',
     'An empty site for moving another Talea site here – right after installation you import its export in Import and export.' => 'Eine leere Website, um eine andere Talea-Website hierher umzuziehen – gleich nach der Installation importierst du ihren Export unter Import und Export.',
     'A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.' => 'Eine Startwebsite bringt die Seiten Startseite, Über uns, Leistungen und Kontakt mit Beispieltexten und einem eigenen Stil mit – bearbeite den Inhalt im Builder und den Stil unter „Erscheinungsbild der Website“.',

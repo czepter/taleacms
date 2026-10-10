@@ -2885,5 +2885,18 @@ window.TALEA_TRANSLATIONS = {
 	"Social networks": "Soziale Netzwerke",
 	"Always-on core: Pages, Collections, Media, Site appearance, Site parts, Menu, Components, Users and Settings.": "Immer aktiver Kern: Seiten, Sammlungen, Medien, Erscheinungsbild der Website, Website-Teile, Menü, Komponenten, Benutzer und Einstellungen.",
 	"OK": "OK",
-	"Valid for": "Gültig für"
+	"Valid for": "Gültig für",
+	"JSON-LD preview": "JSON-LD-Vorschau",
+	"Recommended": "Empfohlen",
+	"recommended": "empfohlen",
+	"Nothing missing": "Nichts fehlt",
+	"Type": "Typ",
+	"Search a type (Product, Event…)": "Typ suchen (Product, Event…)",
+	"Search a type": "Typ suchen",
+	"Choose a type…": "Typ wählen…",
+	"Choose a type first.": "Wählen Sie zuerst einen Typ.",
+	"Filled %s properties from the page.": "Aus der Seite wurden %s Eigenschaften übernommen.",
+	"Nothing to fill – the properties are filled or the page has no such data.": "Nichts zu übernehmen – die Eigenschaften sind ausgefüllt oder die Seite hat keine solchen Angaben.",
+	"Fill from page": "Aus Seite übernehmen",
+	"Still missing": "Fehlt noch"
 };

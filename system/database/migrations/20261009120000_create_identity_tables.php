@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
 
 /** Baseline of the database schema. */
 final class CreateIdentityTables extends AbstractMigration
@@ -23,7 +24,7 @@ final class CreateIdentityTables extends AbstractMigration
 
         $this->table('users', ['id' => false, 'primary_key' => ['user_id']])
             ->addColumn('user_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('username', 'string', ['limit' => 40, 'null' => false, 'comment' => 'sign-in name'])
             ->addColumn('password', 'string', ['limit' => 255, 'null' => false, 'comment' => 'password_hash()'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
@@ -58,7 +59,7 @@ final class CreateIdentityTables extends AbstractMigration
 
         $this->table('user_passkeys', ['id' => false, 'primary_key' => ['passkey_id']])
             ->addColumn('passkey_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 80, 'null' => false, 'default' => '', 'comment' => 'the device name given by the user („MacBook“, „telefon“)'])
             ->addColumn('credential_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the key identifier (the identifier can be up to 1023 bytes)'])
@@ -76,7 +77,7 @@ final class CreateIdentityTables extends AbstractMigration
 
         $this->table('api_tokens', ['id' => false, 'primary_key' => ['token_id']])
             ->addColumn('token_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('client_id', 'char', ['limit' => 32, 'null' => true, 'comment' => 'OAuth client_id; NULL = a personal token from "My account"'])

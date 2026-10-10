@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
 
 /** Baseline of the database schema. */
 final class CreateBuilderTables extends AbstractMigration
@@ -34,7 +35,7 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('sections', ['id' => false, 'primary_key' => ['section_id']])
             ->addColumn('section_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('element', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON of one element (usually a section) including its contents'])
             ->addColumn('kit_key', 'string', ['limit' => 80, 'null' => true, 'comment' => 'the key it came with from a fleet design kit (2.16, Fleet\\Kit): the next kit updates it'])
@@ -44,7 +45,7 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('components', ['id' => false, 'primary_key' => ['component_id']])
             ->addColumn('component_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('properties', 'text', ['null' => false])
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
@@ -56,7 +57,7 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('popups', ['id' => false, 'primary_key' => ['popup_id']])
             ->addColumn('popup_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 60, 'null' => false])
             ->addColumn('type', 'string', ['limit' => 20, 'null' => false, 'default' => 'window'])
@@ -81,7 +82,7 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('collections', ['id' => false, 'primary_key' => ['collection_id']])
             ->addColumn('collection_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 110, 'null' => false])
             ->addColumn('fields', 'text', ['null' => false])
@@ -98,7 +99,7 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('collection_items', ['id' => false, 'primary_key' => ['item_id']])
             ->addColumn('item_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('collection_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 200, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 160, 'null' => false])

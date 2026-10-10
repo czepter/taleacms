@@ -10,7 +10,7 @@ FROM dunglas/frankenphp:1.13-php8.5.11-bookworm AS base
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
-    && install-php-extensions pdo_mysql mbstring gd zip intl sodium opcache exif
+    && install-php-extensions pdo_mysql pdo_pgsql mbstring gd zip intl sodium opcache exif
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-talea.ini
 COPY docker/Caddyfile /etc/caddy/Caddyfile

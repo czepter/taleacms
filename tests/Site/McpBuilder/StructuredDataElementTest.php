@@ -79,4 +79,37 @@ final class StructuredDataElementTest extends SiteTestCase
         $this->assertArrayNotHasKey('url', $product);
         $this->assertArrayNotHasKey('bogus', $product);
     }
+
+    public function testTheSchemaTypeToolDescribesTheVocabularyAndTheBuildToolsReportWhatIsMissing(): void
+    {
+        $types = $this->site()->mcpResult('list_schema_types', ['type' => 'Product']);
+        $this->assertSame(['Product'], array_keys($types['types']));
+        $this->assertSame('text required', $types['types']['Product']['properties']['name']);
+        $this->assertStringContainsString('thing(Offer)[]', $types['types']['Product']['properties']['offers']);
+        $this->assertGreaterThan(30, count($this->site()->mcpResult('list_schema_types')['types']));
+        $this->assertStringContainsString('Unknown type', $this->site()->mcpText('list_schema_types', ['type' => 'Nope']));
+
+        $this->site()->mcpText('create_page', ['title' => 'Lamp', 'slug' => 'lamp', 'visible' => true]);
+        $id = $this->site()->publicId('pages', (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'lamp'"));
+        $build = ['v' => 1, 'children' => [['id' => 'sd1', 'type' => 'structured_data', 'content' => ['data' => ['type' => 'Product', 'fields' => ['sku' => 'L-1']]]]]];
+
+        $saved = $this->site()->mcpResult('save_build', ['id' => $id, 'build' => $build]);
+        $this->assertSame([], $saved['errors']);
+        $this->assertStringContainsString('missing required properties: name', json_encode($saved['check']));
+        $read = $this->site()->mcpResult('get_build', ['id' => $id]);
+        $this->assertSame('Product', $read['build']['children'][0]['content']['data']['type'] ?? null);
+        $this->assertStringContainsString('missing required properties: name', json_encode($read['check']), 'get_build warns too');
+
+        $edited = $this->site()->mcpResult('edit_build', ['id' => $id, 'operations' => [['op' => 'update', 'id' => 'sd1', 'content' => ['data' => ['type' => 'Product', 'fields' => ['name' => 'Lamp']]]]]]);
+        $this->assertStringNotContainsString('structured data', json_encode($edited['check'] ?? []), 'a complete node has nothing to report');
+    }
+
+    public function testTheSiteAuditReportsAnIncompleteNode(): void
+    {
+        $this->publish('incomplete', [['type' => 'structured_data', 'content' => ['data' => ['type' => 'Product', 'fields' => ['sku' => 'X-1']]]]]);
+
+        $audit = $this->site()->mcpText('site_audit', []);
+        $this->assertStringContainsString('missing required properties: name', $audit);
+        $this->assertPage('/admin.php?module=audit', 200, 'missing required properties', message: 'Site audit lists the incomplete structured data');
+    }
 }

@@ -14,7 +14,7 @@
     <testsuites>
         <!-- no database, milliseconds -->
         <testsuite name="unit"><directory>tests/Unit</directory></testsuite>
-        <!-- a real MySQL 8: docker-compose-dev.yaml service db-test (127.0.0.1:33061); skipped when it is not reachable -->
+        <!-- a real MySQL 8 (docker-compose-dev.yaml service db-test, 127.0.0.1:33061) or PostgreSQL 18 (db-test-pg, 127.0.0.1:33062), by TALEA_TEST_DB_DRIVER; skipped when it is not reachable -->
         <testsuite name="integration"><directory>tests/Integration</directory></testsuite>
         <!-- whole sites installed per test class, driven over HTTP; slow (seconds per class), parallel with ParaTest -->
         <testsuite name="site"><directory>tests/Site</directory></testsuite>
@@ -27,6 +27,12 @@
         <include><directory>system/src</directory></include>
     </source>
     <php>
+        <!-- the engine the integration and site suites run against: mysql (default) or pgsql (composer test:pg) -->
+        <env name="TALEA_TEST_DB_DRIVER" value="mysql" force="false"/>
+        <env name="TALEA_TEST_PG_HOST" value="127.0.0.1" force="false"/>
+        <env name="TALEA_TEST_PG_PORT" value="5433" force="false"/>
+        <env name="TALEA_TEST_PG_USER" value="postgres" force="false"/>
+        <env name="TALEA_TEST_PG_PASSWORD" value="postgres" force="false"/>
         <env name="TALEA_TEST_DB_HOST" value="127.0.0.1" force="false"/>
         <env name="TALEA_TEST_DB_PORT" value="33061" force="false"/>
         <env name="TALEA_TEST_DB_USER" value="root" force="false"/>

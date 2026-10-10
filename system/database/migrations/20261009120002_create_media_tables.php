@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
 
 /** Baseline of the database schema. */
 final class CreateMediaTables extends AbstractMigration
@@ -14,14 +15,14 @@ final class CreateMediaTables extends AbstractMigration
 
         $this->table('media_folders', ['id' => false, 'primary_key' => ['folder_id']])
             ->addColumn('folder_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addIndex(['public_id'], ['name' => 'uq_media_folders_public_id', 'unique' => true])
             ->create();
 
         $this->table('media', ['id' => false, 'primary_key' => ['media_id']])
             ->addColumn('media_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('owner_id', 'integer', ['signed' => false, 'null' => true])
             ->addColumn('folder_id', 'integer', ['signed' => false, 'null' => true, 'comment' => 'folder'])
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false, 'default' => '', 'comment' => 'also serves as the alternative text (alt)'])

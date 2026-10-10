@@ -25,13 +25,17 @@ final class MigratorTest extends DatabaseTestCase
 
     public function testAFreshDatabaseHasTheTablesOfTheSchema(): void
     {
-        $tables = (int) $this->db()->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [self::PREFIX . '%']);
+        $schema = $this->isPostgres() ? 'current_schema()' : 'DATABASE()';
+        $tables = (int) $this->db()->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $schema AND table_name LIKE ?", [self::PREFIX . '%']);
 
         $this->assertGreaterThanOrEqual(90, $tables);
     }
 
     public function testEveryTableAndColumnInheritsTheDatabaseCollation(): void
     {
+        if ($this->isPostgres()) {
+            $this->markTestSkipped('MySQL: tables inherit utf8mb4_0900_ai_ci. PostgreSQL: the lookup columns carry the talea_ci collation, see testLookupColumnsIgnoreCaseAndAccents.');
+        }
         $this->assertSame([], array_column($this->db()->all(
             'SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_collation <> ?', ['utf8mb4_0900_ai_ci'],
         ), 't'));
@@ -42,8 +46,9 @@ final class MigratorTest extends DatabaseTestCase
 
     public function testForeignKeyNamesCarryThePrefix(): void
     {
+        $schema = $this->isPostgres() ? 'current_schema()' : 'DATABASE()';
         $this->assertSame([], array_column($this->db()->all(
-            'SELECT constraint_name AS n FROM information_schema.referential_constraints WHERE constraint_schema = DATABASE() AND constraint_name NOT LIKE ?', [self::PREFIX . 'fk\_%'],
+            "SELECT constraint_name AS n FROM information_schema.referential_constraints WHERE constraint_schema = $schema AND constraint_name NOT LIKE ?", [self::PREFIX . 'fk\_%'],
         ), 'n'));
     }
 
@@ -57,6 +62,16 @@ final class MigratorTest extends DatabaseTestCase
         $db->run('DELETE FROM {users} WHERE user_id = ?', [$userId]);
 
         $this->assertSame(0, (int) $db->value('SELECT COUNT(*) FROM {user_permissions} WHERE user_id = ?', [$userId]));
+    }
+
+    public function testLookupColumnsIgnoreCaseAndAccents(): void
+    {
+        $db = $this->db();
+        $db->insert('users', ['username' => 'Zoë', 'password' => 'x', 'email' => 'Zoe@Example.test']);
+
+        $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE username = ?', ['zoe']), 'username: any case, any accents');
+        $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE email = ?', ['zoe@example.TEST']));
+        $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE ' . $db->dialect()->likeInsensitive('username'), ['ZO%']), 'LIKE too');
     }
 
     public function testATestsChangesAreRolledBack(): void

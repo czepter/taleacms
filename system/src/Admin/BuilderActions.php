@@ -72,11 +72,12 @@ trait BuilderActions
         $defaultLanguage = Language::defaults($app->settings());
         $data = [
             'page' => ['title' => $target['title'], 'url' => $e['url'], 'visible' => $e['visible'], 'published' => $target['build'] !== null, 'can_publish' => $app->auth()->canPublish(),
-                'headings' => (bool) ($e['headings'] ?? false)], // check before publishing: the page should have one h1 and not skip levels
+                'headings' => (bool) ($e['headings'] ?? false), 'description' => (string) ($e['description'] ?? ''), 'image' => (string) ($e['image'] ?? '')], // check before publishing: the page should have one h1 and not skip levels
             'build' => Build::fromJson($target['draft'] ?? $target['build']),
             'changed' => $target['draft'] !== null && $target['draft'] !== $target['build'],
             'version' => self::computeBuildVersion($target['draft'] ?? $target['build']),
             'schema' => $schema,
+            'structured' => \Talea\Builder\StructuredData::forEditor(),
             'collections' => $collections,
             'components' => $components,
             'ai' => (new \Talea\Core\Assistant($app->settings()))->isReady(),

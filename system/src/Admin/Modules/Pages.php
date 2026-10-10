@@ -364,7 +364,7 @@ final class Pages extends Module
         $url = $this->app->url(($page['language'] !== '' ? $page['language'] . '/' : '') . ($home ? '' : $page['slug']));
 
         return [
-            'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true,
+            'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true, 'description' => (string) $page['description'], 'image' => (string) $page['image'],
             'back' => ['url' => $this->url(), 'text' => t('Pages')], 'settings' => $this->url('edit', ['id' => (string) $page['public_id']]),
             'signature' => 'page:' . (int) $page['page_id'],
         ];

@@ -249,10 +249,7 @@ final class Settings
 
     public function set(string $key, string $value): void
     {
-        $this->db->run(
-            'INSERT INTO {settings} (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)',
-            [$key, $value],
-        );
+        $this->db->upsert('settings', ['name' => $key, 'value' => $value], ['name']);
         if ($this->values !== null) {
             $this->values[$key] = $value;
         }

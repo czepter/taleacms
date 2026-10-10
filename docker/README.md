@@ -30,6 +30,10 @@ docker compose -f docker-compose-dev.yaml up -d --build
 | `adminer` | http://localhost:8081 | server `db`, user `talea`, password `talea` (root: `root`) |
 | `db` | 127.0.0.1:33060 | MySQL 8.4, persistent volume |
 | `db-test` | 127.0.0.1:33061 | in-memory MySQL for `composer test` (every test class creates and drops its own database) |
+| `db-test-pg` | 127.0.0.1:33062 | in-memory PostgreSQL 18 for `composer test:pg` (user and password `postgres`) |
+| `db-pg` | 127.0.0.1:33063 | PostgreSQL 18 to develop on, profile `db-pg`: `TALEA_DB_DRIVER=pgsql TALEA_DB_HOST=db-pg docker compose -f docker-compose-dev.yaml --profile db-pg up -d` (user, password, database `talea`) |
+
+The suites run on either engine: `composer test` (MySQL) and `composer test:pg` (integration suite on PostgreSQL, `TALEA_TEST_PG_HOST/_PORT/_USER/_PASSWORD`; set `TALEA_TEST_PG_PORT=33062` for the service above).
 
 Xdebug: `XDEBUG_MODE=debug docker compose -f docker-compose-dev.yaml up -d` (the IDE listens on 9003). Commands inside the container:
 `docker compose -f docker-compose-dev.yaml exec web php bin/migrate` · `… exec web php tools/unit-tests.php` · `… exec web composer require …`.
@@ -51,7 +55,8 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 | Variable | Default | Meaning |
 |---|---|---|
 | `TALEA_DB_NAME` | – | **Required.** Switches env mode on (otherwise `config.php` is used) |
-| `TALEA_DB_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_PREFIX` | localhost / 3306 / – / – / `tl_` | Database |
+| `TALEA_DB_DRIVER` | `mysql` | Database engine: `mysql` (MySQL 8) or `pgsql` (PostgreSQL 18; work in progress, see docs/specs/postgres.md) |
+| `TALEA_DB_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_PREFIX` | localhost / 3306 (5432 for `pgsql`) / – / – / `tl_` | Database |
 | `TALEA_DEBUG` | `false` | Show errors in pages |
 | `TALEA_ADDONS` | `true` | `false` = safe mode, no add-ons |
 | `TALEA_AI_URL` | – | Custom gateway for the writing assistant |

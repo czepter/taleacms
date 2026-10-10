@@ -43,7 +43,7 @@ final class InstallerScreensTest extends SiteTestCase
     {
         $site = $this->site();
         $page = $site->client('installer')->post('/install.php', [
-            'language' => 'en', 'db_host' => getenv('TALEA_TEST_DB_HOST'), 'db_port' => getenv('TALEA_TEST_DB_PORT'), 'db_name' => $site->database, 'db_user' => 'nosuchuser',
+            'language' => 'en', 'db_driver' => \Talea\Tests\Support\TestDatabase::driver(), 'db_host' => \Talea\Tests\Support\TestDatabase::server()['host'], 'db_port' => \Talea\Tests\Support\TestDatabase::server()['port'], 'db_name' => $site->database, 'db_user' => 'nosuchuser',
             'db_password' => 'wrong', 'db_prefix' => 'tl_', 'site_name' => 'Acme', 'starter' => 'business', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
         ]);
         $this->assertNoCzech($page->body, 'installer: wrong database user');

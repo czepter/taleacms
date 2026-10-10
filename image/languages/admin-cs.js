@@ -2877,5 +2877,18 @@ window.TALEA_TRANSLATIONS = {
 	"Unsubscribe": "Odhlášení odběru",
 	"background": "podbarvení",
 	"OK": "Rozumím",
-	"Valid for": "Platnost"
+	"Valid for": "Platnost",
+	"JSON-LD preview": "Náhled JSON-LD",
+	"Recommended": "Doporučeno",
+	"recommended": "doporučeno",
+	"Nothing missing": "Nic nechybí",
+	"Type": "Typ",
+	"Search a type (Product, Event…)": "Hledat typ (Product, Event…)",
+	"Search a type": "Hledat typ",
+	"Choose a type…": "Vyberte typ…",
+	"Choose a type first.": "Nejdřív vyberte typ.",
+	"Filled %s properties from the page.": "Z této stránky se doplnilo vlastností: %s.",
+	"Nothing to fill – the properties are filled or the page has no such data.": "Není co doplnit – vlastnosti jsou vyplněné nebo stránka takové údaje nemá.",
+	"Fill from page": "Doplnit ze stránky",
+	"Still missing": "Stále chybí"
 };

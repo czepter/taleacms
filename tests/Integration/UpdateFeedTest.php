@@ -27,7 +27,7 @@ final class UpdateFeedTest extends DatabaseTestCase
         file_put_contents($this->keyFile, base64_encode(sodium_crypto_sign_publickey($pair)) . " test\n");
         putenv('TALEA_UPDATE_FEED=https://feed.example.test/update.json');
         putenv('TALEA_UPDATE_CHECK');
-        $this->db()->run("INSERT INTO {settings} (name, value) VALUES ('update_check', '1') ON DUPLICATE KEY UPDATE value = '1'");
+        $this->db()->upsert('settings', ['name' => 'update_check', 'value' => '1'], ['name']);
         $this->db()->run("DELETE FROM {settings} WHERE name = 'update_feed_cache'");
     }
 

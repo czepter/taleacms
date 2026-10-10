@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\AbstractMigration;
+use Talea\Core\MigrationSupport;
 
 /** Baseline of the database schema. */
 final class CreateContentTables extends AbstractMigration
@@ -14,7 +15,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('categories', ['id' => false, 'primary_key' => ['category_id']])
             ->addColumn('category_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 120, 'null' => false])
             ->addColumn('description', 'text', ['null' => false])
@@ -25,9 +26,9 @@ final class CreateContentTables extends AbstractMigration
             ->addIndex(['slug'], ['name' => 'uq_categories_slug', 'unique' => true])
             ->create();
 
-        $this->table('news', ['id' => false, 'primary_key' => ['news_id']])
+        $news = $this->table('news', ['id' => false, 'primary_key' => ['news_id']])
             ->addColumn('news_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('slug', 'string', ['limit' => 160, 'null' => false])
             ->addColumn('title', 'string', ['limit' => 255, 'null' => false])
             ->addColumn('intro', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'intro'])
@@ -63,15 +64,13 @@ final class CreateContentTables extends AbstractMigration
             ->addIndex(['deleted_at'], ['name' => 'ix_news_deleted_at'])
             ->addIndex(['category_id', 'visible', 'published_at'], ['name' => 'ix_news_category_id_visible_published_at'])
             ->addIndex(['author_id'], ['name' => 'ix_news_author_id'])
-            ->addIndex(['title', 'intro', 'text', 'keywords'], ['name' => 'ft_news_title_intro_text_keywords', 'type' => 'fulltext'])
-            ->addIndex(['search_text'], ['name' => 'ft_news_search_text', 'type' => 'fulltext'])
             ->addForeignKey('category_id', 'categories', 'category_id', ['constraint' => $prefix . 'fk_news_category_id'])
-            ->addForeignKey('author_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_news_author_id', 'delete' => 'SET_NULL'])
-            ->create();
+            ->addForeignKey('author_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_news_author_id', 'delete' => 'SET_NULL']);
+        MigrationSupport::create($this, $news, 'news', ['ft_news_title_intro_text_keywords' => ['title', 'intro', 'text', 'keywords'], 'ft_news_search_text' => ['search_text']]);
 
         $this->table('tags', ['id' => false, 'primary_key' => ['tag_id']])
             ->addColumn('tag_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('name', 'string', ['limit' => 80, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('description', 'text', ['null' => true, 'comment' => 'intro of the topic page (HTML from the editors)'])
@@ -110,7 +109,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('pages', ['id' => false, 'primary_key' => ['page_id']])
             ->addColumn('page_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('slug', 'string', ['limit' => 120, 'null' => false])
             ->addColumn('title', 'string', ['limit' => 200, 'null' => false])
             ->addColumn('description', 'string', ['limit' => 300, 'null' => false, 'default' => '', 'comment' => 'meta description'])
@@ -172,7 +171,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('redirects', ['id' => false, 'primary_key' => ['redirect_id']])
             ->addColumn('redirect_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
+            ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
             ->addColumn('from_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site without the leading slash: news/old-address'])
             ->addColumn('to_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site, or a full URL https://...'])
             ->addColumn('type', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 301, 'comment' => '301 permanent, 302 temporary'])
