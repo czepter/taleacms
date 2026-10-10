@@ -161,3 +161,8 @@ Everything not on the bar waits (`docs/DECISIONS.md`). The leftovers recorded in
 1. The usability test (section 1): three participants, recording, results table, findings as issues, repeat round when needed.
 2. Linking this file from the release notes once the results are in.
 3. A decision whether the 99 on `/contact` is acceptable on a repeat run on a real host (the bar says 99-100).
+
+
+## Decision on the usability test
+
+The maintainer decided on 2026-10-10 to continue without the usability test with three first-time users. It was **not run**; the automated bar above is the only evidence. Run the protocol before a public launch if the bar should be fully met.
