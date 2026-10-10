@@ -97,7 +97,7 @@ final class Build
     }
 
     /** @param array<string, array<string, mixed>> $protected */
-    private static function sanitizeChildren(array $children, string $path, int $depth, array &$errors, array &$used, int &$count, bool $admin, array $protected): array
+    private static function sanitizeChildren(array $children, string $path, int $depth, array &$errors, array &$used, int &$count, bool $admin, array $protected, bool $compose = false): array
     {
         $output = [];
         foreach (array_values($children) as $i => $p) {
@@ -123,6 +123,18 @@ final class Build
             $htmlTag = in_array($p['tag'] ?? null, $className::HTML_TAGS, true) ? $p['tag'] : $className::HTML_TAGS[0];
             $clean = ['id' => $id, 'type' => $className::TYPE, 'tag' => $htmlTag, 'content' => self::sanitizeContent($className::properties(), is_array($p['content'] ?? null) ? $p['content'] : [], $place . '.content', $errors)];
             $style = Style::sanitize($p['style'] ?? [], $place . '.style', $errors);
+            if (!$compose) {
+                // placement on the grid and layers (so overlap) exist only for the direct children of a Compose section
+                foreach ($style as $state => $properties) {
+                    foreach (array_intersect_key($properties, array_flip(Style::COMPOSE_ONLY)) as $key => $value) {
+                        unset($style[$state][$key]);
+                        $errors[$place . '.style.' . $state . '.' . $key] = 'Only a direct child of a Section with the layout “compose” can be placed on the grid – left out.';
+                    }
+                    if ($style[$state] === []) {
+                        unset($style[$state]);
+                    }
+                }
+            }
             if ($style !== []) {
                 $clean['style'] = $style;
             }
@@ -182,7 +194,7 @@ final class Build
                     $errors[$place . '.children'] = 'Nesting is too deep – the nested elements are left out.';
                     $clean['children'] = [];
                 } else {
-                    $clean['children'] = self::sanitizeChildren(is_array($p['children'] ?? null) ? $p['children'] : [], $place . '.children', $depth + 1, $errors, $used, $count, $admin, $protected);
+                    $clean['children'] = self::sanitizeChildren(is_array($p['children'] ?? null) ? $p['children'] : [], $place . '.children', $depth + 1, $errors, $used, $count, $admin, $protected, $className === Elements\Section::class && ($clean['content']['layout'] ?? '') === 'compose');
                 }
             } elseif (!empty($p['children'])) {
                 $errors[$place . '.children'] = 'The element “' . $className::NAME . '” cannot contain other elements – left out.';
@@ -637,6 +649,9 @@ final class Build
                 $base .= $className::baseCss() . "\n";
             }
         }
+        if ($k->compose) {
+            $base .= Elements\Section::composeCss() . "\n";
+        }
         $classes = '';
         if ($k->classes !== []) {
             $names = array_keys($k->classes);
@@ -792,6 +807,7 @@ final class Build
                 'color' => 'token (' . implode('|', $colors) . ') or #hex', 'radius' => 'token ' . implode('|', array_map('strval', $tokens['radii'])) . ' or a length',
                 'shadow' => 'token s|m|l, none or “x y blur colour”', 'border' => 'an option or “2px solid colour”', 'length' => 'px, rem, %, vw, fr, auto, min()/max()/clamp()/calc()',
                 'columns' => 'a number 1–12, “auto:16rem” (as many as fit) or “2fr 1fr”', 'rows' => 'a number or “auto 1fr”', 'areas' => 'rows separated by /, e.g. “a a / b c”',
+                'column_line' => 'a grid line 1–13 (Compose section children)', 'row_line' => 'a grid line 1–40 (Compose section children)',
             ],
             'node' => '{"id":"(optional, keep it when editing)","type":"…","tag":"(one of the tags; the first is the default)","content":{…},"style":{"base":{…},"tablet":{…},"mobile":{…},"hover":{…}},"classes":["…"],"anchor":"id-for-links","children":[…]}; leave out empty fields and default values',
             'conditions' => 'optional "conditions" of a node: {"signed_in":"yes|no","from":"YYYY-MM-DD","to":"YYYY-MM-DD","languages":["","de"] ("" = the default language),"url_parameter":{"name":"utm_campaign","value":"jaro"}} – the element is rendered only when all of them hold',
@@ -967,6 +983,7 @@ final class Build
                 'Style has the states base, tablet (up to 1023 px), mobile (up to 767 px), hover; editing one state leaves the others.',
                 'A repeated look (cards, labels) belongs in a class, not in the style of every element.',
                 'Grid columns: a number (“3”), “auto:16rem” (as many as fit) or a ratio (“2fr 1fr”).',
+                'Free placement: a Section with content.layout “compose” is a fixed 12-column grid (row unit = space “l”). Its direct children get grid_column_start/grid_column_end (lines 1–13), grid_row_start/grid_row_end (lines 1–40) and layer (below|base|above|top); only there may elements overlap. Tablet and phone stack the children in source order (content.stack_from “phone” keeps the grid on a tablet; the tablet state then places the children). Placement properties anywhere else are dropped.',
             ],
         ];
     }

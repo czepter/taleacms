@@ -98,7 +98,7 @@ if ($options['feed']) {
 
 // --- package from the files tracked by git
 $files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
-$exclude = ['tools/', 'docs/', 'extensions/domain_watch/tests/', 'extensions/firewall/tests/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'docker-compose.yaml', 'docker-compose.coolify.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
+$exclude = ['tools/', 'docs/', 'extensions/domain_watch/tests/', 'extensions/firewall/tests/', 'extensions/client_galleries/tests/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'docker-compose.yaml', 'docker-compose.coolify.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
 @mkdir($root . '/dist');
 $zipFile = $root . "/dist/talea-{$version}.zip";
 @unlink($zipFile);

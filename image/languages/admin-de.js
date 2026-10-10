@@ -2969,5 +2969,21 @@ window.TALEA_TRANSLATIONS = {
 	"The selected element is passed on as a hint: ": "Das ausgewählte Element wird als Hinweis mitgegeben: ",
 	"When you click Send, the structure and texts of this page and your request are sent to %s. Nothing is sent before, nothing is published, and the change can be undone. Prices, names and opening hours are left for you to fill in.": "Wenn Sie auf Senden klicken, werden Struktur und Texte dieser Seite sowie Ihre Anfrage an %s gesendet. Vorher wird nichts gesendet, nichts veröffentlicht, und die Änderung lässt sich rückgängig machen. Preise, Namen und Öffnungszeiten tragen Sie selbst ein.",
 	"The assistant is working…": "Der Assistent arbeitet …",
-	"Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.": "Fertig: %s – Strg+Z macht es rückgängig. Es ist ein Entwurf; nichts wird veröffentlicht."
+	"Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.": "Fertig: %s – Strg+Z macht es rückgängig. Es ist ein Entwurf; nichts wird veröffentlicht.",
+	"Move on the grid (arrow keys: one cell)": "Auf dem Raster verschieben (Pfeiltasten: eine Zelle)",
+	"Resize on the grid": "Größe auf dem Raster ändern",
+	"The grid is shown only on a screen size where the section is not stacked.": "Das Raster wird nur bei einer Bildschirmgröße angezeigt, bei der der Abschnitt nicht untereinander gestapelt wird.",
+	"Tidied up. The elements are taller than the grid allows, the last ones share the bottom rows.": "Aufgeräumt. Die Elemente sind höher, als das Raster erlaubt; die letzten teilen sich die unteren Zeilen.",
+	"Tidied up: one clean column, in reading order.": "Aufgeräumt: eine saubere Spalte in Lesereihenfolge.",
+	"Layer": "Ebene",
+	"Compose layout is on: switch back to a stack (the placements are removed)": "Freie Anordnung ist aktiv: zurück zum Untereinander (die Platzierungen werden entfernt)",
+	"Compose layout: place the elements freely on a 12-column grid": "Freie Anordnung: Elemente frei auf einem 12-Spalten-Raster platzieren",
+	"Back to a stack: the placements were removed.": "Zurück zum Untereinander: Die Platzierungen wurden entfernt.",
+	"Compose layout: the elements keep their positions, drag them to any cell.": "Freie Anordnung: Die Elemente behalten ihre Positionen und lassen sich in jede Zelle ziehen.",
+	"Tidy up: one clean column in reading order": "Aufräumen: eine saubere Spalte in Lesereihenfolge",
+	"Bring forward (layer)": "Nach vorne (Ebene)",
+	"Send backward (layer)": "Nach hinten (Ebene)",
+	"below": "darunter",
+	"base": "Standard",
+	"above": "darüber"
 };

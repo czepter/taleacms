@@ -76,7 +76,7 @@ trait ExperimentTools
             throw new \DomainException($problem);
         }
         if (array_key_exists('auto_promote', $a)) {
-            $db->update('experiments', ['auto_promote' => $a['auto_promote'] ? 1 : 0], ['experiment_id' => $x['experiment_id']]);
+            $db->update('experiments', ['auto_promote' => $a['auto_promote'] && $this->app->auth()->canPublish() ? 1 : 0], ['experiment_id' => $x['experiment_id']]);
         }
         \Talea\Front\Cache::clear();
 

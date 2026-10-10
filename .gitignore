@@ -21,6 +21,7 @@
 !/extensions/README.md
 !/extensions/domain_watch/
 !/extensions/firewall/
+!/extensions/client_galleries/
 /.env
 
 # PHPUnit

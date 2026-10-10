@@ -54,6 +54,15 @@ release). To go back:
    your MySQL client),
 3. start the previous image tag.
 
+## Testing an update end to end
+
+`composer test:e2e` (needs Docker; not part of `composer test`) builds the production image from the checkout as version N, boots it in a
+throw-away compose project (own name, own port, MySQL 8.4), installs a site and writes a page. It then builds N+1 (N plus one later
+migration), replaces only the `web` container and asserts: `/health` turns 200, exactly the new migration is recorded and applied, the
+page is intact and served, and the before-update dump is in `storage/backups/`. The project, its volumes and the images are removed
+afterwards. The Dockerfile needs BuildKit (`docker buildx`); without it the test is skipped, or set `TALEA_E2E_IMAGE_N` to an already
+built image to use as N (it is left in place).
+
 ## Replicas
 
 Any number of web containers can share the `storage`, `media` and `extensions` volumes. Exactly one of them should run the

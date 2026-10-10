@@ -105,6 +105,11 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   floating toolbar, move gesture, marquee, file drop), `builder-handles.js` (spacing, resize, column dividers), `builder-keys.js`; they talk to
   the editor only through `window.taleaBuilder`. Gestures are pointer events; they write the normal `Style` of the current breakpoint in one
   `applyChange` (one undo step), snap to tokens measured on the canvas (never recomputed in JS) and add no style property, so MCP is unchanged.
+  **Compose section** (phase B): the Section content field `layout` = `stack` | `compose` (+ `stack_from`): a fixed 12-column grid, rows of
+  `--tl-space-l` (`Elements\Section::composeCss`, only on pages that use it, `Context::$compose`). The direct children are placed by the style
+  properties `grid_column_start/end` (lines 1–13), `grid_row_start/end` (1–40) and `layer` (below|base|above|top); `Build::sanitize` drops them
+  (reported) anywhere else, so overlap exists only there. Tablet and phone stack the children in source order (CSS). Editor: `builder-compose.js`
+  (column overlay, move grip and eight resize handles snapping to grid lines, Stack ⇄ Compose conversion, tidy up, layers).
 - **Looks gallery** (`Builder\Looks`, data in `system/looks/<key>.json`): 14 finished looks = design system (colours with a dark mode incl. optional
   `colors_dark.primary/secondary`, library fonts) + header/footer template (`PartTemplates`) + recommended library sections. Applied with
   `Looks::apply` (admin Appearance → Looks, MCP `list_looks`/`apply_look`, installer field `look`) as a draft look; the part drafts are marked in

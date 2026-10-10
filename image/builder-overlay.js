@@ -290,10 +290,13 @@
 		ungroup: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
 		replace: '<path d="M4 7h13l-3-3M20 17H7l3 3"/>',
 	};
+	C.ICONS = ICONS; // the compose script adds its own
+	C.extras = []; // toolbar buttons of other scripts: ({doc, many, picks, main, p, add, separator, icon}) => void
 	function icon(doc, name) {
 		if (ICONS[name]) { const s = mk(doc, 'span'); s.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + '</svg>'; return s.firstChild; }
 		return doc.importNode(B.icon(name), true);
 	}
+	C.iconNode = icon;
 	/** An element's text alignment: text-like elements by text-align, others by auto margins (a button in a text line aligns its parent's line). */
 	C.align = (where) => {
 		const doc = B.previewDoc();
@@ -402,6 +405,7 @@
 		add('duplicate', T('Duplicate (Ctrl+D)'), () => B.duplicate(), icon(doc, 'copy'));
 		if (many || (main.n.parent && p.type !== 'section')) { add('group', T('Group into a container (Ctrl+G)'), () => B.group(), icon(doc, 'group')); }
 		if (!many && B.TYPY[p.type].container && p.type !== 'section' && p.children && p.children.length && main.n.parent) { add('ungroup', T('Ungroup: keep the elements, remove the container (Ctrl+Shift+G)'), () => B.ungroup(), icon(doc, 'ungroup')); }
+		C.extras.forEach((fn) => fn({ doc, many, picks, main, p, add, separator, icon }));
 		add('delete', T('Delete (Delete)'), () => B.remove(), icon(doc, 'delete'));
 
 		const union = picks.map((x) => C.page(x.node)).reduce((a, r) => ({ left: Math.min(a.left, r.left), top: Math.min(a.top, r.top), right: Math.max(a.right, r.right), bottom: Math.max(a.bottom, r.bottom) }));

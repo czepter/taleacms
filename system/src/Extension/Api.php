@@ -39,7 +39,7 @@ final class Api
     public const array TOOL_ROLES = ['author', 'editor', 'admin'];
 
     /** Methods that exist since version 2: an add-on written for version 1 may not call them. */
-    public const array V2_METHODS = ['earlyRequest', 'notFound', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'];
+    public const array V2_METHODS = ['earlyRequest', 'notFound', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet', 'route'];
 
     /** Where a job runs: with every visit and cron, or only from cron (heavy work). */
     public const array RUNNERS = ['any', 'cron'];
@@ -50,6 +50,7 @@ final class Api
         'tables' => 'Creates and keeps its own database tables',
         'outgoing_requests' => 'Makes requests to other servers',
         'mail' => 'Sends e-mail',
+        'routes' => 'Answers addresses of its own on the public site',
     ];
 
     /** Who may call an add-on tool that does not say: by its access. */
@@ -60,7 +61,7 @@ final class Api
      * @param list<string> $capabilities what the manifest declares
      */
     public function __construct(private readonly Registry $registry, public readonly string $slug, private readonly App $app,
-        private readonly int $level = self::VERSION, private readonly array $capabilities = ['early_request', 'tables', 'outgoing_requests', 'mail'])
+        private readonly int $level = self::VERSION, private readonly array $capabilities = ['early_request', 'tables', 'outgoing_requests', 'mail', 'routes'])
     {
     }
 
@@ -171,6 +172,23 @@ final class Api
         $this->needsVersion2('notFound()');
         $this->needsCapability('early_request');
         $this->registry->addNotFoundHook($this->slug, $hook);
+    }
+
+    /**
+     * (API 2, capability routes) Addresses of its own on the public site: everything under /<prefix>/ (prefix: lowercase letters, digits, - and _)
+     * goes to fn (\Talea\Core\Request $request, string $rest): array|\Talea\Core\Response|null, $rest being the path after the prefix, without slashes
+     * at the ends. An array [title, html, status] is shown inside the page frame; a Response is sent as it is. Both are answered
+     * private, no-store and noindex, never cached – for content that is not public (client galleries). null = 404. Unlike the early hooks the
+     * handler may take its time (a download); an exception is a server error of this request only.
+     */
+    public function route(string $prefix, callable $handler): void
+    {
+        $this->needsVersion2('route()');
+        $this->needsCapability('routes');
+        if (preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $prefix) !== 1) {
+            throw new \InvalidArgumentException('A prefix of lowercase letters, digits, - and _: ' . $prefix);
+        }
+        $this->registry->addRoute($this->slug, $prefix, $handler);
     }
 
     /**

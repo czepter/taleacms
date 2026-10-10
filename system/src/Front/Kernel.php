@@ -291,6 +291,10 @@ final class Kernel
         if (($path === '/member' || str_starts_with($path, '/member/')) && Extensions::isEnabled($this->app->settings(), 'members')) {
             return $this->memberArea($path); // member login (Core\Members): sign-in link, sign-in, sign-out
         }
+        if (($routed = \Talea\Extension\Registry::runRoute($this->app, $path)) !== null) {
+            // an address of an add-on (Api::route): private, no-store, noindex, never cached
+            return $routed instanceof Response ? new Response($routed->body, $routed->status, $routed->headers + ['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex']) : $this->gatedPage($routed);
+        }
         if ($path === '/form' && Extensions::isEnabled($this->app->settings(), 'enquiries')) {
             return (new Forms($this->app))->process();
         }

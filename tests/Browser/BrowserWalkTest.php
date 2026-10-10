@@ -84,7 +84,12 @@ final class BrowserWalkTest extends TestCase
                 $section('cs3', [$row('cg2', '2', [$column('cola', [$paragraph('txt4', 'Left'), ['id' => 'btn1', 'type' => 'button', 'tag' => 'a', 'content' => ['text' => 'Go', 'link' => '/contact']]]), $column('colb', [$paragraph('txt5', 'Right')])])]),
                 $section('cs4', [['id' => 'cimg', 'type' => 'image', 'tag' => 'figure', 'content' => ['src' => 'media/2026/05/gt-a.jpg', 'alt' => 'A photo', 'caption' => '', 'link' => '', 'priority' => false], 'style' => ['base' => ['width' => '100%']]]]),
             ]];
-            $composeIds = [];
+            // free placement (compose phase B): a section that is still a stack, with a paragraph and an image; the scenario converts it
+            $freeBuild = ['v' => 1, 'children' => [
+                $section('cf1', [$paragraph('cfa', 'Free text'), ['id' => 'cfb', 'type' => 'image', 'tag' => 'figure', 'content' => ['src' => 'media/2026/05/gt-a.jpg', 'alt' => 'A photo', 'caption' => '', 'link' => '', 'priority' => false]]]),
+            ]];
+            $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('compose-free', 'Compose free', '', 0, ?)", [json_encode($freeBuild)]);
+            $composeIds = ['free' => (string) $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', ['compose-free'])];
             foreach (['mouse', 'keys', 'touch'] as $kind) {
                 $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES (?, ?, '', 0, ?)", ["compose-$kind", "Compose $kind", json_encode($composeBuild)]);
                 $composeIds[$kind] = (string) $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', ["compose-$kind"]);

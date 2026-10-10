@@ -15,6 +15,9 @@ final class Context
     /** The page has an element with a display condition – it must not go into the page cache. */
     public bool $withoutCache = false;
 
+    /** The page has a Compose section: Build::css adds its grid CSS (a page without one weighs nothing extra). */
+    public bool $compose = false;
+
     /** @var array<string, true> element types on the page */
     public array $types = [];
 

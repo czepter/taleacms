@@ -7,6 +7,12 @@ resize handles are on the right edge, the bottom edge and the bottom-right corne
 visible edge in a top-left flowing layout); padding handles write `padding_y` / `padding_x` (the model has no per-side padding);
 "distribute" and equal-spacing hints are not built; the move gesture is a toolbar grip (pointer events) in place of the old ⠿ handle.
 
+Status of phase B (#23): built (`image/builder-compose.js`; style properties `grid_column_start`, `grid_column_end`, `grid_row_start`, `grid_row_end`, `layer`;
+Section fields `layout`, `stack_from`). Deviations from the text above: the layer scale is stored by name and renders `z-index` -1 / 0 / 1 / 2;
+rows are `minmax(var(--tl-space-l), auto)` (the unit is fixed, a row still grows with its text, so a paragraph never overflows its cell);
+Stack to Compose reads the positions from the desktop canvas (on tablet or phone it writes one clean column); a tablet or phone placement is possible
+with `stack_from` = phone only. Phase C (focal point, canvas background) is not built.
+
 ## 1. Problem
 
 The builder already has drag and drop of *structure*: dragging elements and ready-made sections from the left panel onto the

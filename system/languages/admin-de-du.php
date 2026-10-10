@@ -845,4 +845,13 @@ return [
     'Tick one or more groups: only their members can read it. Nothing ticked = public. Restricted content is never cached, indexed or searchable.' => 'Hake eine oder mehrere Gruppen an: Nur deren Mitglieder können es lesen. Nichts angehakt = öffentlich. Beschränkte Inhalte werden nie zwischengespeichert, indexiert oder durchsucht.',
     'A visitor reaches the page you choose. Counted only for visitors who accepted the cookie bar, because the browser has to remember the variant between the two pages.' => 'Ein Besucher erreicht die von dir gewählte Seite. Gezählt wird nur bei Besuchern, die die Cookie-Leiste akzeptiert haben, weil sich der Browser die Version zwischen den beiden Seiten merken muss.',
     'If you sign up or are invited as a member, we keep your e-mail address, your name if you give it, the groups you belong to and the time of your last sign-in. A cookie keeps you signed in on your device for up to 30 days; it is strictly necessary for the sign-in. We delete your account when you ask us to.' => 'Wenn du dich als Mitglied anmeldest oder eingeladen wirst, speichern wir deine E-Mail-Adresse, deinen Namen, falls du ihn angibst, die Gruppen, zu denen du gehörst, und den Zeitpunkt deiner letzten Anmeldung. Ein Cookie hält dich auf deinem Gerät bis zu 30 Tage angemeldet; es ist für die Anmeldung unbedingt erforderlich. Wir löschen dein Konto, wenn du uns darum bittest.',
+    'The gallery was created. It is closed: nobody can open it until you share it.' => 'Die Galerie wurde erstellt. Sie ist geschlossen: Niemand kann sie öffnen, bis du sie freigibst.',
+    'Private galleries for your clients: share a gallery by a private link or with a member group; clients mark favourites and – if you allow it – download their photos. Galleries are never cached, indexed or searchable.' => 'Private Galerien für deine Kunden: Gib eine Galerie über einen privaten Link oder für eine Mitgliedergruppe frei; Kunden markieren Favoriten und laden – wenn du es erlaubst – ihre Fotos herunter. Galerien werden nie zwischengespeichert, indexiert oder durchsucht.',
+    'Choose at least one image.' => 'Wähle mindestens ein Bild.',
+    'Enter the gallery name.' => 'Gib den Namen der Galerie ein.',
+    'Enter the last day as a date.' => 'Gib den letzten Tag als Datum ein.',
+    'Enter the last day as YYYY-MM-DD.' => 'Gib den letzten Tag als JJJJ-MM-TT ein.',
+    'Choose a Media folder.' => 'Wähle einen Medienordner.',
+    'Choose a member group.' => 'Wähle eine Mitgliedergruppe.',
+    'Cannot create the folder storage/galleries – check the write permissions.' => 'Der Ordner storage/galleries kann nicht erstellt werden – prüfe die Schreibrechte.',
 ];

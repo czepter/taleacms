@@ -35,7 +35,7 @@ final class Style
 
     /**
      * key => [CSS property, type, group, label, enumeration options]
-     * Types: space | length | color | step | radius | shadow | border | choice | number | image | columns | rows | areas | area | text
+     * Types: column_line | row_line | space | length | color | step | radius | shadow | border | choice | number | image | columns | rows | areas | area | text
      */
     public const array PROPERTIES = [
         // layout
@@ -53,6 +53,12 @@ final class Style
         'justify_content' => ['justify-content', 'choice', 'layout', 'Distribution (main axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'space-between' => 'space between', 'space-around' => 'evenly']],
         'align_self' => ['align-self', 'choice', 'layout', 'Self alignment', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'stretch' => 'stretch']],
         'order' => ['order', 'number', 'layout', 'Order', null],
+        // placement inside a Compose section (Build::sanitize drops these anywhere else): grid lines 1–13 / 1–40 and a layer from a small scale
+        'grid_column_start' => ['grid-column-start', 'column_line', 'layout', 'Compose: first column line (1–13)', null],
+        'grid_column_end' => ['grid-column-end', 'column_line', 'layout', 'Compose: last column line (1–13)', null],
+        'grid_row_start' => ['grid-row-start', 'row_line', 'layout', 'Compose: first row line (1–40)', null],
+        'grid_row_end' => ['grid-row-end', 'row_line', 'layout', 'Compose: last row line (1–40)', null],
+        'layer' => ['z-index', 'choice', 'layout', 'Compose: layer', ['below' => 'below', 'base' => 'base', 'above' => 'above', 'top' => 'top']],
         'flex' => ['flex', 'choice', 'layout', 'Flex growth', ['1 1 0%' => 'fill the space', '0 0 auto' => 'by content']],
         // dimensions
         'width' => ['width', 'length', 'dimensions', 'Width', null],
@@ -148,6 +154,12 @@ final class Style
         'fade' => 'opacity: 0.82;',
     ];
 
+    /** Properties that only mean something on a direct child of a Compose section; Build::sanitize drops them elsewhere. */
+    public const array COMPOSE_ONLY = ['grid_column_start', 'grid_column_end', 'grid_row_start', 'grid_row_end', 'layer'];
+
+    /** The layer scale of a Compose section: name => z-index. */
+    public const array LAYERS = ['below' => -1, 'base' => 0, 'above' => 1, 'top' => 2];
+
     public const array GROUPS = ['layout' => 'Layout', 'dimensions' => 'Size', 'spacing' => 'Spacing', 'typography' => 'Typography', 'background' => 'Background and border', 'advanced' => 'Advanced'];
 
     /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--tl-…). Never ; { } < > \ or url(). */
@@ -194,7 +206,7 @@ final class Style
         [, $type, , , $options] = self::PROPERTIES[$key];
 
         return match ($type) {
-            'choice' => isset($options[$value]) ? $value : null,
+            'choice' => isset($options[$value]) ? ($key === 'layer' ? (string) self::LAYERS[$value] : $value) : null,
             'space' => isset(DesignSystem::SPACES[$value]) ? 'var(--tl-space-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'length' => preg_match(self::LENGTH_PATTERN, $value) ? $value : null,
             'step' => in_array($value, DesignSystem::STEPS, true) ? 'var(--tl-step-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
@@ -205,6 +217,8 @@ final class Style
             'rows' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
             'areas' => self::areas($value),
             'area' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $value) ? $value : null,
+            'column_line' => preg_match('/^([1-9]|1[0-3])$/', $value) ? $value : null,
+            'row_line' => preg_match('/^([1-9]|[1-3]\d|40)$/', $value) ? $value : null,
             'number' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
             'columns' => self::columns($value),
             'image' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $value) ? $value : null,

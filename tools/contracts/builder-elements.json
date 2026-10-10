@@ -186,7 +186,9 @@
     ],
     "section": [
         "background_video",
+        "layout",
         "on_scroll",
+        "stack_from",
         "text_at_top",
         "width"
     ],

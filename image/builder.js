@@ -81,7 +81,7 @@
 		changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null, multi: [], gesture: false, keepEditing: false, refreshAfterGesture: false,
 	};
 
-	/* The builder's small explicit interface for the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js): events and the API object at the end of the file. */
+	/* The builder's small explicit interface for the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js, builder-compose.js): events and the API object at the end of the file. */
 	const listeners = {};
 	function on(name, fn) { (listeners[name] = listeners[name] || []).push(fn); }
 	function emit(name, ...args) { (listeners[name] || []).forEach((fn) => fn(...args)); }
@@ -1616,7 +1616,7 @@
 		if (ai) { panel.append(ai); }
 		const properties = Object.entries(s.properties || {});
 		if (!properties.length) { panel.append(el('p', { class: 'bd-empty' }, s.container ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
-		properties.forEach(([key, def]) => panel.append(field(def, p.content[key], (h) => { if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; }, 'content:' + p.id + ':' + key); } },
+		properties.forEach(([key, def]) => panel.append(field(def, p.content[key], (h) => { if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); } },
 			{ error: state.errors[state.selectedPath + '.content.' + key], element: p })));
 	}
 
@@ -2022,7 +2022,7 @@
 
 	/* ---------- start ---------- */
 
-	/** What the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js) may use – nothing else of the editor is reachable from them. */
+	/** What the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js, builder-compose.js) may use – nothing else of the editor is reachable from them. */
 	window.taleaBuilder = {
 		D, T, TYPY, state, el, icon, on, find, contains, newElement, withNewIds, applyChange, writeStyle, selection, selectMany, toggleSelected, selectedIds, topSelected,
 		remove: removeSelected, duplicate: duplicateSelected, group, ungroup, nudge, placeElements, dropAt, canvasSpot, showSpot, startPlacing, endPlacing, editOnCanvas,

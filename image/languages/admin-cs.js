@@ -2961,5 +2961,21 @@ window.TALEA_TRANSLATIONS = {
 	"The selected element is passed on as a hint: ": "Vybraný prvek se předá jako nápověda: ",
 	"When you click Send, the structure and texts of this page and your request are sent to %s. Nothing is sent before, nothing is published, and the change can be undone. Prices, names and opening hours are left for you to fill in.": "Po kliknutí na Odeslat se struktura a texty této stránky a váš požadavek odešlou poskytovateli %s. Dřív se nic neodesílá, nic se nezveřejní a změnu lze vzít zpět. Ceny, jména a otevírací dobu necháme na vás.",
 	"The assistant is working…": "Asistent pracuje…",
-	"Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.": "Hotovo: %s – Ctrl+Z to vrátí zpět. Je to koncept; nic se nezveřejní."
+	"Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.": "Hotovo: %s – Ctrl+Z to vrátí zpět. Je to koncept; nic se nezveřejní.",
+	"Move on the grid (arrow keys: one cell)": "Přesunout po mřížce (šipky: o jednu buňku)",
+	"Resize on the grid": "Změnit velikost na mřížce",
+	"The grid is shown only on a screen size where the section is not stacked.": "Mřížka je vidět jen na velikosti obrazovky, kde se sekce neskládá pod sebe.",
+	"Tidied up. The elements are taller than the grid allows, the last ones share the bottom rows.": "Uklizeno. Prvky jsou vyšší, než mřížka dovoluje, poslední sdílejí spodní řádky.",
+	"Tidied up: one clean column, in reading order.": "Uklizeno: jeden čistý sloupec v pořadí čtení.",
+	"Layer": "Vrstva",
+	"Compose layout is on: switch back to a stack (the placements are removed)": "Volné rozvržení je zapnuté: vrátit na skládání pod sebe (umístění se odstraní)",
+	"Compose layout: place the elements freely on a 12-column grid": "Volné rozvržení: umístěte prvky libovolně na mřížku o 12 sloupcích",
+	"Back to a stack: the placements were removed.": "Zpět na skládání pod sebe: umístění byla odstraněna.",
+	"Compose layout: the elements keep their positions, drag them to any cell.": "Volné rozvržení: prvky zůstaly na svých místech, přetáhněte je do libovolné buňky.",
+	"Tidy up: one clean column in reading order": "Uklidit: jeden čistý sloupec v pořadí čtení",
+	"Bring forward (layer)": "Přenést dopředu (vrstva)",
+	"Send backward (layer)": "Poslat dozadu (vrstva)",
+	"below": "pod",
+	"base": "základní",
+	"above": "nad"
 };

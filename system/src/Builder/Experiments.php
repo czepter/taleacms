@@ -225,7 +225,7 @@ final class Experiments
     private static function variantRoots(Db $db, array $x): array
     {
         $json = $x['kind'] === 'page'
-            ? ($x['variant_page_id'] !== null ? $db->value('SELECT build FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [(int) $x['variant_page_id']]) : null)
+            ? ($x['variant_page_id'] !== null ? $db->value('SELECT build FROM {pages} WHERE page_id = ? AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id'), [(int) $x['variant_page_id']]) : null)
             : ($x['variant_component_id'] !== null ? $db->value('SELECT build FROM {components} WHERE component_id = ?', [(int) $x['variant_component_id']]) : null);
 
         return array_values(Build::fromJson($json === null ? null : (string) $json)['children'] ?? []);
@@ -409,7 +409,7 @@ final class Experiments
             return 'Publish the page in the builder first: a test needs a published page made in the builder.';
         }
         $row = ['name' => $name, 'kind' => $kind, 'page_id' => (int) $page['page_id'], 'goal_type' => $goal, 'goal_target' => '', 'status' => 'draft',
-            'auto_promote' => !empty($a['auto_promote']) ? 1 : 0, 'created_at' => date('Y-m-d H:i:s')];
+            'auto_promote' => !empty($a['auto_promote']) && $app->auth()->canPublish() ? 1 : 0, 'created_at' => date('Y-m-d H:i:s')];
         if ($goal === 'click') {
             $row['goal_target'] = mb_substr(trim((string) ($a['goal_target'] ?? '')), 0, 255);
             if ($row['goal_target'] === '') {
@@ -425,7 +425,7 @@ final class Experiments
         }
         $component = null;
         if ($kind === 'page') {
-            $other = $db->one('SELECT page_id, build FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [(int) ($a['variant_page'] ?? 0)]);
+            $other = $db->one('SELECT page_id, build FROM {pages} WHERE page_id = ? AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id'), [(int) ($a['variant_page'] ?? 0)]);
             if ($other === null || (int) $other['page_id'] === (int) $page['page_id']) {
                 return 'Choose another page as version B.';
             }

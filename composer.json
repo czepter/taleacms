@@ -29,12 +29,13 @@
         }
     },
     "scripts": {
-        "test": "paratest --processes 6 --exclude-group browser",
+        "test": "paratest --processes 6 --exclude-group browser --exclude-group e2e",
         "test:unit": "phpunit --testsuite unit",
         "test:integration": "phpunit --testsuite integration",
         "test:pg": ["@putenv TALEA_TEST_DB_DRIVER=pgsql", "phpunit --testsuite integration"],
         "test:site": "paratest --testsuite site --processes 6",
         "test:browser": "phpunit --testsuite browser",
+        "test:e2e": "phpunit --testsuite e2e",
         "test:legacy": "phpunit --testsuite legacy"
     },
     "scripts-descriptions": {
@@ -43,6 +44,7 @@
         "test:integration": "Tests against MySQL 8 (db-test service)",
         "test:pg": "The integration suite against PostgreSQL 18 (db-test-pg service; TALEA_TEST_PG_* for another server)",
         "test:site": "Whole installed sites over HTTP, one class per site, in parallel",
+        "test:e2e": "Update from image N to N+1 in a docker compose project (needs Docker; builds the image, minutes)",
         "test:browser": "Chrome walk of a clean install (needs Node, Chrome, network)",
         "test:legacy": "The older tools/unit-tests.php"
     }

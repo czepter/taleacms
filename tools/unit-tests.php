@@ -1439,6 +1439,43 @@ check('Sections on scroll: only shrinking keeps the header in the flow (no posit
     str_contains(Talea\Builder\Build::html(Talea\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="tl-header-scroll">'),
     str_contains($shrinkContext->css, 'position: fixed'), str_contains($shrinkContext->css, '#s-hl2 { animation: tl-header-smaller linear both;'),
 ], [true, false, true]);
+// Compose phase B (#23): placement by grid lines and a layer scale, valid only on the direct children of a Compose section
+$composeCell = ['grid_column_start' => '2', 'grid_column_end' => '13', 'grid_row_start' => '1', 'grid_row_end' => '40', 'layer' => 'top'];
+check('Style::sanitize: grid lines 1–13 / 1–40 and the layer scale are accepted', Talea\Builder\Style::sanitize(['base' => $composeCell, 'tablet' => ['layer' => 'below']]), ['base' => $composeCell, 'tablet' => ['layer' => 'below']]);
+$composeErrors = [];
+check('Style::sanitize: out-of-range lines and an unknown layer are rejected', [Talea\Builder\Style::sanitize(['base' => ['grid_column_start' => '0', 'grid_column_end' => '14', 'grid_row_start' => '41', 'grid_row_end' => 'span 2', 'layer' => 'z99']], '', $composeErrors), count($composeErrors)], [[], 5]);
+check('Style::css: placement as grid lines and the layer as z-index', Talea\Builder\Style::css('#x', ['base' => $composeCell]), "#x { grid-column-start: 2; grid-column-end: 13; grid-row-start: 1; grid-row-end: 40; z-index: 2; }\n");
+check('Style::fromCss: grid lines come back as the style properties', [Talea\Builder\Style::fromCss('grid-column-start', '3'), Talea\Builder\Style::fromCss('grid-row-end', '41')], [['grid_column_start' => '3'], null]);
+$composeBuild = ['v' => 1, 'children' => [
+    ['id' => 'cs1', 'type' => 'section', 'content' => ['layout' => 'compose'], 'children' => [
+        ['id' => 'cs2', 'type' => 'heading', 'content' => ['text' => 'A'], 'style' => ['base' => $composeCell, 'tablet' => ['grid_column_start' => '1']]],
+        ['id' => 'cs3', 'type' => 'container', 'children' => [['id' => 'cs4', 'type' => 'heading', 'content' => ['text' => 'B'], 'style' => ['base' => ['layer' => 'above', 'gap' => 'm']]]]],
+    ]],
+    ['id' => 'cs5', 'type' => 'section', 'children' => [['id' => 'cs6', 'type' => 'heading', 'content' => ['text' => 'C'], 'style' => ['base' => ['grid_column_start' => '2']]]]],
+]];
+[$composeClean, $composeSanitizeErrors] = Talea\Builder\Build::sanitize($composeBuild);
+check('Build::sanitize: placement stays on a child of a compose section, is dropped (and reported) anywhere else', [
+    $composeClean['children'][0]['children'][0]['style'], $composeClean['children'][0]['children'][1]['children'][0]['style'], isset($composeClean['children'][1]['children'][0]['style']),
+    array_keys($composeSanitizeErrors),
+], [['base' => $composeCell, 'tablet' => ['grid_column_start' => '1']], ['base' => ['gap' => 'm']], false,
+    ['children[0].children[1].children[0].style.base.layer', 'children[1].children[0].style.base.grid_column_start']]);
+[$composeToStack] = Talea\Builder\Build::sanitize(['children' => [['id' => 'cs1', 'type' => 'section', 'content' => ['layout' => 'stack'], 'children' => [['id' => 'cs2', 'type' => 'heading', 'style' => ['base' => $composeCell + ['gap' => 's']]]]]]]);
+check('Build::sanitize: switching a section back to stack drops every placement and keeps the rest of the style', $composeToStack['children'][0]['children'][0]['style'], ['base' => ['gap' => 's']]);
+$composeContext = new Talea\Builder\Context($headerApp);
+$composeContext->source = 'page:6';
+$composeHtml = Talea\Builder\Build::html($composeClean, $composeContext);
+$composeCss = Talea\Builder\Build::css((new ReflectionClass(Talea\Core\Db::class))->newInstanceWithoutConstructor(), $composeContext);
+check('Compose: the wrapper is the grid, the children are placed by lines, at tablet and phone width the CSS stacks them in source order', [
+    str_contains($composeHtml, '<div class="tl-wrap tl-compose">'), str_contains($composeContext->css, '#s-cs2 { grid-column-start: 2; grid-column-end: 13; grid-row-start: 1; grid-row-end: 40; z-index: 2; }'),
+    str_contains($composeCss, '.tl-compose { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));'),
+    str_contains($composeCss, '@media (max-width: 1023px) { .tl-compose:not(.tl-compose--phone) { display: flex; flex-direction: column;'), str_contains($composeCss, '@media (max-width: 767px) { .tl-compose { display: flex; flex-direction: column;'),
+], [true, true, true, true, true]);
+$composePhone = Talea\Builder\Build::html(Talea\Builder\Build::sanitize(['children' => [['id' => 'cs7', 'type' => 'section', 'content' => ['layout' => 'compose', 'stack_from' => 'phone', 'width' => 'full'], 'children' => []]]])[0], new Talea\Builder\Context($headerApp));
+check('Compose: "phone only" keeps the grid on a tablet, a full-width section is the grid itself', [str_contains($composePhone, 'class="tl-compose tl-compose--phone"'), str_contains($composePhone, 'tl-wrap')], [true, false]);
+$plainContext = new Talea\Builder\Context($headerApp);
+$plainContext->source = 'page:7';
+Talea\Builder\Build::html(Talea\Builder\Build::sanitize(['children' => [['id' => 'cs8', 'type' => 'section', 'children' => []]]])[0], $plainContext);
+check('Compose: a page without a compose section carries none of its CSS', str_contains(Talea\Builder\Build::css((new ReflectionClass(Talea\Core\Db::class))->newInstanceWithoutConstructor(), $plainContext), 'tl-compose'), false);
 check('Search::find: a match in the title comes first', array_column(Talea\Core\Search::find('search', [
     ['title' => 'Menus', 'url' => 'menus', 'text' => 'Link to site search from the menu.'],
     ['title' => 'Site search', 'url' => 'site-search', 'text' => 'How search works.'],
@@ -1582,7 +1619,7 @@ check('Build::sanitize: {{fields}} tags in an image and a link pass', [$collecti
 
 /* ---------- builder English: editor texts (JS) and schema labels (PHP) ---------- */
 $builderScripts = '';
-foreach (['builder', 'builder-overlay', 'builder-handles', 'builder-keys'] as $builderScript) { // the editor and the compose scripts (direct manipulation on the canvas)
+foreach (['builder', 'builder-overlay', 'builder-handles', 'builder-keys', 'builder-compose'] as $builderScript) { // the editor and the compose scripts (direct manipulation on the canvas)
     $builderScripts .= (string) file_get_contents(TALEA_ROOT . '/image/' . $builderScript . '.js');
 }
 preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", $builderScripts, $enJs);
@@ -1881,6 +1918,9 @@ check('2.9: a heartbeat keeps only the known keys with sane values', [isset($fle
 require dirname(__DIR__) . '/extensions/domain_watch/tests/unit.php';
 /* ---------- the firewall add-on (extensions/firewall, issue #29): its own tests ---------- */
 require dirname(__DIR__) . '/extensions/firewall/tests/unit.php';
+
+/* ---------- the client galleries add-on (extensions/client_galleries, issue #34): its own tests ---------- */
+require dirname(__DIR__) . '/extensions/client_galleries/tests/unit.php';
 /* ---------- 2.8: real-user speed (Core\WebVitals) – histogram buckets, p75, Google's ratings, the audit rule ---------- */
 use Talea\Core\WebVitals;
 check('2.8: WebVitals::bucket – an edge value belongs to its bucket, the next value to the next one, above the last edge to the open bucket',
@@ -2966,7 +3006,7 @@ check('3.0 Api: unknown filters, access levels and names are refused; a tool is 
 /* ---------- extension API 2 (issue #27): version gate, declared settings, event and alert types, the contract ---------- */
 $api1 = new Talea\Extension\Api($reg, 'oldone', new Talea\Core\App(['db' => []], new Talea\Core\Request([], [], [])), 1);
 $gated = [];
-foreach ([fn () => $api1->healthRows(fn () => []), fn () => $api1->earlyRequest(fn () => null), fn () => $api1->job('x', 60, 'l', fn () => 'ok', 'cron'), fn () => $api1->eventType('oldone.x', 'd')] as $call) {
+foreach ([fn () => $api1->healthRows(fn () => []), fn () => $api1->earlyRequest(fn () => null), fn () => $api1->job('x', 60, 'l', fn () => 'ok', 'cron'), fn () => $api1->eventType('oldone.x', 'd'), fn () => $api1->route('gallery', fn () => null)] as $call) {
     try { $call(); } catch (LogicException $e) { $gated[] = true; }
 }
 $api1->job('plain', 60, 'A job', fn () => 'ok');
@@ -2977,8 +3017,8 @@ $api2Errors = [];
 foreach ([fn () => $api2->eventType('other.thing', 'd'), fn () => $api2->eventType('backup.failed', 'd'), fn () => $api2->job('x', 60, 'l', fn () => 'ok', 'sometimes'), fn () => $api2->httpGet('https://example.com/')] as $call) {
     try { $call(); } catch (InvalidArgumentException | LogicException $e) { $api2Errors[] = get_class($e); }
 }
-check('API 2: the methods of version 2 and a runner refuse an add-on written for API 1; version 1 jobs stay "any"', [count($gated), $reg->jobs()['ext_oldone_plain'][1], Talea\Extension\Api::V2_METHODS === ['earlyRequest', 'notFound', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'], Talea\Extension\Api::SUPPORTED],
-    [4, 'any', true, [1, 2]]);
+check('API 2: the methods of version 2 and a runner refuse an add-on written for API 1; version 1 jobs stay "any"', [count($gated), $reg->jobs()['ext_oldone_plain'][1], Talea\Extension\Api::V2_METHODS === ['earlyRequest', 'notFound', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet', 'route'], Talea\Extension\Api::SUPPORTED],
+    [5, 'any', true, [1, 2]]);
 check('API 2: an event type is <slug>.<name>, Talea\'s own names are taken, an unknown runner and an undeclared capability are refused; cron jobs are marked', [$api2Errors, $reg->jobs()['ext_newone_heavy'][1],
     isset(Talea\Core\Events::types()['newone.expiring']), in_array('newone.expiring', Talea\Core\Alerts::warnings(), true), isset(Talea\Core\Events::TYPES['newone.expiring'])],
     [['InvalidArgumentException', 'InvalidArgumentException', 'InvalidArgumentException', 'LogicException'], 'cron', true, true, false]);
@@ -2996,7 +3036,7 @@ try { Talea\Extension\SettingsSchema::normalize(['ok' => ['label' => 'x', 'type'
 check('API 2: a setting with a bad name or an unknown type is refused', $schemaError, true);
 $apiContract = json_decode((string) file_get_contents(__DIR__ . '/contracts/extension-api.json'), true);
 check('API 2: the contract records version 2, both supported versions, and which methods are new in 2', [$apiContract['version'], $apiContract['supported'], $apiContract['v2_methods'], $apiContract['methods']['job']],
-    [2, [1, 2], ['earlyRequest', 'eventType', 'handoverFindings', 'healthRows', 'httpGet', 'notFound', 'settings'], ['string $name', 'int $interval', 'string $label', 'callable $run', 'string $runner']]);
+    [2, [1, 2], ['earlyRequest', 'eventType', 'handoverFindings', 'healthRows', 'httpGet', 'notFound', 'route', 'settings'], ['string $name', 'int $interval', 'string $label', 'callable $run', 'string $runner']]);
 
 /* ---------- 3.0: structured importers – the common base, Ghost and Blogger (Import\…) ---------- */
 $ghostPath = dirname(__DIR__) . '/tools/fixtures/ghost-export.json';

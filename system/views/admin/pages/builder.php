@@ -39,6 +39,7 @@ $language = Talea\Core\Language::code();
 <script src="<?= e($app->url('image/builder-overlay.js')) ?>?v=<?= $version ?>" defer></script>
 <script src="<?= e($app->url('image/builder-handles.js')) ?>?v=<?= $version ?>" defer></script>
 <script src="<?= e($app->url('image/builder-keys.js')) ?>?v=<?= $version ?>" defer></script>
+<script src="<?= e($app->url('image/builder-compose.js')) ?>?v=<?= $version ?>" defer></script>
 <script src="<?= e($app->url('image/builder-structured.js')) ?>?v=<?= $version ?>" defer></script>
 </body>
 </html>

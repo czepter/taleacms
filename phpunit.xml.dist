@@ -20,6 +20,8 @@
         <testsuite name="site"><directory>tests/Site</directory></testsuite>
         <!-- Chrome walk of a clean install (Node, Chrome, network for playwright-core); skipped when unavailable -->
         <testsuite name="browser"><directory>tests/Browser</directory></testsuite>
+        <!-- docker compose: boots image N, updates to N+1 (HF-13); skipped without Docker; slow, so `composer test` excludes the group -->
+        <testsuite name="e2e"><directory>tests/E2E</directory></testsuite>
         <!-- the older tools/unit-tests.php (custom check() harness) run as one test until its checks move into tests/ -->
         <testsuite name="legacy"><directory>tests/Legacy</directory></testsuite>
     </testsuites>

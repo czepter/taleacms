@@ -107,7 +107,7 @@ final class Experiments extends Module
     protected function actionAuto(): Response
     {
         return $this->change(function (array $x): ?string {
-            $this->db->update('experiments', ['auto_promote' => $this->request->postBool('auto_promote') ? 1 : 0], ['experiment_id' => (int) $x['experiment_id']]);
+            $this->db->update('experiments', ['auto_promote' => $this->request->postBool('auto_promote') && $this->app->auth()->canPublish() ? 1 : 0], ['experiment_id' => (int) $x['experiment_id']]);
 
             return null;
         }, 'The setting was saved.');

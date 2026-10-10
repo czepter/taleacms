@@ -36,7 +36,7 @@ The in-app updater (download a zip, overwrite files) stays switched off (`Core\U
 4. `bin/backup` (database dump through PDO, no `mysqldump` needed) and the entrypoint step.
 5. `release.yml`: build and push the multi-arch image, sign it, generate and sign `update.json`, create the release. Written now, enabled when the repository is ready.
 6. `docs/DEPLOYMENT.md`: install, update, rollback, replicas, backup, verifying an image.
-7. End-to-end test (needs Docker, skipped without it): boot version N in a compose project, write data, boot N+1, assert the data, the migration state and `/health`.
+7. End-to-end test `tests/E2E/UpdateTest.php`, `composer test:e2e` (needs Docker, skipped without it): boot version N in a compose project, write data, boot N+1, assert the data, the migration state and `/health`.
 
 ## Out of scope
 

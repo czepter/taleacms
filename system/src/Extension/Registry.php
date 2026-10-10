@@ -29,7 +29,7 @@ final class Registry
     public const string DIR = TALEA_ROOT . '/extensions';
 
     /** Official add-ons that ship in extensions/ inside the release (slug = folder): off by default, switched on in Add-ons, updated with Talea. */
-    public const array BUNDLED = ['domain_watch', 'firewall'];
+    public const array BUNDLED = ['domain_watch', 'firewall', 'client_galleries'];
 
     /** Seconds an early request hook (Api::earlyRequest) may take before it counts as failed and is switched off. */
     public const float EARLY_BUDGET = 0.25;
@@ -59,6 +59,9 @@ final class Registry
 
     /** @var array<string, list<callable>> hooks for requests that end in 404 (Api::notFound), by slug */
     private array $notFound = [];
+
+    /** @var array<string, array{0: string, 1: callable}> prefix => [slug, handler] of Api::route() */
+    private array $routes = [];
 
     /** @var array<string, callable> slug => rows for System status (API 2) */
     private array $healthRows = [];
@@ -508,6 +511,30 @@ final class Registry
     public function addNotFoundHook(string $slug, callable $hook): void
     {
         $this->notFound[$slug][] = $hook;
+    }
+
+    public function addRoute(string $slug, string $prefix, callable $handler): void
+    {
+        if (isset($this->routes[$prefix])) {
+            throw new \RuntimeException('The address /' . $prefix . '/ already belongs to another add-on.');
+        }
+        $this->routes[$prefix] = [$slug, $handler];
+    }
+
+    /**
+     * The route of an add-on (Api::route) that owns this path (with the leading slash), or null. The answer is an array [title, html, status]
+     * for the page frame or a Response – see Api::route().
+     *
+     * @return array{0: string, 1: string, 2: int}|Response|null
+     */
+    public static function runRoute(App $app, string $path): array|Response|null
+    {
+        $self = self::$instance;
+        if ($self === null || $self->routes === [] || preg_match('~^/([a-z][a-z0-9_-]{1,30})(?:/(.*))?$~', $path, $m) !== 1 || !isset($self->routes[$m[1]])) {
+            return null;
+        }
+
+        return $self->routes[$m[1]][1]($app->request, trim($m[2] ?? '', '/'));
     }
 
     public function addHealthRows(string $slug, callable $rows): void

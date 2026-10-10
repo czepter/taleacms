@@ -25,6 +25,9 @@ final class Section extends Element
     {
         return [
             'width' => ['type' => 'choice', 'label' => 'Content width', 'default' => 'content', 'options' => ['content' => 'site width', 'narrow' => 'narrow (text)', 'full' => 'full width']],
+            // Compose: a fixed 12-column grid; the children are placed on it (style properties grid_column_start … layer) and may overlap
+            'layout' => ['type' => 'choice', 'label' => 'Layout of the content', 'default' => 'stack', 'options' => ['stack' => 'stack (one after another)', 'compose' => 'compose (free placement on a grid)']],
+            'stack_from' => ['type' => 'choice', 'label' => 'Compose: stack the content on', 'default' => 'tablet', 'options' => ['tablet' => 'tablet and phone', 'phone' => 'phone only']],
             'background_video' => ['type' => 'link', 'label' => 'Background video (MP4 or WebM from Media, no sound)', 'default' => '', 'media' => 'video'], // editor: a pick from Media, not a link
             // header only (site part): transparent over the first section of the page and/or smaller once the visitor scrolls (CSS scroll-driven animation)
             'on_scroll' => ['type' => 'choice', 'label' => 'Header on scroll (header part only)', 'default' => '', 'options' => [
@@ -48,6 +51,19 @@ final class Section extends Element
 .tl-with-video { position: relative; isolation: isolate; overflow: hidden; }
 .tl-video-background { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; }
 @media (prefers-reduced-motion: reduce) { .tl-video-background { display: none; } }';
+    }
+
+    /**
+     * A Compose section (Build::css adds it only when a page has one): 12 fixed columns and a fixed row unit, the children placed by grid lines.
+     * An unplaced child spans the whole width (it behaves like a stack). On a smaller screen the content is a plain column in source order,
+     * so the reading order is the DOM order; "phone only" keeps the grid on a tablet, where the tablet state of the children places them.
+     */
+    public static function composeCss(): string
+    {
+        return '.tl-compose { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: var(--tl-space-l, 1.5rem); column-gap: var(--tl-space-s, 0.75rem); isolation: isolate; }
+.tl-compose > *, .tl-compose > * + * { grid-column: 1 / -1; min-width: 0; margin-block-start: 0; }
+@media (max-width: 1023px) { .tl-compose:not(.tl-compose--phone) { display: flex; flex-direction: column; gap: var(--tl-space-m, 1rem); } }
+@media (max-width: 767px) { .tl-compose { display: flex; flex-direction: column; gap: var(--tl-space-m, 1rem); } }';
     }
 
     /**
@@ -98,7 +114,16 @@ final class Section extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $width = $p['content']['width'] ?? 'content';
-        $content = $width === 'full' ? $children : '<div class="tl-wrap' . ($width === 'narrow' ? ' tl-wrap--narrow' : '') . '">' . $children . '</div>';
+        $compose = ($p['content']['layout'] ?? 'stack') === 'compose' ? 'tl-compose' . (($p['content']['stack_from'] ?? 'tablet') === 'phone' ? ' tl-compose--phone' : '') : '';
+        if ($compose !== '') {
+            $k->compose = true;
+        }
+        if ($width === 'full') {
+            $content = $children;
+            $a = $compose !== '' ? Text::withClass($a, $compose) : $a;
+        } else {
+            $content = '<div class="tl-wrap' . ($width === 'narrow' ? ' tl-wrap--narrow' : '') . ($compose !== '' ? ' ' . $compose : '') . '">' . $children . '</div>';
+        }
 
         // background video: only a file from Media (a third-party player would send data without consent); muted, looped, hidden from screen readers
         $video = (string) ($p['content']['background_video'] ?? '');

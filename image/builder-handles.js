@@ -58,6 +58,8 @@
 		h.setAttribute('aria-valuenow', String(now));
 		h.setAttribute('aria-valuetext', text);
 	}
+	C.slider = slider; // the compose script builds its handles the same way
+	C.value = value;
 	/** The spacing handle's value: the position of the nearest token on the scale (0 … the largest) and its name. */
 	function spaceValue(doc, h, px) {
 		const tokens = C.spaces(doc);
@@ -117,6 +119,7 @@
 
 	function spacing(ctx) {
 		const { doc, id, node } = ctx;
+		if (C.composeParent && C.composeParent(node)) { return; } // a placed element has the compose handles (builder-compose.js)
 		const win = doc.defaultView;
 		const sides = ['top', 'right', 'bottom', 'left'];
 		const name = { top: T('top'), right: T('right'), bottom: T('bottom'), left: T('left') };
@@ -262,6 +265,7 @@
 
 	function resizing(ctx) {
 		const { doc, id, node } = ctx;
+		if (C.composeParent && C.composeParent(node)) { return; }
 		const win = doc.defaultView;
 		[['e', T('Resize width'), 'x'], ['s', T('Resize height'), 'y'], ['se', T('Resize width and height'), 'xy']].forEach(([dir, label, axes]) => {
 			const h = slider(doc, 'bdo-rz', 'resize-' + dir, label);
