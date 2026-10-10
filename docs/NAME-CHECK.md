@@ -30,4 +30,4 @@ Out of scope: registering the name, a domain or a trademark; legal advice.
 Risk summary for the maintainer's go/no-go: no live EU mark "TALEA" in classes 9/42; one live US mark "TALEA" in class 42 whose registered
 services (loan-origination SaaS) are far from a website builder, so confusion is unlikely but not excluded; two similar pending marks
 (KALEA in the EU, TALIA in the US) worth watching. Recommendation: GO, with a short check by a trademark attorney before any filing or a
-paid launch in the US. The decision itself is the maintainer's and is not recorded here.
+paid launch in the US. **Decision (maintainer, 2026-10-10): GO.** An attorney check precedes any trademark filing or paid US launch.
