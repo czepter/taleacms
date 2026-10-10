@@ -38,7 +38,7 @@ CREATE TABLE ka_users (
     photo           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author
     PRIMARY KEY (user_id),
-    UNIQUE KEY uq_users_public_id (public_id)
+    UNIQUE KEY uq_users_public_id (public_id),
     UNIQUE KEY uq_users_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -86,7 +86,7 @@ CREATE TABLE ka_categories (
     language     CHAR(2) NOT NULL DEFAULT '',                -- language version; '' = the site's default language
     translation_of INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
     PRIMARY KEY (category_id),
-    UNIQUE KEY uq_categories_public_id (public_id)
+    UNIQUE KEY uq_categories_public_id (public_id),
     UNIQUE KEY uq_categories_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -210,7 +210,7 @@ CREATE TABLE ka_tags (
     description    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
     image  VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (tag_id),
-    UNIQUE KEY uq_tags_public_id (public_id)
+    UNIQUE KEY uq_tags_public_id (public_id),
     UNIQUE KEY uq_tags_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_news_tags (
@@ -318,7 +318,7 @@ CREATE TABLE ka_redirects (
     hits     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
     created_at DATETIME NOT NULL,
     PRIMARY KEY (redirect_id),
-    UNIQUE KEY uq_redirects_public_id (public_id)
+    UNIQUE KEY uq_redirects_public_id (public_id),
     UNIQUE KEY uq_redirects_from_path (from_path)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_consents (
@@ -593,7 +593,7 @@ CREATE TABLE ka_collections (
     build_draft MEDIUMTEXT NULL,
     updated_at        DATETIME NULL,
     PRIMARY KEY (collection_id),
-    UNIQUE KEY uq_collections_public_id (public_id)
+    UNIQUE KEY uq_collections_public_id (public_id),
     UNIQUE KEY uq_collections_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -819,7 +819,7 @@ CREATE TABLE ka_newsletters (
     started_at   DATETIME     NULL,
     finished_at  DATETIME     NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_newsletters_public_id (public_id)
+    UNIQUE KEY uq_newsletters_public_id (public_id),
     KEY ix_newsletters_status_scheduled_at (status, scheduled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -940,7 +940,7 @@ CREATE TABLE ka_fleet_sites (
     up_failures     TINYINT UNSIGNED NOT NULL DEFAULT 0,
     silent_reported TINYINT(1)   NOT NULL DEFAULT 0,        -- "stopped reporting" already recorded as an event
     PRIMARY KEY (id),
-    UNIQUE KEY uq_fleet_sites_public_id (public_id)
+    UNIQUE KEY uq_fleet_sites_public_id (public_id),
     UNIQUE KEY uq_fleet_sites_public_key (public_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -1182,7 +1182,7 @@ CREATE TABLE ka_requests (
     status      VARCHAR(12) NOT NULL DEFAULT 'new',      -- new | in_progress | done | declined
     done_at     DATETIME NULL,                           -- when it was marked done or declined
     PRIMARY KEY (id),
-    UNIQUE KEY uq_requests_public_id (public_id)
+    UNIQUE KEY uq_requests_public_id (public_id),
     KEY ix_requests_status_id (status, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
