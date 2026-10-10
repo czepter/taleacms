@@ -632,14 +632,14 @@ final class Library
      * A new copy of a section (new ids) and the names of the classes it uses. The sample texts are in the language of the page the
      * section goes to (not in the admin language) – translations in the site dictionary system/languages/<code>.php.
      *
-     * @return array{prvek: array<string, mixed>, tridy: list<string>}|null
+     * @return array{element: array<string, mixed>, classes: list<string>}|null
      */
     public static function section(string $key, string $language = 'en'): ?array
     {
         return \Talea\Core\Language::runWith($language, fn (): ?array => self::create($key));
     }
 
-    /** @return array{prvek: array<string, mixed>, tridy: list<string>}|null */
+    /** @return array{element: array<string, mixed>, classes: list<string>}|null */
     private static function create(string $key): ?array
     {
         $section = self::sections()[$key] ?? null;

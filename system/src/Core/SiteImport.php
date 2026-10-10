@@ -77,7 +77,7 @@ final class SiteImport
 
     /* ---------- files in storage/import ---------- */
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> Talea exports in storage/import, newest on top */
+    /** @return list<array{file:string, size:int, time:int}> Talea exports in storage/import, newest on top */
     public static function listAll(): array
     {
         $files = [];

@@ -1,7 +1,7 @@
 # Static analysis (2.1): php phpstan.phar analyse – CI downloads PHPStan, the site itself needs no Composer
 parameters:
     level: 5
-    phpVersion: 80400
+    phpVersion: 80500
     paths:
         - system/src
         - admin.php

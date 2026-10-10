@@ -236,7 +236,7 @@ final class Fetch
      *
      * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
      * @param list<string> $headers
-     * @return array{kod: int, typ: string, location: string, data: string}
+     * @return array{code: int, type: string, location: string, data: string}
      */
     private static function request(array $target, string $ip, array $headers, int $limit): array
     {

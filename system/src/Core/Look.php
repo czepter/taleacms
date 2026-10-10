@@ -76,7 +76,7 @@ final class Look
      * A class into the draft; null = delete it on publishing. A class the site does not have yet goes live at once – it
      * changes nothing that is published, and new pages need it.
      *
-     * @param array{styl: array<string, mixed>, css: string}|null $class
+     * @param array{style: array<string, mixed>, css: string}|null $class
      * @param bool $draftOnly even a new class waits in the draft (a kit from the fleet console is reviewed as a whole, 2.16)
      * @return bool whether it went to the draft
      */
@@ -171,7 +171,7 @@ final class Look
     /**
      * Shared classes, with the draft applied when asked: name => [styl, css, draft (changed in the draft)].
      *
-     * @return array<string, array{styl: array<string, mixed>, css: string, draft: bool}>
+     * @return array<string, array{style: array<string, mixed>, css: string, draft: bool}>
      */
     public static function classes(Db $db, Settings $s, bool $withDraft): array
     {

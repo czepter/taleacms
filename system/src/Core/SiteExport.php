@@ -38,7 +38,7 @@ final class SiteExport
     private const array EXCLUDED_ARTICLE_COLUMNS = ['search_text', 'links_checked_at', 'announced_at', 'author_id', 'author_name'];
 
     /**
-     * @return array{soubor:string, media:bool, duvod:string} name of the created file; media = false when it contains only data (duvod says why)
+     * @return array{file:string, media:bool, reason:string} name of the created file; media = false when it contains only data (duvod says why)
      * @throws \RuntimeException
      */
     public static function create(Db $db, Settings $settings): array
@@ -87,7 +87,7 @@ final class SiteExport
         return ['file' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
     }
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> newest on top */
+    /** @return list<array{file:string, size:int, time:int}> newest on top */
     public static function listAll(): array
     {
         $exports = [];

@@ -11,10 +11,10 @@ const TALEA_VERSION = '3.3.3';
 define('TALEA_ROOT', dirname(__DIR__));
 define('TALEA_SYSTEM', __DIR__);
 
-if (PHP_VERSION_ID < 80400) {
+if (PHP_VERSION_ID < 80500) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');
-    exit('Talea requires PHP 8.4 or newer. The server is running PHP ' . PHP_VERSION . '.');
+    exit('Talea requires PHP 8.5 or newer. The server is running PHP ' . PHP_VERSION . '.');
 }
 
 mb_internal_encoding('UTF-8');

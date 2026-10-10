@@ -184,7 +184,7 @@ final class SocialDrafts
     /**
      * The drafts of a news item in the order of NETWORKS.
      *
-     * @return list<array{id: int, idc: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}>
+     * @return list<array{id: int, news_id: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}>
      */
     public static function forNews(Db $db, int $idc): array
     {
@@ -197,7 +197,7 @@ final class SocialDrafts
         return array_map(self::row(...), $rows);
     }
 
-    /** @return array{id: int, idc: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}|null */
+    /** @return array{id: int, news_id: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}|null */
     public static function find(Db $db, int $id): ?array
     {
         try {
@@ -292,7 +292,7 @@ final class SocialDrafts
 
     /**
      * @param array<string, mixed> $r
-     * @return array{id: int, idc: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}
+     * @return array{id: int, news_id: int, network: string, network_name: string, text: string, link: string, image: string, created_at: string, posted_at: ?string}
      */
     private static function row(array $r): array
     {

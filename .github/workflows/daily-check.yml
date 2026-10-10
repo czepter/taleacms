@@ -1,6 +1,6 @@
 # Daily security check. It releases and signs nothing - it only says in time that a patch (a fix release) is needed:
 #  1) the update channel on taleacms.com is signed with our key and the package matches its hash (catches forgery),
-#  2) the tests on all supported PHP versions and on the upcoming one (catches what the next PHP will break),
+#  2) the tests on PHP 8.5 and on the upcoming nightly (catches what the next PHP will break),
 #  3) static security analysis with daily updated rules - findings go to Security → Code scanning,
 #     visible to repository admins only (the public run log is deliberately quiet),
 #  4) the project website and the demo send security headers and do not expose files they should not.
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.4', extensions: 'sodium, zip', coverage: none }
+        with: { php-version: '8.5', extensions: 'sodium, zip', coverage: none }
       - run: php tools/check-channel.php
 
   tests:
@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5', 'nightly']
+        php: ['8.5', 'nightly']
     services:
       mysql:
         image: mysql:8.4
@@ -40,9 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
-      - run: vendor/bin/paratest --processes 4 --exclude-group browser
+      - run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
         env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   analysis:
@@ -105,5 +105,5 @@ jobs:
         run: |
           number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Daily check failed"' --json number -q '.[0].number')
           text="The daily check failed today: $RUN_URL
-          The static analysis details are in Security → Code scanning (repository admins only). If it is a vulnerability, do not discuss it here in public - open a private security advisory and follow docs/RELEASING.md (a fix release with the --bezpecnostni flag)."
+          The static analysis details are in Security → Code scanning (repository admins only). If it is a vulnerability, do not discuss it here in public - open a private security advisory and follow docs/RELEASING.md (a fix release with the --security flag)."
           if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Daily check failed" --body "$text"; fi

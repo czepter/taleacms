@@ -4,7 +4,7 @@
     "type": "project",
     "license": "GPL-2.0-or-later",
     "require": {
-        "php": ">=8.4",
+        "php": ">=8.5",
         "ext-pdo": "*",
         "robmorgan/phinx": "0.16.12"
     },
@@ -16,7 +16,7 @@
         "optimize-autoloader": true,
         "sort-packages": true,
         "platform": {
-            "php": "8.4.1"
+            "php": "8.5.0"
         }
     },
     "require-dev": {

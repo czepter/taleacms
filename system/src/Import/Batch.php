@@ -96,7 +96,7 @@ final class Batch
     /**
      * The exports in the folder (uploaded through the form or over FTP), newest on top.
      *
-     * @return list<array{soubor: string, zdroj: string, velikost: int, cas: int}>
+     * @return list<array{file: string, source: string, size: int, time: int}>
      */
     public static function listAll(): array
     {

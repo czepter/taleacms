@@ -5,12 +5,12 @@
  * @var Talea\Admin\Modules\Transfer $module
  * @var Talea\Core\App $app
  * @var string $csrf
- * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $files  WordPress exports in storage/import/
+ * @var list<array{file:string, size:int, time:int, state:array<string,mixed>|null}> $files  WordPress exports in storage/import/
  * @var int $uploadLimit  how many bytes the server allows to upload through a form
  * @var bool $missingXml  the server lacks the extension for reading XML
- * @var list<array{soubor:string, velikost:int, cas:int}> $exports
+ * @var list<array{file:string, size:int, time:int}> $exports
  * @var bool $hasZip
- * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $taleaFiles  Talea exports in storage/import/
+ * @var list<array{file:string, size:int, time:int, state:array<string,mixed>|null}> $taleaFiles  Talea exports in storage/import/
  * @var array{empty: bool, pages: int, news: int, items: int, media: int} $siteContent
  * @var list<array<string, mixed>> $webImports  imports from a website (2.6)
  * @var bool $canDownload  the server can download from other sites and has GD
@@ -19,7 +19,7 @@
  * @var array<string, class-string<Talea\Import\Source>> $sources  structured importers of other systems (3.0)
  * @var array<string, class-string<Talea\Import\Source&Talea\Import\Remote>> $remoteSources  those fetched from the site's API (Joomla, Drupal)
  * @var bool $canFetch  the server has curl, so it can read a site's API
- * @var list<array{soubor:string, zdroj:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
+ * @var list<array{file:string, source:string, size:int, time:int, state:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
  */
 $phase = [
     'download' => 'being fetched from the site', 'analysis' => 'being read', 'preview' => 'ready to import', 'import' => 'import in progress', 'done' => 'content imported',

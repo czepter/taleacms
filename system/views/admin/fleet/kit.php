@@ -5,7 +5,7 @@
  *
  * @var Talea\Admin\Modules\Fleet $module
  * @var array<string, mixed> $designSystem the console's published design system
- * @var array<string, array{styl: array<string, mixed>, css: string, draft: bool}> $classes published classes
+ * @var array<string, array{style: array<string, mixed>, css: string, draft: bool}> $classes published classes
  * @var list<array<string, mixed>> $components rows of tl_components
  * @var list<array<string, mixed>> $sections section_id, name
  * @var list<array{version: int, created_at: string, summary: string, author: ?string}> $kits newest first

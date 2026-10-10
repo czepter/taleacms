@@ -33,7 +33,7 @@ final class NotFound
      * Addresses that still end in 404, were hit repeatedly in the last $days days and were not ignored. On the way, rows
      * that work again, have a redirect or are bot probes recorded by an older version are removed.
      *
-     * @return list<array{cesta: string, count: int, naposledy: string}>
+     * @return list<array{path: string, count: int, last_seen_at: string}>
      */
     public static function pending(App $app, int $days = 7, int $limit = 100): array
     {

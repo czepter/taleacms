@@ -23,7 +23,7 @@ final class Health
         $siteSettings = $app->settings();
 
         // --- server (names and texts go through t(); the "stav" values are not translated - monitoring reads them)
-        $add(t('Server'), t('PHP version'), PHP_VERSION_ID >= 80400, PHP_VERSION_ID >= 80400 ? PHP_VERSION : t('%s - the system requires 8.4 or newer', PHP_VERSION));
+        $add(t('Server'), t('PHP version'), PHP_VERSION_ID >= 80500, PHP_VERSION_ID >= 80500 ? PHP_VERSION : t('%s - the system requires 8.5 or newer', PHP_VERSION));
         foreach (['pdo_' . $db->dialect()->name() => t('database'), 'mbstring' => t('text with diacritics'), 'gd' => t('image processing')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - missing', $purpose));
         }

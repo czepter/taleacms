@@ -23,7 +23,7 @@ final class Images
 
     /**
      * @param array<string, mixed> $file item from $_FILES
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
+     * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
     public static function save(array $file): array
@@ -42,7 +42,7 @@ final class Images
      * An image that already lies on the server (downloaded during an import from WordPress): it goes the same way as an uploaded one,
      * so it is indistinguishable from it - re-encoding through GD, shrinking, thumbnail, WebP. The source file stays in place.
      *
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
+     * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
     public static function saveFile(string $path, string $name): array
@@ -56,7 +56,7 @@ final class Images
 
     /**
      * @param bool $uploaded the file came through a form (it is moved with move_uploaded_file); otherwise it is only copied
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
+     * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      */
     private static function process(string $tmp, string $fileName, bool $uploaded): array
     {
@@ -124,7 +124,7 @@ final class Images
      * (including variants and WebP), in the format of the old file – the URL does not change, links on the site keep working.
      *
      * @param array<string, mixed> $file item from $_FILES
-     * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
+     * @return array{image_width:int, image_height:int, image_size:int, thumb_width:int, thumb_height:int}
      */
     public static function replace(string $old, array $file): array
     {
@@ -146,7 +146,7 @@ final class Images
      * An existing image made smaller in place (Media → Clean-up, 2.14): re-encoded through GD to MAX_SIDE at the usual
      * quality, with fresh variants and WebP/AVIF siblings – the URL stays, so every page that shows it keeps working.
      *
-     * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
+     * @return array{image_width:int, image_height:int, image_size:int, thumb_width:int, thumb_height:int}
      */
     public static function shrinkFile(string $path): array
     {
@@ -168,7 +168,7 @@ final class Images
      * Writes an image as <base>.<extension> with its medium variant, thumbnail and WebP/AVIF siblings – the second half of
      * replace() and shrinkFile(), which only differ in where the image comes from.
      *
-     * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
+     * @return array{image_width:int, image_height:int, image_size:int, thumb_width:int, thumb_height:int}
      */
     private static function writeInPlace(\GdImage $image, string $base, string $extension): array
     {

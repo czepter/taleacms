@@ -139,7 +139,7 @@ final class Installer
         $write = fn (string $path): bool => is_writable(TALEA_ROOT . $path);
 
         $requirements = [
-            ['name' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
+            ['name' => t('PHP 8.5 or newer'), 'ok' => PHP_VERSION_ID >= 80500, 'info' => t('running') . ' ' . PHP_VERSION],
             ['name' => t('pdo_mysql or pdo_pgsql extension'), 'ok' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql'), 'info' => t('connection to a MySQL / MariaDB or PostgreSQL database')],
             ['name' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
             ['name' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],

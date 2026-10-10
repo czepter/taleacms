@@ -205,7 +205,7 @@ final class ImageDownloader
      * A single request via curl; the connection is pinned to the verified IP address (Outbound::pin).
      *
      * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
-     * @return array{kod:int, typ:string, location:string, data:string}
+     * @return array{code:int, type:string, location:string, data:string}
      */
     private function curlRequest(array $target, string $ip): array
     {
@@ -250,7 +250,7 @@ final class ImageDownloader
     /**
      * The same without curl (allow_url_fopen). Connects directly to the verified IP address; the domain goes in the Host header and into certificate verification.
      *
-     * @return array{kod:int, typ:string, location:string, data:string}
+     * @return array{code:int, type:string, location:string, data:string}
      */
     private function streamRequest(string $url, string $ip): array
     {

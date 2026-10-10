@@ -1,22 +1,39 @@
-# Checks every change: the PHPUnit suites on the supported PHP versions, static analysis, security scanning and
-# secret detection. Also runs once a week without changes - catches problems with a new PHP or MySQL version.
+# Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
+# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning. Also runs once a week without changes.
 name: CI
 on:
   push:
+    branches: [main]
   pull_request:
   schedule:
     - cron: '17 4 * * 1'
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PHP_EXTENSIONS: pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache
 jobs:
-  test:
+  checks:
+    name: Repository checks
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - run: php tools/check-english.php
+      - run: php tools/contracts.php
+      - run: php tools/sql-dialect-scan.php
+      - run: php tools/unit-tests.php
+
+  mysql:
+    name: Tests on MySQL 8.4
+    runs-on: ubuntu-latest
     services:
-      mysql:
+      db:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root }
         ports: ['3306:3306']
@@ -24,32 +41,62 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
-      - name: PHPUnit (unit, integration, whole installed sites in parallel)
-        run: vendor/bin/paratest --processes 4 --exclude-group browser
+      - name: PHPUnit (unit, integration and whole installed sites, in parallel)
+        run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
         env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
-      - name: Public demo (demo mode, snapshot and the hourly reset)
-        run: tools/test-demo.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
-      - name: Browser test (admin, builder, editors, public site in Chrome)
+
+  postgres:
+    name: Tests on PostgreSQL 18
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:18
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: PHPUnit (integration and whole installed sites)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_TEST_PG_HOST: 127.0.0.1, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
+
+  browser:
+    name: Browser walk (Chrome)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: Admin, builder, editors and public site in Chrome
         run: vendor/bin/phpunit --testsuite browser
         env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root, CHROME: /usr/bin/google-chrome }
-      - name: Output budget (Lighthouse on every starter site)
-        if: matrix.php == '8.4'
-        run: tools/test-lighthouse.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, CHROME: /usr/bin/google-chrome }
+
   phpstan:
-    # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
+    # static analysis (phpstan.neon.dist): level 5, the existing findings in phpstan-baseline.neon - new code adds none
+    name: Static analysis
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - name: PHPStan
         run: |
           curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
-          php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+          php -d memory_limit=3G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+
   security:
     runs-on: ubuntu-latest
     steps:

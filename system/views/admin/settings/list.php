@@ -6,10 +6,10 @@
  * @var string $csrf
  * @var string $tab
  * @var array<string, string> $values
- * @var list<array{group:string, nazev:string, stav:string, info:string}> $checks
+ * @var list<array{group:string, nazev:string, state:string, info:string}> $checks
  * @var string $siteUrl
  * @var list<string> $enabledExtensions
- * @var list<array{soubor:string, velikost:int, cas:int}> $backups
+ * @var list<array{file:string, size:int, time:int}> $backups
  * @var array<string, mixed>|null $update
  * @var list<array{categories:string, count:int}> $consents
  * @var list<string> $errorLog  last lines of the error log

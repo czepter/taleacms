@@ -120,7 +120,7 @@ final class RedirectMatcher
     /**
      * Suggestions for the pending 404s (NotFound::pending rows), by path.
      *
-     * @param list<array{cesta: string}> $pending
+     * @param list<array{path: string}> $pending
      * @return array<string, array{to: string, score: int}>
      */
     public static function suggestions(App $app, array $pending): array

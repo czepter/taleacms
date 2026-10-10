@@ -47,7 +47,7 @@ return [
     'My website' => 'Meine Website',
     'again' => 'noch einmal',
     'The passwords do not match.' => 'Die Passwörter stimmen nicht überein.',
-    'PHP 8.4 or newer' => 'PHP 8.4 oder neuer',
+    'PHP 8.5 or newer' => 'PHP 8.5 oder neuer',
     'running' => 'läuft',
     'pdo_mysql or pdo_pgsql extension' => 'Erweiterung pdo_mysql oder pdo_pgsql',
     'connection to a MySQL / MariaDB or PostgreSQL database' => 'Verbindung zu einer MySQL-/MariaDB- oder PostgreSQL-Datenbank',

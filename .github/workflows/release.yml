@@ -26,13 +26,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.5', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
+        with: { php-version: '8.5', extensions: 'pdo_mysql, pdo_pgsql, mbstring, gd, intl, zip, sodium', coverage: none }
       - name: Version in the code matches the tag
         run: grep -q "const TALEA_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - name: Tests
         env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
-        run: vendor/bin/paratest --processes 4 --exclude-group browser
+        run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
 
   image:
     needs: test

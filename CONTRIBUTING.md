@@ -12,7 +12,7 @@ Thank you for helping. Talea is a small project, so a short, focused change with
 
 ## Setting up
 
-You need PHP 8.4+ and MySQL 8 or MariaDB 10.6+.
+You need PHP 8.5+ and MySQL 8 or MariaDB 10.6+.
 
 ```bash
 php -S localhost:8080 system/dev-router.php
@@ -41,7 +41,7 @@ test in `tests/Site` for anything that needs a running site (see `tests/Site/REA
 
 ## Code
 
-- PHP 8.4 with `declare(strict_types=1)`, namespace `Talea\`. Match the surrounding code: identifiers and comments are
+- PHP 8.5 with `declare(strict_types=1)`, namespace `Talea\`. Match the surrounding code: identifiers and comments are
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.

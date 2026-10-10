@@ -170,7 +170,7 @@ final class Backup
         return $count;
     }
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> newest first */
+    /** @return list<array{file:string, size:int, time:int}> newest first */
     public static function listAll(): array
     {
         $backups = [];

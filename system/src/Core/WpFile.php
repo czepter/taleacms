@@ -43,7 +43,7 @@ final class WpFile
     /**
      * The *.xml files in the folder (uploaded through the form or over FTP), newest on top.
      *
-     * @return list<array{soubor:string, velikost:int, cas:int}>
+     * @return list<array{file:string, size:int, time:int}>
      */
     public static function listAll(): array
     {

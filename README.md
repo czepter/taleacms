@@ -37,7 +37,7 @@ and a WordPress importer. You own the site, the data and the server.
 
 ## Principles
 
-- **No technical debt:** plain PHP 8.4+, no framework, Composer or build step; no third-party plugins.
+- **No technical debt:** plain PHP 8.5+, no framework, Composer or build step; no third-party plugins.
 - **Clean output:** one builder element = one HTML tag, CSS only for what the page uses, in cascade layers (`@layer`);
   JavaScript only where it is really needed. Tests enforce it.
 - **Web 2026:** fluid type and spacing, container queries, OKLCH colours (`color-mix`), the Popover API, view transitions.

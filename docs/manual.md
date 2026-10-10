@@ -4,7 +4,7 @@ For whoever runs the site: from installation through the page builder to connect
 
 ## 1. Installation and first steps
 
-1. Upload the files to hosting (PHP 8.4+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
+1. Upload the files to hosting (PHP 8.5+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
