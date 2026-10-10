@@ -211,12 +211,6 @@ parameters:
 			path: system/src/Builder/Looks.php
 
 		-
-			message: '#^Path in require\(\) "/Users/christian/www/kaletacms/config\.php" is not a file or it does not exist\.$#'
-			identifier: require.fileNotFound
-			count: 1
-			path: system/src/Core/Config.php
-
-		-
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
