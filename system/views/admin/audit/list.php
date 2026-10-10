@@ -2,11 +2,11 @@
 /**
  * Site audit: findings by kind, each with a link to fix it.
  *
- * @var Kaleta\Admin\Modules\Audit $module
+ * @var Talea\Admin\Modules\Audit $module
  * @var array<string, list<array<string, mixed>>> $groups
  * @var int $total
  */
-use Kaleta\Core\Audit;
+use Talea\Core\Audit;
 
 ?>
 <p class="notice<?= $total === 0 ? ' notice-ok' : '' ?>"><?= e($total === 0 ? t('No problems found – links lead where they should, pages have descriptions and the builder checks pass.') : t('Found %d things to fix. Each one links to where you fix it; Claude can go through them too (site_audit).', $total)) ?></p>

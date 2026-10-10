@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Support;
+namespace Talea\Tests\Site\Support;
 
 /** A browser of the test site: its own cookie jar, so two instances are two sessions. */
 final class Http

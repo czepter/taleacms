@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Notifications about a published news item: webhook and IndexNow. Called right after publishing in the admin and also after
@@ -43,7 +43,7 @@ final class Notifications
         }
         $s->set('data_cleanup', (string) time());
         Jobs::purgeApplications($app); // applications to job openings first: they usually have a shorter retention (2.11)
-        \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
+        \Talea\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
         Booking::purge($app); // bookings follow the same retention (3.0)
         if ($s->int('cookies_log_months') > 0) {
             // records of cookie consents should not be kept forever
@@ -60,7 +60,7 @@ final class Notifications
         // scheduled collection items (1.9) likewise
         $items = $db->run('UPDATE {collection_items} SET visible = 1, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount();
         if ($db->run('UPDATE {pages} SET visible = 1, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount() + $items > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
         $newsItems = $db->all('SELECT news_id, slug, language, noindex FROM {news} WHERE visible = 1 AND published_at <= NOW() AND announced_at IS NULL ORDER BY published_at LIMIT 5');
         foreach ($newsItems as $c) {
@@ -68,14 +68,14 @@ final class Notifications
             if ($db->run('UPDATE {news} SET announced_at = NOW() WHERE news_id = ? AND announced_at IS NULL', [$c['news_id']])->rowCount() === 0) {
                 continue;
             }
-            \Kaleta\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
+            \Talea\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
             SocialDrafts::prepare($app, (int) $c['news_id']); // post drafts for the chosen networks (2.13) – a person posts them
             if ($c['noindex'] || (int) $db->value('SELECT published_at < NOW() - INTERVAL 2 DAY FROM {news} WHERE news_id = ?', [$c['news_id']]) === 1) {
                 continue;
             }
             Webhook::articlePublished($app, (int) $c['news_id']);
             GoogleBusiness::newsPublished($app, (int) $c['news_id']); // a post on the Business Profile when the administrator opted in (2.13)
-            (new \Kaleta\Front\Seo($app))->indexNow($app->newsItemUrl($c['slug'], $c['language']));
+            (new \Talea\Front\Seo($app))->indexNow($app->newsItemUrl($c['slug'], $c['language']));
         }
     }
 }

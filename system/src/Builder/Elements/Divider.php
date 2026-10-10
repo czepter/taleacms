@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 final class Divider extends Element
 {
@@ -17,11 +17,11 @@ final class Divider extends Element
 
     public static function baseCss(): string
     {
-        return 'hr.ka-divider { border: 0; border-top: 1px solid var(--ka-color-line); margin-block: var(--ka-space-l); }';
+        return 'hr.tl-divider { border: 0; border-top: 1px solid var(--tl-color-line); margin-block: var(--tl-space-l); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        return '<hr' . Text::withClass($a, 'ka-divider') . '>';
+        return '<hr' . Text::withClass($a, 'tl-divider') . '>';
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
 /**
  * Menu paths as links. Messages, the system health page and field hints say "Settings → Backups and updates"

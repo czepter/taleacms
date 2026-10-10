@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Mail;
-use Kaleta\Core\Response;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\Components;
-use Kaleta\Builder\Elements\Form;
-use Kaleta\Builder\Build;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Mail;
+use Talea\Core\Response;
+use Talea\Builder\SiteParts;
+use Talea\Builder\Components;
+use Talea\Builder\Elements\Form;
+use Talea\Builder\Build;
 
 /**
  * Submission of a builder form (POST /form). Fields and recipient are taken from the PUBLISHED build by source and
- * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_enquiries, an e-mail
+ * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in tl_enquiries, an e-mail
  * notification and a return to the page with a result code (?form=<id>&result=ok|field|limit|too_fast|verification).
  */
 final class Forms
@@ -27,19 +27,19 @@ final class Forms
      * Where a lead came from (2.3): the first page of the visit, its campaign and the site that sent the visitor. The cookie
      * bar fills these fields only when the visitor allowed marketing (views/front/cookies.php); otherwise they stay empty.
      */
-    public const string ATTRIBUTION_FIELDS = '<input type="hidden" name="ka_landing" value=""><input type="hidden" name="ka_campaign" value=""><input type="hidden" name="ka_referrer" value="">';
+    public const string ATTRIBUTION_FIELDS = '<input type="hidden" name="tl_landing" value=""><input type="hidden" name="tl_campaign" value=""><input type="hidden" name="tl_referrer" value="">';
 
     /**
      * The attribution a form sent, checked: [first page (a path on the site), campaign (utm_* query), referring site (host)].
      *
      * @return array{0: string, 1: string, 2: string}
      */
-    public static function attribution(\Kaleta\Core\Request $r): array
+    public static function attribution(\Talea\Core\Request $r): array
     {
-        $landing = $r->post('ka_landing');
+        $landing = $r->post('tl_landing');
         $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#', $landing) && !str_starts_with($landing, '//') ? $landing : '';
-        $campaign = self::campaign('https://site.invalid/?' . $r->post('ka_campaign'), 'https://site.invalid');
-        $referrer = strtolower($r->post('ka_referrer'));
+        $campaign = self::campaign('https://site.invalid/?' . $r->post('tl_campaign'), 'https://site.invalid');
+        $referrer = strtolower($r->post('tl_referrer'));
 
         return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/', $referrer) ? $referrer : ''];
     }
@@ -77,10 +77,10 @@ final class Forms
             return $redirectUri('limit');
         }
         // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
-        if (preg_match('/^collection:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
+        if (preg_match('/^collection:(\d+)$/', $source, $m) && ($state = \Talea\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
             return $redirectUri($state === 'full' ? 'full' : 'closed');
         }
-        if (empty($element['content']['no_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
+        if (empty($element['content']['no_captcha']) && !\Talea\Core\Captcha::accepted($this->app->settings(), \Talea\Core\Captcha::verify($this->app->settings(), $r))) {
             return $redirectUri('captcha');
         }
 
@@ -115,7 +115,7 @@ final class Forms
                 if (!$uploaded && $field['required']) {
                     return $redirectUri('field', $i);
                 }
-                $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Kaleta\Core\Files::size((int) $file['size']) . ')' : ''];
+                $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Talea\Core\Files::size((int) $file['size']) . ')' : ''];
                 if ($uploaded) {
                     $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension];
                 }
@@ -123,7 +123,7 @@ final class Forms
             }
             if ($field['type'] === 'basket') {
                 // the enquiry basket (2.11): every line is rebuilt from the products in the database, nothing the visitor typed
-                $lines = \Kaleta\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
+                $lines = \Talea\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
                 if ($lines === null || ($field['required'] && $lines === [])) {
                     return $redirectUri('field', $i);
                 }
@@ -135,7 +135,7 @@ final class Forms
                 // item template, 2.11): the item page filled it and sent it back as a hidden input, so it is taken from the request,
                 // but only as short plain text (tags and control characters removed) and only in that case
                 $own = mb_substr(trim((string) ($field['value'] ?? '')), 0, 300);
-                $data[] = [$field['label'], preg_match(\Kaleta\Builder\Collections::PLACEHOLDER_PATTERN, $own) === 1
+                $data[] = [$field['label'], preg_match(\Talea\Builder\Collections::PLACEHOLDER_PATTERN, $own) === 1
                     ? mb_substr(trim(strip_tags((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $r->post('p' . $i)))), 0, 300) : $own];
                 continue;
             }
@@ -168,16 +168,16 @@ final class Forms
         }
         $antispam->write($r->ip(), 'form', 0);
         // a gated download (2.11, Core\Documents): the enquiry records which file the visitor got
-        $gatedFile = $email !== '' ? \Kaleta\Core\Documents::gatedFile($element['content']) : '';
+        $gatedFile = $email !== '' ? \Talea\Core\Documents::gatedFile($element['content']) : '';
         if ($gatedFile !== '') {
-            $data[] = [t('File sent by e-mail'), \Kaleta\Core\Documents::fileName($gatedFile)];
+            $data[] = [t('File sent by e-mail'), \Talea\Core\Documents::fileName($gatedFile)];
             $types[] = 'info';
         }
         // attachments outside public folders (storage/ is not reachable from the web); only a signed-in user can download
         // them in Enquiries
         foreach ($attachments as $index => [$tmp, $extension]) {
             $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
-            $target = KALETA_ROOT . '/storage/attachments/' . $path;
+            $target = TALEA_ROOT . '/storage/attachments/' . $path;
             if ((is_dir(dirname($target)) || mkdir(dirname($target), 0775, true)) && move_uploaded_file($tmp, $target)) {
                 $data[$index][2] = $path;
             }
@@ -193,15 +193,15 @@ final class Forms
             'created_at' => date('Y-m-d H:i:s'), 'form' => mb_substr((string) $element['content']['name'], 0, 120), 'source' => $source, 'element' => $element['id'],
             'page' => mb_substr($back, 0, 255), 'topic' => $about, 'landing_page' => $landing, 'referrer' => $referrer, 'campaign' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'status' => 0,
         ]);
-        \Kaleta\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
+        \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
-        \Kaleta\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
+        \Talea\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
         $this->notify($idp, $element, $data, $email, $campaign, $about);
-        \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['content']['name'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
+        \Talea\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['content']['name'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
         // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits
-        \Kaleta\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['content']['name'], $about, $email, $back, \Kaleta\Core\EnquiryDelivery::fields($data, $types));
+        \Talea\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['content']['name'], $about, $email, $back, \Talea\Core\EnquiryDelivery::fields($data, $types));
         if ($gatedFile !== '') {
-            \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
+            \Talea\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
         }
         if (!empty($element['content']['confirmation']) && $email !== '') {
             // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
@@ -230,7 +230,7 @@ final class Forms
      * The source a form carries (page:<uuid>, collection:<uuid>, popup:<uuid>, part:…) as the system stores it (with the integer key).
      * A page, collection or pop-up that is not a public id of an existing row gives '' – integer keys from outside are never accepted.
      */
-    public static function internalSource(\Kaleta\Core\Db $db, string $source): string
+    public static function internalSource(\Talea\Core\Db $db, string $source): string
     {
         if (!preg_match('/^(page|collection|popup):(.*)$/s', $source, $m)) {
             return $source;
@@ -253,7 +253,7 @@ final class Forms
      *
      * @return array<string, mixed>|null
      */
-    public static function findElement(\Kaleta\Core\Db $db, string $source, string $id, string $type): ?array
+    public static function findElement(\Talea\Core\Db $db, string $source, string $id, string $type): ?array
     {
         $build = match (true) {
             (bool) preg_match('/^page:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = 1', [(int) $m[1]])),
@@ -271,7 +271,7 @@ final class Forms
                 if (($found = $find($p['children'] ?? [], $nesting)) !== null) {
                     return $found;
                 }
-                $idm = ($p['type'] ?? '') === \Kaleta\Builder\Elements\Component::TYPE ? (int) ($p['content']['component'] ?? 0) : 0;
+                $idm = ($p['type'] ?? '') === \Talea\Builder\Elements\Component::TYPE ? (int) ($p['content']['component'] ?? 0) : 0;
                 if ($idm > 0 && !in_array($idm, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
                     $component = Components::byId($db, $idm);
                     $inner = $component === null ? null : Build::fromJson($component['build'] ?? $component['build_draft']);

@@ -4,11 +4,11 @@
  * downloading images) and the result. Until it is done, the form submits itself (data-auto-submit in image/admin.js) –
  * each submission is one batch. The same pattern as the WordPress import (progress.php).
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state
- * @var class-string<Kaleta\Import\Source> $source
+ * @var class-string<Talea\Import\Source> $source
  * @var string $error  already translated error of the last batch (the import stopped)
  * @var bool $canDownload  the server can download (curl or allow_url_fopen) and has GD
  * @var string $domain  domain of the old site

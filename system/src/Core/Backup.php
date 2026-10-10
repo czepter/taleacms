@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Database backups to storage/backups/ (not accessible from the web). Without mysqldump - works on shared hosting too.
  */
 final class Backup
 {
-    public const string FOLDER = KALETA_ROOT . '/storage/backups';
+    public const string FOLDER = TALEA_ROOT . '/storage/backups';
     private const int KEEP = 10;
 
     /**
@@ -31,13 +31,13 @@ final class Backup
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         $gz = function_exists('gzopen');
-        $file = 'kaleta-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
+        $file = 'talea-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
         $path = self::FOLDER . '/' . $file;
         $f = $gz ? gzopen($path, 'wb6') : fopen($path, 'wb');
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $db->pdo();
-        $write("-- Kaleta " . KALETA_VERSION . " - database backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
+        $write("-- Talea " . TALEA_VERSION . " - database backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tables as $table) {
             // temporary data is not backed up
@@ -108,8 +108,8 @@ final class Backup
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $first = (string) ($gz ? gzgets($f) : fgets($f));
-        if (!str_starts_with($first, '-- Kaleta ')) {
-            throw new \RuntimeException('The file is not a backup created by Kaleta.');
+        if (!str_starts_with($first, '-- Talea ')) {
+            throw new \RuntimeException('The file is not a backup created by Talea.');
         }
         $statement = '';
         $count = 0;
@@ -142,7 +142,7 @@ final class Backup
     public static function listAll(): array
     {
         $backups = [];
-        foreach (glob(self::FOLDER . '/kaleta-*.sql*') ?: [] as $path) {
+        foreach (glob(self::FOLDER . '/talea-*.sql*') ?: [] as $path) {
             $backups[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
         }
         usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
@@ -153,7 +153,7 @@ final class Backup
     /** Path to an existing backup by the name from the URL; null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return preg_match('/^talea-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
     /**

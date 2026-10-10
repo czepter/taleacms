@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\DesignSystem;
+use Talea\Builder\DesignSystem;
 
 /**
  * Look drafts (1.7): the design system, the shared classes and the menus change the whole site at once, so a change goes
@@ -90,7 +90,7 @@ final class Look
                 unset($d['classes'][$name]);
                 $s->set('look_draft', $d === ['classes' => []] || $d === [] ? '' : (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             }
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
 
             return false;
         }
@@ -289,8 +289,8 @@ final class Look
             Menu::save($db, $location, $language, $items);
         }
         self::discard($s);
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
+        \Talea\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
 
         return $summary;
     }

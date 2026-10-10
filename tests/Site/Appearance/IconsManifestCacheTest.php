@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Appearance;
+namespace Talea\Tests\Site\Appearance;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Favicon, web manifest and the page cache of anonymous visitors (was: section "ikony, manifest, cache" of tools/test.sh). */
@@ -29,7 +29,7 @@ final class IconsManifestCacheTest extends SiteTestCase
 
         $response = $visitor->get('/news?utm_source=newsletter&fbclid=x');
 
-        $this->assertMatchesRegularExpression('/^kaleta/i', $response->headers['x-cache'] ?? '', 'a link with utm parameters is served from the cache');
+        $this->assertMatchesRegularExpression('/^talea/i', $response->headers['x-cache'] ?? '', 'a link with utm parameters is served from the cache');
     }
 
     public function testACachedPageAnswers304ToAMatchingEtag(): void

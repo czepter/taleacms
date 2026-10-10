@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * Internal links (2.14): orphan pages and where a link to them would fit.
@@ -20,7 +20,7 @@ use Kaleta\Builder\Build;
  */
 final class InternalLinks
 {
-    private const string CACHE = KALETA_ROOT . '/storage/cache/pages/orphan-links.html';
+    private const string CACHE = TALEA_ROOT . '/storage/cache/pages/orphan-links.html';
 
     private const int CACHE_SECONDS = 3600;
 

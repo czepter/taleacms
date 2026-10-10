@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * A post or page of the old site (Import\Source), normalised: what every system has in some form. The mapping

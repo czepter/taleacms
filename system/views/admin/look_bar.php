@@ -2,7 +2,7 @@
 /**
  * The draft look (Core\Look) on every admin screen: what it changes, the whole-site preview, publish and discard.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var list<string> $summary
  * @var string $csrf
  */

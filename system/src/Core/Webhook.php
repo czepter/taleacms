@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Webhooks: after a news item is published and after a new enquiry, sends the data to the URLs from Settings (Make, Zapier,
  * IFTTT, n8n, CRM…). Through such a service a news item can be shared to social networks automatically and an enquiry
  * created in a CRM or sent to Slack.
  *
- * Since 1.8 every call is signed and logged (table ka_webhook_deliveries): the event is stored first and sent after the
+ * Since 1.8 every call is signed and logged (table tl_webhook_deliveries): the event is stored first and sent after the
  * response has gone to the visitor (afterResponse), so a slow receiver never delays the page. A failed call is retried
  * 1, 5 and 30 minutes and 2 and 12 hours later; the administrator sees the log and can send a failed call again.
  *
- * Signature: X-Kaleta-Signature: sha256=<hex HMAC-SHA256 of "<X-Kaleta-Timestamp>.<body>" with the webhook secret>.
+ * Signature: X-Talea-Signature: sha256=<hex HMAC-SHA256 of "<X-Talea-Timestamp>.<body>" with the webhook secret>.
  * The receiver recomputes it and rejects calls older than a few minutes (replay).
  */
 final class Webhook
@@ -145,7 +145,7 @@ final class Webhook
         return $settings->get('webhook_secret');
     }
 
-    /** @return array{0: string, 1: string} headers X-Kaleta-Timestamp and X-Kaleta-Signature for the body */
+    /** @return array{0: string, 1: string} headers X-Talea-Timestamp and X-Talea-Signature for the body */
     public static function signature(string $secret, string $body, int $timestamp): array
     {
         return [(string) $timestamp, 'sha256=' . hash_hmac('sha256', $timestamp . '.' . $body, $secret)];
@@ -162,8 +162,8 @@ final class Webhook
             return [0, 'Only https:// addresses are allowed.'];
         }
         [$timestamp, $signature] = self::signature(self::secret($settings), $body, time());
-        $headers = ['Content-Type: application/json; charset=utf-8', 'User-Agent: Kaleta/' . KALETA_VERSION, 'X-Kaleta-Event: ' . $event,
-            'X-Kaleta-Delivery: ' . $id, 'X-Kaleta-Timestamp: ' . $timestamp, 'X-Kaleta-Signature: ' . $signature];
+        $headers = ['Content-Type: application/json; charset=utf-8', 'User-Agent: Talea/' . TALEA_VERSION, 'X-Talea-Event: ' . $event,
+            'X-Talea-Delivery: ' . $id, 'X-Talea-Timestamp: ' . $timestamp, 'X-Talea-Signature: ' . $signature];
         $http_response_header = [];
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
             'method' => 'POST', 'timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0,

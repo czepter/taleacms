@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -19,7 +19,7 @@ final class CollectionItemPagesTest extends SiteTestCase
 
     private function jane(): int
     {
-        return (int) $this->site()->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jane-novak' AND language = ''");
+        return (int) $this->site()->value("SELECT item_id FROM tl_collection_items WHERE slug = 'jane-novak' AND language = ''");
     }
 
     public function testFixture(): void
@@ -51,7 +51,7 @@ final class CollectionItemPagesTest extends SiteTestCase
         $versions = $site->mcpResult('list_item_versions', ['collection' => 'team', 'id' => $site->publicId('collection_items', $jana)]);
         $site->mcp('restore_item_version', ['collection' => 'team', 'id' => $site->publicId('collection_items', $jana), 'version' => $versions['versions'][0]['id']]);
 
-        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'item:$jana') >= 2) FROM ka_collection_items WHERE item_id = $jana"),
+        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM tl_build_revisions WHERE part = 'item:$jana') >= 2) FROM tl_collection_items WHERE item_id = $jana"),
             'item versions: the earlier version comes back, the newer one goes to the history');
     }
 
@@ -75,19 +75,19 @@ final class CollectionItemPagesTest extends SiteTestCase
         $site = $this->site();
         $plan = $site->rowId($site->mcpResult('save_collection_item', ['collection' => 'team', 'name' => 'Planned Member', 'publish_at' => '2099-01-01 08:00'])['id']);
 
-        $this->assertSame('0|1', (string) $site->value("SELECT CONCAT(visible, '|', publish_at IS NOT NULL) FROM ka_collection_items WHERE item_id = ?", [$plan]), 'a scheduled item waits hidden');
+        $this->assertSame('0|1', (string) $site->value("SELECT CONCAT(visible, '|', publish_at IS NOT NULL) FROM tl_collection_items WHERE item_id = ?", [$plan]), 'a scheduled item waits hidden');
 
-        $site->exec('UPDATE ka_collection_items SET publish_at = NOW() - INTERVAL 1 MINUTE WHERE item_id = ?', [$plan]);
+        $site->exec('UPDATE tl_collection_items SET publish_at = NOW() - INTERVAL 1 MINUTE WHERE item_id = ?', [$plan]);
         $site->runTasks();
 
-        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(visible, '|', publish_at IS NULL) FROM ka_collection_items WHERE item_id = ?", [$plan]), 'the scheduled item publishes itself');
+        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(visible, '|', publish_at IS NULL) FROM tl_collection_items WHERE item_id = ?", [$plan]), 'the scheduled item publishes itself');
     }
 
     #[Depends('testFixture')]
     public function testItemFormAndCollectionFormOfferTheNewFields(): void
     {
         $site = $this->site();
-        $idk = (string) $site->value("SELECT public_id FROM ka_collections WHERE slug = 'team'");
+        $idk = (string) $site->value("SELECT public_id FROM tl_collections WHERE slug = 'team'");
 
         $response = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item={$site->publicId('collection_items', $this->jane())}", 200, 'Item history', message: 'the item form has SEO fields, scheduling and the history');
         $this->assertStringContainsString('name="seo_title"', $response->body, 'item form: the SEO title field');
@@ -132,23 +132,23 @@ final class CollectionItemPagesTest extends SiteTestCase
     {
         $site = $this->site();
         $visitor = $site->client();
-        $site->exec('DELETE FROM ka_not_found');
+        $site->exec('DELETE FROM tl_not_found');
         for ($i = 0; $i < 3; $i++) {
             foreach (['/wp/v2/users', '/_next', '/old-price-list-2019', '/old-contact'] as $path) {
                 $visitor->get($path);
             }
         }
-        $site->exec("INSERT INTO ka_not_found (path, count, last_seen_at) VALUES ('about-us', 9, NOW())");
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_not_found WHERE path IN ('wp/v2/users', '_next')"), '404 log: bot probes are not recorded');
+        $site->exec("INSERT INTO tl_not_found (path, count, last_seen_at) VALUES ('about-us', 9, NOW())");
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path IN ('wp/v2/users', '_next')"), '404 log: bot probes are not recorded');
 
         $start = $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 2.', message: 'the start screen explains the 404 warning and offers to review it');
         $this->assertStringContainsString('module=redirects#not-found', $start->body, 'the warning links to the list');
         $this->assertStringContainsString('action=ignore_all', $start->body, 'the warning can be dismissed');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_not_found WHERE path = 'about-us'"), 'an address that works again drops out of the log');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path = 'about-us'"), 'an address that works again drops out of the log');
         $this->assertPage('/admin.php?module=redirects', 200, 'Ignore – nothing replaces it', message: 'the 404 list says what to do');
 
         $this->adminPost('/admin.php?module=redirects&action=ignore', ['path' => 'old-contact'], '/admin.php?module=redirects');
-        $this->assertSame('1', (string) $site->value("SELECT ignored_at IS NOT NULL FROM ka_not_found WHERE path = 'old-contact'"), 'Ignore hides one address for good');
+        $this->assertSame('1', (string) $site->value("SELECT ignored_at IS NOT NULL FROM tl_not_found WHERE path = 'old-contact'"), 'Ignore hides one address for good');
         $visitor->get('/old-contact');
         $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 1.', message: 'an ignored address does not come back in the warning');
 
@@ -168,7 +168,7 @@ final class CollectionItemPagesTest extends SiteTestCase
         $site = $this->site();
         $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => 0, 'title' => 'Policy test', 'template' => 'privacy-policy', 'visible' => 0, 'in_menu' => 0, 'text' => ''], '/admin.php?module=pages&action=new');
 
-        $this->assertSame('1|1|1', (string) $site->value("SELECT CONCAT(text LIKE '%not legal advice%', '|', text LIKE '%enquiry form%', '|', text LIKE '%[ADDRESS]%') FROM ka_pages WHERE title = 'Policy test'"),
+        $this->assertSame('1|1|1', (string) $site->value("SELECT CONCAT(text LIKE '%not legal advice%', '|', text LIKE '%enquiry form%', '|', text LIKE '%[ADDRESS]%') FROM tl_pages WHERE title = 'Policy test'"),
             'privacy template: a disclaimer and only the enabled features');
     }
 

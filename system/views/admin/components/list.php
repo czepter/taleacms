@@ -2,8 +2,8 @@
 /**
  * Components of the site.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Components $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Components $module
  * @var string $csrf
  * @var list<array<string, mixed>> $components  including the number of uses (usage) and their places
  */

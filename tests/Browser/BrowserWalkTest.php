@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Browser;
+namespace Talea\Tests\Browser;
 
-use Kaleta\Tests\Site\Support\Site;
+use Talea\Tests\Site\Support\Site;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
@@ -24,7 +24,7 @@ final class BrowserWalkTest extends TestCase
         if (trim((string) shell_exec('command -v node')) === '') {
             $this->markTestSkipped('No node.');
         }
-        $modules = sys_get_temp_dir() . '/kaleta-playwright';
+        $modules = sys_get_temp_dir() . '/talea-playwright';
         if (!is_dir($modules . '/node_modules/playwright-core')) {
             @mkdir($modules, 0775, true);
             exec('npm i --silent --prefix ' . escapeshellarg($modules) . ' playwright-core@1 2>&1', $out, $code);
@@ -45,16 +45,16 @@ final class BrowserWalkTest extends TestCase
 
         try {
             // a bookable service on a public page (/booking-test): the browser picks a day
-            $site->exec("INSERT INTO ka_booking_services (id, name, duration_min) VALUES (900, 'Browser consultation', 60)");
-            $site->exec("INSERT INTO ka_booking_staff (id, name) VALUES (900, 'Browser Staff')");
-            $site->exec('INSERT INTO ka_booking_staff_services VALUES (900, 900)');
+            $site->exec("INSERT INTO tl_booking_services (id, name, duration_min) VALUES (900, 'Browser consultation', 60)");
+            $site->exec("INSERT INTO tl_booking_staff (id, name) VALUES (900, 'Browser Staff')");
+            $site->exec('INSERT INTO tl_booking_staff_services VALUES (900, 900)');
             for ($day = 1; $day <= 7; $day++) {
-                $site->exec("INSERT INTO ka_booking_hours (staff_id, weekday, time_from, time_to) VALUES (900, ?, '09:00', '17:00')", [$day]);
+                $site->exec("INSERT INTO tl_booking_hours (staff_id, weekday, time_from, time_to) VALUES (900, ?, '09:00', '17:00')", [$day]);
             }
             $build = ['v' => 1, 'children' => [['id' => 's1', 'type' => 'section', 'tag' => 'section',
                 'content' => ['width' => 'content', 'background_video' => '', 'on_scroll' => '', 'text_at_top' => ''],
                 'children' => [['id' => 'bk1', 'type' => 'booking', 'tag' => 'form', 'content' => ['service' => 0, 'staff_member' => 0, 'button_text' => 'Book', 'thank_you' => 'Thank you.', 'consent' => 'I agree.']]]]]];
-            $site->exec("INSERT INTO ka_pages (slug, title, text, in_menu, build) VALUES ('booking-test', 'Booking test', '', 0, ?)", [json_encode($build)]);
+            $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('booking-test', 'Booking test', '', 0, ?)", [json_encode($build)]);
 
             $project = dirname(__DIR__, 2);
             $process = proc_open(['node', $project . '/tools/test-browser.mjs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $project,

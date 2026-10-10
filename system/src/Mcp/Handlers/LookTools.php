@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: look (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -32,7 +32,7 @@ trait LookTools
         $siteSettings = $this->app->settings();
 
         // with the draft look: Claude works on what will be published (draft = changed in the draft look)
-        $classes = \Kaleta\Core\Look::classes($db, $siteSettings, true);
+        $classes = \Talea\Core\Look::classes($db, $siteSettings, true);
         if (isset($a['name'])) {
             $classes = array_intersect_key($classes, [(string) $a['name'] => true]);
         }
@@ -59,16 +59,16 @@ trait LookTools
         $inDraft = [];
         foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
             // merged: a rule only for :hover or @media keeps the class base and the other states (replace: true = the whole class anew)
-            $previous = empty($a['replace']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
+            $previous = empty($a['replace']) ? (\Talea\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
             $style = ($conversion['class_styles'][$className] ?? []) + (array) ($previous['style'] ?? []);
             $css = $conversion['classes'][$className] ?? (string) ($previous['css'] ?? '');
             // a change of an existing class goes to the draft look, a new class is live at once (it changes nothing published)
-            \Kaleta\Core\Look::setClass($siteSettings, $className, ['style' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
+            \Talea\Core\Look::setClass($siteSettings, $className, ['style' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
         }
         $deleted = [];
         foreach (is_array($a['delete'] ?? null) ? $a['delete'] : [] as $className) {
-            if (is_string($className) && isset(\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className])) {
-                \Kaleta\Core\Look::setClass($siteSettings, $className, null);
+            if (is_string($className) && isset(\Talea\Core\Look::classes($db, $siteSettings, true)[$className])) {
+                \Talea\Core\Look::setClass($siteSettings, $className, null);
                 $deleted[] = $className;
             }
         }
@@ -89,7 +89,7 @@ trait LookTools
         };
 
         $adminOnly();
-        $ds = isset($a['preset']) ? (DesignSystem::preset((string) $a['preset']) ?? throw new \InvalidArgumentException('The preset does not exist: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Kaleta\Core\Look::designSystem($siteSettings);
+        $ds = isset($a['preset']) ? (DesignSystem::preset((string) $a['preset']) ?? throw new \InvalidArgumentException('The preset does not exist: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Talea\Core\Look::designSystem($siteSettings);
         $changes = is_array($a['design'] ?? null) ? $a['design'] : [];
         foreach (['colors', 'colors_dark'] as $group) {
             if (is_array($changes[$group] ?? null)) {
@@ -97,10 +97,10 @@ trait LookTools
             }
         }
         $ds = DesignSystem::sanitize($changes + $ds);
-        \Kaleta\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
+        \Talea\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
 
         return ['design_system' => $ds, 'readability' => DesignSystem::contrasts($ds), 'status' => 'draft look – visitors see it after publish_look',
-            'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+            'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
     }
 
     /** publish_look and discard_look and restore_look_version */
@@ -117,16 +117,16 @@ trait LookTools
 
         $need($auth->isAdmin(), 'The look of the site can be published only by an administrator.');
         if ($name === 'discard_look') {
-            \Kaleta\Core\Look::discard($this->app->settings());
+            \Talea\Core\Look::discard($this->app->settings());
 
             return ['discarded' => true];
         }
         if ($name === 'restore_look_version') {
-            \Kaleta\Core\Look::restoreVersion($this->app, $id);
+            \Talea\Core\Look::restoreVersion($this->app, $id);
 
-            return ['draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-'), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+            return ['draft' => \Talea\Core\Language::runWith('en', fn (): array => \Talea\Core\Look::summary($db, $this->app->settings()), 'admin-'), 'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
         }
-        $summary = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::publish($this->app), 'admin-');
+        $summary = \Talea\Core\Language::runWith('en', fn (): array => \Talea\Core\Look::publish($this->app), 'admin-');
         if ($summary === []) {
             throw new \DomainException('There is no draft look to publish.');
         }
@@ -145,7 +145,7 @@ trait LookTools
     {
         $db = $this->app->db();
 
-        return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-')];
+        return ['versions' => \Talea\Core\Look::versions($db), 'draft' => \Talea\Core\Language::runWith('en', fn (): array => \Talea\Core\Look::summary($db, $this->app->settings()), 'admin-')];
     }
 
     /** restore_look_version: the same as publish_look */

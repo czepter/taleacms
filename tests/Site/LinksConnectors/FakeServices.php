@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\LinksConnectors;
+namespace Talea\Tests\Site\LinksConnectors;
 
 /**
  * What sections 74 (connectors) and lib.sh gave the old sections 82, 84 and 85: the fake outside services (started by Site::boot,
@@ -13,7 +13,7 @@ trait FakeServices
     /** The request log the fake services write: FAKE_LOGS-<name> of the old script (name like "oauth.log"). */
     protected function fakeLog(string $name): string
     {
-        return sys_get_temp_dir() . '/kaleta-fake-' . $this->site()->port('fake') . '-' . $name;
+        return sys_get_temp_dir() . '/talea-fake-' . $this->site()->port('fake') . '-' . $name;
     }
 
     protected function fakeLogContents(string $name): string
@@ -60,12 +60,12 @@ trait FakeServices
     /** The name of the first (default language) news category, which the old sections took over from section 17. */
     protected function newsCategory(): string
     {
-        return (string) $this->site()->value("SELECT name FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1");
+        return (string) $this->site()->value("SELECT name FROM tl_categories WHERE language = '' ORDER BY category_id LIMIT 1");
     }
 
     protected function runJob(string $job): string
     {
-        $this->site()->exec("INSERT INTO ka_jobs (name, last_run) VALUES (?, NULL) ON DUPLICATE KEY UPDATE last_run = NULL", [$job]);
+        $this->site()->exec("INSERT INTO tl_jobs (name, last_run) VALUES (?, NULL) ON DUPLICATE KEY UPDATE last_run = NULL", [$job]);
 
         return $this->site()->runTasks();
     }

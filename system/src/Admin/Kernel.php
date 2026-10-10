@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Migrator;
-use Kaleta\Core\Response;
-use Kaleta\Core\Extensions;
+use Talea\Core\App;
+use Talea\Core\Migrator;
+use Talea\Core\Response;
+use Talea\Core\Extensions;
 
 /**
  * Administration. URLs: admin.php?module=<ident>&action=<action>
@@ -65,13 +65,13 @@ final class Kernel
     {
         $app = $this->app;
         $request = $app->request;
-        \Kaleta\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
+        \Talea\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
-        $language = (string) ($app->auth()->user()['language'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
-        \Kaleta\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
-        \Kaleta\Core\Language::setSiteRegister($app->settings()->get('german_register'));
-        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'en', 'admin-');
+        $language = (string) ($app->auth()->user()['language'] ?? '') ?: \Talea\Core\Language::defaults($app->settings());
+        \Talea\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
+        \Talea\Core\Language::setSiteRegister($app->settings()->get('german_register'));
+        \Talea\Core\Language::set(isset(\Talea\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'en', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Invalid request', $app->view->render('admin/error', [
                 'text' => 'The form has expired. Go back, reload the page and submit it again.',
@@ -81,7 +81,7 @@ final class Kernel
         // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
         // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
         if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'], true)) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
         $action = $request->get('action');
         // site URL: older installs do not have it yet - it is written from the URL the signed-in administrator works on
@@ -100,9 +100,9 @@ final class Kernel
         }
 
         // after moving to a new version, clean up the known removed files once (see Updater::REMOVED_FILES)
-        if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== KALETA_VERSION) {
-            \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT);
-            $app->settings()->set('cleaned_version', KALETA_VERSION);
+        if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== TALEA_VERSION) {
+            \Talea\Core\Updater::cleanUpRemoved(TALEA_ROOT);
+            $app->settings()->set('cleaned_version', TALEA_VERSION);
         }
 
         // migrations never run on a page request (bin/migrate does, e.g. in the Docker entrypoint); the administrator is told when some wait
@@ -110,8 +110,8 @@ final class Kernel
             $app->session->flash('error', t('The database is behind the code: run "php bin/migrate" on the server.'));
         }
 
-        if ($app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
-            \Kaleta\Core\Backup::createAutomatic($app->db(), $app->settings());
+        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
+            \Talea\Core\Backup::createAutomatic($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {
             Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
@@ -120,8 +120,8 @@ final class Kernel
         }
 
         $ident = $request->get('module');
-        if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
-            $app->session->flash('error', \Kaleta\Core\Demo::refusal());
+        if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
+            $app->session->flash('error', \Talea\Core\Demo::refusal());
 
             return Response::redirect($app->url('admin.php' . ($ident !== '' ? '?module=' . rawurlencode($ident) : '')));
         }
@@ -147,7 +147,7 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\UpdateFeed($app->settings()))->available() : null;
+            $newVersion = $app->auth()->isAdmin() ? (new \Talea\Core\UpdateFeed($app->settings()))->available() : null;
             if ($newVersion !== null) {
                 // a notice only: the update is the operator's act (docker compose pull && up -d), see docs/DEPLOYMENT.md
                 $app->session->flash(!empty($newVersion['security']) ? 'error' : 'info', !empty($newVersion['security'])
@@ -226,14 +226,14 @@ final class Kernel
         $warnings = [];
         if (isset($modules['redirects'])) {
             // only addresses that still end in 404 and nobody ignored (Core\NotFound cleans the rest up)
-            $missing = count(\Kaleta\Core\NotFound::pending($this->app));
+            $missing = count(\Talea\Core\NotFound::pending($this->app));
             if ($missing > 0) {
                 $warnings[] = [t('Addresses on your site that repeatedly ended with “page not found” this week: %d. Visitors came from an old link or a typo – send each one to the right page with a redirect, or ignore it.', $missing),
                     $this->app->url('admin.php?module=redirects#not-found'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
             }
         }
         if ($this->app->auth()->isAdmin()) {
-            $backup = \Kaleta\Core\Backup::listAll()[0]['time'] ?? 0;
+            $backup = \Talea\Core\Backup::listAll()[0]['time'] ?? 0;
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
@@ -256,19 +256,19 @@ final class Kernel
 
         // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
         // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
-        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active() ? [
-            'connected' => \Kaleta\Core\AskClaude::connected($db),
-            'examples' => \Kaleta\Core\AskClaude::examples($modules),
-            'recent' => \Kaleta\Core\AskClaude::recent($db, $this->app->auth()->id()),
-            'routine' => \Kaleta\Core\AskClaude::routine($db),
-            'prompt' => \Kaleta\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'), \Kaleta\Core\Language::visitorAddress($this->app->settings())),
+        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
+            'connected' => \Talea\Core\AskClaude::connected($db),
+            'examples' => \Talea\Core\AskClaude::examples($modules),
+            'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
+            'routine' => \Talea\Core\AskClaude::routine($db),
+            'prompt' => \Talea\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'), \Talea\Core\Language::visitorAddress($this->app->settings())),
             'admin' => $this->app->auth()->isAdmin(),
         ] : null;
 
         return $data + [
             'ask' => $ask,
             // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
-            'pending' => \Kaleta\Core\PendingReview::all($this->app, $modules),
+            'pending' => \Talea\Core\PendingReview::all($this->app, $modules),
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)
@@ -304,7 +304,7 @@ final class Kernel
         $db = $app->db();
         $steps = [
             // done only after the user's own choice: appearance and pages from the starter site do not count
-            ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
+            ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved')],
             ['Fill in company details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
             ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = 1') >= 3 && $s->int('home_page') > 0
                 && $db->value('SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND updated_at IS NOT NULL LIMIT 1') !== null],
@@ -316,11 +316,11 @@ final class Kernel
             ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',
                 $db->value('SELECT 1 FROM {blueprints} LIMIT 1') !== null],
         ];
-        // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it; the first step
+        // 2.2: Claude is the main way to build and edit a Talea site – done once any user has connected it; the first step
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
-        if (\Kaleta\Core\Extensions::isEnabled($s, 'claude')) {
+        if (\Talea\Core\Extensions::isEnabled($s, 'claude')) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                'admin.php?action=account#claude', \Kaleta\Core\AskClaude::connected($db)]);
+                'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
         }
         $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3]], $steps);
 
@@ -338,7 +338,7 @@ final class Kernel
         $app = $this->app;
         $error = null;
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
-        $address = \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings());
+        $address = \Talea\Core\Firewall::visitorKey($app->request, $app->settings());
         // second step with a passkey (fingerprint, Face ID): the script image/passkeys.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('step'), ['passkey_options', 'key'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
@@ -393,13 +393,13 @@ final class Kernel
 
             return $this->page('Connect an application', $app->view->render('admin/error', ['text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
         }
-        $oauth = new \Kaleta\Front\OAuth($app);
+        $oauth = new \Talea\Front\OAuth($app);
         if ($app->request->isPost()) {
             $app->session->set('pending_oauth', null);
             if (!$app->request->postBool('allow')) {
                 return Response::redirect($oauth->deny($pending));
             }
-            $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
+            $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
             ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
@@ -413,6 +413,6 @@ final class Kernel
         $target = parse_url((string) $pending['redirect_uri']);
         $origin = ($target['scheme'] ?? '') . '://' . ($target['host'] ?? '') . (isset($target['port']) ? ':' . $target['port'] : '');
 
-        return new Response($page->body, $page->status, $page->headers + ['X-Kaleta-Form-Action' => $origin]);
+        return new Response($page->body, $page->status, $page->headers + ['X-Talea-Form-Action' => $origin]);
     }
 }

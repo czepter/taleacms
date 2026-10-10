@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
-use Kaleta\Builder\StructuredData as Vocabulary;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
+use Talea\Builder\StructuredData as Vocabulary;
 
 /**
  * Typed schema.org structured data for the page (HF-11). Renders nothing into the body: the cleaned node goes to the page's

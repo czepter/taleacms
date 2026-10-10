@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\ImportersBooking;
+namespace Talea\Tests\Site\ImportersBooking;
 
-use Kaleta\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\Response;
 
 /**
  * The state the old booking section (96) built up in its first lines: mail that fails (so every e-mail keeps its body in the queue and the
@@ -56,10 +56,10 @@ trait BookingFixture
     private function bookingStaffAndService(): string
     {
         $this->bookingText('save_booking_service', ['name' => 'Haircut test', 'duration_min' => 30, 'buffer_min' => 10, 'price_text' => '$45', 'description' => 'Wash, cut, blow-dry']);
-        self::$service = $this->firstId($this->site()->value('SELECT id FROM ka_booking_services ORDER BY id DESC LIMIT 1'));
+        self::$service = $this->firstId($this->site()->value('SELECT id FROM tl_booking_services ORDER BY id DESC LIMIT 1'));
         $hours = array_fill_keys(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], '9:00-17:00');
         $text = $this->bookingText('save_booking_staff', ['name' => 'Jane Booking', 'email' => 'jana-bk@example.cz', 'services' => [$this->site()->publicId('booking_services', self::$service)], 'hours' => $hours]);
-        self::$staff = $this->firstId($this->site()->value('SELECT id FROM ka_booking_staff ORDER BY id DESC LIMIT 1'));
+        self::$staff = $this->firstId($this->site()->value('SELECT id FROM tl_booking_staff ORDER BY id DESC LIMIT 1'));
 
         return $text;
     }
@@ -84,7 +84,7 @@ trait BookingFixture
     private function bookingPage(): void
     {
         $this->site()->mcp('create_page', ['title' => 'Booking test', 'slug' => 'booking-test', 'visible' => true]);
-        self::$page = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'booking-test'");
+        self::$page = (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'booking-test'");
         $this->site()->mcp('save_build', ['id' => $this->site()->publicId('pages', self::$page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Book a time']],
             ['id' => 'bk1', 'type' => 'booking', 'content' => new \stdClass()],
@@ -120,7 +120,7 @@ trait BookingFixture
     /** The cancel token in the confirmation e-mail of petr-bk (first or last one). */
     private function cancelToken(string $order, string $to = 'petr-bk@example.cz'): string
     {
-        $body = (string) $this->site()->value("SELECT body FROM ka_mail WHERE recipient = ? ORDER BY mail_id $order LIMIT 1", [$to]);
+        $body = (string) $this->site()->value("SELECT body FROM tl_mail WHERE recipient = ? ORDER BY mail_id $order LIMIT 1", [$to]);
         $text = (string) (json_decode($body, true)['text'] ?? '');
 
         return preg_match('#_booking/cancel/([a-f0-9]{32})#', $text, $m) === 1 ? $m[1] : '';

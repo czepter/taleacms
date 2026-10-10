@@ -2,7 +2,7 @@
 /**
  * User: name, sign-in and role. Permissions follow from the role; manual settings are hidden in "Advanced settings".
  *
- * @var Kaleta\Admin\Modules\Users $module
+ * @var Talea\Admin\Modules\Users $module
  * @var string $csrf
  * @var array<string, mixed> $author
  * @var array<string, string> $errors
@@ -101,7 +101,7 @@ $role = [
 	<span class="caption"><?= e(t('Block account')) ?></span>
 	<div class="options"><label><input type="checkbox" name="blocked" value="1"<?= $author['blocked'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label>
 <?php if ($author['blocked'] && !empty($author['auto_blocked_at'])): ?>
-	<span class="help"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['auto_blocked_at']), Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
+	<span class="help"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['auto_blocked_at']), Talea\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
 <?php endif ?>
 	</div>
 </div>
@@ -112,7 +112,7 @@ $role = [
 <?php if ($author['user_id'] && ($connections ?? []) !== []): ?>
 <fieldset id="connections">
 <legend><?= e(t('Claude connections')) ?></legend>
-<p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
+<p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
 <?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
 <?php foreach ($connections as $c): ?>
 <form class="inline" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-confirm="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">

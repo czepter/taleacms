@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * Change log: who did what in the admin and when, and – for Claude's changes – why (2.15: the reason a write tool was

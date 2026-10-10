@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * Tags and topics. Tags are created automatically when writing news; here they can be renamed, merged and deleted.
@@ -38,7 +38,7 @@ final class Tags extends Module
         if (!$this->request->isPost() || $tag === null || $name === '') {
             return $this->back('Enter the tag name.', type: 'error');
         }
-        $this->db->update('tags', ['name' => $name, 'description' => \Kaleta\Core\Html::forUser(trim($this->request->post('description')), $this->app->auth()), 'image' => mb_substr($this->request->post('image'), 0, 255)], ['tag_id' => $tag['tag_id']]);
+        $this->db->update('tags', ['name' => $name, 'description' => \Talea\Core\Html::forUser(trim($this->request->post('description')), $this->app->auth()), 'image' => mb_substr($this->request->post('image'), 0, 255)], ['tag_id' => $tag['tag_id']]);
 
         // merge: the news items get the target tag, this one ceases to exist and its slug is redirected
         $target = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ? AND tag_id <> ?', [$this->idParam('merge_into'), $tag['tag_id']]);

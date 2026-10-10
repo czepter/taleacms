@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Receiving uploaded images: verification, shrinking to a reasonable size, thumbnail, saving to media/YYYY/MM/.
@@ -74,7 +74,7 @@ final class Images
         $extension = self::TYPES[$info[2]];
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
+        if (!is_dir(TALEA_ROOT . '/' . $folder) && !mkdir(TALEA_ROOT . '/' . $folder, 0775, true)) {
             throw new \RuntimeException('Cannot create the folder ' . $folder . ' - check the write permissions.');
         }
         $base = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3));
@@ -82,10 +82,10 @@ final class Images
         if ($extension === 'gif') {
             // a GIF can be animated - it is saved unchanged, the thumbnail is the first frame
             $target = $base . '.gif';
-            if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
+            if (!($uploaded ? move_uploaded_file($tmp, TALEA_ROOT . '/' . $target) : copy($tmp, TALEA_ROOT . '/' . $target))) {
                 throw new \RuntimeException('The file could not be saved.');
             }
-            $image = imagecreatefromgif(KALETA_ROOT . '/' . $target);
+            $image = imagecreatefromgif(TALEA_ROOT . '/' . $target);
             [$w, $h] = [$info[0], $info[1]];
         } else {
             $image = @imagecreatefromstring((string) file_get_contents($tmp));
@@ -96,11 +96,11 @@ final class Images
             $image = self::shrink($image, self::MAX_SIDE);
             [$w, $h] = [imagesx($image), imagesy($image)];
             $target = $base . '.' . $extension;
-            self::write($image, KALETA_ROOT . '/' . $target, $extension);
-            self::webp($image, KALETA_ROOT . '/' . $target, $extension);
+            self::write($image, TALEA_ROOT . '/' . $target, $extension);
+            self::webp($image, TALEA_ROOT . '/' . $target, $extension);
             if (self::ratio($w, $h, self::MEDIUM_SIDE) < 1.0) {
                 $medium = self::shrink($image, self::MEDIUM_SIDE);
-                $mediumPath = KALETA_ROOT . '/' . $base . '-1200.' . $extension;
+                $mediumPath = TALEA_ROOT . '/' . $base . '-1200.' . $extension;
                 self::write($medium, $mediumPath, $extension);
                 self::webp($medium, $mediumPath, $extension);
             }
@@ -109,11 +109,11 @@ final class Images
         $preview = self::shrink($image, self::THUMBNAIL_SIDE);
         $thumbnailExtension = $extension === 'gif' ? 'png' : $extension;
         $thumbnailPath = $base . '-nahled.' . $thumbnailExtension;
-        self::write($preview, KALETA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
-        self::webp($preview, KALETA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
+        self::write($preview, TALEA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
+        self::webp($preview, TALEA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
 
         return [
-            'image_path' => $target, 'image_width' => $w, 'image_height' => $h, 'image_size' => (int) filesize(KALETA_ROOT . '/' . $target),
+            'image_path' => $target, 'image_width' => $w, 'image_height' => $h, 'image_size' => (int) filesize(TALEA_ROOT . '/' . $target),
             'thumb_path' => $thumbnailPath, 'thumb_width' => imagesx($preview), 'thumb_height' => imagesy($preview),
             'name' => mb_substr(trim(str_replace(['_', '-'], ' ', $name)), 0, 150),
         ];
@@ -132,7 +132,7 @@ final class Images
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be replaced.');
         }
         $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
-        $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $new['image_path']));
+        $image = @imagecreatefromstring((string) file_get_contents(TALEA_ROOT . '/' . $new['image_path']));
         self::delete($new['image_path'], $new['thumb_path']);
         if ($image === false) {
             throw new \RuntimeException('The image is damaged and cannot be processed.');
@@ -150,10 +150,10 @@ final class Images
      */
     public static function shrinkFile(string $path): array
     {
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !is_file(KALETA_ROOT . '/' . $path)) {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !is_file(TALEA_ROOT . '/' . $path)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be made smaller.');
         }
-        $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $path));
+        $image = @imagecreatefromstring((string) file_get_contents(TALEA_ROOT . '/' . $path));
         if ($image === false) {
             throw new \RuntimeException('The image is damaged and cannot be processed.');
         }
@@ -173,18 +173,18 @@ final class Images
     private static function writeInPlace(\GdImage $image, string $base, string $extension): array
     {
         $path = $base . '.' . $extension;
-        self::write($image, KALETA_ROOT . '/' . $path, $extension);
-        self::webp($image, KALETA_ROOT . '/' . $path, $extension);
+        self::write($image, TALEA_ROOT . '/' . $path, $extension);
+        self::webp($image, TALEA_ROOT . '/' . $path, $extension);
         if (self::ratio(imagesx($image), imagesy($image), self::MEDIUM_SIDE) < 1.0) {
             $medium = self::shrink($image, self::MEDIUM_SIDE);
-            self::write($medium, KALETA_ROOT . '/' . $base . '-1200.' . $extension, $extension);
-            self::webp($medium, KALETA_ROOT . '/' . $base . '-1200.' . $extension, $extension);
+            self::write($medium, TALEA_ROOT . '/' . $base . '-1200.' . $extension, $extension);
+            self::webp($medium, TALEA_ROOT . '/' . $base . '-1200.' . $extension, $extension);
         }
         $preview = self::shrink($image, self::THUMBNAIL_SIDE);
-        self::write($preview, KALETA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
-        self::webp($preview, KALETA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
+        self::write($preview, TALEA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
+        self::webp($preview, TALEA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
 
-        return ['image_width' => imagesx($image), 'image_height' => imagesy($image), 'image_size' => (int) filesize(KALETA_ROOT . '/' . $path),
+        return ['image_width' => imagesx($image), 'image_height' => imagesy($image), 'image_size' => (int) filesize(TALEA_ROOT . '/' . $path),
             'thumb_width' => imagesx($preview), 'thumb_height' => imagesy($preview)];
     }
 
@@ -197,8 +197,8 @@ final class Images
             }
             // together with the image its variants for srcset and WebP are removed too
             foreach ([$path, $path . '.webp', $path . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $file) {
-                if (is_file(KALETA_ROOT . '/' . $file)) {
-                    unlink(KALETA_ROOT . '/' . $file);
+                if (is_file(TALEA_ROOT . '/' . $file)) {
+                    unlink(TALEA_ROOT . '/' . $file);
                 }
             }
         }
@@ -316,7 +316,7 @@ final class Images
             imagesavealpha($icon, true);
             imagefill($icon, 0, 0, imagecolorallocatealpha($icon, 0, 0, 0, 127));
             imagecopyresampled($icon, $image, 0, 0, $x, $y, $n, $n, $pageNumber, $pageNumber);
-            imagepng($icon, KALETA_ROOT . '/media/icon-' . $n . '.png', 9);
+            imagepng($icon, TALEA_ROOT . '/media/icon-' . $n . '.png', 9);
         }
 
         return true;
@@ -337,7 +337,7 @@ final class Images
         foreach (['-nahled', '-1200', ''] as $extension) {
             $file = $m[1] . $extension . '.' . $m[3];
             // the actual width of each variant: earlier images were shrunk by the longer side, so for tall images „1200“ did not mean the width
-            $info = is_file(KALETA_ROOT . '/' . $file) ? @getimagesize(KALETA_ROOT . '/' . $file) : false;
+            $info = is_file(TALEA_ROOT . '/' . $file) ? @getimagesize(TALEA_ROOT . '/' . $file) : false;
             if ($info !== false && !isset($widths[$info[0]])) {
                 $widths[$info[0]] = true;
                 $variants[] = $base . '/' . $file . ' ' . $info[0] . 'w';

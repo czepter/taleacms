@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\LinksConnectors;
+namespace Talea\Tests\Site\LinksConnectors;
 
 use PHPUnit\Framework\Attributes\Group;
 
 /** Links that look after themselves (was: section 80, 2.14): automatic redirects, orphan pages, broken links in builds. */
 #[Group('site')]
-final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
+final class LinksTest extends \Talea\Tests\Site\Support\SiteTestCase
 {
     use FakeServices;
 
     private function pageId(string $slug): int
     {
-        return (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$slug]);
+        return (int) $this->site()->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$slug]);
     }
 
     public function testTheNotFoundListSuggestsTheMovedPage(): void
@@ -23,10 +23,10 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $site->mcp('create_page', ['title' => 'Reference portfolio', 'slug' => 'reference-portfolio', 'visible' => true, 'in_menu' => false, 'content' => '<p>Our references.</p>']);
         $id = $this->pageId('reference-portfolio');
         $this->assertGreaterThan(0, $id);
-        $site->exec("UPDATE ka_pages SET slug = 'services/reference-portfolio' WHERE page_id = ?", [$id]);
-        $site->exec("DELETE FROM ka_redirects WHERE from_path LIKE '%reference-portfolio%'");
-        $site->exec('DELETE FROM ka_not_found');
-        $site->exec("DELETE FROM ka_events WHERE type = 'redirect.auto'");
+        $site->exec("UPDATE tl_pages SET slug = 'services/reference-portfolio' WHERE page_id = ?", [$id]);
+        $site->exec("DELETE FROM tl_redirects WHERE from_path LIKE '%reference-portfolio%'");
+        $site->exec('DELETE FROM tl_not_found');
+        $site->exec("DELETE FROM tl_events WHERE type = 'redirect.auto'");
         $site->clearPageCache();
         $visitor = $site->client('visitor');
         for ($i = 0; $i < 3; $i++) {
@@ -51,26 +51,26 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $site = $this->site();
         $tasks = $this->runJob('redirects');
         $this->assertStringContainsString('redirects: off', $tasks, 'redirects by themselves are off by default (job output)');
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_redirects WHERE auto_score IS NOT NULL'), 'redirects by themselves are off by default (no redirect created)');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_redirects WHERE auto_score IS NOT NULL'), 'redirects by themselves are off by default (no redirect created)');
 
         $this->adminPost('/admin.php?module=redirects&action=settings', ['redirect_auto' => '1', 'redirect_auto_threshold' => '90'], '/admin.php?module=redirects');
-        $this->assertSame('1,90', $site->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM ka_settings WHERE name IN ('redirect_auto', 'redirect_auto_threshold')"), 'the setting is saved from the Redirects screen');
+        $this->assertSame('1,90', $site->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM tl_settings WHERE name IN ('redirect_auto', 'redirect_auto_threshold')"), 'the setting is saved from the Redirects screen');
 
         $this->runJob('redirects');
-        $this->assertSame('services/reference-portfolio|301|90|0', $site->value("SELECT CONCAT((SELECT CONCAT(to_path, '|', type, '|', auto_score) FROM ka_redirects WHERE from_path = 'reference-portfolio'), '|', (SELECT COUNT(*) FROM ka_redirects WHERE from_path IN ('reference-portfolio-2019', 'qzx-random-address')))"),
+        $this->assertSame('services/reference-portfolio|301|90|0', $site->value("SELECT CONCAT((SELECT CONCAT(to_path, '|', type, '|', auto_score) FROM tl_redirects WHERE from_path = 'reference-portfolio'), '|', (SELECT COUNT(*) FROM tl_redirects WHERE from_path IN ('reference-portfolio-2019', 'qzx-random-address')))"),
             'the daily job creates the redirect above the threshold, not below it');
 
         $old = $site->client('visitor')->get('/reference-portfolio');
         $this->assertSame(301, $old->status, 'the old address redirects (status)');
         $this->assertSame($site->base . '/services/reference-portfolio', $old->redirect, 'the old address redirects (target)');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_not_found WHERE path = 'reference-portfolio'"), 'the address left the 404 log');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path = 'reference-portfolio'"), 'the address left the 404 log');
 
-        $this->assertSame('1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'redirect.auto' AND data LIKE '%\"from\":\"/reference-portfolio\",\"to\":\"/services/reference-portfolio\",\"score\":90%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'redirects' AND action = 'auto' AND description LIKE '%reference-portfolio%'))"),
+        $this->assertSame('1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_events WHERE type = 'redirect.auto' AND data LIKE '%\"from\":\"/reference-portfolio\",\"to\":\"/services/reference-portfolio\",\"score\":90%'), '|', (SELECT COUNT(*) FROM tl_change_log WHERE module = 'redirects' AND action = 'auto' AND description LIKE '%reference-portfolio%'))"),
             'the automatic redirect is in the change log and the event redirect.auto');
         $this->assertPage('/admin.php?module=redirects', 200, 'automatic, score 90', message: 'the Redirects list marks it automatic with the score (undo = delete)');
 
         $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/reference-portfolio-2019', 'to_path' => '/services/reference-portfolio', 'type' => '301'], '/admin.php?module=redirects');
-        $this->assertSame('services/reference-portfolio|1', $site->value("SELECT CONCAT(to_path, '|', auto_score IS NULL) FROM ka_redirects WHERE from_path = 'reference-portfolio-2019'"), 'one click creates the suggested redirect by hand – not marked automatic');
+        $this->assertSame('services/reference-portfolio|1', $site->value("SELECT CONCAT(to_path, '|', auto_score IS NULL) FROM tl_redirects WHERE from_path = 'reference-portfolio-2019'"), 'one click creates the suggested redirect by hand – not marked automatic');
 
         $site->mcp('update_settings', ['settings' => ['redirect_auto' => false]]);
         $this->assertSame('0', $site->settingValue('redirect_auto'), 'MCP: update_settings switches the automatic redirects off');
@@ -100,16 +100,16 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $id = $this->pageId('links-test');
         $site->mcp('save_build', ['id' => $site->publicId('pages', $id), 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'button', 'content' => ['text' => 'Old partner', 'link' => 'http://127.0.0.1:1/partner']]]]]]]);
         $site->mcp('publish_build', ['id' => $site->publicId('pages', $id)]);
-        $element = (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[0].id')) FROM ka_pages WHERE page_id = ?", [$id]);
+        $element = (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[0].id')) FROM tl_pages WHERE page_id = ?", [$id]);
         $this->assertNotSame('', $element, 'the published build has the button element');
 
-        $site->exec('UPDATE ka_news SET links_checked_at = NOW()');
-        $site->exec('UPDATE ka_pages SET links_checked = NOW() WHERE page_id <> ?', [$id]);
-        $site->exec('UPDATE ka_collection_items SET links_checked = NOW()');
-        $site->exec("UPDATE ka_settings SET value = '0' WHERE name = 'link_check_time'");
-        $site->exec('DELETE FROM ka_broken_links');
+        $site->exec('UPDATE tl_news SET links_checked_at = NOW()');
+        $site->exec('UPDATE tl_pages SET links_checked = NOW() WHERE page_id <> ?', [$id]);
+        $site->exec('UPDATE tl_collection_items SET links_checked = NOW()');
+        $site->exec("UPDATE tl_settings SET value = '0' WHERE name = 'link_check_time'");
+        $site->exec('DELETE FROM tl_broken_links');
         $site->runTasks();
-        $this->assertSame("page|$id|$element|0", $site->value("SELECT CONCAT(kind, '|', target_id, '|', element, '|', status) FROM ka_broken_links WHERE url = 'http://127.0.0.1:1/partner'"), 'the link check finds the dead link in the page build with its element');
+        $this->assertSame("page|$id|$element|0", $site->value("SELECT CONCAT(kind, '|', target_id, '|', element, '|', status) FROM tl_broken_links WHERE url = 'http://127.0.0.1:1/partner'"), 'the link check finds the dead link in the page build with its element');
 
         $json = $this->mcpJson('list_broken_links');
         $this->assertStringContainsString('"kind":"page","id":"' . $site->publicId('pages', $id) . '","title":"Links test"', $json, 'MCP: list_broken_links says where the link is');
@@ -124,6 +124,6 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('"element":"' . $element . '"', $audit, 'site_audit reports the element');
 
         $this->adminPost('/admin.php?module=news&action=links', ['kind' => 'page', 'id' => $site->publicId('pages', (int) $id)], '/admin.php?module=news&action=links');
-        $this->assertSame('1|0', $site->value("SELECT CONCAT((SELECT links_checked IS NULL FROM ka_pages WHERE page_id = $id), '|', (SELECT COUNT(*) FROM ka_broken_links WHERE kind = 'page' AND target_id = $id))"), 'Check again puts the page at the front of the queue');
+        $this->assertSame('1|0', $site->value("SELECT CONCAT((SELECT links_checked IS NULL FROM tl_pages WHERE page_id = $id), '|', (SELECT COUNT(*) FROM tl_broken_links WHERE kind = 'page' AND target_id = $id))"), 'Check again puts the page at the front of the queue');
     }
 }

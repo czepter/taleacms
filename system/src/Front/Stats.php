@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
+use Talea\Core\Antispam;
+use Talea\Core\App;
 
 /**
  * Own traffic measurement without cookies.
@@ -36,9 +36,9 @@ final class Stats
     }
 
     /** The same, from the settings alone (the privacy text, the fleet heartbeat, MCP). */
-    public static function enabled(\Kaleta\Core\Settings $settings): bool
+    public static function enabled(\Talea\Core\Settings $settings): bool
     {
-        return \Kaleta\Core\Extensions::isEnabled($settings, 'stats');
+        return \Talea\Core\Extensions::isEnabled($settings, 'stats');
     }
 
     /** A crawler, a monitoring tool or a test browser by its own description – never counted. */

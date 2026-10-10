@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Components;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Components;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Use of a component: inserts its published build and fills in its own values of its {{properties}}.
@@ -38,7 +38,7 @@ final class Component extends Element
             $k->components[$id] = $id > 0 ? Components::byId($k->app->db(), $id) : null;
         }
         $component = $k->components[$id];
-        $build = $component === null ? null : \Kaleta\Builder\Build::fromJson($component['build'] ?? $component['build_draft']);
+        $build = $component === null ? null : \Talea\Builder\Build::fromJson($component['build'] ?? $component['build_draft']);
         if ($build === null) {
             return $k->editor ? '<p>' . e(t('Choose a component in the Content panel.')) . '</p>' : '';
         }

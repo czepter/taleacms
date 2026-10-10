@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * Ready-made collections (2.11): a team, events, jobs, documents, branches… created in one click – with their fields,
@@ -45,7 +45,7 @@ final class Presets
             return self::$all;
         }
         $all = [];
-        foreach (glob(KALETA_SYSTEM . '/presets/*.php') ?: [] as $file) {
+        foreach (glob(TALEA_SYSTEM . '/presets/*.php') ?: [] as $file) {
             $key = basename($file, '.php');
             $definition = preg_match(self::KEY_PATTERN, $key) === 1 ? require $file : null;
             if (is_array($definition) && is_string($definition['name'] ?? null) && is_array($definition['fields'] ?? null)) {
@@ -96,7 +96,7 @@ final class Presets
      * @param array<string, mixed> $preset
      * @return list<array{key: string, label: string, type: string, collection?: string}>
      */
-    public static function fields(\Kaleta\Core\Db $db, array $preset): array
+    public static function fields(\Talea\Core\Db $db, array $preset): array
     {
         $out = [];
         foreach ($preset['fields'] as $f) {
@@ -139,8 +139,8 @@ final class Presets
         $db = $app->db();
         $name = mb_substr(trim($name) !== '' ? trim($name) : t($preset['name']), 0, 100);
         $seo = $base = slugify($name, 100);
-        for ($i = 2; $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$seo]) !== null || in_array($seo, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)
-            || isset(\Kaleta\Core\Language::AVAILABLE[$seo]); $i++) {
+        for ($i = 2; $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$seo]) !== null || in_array($seo, \Talea\Admin\Modules\Pages::RESERVED_SLUGS, true)
+            || isset(\Talea\Core\Language::AVAILABLE[$seo]); $i++) {
             $seo = $base . '-' . $i;
         }
         $fields = self::fields($db, $preset);
@@ -149,7 +149,7 @@ final class Presets
             'hidden_redirect' => $preset['redirect_hidden'] ? '/' . $seo : '', 'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE),
             'updated_at' => date('Y-m-d H:i:s'), 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
             'build' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
-        \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
+        \Talea\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
         $pageId = null;
         $extra = [];
         if ($withPage) {
@@ -184,7 +184,7 @@ final class Presets
         $build = self::listPage($preset, $name, $collectionSeo, $fields);
         $pageId = $db->insert('pages', ['title' => $name, 'slug' => $pageSeo, 'build' => Build::toJson($build), 'text' => Build::asText($build),
             'visible' => 0, 'in_menu' => 0, 'sort_order' => 50, 'updated_at' => date('Y-m-d H:i:s')]);
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
+        \Talea\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
 
         return $pageId;
     }

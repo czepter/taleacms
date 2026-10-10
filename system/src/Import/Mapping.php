@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * What the records of the old site become here – chosen by the administrator in the preview, kept in the import state.
@@ -65,7 +65,7 @@ final class Mapping
             'builder' => (bool) ($input['builder'] ?? self::DEFAULTS['builder']),
             'redirects' => (bool) ($input['redirects'] ?? self::DEFAULTS['redirects']),
             'default_category' => max(0, (int) ($input['default_category'] ?? 0)),
-            'site_url' => \Kaleta\Core\WebImport::validUrl($url) ? rtrim($url, '/') : '',
+            'site_url' => \Talea\Core\WebImport::validUrl($url) ? rtrim($url, '/') : '',
         ];
     }
 }

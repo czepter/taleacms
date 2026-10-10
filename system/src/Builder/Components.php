@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
+use Talea\Core\Db;
 
 /**
- * Components – reusable blocks of the builder (table ka_components). Inside a component there are {{properties}} – the same
+ * Components – reusable blocks of the builder (table tl_components). Inside a component there are {{properties}} – the same
  * tags as in collections (Collections::fill) – and each use on a page (the "component" element) gives them its own values.
  */
 final class Components

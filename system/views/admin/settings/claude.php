@@ -3,7 +3,7 @@
  * Claude settings (3.2, Modules\ClaudeSettings): how to connect, the instructions every connection gets, the guardrails,
  * and every connection of the site – moved here from Features so Claude has one home.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var array<string, string> $values
  * @var list<array<string, mixed>> $connections
  */
@@ -19,12 +19,12 @@ $accessNames = ['full' => t('Everything the account may'), 'drafts' => t('Drafts
 	<li><?= e(t('Enter this address:')) ?> <code class="totp-key" style="font-size:13px"><?= e($mcpUrl) ?></code></li>
 	<li><?= e(t('Claude sends you here to sign in. You choose what it may do: everything your account may, only save drafts, or only read.')) ?></li>
 </ol>
-<p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http kaleta <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
+<p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http talea <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('The connector needs the site on HTTPS. In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
 <div class="row">
 	<label for="claude_instructions"><?= e(t('Instructions for Claude')) ?></label>
 	<div><textarea class="textfield wide" id="claude_instructions" name="claude_instructions" rows="6" maxlength="5000" placeholder="<?= e(t('e.g. We address customers informally. Say “renovation”, never “reconstruction”. Keep headings short. Always offer a free visit.')) ?>"><?= e($values['claude_instructions']) ?></textarea>
-	<span class="help"><?= e(t('Brand voice, words to use or avoid, house rules. Every Claude connection gets them when it connects, and they are its resource kaleta://instructions.')) ?></span></div>
+	<span class="help"><?= e(t('Brand voice, words to use or avoid, house rules. Every Claude connection gets them when it connects, and they are its resource talea://instructions.')) ?></span></div>
 </div>
 <h3><?= e(t('Guardrails for Claude')) ?></h3>
 <p class="help"><?= e(t('They hold for every Claude connection on top of its access. Claude is told why when it hits one, so it can tell you.')) ?></p>

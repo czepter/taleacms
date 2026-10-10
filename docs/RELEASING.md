@@ -23,7 +23,7 @@ regular release a security release and force its automatic installation.
 
 Private keys **never** belong in git (`.gitignore` guards it), in a package or in cloud sync. If the project folder lives in a
 synced folder (iCloud Drive, Dropbox), `tools/keys/` is synced too: move the keys elsewhere and leave a symlink in `tools/keys/`,
-or pass the key in the environment variable `KALETA_KEY`.
+or pass the key in the environment variable `TALEA_KEY`.
 
 ## Creating the backup key (once, before the first public release)
 
@@ -40,13 +40,13 @@ php tools/release.php --new-key=backup
 Everything that goes to GitHub and into the installations is English: commit, tag, release notes and the change description.
 
 0. Run `composer test` and `composer test:browser` (PHPUnit, including the English installation and the walk in Chrome).
-1. Raise `KALETA_VERSION` in `system/bootstrap.php`, commit, tag `vX.Y.Z` and push (the release workflow runs the tests and
+1. Raise `TALEA_VERSION` in `system/bootstrap.php`, commit, tag `vX.Y.Z` and push (the release workflow runs the tests and
    creates a draft release).
 2. CI builds, tests and pushes the multi-arch image to GHCR (`ghcr.io/<owner>/talea:X.Y.Z`, `X.Y`, `X`), signs it with cosign and
    prints its digest in the job summary.
 3. Sign the release feed locally: `php tools/release.php X.Y.Z --feed --image=ghcr.io/<owner>/talea:X.Y.Z --digest=sha256:<digest> --change="…" [--security]`.
    Upload `dist/update.json` to the draft release as the asset `update.json` and publish the release as **latest**; sites read
-   `.../releases/latest/download/update.json` (`KALETA_UPDATE_FEED`, docs/DEPLOYMENT.md).
+   `.../releases/latest/download/update.json` (`TALEA_UPDATE_FEED`, docs/DEPLOYMENT.md).
 4. Package mode (`php tools/release.php X.Y.Z --url=… --change=…`) still builds a signed zip for the switched-off in-app updater; it is not part of a release.
 
 Use `--security` only for real security fixes. Sign **locally**, never in CI: anyone who may change a workflow could sign
@@ -57,7 +57,7 @@ command on the publisher's computer.
 
 1. Move the old `tools/keys/publisher.key` to an archive (do not delete it before the replacement is done).
 2. `php tools/release.php --new-key=operating` adds a new line to `system/update.pub`. Keep the old line for now.
-3. Release a version signed with the **old** key (put it back temporarily or use `KALETA_KEY`). It brings the new key to the installations.
+3. Release a version signed with the **old** key (put it back temporarily or use `TALEA_KEY`). It brings the new key to the installations.
 4. In the next release, already signed with the new key, remove the old line from `system/update.pub`.
 
 ## Losing the operating key

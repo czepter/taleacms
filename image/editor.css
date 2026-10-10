@@ -1,4 +1,4 @@
-/* Kaleta - article editor, gallery and uploading.
+/* Talea - article editor, gallery and uploading.
  * Colors and radii come from the --ed-* variables defined by image/admin.css (on the site, when editing in place, image/vizual.css).
  * Status colors (--ed-ok, --ed-warning, --ed-error, --ed-on-accent) have a fallback in case the host style does not define them.
  */

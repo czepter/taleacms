@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AgentAddons;
+namespace Talea\Tests\Site\AgentAddons;
 
-use Kaleta\Tests\Site\Support\Http;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\Http;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -27,10 +27,10 @@ final class RequestsToClaudeTest extends SiteTestCase
 
     public function testTheStaffUserHasTheRequestsSectionOnlyAndOpensTheForm(): void
     {
-        $this->site()->exec("UPDATE ka_users SET email = 'manager-f19@example.cz' WHERE username = 'admin'");
+        $this->site()->exec("UPDATE tl_users SET email = 'manager-f19@example.cz' WHERE username = 'admin'");
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Reception', 'username' => 'reception', 'email' => 'reception@example.cz', 'password' => $this->site()->password, 'admin' => 0, 'manual' => 1, 'modules' => ['requests']], '/admin.php?module=users&action=new');
 
-        $this->assertSame('requests', $this->sq("SELECT GROUP_CONCAT(p.module) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'reception'"), 'requests: the staff user has the Requests section only');
+        $this->assertSame('requests', $this->sq("SELECT GROUP_CONCAT(p.module) FROM tl_users u JOIN tl_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'reception'"), 'requests: the staff user has the Requests section only');
 
         self::$staff = $this->site()->client('requests');
         $this->site()->signIn(self::$staff, 'reception');
@@ -51,7 +51,7 @@ final class RequestsToClaudeTest extends SiteTestCase
 
         $this->assertSame(
             'new|1|1|1',
-            $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM ka_media WHERE image_path LIKE 'media/%pricelist-f19%' AND media_id = JSON_EXTRACT(r.attachments, '\$[0]')), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'request.created' AND data LIKE '%\"id\":$id,%'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'manager-f19@example.cz' AND subject LIKE '%New price list for the Services page%')) FROM ka_requests r WHERE r.id = ?", [$id]),
+            $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM tl_media WHERE image_path LIKE 'media/%pricelist-f19%' AND media_id = JSON_EXTRACT(r.attachments, '\$[0]')), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'request.created' AND data LIKE '%\"id\":$id,%'), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'manager-f19@example.cz' AND subject LIKE '%New price list for the Services page%')) FROM tl_requests r WHERE r.id = ?", [$id]),
             'requests: saved as new, the PDF is a Media upload, the event is recorded, the administrator got the title by e-mail',
         );
         $this->assertPage('/admin.php?module=requests', 200, 'New price list for the Services page', as: self::$staff, message: 'requests: the list opens with the new request first');
@@ -69,7 +69,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('"written_by_staff"', $list, 'requests: list_requests warns that staff wrote it');
 
         $this->site()->mcp('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'in_progress', 'note' => 'I am looking into it.']);
-        $this->assertSame('in_progress|1', $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM ka_request_messages WHERE request_id = r.id AND sender = 'claude' AND text = 'I am looking into it.')) FROM ka_requests r WHERE r.id = ?", [$id]), 'requests: update_request marks it in progress with a note');
+        $this->assertSame('in_progress|1', $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM tl_request_messages WHERE request_id = r.id AND sender = 'claude' AND text = 'I am looking into it.')) FROM tl_requests r WHERE r.id = ?", [$id]), 'requests: update_request marks it in progress with a note');
 
         $this->assertStringContainsString('needs a note', $this->mcpRawText('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'declined']), 'requests: declining without a reason is refused');
 
@@ -77,7 +77,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('"requester_notified":true', $done, 'requests: done - the result says the requester was notified');
         $this->assertSame(
             'done|1|1|1',
-            $this->sq("SELECT CONCAT(r.status, '|', r.done_at IS NOT NULL, '|', (SELECT links LIKE '%$base/services%' AND links NOT LIKE '%javascript%' FROM ka_request_messages WHERE request_id = r.id ORDER BY id DESC LIMIT 1), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'reception@example.cz' AND subject LIKE '%New price list for the Services page%')) FROM ka_requests r WHERE r.id = ?", [$id]),
+            $this->sq("SELECT CONCAT(r.status, '|', r.done_at IS NOT NULL, '|', (SELECT links LIKE '%$base/services%' AND links NOT LIKE '%javascript%' FROM tl_request_messages WHERE request_id = r.id ORDER BY id DESC LIMIT 1), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'reception@example.cz' AND subject LIKE '%New price list for the Services page%')) FROM tl_requests r WHERE r.id = ?", [$id]),
             'requests: done with the web link only, the requester got the note by e-mail',
         );
     }
@@ -102,7 +102,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $id = self::$request;
         $this->site()->mcp('update_request', ['id' => $this->site()->publicId('requests', $id), 'status' => 'in_progress', 'note' => 'Reopened by a drafts connection'], $this->draftsToken());
 
-        $this->assertSame('in_progress|1', $this->sq("SELECT CONCAT(status, '|', (SELECT COUNT(*) FROM ka_request_messages WHERE request_id = $id AND text = 'Reopened by a drafts connection')) FROM ka_requests WHERE id = ?", [$id]), 'requests: a drafts-only connection reopens the request with a note');
+        $this->assertSame('in_progress|1', $this->sq("SELECT CONCAT(status, '|', (SELECT COUNT(*) FROM tl_request_messages WHERE request_id = $id AND text = 'Reopened by a drafts connection')) FROM tl_requests WHERE id = ?", [$id]), 'requests: a drafts-only connection reopens the request with a note');
         $this->assertStringContainsString('can only save drafts', $this->mcpRawText('publish_build', ['id' => 1], $this->draftsToken()), 'requests: the same drafts-only connection cannot publish');
     }
 
@@ -111,7 +111,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $id = self::$request;
         $detail = $this->staff()->get('/admin.php?module=requests&action=detail&id=' . $this->site()->publicId('requests', $id));
         $this->staff()->post('/admin.php?module=requests&action=status', ['_csrf' => $detail->csrf(), 'id' => $this->site()->publicId('requests', $id), 'status' => 'done']);
-        $this->assertSame('done', $this->sq('SELECT status FROM ka_requests WHERE id = ?', [$id]), 'requests: the person marks it done in the detail');
+        $this->assertSame('done', $this->sq('SELECT status FROM tl_requests WHERE id = ?', [$id]), 'requests: the person marks it done in the detail');
 
         // the author-level session of section 5 (JAR2): a user without the section
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
@@ -129,10 +129,10 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('New price list for the Services page', $page->body, 'ask: the dashboard lists their requests');
 
         $response = $this->staff()->post('/admin.php?module=requests&action=save', ['_csrf' => $page->csrf(), 'quick' => 1, 'from' => 'dashboard', 'text' => 'Closed from 24 to 26 December. Please put it on the home page and in the footer.']);
-        $this->assertSame('Closed from 24 to 26 December.|new|admin.php', $this->sq('SELECT CONCAT(title, \'|\', status) FROM ka_requests ORDER BY id DESC LIMIT 1') . '|' . basename($response->redirect), 'ask: the box saves a request titled by its first sentence and goes back to the dashboard');
+        $this->assertSame('Closed from 24 to 26 December.|new|admin.php', $this->sq('SELECT CONCAT(title, \'|\', status) FROM tl_requests ORDER BY id DESC LIMIT 1') . '|' . basename($response->redirect), 'ask: the box saves a request titled by its first sentence and goes back to the dashboard');
 
         $this->staff()->post('/admin.php?module=requests&action=save', ['_csrf' => $page->csrf(), 'quick' => 1, 'from' => 'dashboard', 'text' => '   ']);
-        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM ka_requests WHERE title = ''"), 'ask: an empty box saves nothing');
+        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM tl_requests WHERE title = ''"), 'ask: an empty box saves nothing');
     }
 
     public function testTheDashboardAskBoxForTheAdministratorHasExamples(): void
@@ -142,6 +142,6 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('data-ask-claude-copy', $page->body, 'ask: the copy for the Claude app');
         $this->assertStringContainsString('ask-claude-when', $page->body, 'ask: whether a scheduled run picks requests up');
 
-        $this->site()->exec("UPDATE ka_users SET email = '' WHERE username = 'admin'");
+        $this->site()->exec("UPDATE tl_users SET email = '' WHERE username = 'admin'");
     }
 }

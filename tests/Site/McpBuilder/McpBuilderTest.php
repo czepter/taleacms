@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Claude (MCP) builds a page: English tool interface, HTML to build, publishing, design system, dark mode (was: section 9). */
@@ -45,7 +45,7 @@ final class McpBuilderTest extends SiteTestCase
         $text = $this->rawText('builder_schema');
 
         $this->assertStringContainsString('library', $text, 'the schema lists the section library');
-        $this->assertStringContainsString('ka-space', $text, 'the schema lists the spacing tokens');
+        $this->assertStringContainsString('tl-space', $text, 'the schema lists the spacing tokens');
     }
 
     public function testHtmlBecomesADraftBuildWithAReport(): void
@@ -56,7 +56,7 @@ final class McpBuilderTest extends SiteTestCase
         $this->assertStringContainsString('Form element', $text, 'the form that cannot be converted is reported');
         $this->assertMatchesRegularExpression('/left out.*btn/', $text, 'the dropped class btn is reported');
 
-        $id = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'z-html'");
+        $id = (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'z-html'");
         $this->assertGreaterThan(0, $id, 'the page exists');
         self::$zPage = $id;
     }
@@ -64,8 +64,8 @@ final class McpBuilderTest extends SiteTestCase
     public function testNewPageStaysHiddenAndTheClassFromStyleIsSaved(): void
     {
         $site = $this->site();
-        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(visible, '/', build IS NULL, '/', build_draft LIKE '%by Claude%') FROM ka_pages WHERE page_id = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
-        $this->assertSame('padding-block: var(--ka-space-2xl);', (string) $site->value("SELECT css FROM ka_classes WHERE name = 'intro-x'"), 'the class from <style> was saved');
+        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(visible, '/', build IS NULL, '/', build_draft LIKE '%by Claude%') FROM tl_pages WHERE page_id = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
+        $this->assertSame('padding-block: var(--tl-space-2xl);', (string) $site->value("SELECT css FROM tl_classes WHERE name = 'intro-x'"), 'the class from <style> was saved');
     }
 
     public function testPublishedPageIsOnTheSite(): void
@@ -73,7 +73,7 @@ final class McpBuilderTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('insert_section', ['id' => $site->publicId('pages', self::$zPage), 'section' => 'faq']);
         $site->mcp('publish_build', ['id' => $site->publicId('pages', self::$zPage)]);
-        $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
+        $site->exec('UPDATE tl_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 
         $body = $this->visit('/z-html');
@@ -91,8 +91,8 @@ final class McpBuilderTest extends SiteTestCase
         $this->site()->clearPageCache();
 
         $this->assertStringContainsString('readability', $text, 'the answer reports readability');
-        $this->assertPage('/', 200, 'ka-color-primary: #0f766e', message: 'design system from MCP is on the site');
-        $this->assertPage('/', 200, 'ka-color-surface: #f5f6f8', message: 'design system from MCP kept the other colours');
+        $this->assertPage('/', 200, 'tl-color-primary: #0f766e', message: 'design system from MCP is on the site');
+        $this->assertPage('/', 200, 'tl-color-surface: #f5f6f8', message: 'design system from MCP kept the other colours');
     }
 
     public function testDarkModeAndThemeSwitcherThroughMcp(): void
@@ -104,7 +104,7 @@ final class McpBuilderTest extends SiteTestCase
 
         $this->assertStringContainsString('data-dark data-theme="dark"', $body, 'always dark');
         $this->assertStringContainsString('data-theme-option="light"', $body, 'switcher for visitors');
-        $this->assertMatchesRegularExpression('/localStorage\.getItem\(.ka-theme.\)/', $body, 'the switcher remembers the choice');
+        $this->assertMatchesRegularExpression('/localStorage\.getItem\(.tl-theme.\)/', $body, 'the switcher remembers the choice');
         $this->assertStringContainsString('data-theme="dark"]', $body, 'CSS for the forced dark theme');
 
         $this->site()->mcp('update_settings', ['settings' => ['dark_mode' => 'off', 'theme_switcher' => '0']]);

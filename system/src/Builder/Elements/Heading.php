@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 final class Heading extends Element
 {
@@ -23,7 +23,7 @@ final class Heading extends Element
     /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */
     public static function baseCss(): string
     {
-        return ':where(.build) mark { background: none; color: var(--ka-color-secondary); }';
+        return ':where(.build) mark { background: none; color: var(--tl-color-secondary); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string

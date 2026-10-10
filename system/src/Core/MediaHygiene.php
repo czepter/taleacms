@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\Modules\Media;
+use Talea\Admin\Modules\Media;
 
 /**
  * Media clean-up (2.14): files nothing on the site points at, images too big for the web, the same file uploaded twice
@@ -118,7 +118,7 @@ final class MediaHygiene
                 continue;
             }
             foreach ($same as $o) {
-                $file = KALETA_ROOT . '/' . $o['image_path'];
+                $file = TALEA_ROOT . '/' . $o['image_path'];
                 $hashed[] = $o + ['sha1' => is_file($file) ? (string) sha1_file($file) : ''];
             }
         }

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp;
+namespace Talea\Mcp;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Core\App;
-use Kaleta\Core\Response;
-use Kaleta\Core\Extensions;
+use Talea\Admin\ChangeLog;
+use Talea\Core\App;
+use Talea\Core\Response;
+use Talea\Core\Extensions;
 
 /**
  * MCP server (Model Context Protocol, "Streamable HTTP" transport) at /mcp.
@@ -31,7 +31,7 @@ final class Server
     public function handle(): Response
     {
         $r = $this->app->request;
-        \Kaleta\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
+        \Talea\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
         if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
             return Response::json(['error' => 'The Claude connection is switched off (Extensions menu).'], 404);
         }
@@ -46,7 +46,7 @@ final class Server
         if ($user === null) {
             // link to the OAuth metadata: using them the Claude connector registers itself and asks the user for consent
             return new Response(json_encode(['error' => 'The token is invalid or missing.']), 401, ['Content-Type' => 'application/json',
-                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
+                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Talea\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
@@ -86,7 +86,7 @@ final class Server
             'initialize' => $ok([
                 'protocolVersion' => self::protocol($z['params']['protocolVersion'] ?? null),
                 'capabilities' => ['tools' => new \stdClass(), 'resources' => new \stdClass(), 'prompts' => new \stdClass()],
-                'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('site_name'), 'version' => KALETA_VERSION],
+                'serverInfo' => ['name' => 'Talea – ' . $this->app->settings()->get('site_name'), 'version' => TALEA_VERSION],
                 'instructions' => Prompts::serverInstructions($this->app),
             ]),
             // the site owner's instructions and an overview; ready-made tasks (2.2)
@@ -138,36 +138,36 @@ final class Server
             $items = $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
             // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
-            $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
+            $reason = \Talea\Core\Guardrails::reason($arguments['reason'] ?? null);
             unset($arguments['reason']);
             $unknownParams = self::unknownParams($items, $name, $arguments);
             // rows are named by their public id (HF-16): the tools below work with the numbers, so the guardrails and the journal see them
             $given = $arguments;
-            $ownTool = \Kaleta\Extension\Registry::get()->tool($name) === null;
+            $ownTool = \Talea\Extension\Registry::get()->tool($name) === null;
             if ($ownTool) {
-                $arguments = \Kaleta\Mcp\PublicIds::in($this->app->db(), $name, $arguments, false);
+                $arguments = \Talea\Mcp\PublicIds::in($this->app->db(), $name, $arguments, false);
             }
             // the site owner's guardrails (2.15) hold for every connection, on top of its access
-            $refusal = \Kaleta\Core\Guardrails::refusal($this->app, $name, Catalog::access($name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
+            $refusal = \Talea\Core\Guardrails::refusal($this->app, $name, Catalog::access($name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
             if ($refusal !== null) {
                 return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
             }
             if ($ownTool) {
-                $arguments = \Kaleta\Mcp\PublicIds::in($this->app->db(), $name, $given); // now an id that names no row is refused
+                $arguments = \Talea\Mcp\PublicIds::in($this->app->db(), $name, $given); // now an id that names no row is refused
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
             $db->journal = $tools->isWriteTool($name) && $name !== 'undo_agent_session'
-                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), $name) : null;
+                ? \Talea\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), $name) : null;
             try {
                 $result = $tools->call($name, $arguments);
-                $result = \Kaleta\Mcp\PublicIds::out($this->app->db(), $name, $result, $arguments);
+                $result = \Talea\Mcp\PublicIds::out($this->app->db(), $name, $result, $arguments);
             } finally {
                 $db->journal = null;
             }
             if ($tools->isWriteTool($name)) {
                 ChangeLog::write($this->app, 'claude', $name, mb_substr((string) ($given['title'] ?? $given['name'] ?? $given['template'] ?? $given['id'] ?? ''), 0, 200), $reason);
-                \Kaleta\Front\Cache::clear();
+                \Talea\Front\Cache::clear();
             }
             if ($name === 'list_enquiries') {
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
@@ -276,10 +276,10 @@ final class Server
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
         // the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
-        $ip = \Kaleta\Core\Antispam::hash(\Kaleta\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
-        // a personal token from "My account" (kaleta_…) or the access token of an application connected via OAuth
-        // (kaleta_oa_…, valid for an hour)
-        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
+        $ip = \Talea\Core\Antispam::hash(\Talea\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
+        // a personal token from "My account" (talea_…) or the access token of an application connected via OAuth
+        // (talea_oa_…, valid for an hour)
+        if (!preg_match('/^Bearer\s+(talea_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }
         // Wrong tokens are recorded per address, but only up to 20 rows per 15 minutes: the cap keeps a flood from filling the

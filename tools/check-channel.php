@@ -1,6 +1,6 @@
 <?php
 /**
- * Verifies the update channel the way a Kaleta installation sees it: whatever is currently on the project website must be
+ * Verifies the update channel the way a Talea installation sees it: whatever is currently on the project website must be
  * signed with a key from the repository and the download package must match the signed hash. Runs daily in GitHub Actions
  * (.github/workflows/daily-check.yml) - catches a forged or damaged file before users' sites run into it.
  *
@@ -13,13 +13,17 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/system/bootstrap.php';
 
-use Kaleta\Core\Signature;
+use Talea\Core\Signature;
 
-$manifestUrl = $argv[1] ?? 'https://kaletacms.com/update.json';
+$manifestUrl = $argv[1] ?? '';
+if ($manifestUrl === '') {
+    fwrite(STDERR, "Usage: php tools/check-channel.php <update.json address> (the project has no update channel yet)\n");
+    exit(2);
+}
 $keys = dirname(__DIR__) . '/system/update.pub';
 $errors = [];
 $download = static function (string $url): string {
-    $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 60, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Kaleta-check\r\n"]]));
+    $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 60, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Talea-check\r\n"]]));
     if ($data === false) {
         throw new RuntimeException("cannot download $url");
     }
@@ -41,7 +45,7 @@ try {
     if (!Signature::isValid(Signature::packageMessage($m['version'], strtolower($m['sha256']), !empty($m['security'])), $m['signature'], $keys)) {
         $errors[] = 'the signature of update.json is INVALID for every key in system/update.pub';
     }
-    $zip = tempnam(sys_get_temp_dir(), 'kaleta');
+    $zip = tempnam(sys_get_temp_dir(), 'talea');
     file_put_contents($zip, $download($m['url']));
     if (!hash_equals(strtolower($m['sha256']), hash_file('sha256', $zip))) {
         $errors[] = 'the hash of the downloaded package does not match the signed hash';

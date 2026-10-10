@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 use Dom\Element;
 use Dom\HTMLDocument;
@@ -80,7 +80,7 @@ final class HtmlConverter
      *
      * @return array{build: array<string, mixed>, notes: list<string>}
      */
-    public static function saveToSite(\Kaleta\Core\Db $db, string $html, bool $admin, bool $overwrite = false, ?\Kaleta\Core\Settings $settings = null): array
+    public static function saveToSite(\Talea\Core\Db $db, string $html, bool $admin, bool $overwrite = false, ?\Talea\Core\Settings $settings = null): array
     {
         $conversion = self::convert($html, $admin);
         $messages = $conversion['notes'];
@@ -92,7 +92,7 @@ final class HtmlConverter
             }
             if (in_array($className, $existing, true) && $settings !== null) {
                 // a change of a class the site has goes to the draft look (Core\Look)
-                \Kaleta\Core\Look::setClass($settings, $className, ['style' => $conversion['class_styles'][$className] ?? [], 'css' => $conversion['classes'][$className] ?? '']);
+                \Talea\Core\Look::setClass($settings, $className, ['style' => $conversion['class_styles'][$className] ?? [], 'css' => $conversion['classes'][$className] ?? '']);
                 $messages[] = 'Class .' . $className . ' changed in the draft look – the site shows it after publish_look.';
                 continue;
             }
@@ -510,7 +510,7 @@ final class HtmlConverter
         }
     }
 
-    /** The element's whole HTML including the tag. Dom\Element has the outerHTML property only from PHP 8.5 – Kaleta runs on 8.4 too. */
+    /** The element's whole HTML including the tag. Dom\Element has the outerHTML property only from PHP 8.5 – Talea runs on 8.4 too. */
     private static function html(\Dom\Element $el): string
     {
         return $el->ownerDocument->saveHtml($el);

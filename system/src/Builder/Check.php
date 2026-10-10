@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Pre-publish check of a build for Claude (MCP) – the same rules as in the builder (image/builder.js, check()):

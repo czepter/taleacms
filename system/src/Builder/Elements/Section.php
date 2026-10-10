@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** A full-width band of the page; an inner wrapper keeps the content at the site width (or narrow for text, or none). */
 final class Section extends Element
@@ -41,13 +41,13 @@ final class Section extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-wrap { width: min(100% - 2 * var(--ka-margin, var(--ka-space-m)), var(--ka-width)); margin-inline: auto; }
-.ka-wrap--narrow { width: min(100% - 2 * var(--ka-margin, var(--ka-space-m)), var(--ka-text-width)); }
-:where(.build) a:focus-visible { outline: 3px solid var(--ka-color-secondary); outline-offset: 2px; }
-.ka-wrap > * + * { margin-block-start: var(--ka-space-m); }
-.ka-with-video { position: relative; isolation: isolate; overflow: hidden; }
-.ka-video-background { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; }
-@media (prefers-reduced-motion: reduce) { .ka-video-background { display: none; } }';
+        return '.tl-wrap { width: min(100% - 2 * var(--tl-margin, var(--tl-space-m)), var(--tl-width)); margin-inline: auto; }
+.tl-wrap--narrow { width: min(100% - 2 * var(--tl-margin, var(--tl-space-m)), var(--tl-text-width)); }
+:where(.build) a:focus-visible { outline: 3px solid var(--tl-color-secondary); outline-offset: 2px; }
+.tl-wrap > * + * { margin-block-start: var(--tl-space-m); }
+.tl-with-video { position: relative; isolation: isolate; overflow: hidden; }
+.tl-video-background { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; }
+@media (prefers-reduced-motion: reduce) { .tl-video-background { display: none; } }';
     }
 
     /**
@@ -58,12 +58,12 @@ final class Section extends Element
      */
     public static function scrollCss(): string
     {
-        return '.ka-header-scroll--transparent { z-index: 10; background-color: var(--ka-color-background); box-shadow: var(--ka-shadow-s); }
-@keyframes ka-header-transparent { from { background-color: transparent; border-color: transparent; box-shadow: none; } }
-@keyframes ka-header-light { from { background-color: transparent; border-color: transparent; box-shadow: none; color: var(--ka-color-white); } }
-@keyframes ka-header-dark { from { background-color: transparent; border-color: transparent; box-shadow: none; color: var(--ka-color-black); } }
-@keyframes ka-header-smaller { to { padding-block: var(--ka-space-2xs); } }
-@media (prefers-reduced-motion: reduce) { .ka-header-scroll { animation: none !important; } }';
+        return '.tl-header-scroll--transparent { z-index: 10; background-color: var(--tl-color-background); box-shadow: var(--tl-shadow-s); }
+@keyframes tl-header-transparent { from { background-color: transparent; border-color: transparent; box-shadow: none; } }
+@keyframes tl-header-light { from { background-color: transparent; border-color: transparent; box-shadow: none; color: var(--tl-color-white); } }
+@keyframes tl-header-dark { from { background-color: transparent; border-color: transparent; box-shadow: none; color: var(--tl-color-black); } }
+@keyframes tl-header-smaller { to { padding-block: var(--tl-space-2xs); } }
+@media (prefers-reduced-motion: reduce) { .tl-header-scroll { animation: none !important; } }';
     }
 
     /** The chosen behaviour on scroll – only in the header site part (elsewhere a fixed section would cover the page). */
@@ -84,10 +84,10 @@ final class Section extends Element
         $animations = [];
         if ($transparent) {
             $text = (string) ($p['content']['text_at_top'] ?? '');
-            $animations[] = 'ka-header-' . (in_array($text, ['light', 'dark'], true) ? $text : 'transparent') . ' linear both';
+            $animations[] = 'tl-header-' . (in_array($text, ['light', 'dark'], true) ? $text : 'transparent') . ' linear both';
         }
         if (str_contains($mode, 'shrink')) {
-            $animations[] = 'ka-header-smaller linear both';
+            $animations[] = 'tl-header-smaller linear both';
         }
 
         // transparent = out of the flow, so that the first section of the page starts at the top of the window; the timeline is the page scroll
@@ -98,17 +98,17 @@ final class Section extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $width = $p['content']['width'] ?? 'content';
-        $content = $width === 'full' ? $children : '<div class="ka-wrap' . ($width === 'narrow' ? ' ka-wrap--narrow' : '') . '">' . $children . '</div>';
+        $content = $width === 'full' ? $children : '<div class="tl-wrap' . ($width === 'narrow' ? ' tl-wrap--narrow' : '') . '">' . $children . '</div>';
 
         // background video: only a file from Media (a third-party player would send data without consent); muted, looped, hidden from screen readers
         $video = (string) ($p['content']['background_video'] ?? '');
         if (preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,300}\.(mp4|webm))$#i', $video, $m) && !str_contains($m[1], '..')) {
-            $content = '<video class="ka-video-background" src="' . e($k->app->request->basePath() . '/' . $m[1]) . '" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>' . $content;
-            $a = Text::withClass($a, 'ka-with-video');
+            $content = '<video class="tl-video-background" src="' . e($k->app->request->basePath() . '/' . $m[1]) . '" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>' . $content;
+            $a = Text::withClass($a, 'tl-with-video');
         }
         $mode = self::scrollMode($p, $k);
         if ($mode !== '') {
-            $a = Text::withClass($a, 'ka-header-scroll' . (str_contains($mode, 'transparent') ? ' ka-header-scroll--transparent' : ''));
+            $a = Text::withClass($a, 'tl-header-scroll' . (str_contains($mode, 'transparent') ? ' tl-header-scroll--transparent' : ''));
         }
 
         return '<' . $p['tag'] . $a . '>' . $content . '</' . $p['tag'] . '>';

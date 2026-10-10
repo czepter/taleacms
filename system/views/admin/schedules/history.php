@@ -3,14 +3,14 @@
  * The runs of one schedule (2.17): when each was due, who did it, the status, the summary and the links to the drafts –
  * and the instructions the routine gets.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Schedules $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Schedules $module
  * @var string $csrf
  * @var array<string, mixed> $s the schedule
  * @var list<array<string, mixed>> $runs newest first, with links_list
  * @var string $instructions
  */
-use Kaleta\Core\AgentSchedules;
+use Talea\Core\AgentSchedules;
 
 $tag = fn (string $status): string => '<span class="badge' . match ($status) { 'ok' => ' badge-published', 'running' => ' badge-draft', 'failed', 'missed' => ' badge-error', default => '' } . '">' . e(t(AgentSchedules::STATUSES[$status] ?? $status)) . '</span>';
 ?>

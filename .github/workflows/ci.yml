@@ -28,13 +28,13 @@ jobs:
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - name: PHPUnit (unit, integration, whole installed sites in parallel)
         run: vendor/bin/paratest --processes 4 --exclude-group browser
-        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
       - name: Public demo (demo mode, snapshot and the hourly reset)
         run: tools/test-demo.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
       - name: Browser test (admin, builder, editors, public site in Chrome)
         run: vendor/bin/phpunit --testsuite browser
-        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root, CHROME: /usr/bin/google-chrome }
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root, CHROME: /usr/bin/google-chrome }
       - name: Output budget (Lighthouse on every starter site)
         if: matrix.php == '8.4'
         run: tools/test-lighthouse.sh

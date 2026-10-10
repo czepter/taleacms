@@ -19,15 +19,15 @@ $field('webhook_url', 'Webhook after publishing news', 'url', 'An address from M
 <div class="row">
 	<label for="webhook_secret"><?= e(t('Signing secret')) ?></label>
 	<div><input class="textfield wide code" type="text" id="webhook_secret" value="<?= e($webhookSecret) ?>" readonly autocomplete="off" spellcheck="false">
-	<span class="help"><?= e(t('Every call carries the headers X-Kaleta-Timestamp and X-Kaleta-Signature (sha256=HMAC-SHA256 of “timestamp.body” with this secret). A receiver that checks the signature knows the call came from your site and was not changed. Keep the secret private.')) ?></span>
+	<span class="help"><?= e(t('Every call carries the headers X-Talea-Timestamp and X-Talea-Signature (sha256=HMAC-SHA256 of “timestamp.body” with this secret). A receiver that checks the signature knows the call came from your site and was not changed. Keep the secret private.')) ?></span>
 	<button class="navigation" type="submit" formaction="<?= e($module->url('new_webhook_secret')) ?>" data-confirm="<?= e(t('Create a new secret? Receivers that check the signature will reject calls until you give them the new one.')) ?>"><?= e(t('Create a new secret')) ?></button></div>
 </div>
 <details class="advanced">
 <summary><?= e(t('How to check the signature')) ?></summary>
 <pre class="code"><code>$body = file_get_contents('php://input');
-$ts = $_SERVER['HTTP_X_KALETA_TIMESTAMP'] ?? '';
+$ts = $_SERVER['HTTP_X_TALEA_TIMESTAMP'] ?? '';
 $expected = 'sha256=' . hash_hmac('sha256', $ts . '.' . $body, $secret);
-$valid = hash_equals($expected, $_SERVER['HTTP_X_KALETA_SIGNATURE'] ?? '')
+$valid = hash_equals($expected, $_SERVER['HTTP_X_TALEA_SIGNATURE'] ?? '')
     &amp;&amp; abs(time() - (int) $ts) &lt; 300;</code></pre>
 </details>
 </fieldset>

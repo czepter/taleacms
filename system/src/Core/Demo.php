@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * The public demo (2.6, demo.kaletacms.com): anyone signs in with the account shown on the sign-in screen, tries the
+ * The public demo (2.6, demo.taleacms.com): anyone signs in with the account shown on the sign-in screen, tries the
  * admin and the builder, and every hour the site goes back to its snapshot (php system/demo.php reset from cron).
  * Switched on in config.php: 'demo' => ['user' => 'demo', 'password' => '…'].
  *
@@ -39,7 +39,7 @@ final class Demo
     /** The message for anything the demo refuses. */
     public static function refusal(): string
     {
-        return t('This is switched off in the public demo. Install Kaleta to try it.');
+        return t('This is switched off in the public demo. Install Talea to try it.');
     }
 
     /**
@@ -67,12 +67,12 @@ final class Demo
     public static function blocksAdmin(string $module, string $action, string $tab, bool $post): bool
     {
         $class = null;
-        foreach (\Kaleta\Admin\Kernel::MODULES as $candidate) {
+        foreach (\Talea\Admin\Kernel::MODULES as $candidate) {
             if ($candidate::IDENT === $module) {
                 $class = $candidate;
             }
         }
-        if ($class !== null && is_a($class, \Kaleta\Admin\Modules\Settings::class, true)) {
+        if ($class !== null && is_a($class, \Talea\Admin\Modules\Settings::class, true)) {
             return !in_array($action, self::SETTINGS_ACTIONS[$module] ?? ['', 'list'], true) || ($post && $module === 'settings' && !in_array($tab, self::SETTINGS_TABS, true))
                 || ($post && !isset(self::SETTINGS_ACTIONS[$module]));
         }
@@ -100,7 +100,7 @@ final class Demo
 
     public static function dir(): string
     {
-        return KALETA_ROOT . '/storage/demo';
+        return TALEA_ROOT . '/storage/demo';
     }
 
     /** Saves the current database and media as the state every reset returns to. */
@@ -111,18 +111,18 @@ final class Demo
         }
         $name = Backup::create($db, 'demo');
         $backup = Backup::path($name);
-        array_map('unlink', glob(self::dir() . '/kaleta-demo-snapshot.sql*') ?: []);
-        if ($backup === null || !rename($backup, self::dir() . '/kaleta-demo-snapshot.' . (str_ends_with($name, '.gz') ? 'sql.gz' : 'sql'))) {
+        array_map('unlink', glob(self::dir() . '/talea-demo-snapshot.sql*') ?: []);
+        if ($backup === null || !rename($backup, self::dir() . '/talea-demo-snapshot.' . (str_ends_with($name, '.gz') ? 'sql.gz' : 'sql'))) {
             throw new \RuntimeException('The database snapshot could not be saved.');
         }
-        self::copyTree(KALETA_ROOT . '/media', self::dir() . '/media');
+        self::copyTree(TALEA_ROOT . '/media', self::dir() . '/media');
         file_put_contents(self::dir() . '/reset', (string) time());
     }
 
     /** Puts the database and media back to the snapshot and empties the page cache. */
     public static function reset(Db $db): void
     {
-        $snapshot = (glob(self::dir() . '/kaleta-demo-snapshot.sql*') ?: [''])[0];
+        $snapshot = (glob(self::dir() . '/talea-demo-snapshot.sql*') ?: [''])[0];
         if ($snapshot === '') {
             throw new \RuntimeException('There is no snapshot yet: run php system/demo.php snapshot first.');
         }
@@ -134,8 +134,8 @@ final class Demo
         } finally {
             @unlink(Backup::FOLDER . '/' . $name);
         }
-        self::copyTree(self::dir() . '/media', KALETA_ROOT . '/media');
-        self::removeTree(KALETA_ROOT . '/storage/cache/pages', false);
+        self::copyTree(self::dir() . '/media', TALEA_ROOT . '/media');
+        self::removeTree(TALEA_ROOT . '/storage/cache/pages', false);
         file_put_contents(self::dir() . '/reset', (string) time());
     }
 

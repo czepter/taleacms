@@ -2,13 +2,13 @@
 /**
  * Consent to connecting an app via OAuth (the Claude connector and other MCP clients).
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array{nazev:string, redirect_uri:string} $pending
  * @var array<string, mixed> $user
  * @var string $url  the server the app returns to after consent
  */
-$role = t(Kaleta\Core\Auth::TYPES[(int) $username['admin']] ?? '');
+$role = t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '');
 ?>
 <div class="oauth-consent">
 	<p class="oauth-who"><strong><?= e($pending['name']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?></p>

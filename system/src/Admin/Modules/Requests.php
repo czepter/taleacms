@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Requests as Inbox;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Requests as Inbox;
+use Talea\Core\Response;
 
 /**
  * Requests to Claude (2.15, Core\Requests): staff with this section write what they need changed on the site; Claude reads
@@ -29,16 +29,16 @@ final class Requests extends Module
 
         return $this->view('list', 'Ask Claude', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
-            'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
+            'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
     }
 
     protected function actionNew(): Response
     {
         return $this->view('new', 'New request', [
             'pages' => $this->db->pairs('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT public_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
+            'news' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT public_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
             'items' => $this->db->pairs('SELECT p.public_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
-            'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
+            'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Talea\Core\Files::limitText(),
         ]);
     }
 
@@ -52,7 +52,7 @@ final class Requests extends Module
         // back to the dashboard, where the request is listed under their requests
         $fromDashboard = $this->request->post('from') === 'dashboard';
         $title = $this->request->post('quick') === '1' && trim($this->request->post('title')) === ''
-            ? \Kaleta\Core\AskClaude::title($this->request->post('text')) : $this->request->post('title');
+            ? \Talea\Core\AskClaude::title($this->request->post('text')) : $this->request->post('title');
         if (trim($title) === '' || trim($this->request->post('text')) === '') {
             // checked before the uploads, so a request sent back for its text leaves no stray files in Media
             $message = trim($this->request->post('text')) === '' ? 'Write what should change.' : 'Give the request a title.';

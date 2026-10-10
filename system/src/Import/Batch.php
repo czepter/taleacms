@@ -2,33 +2,33 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
-use Kaleta\Admin\Modules\Media as MediaLibrary;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Admin\Modules\Redirects;
-use Kaleta\Core\Db;
-use Kaleta\Core\ImageDownloader;
-use Kaleta\Core\Images;
-use Kaleta\Core\Language;
-use Kaleta\Core\Search;
-use Kaleta\Core\Settings;
-use Kaleta\Core\Slug;
-use Kaleta\Core\WebImport;
-use Kaleta\Core\WpContent;
-use Kaleta\Core\WpFile;
-use Kaleta\Core\WpImport;
+use Talea\Admin\Modules\Media as MediaLibrary;
+use Talea\Admin\Modules\Pages;
+use Talea\Admin\Modules\Redirects;
+use Talea\Core\Db;
+use Talea\Core\ImageDownloader;
+use Talea\Core\Images;
+use Talea\Core\Language;
+use Talea\Core\Search;
+use Talea\Core\Settings;
+use Talea\Core\Slug;
+use Talea\Core\WebImport;
+use Talea\Core\WpContent;
+use Talea\Core\WpFile;
+use Talea\Core\WpImport;
 
 /**
  * The batch runner shared by every structured importer (Import\Source): Ghost, Blogger and the systems that follow.
  * It follows Core\WpImport step by step, so the admin flow and the guarantees are the same:
  *  - the export lies in storage/import/sources/<key>-<name>.<ext> (a subfolder, so a Ghost .json is never mistaken for a
- *    Kaleta site export in storage/import/), the state in state-<hash>.json next to it; the work runs in batches of at most
+ *    Talea site export in storage/import/), the state in state-<hash>.json next to it; the work runs in batches of at most
  *    BATCH records or SECONDS seconds per request, the position is the record's order from the source;
  *  - three passes: analyze (the preview, writes nothing), import (each record one transaction) and – on explicit request –
  *    images through Core\ImageDownloader with its SSRF rules (the old site's domain, or any public host when the source says
  *    its images live on a CDN);
- *  - ka_import_map with the source label <key>:<domain> remembers what became what: the same file can be run again and
+ *  - tl_import_map with the source label <key>:<domain> remembers what became what: the same file can be run again and
  *    nothing is duplicated, failed images are not retried for every post;
  *  - HTML from the file is never trusted: it goes through Core\WpContent::sanitize like WordPress content;
  *  - no accounts are created (the mapping assigns authors to existing users), imported news is not announced, pages are
@@ -191,7 +191,7 @@ final class Batch
         return date('Y-m-d H:i:s', $time !== false && $time > 0 ? $time : ($now ?? time()));
     }
 
-    /** Source label in ka_import_map: <key>:<domain of the old site>, so two old sites never share post numbers. */
+    /** Source label in tl_import_map: <key>:<domain of the old site>, so two old sites never share post numbers. */
     public static function label(string $key, string $siteUrl): string
     {
         $domain = ImageDownloader::domainFromUrl($siteUrl);
@@ -591,7 +591,7 @@ final class Batch
      * One image: from the map (already downloaded), or from the old site through Core\Images into Media.
      *
      * @param array<string, mixed> $state
-     * @return array<string, mixed>|null|false a ka_media row; null = cannot be downloaded; false = the batch has run out
+     * @return array<string, mixed>|null|false a tl_media row; null = cannot be downloaded; false = the batch has run out
      */
     private function image(string $url, string $name, array &$state, ImageDownloader $downloader): array|null|false
     {
@@ -635,7 +635,7 @@ final class Batch
         }
     }
 
-    /* ---------- map of foreign and our records (ka_import_map) ---------- */
+    /* ---------- map of foreign and our records (tl_import_map) ---------- */
 
     /** The id of our record the foreign one was already converted into – only if it still exists (a deleted one is imported again). */
     private function convertedId(string $type, string $foreignId, string $table, string $key): ?int

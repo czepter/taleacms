@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Set of line icons for the Icon element: 24×24, currentColor stroke – the element's style controls color and size.
- * Drawn for Kaleta with simple shapes, without a third-party library and without loading an icon font.
+ * Drawn for Talea with simple shapes, without a third-party library and without loading an icon font.
  */
 final class Icons
 {

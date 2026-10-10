@@ -32,7 +32,7 @@ return [
     'list' => ['sort' => 'newest'],
     'card' => ['location', 'employment_type'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $types = array_column($fields, 'type', 'key');
         // one line per fact; a text field that the administrator removed is left out
         $fact = fn (string $key, string $label, string $tags): ?array => isset($types[$key]) ? $n('text', ['html' => '<p><strong>' . e(t($label)) . ':</strong> ' . $tags . '</p>']) : null;

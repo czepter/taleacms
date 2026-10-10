@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Tests\Site\Support\Http;
+use Talea\Tests\Site\Support\Http;
 
 /** The second signed-in session of the old suite (JAR2): an author-level user "autor" created by the administrator. */
 trait AuthorSession

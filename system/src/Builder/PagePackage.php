@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Look;
-use Kaleta\Core\Settings;
+use Talea\Core\Db;
+use Talea\Core\Look;
+use Talea\Core\Settings;
 
 /**
  * What a page export carries besides the page (1.8): the shared classes and the components its build uses – components
@@ -110,7 +110,7 @@ final class PagePackage
             $created['components']++;
         }
         if ($created !== ['classes' => 0, 'components' => 0]) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return [self::pointAt($pageBuild, $map), $created];
@@ -139,7 +139,7 @@ final class PagePackage
     {
         $map = fn (string $table, mixed $id): string|int => (int) $id > 0 ? ($db->publicId($table, (int) $id) ?: 0) : 0;
 
-        return json_decode(\Kaleta\Core\SiteExport::mapReferences('build', (string) json_encode($build), $map), true) ?: $build;
+        return json_decode(\Talea\Core\SiteExport::mapReferences('build', (string) json_encode($build), $map), true) ?: $build;
     }
 
     /**
@@ -152,7 +152,7 @@ final class PagePackage
     {
         $map = fn (string $table, mixed $id): int => $db->internalId($table, $id);
 
-        return json_decode(\Kaleta\Core\SiteExport::mapReferences('build', (string) json_encode($build), $map), true) ?: $build;
+        return json_decode(\Talea\Core\SiteExport::mapReferences('build', (string) json_encode($build), $map), true) ?: $build;
     }
 
     /** @param array<string, true> $classes collected class names @return list<string> the references (public ids; integers in an older file) of the components the elements use */

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Images;
-use Kaleta\Core\Look;
-use Kaleta\Core\Response;
-use Kaleta\Builder\DesignSystem;
+use Talea\Admin\Module;
+use Talea\Core\Images;
+use Talea\Core\Look;
+use Talea\Core\Response;
+use Talea\Builder\DesignSystem;
 
 /**
  * Site appearance: logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
@@ -46,11 +46,11 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
-        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/icon-180.png'))) {
+        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(TALEA_ROOT . '/media/icon-180.png'))) {
             // icons for phones and for installing the site are prepared from the icon once, when saving
-            $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $icon, $m) && !str_contains($m[1], '..') && Images::icons(KALETA_ROOT . '/' . $m[1]);
+            $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $icon, $m) && !str_contains($m[1], '..') && Images::icons(TALEA_ROOT . '/' . $m[1]);
             if (!$ok) {
-                array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/icon-' . $n . '.png'), Images::ICON_SIZES);
+                array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/media/icon-' . $n . '.png'), Images::ICON_SIZES);
             }
         }
         $siteSettings->set('favicon', $icon);
@@ -58,11 +58,7 @@ final class Appearance extends Module
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
         $inDraft = $this->toDraft($this->parseForm());
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
-        // older Identity keys: they are not read once the design system is saved, so they do not confuse the export or other tools
-        $siteSettings->set('brand_accent', '');
-        $siteSettings->set('brand_heading_font', 'default');
-        $siteSettings->set('brand_text_font', 'default');
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back($inDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
     }
@@ -100,7 +96,7 @@ final class Appearance extends Module
     {
         if ($this->request->isPost()) {
             Look::discard($this->app->settings());
-            \Kaleta\Admin\ChangeLog::write($this->app, 'appearance', 'discard look draft');
+            \Talea\Admin\ChangeLog::write($this->app, 'appearance', 'discard look draft');
         }
 
         return $this->back('The unpublished look changes were discarded.');
@@ -128,9 +124,9 @@ final class Appearance extends Module
     }
 
     /** Signed link to the whole-site preview (Core\Preview target "web"). */
-    public static function sitePreviewUrl(\Kaleta\Core\App $app, int $minutes): string
+    public static function sitePreviewUrl(\Talea\Core\App $app, int $minutes): string
     {
-        return $app->request->origin() . $app->url('') . '?preview_key=' . \Kaleta\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
+        return $app->request->origin() . $app->url('') . '?preview_key=' . \Talea\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
     }
 
     /** Design tokens for download in the DTCG format (Figma, Tokens Studio, Style Dictionary). */
@@ -141,7 +137,7 @@ final class Appearance extends Module
         return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokens-' . date('Y-m-d') . '.tokens.json"']);
     }
 
-    /** Import of DTCG tokens: the whole appearance from a Kaleta export, the colors from another tool. */
+    /** Import of DTCG tokens: the whole appearance from a Talea export, the colors from another tool. */
     protected function actionTokensImport(): Response
     {
         $file = $_FILES['tokens'] ?? null;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Spam protection for visitors' forms without cookies and without CAPTCHA:
@@ -15,10 +15,10 @@ final class Antispam
     /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-wait). */
     public const int MIN_SECONDS = 4;
 
-    /** The minimum age; the automated tests shorten it (KALETA_ANTISPAM_MIN, like the other KALETA_* test switches) so they do not wait four seconds per form. */
+    /** The minimum age; the automated tests shorten it (TALEA_ANTISPAM_MIN, like the other TALEA_* test switches) so they do not wait four seconds per form. */
     public static function minSeconds(): int
     {
-        $test = getenv('KALETA_ANTISPAM_MIN');
+        $test = getenv('TALEA_ANTISPAM_MIN');
 
         return $test !== false && ctype_digit($test) ? (int) $test : self::MIN_SECONDS;
     }
@@ -116,6 +116,6 @@ final class Antispam
     /** The table does not store the IP address, only its hash. */
     public static function hash(string $ip): string
     {
-        return substr(hash('sha256', 'kaleta|' . $ip), 0, 40);
+        return substr(hash('sha256', 'talea|' . $ip), 0, 40);
     }
 }

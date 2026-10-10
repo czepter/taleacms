@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp;
+namespace Talea\Mcp;
 
 /**
  * Every MCP tool once (2.1): its name => [access, the extension it needs ('' = none)].
@@ -179,12 +179,12 @@ final class Catalog
     /** Is this a tool of the system or of an add-on (3.0)? */
     public static function exists(string $name): bool
     {
-        return isset(self::TOOLS[$name]) || \Kaleta\Extension\Registry::get()->tool($name) !== null;
+        return isset(self::TOOLS[$name]) || \Talea\Extension\Registry::get()->tool($name) !== null;
     }
 
     public static function access(string $name): string
     {
-        $addon = \Kaleta\Extension\Registry::get()->tool($name);
+        $addon = \Talea\Extension\Registry::get()->tool($name);
         if ($addon !== null) {
             return $addon['access'];
         }

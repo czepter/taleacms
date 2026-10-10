@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** Site logo from Appearance (without it, the site name) as a link to the home page. The height is changed by the "Height" style. */
 final class Logo extends Element
@@ -25,8 +25,8 @@ final class Logo extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-logo { display: inline-flex; align-items: center; gap: var(--ka-space-xs); height: 2.75rem; color: inherit; font-family: var(--ka-font-heading); font-size: var(--ka-step-1); font-weight: 800; line-height: 1.1; text-decoration: none; }
-.ka-logo img { display: block; width: auto; height: 100%; max-width: none; }';
+        return '.tl-logo { display: inline-flex; align-items: center; gap: var(--tl-space-xs); height: 2.75rem; color: inherit; font-family: var(--tl-font-heading); font-size: var(--tl-step-1); font-weight: 800; line-height: 1.1; text-decoration: none; }
+.tl-logo img { display: block; width: auto; height: 100%; max-width: none; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -39,6 +39,6 @@ final class Logo extends Element
             ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['content']['name'] ? '' : $name) . '">' . ($p['content']['name'] ? '<span>' . e($name) . '</span>' : '')
             : e($name);
 
-        return '<a' . Text::withClass($a, 'ka-logo') . ' href="' . e($home) . '"' . ($k->path === $home ? ' aria-current="page"' : '') . '>' . $content . '</a>';
+        return '<a' . Text::withClass($a, 'tl-logo') . ' href="' . e($home) . '"' . ($k->path === $home ? ' aria-current="page"' : '') . '>' . $content . '</a>';
     }
 }

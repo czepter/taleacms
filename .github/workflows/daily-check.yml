@@ -1,5 +1,5 @@
 # Daily security check. It releases and signs nothing - it only says in time that a patch (a fix release) is needed:
-#  1) the update channel on kaletacms.com is signed with our key and the package matches its hash (catches forgery),
+#  1) the update channel on taleacms.com is signed with our key and the package matches its hash (catches forgery),
 #  2) the tests on all supported PHP versions and on the upcoming one (catches what the next PHP will break),
 #  3) static security analysis with daily updated rules - findings go to Security → Code scanning,
 #     visible to repository admins only (the public run log is deliberately quiet),
@@ -15,6 +15,7 @@ permissions:
 jobs:
   channel:
     name: Update channel
+    if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -42,7 +43,7 @@ jobs:
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - run: vendor/bin/paratest --processes 4 --exclude-group browser
-        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   analysis:
     name: Static analysis
@@ -73,6 +74,7 @@ jobs:
 
   websites:
     name: Project website from outside
+    if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
     runs-on: ubuntu-latest
     steps:
       - name: Security headers and closed paths
@@ -81,12 +83,12 @@ jobs:
           errors=0
           header() { curl -sSI -m 20 "$1" | tr -d '\r' | grep -qi "^$2:" || { echo "MISSING $2 on $1"; errors=$((errors+1)); }; }
           code() { c=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$1"); case " $2 " in *" $c "*) ;; *) echo "UNEXPECTED $c on $1 (expected: $2)"; errors=$((errors+1));; esac; }
-          # public pages: the headers every Kaleta page sends (a strict CSP is the admin's – sites carry their own code)
-          for h in x-content-type-options referrer-policy x-frame-options; do header https://kaletacms.com/ "$h"; done
+          # public pages: the headers every Talea page sends (a strict CSP is the admin's – sites carry their own code)
+          for h in x-content-type-options referrer-policy x-frame-options; do header https://taleacms.com/ "$h"; done
           # the admin: CSP and HSTS
-          for h in content-security-policy strict-transport-security; do header https://kaletacms.com/admin.php "$h"; done
-          code https://kaletacms.com/update.json "200 302"
-          for path in .htaccess config.php system/bootstrap.php system/files.json storage/log/errors.log .git/config tools/release.php; do code "https://kaletacms.com/$path" "403 404"; done
+          for h in content-security-policy strict-transport-security; do header https://taleacms.com/admin.php "$h"; done
+          code https://taleacms.com/update.json "200 302"
+          for path in .htaccess config.php system/bootstrap.php system/files.json storage/log/errors.log .git/config tools/release.php; do code "https://taleacms.com/$path" "403 404"; done
           exit "$errors"
 
   report:

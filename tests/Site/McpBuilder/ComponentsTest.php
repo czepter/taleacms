@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Components: properties, builder, placing them on a page, forms inside, saving an element as a component (was: section 14). */
@@ -15,7 +15,7 @@ final class ComponentsTest extends SiteTestCase
 
     private static int $idm = 0;
 
-    private function componentAction(string $action, array $fields = []): \Kaleta\Tests\Site\Support\Response
+    private function componentAction(string $action, array $fields = []): \Talea\Tests\Site\Support\Response
     {
         return $this->adminPost('/admin.php?module=components&action=' . $action . '&id=' . $this->site()->publicId('components', self::$idm), $fields);
     }
@@ -28,12 +28,12 @@ final class ComponentsTest extends SiteTestCase
             'component_id' => 0, 'name' => 'Service card',
             'properties' => [['label' => 'Heading', 'type' => 'text', 'default' => 'Default heading'], ['label' => 'Target', 'type' => 'link', 'default' => '/contact']],
         ]);
-        self::$idm = (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1');
+        self::$idm = (int) $this->site()->value('SELECT component_id FROM tl_components ORDER BY component_id DESC LIMIT 1');
 
         $this->assertPage('/admin.php?module=components&action=builder&id=' . $this->site()->publicId('components', self::$idm), 200, 'id="builder-data"', message: 'component in the builder');
         $this->assertPage('/admin.php?module=components&action=builder&id=' . $this->site()->publicId('components', self::$idm), 200, '"guide":"https:', message: '2.4: builder links to its guide article');
         $this->assertMatchesRegularExpression('/"guide":"https:[^"]*guide[^"]*components"/', $this->site()->admin()->get('/admin.php?module=components&action=builder&id=' . $this->site()->publicId('components', self::$idm))->body, '2.4: the guide is the components article');
-        $this->assertMatchesRegularExpression('/class="guide-link" href="https:\/\/kaletacms.com\/[a-z\/]*guide\/backups-updates"/', $this->site()->admin()->get('/admin.php?module=settings&tab=backups')->body, '2.4: settings tab links to its guide article');
+        $this->assertMatchesRegularExpression('/class="guide-link" href="https:\/\/taleacms.com\/[a-z\/]*guide\/backups-updates"/', $this->site()->admin()->get('/admin.php?module=settings&tab=backups')->body, '2.4: settings tab links to its guide article');
         $this->assertPage('/admin.php', 200, 'guide/first-steps#the-dashboard', message: '2.4: dashboard links to the guide');
     }
 
@@ -47,7 +47,7 @@ final class ComponentsTest extends SiteTestCase
         $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
         $this->assertSame(200, $this->componentAction('build_publish')->status, 'publishing the component');
-        $this->assertPage('/_component/' . $this->site()->publicId('components', (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1')) . '?build=draft&editor=1', 200, 'Default heading', message: 'component preview for the editor');
+        $this->assertPage('/_component/' . $this->site()->publicId('components', (int) $this->site()->value('SELECT component_id FROM tl_components ORDER BY component_id DESC LIMIT 1')) . '?build=draft&editor=1', 200, 'Default heading', message: 'component preview for the editor');
     }
 
     public function testComponentOnAPage(): void
@@ -66,7 +66,7 @@ final class ComponentsTest extends SiteTestCase
         $this->assertGreaterThanOrEqual(1, substr_count($body, 'href="/contact"'), 'the default link');
         $this->assertStringNotContainsString('javascript:', $body, 'the dangerous link is gone');
         $this->assertStringNotContainsString('id="s-kna1"', $body, 'no duplicate id');
-        $this->assertStringNotContainsString('data-ka-id', $body, 'no editor markers');
+        $this->assertStringNotContainsString('data-tl-id', $body, 'no editor markers');
         $this->assertSame(1, substr_count($body, '.s-kna1 {'), 'the style is there once for two uses');
 
         $list = $this->assertPage('/admin.php?module=components', 200, '1×', message: 'components show the number of uses');

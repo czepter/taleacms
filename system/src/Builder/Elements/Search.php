@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** Search field: a form to /search (pages, collection items and news; regardless of diacritics). */
 final class Search extends Element
@@ -26,9 +26,9 @@ final class Search extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-search { display: flex; gap: var(--ka-space-xs); max-width: 32rem; }
-.ka-search input { flex: 1; min-width: 0; padding: 0.6em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: inherit; font: inherit; }
-.ka-search button { padding: 0.6em 1.1em; border: 0; border-radius: var(--ka-radius); background: var(--ka-color-primary); color: var(--ka-color-on-primary); font: inherit; font-weight: 600; cursor: pointer; }';
+        return '.tl-search { display: flex; gap: var(--tl-space-xs); max-width: 32rem; }
+.tl-search input { flex: 1; min-width: 0; padding: 0.6em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: inherit; font: inherit; }
+.tl-search button { padding: 0.6em 1.1em; border: 0; border-radius: var(--tl-radius); background: var(--tl-color-primary); color: var(--tl-color-on-primary); font: inherit; font-weight: 600; cursor: pointer; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -36,8 +36,8 @@ final class Search extends Element
         $o = $p['content'];
         $id = 'hl-' . $p['id'];
 
-        return '<form' . Text::withClass($a, 'ka-search') . ' role="search" method="get" action="' . e($k->url('search')) . '">'
-            . '<label class="ka-reader-only" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
+        return '<form' . Text::withClass($a, 'tl-search') . ' role="search" method="get" action="' . e($k->url('search')) . '">'
+            . '<label class="tl-reader-only" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
             . '<input type="search" id="' . e($id) . '" name="q" minlength="3" maxlength="100" placeholder="' . e($o['placeholder']) . '" required>'
             . '<button type="submit">' . e($o['button_text']) . '</button></form>';
     }

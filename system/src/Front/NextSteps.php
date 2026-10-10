@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Hours;
+use Talea\Core\App;
+use Talea\Core\Hours;
 
 /**
  * What happens after a form is sent (2.12): the steps the site promised, by when it replies and who. The form carries the
@@ -90,12 +90,12 @@ final class NextSteps
     {
         $now ??= new \DateTimeImmutable();
         $steps = self::steps($content);
-        $html = $steps === [] ? '' : '<p class="ka-steps-heading">' . e(t('What happens next')) . '</p><ol class="ka-steps">' . implode('', array_map(fn (string $s): string => '<li>' . e($s) . '</li>', $steps)) . '</ol>';
+        $html = $steps === [] ? '' : '<p class="tl-steps-heading">' . e(t('What happens next')) . '</p><ol class="tl-steps">' . implode('', array_map(fn (string $s): string => '<li>' . e($s) . '</li>', $steps)) . '</ol>';
         $due = self::due($app, $content, $now);
-        $html .= $due === null ? '' : '<p class="ka-steps-deadline">' . e(self::deadlineText($due, $now)) . '</p>';
+        $html .= $due === null ? '' : '<p class="tl-steps-deadline">' . e(self::deadlineText($due, $now)) . '</p>';
         $who = trim((string) ($content['who_replies'] ?? ''));
 
-        return $html . ($who === '' ? '' : '<p class="ka-steps-who">' . e(t('%s will reply.', $who)) . '</p>');
+        return $html . ($who === '' ? '' : '<p class="tl-steps-who">' . e(t('%s will reply.', $who)) . '</p>');
     }
 
     /**

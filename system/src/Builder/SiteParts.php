@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
+use Talea\Core\Db;
 
 /**
- * Site parts from the builder (table ka_site_parts): header and footer on all pages and wrappers around the content that the
+ * Site parts from the builder (table tl_site_parts): header and footer on all pages and wrappers around the content that the
  * system assembles (news item page, news list, 404 page). A part without a published build = the part from the layout.
  */
 final class SiteParts
@@ -95,22 +95,22 @@ final class SiteParts
     /** The build the part first opens with in the builder (it matches what the layout has drawn so far). */
     public static function defaults(string $type, string $language): array
     {
-        return \Kaleta\Core\Language::runWith($language, function () use ($type): array {
+        return \Talea\Core\Language::runWith($language, function () use ($type): array {
             $n = Build::fresh(...);
             $s = fn (array $p, array $style): array => ['style' => $style] + $p;
             $z = fn (array $p, string $htmlTag): array => ['tag' => $htmlTag] + $p;
             $children = match ($type) {
                 'header' => [$s($z($n('section', [], [
                     $s($n('container', [], [$n('logo'), $n('navigation')]), ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'center', 'gap' => 'm']]),
-                ]), 'header'), ['base' => ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-color-line)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']])],
+                ]), 'header'), ['base' => ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--tl-color-line)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']])],
                 'footer' => [$s($z($n('section', [], [
                     $s($n('grid', [], [
                         $n('container', [], [$s($z($n('company_details', ['detail' => 'name']), 'p'), ['base' => ['font_weight' => '700']]), $n('company_details', ['detail' => 'description']), $n('company_details', ['detail' => 'email'])]),
                         $n('container', [], [$n('navigation', ['menu' => 'footer', 'news_link' => false, 'phone_menu' => false]), $n('company_details', ['detail' => 'social'])]), // RSS only in <link rel="alternate">, a company footer does not need it
                     ]), ['base' => ['display' => 'grid', 'columns' => '2', 'gap' => 'l'], 'mobile' => ['columns' => '1']]),
                     $s($n('company_details', ['detail' => 'copyright']), ['base' => ['margin_top' => 'l', 'font_size' => '-1', 'color' => 'muted']]),
-                ]), 'footer'), ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-color-line)']])],
-                'news_item' => [$n('page_content', [], []), Library::section('call-to-action', \Kaleta\Core\Language::code())['element']],
+                ]), 'footer'), ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--tl-color-line)']])],
+                'news_item' => [$n('page_content', [], []), Library::section('call-to-action', \Talea\Core\Language::code())['element']],
                 default => [$n('page_content', [], [])],
             };
 

@@ -5,8 +5,8 @@
  * Tabs are switched by image/admin.js (data-tabs); without the script the whole form is visible at once.
  * The preview is handled by image/admin.js (data-appearance): after every change it requests the token CSS (action nahled) and puts it into the iframe.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Appearance $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Appearance $module
  * @var string $csrf
  * @var array<string, mixed> $ds
  * @var list<array{popis:string, pomer:float, ok:bool}> $contrasts
@@ -14,8 +14,8 @@
  * @var array<string, string> $values
  * @var list<array{id: int, summary: string, created: string, author: ?string}> $versions earlier published looks (Core\Look)
  */
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\DesignSystem;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\DesignSystem;
 
 $px = fn (float $rem): string => (string) round($rem * 16);
 $contrastsHtml = function (array $contrasts): string {
@@ -171,7 +171,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <tbody>
 <?php foreach (DesignSystem::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]): $custom = $ds['typography'][$key] ?? []; ?>
 <tr>
-	<th scope="row"><span style="font: var(--ka-type-<?= e($key) ?>, inherit)<?= $key === 'eyebrow' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($name)) ?></span></th>
+	<th scope="row"><span style="font: var(--tl-type-<?= e($key) ?>, inherit)<?= $key === 'eyebrow' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($name)) ?></span></th>
 	<td><select name="ds[typography][<?= e($key) ?>][step]" aria-label="<?= e(t('Size: %s', t($name))) ?>">
 <?php foreach (DesignSystem::STEPS as $k): ?>
 		<option value="<?= e($k) ?>"<?= ($custom['step'] ?? $step) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – base font') : $k) ?></option>
@@ -217,7 +217,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <div role="tabpanel" id="panel-export" aria-labelledby="tab-export" class="appearance-export">
 <fieldset>
 <legend><?= e(t('Design tokens (Figma, Tokens Studio)')) ?></legend>
-<p class="help"><?= e(t('Colours, fonts, sizes and typography styles in the W3C Design Tokens format (DTCG). A Kaleta export can be loaded back in full; from another tool the colours are taken.')) ?></p>
+<p class="help"><?= e(t('Colours, fonts, sizes and typography styles in the W3C Design Tokens format (DTCG). A Talea export can be loaded back in full; from another tool the colours are taken.')) ?></p>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url('tokens')) ?>"><?= e(t('Download tokens (.tokens.json)')) ?></a></p>
 <form class="navigation-row" method="post" action="<?= e($module->url('tokens_import')) ?>" enctype="multipart/form-data" data-confirm="<?= e(t('Load tokens? They will overwrite the appearance settings above.')) ?>">
 	<?= $csrf ?>

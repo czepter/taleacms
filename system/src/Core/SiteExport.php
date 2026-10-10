@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Export of the whole site into one archive – so that the content never stays locked in Kaleta.
+ * Export of the whole site into one archive – so that the content never stays locked in Talea.
  *
  * The archive storage/backups/export-YYYYMMDD-HHMMSS.zip contains content.json (pages, categories, tags, news, redirects,
  * the media library and public settings), README.txt describing the format and the folder media/.
  *
  * What is NEVER in the export: passwords, API keys, tokens, SMTP and FTP details, admin user accounts.
  * That is why settings are picked from an allowlist (SETTINGS), not by exclusion.
- * It is not a backup for restoring Kaleta (the database backup is that), but a portable open format.
+ * It is not a backup for restoring Talea (the database backup is that), but a portable open format.
  */
 final class SiteExport
 {
@@ -28,8 +28,8 @@ final class SiteExport
     public const int FORMAT_VERSION = 3;
 
     /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
-    public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'brand_accent', 'dark_mode',
-        'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
+    public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'dark_mode',
+        'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
         'time_zone', 'site_language', 'additional_languages', 'home_page', 'news_slug', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
         'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock']; // the screen mode without its secret (2.11)
@@ -73,7 +73,7 @@ final class SiteExport
         if ($reason === '') {
             // file by file; images are already compressed, so they are only stored (CM_STORE) – the archive is then done quickly
             foreach (array_keys($files) as $path) {
-                $zip->addFile(KALETA_ROOT . '/' . $path, $path);
+                $zip->addFile(TALEA_ROOT . '/' . $path, $path);
                 $zip->setCompressionName($path, \ZipArchive::CM_STORE);
             }
         }
@@ -116,7 +116,7 @@ final class SiteExport
         if ($f === false) {
             throw new \RuntimeException('Cannot write to storage/backups – check write permissions.');
         }
-        fwrite($f, '{"format":"kaleta-export","format_version":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"settings":' . self::json(self::settings($db)));
+        fwrite($f, '{"format":"talea-export","format_version":' . self::FORMAT_VERSION . ',"talea":' . self::json(TALEA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"settings":' . self::json(self::settings($db)));
 
         $authors = "(SELECT NULLIF(u.name, '') FROM {users} u WHERE u.user_id = c.author_id) AS author_name";
         $one = fn (string $table, string $sql, string $key, array $refs = [], array $json = []) => self::mapped($db, $table, self::streamRows($db, $sql, $key), $refs, $json);
@@ -338,12 +338,12 @@ final class SiteExport
     public static function mediaFiles(): array
     {
         $files = [];
-        if (!is_dir(KALETA_ROOT . '/media')) {
+        if (!is_dir(TALEA_ROOT . '/media')) {
             return $files;
         }
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
-            $path = 'media/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(KALETA_ROOT . '/media'))), '/');
+            $path = 'media/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/media'))), '/');
             if ($file->isFile() && !$file->isLink() && !preg_match('#(^|/)\.|\.php\d?$#i', $path)) {
                 $files[$path] = (int) $file->getSize();
             }
@@ -363,12 +363,12 @@ final class SiteExport
 
     private static function readme(bool $withMedia): string
     {
-        return "Site export from Kaleta " . KALETA_VERSION . " (" . date('Y-m-d H:i') . ")\n"
+        return "Site export from Talea " . TALEA_VERSION . " (" . date('Y-m-d H:i') . ")\n"
             . "==========================================\n\n"
             . "content.json  all content of the site, UTF-8\n"
             . ($withMedia ? "media/      uploaded images and files; the paths match the \"image\" columns and the media rows\n" : "media/      NOT in the archive (too large or too little disk space) – download the media/ folder from the site over FTP\n")
             . "\ncontent.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
-            . "format, format_version, kaleta, created_at   header (format \"kaleta-export\", format version, Kaleta version, created)\n"
+            . "format, format_version, talea, created_at   header (format \"talea-export\", format version, Talea version, created)\n"
             . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page\n"
             . "Public ids: every row of pages, categories, tags, news, redirects, components, sections, collections, collection_items, popups, media,\n"
             . "                 media_folders, booking_services and booking_staff has a public_id (UUID v4). The integer keys of the database are not in the file;\n"
@@ -400,7 +400,7 @@ final class SiteExport
             . "notice_log       audit trail of official notice boards (2.11): item_id (public id of the collection item), action, at, by, fields (JSON) – append-only\n"
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
             . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"
-            . "subscribers and visit statistics. Another Kaleta site imports this file in Import and export -> Import from Kaleta.\n"
+            . "subscribers and visit statistics. Another Talea site imports this file in Import and export -> Import from Talea.\n"
             . "To restore this same site, use the database backup (Settings -> Backups and updates).\n";
     }
 }

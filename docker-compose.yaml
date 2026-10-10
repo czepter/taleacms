@@ -1,4 +1,4 @@
-# Kaleta + MySQL 8: docker compose up -d --build, then open http://localhost:8080 (the installer asks for the site and the administrator).
+# Talea + MySQL 8: docker compose up -d --build, then open http://localhost:8080 (the installer asks for the site and the administrator).
 # Change the values below, or set the variables in your environment (Coolify, shell). All variables: docker/README.md.
 
 services:
@@ -7,12 +7,12 @@ services:
     restart: unless-stopped
     ports: ["127.0.0.1:8080:8080"] # behind a TLS proxy
     environment:
-      KALETA_DB_HOST: db
-      KALETA_DB_NAME: kaleta
-      KALETA_DB_USER: kaleta
-      KALETA_DB_PASSWORD: ${KALETA_DB_PASSWORD:-change-me}
-      KALETA_SITE_URL: ${KALETA_SITE_URL:-http://localhost:8080}
-      KALETA_AI_URL: ${KALETA_AI_URL:-} # optional gateway for the writing assistant
+      TALEA_DB_HOST: db
+      TALEA_DB_NAME: talea
+      TALEA_DB_USER: talea
+      TALEA_DB_PASSWORD: ${TALEA_DB_PASSWORD:-change-me}
+      TALEA_SITE_URL: ${TALEA_SITE_URL:-http://localhost:8080}
+      TALEA_AI_URL: ${TALEA_AI_URL:-} # optional gateway for the writing assistant
     volumes: [storage:/app/storage, media:/app/media, extensions:/app/extensions]
     depends_on:
       db: {condition: service_healthy}
@@ -22,9 +22,9 @@ services:
     restart: unless-stopped
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     environment:
-      MYSQL_DATABASE: kaleta
-      MYSQL_USER: kaleta
-      MYSQL_PASSWORD: ${KALETA_DB_PASSWORD:-change-me}
+      MYSQL_DATABASE: talea
+      MYSQL_USER: talea
+      MYSQL_PASSWORD: ${TALEA_DB_PASSWORD:-change-me}
       MYSQL_RANDOM_ROOT_PASSWORD: "1"
     volumes: [db:/var/lib/mysql]
     healthcheck:

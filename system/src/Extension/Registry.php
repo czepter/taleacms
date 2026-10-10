@@ -2,28 +2,28 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Extension;
+namespace Talea\Extension;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Events;
-use Kaleta\Core\Settings;
+use Talea\Core\App;
+use Talea\Core\Events;
+use Talea\Core\Settings;
 
 /**
  * Add-ons (3.0): code from other developers in extensions/<slug>/, switched on by an administrator in Add-ons.
  *
- * Trust: an add-on is PHP that runs with the same rights as Kaleta, like a WordPress plug-in – Add-ons says so before it
- * is switched on. Kaleta never uploads code from the administration and never fetches it from the internet: an add-on is
- * copied into extensions/ by whoever manages the hosting. What Kaleta does guarantee:
+ * Trust: an add-on is PHP that runs with the same rights as Talea, like a WordPress plug-in – Add-ons says so before it
+ * is switched on. Talea never uploads code from the administration and never fetches it from the internet: an add-on is
+ * copied into extensions/ by whoever manages the hosting. What Talea does guarantee:
  *  - an add-on that throws while loading or registering is switched off at once and the error is shown in Add-ons
  *    (so a broken add-on never takes the site down twice);
- *  - an add-on needs the API version it was written for (extension.json → requires.api) and a Kaleta version that
- *    satisfies requires.kaleta; otherwise it is not loaded;
- *  - its tools for Claude go through the connection's access and the guardrails like Kaleta's own tools;
+ *  - an add-on needs the API version it was written for (extension.json → requires.api) and a Talea version that
+ *    satisfies requires.talea; otherwise it is not loaded;
+ *  - its tools for Claude go through the connection's access and the guardrails like Talea's own tools;
  *  - nothing is loaded in the public demo or when config.php says 'addons' => false (a safe mode for the hosting admin).
  */
 final class Registry
 {
-    public const string DIR = KALETA_ROOT . '/extensions';
+    public const string DIR = TALEA_ROOT . '/extensions';
 
     private static ?self $instance = null;
 
@@ -62,7 +62,7 @@ final class Registry
             return $registry;
         }
         $booted = true;
-        if (\Kaleta\Core\Demo::active() || ($app->config['addons'] ?? true) === false) {
+        if (\Talea\Core\Demo::active() || ($app->config['addons'] ?? true) === false) {
             return $registry;
         }
         $manifests = self::discover();
@@ -75,7 +75,7 @@ final class Registry
                 require_once $manifest['path'] . '/' . $manifest['entry'];
                 $class = $manifest['class'];
                 if (!class_exists($class) || !is_subclass_of($class, ExtensionInterface::class)) {
-                    throw new \RuntimeException('The class ' . $class . ' does not implement Kaleta\Extension\ExtensionInterface.');
+                    throw new \RuntimeException('The class ' . $class . ' does not implement Talea\Extension\ExtensionInterface.');
                 }
                 (new $class())->register(new Api($registry, $slug, $app));
             } catch (\Throwable $e) {
@@ -89,7 +89,7 @@ final class Registry
     /**
      * Add-ons found in extensions/: slug => manifest with 'problem' ('' = can be switched on).
      *
-     * @return array<string, array{slug: string, name: string, version: string, description: string, author: string, url: string, class: string, entry: string, path: string, requires_kaleta: string, requires_api: int, problem: string}>
+     * @return array<string, array{slug: string, name: string, version: string, description: string, author: string, url: string, class: string, entry: string, path: string, requires_talea: string, requires_api: int, problem: string}>
      */
     public static function discover(): array
     {
@@ -102,14 +102,14 @@ final class Registry
             $text = fn (string $key, int $max): string => is_scalar($json[$key] ?? null) ? mb_substr(trim((string) $json[$key]), 0, $max) : '';
             $manifest = ['slug' => $slug, 'name' => $text('name', 80) ?: $slug, 'version' => $text('version', 20), 'description' => $text('description', 300),
                 'author' => $text('author', 100), 'url' => $text('url', 200), 'class' => $text('class', 150), 'entry' => $text('entry', 100) ?: 'Extension.php', 'path' => $path,
-                'requires_kaleta' => is_scalar($json['requires']['kaleta'] ?? null) ? (string) $json['requires']['kaleta'] : '', 'requires_api' => (int) ($json['requires']['api'] ?? 0), 'problem' => ''];
+                'requires_talea' => is_scalar($json['requires']['talea'] ?? null) ? (string) $json['requires']['talea'] : '', 'requires_api' => (int) ($json['requires']['api'] ?? 0), 'problem' => ''];
             $manifest['problem'] = match (true) {
                 preg_match('/^[a-z][a-z0-9_]{1,30}$/', $slug) !== 1 => 'The folder name must be lowercase letters, digits and _ (it is the add-on\'s slug).',
                 $json === [] => 'extension.json is not valid JSON.',
                 $manifest['class'] === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]*$/', $manifest['class']) !== 1 => 'extension.json has no valid "class".',
                 preg_match('/^[A-Za-z0-9_\/.-]+\.php$/', $manifest['entry']) !== 1 || str_contains($manifest['entry'], '..') || !is_file($path . '/' . $manifest['entry']) => 'The entry file is missing or not a .php file inside the add-on.',
-                $manifest['requires_api'] !== Api::VERSION => 'It is written for extension API ' . $manifest['requires_api'] . ', this Kaleta has API ' . Api::VERSION . '.',
-                !self::satisfies(KALETA_VERSION, $manifest['requires_kaleta']) => 'It needs Kaleta ' . $manifest['requires_kaleta'] . '.',
+                $manifest['requires_api'] !== Api::VERSION => 'It is written for extension API ' . $manifest['requires_api'] . ', this Talea has API ' . Api::VERSION . '.',
+                !self::satisfies(TALEA_VERSION, $manifest['requires_talea']) => 'It needs Talea ' . $manifest['requires_talea'] . '.',
                 default => '',
             };
             $found[$slug] = $manifest;
@@ -154,7 +154,7 @@ final class Registry
         }
         $sql = $manifest['path'] . '/install.sql';
         if (is_file($sql)) {
-            foreach (\Kaleta\Core\SqlScript::statements((string) file_get_contents($sql), $app->db()->prefix) as $statement) {
+            foreach (\Talea\Core\SqlScript::statements((string) file_get_contents($sql), $app->db()->prefix) as $statement) {
                 if (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?' . preg_quote($app->db()->prefix, '/') . 'ext_' . preg_quote($slug, '/') . '_[a-z0-9_]+`?\s*\(/i', $statement) !== 1) {
                     throw new \DomainException('install.sql may only CREATE TABLE IF NOT EXISTS {ext_' . $slug . '_…} tables.');
                 }
@@ -217,7 +217,7 @@ final class Registry
         $this->jobs[$name] = [$interval, 'any', mb_substr($label, 0, 100), $run];
     }
 
-    /** An event recorded by Kaleta goes to the listeners of its type; a failing listener never breaks the caller. */
+    /** An event recorded by Talea goes to the listeners of its type; a failing listener never breaks the caller. */
     public static function dispatch(string $type, array $data): void
     {
         $self = self::$instance;

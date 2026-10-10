@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Core\Extensions;
-use Kaleta\Core\View;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Core\Extensions;
+use Talea\Core\View;
 
 /**
  * Public part of the site.
@@ -39,7 +39,7 @@ final class Kernel
     private bool $isHome = false;
 
     /** Shared builder state for the whole page (page build, header, footer, wrapper) – one CSS without repetition. */
-    private ?\Kaleta\Builder\Context $context = null;
+    private ?\Talea\Builder\Context $context = null;
 
     /** System URL in a foreign form (/news on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
@@ -63,7 +63,7 @@ final class Kernel
     {
         $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
-        \Kaleta\Extension\Registry::boot($app); // add-ons (3.0)
+        \Talea\Extension\Registry::boot($app); // add-ons (3.0)
         // language version: /en/news/x -> language "en", path "/news/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());
@@ -75,7 +75,7 @@ final class Kernel
         Language::setSite($app->settings(), $language);
         // system URLs in the version's language (/news ↔ /news): the internal form is used from here on, a foreign form
         // redirects
-        [$internal, $canonicalUrl] = \Kaleta\Core\Routes::internalPath($app->request->path(), $app->db());
+        [$internal, $canonicalUrl] = \Talea\Core\Routes::internalPath($app->request->path(), $app->db());
         if ($canonicalUrl !== $app->request->path() && !$app->request->isPost()) {
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
@@ -85,9 +85,9 @@ final class Kernel
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
-        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
+        $app->request->setPath(\Talea\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
         // themeless: the front templates are the system's own, the look comes from the design system and the builder
-        $this->view = new View([KALETA_SYSTEM . '/views/front']);
+        $this->view = new View([TALEA_SYSTEM . '/views/front']);
         $this->startSitePreview();
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
     }
@@ -100,7 +100,7 @@ final class Kernel
         }
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
 
-        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
+        return \Talea\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
     }
 
     public function handle(): Response
@@ -110,11 +110,11 @@ final class Kernel
             return $this->redirect;
         }
         // 2.8: the firewall of the public site (off by default; never admin.php)
-        if (($refused = \Kaleta\Core\Firewall::check($this->app)) !== null) {
+        if (($refused = \Talea\Core\Firewall::check($this->app)) !== null) {
             return $refused;
         }
         // the public demo (2.6) offers no Claude connection: anyone could connect to the shared admin
-        if (\Kaleta\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
+        if (\Talea\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
             return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
         }
         // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
@@ -178,7 +178,7 @@ final class Kernel
         }
         if ($path === '/favicon.ico') {
             // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
-            $icon = is_file(KALETA_ROOT . '/media/icon-32.png') ? $this->app->url('media/icon-32.png') : null;
+            $icon = is_file(TALEA_ROOT . '/media/icon-32.png') ? $this->app->url('media/icon-32.png') : null;
 
             return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
         }
@@ -213,7 +213,7 @@ final class Kernel
         if ($path === '/consent' && $request->isPost()) {
             // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
             $category = implode(',', array_intersect(explode(',', $request->post('category')), ['analytics', 'marketing'])) ?: 'none';
-            $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
+            $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
             if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->count($request->ip(), 'consent', 0, 60) < 20) {
                 $antispam->write($request->ip(), 'consent', 0);
                 $this->app->db()->insert('consents', ['visitor_token' => $request->post('id'), 'created_at' => date('Y-m-d H:i:s'), 'categories' => $category]);
@@ -224,7 +224,7 @@ final class Kernel
         if ($path === '/popup' && $request->isPost()) {
             // popup counters: views, closes, conversions – without cookies and without data about the visitor
             $column = ['view' => 'impressions', 'close' => 'closes', 'conversion' => 'conversions'][$request->post('event')] ?? null;
-            $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
+            $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
             $popupId = $this->app->db()->internalId('popups', $request->post('popup'));
             if ($column !== null && $popupId > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
                 $antispam->write($request->ip(), 'popup', 0);
@@ -237,30 +237,30 @@ final class Kernel
             // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
             // 2.16: a paired site asks for the shared design kit the same way
             $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
-            $signature = (string) ($request->serverValues()['HTTP_X_KALETA_SIGNATURE'] ?? '');
+            $signature = (string) ($request->serverValues()['HTTP_X_TALEA_SIGNATURE'] ?? '');
 
             return match ($path) {
-                '/fleet/pair' => \Kaleta\Fleet\Console::pair($this->app, $body, $signature),
-                '/fleet/heartbeat' => \Kaleta\Fleet\Console::heartbeat($this->app, $body, $signature),
-                '/fleet/kit' => \Kaleta\Fleet\Kit::answer($this->app, $body, $signature),
-                default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
+                '/fleet/pair' => \Talea\Fleet\Console::pair($this->app, $body, $signature),
+                '/fleet/heartbeat' => \Talea\Fleet\Console::heartbeat($this->app, $body, $signature),
+                '/fleet/kit' => \Talea\Fleet\Kit::answer($this->app, $body, $signature),
+                default => \Talea\Fleet\Console::unpair($this->app, $body, $signature),
             };
         }
         if ($path === '/vitals' && $request->isPost()) {
             // real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies
-            return \Kaleta\Core\WebVitals::record($this->app);
+            return \Talea\Core\WebVitals::record($this->app);
         }
         if ($path === '/conversion' && $request->isPost()) {
             // contact clicks (2.12): a beacon from image/web.js for a click on a phone number, an e-mail address or a WhatsApp
             // link, counted as a lead per page and day without cookies
-            return \Kaleta\Core\Conversions::record($this->app);
+            return \Talea\Core\Conversions::record($this->app);
         }
         if ($path === '/mcp') {
-            return (new \Kaleta\Mcp\Server($this->app))->handle();
+            return (new \Talea\Mcp\Server($this->app))->handle();
         }
         if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#', $path, $m)) {
             // a gated download (2.11, Core\Documents): the file arrives by e-mail after a form is sent, as a signed link
-            return \Kaleta\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
+            return \Talea\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
         }
         // subscribe: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
         // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
@@ -285,7 +285,7 @@ final class Kernel
         // the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
         // only while the Bookings feature is on (3.2); the cancel page and the .ics file keep working when it is switched off,
         // so people who booked can still cancel or add the appointment to their calendar (3.2.3)
-        $bookingsOn = \Kaleta\Core\Booking::isOn($this->app->settings());
+        $bookingsOn = \Talea\Core\Booking::isOn($this->app->settings());
         if ($path === '/_booking' && $request->isPost() && $bookingsOn) {
             return (new Booking($this->app))->process();
         }
@@ -310,7 +310,7 @@ final class Kernel
         if ($path === '/health') {
             // for an orchestrator (docker HEALTHCHECK, a load balancer): 200 when the database answers and no migration is waiting, else 503 with one word why
             try {
-                $pending = \Kaleta\Core\Migrator::pending($this->app->db()) !== [];
+                $pending = \Talea\Core\Migrator::pending($this->app->db()) !== [];
             } catch (\Throwable) {
                 return new Response("database\n", 503, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
             }
@@ -322,7 +322,7 @@ final class Kernel
             $probe = $this->app->settings()->get('update_probe');
 
             return $probe !== '' && hash_equals($probe, $request->get('probe'))
-                ? new Response('KALETA-PROBE ' . KALETA_VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'])
+                ? new Response('TALEA-PROBE ' . TALEA_VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'])
                 : new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
         if ($path === '/tasks') {
@@ -335,7 +335,7 @@ final class Kernel
             $this->app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
             @set_time_limit(90);
             try {
-                foreach (\Kaleta\Core\Scheduler::run($this->app, 'cron', 50.0) as $job => $result) { // 2.8: every due job (Core\Scheduler)
+                foreach (\Talea\Core\Scheduler::run($this->app, 'cron', 50.0) as $job => $result) { // 2.8: every due job (Core\Scheduler)
                     $done[] = $job . ': ' . $result;
                 }
             } catch (\Throwable $e) {
@@ -354,9 +354,9 @@ final class Kernel
                 return Response::json(['error' => 'Invalid token.'], 403);
             }
             // monitoring always gets the texts in English - they must not change with the language of the shown site version
-            $checks = Language::runWith('en', fn (): array => \Kaleta\Core\Health::checks($this->app));
+            $checks = Language::runWith('en', fn (): array => \Talea\Core\Health::checks($this->app));
 
-            return Response::json(['status' => \Kaleta\Core\Health::summary($checks), 'version' => KALETA_VERSION, 'time' => date('c'), 'checks' => $checks]);
+            return Response::json(['status' => \Talea\Core\Health::summary($checks), 'version' => TALEA_VERSION, 'time' => date('c'), 'checks' => $checks]);
         }
 
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
@@ -400,7 +400,7 @@ final class Kernel
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#', $path, $m) && $m[1] !== 'news') {
             // the stable address of a document's current file (2.11, Core\Documents)
-            return \Kaleta\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
+            return \Talea\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
         }
 
         return $this->notFound();
@@ -412,19 +412,19 @@ final class Kernel
      */
     private function previewSection(string $key): Response
     {
-        $section = \Kaleta\Builder\Library::section($key, Language::code());
+        $section = \Talea\Builder\Library::section($key, Language::code());
         if ($section === null) {
             return $this->notFound();
         }
-        $k = new \Kaleta\Builder\Context($this->app);
-        $html = \Kaleta\Builder\Build::html(['children' => [$section['element']]], $k);
+        $k = new \Talea\Builder\Context($this->app);
+        $html = \Talea\Builder\Build::html(['children' => [$section['element']]], $k);
         $classes = '';
         foreach ($section['classes'] as $t) {
-            $classes .= \Kaleta\Builder\Style::css('.' . $t, \Kaleta\Builder\Library::CLASSES[$t] ?? []);
+            $classes .= \Talea\Builder\Style::css('.' . $t, \Talea\Builder\Library::CLASSES[$t] ?? []);
         }
         $k->classes = []; // class styles above come from the library, not from the site database (the class may not exist on the site yet)
         $siteSettings = $this->app->settings();
-        $css = \Kaleta\Builder\DesignSystem::css(\Kaleta\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Kaleta\Builder\Build::css($this->app->db(), $k) . '@layer classes {' . $classes . '}';
+        $css = \Talea\Builder\DesignSystem::css(\Talea\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Talea\Builder\Build::css($this->app->db(), $k) . '@layer classes {' . $classes . '}';
         $layout = $this->app->url('image/template.css');
 
         return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
@@ -435,14 +435,14 @@ final class Kernel
     /** Canvas of the component editor (administrator only): the draft component with default property values. */
     private function previewComponent(int $idm): Response
     {
-        $component = \Kaleta\Builder\Components::byId($this->app->db(), $idm);
+        $component = \Talea\Builder\Components::byId($this->app->db(), $idm);
         if ($component === null) {
             return $this->notFound();
         }
         $k = $this->context();
-        $k->item = \Kaleta\Builder\Components::values($component, []);
+        $k->item = \Talea\Builder\Components::values($component, []);
         $k->editor = $this->app->request->get('editor') === '1';
-        $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['children' => []], $k);
+        $html = \Talea\Builder\Build::html(\Talea\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['children' => []], $k);
         [$k->item, $k->editor] = [null, false];
 
         return $this->page($component['name'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
@@ -455,45 +455,45 @@ final class Kernel
     private function testimonialPage(string $token): Response
     {
         $db = $this->app->db();
-        $request = \Kaleta\Core\Testimonials::find($db, $token);
+        $request = \Talea\Core\Testimonials::find($db, $token);
         if ($request === null) {
             return $this->notFound();
         }
         $r = $this->app->request;
         $site = (string) $this->app->settings()->get('site_name');
-        $consents = \Kaleta\Core\Testimonials::consents($site);
+        $consents = \Talea\Core\Testimonials::consents($site);
         $error = '';
         if ($r->isPost()) {
-            $antispam = new \Kaleta\Core\Antispam($db, $this->app->settings());
-            $answer = \Kaleta\Core\Testimonials::clean($_POST);
+            $antispam = new \Talea\Core\Antispam($db, $this->app->settings());
+            $answer = \Talea\Core\Testimonials::clean($_POST);
             $reason = $antispam->verify($r, 'testimonial|' . $token);
             if ($reason !== null) {
                 $error = $reason === 'robot' ? t('The form could not be verified. Reload the page and try again.') : $reason;
             } elseif (is_string($answer)) {
                 $error = $answer;
             } else {
-                \Kaleta\Core\Testimonials::save($this->app, $request, $answer, is_array($_FILES['photo'] ?? null) ? $_FILES['photo'] : null);
-                $html = '<div class="ka-system-page"><h1>' . e(t('Thank you!')) . '</h1><p>' . e(t('We have received your words. We will publish them after a short check.')) . '</p></div>';
+                \Talea\Core\Testimonials::save($this->app, $request, $answer, is_array($_FILES['photo'] ?? null) ? $_FILES['photo'] : null);
+                $html = '<div class="tl-system-page"><h1>' . e(t('Thank you!')) . '</h1><p>' . e(t('We have received your words. We will publish them after a short check.')) . '</p></div>';
 
                 return $this->page(t('Thank you!'), $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
             }
         }
         $field = fn (string $name): string => e(is_scalar($_POST[$name] ?? null) ? (string) $_POST[$name] : '');
-        $antispam = new \Kaleta\Core\Antispam($db, $this->app->settings());
+        $antispam = new \Talea\Core\Antispam($db, $this->app->settings());
         $title = t('Share your experience with %s', $site);
-        $html = '<div class="ka-system-page"><h1>' . e($title) . '</h1>'
-            . ($error !== '' ? '<p class="ka-form-error" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="ka-form" method="post" enctype="multipart/form-data">' . $antispam->fields('testimonial|' . $token)
-            . '<p class="ka-field"><label for="t-text">' . e(t('Your words')) . ' <span class="ka-required" aria-hidden="true">*</span></label><textarea id="t-text" name="text" rows="6" maxlength="3000" required>' . $field('text') . '</textarea></p>'
-            . '<p class="ka-field"><label for="t-name">' . e(t('Your name')) . ' <span class="ka-required" aria-hidden="true">*</span></label><input id="t-name" name="name" maxlength="120" autocomplete="name" required value="' . $field('name') . '"></p>'
-            . '<p class="ka-field"><label for="t-role">' . e(t('Role and company (optional)')) . '</label><input id="t-role" name="role" maxlength="160" autocomplete="organization-title" value="' . $field('role') . '"></p>'
-            . '<p class="ka-field"><label for="t-photo">' . e(t('Your photo (optional)')) . '</label><input id="t-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></p>'
-            . '<p class="ka-field ka-field-consent"><label><input type="checkbox" name="consent_words" value="1" required> <span>' . e($consents['words']) . '</span></label></p>'
-            . '<p class="ka-field ka-field-consent"><label><input type="checkbox" name="consent_photo" value="1"> <span>' . e($consents['photo']) . '</span></label></p>'
-            . '<p class="ka-field"><button class="ka-button ka-button--primary" type="submit">' . e(t('Send')) . '</button></p></form></div>';
+        $html = '<div class="tl-system-page"><h1>' . e($title) . '</h1>'
+            . ($error !== '' ? '<p class="tl-form-error" role="alert">' . e($error) . '</p>' : '')
+            . '<form class="tl-form" method="post" enctype="multipart/form-data">' . $antispam->fields('testimonial|' . $token)
+            . '<p class="tl-field"><label for="t-text">' . e(t('Your words')) . ' <span class="tl-required" aria-hidden="true">*</span></label><textarea id="t-text" name="text" rows="6" maxlength="3000" required>' . $field('text') . '</textarea></p>'
+            . '<p class="tl-field"><label for="t-name">' . e(t('Your name')) . ' <span class="tl-required" aria-hidden="true">*</span></label><input id="t-name" name="name" maxlength="120" autocomplete="name" required value="' . $field('name') . '"></p>'
+            . '<p class="tl-field"><label for="t-role">' . e(t('Role and company (optional)')) . '</label><input id="t-role" name="role" maxlength="160" autocomplete="organization-title" value="' . $field('role') . '"></p>'
+            . '<p class="tl-field"><label for="t-photo">' . e(t('Your photo (optional)')) . '</label><input id="t-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></p>'
+            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent_words" value="1" required> <span>' . e($consents['words']) . '</span></label></p>'
+            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent_photo" value="1"> <span>' . e($consents['photo']) . '</span></label></p>'
+            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Send')) . '</button></p></form></div>';
         $k = $this->context();
         $k->types['form'] = true; // the form styles
-        $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
+        $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
         $k->withoutCache = true;
 
         return $this->page($title, $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
@@ -506,9 +506,9 @@ final class Kernel
     private function compareProducts(string $collectionSlug): Response
     {
         $db = $this->app->db();
-        $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
-        $fields = $collection !== null ? \Kaleta\Builder\Products::fields($collection) : null;
-        $slugs = array_slice(array_values(array_unique(array_filter(explode(',', $this->app->request->get('i')), fn (string $s): bool => preg_match('/^[a-z0-9-]{1,160}$/', $s) === 1))), 0, \Kaleta\Builder\Products::MAX_COMPARE);
+        $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
+        $fields = $collection !== null ? \Talea\Builder\Products::fields($collection) : null;
+        $slugs = array_slice(array_values(array_unique(array_filter(explode(',', $this->app->request->get('i')), fn (string $s): bool => preg_match('/^[a-z0-9-]{1,160}$/', $s) === 1))), 0, \Talea\Builder\Products::MAX_COMPARE);
         if ($collection === null || $fields === null || $slugs === []) {
             return $this->notFound();
         }
@@ -524,7 +524,7 @@ final class Kernel
             return $this->notFound();
         }
         $k = $this->context();
-        $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // its CSS has the comparison table
+        $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // its CSS has the comparison table
         $head = '';
         foreach ($items as $item) {
             $image = $fields['image'] !== '' ? (string) ($item['data'][$fields['image']] ?? '') : '';
@@ -534,11 +534,11 @@ final class Kernel
                 . ($price !== '' ? '<br><small>' . e($price) . '</small>' : '') . '</th>';
         }
         $rows = '';
-        foreach (\Kaleta\Builder\Products::comparison($fields['parameters'], $items) as [$name, $values]) {
+        foreach (\Talea\Builder\Products::comparison($fields['parameters'], $items) as [$name, $values]) {
             $rows .= '<tr><th scope="row">' . e($name) . '</th>' . implode('', array_map(fn (string $v): string => '<td>' . e($v) . '</td>', $values)) . '</tr>';
         }
         $title = t('Comparison') . ': ' . $collection['name'];
-        $html = '<div class="ka-system-page"><h1>' . e($title) . '</h1><div class="ka-compare-wrap"><table class="ka-compare"><thead><tr><td></td>' . $head . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
+        $html = '<div class="tl-system-page"><h1>' . e($title) . '</h1><div class="tl-compare-wrap"><table class="tl-compare"><thead><tr><td></td>' . $head . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
             . '<p><a href="' . e($this->app->url($collection['slug'])) . '">' . e(t('Back to %s', (string) $collection['name'])) . '</a></p></div>';
 
         return $this->page($title, $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
@@ -551,8 +551,8 @@ final class Kernel
     private function calendarFile(string $collectionSlug, string $itemSlug): ?Response
     {
         $db = $this->app->db();
-        $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
-        $fields = $collection !== null ? \Kaleta\Core\Calendar::fields($collection) : null;
+        $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
+        $fields = $collection !== null ? \Talea\Core\Calendar::fields($collection) : null;
         if ($collection === null || $fields === null) {
             return null;
         }
@@ -567,10 +567,10 @@ final class Kernel
         $events = array_map(function (array $r) use ($collection): array {
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
 
-            return [$r, $collection['detail'] ? \Kaleta\Core\Mailing::absolute($this->app, $collection['slug'] . '/' . $r['slug']) : ''];
+            return [$r, $collection['detail'] ? \Talea\Core\Mailing::absolute($this->app, $collection['slug'] . '/' . $r['slug']) : ''];
         }, $rows);
         $name = $this->app->settings()->get('site_name') . ' – ' . $collection['name'];
-        $ics = \Kaleta\Core\Calendar::ics($collection, $events, $name, (string) (parse_url(\Kaleta\Core\Mailing::absolute($this->app, ''), PHP_URL_HOST) ?: 'kaleta'));
+        $ics = \Talea\Core\Calendar::ics($collection, $events, $name, (string) (parse_url(\Talea\Core\Mailing::absolute($this->app, ''), PHP_URL_HOST) ?: 'talea'));
 
         return new Response($ics, 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Cache-Control' => 'public, max-age=900']
             + ($itemSlug !== '' ? ['Content-Disposition' => 'attachment; filename="' . $itemSlug . '.ics"'] : []));
@@ -585,12 +585,12 @@ final class Kernel
     {
         $db = $this->app->db();
         $r = $this->app->request;
-        $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
+        $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
         // item template in the shown site version's language; a language without its own template uses the default language's
-        $template = $collection !== null ? \Kaleta\Builder\Collections::inLanguage($db, $collection, Language::siteColumn()) : null;
+        $template = $collection !== null ? \Talea\Builder\Collections::inLanguage($db, $collection, Language::siteColumn()) : null;
         // template draft: the administrator, or a signed preview of exactly this template (Core\Preview, target
         // collection:<idk>[:<language>])
-        $draft = $template !== null && $this->wantsDraft() && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Kaleta\Builder\Collections::templateKey($template)));
+        $draft = $template !== null && $this->wantsDraft() && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Talea\Builder\Collections::templateKey($template)));
         if ($collection === null || (!$collection['detail'] && !$draft)) {
             return $this->notFound();
         }
@@ -608,9 +608,9 @@ final class Kernel
         if ($item !== null) {
             $item['data'] = json_decode((string) $item['data'], true) ?: [];
         }
-        $build = \Kaleta\Builder\Build::fromJson($draft ? ($template['build_draft'] ?? $template['build']) : $template['build'])
-            ?? \Kaleta\Builder\Build::fromJson($draft ? ($collection['build_draft'] ?? $collection['build']) : $collection['build'])
-            ?? \Kaleta\Builder\Collections::defaultTemplate($collection);
+        $build = \Talea\Builder\Build::fromJson($draft ? ($template['build_draft'] ?? $template['build']) : $template['build'])
+            ?? \Talea\Builder\Build::fromJson($draft ? ($collection['build_draft'] ?? $collection['build']) : $collection['build'])
+            ?? \Talea\Builder\Collections::defaultTemplate($collection);
         // the collection level links to the page with the same slug (e.g. /navod above /navod/<article>) when it exists on
         // the site – with its title; in another language version to its translation (page slugs are unique across
         // languages: /de/vergleich)
@@ -626,17 +626,17 @@ final class Kernel
             [$item['name'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['collection_id'], (string) $collection['slug'], (string) $item['slug']] : null;
         $k = $this->context();
-        if (\Kaleta\Core\Notices::isBoard($collection)) {
+        if (\Talea\Core\Notices::isBoard($collection)) {
             $k->withoutCache = true; // {{notice_status}} changes with the day, not with an edit (2.11)
         }
-        $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) + \Kaleta\Core\Documents::values($this->app, $collection, $item) : \Kaleta\Builder\Collections::sample($collection);
+        $k->item = $item !== null ? \Talea\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) + \Talea\Core\Documents::values($this->app, $collection, $item) : \Talea\Builder\Collections::sample($collection);
         if (isset($k->item['_registration'])) {
             $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)
         }
         $k->editor = $draft && $r->get('editor') === '1';
         $k->source = 'collection:' . $this->app->db()->publicId('collections', (int) $collection['collection_id']);
         $this->pageCollection = (string) $collection['slug'];
-        $html = \Kaleta\Builder\Build::html($build, $k);
+        $html = \Talea\Builder\Build::html($build, $k);
         [$k->item, $k->editor] = [null, false];
 
         // description and image for search engines and sharing: the item's first longer text and first image
@@ -709,19 +709,19 @@ final class Kernel
         }
         // a password-protected page (2.14, Core\PageLock): the password form until the visitor enters it; editors see it
         // without one. Protected pages are noindex, so they never enter the page cache
-        $locked = \Kaleta\Core\PageLock::isProtected($page);
-        if ($locked && !$this->app->auth()->hasModule('pages') && !\Kaleta\Core\PageLock::isUnlocked($this->app, $page)) {
-            $error = $this->app->request->isPost() ? \Kaleta\Core\PageLock::unlock($this->app, $page, $this->app->request->post('ka_page_password')) : '';
+        $locked = \Talea\Core\PageLock::isProtected($page);
+        if ($locked && !$this->app->auth()->hasModule('pages') && !\Talea\Core\PageLock::isUnlocked($this->app, $page)) {
+            $error = $this->app->request->isPost() ? \Talea\Core\PageLock::unlock($this->app, $page, $this->app->request->post('tl_page_password')) : '';
             if ($this->app->request->isPost() && $error === '') {
                 return Response::redirect($this->app->url($home ? '' : (string) $page['slug']), 303);
             }
 
             $k = $this->context();
             $k->types['form'] = true; // the form styles
-            $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
+            $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
             $k->withoutCache = true;
 
-            return $this->page((string) $page['title'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => \Kaleta\Core\PageLock::form($page, $error)]),
+            return $this->page((string) $page['title'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => \Talea\Core\PageLock::form($page, $error)]),
                 ['build' => true, 'noindex' => true], $error !== '' ? 403 : 200);
         }
         // title and data for search engines and sharing (custom title, image, noindex – as with news)
@@ -734,18 +734,18 @@ final class Kernel
         // preview of the draft build for the editor: ?build=draft (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
         $draft = $this->wantsDraft() && $this->canSeeDraft('page:' . (int) $page['page_id']);
-        $build = \Kaleta\Builder\Build::fromJson($draft ? ($page['build_draft'] ?? $page['build']) : $page['build']);
+        $build = \Talea\Builder\Build::fromJson($draft ? ($page['build_draft'] ?? $page['build']) : $page['build']);
         if ($build !== null) {
             $k = $this->context();
             $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('part') === '';
             // comment mode (2.15, Core\DraftComments): a shared link whose key allows comments marks the elements and adds the widget
             $previewKey = $this->app->request->get('preview_key');
-            $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Kaleta\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'page:' . (int) $page['page_id'], $previewKey);
+            $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Talea\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'page:' . (int) $page['page_id'], $previewKey);
             if ($k->markIds) {
                 $meta['comments'] = (new DraftComments($this->app))->widget('page:' . $this->app->db()->publicId('pages', (int) $page['page_id']), $previewKey, $path);
             }
             $k->source = 'page:' . $this->app->db()->publicId('pages', (int) $page['page_id']);
-            $html = \Kaleta\Builder\Build::html($build, $k);
+            $html = \Talea\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
@@ -778,7 +778,7 @@ final class Kernel
      */
     private static function authored(string $html): string
     {
-        return \Kaleta\Extension\Registry::fillTokens($html);
+        return \Talea\Extension\Registry::fillTokens($html);
     }
 
     /**
@@ -828,7 +828,7 @@ final class Kernel
 
         return $this->page(
             $category['name'],
-            $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Kaleta\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
+            $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
             ['description' => strip_tags($category['description']), 'part' => 'list'],
         );
     }
@@ -845,7 +845,7 @@ final class Kernel
         $colorScheme = trim((string) $tag['description']) !== '';
 
         return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('list', [
-            'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['description'])) : '',
+            'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? self::authored(\Talea\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
             'description' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
             'part' => 'list',
@@ -878,7 +878,7 @@ final class Kernel
         }
 
         $this->breadcrumbs([t('News'), $this->app->url('news')], [$newsItem['category_name'], $this->app->url('news/category/' . $newsItem['category_slug'])], [$newsItem['title'], '']);
-        $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
+        $newsItem['faq_html'] = (new View([TALEA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['tags'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);
 
@@ -904,7 +904,7 @@ final class Kernel
     {
         $q = mb_substr($this->app->request->get('q'), 0, 100);
         // search is the site's most expensive query and is not cached: at most 30 searches per minute from one address
-        $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
+        $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
         if (mb_strlen($q) >= 3) {
             if ($antispam->count($this->app->request->ip(), 'search', 0, 1) >= 30) {
                 return new Response(t('Too many searches in a row. Please try again in a moment.'), 429, ['Content-Type' => 'text/plain; charset=utf-8', 'Retry-After' => '60']);
@@ -928,7 +928,7 @@ final class Kernel
                 $candidates[] = ['title' => $p['name'], 'url' => $p['collection'] . '/' . $p['slug'],
                     'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string'))];
             }
-            $pages = array_map(fn (array $v): array => ['title' => $v['title'], 'slug' => $v['url'], 'snippet' => $v['snippet']], \Kaleta\Core\Search::find($q, $candidates));
+            $pages = array_map(fn (array $v): array => ['title' => $v['title'], 'slug' => $v['url'], 'snippet' => $v['snippet']], \Talea\Core\Search::find($q, $candidates));
         }
 
         return $this->page(
@@ -976,15 +976,15 @@ final class Kernel
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
         $path = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
-        if (($refused = \Kaleta\Core\Firewall::notFound($this->app, $path)) !== null) {
+        if (($refused = \Talea\Core\Firewall::notFound($this->app, $path)) !== null) {
             return $refused; // 2.8: the fifth probe for another system in an hour blocks the address
         }
-        if ($path !== '' && $this->app->request->get('part') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
+        if ($path !== '' && $this->app->request->get('part') === '' && !\Talea\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {not_found}') < 2000 || $this->app->db()->value('SELECT 1 FROM {not_found} WHERE path = ?', [$path]) !== null) {
                     $this->app->db()->run('INSERT INTO {not_found} (path, count, last_seen_at) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE count = count + 1, last_seen_at = NOW()', [$path]);
-                    if ((int) $this->app->db()->value('SELECT count FROM {not_found} WHERE path = ?', [$path]) === \Kaleta\Core\NotFound::SPIKE) {
-                        \Kaleta\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Kaleta\Core\NotFound::SPIKE), ['path' => $path]);
+                    if ((int) $this->app->db()->value('SELECT count FROM {not_found} WHERE path = ?', [$path]) === \Talea\Core\NotFound::SPIKE) {
+                        \Talea\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Talea\Core\NotFound::SPIKE), ['path' => $path]);
                     }
                 }
             } catch (\Throwable) {
@@ -1069,7 +1069,7 @@ final class Kernel
      * "Edit here" link, and with ?edit=text it returns a form with the editor instead of the content.
      * The administration saves it (action save_text).
      *
-     * @param array<string, mixed> $record row of ka_pages or ka_news
+     * @param array<string, mixed> $record row of tl_pages or tl_news
      */
     private function editInPlace(string $type, array $record, string $path): ?string
     {
@@ -1122,7 +1122,7 @@ final class Kernel
     /** @return list<array<string, mixed>> */
     private function menu(string $location): array
     {
-        return $this->menu[$location] ??= \Kaleta\Core\Menu::items($this->app, $location, Language::siteColumn(), $this->homePageId());
+        return $this->menu[$location] ??= \Talea\Core\Menu::items($this->app, $location, Language::siteColumn(), $this->homePageId());
     }
 
     /**
@@ -1131,10 +1131,10 @@ final class Kernel
      *
      * @param array<string, mixed> $meta
      */
-    private function context(): \Kaleta\Builder\Context
+    private function context(): \Talea\Builder\Context
     {
         if ($this->context === null) {
-            $this->context = new \Kaleta\Builder\Context($this->app);
+            $this->context = new \Talea\Builder\Context($this->app);
             // path of the shown page already for the content (filter and pagination links of a collection list, active
             // navigation item)
             $this->context->path = (string) parse_url($this->app->url(ltrim($this->app->request->path(), '/')), PHP_URL_PATH);
@@ -1162,18 +1162,18 @@ final class Kernel
         $r = $this->app->request;
         $cookiePath = $r->basePath() . '/';
         if ($r->get('preview_end') === '1') {
-            setcookie('ka_preview', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
-            unset($_COOKIE['ka_preview']);
+            setcookie('tl_preview', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
+            unset($_COOKIE['tl_preview']);
         }
-        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE['ka_preview'] ?? '');
-        if ($key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
+        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE['tl_preview'] ?? '');
+        if ($key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
             $this->sitePreview = true;
             if ($r->get('preview_key') === $key && !headers_sent()) {
-                setcookie('ka_preview', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
+                setcookie('tl_preview', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
         if ($this->sitePreview || ($r->get('build') === 'draft' && $this->app->auth()->isAdmin())) {
-            \Kaleta\Core\Look::activate($this->app->settings());
+            \Talea\Core\Look::activate($this->app->settings());
         }
     }
 
@@ -1198,7 +1198,7 @@ final class Kernel
         }
         $key = $this->app->request->get('preview_key');
 
-        return $key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
+        return $key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
     }
 
     private function siteParts(string $content, array $meta, string $languageSwitcher, string $path): array
@@ -1209,18 +1209,18 @@ final class Kernel
         $k->menu = ['main' => $this->menu('main'), 'footer' => $this->menu('footer')];
         $k->path = $path;
         $k->languages = $languageSwitcher;
-        $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'draft'
+        $preview = isset(\Talea\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'draft'
             && ($this->app->auth()->isAdmin() || $this->canSeeDraft('part:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
         $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'draft' && $r->get('part') === ''));
         $language = Language::siteColumn();
         // a site page can have its own header and footer variant; in the variant editor the ?variant= parameter decides
         $ids = ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null;
-        $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('variant')) ? $r->get('variant') : '';
+        $previewVariant = preg_match(\Talea\Builder\SiteParts::VARIANT_PATTERN, $r->get('variant')) ? $r->get('variant') : '';
         $allDrafts = $this->sitePreview;
         $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant, $allDrafts): ?string {
             try {
-                $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
-                $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
+                $variant = $preview === $type ? $previewVariant : \Talea\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
+                $build = \Talea\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
                 error_log('Site parts: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
 
@@ -1231,7 +1231,7 @@ final class Kernel
             }
             $k->editor = $editor && $preview === $type;
             $k->source = 'part:' . $type . ':' . $language . ($variant !== '' ? ':' . $variant : '');
-            $html = \Kaleta\Builder\Build::html($build, $k);
+            $html = \Talea\Builder\Build::html($build, $k);
             $k->editor = false;
 
             return $html;
@@ -1254,7 +1254,7 @@ final class Kernel
         }
 
         if ($k->types !== []) {
-            $meta['css'] = \Kaleta\Builder\Build::css($db, $k)
+            $meta['css'] = \Talea\Builder\Build::css($db, $k)
                 // the builder canvas reloads after every change – a page transition would only flicker and report an abort in
                 // the browser
                 . ($editor ? '@view-transition{navigation:none}' : '');
@@ -1276,7 +1276,7 @@ final class Kernel
      * Popups for the shown page (Builder\Popups): enabled and published, by the server rules. A draft preview
      * (?popup=<id>&build=draft or /_popup/<id>) adds the given popup even when disabled and opens it immediately.
      */
-    private function popups(\Kaleta\Builder\Context $k, bool $news): string
+    private function popups(\Talea\Builder\Context $k, bool $news): string
     {
         $r = $this->app->request;
         if ($r->get('preview') === 'vzhled' || ($r->get('editor') === '1' && !$this->previewPopup)) {
@@ -1286,9 +1286,9 @@ final class Kernel
         $queryPopup = $r->get('build') === 'draft' ? $db->internalId('popups', $r->get('popup')) : 0;
         $preview = $this->previewPopup ?: ($queryPopup > 0 && $this->canSeeDraft('popup:' . $queryPopup) ? $queryPopup : 0);
         try {
-            $popups = \Kaleta\Builder\Popups::forPage($db, ['page_id' => ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null,
+            $popups = \Talea\Builder\Popups::forPage($db, ['page_id' => ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null,
                 'collection' => $this->pageCollection, 'news' => $news, 'language' => Language::code(), 'today' => date('Y-m-d')]);
-            $draft = $preview > 0 ? \Kaleta\Builder\Popups::byId($db, $preview) : null;
+            $draft = $preview > 0 ? \Talea\Builder\Popups::byId($db, $preview) : null;
         } catch (\Throwable $e) {
             error_log('Pop-ups: ' . $e->getMessage()); // site before migration
 
@@ -1300,7 +1300,7 @@ final class Kernel
         }
         $html = '';
         foreach ($popups as $p) {
-            $build = \Kaleta\Builder\Build::fromJson($p['build']);
+            $build = \Talea\Builder\Build::fromJson($p['build']);
             if ($build === null) {
                 continue;
             }
@@ -1309,7 +1309,7 @@ final class Kernel
             }
             $k->source = 'popup:' . ($p['public_id'] ?? $db->publicId('popups', (int) $p['popup_id']));
             // signed-in users (administrators, editors) view the popups, but are not counted in the counters
-            $html .= \Kaleta\Builder\Popups::wrapper($p, \Kaleta\Builder\Build::html($build, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['preview']));
+            $html .= \Talea\Builder\Popups::wrapper($p, \Talea\Builder\Build::html($build, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['preview']));
         }
 
         return $html;
@@ -1323,7 +1323,7 @@ final class Kernel
     {
         $p = null;
         try {
-            $p = \Kaleta\Builder\Popups::byId($this->app->db(), $idpp);
+            $p = \Talea\Builder\Popups::byId($this->app->db(), $idpp);
         } catch (\Throwable) {
             // site before migration
         }
@@ -1334,12 +1334,12 @@ final class Kernel
             $k = $this->context();
             $k->editor = true;
             $k->source = 'popup:' . $this->app->db()->publicId('popups', $idpp);
-            $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['children' => []], $k);
+            $html = \Talea\Builder\Build::html(\Talea\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['children' => []], $k);
             $k->editor = false;
-            $content = '<div class="ka-popup-canvas">' . \Kaleta\Builder\Popups::editorWrapper($p, $html) . '</div>';
+            $content = '<div class="tl-popup-canvas">' . \Talea\Builder\Popups::editorWrapper($p, $html) . '</div>';
         } else {
             $this->previewPopup = $idpp;
-            $content = '<div class="ka-popup-canvas"></div>';
+            $content = '<div class="tl-popup-canvas"></div>';
         }
 
         return $this->page($p['name'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $content]), ['build' => true, 'noindex' => true]);
@@ -1354,13 +1354,13 @@ final class Kernel
         }
         $siteSettings = $this->app->settings();
         // business facts (2.10) in the content outside the builder (news, text pages), the title and the description
-        $content = \Kaleta\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
-        $content = \Kaleta\Core\Facts::fill($content, $this->app);
+        $content = \Talea\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
+        $content = \Talea\Core\Facts::fill($content, $this->app);
         // add-on tokens (3.0) are not filled here: the content already holds what a visitor sent (the search query) – they are
         // filled in what editors wrote, in Build::html() and authored() (3.3.2, N38)
-        $title = \Kaleta\Core\Facts::fillText($title, $this->app);
+        $title = \Talea\Core\Facts::fillText($title, $this->app);
         if (is_string($meta['description'] ?? null)) {
-            $meta['description'] = \Kaleta\Core\Facts::fillText($meta['description'], $this->app);
+            $meta['description'] = \Talea\Core\Facts::fillText($meta['description'], $this->app);
         }
         $seo = new Seo($this->app);
         $newsItem = $meta['article'] ?? null;
@@ -1403,22 +1403,22 @@ final class Kernel
             'meta' => $meta + ['main' => false, 'description' => '', 'keywords' => $siteSettings->get('keywords'), 'image' => '', 'type' => 'website', 'noindex' => false],
             'content' => $content,
             // add-ons (3.0) may add to <head> and the end of <body>
-            'head' => $seo->head($title, $meta + ['languages' => $languages], $newsItem) . \Kaleta\Extension\Registry::applyFilter('head', ''),
+            'head' => $seo->head($title, $meta + ['languages' => $languages], $newsItem) . \Talea\Extension\Registry::applyFilter('head', ''),
             // the accessibility toolbar for visitors (2.14) is off by default and tracks nothing
             'foot' => $seo->foot() . $popups . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('accessibility') : '')
-                . ($this->editHereUrl !== '' ? '<a class="ka-edit-here" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
-                . $commentWidget . \Kaleta\Extension\Registry::applyFilter('footer', ''),
+                . ($this->editHereUrl !== '' ? '<a class="tl-edit-here" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
+                . $commentWidget . \Talea\Extension\Registry::applyFilter('footer', ''),
             'pages' => $this->menuPages(),
             'menu' => $this->menu('main'),
             'menu_footer' => $this->menu('footer'),
-            'menu_html' => \Kaleta\Core\Menu::html(...),
+            'menu_html' => \Talea\Core\Menu::html(...),
             'language' => Language::code(),
             'languages_html' => $languagesHtml,
             'with_news' => Extensions::isEnabled($siteSettings, 'news'), // News extension enabled (RSS links in the template)
             'parts' => $parts,
             'url' => $this->app->url(...),
             'canonical' => $canonicalUrl,
-            'notice' => \Kaleta\Core\Hours::noticeBar($this->app), // exceptions to the opening hours, a few days ahead (2.10)
+            'notice' => \Talea\Core\Hours::noticeBar($this->app), // exceptions to the opening hours, a few days ahead (2.10)
         ]);
         $html = ImageHtml::complete($this->app->db(), $html); // image dimensions and background color – less page jumping
         if ($this->sitePreview) {
@@ -1431,11 +1431,11 @@ final class Kernel
         // enquiry basket and comparing products). Contact clicks (2.12, Core\Conversions): a phone number, an e-mail address
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
         // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
-        $countsClicks = !empty($meta['vitals']) && preg_match(\Kaleta\Core\Conversions::LINK_PATTERN, $html);
+        $countsClicks = !empty($meta['vitals']) && preg_match(\Talea\Core\Conversions::LINK_PATTERN, $html);
         if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|form|booking|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
-        $html = \Kaleta\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
+        $html = \Talea\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {
@@ -1448,7 +1448,7 @@ final class Kernel
     /** The bar of the whole-site preview: visitors see the published site; a link ends the preview. */
     private function previewBar(): string
     {
-        return '<div class="ka-preview-bar" role="status" style="position:sticky;top:0;z-index:2147483000;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center;'
+        return '<div class="tl-preview-bar" role="status" style="position:sticky;top:0;z-index:2147483000;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center;'
             . 'padding:0.5rem 1rem;background:#16181d;color:#fff;font:600 0.875rem/1.4 system-ui,sans-serif">'
             . '<span>' . e(t('Preview of drafts – visitors still see the published site.')) . '</span>'
             . '<a href="?preview_end=1" style="color:#fff;text-decoration:underline">' . e(t('End the preview')) . '</a></div>';
@@ -1460,7 +1460,7 @@ final class Kernel
      */
     private function localizeSystemLinks(string $html): string
     {
-        if (\Kaleta\Core\Routes::newsSlug($this->app->db()) === '' || !preg_match('#href="[^"]*/news#', $html)) {
+        if (\Talea\Core\Routes::newsSlug($this->app->db()) === '' || !preg_match('#href="[^"]*/news#', $html)) {
             return $html;
         }
         $base = preg_quote($this->app->request->basePath() . ($this->app->languagePrefix !== '' ? '/' . $this->app->languagePrefix : ''), '#');

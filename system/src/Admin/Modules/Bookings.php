@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Booking;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Booking;
+use Talea\Core\Response;
 
 /**
  * Online booking of appointments (3.0, Core\Booking): the upcoming bookings by day with filters, the detail with done /
@@ -243,8 +243,8 @@ final class Bookings extends Module
         $hours = $id > 0 ? Booking::hours($this->db, $id) : [];
 
         return $this->view('staff_edit', $member === [] ? 'New person' : (string) $member['name'], ['m' => $member, 'services' => Booking::services($this->db, false),
-            'hours' => array_map(fn (int $d): string => \Kaleta\Core\Hours::rangesText($hours[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS))),
-            'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Kaleta\Core\Hours::week($this->app->settings()),
+            'hours' => array_map(fn (int $d): string => \Talea\Core\Hours::rangesText($hours[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS))),
+            'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Talea\Core\Hours::week($this->app->settings()),
             'users' => $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2"), 'userPublicId' => $id > 0 ? $this->publicId((int) ($member['user_id'] ?? 0), 'users') : '']);
     }
 
@@ -323,7 +323,7 @@ final class Bookings extends Module
             $s->set('booking_pending_thanks', mb_substr(trim(strip_tags($this->request->post('pending_thanks'))), 0, 400));
             $s->set('booking_pending_mail', mb_substr(trim(strip_tags($this->request->post('pending_mail'))), 0, 1000));
             $s->set('booking_declined_mail', mb_substr(trim(strip_tags($this->request->post('declined_mail'))), 0, 1000));
-            \Kaleta\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
+            \Talea\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
         }
 
         return $this->back('Booking settings saved.');

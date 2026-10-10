@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Integration;
+namespace Talea\Tests\Integration;
 
-use Kaleta\Core\Migrator;
-use Kaleta\Tests\Support\DatabaseTestCase;
+use Talea\Core\Migrator;
+use Talea\Tests\Support\DatabaseTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /** The real migrations against a real MySQL 8 (the class's database was built by Migrator::migrate in setUpBeforeClass). */

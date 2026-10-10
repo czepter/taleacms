@@ -21,11 +21,11 @@ $n = function () use (&$step): int {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e(t('Kaleta installation')) ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/kaleta-mark.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/kaleta-mark-32.png">
-<link rel="apple-touch-icon" href="<?= e($base) ?>/image/kaleta-mark-180.png">
-<link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(KALETA_VERSION) ?>">
+<title><?= e(t('Talea installation')) ?></title>
+<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/talea-mark.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/talea-mark-32.png">
+<link rel="apple-touch-icon" href="<?= e($base) ?>/image/talea-mark-180.png">
+<link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(TALEA_VERSION) ?>">
 </head>
 <body>
 <main class="installer">
@@ -41,8 +41,8 @@ $n = function () use (&$step): int {
 </nav>
 <?php endif ?>
 <header class="intro">
-	<div class="brand"><?php $height = 40; $markOnly = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
-	<h1><?= e(t('Kaleta installation')) ?></h1>
+	<div class="brand"><?php $height = 40; $markOnly = false; require TALEA_SYSTEM . '/views/admin/logo.php'; ?></div>
+	<h1><?= e(t('Talea installation')) ?></h1>
 	<p><?= e(t('A few short steps and your website is running. Everything can be changed later in the administration.')) ?></p>
 </header>
 
@@ -90,14 +90,14 @@ $n = function () use (&$step): int {
 		<div class="full"><label for="site_name"><?= e(t('Site name')) ?></label><input type="text" id="site_name" name="site_name" value="<?= e($data['site_name']) ?>" required></div>
 		<fieldset class="full sites">
 			<legend><?= e(t('Start with a website')) ?></legend>
-<?php foreach (Kaleta\Builder\Library::SITES as $key => $w): $colors = Kaleta\Builder\DesignSystem::PRESETS[$w['preset']][2]['colors']; ?>
+<?php foreach (Talea\Builder\Library::SITES as $key => $w): $colors = Talea\Builder\DesignSystem::PRESETS[$w['preset']][2]['colors']; ?>
 			<label class="site"><input type="radio" name="starter" value="<?= e($key) ?>"<?= ($data['starter'] ?: 'business') === $key ? ' checked' : '' ?>>
 				<span class="swatches"><i style="background:<?= e($colors['primary']) ?>"></i><i style="background:<?= e($colors['secondary']) ?>"></i><i style="background:<?= e($colors['surface']) ?>"></i></span>
 				<strong><?= e(t($w['name'])) ?></strong><small><?= e(t($w['description'])) ?></small></label>
 <?php endforeach ?>
 			<label class="site"><input type="radio" name="starter" value="export"<?= $data['starter'] === 'export' ? ' checked' : '' ?>>
 				<span class="swatches"><i></i><i></i><i></i></span>
-				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.')) ?></small></label>
+				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Talea site here – right after installation you import its export in Import and export.')) ?></small></label>
 			<span class="help"><?= e(t('A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.')) ?></span>
 		</fieldset>
 		<div><label for="user"><?= e(t('User name')) ?></label><input type="text" id="user" name="username" value="<?= e($data['username']) ?>" required><?= $error('username') ?></div>
@@ -106,7 +106,7 @@ $n = function () use (&$step): int {
 		<div><label for="password"><?= e(t('Password')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $error('password') ?><span class="help"><?= e(t('At least 10 characters.')) ?></span></div>
 		<div><label for="password2"><?= e(t('Repeat password')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
 		<div class="full"><label for="site_language"><?= e(t('Site language')) ?></label><select id="site_language" name="site_language">
-<?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
+<?php foreach (Talea\Core\Language::AVAILABLE as $code => [$languageName]): ?>
 			<option value="<?= e($code) ?>"<?= $data['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 		</select><span class="help"><?= e(t('The sample pages and the texts for visitors are created in this language. The administration stays in the language of the installation.')) ?></span></div>
@@ -122,7 +122,7 @@ $n = function () use (&$step): int {
 	<h2><span><?= $n() ?></span> <?= e(t('What you want switched on')) ?></h2>
 	<p><?= e(t('Features can be switched on or off at any time in the administration (Features). Switching off deletes nothing.')) ?></p>
 	<div class="extensions">
-<?php foreach (Kaleta\Core\Extensions::CATALOG as $key => [$extensionName, $extensionDescription]): ?>
+<?php foreach (Talea\Core\Extensions::CATALOG as $key => [$extensionName, $extensionDescription]): ?>
 		<label class="site"><input type="checkbox" name="extensions[]" value="<?= e($key) ?>"<?= in_array($key, $extensions, true) ? ' checked' : '' ?>>
 			<strong><?= e(t($extensionName)) ?></strong><small><?= e(t($extensionDescription)) ?></small></label>
 <?php endforeach ?>
@@ -130,7 +130,7 @@ $n = function () use (&$step): int {
 </section>
 
 <div class="actions">
-	<button class="button" type="submit"><?= e(t('Install Kaleta')) ?></button>
+	<button class="button" type="submit"><?= e(t('Install Talea')) ?></button>
 	<small><?= e(t('Creates the database tables and the config.php file.')) ?></small>
 </div>
 </form>

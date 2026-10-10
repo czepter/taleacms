@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * The host of a request the server makes to another site, decided in one place (3.3.3, N52). Every pinned request –

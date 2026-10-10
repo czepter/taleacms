@@ -5,14 +5,14 @@
  * @var array{paired: bool, url: string, name: string, fingerprint: string, own: string, updates: bool, allowed: string, sent: int, error: string, kit: bool, kitVersion: int, kitApplied: int, kitError: string, kitWaiting: bool} $fleet
  */
 ?>
-<p class="notice"><?= e(t('A fleet console is another Kaleta installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, enquiries waiting and visits, never names or the content of enquiries. The console cannot get into this site.')) ?></p>
+<p class="notice"><?= e(t('A fleet console is another Talea installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, enquiries waiting and visits, never names or the content of enquiries. The console cannot get into this site.')) ?></p>
 <?php if (!$fleet['paired']): ?>
 <fieldset>
 <legend><?= e(t('Pair with a console')) ?></legend>
 <div class="row"><label for="pairing_key"><?= e(t('Pairing key')) ?></label><div><textarea class="textbox low" id="pairing_key" name="pairing_key" rows="3" spellcheck="false" autocomplete="off"></textarea>
 <span class="help"><?= e(t('On the console: Fleet → Add a site. The key is valid for 24 hours and only once.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Updates')) ?></span><div class="options"><label><input type="checkbox" name="fleet_updates" value="1" checked> <?= e(t('The console decides when new versions install here')) ?></label>
-<span class="help"><?= e(t('Test sites first, the rest two days later when nothing broke. Only versions signed by the Kaleta publisher install, as always.')) ?></span></div></div>
+<span class="help"><?= e(t('Test sites first, the rest two days later when nothing broke. Only versions signed by the Talea publisher install, as always.')) ?></span></div></div>
 <p><button class="btn" type="submit" formaction="<?= e($module->url('fleet_pair')) ?>"><?= e(t('Pair')) ?></button></p>
 </fieldset>
 <?php else: ?>

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * Render state of one page of the site: what was used (so that the CSS covers only what is needed) across the page build and
@@ -75,7 +75,7 @@ final class Context
     /** Heading anchors from texts on the page (Elements\Text) – so that they do not repeat on one page. @var array<string, true> */
     public array $anchors = [];
 
-    /** Comment mode of a shared preview (2.15, Core\DraftComments): elements carry data-ka-id so a comment can point at one, nothing else of the editor. */
+    /** Comment mode of a shared preview (2.15, Core\DraftComments): elements carry data-tl-id so a comment can point at one, nothing else of the editor. */
     public bool $markIds = false;
 
     public function __construct(public readonly App $app, public bool $editor = false)

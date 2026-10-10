@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
-use Kaleta\Core\DraftComments as Comments;
-use Kaleta\Core\Preview;
-use Kaleta\Core\Response;
+use Talea\Core\App;
+use Talea\Core\DraftComments as Comments;
+use Talea\Core\Preview;
+use Talea\Core\Response;
 
 /**
  * Comment mode of a shared draft preview (2.15, Core\DraftComments): the small "Comment" widget on the page and the POST it
@@ -34,7 +34,7 @@ final class DraftComments
         }
         $back = $r->post('back');
         $back = preg_match('~^/[^\s\\\\#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?build=draft&preview_key=' . rawurlencode($r->post('key'));
-        $redirect = fn (string $result): Response => Response::redirect($back . (str_contains($back, '?') ? '&' : '?') . 'comment=' . $result . '#ka-comment', 303);
+        $redirect = fn (string $result): Response => Response::redirect($back . (str_contains($back, '?') ? '&' : '?') . 'comment=' . $result . '#tl-comment', 303);
         if ($r->post('website') !== '') {
             return $redirect('ok'); // a bot filled the hidden field – it gets a thank-you and nothing is stored
         }

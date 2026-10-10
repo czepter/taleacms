@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Kernel;
-use Kaleta\Admin\Module;
-use Kaleta\Core\Auth;
-use Kaleta\Core\Response;
+use Talea\Admin\Kernel;
+use Talea\Admin\Module;
+use Talea\Core\Auth;
+use Talea\Core\Response;
 
 /**
  * Admin users: accounts, roles (administrator, editor, news author) and optionally manual access to sections.
@@ -142,7 +142,7 @@ final class Users extends Module
         });
 
         if ($invite) {
-            (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'invitation');
+            (new \Talea\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'invitation');
 
             return $this->back(t('The user has been created and the invitation sent to %s.', $data['email']));
         }
@@ -157,7 +157,7 @@ final class Users extends Module
         if ($user === null) {
             return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }
-        (new \Kaleta\Admin\PasswordReset($this->app))->sendLink($user, 'administrator');
+        (new \Talea\Admin\PasswordReset($this->app))->sendLink($user, 'administrator');
 
         return $this->back(t('The new password link has been sent to %s.', $user['email']));
     }
@@ -200,12 +200,12 @@ final class Users extends Module
      * sections together.
      *
      * @param list<string> $modules identifiers of the modules they have access to
-     * @param string|null $autoBlocked when the automatic suspension blocked the account (ka_users.blokovano_automaticky)
+     * @param string|null $autoBlocked when the automatic suspension blocked the account (tl_users.blokovano_automaticky)
      */
     public static function summary(int $role, array $modules, bool $blocked = false, ?string $autoBlocked = null): string
     {
         if ($blocked && $autoBlocked !== null) {
-            return t('Blocked automatically on %s – nobody had used the account for %d days. An administrator can reactivate it.', format_date($autoBlocked), \Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS);
+            return t('Blocked automatically on %s – nobody had used the account for %d days. An administrator can reactivate it.', format_date($autoBlocked), \Talea\Core\SecurityHygiene::ACCOUNT_DAYS);
         }
         if ($blocked) {
             return t('The account is blocked – it cannot sign in to the administration.');
@@ -298,7 +298,7 @@ final class Users extends Module
             'summary' => $summary,
             'errors' => $errors,
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more
-            'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['user_id'] === $id)) : [],
+            'connections' => $id > 0 ? array_values(array_filter(\Talea\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['user_id'] === $id)) : [],
             'isSelf' => $id === $this->app->auth()->id(),
             'modules' => $configurable,
             'hasModules' => $this->request->isPost()

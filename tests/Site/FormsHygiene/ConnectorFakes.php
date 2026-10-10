@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsHygiene;
+namespace Talea\Tests\Site\FormsHygiene;
 
 /**
  * The fake outside services of section 74 as a reusable piece (the old FAKE_LOGS, connect_fake and connector_call), for the classes that
@@ -13,7 +13,7 @@ trait ConnectorFakes
     /** The prefix of the fake service's request logs: `<prefix>-oauth.log`, `-search.log`, `-sheets.log`, `-crm.log`, `-google-business.log`… */
     private function fakeLogs(): string
     {
-        return sys_get_temp_dir() . '/kaleta-fake-' . $this->site()->port('fake');
+        return sys_get_temp_dir() . '/talea-fake-' . $this->site()->port('fake');
     }
 
     /** Empties the logs of the fake service (a port can be reused by an earlier class). */
@@ -54,7 +54,7 @@ trait ConnectorFakes
     {
         $fake = 'http://127.0.0.1:' . $this->site()->port('fake');
 
-        return trim($this->site()->php(sprintf('putenv("KALETA_CONNECTORS_FAKE=%s"); $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); $r = Kaleta\Core\Connectors::request($app, %s, "GET", %s); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];',
+        return trim($this->site()->php(sprintf('putenv("TALEA_CONNECTORS_FAKE=%s"); $app = new Talea\Core\App(require "config.php"); $app->applyTimezone(); $r = Talea\Core\Connectors::request($app, %s, "GET", %s); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];',
             $fake, var_export($service, true), var_export($url, true))));
     }
 }

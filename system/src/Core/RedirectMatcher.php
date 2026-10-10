@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Admin\Modules\Redirects;
+use Talea\Admin\ChangeLog;
+use Talea\Admin\Modules\Redirects;
 
 /**
  * Redirects for addresses visitors could not find (2.14). For a pending 404 (Core\NotFound) it looks for the page, news
@@ -170,7 +170,7 @@ final class RedirectMatcher
             $created++;
         }
         if ($created > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return 'created ' . $created;

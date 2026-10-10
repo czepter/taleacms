@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * The overview of an export before anything is imported (step 2 of the admin flow): counts per kind, the first TITLES

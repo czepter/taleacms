@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Webflow: the CSV export of one CMS collection (Designer → CMS → the collection → Export). No API key is needed.

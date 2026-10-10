@@ -2,8 +2,8 @@
 /**
  * A newsletter: the draft form with a preview, the test e-mail and sending; a newsletter being sent or sent is read-only.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Newsletters $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Newsletters $module
  * @var string $csrf
  * @var array<string, mixed> $n
  * @var list<array<string, mixed>> $news published news items to choose from
@@ -14,8 +14,8 @@
  * @var bool $canPublish
  * @var string $email the signed-in user's address for the test
  */
-use Kaleta\Core\Language;
-use Kaleta\Core\Mailing;
+use Talea\Core\Language;
+use Talea\Core\Mailing;
 
 $id = (int) $n['id'];
 $publicId = (string) ($n['public_id'] ?? '');

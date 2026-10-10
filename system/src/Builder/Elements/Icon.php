@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Icons;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Icons;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Icon from the built-in set (Builder\Icons) as inline SVG: color = the element's text color, size = the font size.
@@ -32,17 +32,17 @@ final class Icon extends Element
     public static function baseCss(): string
     {
         // default size and color (the element's style overrides them); an element inserted via AI or MCP thus looks the same as from the editor
-        return '.ka-icon { display: inline-grid; place-items: center; flex: none; width: 1em; height: 1em; line-height: 1; font-size: var(--ka-step-3); color: var(--ka-color-primary); }
-.ka-icon svg { display: block; width: 100%; height: 100%; }
-.ka-icon--circle, .ka-icon--square { width: 1.9em; height: 1.9em; padding: 0.45em; background: var(--ka-color-primary-soft); }
-.ka-icon--circle { border-radius: 50%; }
-.ka-icon--square { border-radius: var(--ka-radius-m); }';
+        return '.tl-icon { display: inline-grid; place-items: center; flex: none; width: 1em; height: 1em; line-height: 1; font-size: var(--tl-step-3); color: var(--tl-color-primary); }
+.tl-icon svg { display: block; width: 100%; height: 100%; }
+.tl-icon--circle, .tl-icon--square { width: 1.9em; height: 1.9em; padding: 0.45em; background: var(--tl-color-primary-soft); }
+.tl-icon--circle { border-radius: 50%; }
+.tl-icon--square { border-radius: var(--tl-radius-m); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['content'];
-        $className = 'ka-icon' . ($o['shape'] !== '' ? ' ka-icon--' . $o['shape'] : '');
+        $className = 'tl-icon' . ($o['shape'] !== '' ? ' tl-icon--' . $o['shape'] : '');
         $description = $o['description'] !== '' ? ' role="img" aria-label="' . e($o['description']) . '"' : ' aria-hidden="true"';
 
         return '<' . $p['tag'] . Text::withClass($a, $className) . $description . '>' . Icons::svg($o['icon']) . '</' . $p['tag'] . '>';

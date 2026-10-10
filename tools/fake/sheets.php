@@ -2,7 +2,7 @@
 
 // Google Sheets (2.13, Core\EnquirySheet): spreadsheets.create answers with an id, values.append with the number of rows;
 // every call must carry a Bearer token. The bodies are logged so the test can see the title, the header and the rows.
-// The flag file kaleta-fake-<port>-sheets.fail makes append answer 500 (the retry test).
+// The flag file talea-fake-<port>-sheets.fail makes append answer 500 (the retry test).
 if ($method === 'POST' && $path === '/v4/spreadsheets') {
     $log('sheets', ['call' => 'create', 'authorization' => $headers['authorization'] ?? '', 'body' => $json]);
     if (!str_starts_with((string) ($headers['authorization'] ?? ''), 'Bearer ')) {

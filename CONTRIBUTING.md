@@ -1,13 +1,13 @@
-# Contributing to Kaleta
+# Contributing to Talea
 
-Thank you for helping. Kaleta is a small project, so a short, focused change with a test is the easiest to accept.
+Thank you for helping. Talea is a small project, so a short, focused change with a test is the easiest to accept.
 
 ## Before you start
 
-- **Bugs:** open an [issue](https://github.com/phprs-cms/kaletacms/issues) with the Kaleta version (Admin → Updates), what
+- **Bugs:** open an issue in the project's GitHub repository with the Talea version (Admin → Updates), what
   you did, what you expected and what happened. Screenshots and the PHP error log help.
 - **Security problems:** do not open a public issue – follow [SECURITY.md](SECURITY.md).
-- **New features:** open an issue first and describe the use case. Kaleta has no third-party plugins by design; features
+- **New features:** open an issue first and describe the use case. Talea has no third-party plugins by design; features
   ship as built-in extensions that are tested together, so not every idea fits.
 
 ## Setting up
@@ -34,14 +34,14 @@ vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP
 vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and admin must contain no Czech (site tests, tools/check-english.php)
 ```
 
-Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Kaleta\Tests\Support\DatabaseTestCase`: a
+Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Talea\Tests\Support\DatabaseTestCase`: a
 throw-away database built by the real migrations, every test in a rolled-back transaction; skipped when no MySQL is reachable). The older
 `tools/unit-tests.php` (about 930 checks) runs as the `legacy` suite; move checks out of it when you touch the code they cover. Use a
 test in `tests/Site` for anything that needs a running site (see `tests/Site/README.md`).
 
 ## Code
 
-- PHP 8.4 with `declare(strict_types=1)`, namespace `Kaleta\`. Match the surrounding code: identifiers and comments are
+- PHP 8.4 with `declare(strict_types=1)`, namespace `Talea\`. Match the surrounding code: identifiers and comments are
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.

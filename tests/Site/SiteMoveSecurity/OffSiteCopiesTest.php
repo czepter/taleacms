@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -61,7 +61,7 @@ final class OffSiteCopiesTest extends SiteTestCase
             PHP);
         $port = $site->startPhp($dir, 'router.php');
         $this->clearPuts();
-        foreach (['remote_backup' => 's3', 'backup_host' => 's3.example.com', 'backup_user' => 'AKIDTEST', 'backup_password' => 'tajne-s3', 'backup_folder' => 'kaleta-backups',
+        foreach (['remote_backup' => 's3', 'backup_host' => 's3.example.com', 'backup_user' => 'AKIDTEST', 'backup_password' => 'tajne-s3', 'backup_folder' => 'talea-backups',
             'backup_region' => 'eu-central-1', 'backup_test_url' => 'http://127.0.0.1:' . $port, 'backup_media' => '1', 'remote_media_status' => ''] as $key => $value) {
             $site->setting($key, $value);
         }
@@ -82,10 +82,10 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertGreaterThan(0, $mediaFiles, 'the site has media files');
         $this->backupNow();
 
-        $this->assertSame(1, $this->putCount('#^PUT /kaleta-backups/kaleta-.*\.sql#m'), 'the backup is uploaded once');
-        $this->assertSame($mediaFiles, $this->putCount('#^PUT /kaleta-backups/media/#m'), 'every media file is uploaded');
+        $this->assertSame(1, $this->putCount('#^PUT /talea-backups/talea-.*\.sql#m'), 'the backup is uploaded once');
+        $this->assertSame($mediaFiles, $this->putCount('#^PUT /talea-backups/media/#m'), 'every media file is uploaded');
         $this->assertSame(0, $this->putCount('/unsigned/'), 'every request is signed');
-        $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(value, '|', -2) FROM ka_settings WHERE name = 'remote_media_status'"), 'media status: complete');
+        $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(value, '|', -2) FROM tl_settings WHERE name = 'remote_media_status'"), 'media status: complete');
         $this->assertPage('/admin.php?module=settings&tab=backups', 200, 'Media: the copy is complete', message: 'Backups show the media copy');
     }
 
@@ -95,7 +95,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site = $this->site();
         $this->clearPuts();
         $this->backupNow();
-        $this->assertSame(0, $this->putCount('#^PUT /kaleta-backups/media/#m'), 'the next backup uploads no unchanged media');
+        $this->assertSame(0, $this->putCount('#^PUT /talea-backups/media/#m'), 'the next backup uploads no unchanged media');
 
         mkdir($site->path('media/2026/09'), 0775, true);
         file_put_contents($site->path('media/2026/09/novy-soubor.txt'), "novy\n");
@@ -103,7 +103,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site->setting('media_sync_check', '0');
         $site->runTasks();
 
-        $this->assertSame('PUT /kaleta-backups/media/2026/09/novy-soubor.txt 5 signed', trim($this->puts()), 'cron copies only the new file');
+        $this->assertSame('PUT /talea-backups/media/2026/09/novy-soubor.txt 5 signed', trim($this->puts()), 'cron copies only the new file');
     }
 
     #[Depends('testOnlyNewMediaIsCopiedAgain')]
@@ -112,9 +112,9 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site = $this->site();
         $site->setting('auto_backups', '1');
         $site->setting('remote_backup', 'off');
-        $site->exec("INSERT INTO ka_change_log (created_at, module, action) VALUES (NOW(), 'test', 'change')");
+        $site->exec("INSERT INTO tl_change_log (created_at, module, action) VALUES (NOW(), 'test', 'change')");
         $age = static function () use ($site): void {
-            foreach (glob($site->path('storage/backups/kaleta-*')) ?: [] as $file) {
+            foreach (glob($site->path('storage/backups/talea-*')) ?: [] as $file) {
                 touch($file, time() - 2 * 86400);
             }
         };
@@ -124,8 +124,8 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertSame($before + 1, $this->autoBackups(), 'a change since the last backup (older than a day) makes a new automatic one');
 
         $age();
-        $site->exec('UPDATE ka_change_log SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
-        $site->exec('UPDATE ka_enquiries SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
+        $site->exec('UPDATE tl_change_log SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
+        $site->exec('UPDATE tl_enquiries SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
         $site->admin()->get('/admin.php');
         $this->assertSame($before + 1, $this->autoBackups(), 'without a change no new backup before the week is over');
     }

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Google;
+use Talea\Connectors\Google;
 
 /**
  * Enquiries in a Google sheet (2.13, the Google connection with the drive.file scope – only files the site created):
@@ -61,7 +61,7 @@ final class EnquirySheet
             return $answer['error'] !== '' ? $answer['error'] : t('Google did not return the sheet.');
         }
         Connectors::updateConfig($app->db(), Google::KEY, ['sheet_id' => $id]);
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'sheet', Google::KEY);
+        \Talea\Admin\ChangeLog::write($app, 'connectors', 'sheet', Google::KEY);
 
         return '';
     }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Legacy;
+namespace Talea\Tests\Legacy;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;

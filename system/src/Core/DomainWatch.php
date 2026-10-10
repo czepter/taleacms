@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Domain and mail watch (2.8, "runs itself"): once a day the site checks what nobody notices until it breaks.
@@ -531,7 +531,7 @@ final class DomainWatch
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => self::TIMEOUT, CURLOPT_TIMEOUT => self::TIMEOUT * 2,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_MAXFILESIZE => self::MAX_BYTES,
-            CURLOPT_HTTPHEADER => ['Accept: application/rdap+json, application/json', 'User-Agent: Kaleta/' . KALETA_VERSION],
+            CURLOPT_HTTPHEADER => ['Accept: application/rdap+json, application/json', 'User-Agent: Talea/' . TALEA_VERSION],
             CURLOPT_HEADERFUNCTION => function ($ch, string $header) use (&$location): int {
                 if (stripos($header, 'Location:') === 0) {
                     $location = trim(substr($header, 9));
@@ -557,7 +557,7 @@ final class DomainWatch
     private static function streamRequest(string $url): array
     {
         $context = stream_context_create(['http' => ['method' => 'GET', 'timeout' => self::TIMEOUT, 'follow_location' => 0, 'ignore_errors' => true,
-            'header' => "Accept: application/rdap+json, application/json\r\nUser-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]);
+            'header' => "Accept: application/rdap+json, application/json\r\nUser-Agent: Talea/" . TALEA_VERSION . "\r\n"]]);
         $stream = @fopen($url, 'rb', false, $context);
         if ($stream === false) {
             throw new \RuntimeException('connection failed');

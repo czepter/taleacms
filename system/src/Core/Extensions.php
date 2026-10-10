@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Built-in features (the admin screen "Features"; "extensions" in the code and the settings key) – optional parts of the
  * system that the administrator switches on and off.
  *
- * All of them are part of the package and are made in the Kaleta project. Code of other developers comes as add-ons
+ * All of them are part of the package and are made in the Talea project. Code of other developers comes as add-ons
  * (Extension\Registry, 3.0) – not through this list. A disabled feature disappears from the administration menu and from
  * the site, the data stays.
  *
@@ -27,7 +27,7 @@ final class Extensions
         'redirects' => ['Redirects', '301 redirects from old addresses – essential after moving from another site.', true],
         'languages' => ['Language versions of the site', 'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → General.', false],
         'assistant' => ['Writing assistant (your own key)', 'In the builder, new sections from a description and text rewrites; in news, headlines, intro, SEO description, tags, proofreading, image descriptions and translation. Needs your own Claude, OpenAI, Google or Mistral key (below); text is sent only when you click an assistant button.', false],
-        'fleet' => ['Fleet console', 'Makes this installation the console of your other Kaleta sites: they report to it every hour, it shows all of them on one screen sorted by what needs attention, checks that they are up and decides when they install a new version – test sites first, the rest two days later. It never gets into the sites.', false],
+        'fleet' => ['Fleet console', 'Makes this installation the console of your other Talea sites: they report to it every hour, it shows all of them on one screen sorted by what needs attention, checks that they are up and decides when they install a new version – test sites first, the rest two days later. It never gets into the sites.', false],
         'claude' => ['Claude connection', 'MCP server at /mcp: Claude builds pages in the builder with your account\'s permissions, edits the header, footer, collections and look, and writes news. Pages and news are saved as drafts that you publish, the menu and look go into the draft look; settings apply straight away. Everyone creates their access token under My account.', true],
     ];
 

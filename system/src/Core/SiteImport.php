@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Components;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Popups;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\Style;
+use Talea\Builder\Build;
+use Talea\Builder\Collections;
+use Talea\Builder\Components;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Popups;
+use Talea\Builder\SiteParts;
+use Talea\Builder\Style;
 
 /**
- * Import of a Kaleta export (1.8): moves a whole site into a new, empty installation – the counterpart of SiteExport.
+ * Import of a Talea export (1.8): moves a whole site into a new, empty installation – the counterpart of SiteExport.
  *
  * The site is empty, so the rows get their integer keys from their order in the export (the first row of a table is 1) and keep
  * the public_id (UUID v4) the export gave them: the file has no integer keys. Every reference between rows is a public id
@@ -77,7 +77,7 @@ final class SiteImport
 
     /* ---------- files in storage/import ---------- */
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> Kaleta exports in storage/import, newest on top */
+    /** @return list<array{soubor:string, velikost:int, cas:int}> Talea exports in storage/import, newest on top */
     public static function listAll(): array
     {
         $files = [];
@@ -95,7 +95,7 @@ final class SiteImport
     {
         return $file !== '' && strlen($file) <= 150 && basename($file) === $file && !str_starts_with($file, '.')
             && !preg_match('#[/\\\\\x00-\x1f]#', $file) && in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['zip', 'json'], true)
-            && !preg_match('/^(kaleta-)?state-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
+            && !preg_match('/^(talea-)?state-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
     }
 
     public static function path(string $file): ?string
@@ -121,13 +121,13 @@ final class SiteImport
 
     private static function stateFile(string $file): string
     {
-        return WpFile::FOLDER . '/kaleta-state-' . substr(sha1($file), 0, 16) . '.json';
+        return WpFile::FOLDER . '/talea-state-' . substr(sha1($file), 0, 16) . '.json';
     }
 
     /** Working folder of the import: content.json and one file per table. */
     private static function workFolder(string $file): string
     {
-        return WpFile::FOLDER . '/kaleta-' . substr(sha1($file), 0, 16);
+        return WpFile::FOLDER . '/talea-' . substr(sha1($file), 0, 16);
     }
 
     /** @return array<string, mixed>|null */
@@ -176,7 +176,7 @@ final class SiteImport
      * Reads the header and splits content.json into files per table (one JSON row per line); counts rows and media files.
      *
      * @param array<string, mixed> $state
-     * @throws \RuntimeException the file is not a Kaleta export or comes from a newer Kaleta
+     * @throws \RuntimeException the file is not a Talea export or comes from a newer Talea
      */
     public static function prepare(array &$state): void
     {
@@ -193,7 +193,7 @@ final class SiteImport
             }
             $zip = new \ZipArchive();
             if ($zip->open($path, \ZipArchive::RDONLY) !== true || ($in = $zip->getStream('content.json')) === false) {
-                throw new \RuntimeException('The file is not a Kaleta export (content.json is missing in the archive).');
+                throw new \RuntimeException('The file is not a Talea export (content.json is missing in the archive).');
             }
             $out = fopen($json, 'wb');
             stream_copy_to_stream($in, $out);
@@ -211,16 +211,16 @@ final class SiteImport
         }
         [$header, $counts] = self::split($json, $work);
         @unlink($json);
-        if (($header['format'] ?? '') !== 'kaleta-export') {
-            throw new \RuntimeException('The file is not a Kaleta export.');
+        if (($header['format'] ?? '') !== 'talea-export') {
+            throw new \RuntimeException('The file is not a Talea export.');
         }
         if ((int) ($header['format_version'] ?? 0) < 3) {
-            throw new \RuntimeException('This export is from before public ids (format version 2 or older) – export the site again with a current Kaleta.');
+            throw new \RuntimeException('This export is from before public ids (format version 2 or older) – export the site again with a current Talea.');
         }
-        if ((int) ($header['format_version'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
-            throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
+        if ((int) ($header['format_version'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['talea'] ?? '0'), TALEA_VERSION, '>')) {
+            throw new \RuntimeException('The export comes from a newer version of Talea – update this site first (Settings → Backups and updates).');
         }
-        $state['header'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
+        $state['header'] = ['talea' => (string) ($header['talea'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
             'name' => (string) ($header['settings']['site_name'] ?? ''), 'format_version' => (int) ($header['format_version'] ?? 1)];
         $state['counts'] = $counts;
         $state['media_total'] = $mediaCount;
@@ -278,11 +278,11 @@ final class SiteImport
             }
             [$parts, $counts] = [[], []];
             if (filesize($json) > 64 * 1024 * 1024) {
-                throw new \RuntimeException('The file is not a Kaleta export.');
+                throw new \RuntimeException('The file is not a Talea export.');
             }
             $data = json_decode((string) file_get_contents($json), true);
             if (!is_array($data)) {
-                throw new \RuntimeException('The file is not a Kaleta export.');
+                throw new \RuntimeException('The file is not a Talea export.');
             }
             $header = array_diff_key($data, array_flip(self::TABLES));
             foreach (self::TABLES as $t) {
@@ -316,7 +316,7 @@ final class SiteImport
     {
         if (!$state['emptied']) {
             if (!self::siteContent($this->db)['empty']) {
-                throw new \RuntimeException('The site already has its own content. A Kaleta export can be imported only into a new, empty site.');
+                throw new \RuntimeException('The site already has its own content. A Talea export can be imported only into a new, empty site.');
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->run('SET FOREIGN_KEY_CHECKS = 0');
@@ -356,7 +356,7 @@ final class SiteImport
         }
         if ($state['table'] >= count(self::TABLES)) {
             $this->loadIds((string) $state['file']);
-            $this->applySettings((string) $state['file'], (string) ($state['header']['kaleta'] ?? ''));
+            $this->applySettings((string) $state['file'], (string) ($state['header']['talea'] ?? ''));
             $state['phase'] = $state['media_total'] > 0 ? 'media' : 'done';
             if ($state['phase'] === 'done') {
                 $this->finish();
@@ -509,9 +509,9 @@ final class SiteImport
     /** An applied industry blueprint (2.11): only a manifest that passes Core\Blueprint::sanitize. */
     private static function blueprint(array $r): ?array
     {
-        [$manifest] = \Kaleta\Core\Blueprint::sanitize(is_array($r['manifest'] ?? null) ? $r['manifest'] : json_decode((string) ($r['manifest'] ?? ''), true));
+        [$manifest] = \Talea\Core\Blueprint::sanitize(is_array($r['manifest'] ?? null) ? $r['manifest'] : json_decode((string) ($r['manifest'] ?? ''), true));
 
-        return $manifest === null ? null : ['bkey' => $manifest['key'], 'name' => \Kaleta\Core\Blueprint::text($manifest['name']), 'manifest' => (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        return $manifest === null ? null : ['bkey' => $manifest['key'], 'name' => \Talea\Core\Blueprint::text($manifest['name']), 'manifest' => (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'applied_at' => date('Y-m-d H:i:s')];
     }
 
@@ -746,7 +746,7 @@ final class SiteImport
     /** The key a component or section got from a fleet design kit (2.16, Fleet\Kit) – kept, so the next kit updates it instead of adding a copy. */
     private static function kitKey(mixed $v): ?string
     {
-        return is_string($v) && preg_match(\Kaleta\Fleet\Kit::KEY_PATTERN, $v) ? $v : null;
+        return is_string($v) && preg_match(\Talea\Fleet\Kit::KEY_PATTERN, $v) ? $v : null;
     }
 
     private function section(array $r): ?array
@@ -778,8 +778,8 @@ final class SiteImport
         return $name !== '' ? ['collection_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 110),
             'fields' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
             'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
-            'preset' => \Kaleta\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
-            'schema_org' => ($schema = \Kaleta\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
+            'preset' => \Talea\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
+            'schema_org' => ($schema = \Talea\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
                 ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
             'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
@@ -881,7 +881,7 @@ final class SiteImport
                 'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
                 // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*
                 // "javascript:…" from a crafted archive is dropped and the setting keeps its value
-                default => \Kaleta\Admin\Modules\Settings::checkable($key) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),
+                default => \Talea\Admin\Modules\Settings::checkable($key) ? \Talea\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),
             };
             if ($value !== null) {
                 $this->settings->set($key, $value);
@@ -921,7 +921,7 @@ final class SiteImport
                 continue;
             }
             $done++;
-            $full = KALETA_ROOT . '/' . $target;
+            $full = TALEA_ROOT . '/' . $target;
             $ok = is_dir(dirname($full)) || @mkdir(dirname($full), 0775, true);
             if ($ok && str_ends_with(strtolower($target), '.svg')) {
                 $content = Svg::sanitize((string) $zip->getFromName($name)); // an SVG is cleaned like an uploaded one
@@ -970,7 +970,7 @@ final class SiteImport
         for ($i = 0; $i < 500 && Search::complete($this->db, 200) > 0; $i++) {
             // the search index of the imported news, 200 at a time
         }
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 
     /** Removes the working folder of a finished import (the export file itself stays). */

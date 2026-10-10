@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: newsletter (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -30,10 +30,10 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
-        $mailing = \Kaleta\Core\Mailing::class;
+        $mailing = \Talea\Core\Mailing::class;
 
         return ['newsletters' => array_map(fn (array $n): array => $this->newsletter($n), $mailing::all($db)),
             'confirmed_subscribers' => $mailing::confirmedCount($db), 'sending_problem' => $mailing::problem($this->app)];
@@ -44,10 +44,10 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
-        $mailing = \Kaleta\Core\Mailing::class;
+        $mailing = \Talea\Core\Mailing::class;
         $byId = fn (): array => $mailing::byId($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The newsletter does not exist. Use list_newsletters.');
 
         $current = isset($a['id']) && (int) $a['id'] > 0 ? $byId() : null;
@@ -63,10 +63,10 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
-        $mailing = \Kaleta\Core\Mailing::class;
+        $mailing = \Talea\Core\Mailing::class;
         $byId = fn (): array => $mailing::byId($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The newsletter does not exist. Use list_newsletters.');
 
         $n = $byId();
@@ -75,7 +75,7 @@ trait NewsletterTools
             throw new \DomainException('The connected user has no e-mail address – add one under My account in the admin.');
         }
         if (!$mailing::sendTest($this->app, $n, $email)) {
-            throw new \DomainException('The test e-mail could not be sent: ' . \Kaleta\Core\Mail::$error);
+            throw new \DomainException('The test e-mail could not be sent: ' . \Talea\Core\Mail::$error);
         }
 
         return ['sent_to' => $email];
@@ -86,10 +86,10 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
-        $mailing = \Kaleta\Core\Mailing::class;
+        $mailing = \Talea\Core\Mailing::class;
         $byId = fn (): array => $mailing::byId($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The newsletter does not exist. Use list_newsletters.');
 
         $n = $byId();
@@ -110,10 +110,10 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
-        $mailing = \Kaleta\Core\Mailing::class;
+        $mailing = \Talea\Core\Mailing::class;
         $byId = fn (): array => $mailing::byId($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The newsletter does not exist. Use list_newsletters.');
 
         $n = $byId();

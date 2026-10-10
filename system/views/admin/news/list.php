@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\News $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\News $module
  * @var string $csrf
  * @var list<array<string, mixed>> $news
  * @var int $total
@@ -54,7 +54,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 		<select name="language">
 			<option value=""><?= e(t('all')) ?></option>
 <?php foreach ($siteLanguages as $code): ?>
-			<option value="<?= e($code) ?>"<?= $filter['language'] === $code ? ' selected' : '' ?>><?= e(\Kaleta\Core\Language::AVAILABLE[$code][0]) ?></option>
+			<option value="<?= e($code) ?>"<?= $filter['language'] === $code ? ' selected' : '' ?>><?= e(\Talea\Core\Language::AVAILABLE[$code][0]) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>

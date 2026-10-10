@@ -1,5 +1,5 @@
 <?php
-/** Kaleta – texts of the site in language 'sk' (keyed by the English source text). */
+/** Talea – texts of the site in language 'sk' (keyed by the English source text). */
 
 return [
     'datum_format' => 'j. n. Y',
@@ -761,7 +761,7 @@ return [
     'Please confirm that you are not a robot and send the form again.' => 'Potvrďte, prosím, že nie ste robot, a odošlite formulár znova.',
     'With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.' => 'S vaším súhlasom web používa Google Tag Manager (Google Ireland Limited) na spúšťanie analytických a reklamných značiek; tie ukladajú do prehliadača cookies.',
     'To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.' => 'Na ochranu formulárov pred spamom web používa %s, ktorý pri odoslaní formulára dostane vašu IP adresu a údaje o prehliadači.',
-    'Kaleta demo – try the admin' => 'Demo Kalety – vyskúšajte administráciu',
+    'Talea demo – try the admin' => 'Demo Talea – vyskúšajte administráciu',
     'Facts' => 'Fakty',
     'closed' => 'zatvorené',
     'Open now, until %s' => 'Teraz otvorené, do %s',

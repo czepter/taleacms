@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Admin\BuilderActions;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Builder\Components as KomponentyStavby;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
+use Talea\Admin\Module;
+use Talea\Admin\BuilderActions;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Builder\Components as KomponentyStavby;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
 
 /**
  * Components – reusable blocks (service card, contact block, call to action…). They are created in the builder with the
@@ -73,7 +73,7 @@ final class Components extends Module
         } else {
             $id = $this->db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])]);
         }
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back('The component was saved.');
     }
@@ -82,7 +82,7 @@ final class Components extends Module
     {
         if ($this->request->isPost()) {
             $this->db->delete('components', ['component_id' => $this->idParam('component_id')]);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $this->back('The component was deleted. Places where it was used will be empty.');
@@ -106,7 +106,7 @@ final class Components extends Module
     }
 
     /** @return list<array{id: int, name: string, properties: list<array<string, string>>}> */
-    public static function listForEditor(\Kaleta\Core\Db $db): array
+    public static function listForEditor(\Talea\Core\Db $db): array
     {
         return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => $k['properties']], KomponentyStavby::all($db));
     }
@@ -165,7 +165,7 @@ final class Components extends Module
             $usages[] = t('page “%s”', $r['title']) . ($r['trashed'] ? ' (' . t('in trash') . ')' : '');
         }
         foreach ($this->db->all('SELECT type, language, name FROM {site_parts}' . $whereParts . ' ORDER BY type, language, variant', [$pattern, $pattern]) as $r) {
-            $usages[] = mb_strtolower(t(\Kaleta\Builder\SiteParts::TYPES[$r['type']][0] ?? $r['type'])) . ($r['name'] !== '' ? ' „' . $r['name'] . '“' : '') . ($r['language'] !== '' ? ' (' . $r['language'] . ')' : '');
+            $usages[] = mb_strtolower(t(\Talea\Builder\SiteParts::TYPES[$r['type']][0] ?? $r['type'])) . ($r['name'] !== '' ? ' „' . $r['name'] . '“' : '') . ($r['language'] !== '' ? ' (' . $r['language'] . ')' : '');
         }
         foreach ($this->db->all('SELECT name FROM {collections}' . $whereParts . ' ORDER BY name', [$pattern, $pattern]) as $r) {
             $usages[] = t('collection detail “%s”', $r['name']);

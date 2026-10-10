@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Builder element type. Each type = one class in Builder\Elements with a content schema (properties()), allowed HTML tags,
@@ -67,7 +67,7 @@ abstract class Element
 
     /**
      * @param array<string, mixed> $p       sanitized element (type, tag, content, …)
-     * @param string               $a       finished attributes (id, class, data-ka-id) starting with a space
+     * @param string               $a       finished attributes (id, class, data-tl-id) starting with a space
      * @param string               $children    rendered nested elements
      */
     abstract public static function render(array $p, string $a, string $children, Context $k): string;

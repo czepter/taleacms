@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** A group of elements (flex): a card, a row of buttons, a column of text. With a link, the whole group becomes a link. */
 final class Container extends Element
@@ -31,10 +31,10 @@ final class Container extends Element
     public static function baseCss(): string
     {
         // card as a link: the text keeps the card's colors, not the link color; hovering lifts it slightly
-        return '.ka-card-link { display: block; color: inherit; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
-.ka-card-link:hover { transform: translateY(-2px); box-shadow: var(--ka-shadow-m); }
-.ka-card-link:focus-visible { outline: 2px solid var(--ka-color-primary); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .ka-card-link { transition: none; } .ka-card-link:hover { transform: none; } }';
+        return '.tl-card-link { display: block; color: inherit; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
+.tl-card-link:hover { transform: translateY(-2px); box-shadow: var(--tl-shadow-m); }
+.tl-card-link:focus-visible { outline: 2px solid var(--tl-color-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .tl-card-link { transition: none; } .tl-card-link:hover { transform: none; } }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -52,7 +52,7 @@ final class Container extends Element
             $children = (string) preg_replace_callback('#<a\b([^>]*)>#', fn (array $m): string => '<span' . preg_replace('#\s(?:href|target|rel|download|hreflang|aria-current)="[^"]*"#', '', $m[1]) . '>', $children);
             $children = str_replace('</a>', '</span>', $children);
 
-            return '<a' . Text::withClass($a, 'ka-card-link') . ' href="' . e($link) . '">' . $children . '</a>';
+            return '<a' . Text::withClass($a, 'tl-card-link') . ' href="' . e($link) . '">' . $children . '</a>';
         }
 
         return '<' . $p['tag'] . $a . '>' . $children . '</' . $p['tag'] . '>';

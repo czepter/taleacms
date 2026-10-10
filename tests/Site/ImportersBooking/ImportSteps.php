@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\ImportersBooking;
+namespace Talea\Tests\Site\ImportersBooking;
 
-use Kaleta\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\Response;
 
 /** The steps of the "From another system" import (module transfer) shared by the importer tests; old helpers src_batch, *_run. */
 trait ImportSteps

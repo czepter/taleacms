@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** HF-11: the Structured data element puts typed JSON-LD into the page's single @graph, linked to the company and website nodes. */
@@ -15,7 +15,7 @@ final class StructuredDataElementTest extends SiteTestCase
     private function publish(string $slug, array $elements): string
     {
         $build = json_encode(['v' => 1, 'children' => [['id' => 's1', 'type' => 'section', 'children' => $elements]]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $this->site()->exec('INSERT INTO ka_pages (slug, title, text, visible, build) VALUES (?, ?, ?, 1, ?)', [$slug, ucfirst($slug), '', $build]);
+        $this->site()->exec('INSERT INTO tl_pages (slug, title, text, visible, build) VALUES (?, ?, ?, 1, ?)', [$slug, ucfirst($slug), '', $build]);
         $this->site()->clearPageCache();
 
         return $this->site()->client('visitor')->get('/' . $slug)->body;
@@ -47,7 +47,7 @@ final class StructuredDataElementTest extends SiteTestCase
         $this->assertSame('https://schema.org/InStock', $product['offers'][0]['availability']);
         $company = array_values(array_filter($graph, fn (array $n): bool => in_array($n['@type'], ['Organization', 'LocalBusiness'], true)))[0];
         $this->assertSame(['@id' => $company['@id']], $product['offers'][0]['seller'], 'the offer is linked to the company node');
-        $this->assertStringNotContainsString('data-ka-structured', $html, 'nothing visible on the page');
+        $this->assertStringNotContainsString('data-tl-structured', $html, 'nothing visible on the page');
     }
 
     public function testAManualFaqPageReplacesTheAutomaticOne(): void

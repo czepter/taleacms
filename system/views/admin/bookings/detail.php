@@ -2,15 +2,15 @@
 /**
  * One booking (3.0): the appointment, the customer, done / did not come / cancel, anonymise.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Bookings $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Bookings $module
  * @var string $csrf
  * @var array<string, mixed> $b
  * @var DateTimeImmutable $deadline until when the customer may cancel by the link
  * @var list<array{id: int, starts_at: string, ends_at: string}> $proposals times already proposed to the customer (pending)
  * @var list<string> $free free times of this person to propose from, "YYYY-MM-DD HH:MM" (pending)
  */
-use Kaleta\Core\Booking;
+use Talea\Core\Booking;
 
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('All bookings')) ?></a></p>

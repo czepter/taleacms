@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Was: section 39 of tools/test.sh – backup and restore of the database. */
@@ -25,7 +25,7 @@ final class BackupRestoreTest extends SiteTestCase
         $this->assertNotSame('Po zaloze', $site->settingValue('site_name'), 'the restore brings back the state from the backup');
 
         $gz = str_ends_with($backup, '.gz');
-        $broken = $site->path('storage/backups/' . ($gz ? 'kaleta-poskozena.sql.gz' : 'kaleta-poskozena.sql'));
+        $broken = $site->path('storage/backups/' . ($gz ? 'talea-poskozena.sql.gz' : 'talea-poskozena.sql'));
         $sql = $gz ? (string) gzdecode((string) file_get_contents($site->path('storage/backups/' . $backup))) : (string) file_get_contents($site->path('storage/backups/' . $backup));
         file_put_contents($broken, $gz ? gzencode(substr($sql, 0, 4000)) : substr($sql, 0, 4000));
         $site->setting('site_name', 'Pred poskozenou');

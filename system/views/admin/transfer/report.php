@@ -3,13 +3,13 @@
  * The migration parity report (2.7): finding the old site's pages, checking them in batches (the form submits itself,
  * data-auto-submit in image/admin.js), then the result – problems first, then the checks of the whole site.
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state  Core\MigrationReport
  * @var array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>} $result
  */
-use Kaleta\Core\MigrationReport;
+use Talea\Core\MigrationReport;
 
 $s = $result['summary'];
 $severityClass = ['error' => 'badge badge-error', 'warning' => 'badge badge-draft', 'info' => 'badge'];

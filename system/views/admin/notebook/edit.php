@@ -2,12 +2,12 @@
 /**
  * One note of the agent notebook (2.15).
  *
- * @var Kaleta\Admin\Modules\Notebook $module
+ * @var Talea\Admin\Modules\Notebook $module
  * @var string $csrf
  * @var array<string, mixed>|null $note
  * @var string $topic the topic a new note starts with
  */
-use Kaleta\Core\Notebook;
+use Talea\Core\Notebook;
 
 $isNew = $note === null;
 ?>

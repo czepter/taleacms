@@ -2,15 +2,15 @@
 /**
  * Enquiry detail.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Enquiries $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Enquiries $module
  * @var list<array<string, mixed>> $testimonials testimonial requests of this enquiry (2.12)
  * @var string $csrf
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
  * @var array<string, string> $users  public id => name
  */
-use Kaleta\Admin\Modules\Enquiries;
+use Talea\Admin\Modules\Enquiries;
 
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('All enquiries')) ?></a></p>
@@ -27,7 +27,7 @@ use Kaleta\Admin\Modules\Enquiries;
 	<dt><?= e(t('Came from')) ?></dt><dd><?= e($p['referrer']) ?></dd>
 <?php endif ?>
 <?php if (($p['campaign'] ?? '') !== ''): ?>
-	<dt><?= e(t('Campaign')) ?></dt><dd><?= e(Kaleta\Front\Forms::campaignText($p['campaign'])) ?></dd>
+	<dt><?= e(t('Campaign')) ?></dt><dd><?= e(Talea\Front\Forms::campaignText($p['campaign'])) ?></dd>
 <?php endif ?>
 	<dt><?= e(t('Status')) ?></dt><dd><?= e(t(Enquiries::STATUSES[(int) $p['status']])) ?></dd>
 <?php if (($p['anonymised_at'] ?? null) !== null): ?>
@@ -41,7 +41,7 @@ use Kaleta\Admin\Modules\Enquiries;
 <form method="post" action="<?= e($module->url('triage')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= e($p['public_id']) ?>">
 	<div class="row"><label for="category"><?= e(t('Kind')) ?></label><div><select id="category" name="category"><option value="">—</option>
-<?php foreach (Kaleta\Core\Triage::CATEGORIES as $key => $name): ?>
+<?php foreach (Talea\Core\Triage::CATEGORIES as $key => $name): ?>
 		<option value="<?= e($key) ?>"<?= $p['category'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select>

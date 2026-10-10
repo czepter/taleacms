@@ -3,14 +3,14 @@
  * Industry blueprints (2.11): the applied ones with their questions and failing checks, the shipped ones to apply,
  * an upload of a manifest and the export of the current site.
  *
- * @var Kaleta\Admin\Modules\Blueprints $module
+ * @var Talea\Admin\Modules\Blueprints $module
  * @var string $csrf
  * @var array<string, array<string, mixed>> $applied
  * @var array<string, array<string, mixed>> $available
  * @var list<array{blueprint: string, fact: string, question: string, help: string, answer: string, type: string}> $questions
  * @var list<array{0: string, 1: string, 2: string}> $findings
  */
-use Kaleta\Core\Blueprint;
+use Talea\Core\Blueprint;
 
 ?>
 <p class="notice"><?= e(t('A blueprint sets the site up for a kind of business: the ready-made collections it needs, the facts to fill in, questions for the owner, checks in the site audit and instructions for Claude.')) ?></p>

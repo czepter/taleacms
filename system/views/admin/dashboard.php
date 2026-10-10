@@ -3,8 +3,8 @@
  * The admin start screen.
  * Site overview: first steps, warnings, counts, traffic, new enquiries and recently edited content.
  *
- * @var Kaleta\Core\App $app
- * @var array<string, class-string<Kaleta\Admin\Module>> $modules
+ * @var Talea\Core\App $app
+ * @var array<string, class-string<Talea\Admin\Module>> $modules
  * @var array<string, array{0: int, 1: string}> $counts  label => [count, url]
  * @var list<array{0: string, 1: string, 2?: string, 3?: string}> $warnings  [text, url, link text, action that dismisses it]
  * @var list<array<string, mixed>> $enquiries
@@ -23,7 +23,7 @@
 		<a class="navigation" href="<?= e($app->url('admin.php?module=news&action=new')) ?>"><?= e(t('Write a news item')) ?></a>
 <?php endif ?>
 		<a class="navigation" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('View site')) ?></a>
-		<?= $app->view->render('admin/guide_link', ['url' => Kaleta\Admin\Guide::forScreen('', '', '', Kaleta\Core\Language::code())]) ?>
+		<?= $app->view->render('admin/guide_link', ['url' => Talea\Admin\Guide::forScreen('', '', '', Talea\Core\Language::code())]) ?>
 	</p>
 </div>
 <?php foreach ($warnings as $w): [$text, $url] = $w; ?>

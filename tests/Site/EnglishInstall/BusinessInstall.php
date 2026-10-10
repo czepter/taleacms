@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\EnglishInstall;
+namespace Talea\Tests\Site\EnglishInstall;
 
 /** The business starter with every extension, installed in English (options shared by the business classes). */
 trait BusinessInstall
@@ -17,8 +17,8 @@ trait BusinessInstall
     /** @return list<string> the query strings of the admin screens that are walked in every language */
     private function adminScreens(): array
     {
-        $news = (string) $this->site()->value('SELECT public_id FROM ka_news LIMIT 1');
-        $page = (string) $this->site()->value('SELECT public_id FROM ka_pages ORDER BY page_id LIMIT 1');
+        $news = (string) $this->site()->value('SELECT public_id FROM tl_news LIMIT 1');
+        $page = (string) $this->site()->value('SELECT public_id FROM tl_pages ORDER BY page_id LIMIT 1');
 
         return ['', 'module=pages', 'module=pages&action=new', "module=pages&action=builder&id=$page", 'module=enquiries', 'module=parts', 'module=parts&action=builder&type=header&language=',
             'module=components', 'module=collections', 'module=collections&action=new', 'module=news', 'module=news&action=new', "module=news&action=edit&id=$news", 'module=categories', 'module=categories&action=new',

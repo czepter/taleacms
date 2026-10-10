@@ -1,5 +1,5 @@
 {
-    "kaleta_blueprint": 1,
+    "talea_blueprint": 1,
     "key": "accommodation",
     "group": "food",
     "name": "Hotel, guesthouse or holiday rental",
@@ -17,7 +17,7 @@
     ],
     "questions": [
         {"fact": "booking_url", "question": "Where do guests book – what is the address of your booking engine or booking page?",
-            "help": "Every Book button on the site leads here; Kaleta shows the rooms but has no availability calendar or payments. Leave it empty if guests book by e-mail or phone – the buttons then lead to the contact page."},
+            "help": "Every Book button on the site leads here; Talea shows the rooms but has no availability calendar or payments. Leave it empty if guests book by e-mail or phone – the buttons then lead to the contact page."},
         {"fact": "check_in_time", "question": "From what time can guests check in, and how does a late arrival work?",
             "help": "For example \"15:00–20:00, later arrivals with a key box – call ahead\"."},
         {"fact": "check_out_time", "question": "By what time do guests check out?",
@@ -40,5 +40,5 @@
         {"check": "fact", "fact": "cancellation_policy", "message": "State your cancellation policy – guests look for it before they book directly."},
         {"check": "setting", "setting": "company_address", "message": "Add the address in Business details – guests navigate by it and search engines show it on the map."}
     ],
-    "claude": "Guests come for the rooms, the price from, what is included and how to book – each room type is one item of the rooms collection with real photos, and every Book button leads to {{fact.booking_url}}, or to the contact page when it is empty. Kaleta has no availability, prices per date or payments, so never promise free rooms, instant confirmation or a best-price guarantee. Check-in, check-out, pets, parking, breakfast, the city tax and cancellation are facts – write {{fact.…}} instead of repeating them, so every page says the same. Never invent prices, star ratings or classifications, reviews, awards, distances or amenities – ask the owner. State the cancellation policy and the city tax only as the owner gives them, and say that tax and guest registration rules should be checked with the municipality rather than stating them as law. Describe the place and its surroundings warmly but concretely."
+    "claude": "Guests come for the rooms, the price from, what is included and how to book – each room type is one item of the rooms collection with real photos, and every Book button leads to {{fact.booking_url}}, or to the contact page when it is empty. Talea has no availability, prices per date or payments, so never promise free rooms, instant confirmation or a best-price guarantee. Check-in, check-out, pets, parking, breakfast, the city tax and cancellation are facts – write {{fact.…}} instead of repeating them, so every page says the same. Never invent prices, star ratings or classifications, reviews, awards, distances or amenities – ask the owner. State the cancellation policy and the city tax only as the owner gives them, and say that tax and guest registration rules should be checked with the municipality rather than stating them as law. Describe the place and its surroundings warmly but concretely."
 }

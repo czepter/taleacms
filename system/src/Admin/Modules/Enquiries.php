@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * Enquiries and messages from the site's forms (the Form element in the builder, Front\Forms). Status: 0 new, 1 read, 2 handled.
@@ -25,7 +25,7 @@ final class Enquiries extends Module
 
     protected function actionList(): Response
     {
-        \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
+        \Talea\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
         self::deleteExpired($this->db, $this->app->settings());
         $filter = $this->request->get('status');
         $conditions = match ($filter) {
@@ -39,7 +39,7 @@ final class Enquiries extends Module
         $kind = $this->request->get('category');
         if ($kind === '-') {
             $conditions[] = "category = ''";
-        } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
+        } elseif (isset(\Talea\Core\Triage::CATEGORIES[$kind])) {
             $conditions[] = 'category = ?';
             $params[] = $kind;
         } else {
@@ -65,7 +65,7 @@ final class Enquiries extends Module
             'months' => $this->app->settings()->int('enquiries_months'),
             'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
-            'suggestion' => \Kaleta\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
+            'suggestion' => \Talea\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
         ]);
     }
 
@@ -81,7 +81,7 @@ final class Enquiries extends Module
         }
 
         return $this->view('detail', t('Enquiry') . ' – ' . ($p['email'] !== '' ? $p['email'] : format_date($p['created_at'], true)), ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
-            'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
+            'testimonials' => \Talea\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
             'users' => $this->listAssignees((int) $p['assigned_to']), 'assignedPublicId' => $this->publicId((int) $p['assigned_to'], 'users')]);
     }
 
@@ -96,7 +96,7 @@ final class Enquiries extends Module
     {
         return $this->db->pairs(
             "SELECT public_id, IF(name = '', username, name) FROM {users} u WHERE (blocked = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
-            [\Kaleta\Core\Auth::ADMIN, self::IDENT, $assignee],
+            [\Talea\Core\Auth::ADMIN, self::IDENT, $assignee],
         );
     }
 
@@ -109,7 +109,7 @@ final class Enquiries extends Module
             return $this->back();
         }
         try {
-            $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('send'));
+            $result = \Talea\Core\Testimonials::request($this->app, $id, $this->request->postBool('send'));
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), 'detail', ['id' => $this->publicId($id)], 'error');
         }
@@ -123,7 +123,7 @@ final class Enquiries extends Module
         $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
-            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
+            \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
                 (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
         }
 
@@ -147,7 +147,7 @@ final class Enquiries extends Module
     {
         $p = $this->db->one('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam()]);
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
-        $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/attachments/' . $item[2] : null;
+        $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? TALEA_ROOT . '/storage/attachments/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
             return $this->error('The attachment no longer exists.', 404);
         }
@@ -182,7 +182,7 @@ final class Enquiries extends Module
         foreach ($rows as $r) {
             foreach (json_decode((string) $r['data'], true) ?: [] as $item) {
                 if (is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? ''))) {
-                    @unlink(KALETA_ROOT . '/storage/attachments/' . $item[2]);
+                    @unlink(TALEA_ROOT . '/storage/attachments/' . $item[2]);
                 }
             }
         }
@@ -217,17 +217,17 @@ final class Enquiries extends Module
         if (!$this->app->auth()->isAdmin()) {
             return $this->error('Only an administrator can handle personal data requests.', 403);
         }
-        $email = \Kaleta\Core\PersonalData::normalise($this->request->isPost() ? $this->request->post('email') : '');
+        $email = \Talea\Core\PersonalData::normalise($this->request->isPost() ? $this->request->post('email') : '');
         $do = $this->request->isPost() ? $this->request->post('bulk') : '';
         if ($email !== null && $do === 'export') {
-            return new Response(\Kaleta\Core\PersonalData::export($this->app, $email), 200, ['Content-Type' => 'application/json; charset=utf-8',
+            return new Response(\Talea\Core\PersonalData::export($this->app, $email), 200, ['Content-Type' => 'application/json; charset=utf-8',
                 'Content-Disposition' => 'attachment; filename="personal-data-' . date('Y-m-d') . '.json"']);
         }
         if ($email !== null && $do === 'erase') {
             if (!$this->request->postBool('confirmed_at')) {
                 return $this->back('Tick that you want to erase the data.', 'personal', [], 'error');
             }
-            $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
+            $result = \Talea\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials']);
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References – remove it there if they ask.');
@@ -239,7 +239,7 @@ final class Enquiries extends Module
             return $this->back('Enter a valid e-mail address.', 'personal', [], 'error');
         }
 
-        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email) : null]);
+        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Talea\Core\PersonalData::find($this->db, $email) : null]);
     }
 
     /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */
@@ -265,13 +265,13 @@ final class Enquiries extends Module
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $p['enquiry_id'], (string) $p['created_at'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Kaleta\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
+                [(string) $p['enquiry_id'], (string) $p['created_at'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Talea\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
+        \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="enquiries-' . date('Y-m-d') . '.csv"']);
     }
@@ -280,14 +280,14 @@ final class Enquiries extends Module
      * Enquiries older than the set number of months: deleted including attachments, or – with enquiries_expiry = anonymise
      * (2.14) – kept as rows without the person for statistics (Core\Privacy). Also called by the background cleanup (Core\Notifications).
      */
-    public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
+    public static function deleteExpired(\Talea\Core\Db $db, \Talea\Core\Settings $siteSettings): void
     {
         $months = $siteSettings->int('enquiries_months');
         if ($months <= 0) {
             return;
         }
         if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
-            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'enquiry_id')));
+            \Talea\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'enquiry_id')));
 
             return;
         }
@@ -299,8 +299,8 @@ final class Enquiries extends Module
     protected function actionAnonymise(): Response
     {
         $idp = $this->idParam('enquiry_id');
-        if ($this->request->isPost() && \Kaleta\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '');
+        if ($this->request->isPost() && \Talea\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
+            \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '');
         }
 
         return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $this->publicId($idp)]);

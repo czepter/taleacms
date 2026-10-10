@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Claude (MCP): variants, versions, pages and enquiries like in the administration (was: section 16). */
@@ -43,36 +43,36 @@ final class McpVariantsTest extends SiteTestCase
         $this->assertStringNotContainsString('Campaign footer', $this->visit('/contact'), 'and only there');
 
         $this->site()->mcp('save_part_variant', ['part' => 'footer', 'variant' => self::$variant, 'delete' => true]);
-        $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_site_parts WHERE variant = ?', [self::$variant]), 'the variant is deleted');
+        $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM tl_site_parts WHERE variant = ?', [self::$variant]), 'the variant is deleted');
     }
 
     public function testVersionsOfAPage(): void
     {
         $site = $this->site();
         $site->mcp('build_from_html', ['title' => 'Version test', 'html' => '<section><h1>Version A</h1></section>', 'publish' => true]);
-        self::$idv = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'version-test'");
+        self::$idv = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'version-test'");
         $site->mcp('build_from_html', ['id' => $site->publicId('pages', self::$idv), 'html' => '<section><h1>Version B</h1></section>', 'publish' => true]);
 
         $versionId = $this->mcpData('list_build_versions', ['id' => $this->site()->publicId('pages', self::$idv)])['versions'][0]['version_id'];
         $site->mcp('restore_build_version', ['id' => $site->publicId('pages', self::$idv), 'version_id' => $versionId]);
-        $this->assertSame('11', (string) $site->value("SELECT CONCAT(build_draft LIKE '%Version A%', build LIKE '%Version B%') FROM ka_pages WHERE page_id = ?", [self::$idv]), 'the older version is in the draft, the published one stays');
+        $this->assertSame('11', (string) $site->value("SELECT CONCAT(build_draft LIKE '%Version A%', build LIKE '%Version B%') FROM tl_pages WHERE page_id = ?", [self::$idv]), 'the older version is in the draft, the published one stays');
 
         $site->mcp('discard_draft', ['id' => $site->publicId('pages', self::$idv)]);
-        $this->assertSame('1', (string) $site->value('SELECT build_draft IS NULL FROM ka_pages WHERE page_id = ?', [self::$idv]), 'the draft is discarded');
+        $this->assertSame('1', (string) $site->value('SELECT build_draft IS NULL FROM tl_pages WHERE page_id = ?', [self::$idv]), 'the draft is discarded');
     }
 
     public function testSubpageWithAScheduledPublication(): void
     {
-        $parent = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
+        $parent = (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'about-us'");
         $this->site()->mcp('create_page', ['title' => 'MCP subpage', 'parent' => $this->site()->publicId('pages', $parent), 'publish_at' => '2099-01-01 10:00']);
 
-        $this->assertSame('about-us/mcp-subpage|2099-01-01 10:00:00|0', (string) $this->site()->value("SELECT CONCAT(slug, '|', publish_at, '|', visible) FROM ka_pages WHERE title = 'MCP subpage'"), 'a subpage with a scheduled publication stays hidden');
+        $this->assertSame('about-us/mcp-subpage|2099-01-01 10:00:00|0', (string) $this->site()->value("SELECT CONCAT(slug, '|', publish_at, '|', visible) FROM tl_pages WHERE title = 'MCP subpage'"), 'a subpage with a scheduled publication stays hidden');
     }
 
     public function testEnquiriesCarryTheirCampaign(): void
     {
         // the old section 12 had stored this enquiry through the contact form (from a page with utm_* parameters)
-        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, campaign, email, data, status) VALUES (NOW(), 'Contact', '/contact', 'utm_source=newsletter&utm_medium=email&utm_campaign=spring', 'jane@example.com', '[]', 0)");
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, page, campaign, email, data, status) VALUES (NOW(), 'Contact', '/contact', 'utm_source=newsletter&utm_medium=email&utm_campaign=spring', 'jane@example.com', '[]', 0)");
 
         $first = $this->mcpData('list_enquiries', ['status' => 'all'])[0];
 

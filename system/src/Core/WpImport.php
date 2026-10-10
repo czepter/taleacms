@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Redirects;
-use Kaleta\Admin\Modules\Pages;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Redirects;
+use Talea\Admin\Modules\Pages;
 
 /**
  * Import from WordPress: pages, posts (→ news), categories, tags, redirects from old URLs and (separately) images.
@@ -16,7 +16,7 @@ use Kaleta\Admin\Modules\Pages;
  *  - The file is read as a stream (Core\WpFile) and the work is done IN BATCHES – at most BATCH posts or SECONDS seconds per request,
  *    so that the import survives the time limits of shared hosting. Where it stopped (which <item>) is kept in the state file
  *    storage/import/state-<hash>.json; the next request continues from there.
- *  - The table ka_import_map remembers which foreign record became which of ours. So the same file can be run again without
+ *  - The table tl_import_map remembers which foreign record became which of ours. So the same file can be run again without
  *    duplicates (an already converted news item is skipped and later edits are not overwritten) and images are not downloaded twice.
  *  - There are three passes: preview (only counts, does not touch the database), content import and – only on explicit request –
  *    downloading images.
@@ -247,7 +247,7 @@ final class WpImport
         return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $url);
     }
 
-    /** Source label in ka_import_map: two different old sites have the same post numbers, which is why it contains the domain. */
+    /** Source label in tl_import_map: two different old sites have the same post numbers, which is why it contains the domain. */
     public static function source(string $siteUrl): string
     {
         $domain = ImageDownloader::domainFromUrl($siteUrl);
@@ -427,7 +427,7 @@ final class WpImport
         if (isset($collection['types']['excerpt'])) {
             $input['excerpt'] = trim(html_entity_decode(strip_tags($p['excerpt']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         }
-        $data = \Kaleta\Builder\Collections::sanitizeData($collection['fields'], $input);
+        $data = \Talea\Builder\Collections::sanitizeData($collection['fields'], $input);
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 200);
         $idk = (int) $collection['collection_id'];
         $seo = self::availableSlug(
@@ -443,7 +443,7 @@ final class WpImport
         $idp = $this->db->insert('collection_items', $row);
         $this->writeMap('item', (string) $p['id'], $idp);
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
-        $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
+        $board = \Talea\Builder\Collections::byId($this->db, $idk);
         if ($board !== null && Notices::isNotices($board)) {
             Notices::log($this->db, $idp, 'created', Notices::changes($board, null, $row), 'import');
         }
@@ -480,7 +480,7 @@ final class WpImport
         if ($t['content']) {
             $definitions[] = ['key' => 'content', 'label' => t('Content'), 'type' => 'html'];
         }
-        $fields = \Kaleta\Builder\Collections::sanitizeFields($definitions);
+        $fields = \Talea\Builder\Collections::sanitizeFields($definitions);
         $map = [];
         foreach ($oldKeys as $i => $old) {
             if (isset($fields[$i])) {
@@ -785,7 +785,7 @@ final class WpImport
     /**
      * The attributes of an imported image that is in Media now.
      *
-     * @param array<string, mixed> $image a ka_media row
+     * @param array<string, mixed> $image a tl_media row
      * @return array<string, string|int>
      */
     public static function mediaImage(string $base, array $image, string $alt): array
@@ -801,24 +801,24 @@ final class WpImport
      */
     public static function pageBuild(Db $db, string $title, string $html): ?string
     {
-        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
-        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($db->all('SELECT name FROM {classes}'), 'name'));
+        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
+        $build = \Talea\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
             if ($section['type'] === 'section' && !isset($section['anchor'])) {
                 $section['content']['width'] = 'narrow'; // page text reads better in a narrower column
             }
         }
         unset($section);
-        [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
+        [$clean] = \Talea\Builder\Build::sanitize($build, false);
 
-        return $clean['children'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
+        return $clean['children'] === [] ? null : \Talea\Builder\Build::toJson($clean);
     }
 
     /**
      * One image: from the map (already downloaded), or from the old site through Core\Images into Media.
      *
      * @param array<string, mixed> $state
-     * @return array<string, mixed>|null|false a ka_media row; null = cannot be downloaded; false = the batch has run out
+     * @return array<string, mixed>|null|false a tl_media row; null = cannot be downloaded; false = the batch has run out
      */
     private function image(string $url, string $name, array &$state, ImageDownloader $downloader): array|null|false
     {

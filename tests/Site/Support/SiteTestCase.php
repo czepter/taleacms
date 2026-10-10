@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Support;
+namespace Talea\Tests\Site\Support;
 
 use PHPUnit\Framework\TestCase;
 
@@ -28,7 +28,7 @@ abstract class SiteTestCase extends TestCase
     {
         parent::setUpBeforeClass();
         try {
-            new \PDO(sprintf('mysql:host=%s;port=%d', getenv('KALETA_TEST_DB_HOST'), (int) getenv('KALETA_TEST_DB_PORT')), (string) getenv('KALETA_TEST_DB_USER'), (string) getenv('KALETA_TEST_DB_PASSWORD'));
+            new \PDO(sprintf('mysql:host=%s;port=%d', getenv('TALEA_TEST_DB_HOST'), (int) getenv('TALEA_TEST_DB_PORT')), (string) getenv('TALEA_TEST_DB_USER'), (string) getenv('TALEA_TEST_DB_PASSWORD'));
         } catch (\PDOException) {
             self::$unavailable = true;
 

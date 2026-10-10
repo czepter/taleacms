@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\ShareImage;
+use Talea\Front\ShareImage;
 
 /**
  * Social post drafts (2.13). When a news item is published – in the administration, through Claude or by the scheduler –
@@ -12,7 +12,7 @@ use Kaleta\Front\ShareImage;
  * hashtags from the tags, the news image (or the picture the site draws, Front\ShareImage) and a tracked link, so the
  * statistics show the visits from each network (utm_source = the network, utm_campaign = the news slug). A person edits,
  * copies and posts them – the site never posts anywhere and calls no outside service; the AI assistant rewrites them only
- * on a click. Stored in ka_social_drafts (one row per network, so Claude can polish one draft by its id).
+ * on a click. Stored in tl_social_drafts (one row per network, so Claude can polish one draft by its id).
  *
  * The text builders are pure functions, tested without a database.
  */
@@ -54,7 +54,7 @@ final class SocialDrafts
         return array_values(array_filter(array_keys(self::NETWORKS), fn (string $k): bool => in_array($k, $wanted, true)));
     }
 
-    /** The news URL with the campaign parameters the statistics already count (Front\Stats, ka_stats_campaigns). */
+    /** The news URL with the campaign parameters the statistics already count (Front\Stats, tl_stats_campaigns). */
     public static function trackedLink(string $url, string $network, string $slug): string
     {
         return $url . (str_contains($url, '?') ? '&' : '?') . 'utm_source=' . rawurlencode($network) . '&utm_medium=social&utm_campaign=' . rawurlencode($slug);

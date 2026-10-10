@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Safe HTML from users without administrator permission (author and editor of news and pages, MCP with their token).

@@ -3,11 +3,11 @@
  * Import from another system (3.0, Import\Batch), step 2: what the export contains, what will not be converted, and the
  * mapping – what becomes a news item, a page, a category or a tag, whose the posts will be. Nothing has been written yet.
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state  import state (Import\Batch::newState)
- * @var class-string<Kaleta\Import\Source> $source
+ * @var class-string<Talea\Import\Source> $source
  * @var list<string> $languages  language versions of the site, the first one is the default
  * @var list<array{category_id:int, name:string, language:string}> $categories  news categories
  * @var list<array{user_id:int, name:string, username:string}> $users  users the authors can be mapped to
@@ -55,7 +55,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 	<li><?= e(t('Content blocks the import cannot convert – they are left out, the text around them stays:')) ?> <?= e(implode(', ', array_map(fn (string $block, int $count): string => $block . ' ' . $count . '×', array_keys($p['blocks']), $p['blocks']))) ?></li>
 <?php endif ?>
 <?php foreach ($p['warnings'] as $code => $count): ?>
-	<li><?= e(Kaleta\Import\Preview::describe((string) $code, (int) $count)) ?></li>
+	<li><?= e(Talea\Import\Preview::describe((string) $code, (int) $count)) ?></li>
 <?php endforeach ?>
 	<li><?= e(t('Images stay on the old site for now; after the import you can download them to your site with one button.')) ?></li>
 </ul>
@@ -83,7 +83,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <?php if (count($languages) > 1): ?>
 <div class="row"><label for="language"><?= e(t('Language version')) ?></label><div><select id="language" name="language">
 <?php foreach ($languages as $i => $code): ?>
-	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $m['language'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
+	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $m['language'] ? ' selected' : '' ?>><?= e(Talea\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
 <?php endforeach ?>
 </select><span class="help"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>

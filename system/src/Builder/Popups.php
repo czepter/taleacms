@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
+use Talea\Core\Db;
 
 /**
  * Popups as site parts: the content is built in the builder (target “popup:<id>”, versions in build_revisions), a popup has a type,
@@ -139,7 +139,7 @@ final class Popups
     /** A free popup slug (#popup-<slug>) derived from the text. */
     public static function address(Db $db, string $z, int $idpp = 0): string
     {
-        return \Kaleta\Core\Slug::makeUnique(slugify($z, 50) ?: 'popup', fn (string $a): bool => $db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$a, $idpp]) !== null, 60);
+        return \Talea\Core\Slug::makeUnique(slugify($z, 50) ?: 'popup', fn (string $a): bool => $db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$a, $idpp]) !== null, 60);
     }
 
     /**
@@ -155,10 +155,10 @@ final class Popups
             'days' => (string) $p['days'], 'device' => $p['rules']['device'], 'campaign' => $p['rules']['campaign'], 'referrer' => $p['rules']['referrer'],
             'counter' => $counterUrl] + ($open ? ['open' => '1'] : []);
 
-        return '<div id="' . e($id) . '" class="ka-popup ka-popup--' . e($type) . '" popover="' . self::TYPES[$type][1] . '" role="' . ($dialog ? 'dialog' : 'region') . '"'
+        return '<div id="' . e($id) . '" class="tl-popup tl-popup--' . e($type) . '" popover="' . self::TYPES[$type][1] . '" role="' . ($dialog ? 'dialog' : 'region') . '"'
             . ' aria-label="' . e($p['name']) . '"' . implode('', array_map(fn (string $k, string $v): string => ' data-' . $k . '="' . e($v) . '"', array_keys($data), $data)) . '>'
-            . '<button type="button" class="ka-popup-close" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>'
-            . '<div class="ka-popup-content build">' . $content . '</div></div>';
+            . '<button type="button" class="tl-popup-close" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>'
+            . '<div class="tl-popup-content build">' . $content . '</div></div>';
     }
 
     /** Wrapper in the builder editor: the popup stands on the canvas so that it can be edited (without popover and trigger). */
@@ -166,7 +166,7 @@ final class Popups
     {
         $type = isset(self::TYPES[$p['type']]) ? $p['type'] : 'window';
 
-        return '<div class="ka-popup ka-popup--' . e($type) . ' ka-popup--editor"><div class="ka-popup-content build">' . $content . '</div></div>';
+        return '<div class="tl-popup tl-popup--' . e($type) . ' tl-popup--editor"><div class="tl-popup-content build">' . $content . '</div></div>';
     }
 
     /** Ready-made popups for a new popup: key => [name, description, type, trigger, value]. */
@@ -182,7 +182,7 @@ final class Popups
     /** Build of a ready-made popup in the content language. */
     public static function libraryBuild(string $key, string $language = 'en'): array
     {
-        return \Kaleta\Core\Language::runWith($language, function () use ($key): array {
+        return \Talea\Core\Language::runWith($language, function () use ($key): array {
             $n = Build::fresh(...);
             $h = fn (string $text, string $htmlTag = 'h2'): array => ['tag' => $htmlTag] + $n('heading', ['text' => $text]);
             $children = match ($key) {

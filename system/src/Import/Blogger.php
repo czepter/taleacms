@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Blogger: the Atom XML export from Blogger → Settings → Manage blog → Back up content.

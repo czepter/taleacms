@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Connections;
+namespace Talea\Tests\Site\Connections;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -38,7 +38,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
     }
 
     /** Fetches /leads-23 as a visitor and remembers the hidden form fields. */
-    private function loadForm(): \Kaleta\Tests\Site\Support\Response
+    private function loadForm(): \Talea\Tests\Site\Support\Response
     {
         $this->clearCache();
         $response = $this->site()->client()->get('/leads-23');
@@ -125,10 +125,10 @@ PHP);
     public function testACampaignVisitOnAPhoneCountsInTheStatistics(): void
     {
         $site = $this->site();
-        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'formular'");
         $site->client()->get('/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn', [], self::PHONE);
 
-        $this->assertSame('1|1', $site->value("SELECT CONCAT(COALESCE((SELECT SUM(visits) FROM ka_stats_campaigns WHERE campaign = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(visits) FROM ka_stats_devices WHERE device = 'phone'), 0) > 0)"),
+        $this->assertSame('1|1', $site->value("SELECT CONCAT(COALESCE((SELECT SUM(visits) FROM tl_stats_campaigns WHERE campaign = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(visits) FROM tl_stats_devices WHERE device = 'phone'), 0) > 0)"),
             'a visit from a campaign on a phone counts in the statistics');
     }
 
@@ -148,21 +148,21 @@ PHP);
             ['type' => 'embed', 'content' => ['address' => 'https://evil.example/x']],
         ]]]]]);
         // set in the administration, never through MCP (2.5.1)
-        $site->exec('UPDATE ka_pages SET head_code = ? WHERE page_id = ?', ['<meta name="kaleta-test" content="23">', $page]);
+        $site->exec('UPDATE tl_pages SET head_code = ? WHERE page_id = ?', ['<meta name="talea-test" content="23">', $page]);
 
         $form = $this->loadForm();
         $this->assertStringContainsString('type="checkbox" name="p0[]" value="Kitchen"', $form->body, 'ticked options on the page');
         $this->assertStringNotContainsString('Oak chair', $form->body, 'the hidden value is not on the page');
         $this->assertStringContainsString('data-insert="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"', $form->body, 'Embed: a known service after a click');
         $this->assertStringNotContainsString('evil.example', $form->body, 'Embed: anything else not at all');
-        $this->assertStringContainsString('<meta name="kaleta-test" content="23">', $form->body, 'code in the head of the page');
-        $this->assertStringNotContainsString('kaleta-test', $site->client()->get('/')->body, 'code in the head of one page only');
+        $this->assertStringContainsString('<meta name="talea-test" content="23">', $form->body, 'code in the head of the page');
+        $this->assertStringNotContainsString('talea-test', $site->client()->get('/')->body, 'code in the head of one page only');
 
         $answer = $this->answerRaw($site->mcp('update_page', ['id' => $site->publicId('pages', $page), 'head_code' => '<script>x()</script>']));
         $this->assertStringContainsString('only in the administration', $answer, 'MCP cannot set head code, not even with full access (2.5.1)');
         $answer = $this->answerRaw($site->mcp('update_settings', ['settings' => ['head_code' => '<script>x()</script>', 'marketing_code' => '<script>y()</script>']]));
         $this->assertStringContainsString('set only in the administration', $answer, 'MCP refuses code for the whole site with a reason');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_settings WHERE name IN ('head_code','marketing_code') AND value LIKE '%<script>%'"), 'MCP cannot set code for the whole site (2.5.1)');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_settings WHERE name IN ('head_code','marketing_code') AND value LIKE '%<script>%'"), 'MCP cannot set code for the whole site (2.5.1)');
     }
 
     #[Depends('testFormWithTickedOptionsEmbedAndPageHeadCode')]
@@ -170,8 +170,8 @@ PHP);
     {
         $site = $this->site();
         sleep(4); // the form must have been open a few seconds (anti-spam time signature)
-        $this->submitForm(['p0' => ['Bathroom'], 'p2' => 'petr@example.cz', 'ka_landing' => '/services', 'ka_campaign' => 'utm_source=google&utm_medium=cpc&utm_campaign=kitchen', 'ka_referrer' => 'google.com']);
-        $this->assertSame('/services|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kitchen', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM ka_enquiries WHERE email = 'petr@example.cz'"),
+        $this->submitForm(['p0' => ['Bathroom'], 'p2' => 'petr@example.cz', 'tl_landing' => '/services', 'tl_campaign' => 'utm_source=google&utm_medium=cpc&utm_campaign=kitchen', 'tl_referrer' => 'google.com']);
+        $this->assertSame('/services|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kitchen', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM tl_enquiries WHERE email = 'petr@example.cz'"),
             'an enquiry carries the first page, the campaign and the referring site of the visit');
 
         $text = $this->toolText('get_stats', ['days' => 7]);
@@ -196,7 +196,7 @@ PHP);
         $visitor->post('/vitals', ['path' => '/neexistuje-vitals', 'lcp' => 1800]);                            // a page the statistics never saw
         $visitor->post('/vitals', ['path' => '/services', 'lcp' => 1800], [], 'curl/8.0');                       // a bot
         $visitor->post('/vitals', ['path' => '/services', 'lcp' => 999999, 'cls' => 'abc']);                     // out of range, not numeric
-        $this->assertSame('/services:cls:2:1,/services:inp:2:1,/services:lcp:3:1', $site->value("SELECT GROUP_CONCAT(CONCAT(path, ':', metric, ':', bucket, ':', samples) ORDER BY metric) FROM ka_web_vitals"),
+        $this->assertSame('/services:cls:2:1,/services:inp:2:1,/services:lcp:3:1', $site->value("SELECT GROUP_CONCAT(CONCAT(path, ':', metric, ':', bucket, ':', samples) ORDER BY metric) FROM tl_web_vitals"),
             '2.8: the beacon lands in histogram buckets per metric; made-up pages, bots and nonsense do not');
 
         $stats = $site->admin()->get('/admin.php?module=stats&days=7')->body;
@@ -212,23 +212,23 @@ PHP);
         // 3.2: the old setting still works over MCP and switches the Statistics feature
         $site->mcp('update_settings', ['settings' => ['stats' => '0']]);
         $this->clearCache();
-        $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('stats', value) FROM ka_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
+        $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('stats', value) FROM tl_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
         $this->assertStringNotContainsString('vitals', $visitor->get('/services')->body, '2.8: statistics off - no beacon script on the page');
         $visitor->post('/vitals', ['path' => '/services', 'lcp' => 1800]);
-        $this->assertSame('3', (string) $site->value('SELECT SUM(samples) FROM ka_web_vitals'), '2.8: statistics off - a beacon is not counted');
+        $this->assertSame('3', (string) $site->value('SELECT SUM(samples) FROM tl_web_vitals'), '2.8: statistics off - a beacon is not counted');
         $text = $this->toolText('update_settings', ['settings' => ['stats' => true]]);
         $this->clearCache();
         $this->assertStringContainsString('"stats":"1"', $text, '3.2: update_settings stats=true answers 1');
-        $this->assertSame('1', (string) $site->value("SELECT (LENGTH(value) - LENGTH(REPLACE(value, 'stats', ''))) DIV LENGTH('stats') FROM ka_settings WHERE name = 'extensions'"),
+        $this->assertSame('1', (string) $site->value("SELECT (LENGTH(value) - LENGTH(REPLACE(value, 'stats', ''))) DIV LENGTH('stats') FROM tl_settings WHERE name = 'extensions'"),
             '3.2: update_settings stats=true switches the Statistics feature on again, once');
 
         // the audit: p75 LCP from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 today) is flagged, /services with one measurement is not
-        $site->exec("INSERT INTO ka_web_vitals (day, path, metric, bucket, samples) VALUES (CURDATE() - INTERVAL 35 DAY, '/audit-pomalu', 'lcp', 3, 30), (CURDATE(), '/audit-pomalu', 'lcp', 5, 30)");
+        $site->exec("INSERT INTO tl_web_vitals (day, path, metric, bucket, samples) VALUES (CURDATE() - INTERVAL 35 DAY, '/audit-pomalu', 'lcp', 3, 30), (CURDATE(), '/audit-pomalu', 'lcp', 5, 30)");
         $text = $this->toolText('site_audit', ['kind' => 'speed']);
         $this->assertStringContainsString('"path":"/audit-pomalu"', $text, '2.8: the site audit flags the slowed page');
         $this->assertMatchesRegularExpression('#3[.,]0 s#', $text, '2.8: the audit names the new p75 LCP');
         $this->assertStringNotContainsString('/services', $text, '2.8: the site audit flags only a page that got worse by more than 25 %');
-        $site->exec("DELETE FROM ka_web_vitals WHERE path = '/audit-pomalu'");
+        $site->exec("DELETE FROM tl_web_vitals WHERE path = '/audit-pomalu'");
     }
 
     #[Depends('testRealUserSpeedBeacon')]
@@ -237,7 +237,7 @@ PHP);
         $site = $this->site();
         $this->assertMatchesRegularExpression('#result=field&field=0#', $this->submitForm(['p2' => 'tick@example.cz']), 'a required group needs at least one ticked option');
         $this->submitForm(['p0' => ['Kitchen', 'Forged'], 'p1' => 'Hacked', 'p2' => 'tick@example.cz']);
-        $this->assertSame('[["Services","Kitchen"],["Product","Oak chair"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM ka_enquiries WHERE email = 'tick@example.cz'"),
+        $this->assertSame('[["Services","Kitchen"],["Product","Oak chair"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM tl_enquiries WHERE email = 'tick@example.cz'"),
             "ticked options (only offered ones) and the form's own hidden value are saved");
     }
 
@@ -274,9 +274,9 @@ PHP);
         $this->clearCache();
         $body = $site->client()->get('/leads-23')->body;
         $this->assertStringContainsString('data-category="marketing"', $body, 'cookie bar: marketing consent');
-        $this->assertStringContainsString('ka-origin', $body, 'cookie bar: lead origin script');
+        $this->assertStringContainsString('tl-origin', $body, 'cookie bar: lead origin script');
         $this->assertStringContainsString('globalPrivacyControl', $body, 'cookie bar: Global Privacy Control');
-        $this->assertStringContainsString('name="ka_landing"', $body, 'cookie bar: the form carries the origin field');
+        $this->assertStringContainsString('name="tl_landing"', $body, 'cookie bar: the form carries the origin field');
         $site->mcp('update_settings', ['settings' => ['lead_attribution' => '0']]);
     }
 
@@ -288,16 +288,16 @@ PHP);
         foreach ([['captcha_provider', 'turnstile'], ['captcha_site_key', 'test-site'], ['captcha_secret', 'test-secret']] as [$name, $value]) {
             $site->setting($name, $value);
         }
-        $site->exec("DELETE FROM ka_ip_checks WHERE type IN ('formular','odber')");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type IN ('formular','odber')");
 
         $form = $this->loadForm();
-        $this->assertStringContainsString('class="ka-captcha cf-turnstile" data-sitekey="test-site"', $form->body, 'CAPTCHA: the Turnstile widget in the form');
+        $this->assertStringContainsString('class="tl-captcha cf-turnstile" data-sitekey="test-site"', $form->body, 'CAPTCHA: the Turnstile widget in the form');
         $this->assertSame(1, substr_count($form->body, 'challenges.cloudflare.com/turnstile/v0/api.js'), 'CAPTCHA: its script once');
         sleep(4);
         $this->assertStringContainsString('result=captcha', $this->captchaPost('fail@example.cz', ['cf-turnstile-response' => 'wrong']), 'CAPTCHA: a failed check is refused');
         $this->assertStringContainsString('result=captcha', $this->captchaPost('none@example.cz'), 'CAPTCHA: a form without the answer is refused');
         $this->captchaPost('pass@example.cz', ['cf-turnstile-response' => 'pass']);
-        $this->assertSame('pass@example.cz', $site->value("SELECT GROUP_CONCAT(email ORDER BY email) FROM ka_enquiries WHERE email IN ('fail@example.cz','none@example.cz','pass@example.cz')"),
+        $this->assertSame('pass@example.cz', $site->value("SELECT GROUP_CONCAT(email ORDER BY email) FROM tl_enquiries WHERE email IN ('fail@example.cz','none@example.cz','pass@example.cz')"),
             'CAPTCHA: a passed check saves the enquiry, the failed ones not');
 
         $site->setting('captcha_provider', 'recaptcha');
@@ -311,13 +311,13 @@ PHP);
         $this->captchaPost('down@example.cz', ['g-recaptcha-response' => 'pass']);
         $site->setting('captcha_fail_open', '0');
         $this->assertStringContainsString('result=captcha', $this->captchaPost('closed@example.cz', ['g-recaptcha-response' => 'pass']), 'CAPTCHA: fail closed when the owner chose so');
-        $this->assertSame('down@example.cz', $site->value("SELECT GROUP_CONCAT(email) FROM ka_enquiries WHERE email IN ('down@example.cz','closed@example.cz')"),
+        $this->assertSame('down@example.cz', $site->value("SELECT GROUP_CONCAT(email) FROM tl_enquiries WHERE email IN ('down@example.cz','closed@example.cz')"),
             "CAPTCHA: when the provider is down the owner's choice decides");
 
         $site->mcp('update_settings', ['settings' => ['captcha_secret' => 'stolen', 'captcha_provider' => 'hcaptcha']]);
         $this->assertSame('test-secret', $site->settingValue('captcha_secret'), 'CAPTCHA: Claude cannot set the secret key');
         $this->assertStringNotContainsString('test-secret', $this->answerRaw($site->mcp('update_settings', [])), 'CAPTCHA: Claude cannot read the secret key');
-        $site->exec("DELETE FROM ka_settings WHERE name LIKE 'captcha_%'");
+        $site->exec("DELETE FROM tl_settings WHERE name LIKE 'captcha_%'");
     }
 
     #[Depends('testRequiredGroupAndOfferedOptionsOnly')]
@@ -326,7 +326,7 @@ PHP);
         $site = $this->site();
         // 3.3.2 (N27): Claude can no longer set GTM or Matomo - they load script their owner chooses
         $answer = $this->answerRaw($site->mcp('update_settings', ['settings' => ['gtm_id' => 'GTM-EVIL1', 'matomo_url' => 'https://evil.example/', 'matomo_id' => '1', 'ga4_id' => 'G-ABCD1234']]));
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_settings WHERE name IN ('gtm_id','matomo_url','matomo_id') AND value <> ''"), 'MCP: gtm_id and matomo_* are refused');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_settings WHERE name IN ('gtm_id','matomo_url','matomo_id') AND value <> ''"), 'MCP: gtm_id and matomo_* are refused');
         $this->assertSame('G-ABCD1234', $site->settingValue('ga4_id'), 'MCP: ga4_id is still accepted');
         $this->assertStringContainsString('Google Tag Manager and Matomo load script', $answer, 'MCP: the refusal gives a reason');
         $site->mcp('update_settings', ['settings' => ['ga4_id' => '']]);
@@ -385,19 +385,19 @@ PHP);
         }
         $this->assertSame('done', $this->fieldOf($text, 'phase'), 'website import finished');
 
-        $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM ka_pages WHERE slug = 'our-story'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM ka_news WHERE title = 'Our first post'))"),
+        $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM tl_pages WHERE slug = 'our-story'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM tl_news WHERE title = 'Our first post'))"),
             'website import: pages hidden, the post as a hidden news item');
-        $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM ka_pages WHERE slug = 'our-story'");
+        $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM tl_pages WHERE slug = 'our-story'");
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
         $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
         $this->assertStringContainsString('"type":"heading"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
-        $aboutText = (string) $site->value("SELECT text FROM ka_pages WHERE slug = 'our-story'");
+        $aboutText = (string) $site->value("SELECT text FROM tl_pages WHERE slug = 'our-story'");
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
         $this->assertStringNotContainsString('"type":"custom_html"', $about, 'website import: no Custom HTML from the old site');
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'news/%'"), 'website import: the old address of the post redirects');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'news/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
         $importId = $this->fieldOf($text, 'import_id');
@@ -419,11 +419,11 @@ PHP);
         $this->assertStringContainsString('site_checks', $report, 'migration report: the checks of the whole site');
 
         $site->mcp('save_redirect', ['from' => '/visit-us', 'to' => '/our-story']);
-        $site->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'our-story'");
+        $site->exec("UPDATE tl_pages SET visible = 1 WHERE slug = 'our-story'");
         $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}', $this->fieldOf($this->reportDone($origin), 'summary'),
             'migration report: after a redirect and publishing, the contact address redirects (but the form is gone)');
-        $site->exec("UPDATE ka_pages SET visible = 0 WHERE slug = 'our-story'");
-        $site->exec("DELETE FROM ka_redirects WHERE from_path = 'visit-us'");
+        $site->exec("UPDATE tl_pages SET visible = 0 WHERE slug = 'our-story'");
+        $site->exec("DELETE FROM tl_redirects WHERE from_path = 'visit-us'");
 
         // 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
         $entries = [
@@ -431,7 +431,7 @@ PHP);
             ['date' => '2025-03-15 10:00', 'form' => 'Contact', 'fields' => [['label' => 'Phone', 'value' => '777 000 111']]],
         ];
         $first = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $entries]);
-        $this->assertSame('2|2:jana.old@example.cz:1', $this->fieldOf($first, 'imported') . '|' . $site->value("SELECT CONCAT(COUNT(*), ':', MAX(email), ':', MIN(status)) FROM ka_enquiries WHERE source = 'import:breakdance'"),
+        $this->assertSame('2|2:jana.old@example.cz:1', $this->fieldOf($first, 'imported') . '|' . $site->value("SELECT CONCAT(COUNT(*), ':', MAX(email), ':', MIN(status)) FROM tl_enquiries WHERE source = 'import:breakdance'"),
             'import_enquiries: two old entries imported');
         $second = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $entries]);
         $this->assertSame('0:2', $this->fieldOf($second, 'imported') . ':' . $this->fieldOf($second, 'already_imported'), 'import_enquiries: a second run skips them');
@@ -454,9 +454,9 @@ PHP);
         $site = $this->site();
         $client = $this->registerClient();
         $this->exchangeCode($client, $this->authorizationCode($site->admin(), $client, 'abc'));
-        $this->assertGreaterThan(0, (int) $site->value('SELECT COUNT(*) FROM ka_api_tokens WHERE client_id = ?', [$client]), 'the connected app has tokens');
+        $this->assertGreaterThan(0, (int) $site->value('SELECT COUNT(*) FROM tl_api_tokens WHERE client_id = ?', [$client]), 'the connected app has tokens');
 
-        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'login'"); // the sign-in limit per address was used up by the account lock test
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'"); // the sign-in limit per address was used up by the account lock test
         $visitor = $site->client('consent');
         $visitor->get('/oauth/authorize?response_type=code&client_id=' . $client . '&redirect_uri=' . self::REDIRECT_URI . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=new');
         $csrf = $visitor->get('/admin.php?action=oauth')->csrf();
@@ -466,6 +466,6 @@ PHP);
         $account = $site->admin()->get('/admin.php?action=account');
         $this->assertStringContainsString('Connected applications', $account->body, 'the connected app in My account');
         $site->admin()->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'disconnect_client' => $client]);
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_api_tokens WHERE client_id = ?', [$client]), 'disconnecting the app deletes its tokens');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_api_tokens WHERE client_id = ?', [$client]), 'disconnecting the app deletes its tokens');
     }
 }

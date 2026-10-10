@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Admin\Modules\Enquiries;
+use Talea\Admin\ChangeLog;
+use Talea\Admin\Modules\Enquiries;
 
 /**
  * Job openings (2.11): what the ready-made Job openings collection (system/presets/jobs.php) needs beyond a collection.
  *
  * The jobs themselves close by their "true until" (Core\Validity) and are described for search engines as JobPosting
  * (Builder\CollectionSchema); the site audit lists a job without a closing date (Core\Audit). This class takes care of the
- * applications: they are enquiries sent from a job's item page, so their source (ka_enquiries.zdroj = collection:<idk>) names a
+ * applications: they are enquiries sent from a job's item page, so their source (tl_enquiries.zdroj = collection:<idk>) names a
  * collection made from the jobs preset. That is more robust than the form name – the administrator may rename the form or
  * translate it, a copy of the form on an ordinary page is not an application, and nothing new is stored on the enquiry.
  *

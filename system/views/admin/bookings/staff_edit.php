@@ -2,8 +2,8 @@
 /**
  * One person who takes bookings (3.0): the services, the weekly hours and the days off.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Bookings $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Bookings $module
  * @var string $csrf
  * @var array<string, mixed> $m the person ([] = a new one)
  * @var list<array<string, mixed>> $services
@@ -12,8 +12,8 @@
  * @var array<string, list<array{0: string, 1: string}>> $siteWeek the site's opening hours
  * @var array<int, string> $users
  */
-use Kaleta\Core\Booking;
-use Kaleta\Core\Hours;
+use Talea\Core\Booking;
+use Talea\Core\Hours;
 
 $isNew = $m === [];
 ?>

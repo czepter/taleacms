@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * A category of the old site (Import\Source). Our categories have no tree, so $parent is only informative. Only

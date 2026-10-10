@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * Check of broken links in published news items, published page builds and visible collection items (2.14: before, news
  * only). Runs in the background in small batches: one record per five minutes – the one checked longest ago, never
- * checked first – each record once per 30 days. Only links that do not work are stored (ka_broken_links with the kind of
+ * checked first – each record once per 30 days. Only links that do not work are stored (tl_broken_links with the kind of
  * record, its id and, in a build, the element id); the site-wide list is News → Broken links, the site audit and the
  * MCP tool list_broken_links.
  *
@@ -250,7 +250,7 @@ final class Links
         Outbound::pin($ch, $target['host'], $target['port'], $target['ip']);
         curl_setopt_array($ch, [
             CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Kaleta link checker)',
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Talea link checker)',
         ]);
         curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -260,7 +260,7 @@ final class Links
 
     /**
      * Only http(s), a standard port and an address that does not lead into an internal network. The automated tests
-     * point links at a local port nothing listens on (KALETA_LINKS_LOCAL=1); never set on a real site.
+     * point links at a local port nothing listens on (TALEA_LINKS_LOCAL=1); never set on a real site.
      */
     public static function isPublic(string $url): bool
     {
@@ -281,7 +281,7 @@ final class Links
         if ($target === null) {
             return null;
         }
-        if (getenv('KALETA_LINKS_LOCAL') === '1' && $target['host'] === '127.0.0.1') {
+        if (getenv('TALEA_LINKS_LOCAL') === '1' && $target['host'] === '127.0.0.1') {
             return $target + ['ip' => '127.0.0.1'];
         }
         if (!in_array($target['port'], [80, 443], true)) {

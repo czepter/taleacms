@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsB;
+namespace Talea\Tests\Site\CollectionsB;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Was: section 66 (2.11/3.3 the twenty shipped industry blueprints). */
@@ -24,12 +24,12 @@ final class ShippedBlueprintsTest extends SiteTestCase
         }
         $this->assertSame(20, $listed, 'shipped blueprints: get_blueprint lists the twenty as available');
 
-        $idk0 = (int) $site->value('SELECT IFNULL(MAX(collection_id), 0) FROM ka_collections');
+        $idk0 = (int) $site->value('SELECT IFNULL(MAX(collection_id), 0) FROM tl_collections');
         // apply creates only the collections the site lacks
-        $missing = (string) $site->value("SELECT 5 - COUNT(DISTINCT preset) FROM ka_collections WHERE preset IN ('notices', 'documents', 'events', 'people', 'faq')");
+        $missing = (string) $site->value("SELECT 5 - COUNT(DISTINCT preset) FROM tl_collections WHERE preset IN ('notices', 'documents', 'events', 'people', 'faq')");
         $text = $this->mcpText('apply_blueprint', ['key' => 'municipality']);
         $this->assertStringContainsString('applied":"municipality', $text, 'shipped blueprints: apply_blueprint answers that the municipality was applied');
-        $this->assertSame("5|$missing|4|number|municipality", $site->value("SELECT CONCAT((SELECT COUNT(DISTINCT preset) FROM ka_collections WHERE preset IN ('notices', 'documents', 'events', 'people', 'faq')), '|', (SELECT COUNT(*) FROM ka_collections WHERE collection_id > $idk0), '|', (SELECT COUNT(*) FROM ka_facts WHERE fact_key IN ('mayor_name', 'population', 'filing_office_email', 'council_meetings') AND value = ''), '|', (SELECT type FROM ka_facts WHERE fact_key = 'population'), '|', (SELECT bkey FROM ka_blueprints))"),
+        $this->assertSame("5|$missing|4|number|municipality", $site->value("SELECT CONCAT((SELECT COUNT(DISTINCT preset) FROM tl_collections WHERE preset IN ('notices', 'documents', 'events', 'people', 'faq')), '|', (SELECT COUNT(*) FROM tl_collections WHERE collection_id > $idk0), '|', (SELECT COUNT(*) FROM tl_facts WHERE fact_key IN ('mayor_name', 'population', 'filing_office_email', 'council_meetings') AND value = ''), '|', (SELECT type FROM tl_facts WHERE fact_key = 'population'), '|', (SELECT bkey FROM tl_blueprints))"),
             "shipped blueprints: the municipality brings the collections the site lacks ($missing of its five) and its facts without values");
 
         $page = $this->assertPage('/admin.php?module=blueprints', 200, 'name="answer[mayor_name]"', message: "shipped blueprints: the admin page asks the municipality's questions");
@@ -38,11 +38,11 @@ final class ShippedBlueprintsTest extends SiteTestCase
 
         // removing it leaves no blueprint; its empty collections and hidden pages go (the facts stay)
         $site->mcp('remove_blueprint', ['key' => 'municipality']);
-        foreach ($site->rows('SELECT slug FROM ka_collections WHERE collection_id > ?', [$idk0]) as $row) {
+        foreach ($site->rows('SELECT slug FROM tl_collections WHERE collection_id > ?', [$idk0]) as $row) {
             $slug = $row['slug'];
             $site->mcp('delete_collection', ['collection' => $slug]);
-            $site->exec('DELETE FROM ka_pages WHERE slug IN (?, ?) AND visible = 0', [$slug, $slug . '-archive']);
+            $site->exec('DELETE FROM tl_pages WHERE slug IN (?, ?) AND visible = 0', [$slug, $slug . '-archive']);
         }
-        $this->assertSame('0|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_collections WHERE collection_id > $idk0))"), 'shipped blueprints: removed again, the site has no blueprint and no collection of the municipality');
+        $this->assertSame('0|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_blueprints), '|', (SELECT COUNT(*) FROM tl_collections WHERE collection_id > $idk0))"), 'shipped blueprints: removed again, the site has no blueprint and no collection of the municipality');
     }
 }

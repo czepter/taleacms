@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Settings;
+use Talea\Core\Db;
+use Talea\Core\Settings;
 
 /**
- * Elements copied between Kaleta sites through the system clipboard (2.7). The builder writes a text envelope
- * {"kaleta":"elements","v":1,"site":"https://source.example","elements":[…],"classes":[…],"components":[…]} and the
+ * Elements copied between Talea sites through the system clipboard (2.7). The builder writes a text envelope
+ * {"talea":"elements","v":1,"site":"https://source.example","elements":[…],"classes":[…],"components":[…]} and the
  * builder of another site reads it back from a paste. The shared classes and the components the elements use travel
  * the same way as in a page export (PagePackage): a class the target site already has is kept, a missing one is
  * created, components are reused or created – by an administrator only. Element ids and anchors are made anew on paste;
@@ -41,7 +41,7 @@ final class ElementClipboard
         $package = PagePackage::collect($db, ['children' => $elements]);
         $elements = array_values((array) (PagePackage::toPublic($db, ['children' => $elements])['children'] ?? $elements)); // components by public id
 
-        return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['components']];
+        return ['talea' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['components']];
     }
 
     /**
@@ -52,7 +52,7 @@ final class ElementClipboard
      */
     public static function parse(mixed $data): ?array
     {
-        if (!is_array($data) || ($data['kaleta'] ?? null) !== self::FORMAT || !is_int($data['v'] ?? null) || $data['v'] < 1 || $data['v'] > self::VERSION
+        if (!is_array($data) || ($data['talea'] ?? null) !== self::FORMAT || !is_int($data['v'] ?? null) || $data['v'] < 1 || $data['v'] > self::VERSION
             || !is_array($data['elements'] ?? null) || !array_is_list($data['elements'])) {
             return null;
         }

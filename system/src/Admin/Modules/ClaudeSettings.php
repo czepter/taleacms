@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Core\Response;
+use Talea\Core\Response;
 
 /**
  * Claude settings (3.2): how to connect, the instructions and guardrails every connection gets (formerly in Extensions –

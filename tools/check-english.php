@@ -3,7 +3,7 @@
  * Keeps the project English (HF-09). Modes:
  *
  *   php tools/check-english.php                  the whole repository: Czech diacritics or common Czech words in any text file outside the allowed places
- *                                                (the Czech dictionaries, the WordPress import fixtures, tools/rename/, the hard-fork one-off tools); exit 1 on findings.
+ *                                                (the Czech dictionaries, the WordPress import fixtures); exit 1 on findings.
  *                                                A line that must keep Czech on purpose (a legacy address, a month name) says `check-english: allow` in a comment.
  *   php tools/check-english.php --self-test      runs the checker on its own fixtures
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
@@ -53,7 +53,7 @@ function dictionaries(string $root): array
 /** @return array<string, string> */
 function jsDictionary(string $root, string $code = 'en'): array
 {
-    preg_match('/window\.KALETA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents($root . '/image/languages/admin-' . $code . '.js'), $m);
+    preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents($root . '/image/languages/admin-' . $code . '.js'), $m);
 
     return (array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $m[1] ?? '{}'), true);
 }
@@ -62,7 +62,7 @@ function hasDiacritics(string $text): bool
 {
     // language names in menus (Slovenčina, Íslenska…) are in their own language on purpose
     static $languages = null;
-    $languages ??= array_column((function (): array { require_once dirname(__DIR__) . '/system/src/Core/Language.php'; return \Kaleta\Core\Language::AVAILABLE; })(), 0);
+    $languages ??= array_column((function (): array { require_once dirname(__DIR__) . '/system/src/Core/Language.php'; return \Talea\Core\Language::AVAILABLE; })(), 0);
 
     return preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', str_replace([...ALLOWED, ...$languages], '', $text)) === 1;
 }
@@ -87,8 +87,8 @@ function czechWords(string $text): array
 /** Files the static scan reads and where Czech is allowed (a path is relative to the repository root). */
 const STATIC_EXTENSIONS = ['php', 'js', 'mjs', 'css', 'md', 'json', 'yml', 'yaml', 'sh', 'txt', 'xml', 'html', 'neon', 'toml', 'conf', 'ini', 'example'];
 const STATIC_ALLOWED = [
-    '#^system/languages/#', '#^image/languages/#', '#^tools/fixtures/#', '#^tools/rename/#', // the dictionaries are in many languages (French é, Spanish á …): Czech is one of them
-    '#^tools/(hard-fork-[a-z-]+|schema-to-phinx|compare-schemas|rekey-dictionaries|english-sources|check-english|rebrand-talea)\.php$#',
+    '#^system/languages/#', '#^image/languages/#', '#^tools/fixtures/#', // the dictionaries are in many languages (French é, Spanish á …): Czech is one of them
+    '#^tools/check-english\.php$#',
     '#^(vendor|node_modules|\.git|\.claude|\.phpunit\.cache|dist|storage|media)/#', '#^docs/screenshots/#', '#^tests/Fixtures/#',
 ];
 

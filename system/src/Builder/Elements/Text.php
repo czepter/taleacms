@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** Formatted text from the editor: paragraphs, lists, subheadings, links, tables. */
 final class Text extends Element
@@ -23,19 +23,19 @@ final class Text extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-text > :first-child { margin-block-start: 0; }
-.ka-text > :last-child { margin-block-end: 0; }
-.ka-text img { max-width: 100%; height: auto; }
-.ka-text pre { max-width: 100%; overflow-x: auto; }
-.ka-text :is(h2, h3)[id] { scroll-margin-top: 6rem; }
-:where(.build) mark { background: none; color: var(--ka-color-secondary); }';
+        return '.tl-text > :first-child { margin-block-start: 0; }
+.tl-text > :last-child { margin-block-end: 0; }
+.tl-text img { max-width: 100%; height: auto; }
+.tl-text pre { max-width: 100%; overflow-x: auto; }
+.tl-text :is(h2, h3)[id] { scroll-margin-top: 6rem; }
+:where(.build) mark { background: none; color: var(--tl-color-secondary); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = $k->inLoop === 0 ? self::anchors($p['content']['html'], $k) : $p['content']['html'];
 
-        return '<div' . self::withClass($a, 'ka-text') . '>' . $html . '</div>';
+        return '<div' . self::withClass($a, 'tl-text') . '>' . $html . '</div>';
     }
 
     /**

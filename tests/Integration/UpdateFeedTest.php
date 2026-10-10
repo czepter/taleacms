@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Integration;
+namespace Talea\Tests\Integration;
 
-use Kaleta\Core\Config;
-use Kaleta\Core\Settings;
-use Kaleta\Core\Signature;
-use Kaleta\Core\UpdateFeed;
-use Kaleta\Tests\Support\DatabaseTestCase;
+use Talea\Core\Config;
+use Talea\Core\Settings;
+use Talea\Core\Signature;
+use Talea\Core\UpdateFeed;
+use Talea\Tests\Support\DatabaseTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /** HF-13: the release feed is signed, checked at most once a day, and only ever produces a notice. */
@@ -25,16 +25,16 @@ final class UpdateFeedTest extends DatabaseTestCase
         $this->secret = sodium_crypto_sign_secretkey($pair);
         $this->keyFile = tempnam(sys_get_temp_dir(), 'pub');
         file_put_contents($this->keyFile, base64_encode(sodium_crypto_sign_publickey($pair)) . " test\n");
-        putenv('KALETA_UPDATE_FEED=https://feed.example.test/update.json');
-        putenv('KALETA_UPDATE_CHECK');
+        putenv('TALEA_UPDATE_FEED=https://feed.example.test/update.json');
+        putenv('TALEA_UPDATE_CHECK');
         $this->db()->run("INSERT INTO {settings} (name, value) VALUES ('update_check', '1') ON DUPLICATE KEY UPDATE value = '1'");
         $this->db()->run("DELETE FROM {settings} WHERE name = 'update_feed_cache'");
     }
 
     protected function tearDown(): void
     {
-        putenv('KALETA_UPDATE_FEED');
-        putenv('KALETA_UPDATE_CHECK');
+        putenv('TALEA_UPDATE_FEED');
+        putenv('TALEA_UPDATE_CHECK');
         @unlink($this->keyFile);
         parent::tearDown();
     }
@@ -91,18 +91,18 @@ final class UpdateFeedTest extends DatabaseTestCase
     public function testAnOlderOrEqualVersionGivesNoNotice(): void
     {
         $requests = [];
-        $this->assertNull($this->subject($requests, $this->feed(KALETA_VERSION))->available());
+        $this->assertNull($this->subject($requests, $this->feed(TALEA_VERSION))->available());
     }
 
     public function testNothingIsRequestedWhenTheCheckIsOff(): void
     {
         $requests = [];
-        putenv('KALETA_UPDATE_CHECK=0');
+        putenv('TALEA_UPDATE_CHECK=0');
         $this->assertNull($this->subject($requests, $this->feed('99.0.0'))->available());
-        putenv('KALETA_UPDATE_CHECK');
+        putenv('TALEA_UPDATE_CHECK');
         $this->db()->run("UPDATE {settings} SET value = '0' WHERE name = 'update_check'");
         $this->assertNull($this->subject($requests, $this->feed('99.0.0'))->available());
-        putenv('KALETA_UPDATE_FEED');
+        putenv('TALEA_UPDATE_FEED');
         $this->db()->run("UPDATE {settings} SET value = '1' WHERE name = 'update_check'");
         $this->assertNull($this->subject($requests, $this->feed('99.0.0'))->available(), 'no feed address, no request');
         $this->assertSame([], $requests);

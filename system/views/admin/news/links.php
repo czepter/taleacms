@@ -2,7 +2,7 @@
 /**
  * Broken links across the site: news items, page builds and collection items (Core\Links).
  *
- * @var Kaleta\Admin\Modules\News $module
+ * @var Talea\Admin\Modules\News $module
  * @var string $csrf
  * @var list<array<string, mixed>> $links
  * @var int $checked

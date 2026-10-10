@@ -18,19 +18,19 @@ The in-app updater (download a zip, overwrite files) stays switched off (`Core\U
 | Release trigger | a git tag `vX.Y.Z` on `main`; CI builds, tests, pushes and creates the GitHub release | one way to release, reproducible |
 | Feed | `update.json`, a release asset (`.../releases/latest/download/update.json`), signed with the existing Ed25519 manifest signature (`Core\Signature`, key in `system/update.pub`) | static, cacheable, no server to run; the signature reuses what exists |
 | Image signing | cosign keyless signature (GitHub OIDC) plus provenance and SBOM attestations; the feed carries the image digest | operators can verify what they pull |
-| What a site sends | one `GET` of the feed at most every 24 h, no identifier, no query; switch off with `KALETA_UPDATE_CHECK=0` or the setting `update_check` | "nothing else phones home" |
+| What a site sends | one `GET` of the feed at most every 24 h, no identifier, no query; switch off with `TALEA_UPDATE_CHECK=0` or the setting `update_check` | "nothing else phones home" |
 | What a site does with it | shows a notice (new version, security flag, changes, the pull command); **never installs** | updating is the operator's act: `docker compose pull && up -d` |
 | Migrations | `bin/migrate --if-installed` in the entrypoint, serialised by `GET_LOCK` (per database and prefix); forward-only | several replicas cannot race; a down-migration is not a rollback strategy |
-| Backup before migrating | when migrations are pending, the entrypoint first writes a database dump to `storage/backups/` (`KALETA_BACKUP_BEFORE_MIGRATE`, default on) | the rollback has something to restore |
+| Backup before migrating | when migrations are pending, the entrypoint first writes a database dump to `storage/backups/` (`TALEA_BACKUP_BEFORE_MIGRATE`, default on) | the rollback has something to restore |
 | Rollback | restore the dump and start the previous image tag; releases follow expand/contract: a release never drops what the previous release still reads | forward-only migrations stay safe |
-| Replicas | any number of web containers share the `storage`, `media`, `extensions` volumes; exactly one runs the background loop (`KALETA_CRON=1`, default 1, set 0 on the others) | jobs run once |
+| Replicas | any number of web containers share the `storage`, `media`, `extensions` volumes; exactly one runs the background loop (`TALEA_CRON=1`, default 1, set 0 on the others) | jobs run once |
 | Health | `GET /health` (no session, no cache): 200 when the database answers and no migration is pending, 503 otherwise, with a one-word reason | an orchestrator restarts the right thing |
 | Add-ons | `extensions/` is a volume: add-ons survive an image update; an add-on declares the core versions it supports (`extension.json` `requires`), the entrypoint logs add-ons that do not match | updates never delete operator code |
-| Configuration | environment variables and `_FILE` secrets only (`KALETA_*`), no file in the image is edited | already in place |
+| Configuration | environment variables and `_FILE` secrets only (`TALEA_*`), no file in the image is edited | already in place |
 
 ## Pieces to build
 
-1. `Core\UpdateFeed`: fetch, verify the signature, cache for 24 h (setting `update_feed_cache`), expose `available()` for the notice; honours `KALETA_UPDATE_CHECK`. Tests with a fake feed server.
+1. `Core\UpdateFeed`: fetch, verify the signature, cache for 24 h (setting `update_feed_cache`), expose `available()` for the notice; honours `TALEA_UPDATE_CHECK`. Tests with a fake feed server.
 2. Admin notice (dashboard, System status) from `UpdateFeed`; no install button.
 3. `GET /health` in `Front\Kernel`.
 4. `bin/backup` (database dump through PDO, no `mysqldump` needed) and the entrypoint step.

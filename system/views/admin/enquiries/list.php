@@ -2,8 +2,8 @@
 /**
  * Enquiries from the site's forms.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Enquiries $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Enquiries $module
  * @var string $csrf
  * @var list<array<string, mixed>> $enquiries
  * @var int $total
@@ -19,7 +19,7 @@
  * @var string $search
  * @var array<int, string> $users
  */
-use Kaleta\Admin\Modules\Enquiries;
+use Talea\Admin\Modules\Enquiries;
 
 $pageCount = (int) ceil($total / $perPage);
 $preview = function (string $data): string {
@@ -35,7 +35,7 @@ $preview = function (string $data): string {
 <?php endforeach ?>
 </nav>
 <nav class="tabs" aria-label="<?= e(t('Kind')) ?>">
-<?php foreach (['' => t('All kinds'), '-' => t('Not sorted')] + array_map('t', Kaleta\Core\Triage::CATEGORIES) as $key => $name): ?>
+<?php foreach (['' => t('All kinds'), '-' => t('Not sorted')] + array_map('t', Talea\Core\Triage::CATEGORIES) as $key => $name): ?>
 	<a href="<?= e($module->url('', array_filter(['status' => $filter, 'category' => $key]))) ?>"<?= $kind === $key ? ' class="active" aria-current="true"' : '' ?>><?= e($name) ?><?= $key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '' ?></a>
 <?php endforeach ?>
 </nav>
@@ -59,7 +59,7 @@ $preview = function (string $data): string {
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['status'] === 2 ? ' class="unpublished"' : '' ?>>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['public_id']])) ?>"><?= (int) $p['status'] === 0 ? '<strong>' . e(format_date($p['created_at'], true)) . '</strong>' : e(format_date($p['created_at'], true)) ?></a></td>
-	<td><?= e($p['form']) ?><?= ($p['topic'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . e($p['topic']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['category'] !== '' ? '<br><span class="badge">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['category']] ?? $p['category'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? ' <span class="badge badge-draft">' . e(t('urgent')) . '</span>' : '' ?></td>
+	<td><?= e($p['form']) ?><?= ($p['topic'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . e($p['topic']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['category'] !== '' ? '<br><span class="badge">' . e(t(Talea\Core\Triage::CATEGORIES[$p['category']] ?? $p['category'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? ' <span class="badge badge-draft">' . e(t('urgent')) . '</span>' : '' ?></td>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['public_id']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
 	<td><span class="badge<?= (int) $p['status'] === 0 ? ' badge-draft' : ((int) $p['status'] === 2 ? ' badge-published' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['status']])) ?></span><?= $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '<br><small>' . e($users[(int) $p['assigned_to']]) . '</small>' : '' ?></td>
 	<td class="center"><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e(format_date($p['created_at'], true)) ?>"></td>

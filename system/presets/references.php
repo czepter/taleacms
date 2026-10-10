@@ -26,7 +26,7 @@ return [
     'list' => [],
     'card' => ['client', 'quote'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $label = array_column($fields, 'label', 'key');
         $children = [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),

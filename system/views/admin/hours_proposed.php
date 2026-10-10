@@ -14,7 +14,7 @@ if ($proposed === []) {
 ?>
 <div class="tab-wrap" id="proposed-hours"><table class="listing"><caption class="small-text"><?= e(t('Proposed by Claude – the site does not use these until you apply them.')) ?></caption><tbody>
 <?php foreach ($proposed as $ex): ?>
-	<tr><td><?= e(Kaleta\Core\Hours::describe($ex)) ?> <span class="badge badge-draft"><?= e(t('Proposed by Claude')) ?></span></td><td class="small-text"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
+	<tr><td><?= e(Talea\Core\Hours::describe($ex)) ?> <span class="badge badge-draft"><?= e(t('Proposed by Claude')) ?></span></td><td class="small-text"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
 		<td class="actions"><button class="navigation" type="submit" formaction="<?= e($applyUrl) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Apply')) ?></button>
 			<button class="navigation danger" type="submit" formaction="<?= e($discardUrl) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Discard')) ?></button></td></tr>
 <?php endforeach ?>

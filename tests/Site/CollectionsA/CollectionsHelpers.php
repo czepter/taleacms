@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsA;
+namespace Talea\Tests\Site\CollectionsA;
 
-use Kaleta\Tests\Site\Support\Http;
-use Kaleta\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\Http;
+use Talea\Tests\Site\Support\Response;
 
 /** Shared helpers of the CollectionsA classes (the old mcp / sq / site_date / field_value shell functions). */
 trait CollectionsHelpers

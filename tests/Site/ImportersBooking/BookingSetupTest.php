@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\ImportersBooking;
+namespace Talea\Tests\Site\ImportersBooking;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Old section 96, part 1 (3.0/3.2): the feature is off on a new site, Claude sets up services, people and hours, the element and the free times. */
@@ -19,14 +19,14 @@ final class BookingSetupTest extends SiteTestCase
         $this->assertPage('/admin.php?module=bookings', 403, message: '3.2 bookings off: no admin module');
         $raw = $this->bookingRaw('save_booking_service', ['name' => 'Off test']);
         $this->assertStringContainsString('switched off on this site', $raw, '3.2 bookings off: the MCP tools say the feature is off');
-        $this->assertSame('0', $this->q('SELECT COUNT(*) FROM ka_booking_services'), '3.2 bookings off: the MCP tool saves nothing');
+        $this->assertSame('0', $this->q('SELECT COUNT(*) FROM tl_booking_services'), '3.2 bookings off: the MCP tool saves nothing');
         $this->assertPage('/_booking/days?service=1&staff=0&month=2026-01', 404, message: '3.2 bookings off: the public booking addresses are a 404');
     }
 
     public function testClaudeSetsUpServiceAndPerson(): void
     {
         $this->bookingSwitchOn();
-        $this->assertSame('1', $this->q("SELECT FIND_IN_SET('bookings', value) > 0 FROM ka_settings WHERE name = 'extensions'"), '3.2 bookings: switched on over MCP');
+        $this->assertSame('1', $this->q("SELECT FIND_IN_SET('bookings', value) > 0 FROM tl_settings WHERE name = 'extensions'"), '3.2 bookings: switched on over MCP');
         $text = $this->bookingStaffAndService();
         $this->assertGreaterThan(0, self::$service, 'booking: Claude saves a service');
         $this->assertGreaterThan(0, self::$staff, 'booking: Claude saves a person');
@@ -42,7 +42,7 @@ final class BookingSetupTest extends SiteTestCase
     {
         $this->bookingFixture();
         $html = $this->bookingForm()->body;
-        foreach (['class="ka-booking"', 'data-booking="bk1"', 'Haircut test', 'name="as_signature"', 'name="slot" required', 'image/web.js'] as $needle) {
+        foreach (['class="tl-booking"', 'data-booking="bk1"', 'Haircut test', 'name="as_signature"', 'name="slot" required', 'image/web.js'] as $needle) {
             $this->assertStringContainsString($needle, $html, "booking: the element renders $needle (service, plain select of free times, spam protection, web.js)");
         }
     }

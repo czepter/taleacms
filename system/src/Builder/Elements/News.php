@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Front\NewsRepository;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Front\NewsRepository;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** List of the latest news (dynamic – it changes by itself as news items are added). */
 final class News extends Element
@@ -35,13 +35,13 @@ final class News extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-news { display: flex; flex-direction: column; gap: var(--ka-space-xs); }
-.ka-news img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--ka-radius); margin-block-end: var(--ka-space-xs); }
-.ka-news time { font-size: var(--ka-step--1); color: var(--ka-color-muted); }
-.ka-news h3 { margin: 0; font-size: var(--ka-step-1); }
-.ka-news h3 a { color: inherit; text-decoration: none; }
-.ka-news h3 a:hover { color: var(--ka-color-primary); }
-.ka-news p { margin: 0; color: var(--ka-color-muted); }';
+        return '.tl-news { display: flex; flex-direction: column; gap: var(--tl-space-xs); }
+.tl-news img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--tl-radius); margin-block-end: var(--tl-space-xs); }
+.tl-news time { font-size: var(--tl-step--1); color: var(--tl-color-muted); }
+.tl-news h3 { margin: 0; font-size: var(--tl-step-1); }
+.tl-news h3 a { color: inherit; text-decoration: none; }
+.tl-news h3 a:hover { color: var(--tl-color-primary); }
+.tl-news p { margin: 0; color: var(--tl-color-muted); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -53,7 +53,7 @@ final class News extends Element
         $html = '';
         foreach ($news as $n) {
             $url = $k->url('news/' . $n['slug']);
-            $html .= '<article class="ka-news">'
+            $html .= '<article class="tl-news">'
                 . ($o['images'] && $n['image'] !== '' ? '<img src="' . e($n['image']) . '" alt="" loading="lazy">' : '')
                 . '<time datetime="' . e(date('c', strtotime($n['published_at']))) . '">' . e(format_date($n['published_at'])) . '</time>'
                 . '<h3><a href="' . e($url) . '">' . e($n['title']) . '</a></h3>'

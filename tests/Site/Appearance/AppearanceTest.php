@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Appearance;
+namespace Talea\Tests\Site\Appearance;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -21,7 +21,7 @@ final class AppearanceTest extends SiteTestCase
     {
         $response = $this->adminPost('/admin.php?module=appearance&action=preview', ['ds' => ['colors' => ['primary' => '#ff00aa'], 'base_min' => '18']], '/admin.php?module=appearance');
 
-        $this->assertStringContainsString('ka-color-primary: #ff00aa', $response->body, 'the live preview returns tokens');
+        $this->assertStringContainsString('tl-color-primary: #ff00aa', $response->body, 'the live preview returns tokens');
         $this->assertStringContainsString('"contrasts"', $response->body, 'the live preview returns contrasts');
     }
 
@@ -34,7 +34,7 @@ final class AppearanceTest extends SiteTestCase
 
         $home = $this->site()->client()->get('/');
 
-        $this->assertStringNotContainsString('ka-color-primary: #9a3412', $home->body, 'the saved appearance is on the site before publishing');
+        $this->assertStringNotContainsString('tl-color-primary: #9a3412', $home->body, 'the saved appearance is on the site before publishing');
         $this->assertPage('/admin.php?module=appearance', 200, 'Unpublished look changes', message: 'the admin shows the draft look with its changes');
     }
 
@@ -46,7 +46,7 @@ final class AppearanceTest extends SiteTestCase
 
         $home = $this->site()->client()->get('/');
 
-        foreach (['ka-color-primary: #9a3412', 'ka-width: 80rem', 'ka-font-heading: Georgia'] as $needle) {
+        foreach (['tl-color-primary: #9a3412', 'tl-width: 80rem', 'tl-font-heading: Georgia'] as $needle) {
             $this->assertStringContainsString($needle, $home->body, 'the saved appearance is on the site after publishing');
         }
         $this->assertStringNotContainsString('body{', $home->body, 'an invalid colour is replaced by the default');

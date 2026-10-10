@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * What is working (2.3): traffic, campaigns and devices from the own statistics, and the leads – enquiries, newsletter
@@ -78,7 +78,7 @@ final class Report
         $campaignVisits = $db->pairs('SELECT campaign, SUM(visits) FROM {stats_campaigns} WHERE day >= ? GROUP BY campaign', [$since]);
         $campaigns = [];
         foreach ($leadsBy('campaign', 'campaign') as $utm => $n) {
-            $name = \Kaleta\Front\Forms::campaignText((string) $utm);
+            $name = \Talea\Front\Forms::campaignText((string) $utm);
             $campaigns[$name] = ['enquiries' => ($campaigns[$name]['enquiries'] ?? 0) + ($n['enquiries'] ?? 0), 'signups' => ($campaigns[$name]['signups'] ?? 0) + ($n['signups'] ?? 0)];
         }
         $campaignRows = [];

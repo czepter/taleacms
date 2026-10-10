@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
-use Kaleta\Core\GoogleBusiness;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
+use Talea\Core\GoogleBusiness;
 
 /**
  * Customer reviews from Google (2.13, Core\GoogleBusiness): the newest reviews of the connected Business Profile with at
@@ -40,19 +40,19 @@ final class GoogleReviews extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-reviews-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-space-xs); margin: 0; }
-.ka-reviews-summary strong { font-size: var(--ka-step-1); font-variant-numeric: tabular-nums; }
-.ka-reviews-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--ka-space-m); margin: 0; padding: 0; list-style: none; }
-.ka-reviews { display: flex; flex-direction: column; gap: var(--ka-space-xs); padding: var(--ka-space-m); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-surface); }
-.ka-reviews header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ka-space-xs); }
-.ka-reviews header strong { font-weight: 600; }
-.ka-reviews time { font-size: var(--ka-step--1); color: var(--ka-color-muted); }
-.ka-reviews p { margin: 0; }
-.ka-reviews-reply { margin: 0; padding-inline-start: var(--ka-space-s); border-inline-start: 2px solid var(--ka-color-line); color: var(--ka-color-muted); font-size: var(--ka-step--1); }
-.ka-reviews-stars { width: 6.5em; height: 1.3em; flex: none; }
-.ka-reviews-stars-full { fill: #f5a524; }
-.ka-reviews-stars-empty { fill: var(--ka-color-line); }
-.ka-reviews-all { align-self: flex-start; }';
+        return '.tl-reviews-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tl-space-xs); margin: 0; }
+.tl-reviews-summary strong { font-size: var(--tl-step-1); font-variant-numeric: tabular-nums; }
+.tl-reviews-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--tl-space-m); margin: 0; padding: 0; list-style: none; }
+.tl-reviews { display: flex; flex-direction: column; gap: var(--tl-space-xs); padding: var(--tl-space-m); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-surface); }
+.tl-reviews header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tl-space-xs); }
+.tl-reviews header strong { font-weight: 600; }
+.tl-reviews time { font-size: var(--tl-step--1); color: var(--tl-color-muted); }
+.tl-reviews p { margin: 0; }
+.tl-reviews-reply { margin: 0; padding-inline-start: var(--tl-space-s); border-inline-start: 2px solid var(--tl-color-line); color: var(--tl-color-muted); font-size: var(--tl-step--1); }
+.tl-reviews-stars { width: 6.5em; height: 1.3em; flex: none; }
+.tl-reviews-stars-full { fill: #f5a524; }
+.tl-reviews-stars-empty { fill: var(--tl-color-line); }
+.tl-reviews-all { align-self: flex-start; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -67,17 +67,17 @@ final class GoogleReviews extends Element
         $html = '';
         if ($o['summary'] && $summary['rating'] !== null && $summary['count'] > 0) {
             $number = rtrim(rtrim(format_number($summary['rating']), '0'), ',.');
-            $html .= '<p class="ka-reviews-summary" role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ' · ' . t('%d reviews on Google', $summary['count'])) . '">'
+            $html .= '<p class="tl-reviews-summary" role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ' · ' . t('%d reviews on Google', $summary['count'])) . '">'
                 . self::stars($summary['rating'], $p['id'] . '-s') . '<strong aria-hidden="true">' . e($number) . '</strong><span aria-hidden="true">' . e(t('%d reviews on Google', $summary['count'])) . '</span></p>';
         }
         if ($reviews !== []) {
-            $html .= '<ul class="ka-reviews-list">';
+            $html .= '<ul class="tl-reviews-list">';
             foreach ($reviews as $i => $r) {
-                $html .= '<li class="ka-reviews"><header><strong>' . e($r['author'] !== '' ? $r['author'] : t('Google user')) . '</strong>'
+                $html .= '<li class="tl-reviews"><header><strong>' . e($r['author'] !== '' ? $r['author'] : t('Google user')) . '</strong>'
                     . self::stars((float) $r['stars'], $p['id'] . '-' . $i, t('Rated %s out of 5', (string) $r['stars'])) . '</header>'
                     . '<time datetime="' . e(date('Y-m-d', strtotime($r['reviewed_at']) ?: 0)) . '">' . e(format_date($r['reviewed_at'])) . '</time>'
                     . ($r['comment'] !== '' ? '<p>' . nl2br(e($r['comment'])) . '</p>' : '')
-                    . ($r['reply'] !== null && $r['reply'] !== '' ? '<p class="ka-reviews-reply"><strong>' . e(t('Reply from the business')) . ':</strong> ' . nl2br(e($r['reply'])) . '</p>' : '')
+                    . ($r['reply'] !== null && $r['reply'] !== '' ? '<p class="tl-reviews-reply"><strong>' . e(t('Reply from the business')) . ':</strong> ' . nl2br(e($r['reply'])) . '</p>' : '')
                     . '</li>';
             }
             $html .= '</ul>';
@@ -85,13 +85,13 @@ final class GoogleReviews extends Element
             $html .= '<p>' . e(t('No reviews with this many stars yet – they are fetched from Google once a day.')) . '</p>';
         }
         if ($o['link'] !== '' && $html !== '') {
-            $html .= '<a class="ka-button ka-button--outline ka-reviews-all" href="' . e($o['link']) . '" target="_blank" rel="noopener">' . e(t('All reviews on Google')) . '</a>';
+            $html .= '<a class="tl-button tl-button--outline tl-reviews-all" href="' . e($o['link']) . '" target="_blank" rel="noopener">' . e(t('All reviews on Google')) . '</a>';
         }
         if ($html === '') {
             return '';
         }
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-reviews-google') . '>' . $html . self::jsonLd($k, $reviews, $summary) . '</' . $p['tag'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'tl-reviews-google') . '>' . $html . self::jsonLd($k, $reviews, $summary) . '</' . $p['tag'] . '>';
     }
 
     /** Five stars with the fill clipped to the value's share (as the Rating element draws them). */
@@ -104,9 +104,9 @@ final class GoogleReviews extends Element
         }
         $clip = 'rg-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
 
-        return '<svg class="ka-reviews-stars" viewBox="0 0 128 24"' . ($label !== '' ? ' role="img" aria-label="' . e($label) . '"' : ' aria-hidden="true"') . ' focusable="false">'
+        return '<svg class="tl-reviews-stars" viewBox="0 0 128 24"' . ($label !== '' ? ' role="img" aria-label="' . e($label) . '"' : ' aria-hidden="true"') . ' focusable="false">'
             . '<defs><clipPath id="' . $clip . '"><rect width="' . round($value / 5 * 128, 2) . '" height="24"/></clipPath></defs>'
-            . '<g class="ka-reviews-stars-empty">' . $path . '</g><g class="ka-reviews-stars-full" clip-path="url(#' . $clip . ')">' . $path . '</g></svg>';
+            . '<g class="tl-reviews-stars-empty">' . $path . '</g><g class="tl-reviews-stars-full" clip-path="url(#' . $clip . ')">' . $path . '</g></svg>';
     }
 
     /**
@@ -119,7 +119,7 @@ final class GoogleReviews extends Element
     private static function jsonLd(Context $k, array $reviews, array $summary): string
     {
         $s = $k->app->settings();
-        $node = ['@context' => 'https://schema.org', '@type' => isset(\Kaleta\Front\Company::TYPES[$s->get('company_type')]) ? $s->get('company_type') : 'Organization',
+        $node = ['@context' => 'https://schema.org', '@type' => isset(\Talea\Front\Company::TYPES[$s->get('company_type')]) ? $s->get('company_type') : 'Organization',
             '@id' => $k->app->request->origin() . $k->app->url('') . '#firma', 'name' => $s->get('site_name')];
         if ($summary['rating'] !== null && $summary['count'] > 0) {
             $node['aggregateRating'] = ['@type' => 'AggregateRating', 'ratingValue' => $summary['rating'], 'reviewCount' => $summary['count'], 'bestRating' => 5, 'worstRating' => 1];

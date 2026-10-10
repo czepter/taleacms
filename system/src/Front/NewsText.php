@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Html;
+use Talea\Core\App;
+use Talea\Core\Html;
 
 /**
  * Additions to the news item text: video embedded by URL, outline from subheadings, author bio and share links.
@@ -41,7 +41,7 @@ final class NewsText
         // on the DOM, not with a regular expression over the stored markup (an attribute's text must never become a tag);
         // a replaced paragraph is marked by a comment with a random key and the player goes in after serialization
         $players = [];
-        $key = 'ka-player-' . bin2hex(random_bytes(8)) . '-';
+        $key = 'tl-player-' . bin2hex(random_bytes(8)) . '-';
         $output = Html::transform($html, function (\Dom\HTMLElement $body, \Dom\HTMLDocument $doc) use (&$players, $key): void {
             foreach (iterator_to_array($body->querySelectorAll('p')) as $p) {
                 $url = self::paragraphUrl($p);
@@ -112,7 +112,7 @@ final class NewsText
         $html = $items === [] ? $html : $output;
 
         return count($items) < 3 ? $html
-            : '<nav class="ka-toc" aria-label="' . e(t('Content')) . '"><strong>' . e(t('Content')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;
+            : '<nav class="tl-toc" aria-label="' . e(t('Content')) . '"><strong>' . e(t('Content')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;
     }
 
     /**
@@ -135,7 +135,7 @@ final class NewsText
             'WhatsApp' => 'https://wa.me/?text=' . $t . '%20' . $u,
             'Email' => 'mailto:?subject=' . $t . '&body=' . $u,
         ];
-        $html = '<aside class="ka-share" aria-label="' . e(t('Share')) . '"><span>' . e(t('Share')) . '</span>'
+        $html = '<aside class="tl-share" aria-label="' . e(t('Share')) . '"><span>' . e(t('Share')) . '</span>'
             . '<button type="button" data-share data-address="' . e($url) . '" data-title="' . e((string) $newsItem['title']) . '" hidden>' . e(t('Share…')) . '</button>';
         foreach ($networks as $name => $link) {
             $html .= '<a href="' . e($link) . '"' . ($name === 'Email' ? '' : ' target="_blank" rel="noopener nofollow"') . '>' . e($name) . '</a>';
@@ -157,9 +157,9 @@ final class NewsText
         $photo = (string) $newsItem['author_photo'];
         $photo = $photo === '' ? '' : (preg_match('#^(https?:)?/#i', $photo) ? $photo : $this->app->request->basePath() . '/' . $photo);
 
-        return '<aside class="ka-author" aria-label="' . e(t('About the author')) . '">'
+        return '<aside class="tl-author" aria-label="' . e(t('About the author')) . '">'
             . ($photo !== '' ? '<img src="' . e($photo) . '" alt="" width="72" height="72" loading="lazy">' : '')
-            . '<div><strong class="ka-author-name">' . e($newsItem['author_name']) . '</strong>'
+            . '<div><strong class="tl-author-name">' . e($newsItem['author_name']) . '</strong>'
             . ($newsItem['author_position'] !== '' ? '<span>' . e($newsItem['author_position']) . '</span>' : '')
             . '<p>' . nl2br(e(trim((string) $newsItem['author_bio']))) . '</p></div></aside>';
     }
@@ -173,10 +173,10 @@ final class NewsText
         $mediaUrl = preg_match('#^(https?:)?/#i', $url) ? $url : $base . '/' . $url;
         $extension = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
         if (in_array($extension, ['mp3', 'm4a', 'ogg', 'oga', 'wav', 'aac'], true)) {
-            return '<figure class="ka-media ka-media-audio"><audio controls preload="none" src="' . e($mediaUrl) . '"></audio></figure>';
+            return '<figure class="tl-media tl-media-audio"><audio controls preload="none" src="' . e($mediaUrl) . '"></audio></figure>';
         }
         if (in_array($extension, ['mp4', 'webm', 'm4v'], true)) {
-            return '<figure class="ka-media"><video controls preload="metadata" playsinline src="' . e($mediaUrl) . '"></video></figure>';
+            return '<figure class="tl-media"><video controls preload="metadata" playsinline src="' . e($mediaUrl) . '"></video></figure>';
         }
         $embedUrl = match (true) {
             (bool) preg_match('#(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})#', $url, $m) => 'https://www.youtube-nocookie.com/embed/' . $m[1] . '?autoplay=1',
@@ -187,10 +187,10 @@ final class NewsText
             return '';
         }
         if ($embedUrl === '') {
-            return '<div class="ka-media-link"><a class="ka-btn" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Play')) . '</a></div>';
+            return '<div class="tl-media-link"><a class="tl-btn" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Play')) . '</a></div>';
         }
         // a third-party player is embedded only after a click: until then nothing is sent to that service (privacy, speed)
-        return '<figure class="ka-media"><button type="button" class="ka-media-start" data-insert="' . e($embedUrl) . '" data-title="' . e($title) . '">'
+        return '<figure class="tl-media"><button type="button" class="tl-media-start" data-insert="' . e($embedUrl) . '" data-title="' . e($title) . '">'
             . '<span aria-hidden="true">▶</span> ' . e(t('Play video')) . '<small>' . e(t('Content will load from')) . ' ' . e((string) parse_url($embedUrl, PHP_URL_HOST)) . '</small></button></figure>';
     }
 }

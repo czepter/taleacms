@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Converting the content of a WordPress post into HTML such as Kaleta's news editor writes. It only converts text – it reads and writes nothing.
+ * Converting the content of a WordPress post into HTML such as Talea's news editor writes. It only converts text – it reads and writes nothing.
  *
  * Order of steps: Gutenberg blocks → shortcodes in square brackets ([caption], [gallery]…) → embedded videos → paragraphs
  * (the old "classic" editor separates them only by an empty line) → letting through only allowed tags and attributes.

@@ -2,8 +2,8 @@
 /**
  * Media: folders and filters on the left, upload and the image grid on the right.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Media $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Media $module
  * @var string $csrf
  * @var list<array<string, mixed>> $images
  * @var int $pageNumber
@@ -58,9 +58,9 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 	<?= $csrf ?>
 	<input type="hidden" name="folder_id" value="<?= e($activeFolder['public_id'] ?? '') ?>">
 	<label for="files"><strong><?= e(t('Upload images and attachments')) ?><?= $activeFolder !== null ? ' – ' . e($activeFolder['name']) : '' ?></strong> <?= e(t('– select files, or drag them here')) ?></label>
-	<input type="file" id="files" name="files[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Kaleta\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
+	<input type="file" id="files" name="files[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Talea\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
 	<input class="btn" type="submit" value="<?= e(t('Upload')) ?>">
-	<span class="help"><?= e(t('JPG, PNG, WebP and GIF images as well as downloadable attachments (PDF, documents, spreadsheets, ZIP, audio, video), up to %s per file. Large photos are scaled down to %s px and location data is removed.', $limit, Kaleta\Core\Images::MAX_SIDE)) ?></span>
+	<span class="help"><?= e(t('JPG, PNG, WebP and GIF images as well as downloadable attachments (PDF, documents, spreadsheets, ZIP, audio, video), up to %s per file. Large photos are scaled down to %s px and location data is removed.', $limit, Talea\Core\Images::MAX_SIDE)) ?></span>
 </form>
 
 <form class="navigation-row media-search" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
@@ -70,7 +70,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php endforeach ?>
 	<input class="textfield" type="search" name="search" value="<?= e($filter['search']) ?>" placeholder="<?= e(t('Search name, description or file')) ?>" aria-label="<?= e(t('Search media')) ?>">
 	<select name="sort" aria-label="<?= e(t('Order')) ?>" data-submit-on-change>
-<?php foreach (Kaleta\Admin\Modules\Media::SORT_ORDERS as $key => [$sortName]): ?>
+<?php foreach (Talea\Admin\Modules\Media::SORT_ORDERS as $key => [$sortName]): ?>
 		<option value="<?= e($key) ?>"<?= $filter['sort'] === $key ? ' selected' : '' ?>><?= e(t($sortName)) ?></option>
 <?php endforeach ?>
 	</select>
@@ -91,7 +91,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php endif ?>
 		<figcaption>
 			<strong title="<?= e($o['name']) ?>"><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></strong>
-			<span><?= $o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['image_size'])) ?> &middot; <span<?= $o['used_in'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['used_in']))) . '"' : '' ?>><?= e((int) $o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></span></span>
+			<span><?= $o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ' ?><?= e(Talea\Core\Files::size((int) $o['image_size'])) ?> &middot; <span<?= $o['used_in'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['used_in']))) . '"' : '' ?>><?= e((int) $o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></span></span>
 <?php if ($o['thumb_path'] !== ''): ?>
 			<input class="gallery-description" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Description for blind users (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['name'])) ?>" data-description-media="<?= e($o['public_id']) ?>" data-address="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>

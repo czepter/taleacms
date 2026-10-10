@@ -3,8 +3,8 @@
  * A request to Claude (2.15): the request itself, its attachments, the conversation – Claude's notes with links to the
  * drafts it made and the person's replies – and the status.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Requests $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Requests $module
  * @var string $csrf
  * @var array<string, mixed> $r the request with 'author' and decoded 'attachments'
  * @var array{type: string, id: ?int, title: string, url: string}|null $about
@@ -12,7 +12,7 @@
  * @var list<array{id: int, sender: string, sender_name: string, text: string, links: list<array{label: string, url: string}>, created_at: string}> $messages
  * @var bool $mine the signed-in user wrote it
  */
-use Kaleta\Core\Requests;
+use Talea\Core\Requests;
 
 $tag = fn (string $status): string => '<span class="badge' . match ($status) { 'done' => ' badge-published', 'new' => ' badge-draft', 'declined' => ' badge-error', default => '' } . '">' . e(t(Requests::STATUSES[$status] ?? $status)) . '</span>';
 $moves = Requests::TRANSITIONS[$r['status']] ?? [];

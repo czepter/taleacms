@@ -2,8 +2,8 @@
 /**
  * A manual booking (3.0): a customer who phoned or walked in. The same rules as on the site except the lead time.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Bookings $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Bookings $module
  * @var string $csrf
  * @var list<array<string, mixed>> $services
  * @var list<array<string, mixed>> $staff

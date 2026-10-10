@@ -1,5 +1,5 @@
 <?php
-/** Kaleta – texts of the site in language 'it' (keyed by the English source text). */
+/** Talea – texts of the site in language 'it' (keyed by the English source text). */
 
 return [
     'date_in_words' => 'l j F Y',
@@ -784,7 +784,7 @@ return [
     'Please confirm that you are not a robot and send the form again.' => 'Conferma di non essere un robot e invia di nuovo il modulo.',
     'With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.' => 'Con il tuo consenso, il sito utilizza Google Tag Manager (Google Ireland Limited) per eseguire tag di analisi e pubblicità, che salvano cookie nel tuo browser.',
     'To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.' => 'Per proteggere i moduli dallo spam, il sito utilizza %s, che riceve il tuo indirizzo IP e i dati del browser quando invii un modulo.',
-    'Kaleta demo – try the admin' => 'Demo di Kaleta – prova l’amministrazione',
+    'Talea demo – try the admin' => 'Demo di Talea – prova l’amministrazione',
     'Facts' => 'Dati',
     'closed' => 'chiuso',
     'Open now, until %s' => 'Aperto ora, fino alle %s',

@@ -10,7 +10,7 @@ vendor/bin/paratest --testsuite site --processes 6        # all, six classes at 
 vendor/bin/phpunit --testsuite site --filter PublicSiteTest
 ```
 
-MySQL: `KALETA_TEST_DB_*` (defaults to the dev stack's `db-test`, `127.0.0.1:33061` root/root). Without MySQL the tests are skipped.
+MySQL: `TALEA_TEST_DB_*` (defaults to the dev stack's `db-test`, `127.0.0.1:33061` root/root). Without MySQL the tests are skipped.
 
 ## Writing a test
 
@@ -22,7 +22,7 @@ final class SomethingTest extends SiteTestCase
     public function testThePageWorks(): void
     {
         $this->assertPage('/services', 200, 'Services');
-        $this->site()->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'x'");
+        $this->site()->exec("UPDATE tl_pages SET visible = 1 WHERE slug = 'x'");
         $this->site()->clearPageCache();
     }
 }
@@ -31,7 +31,7 @@ final class SomethingTest extends SiteTestCase
 - **One class = one site = one theme.** The tests of a class run top to bottom and may build on what earlier tests did (use
   `#[Depends('testX')]` where the order matters). Do not depend on another class: if the old section relied on state from an earlier
   section (a page, a category, a token), create it in the class (a helper at the top, or the first test).
-- Put the class in `tests/Site/<Area>/…Test.php`, namespace `Kaleta\Tests\Site\<Area>`, `#[Group('site')]`. Group by the theme of the old section.
+- Put the class in `tests/Site/<Area>/…Test.php`, namespace `Talea\Tests\Site\<Area>`, `#[Group('site')]`. Group by the theme of the old section.
 - Keep every old check: one `check`/`expect`/`echo "  ok"` becomes at least one assertion with a message that says what it proves.
   Czech names of tables, columns, routes and texts stay as they are in the old script (the rename phases change them later with the code).
 - No `sleep`, no fixed ports, no files outside `$this->site()->workDir()`; helper servers via `$this->site()->startPhp()`.
@@ -49,7 +49,7 @@ final class SomethingTest extends SiteTestCase
 | `csrf` / `$TOKEN` | `$this->site()->csrf($client, '/page')` |
 | `mcp tool '{json}'` | `$this->site()->mcp('tool', [..])` (decoded JSON-RPC), `->mcpResult('tool', [..])` (the tool's text, decoded when JSON), `->mcp('tool', $args, token: $other)` |
 | `sq "SELECT …"` (mysql client) | `->value($sql, $params)` (first column), `->rows($sql, $params)`, `->exec($sql, $params)` |
-| `REPLACE INTO ka_settings …` | `->setting('name', 'value')`, `->settingValue('name')` |
+| `REPLACE INTO tl_settings …` | `->setting('name', 'value')`, `->settingValue('name')` |
 | `rm -f $WORK/web/storage/cache/pages/*.html` | `->clearPageCache()` |
 | `curl "$B/ulohy?token=testtoken123"` | `->runTasks()` (background jobs, web-cron way) |
 | `php -r 'require system/bootstrap.php; …'` in the site | `->php('code')` (cwd = the site, bootstrap loaded; returns the output) |

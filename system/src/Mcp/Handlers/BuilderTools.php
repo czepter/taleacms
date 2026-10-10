@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\DraftComments;
-use Kaleta\Core\Language;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\DraftComments;
+use Talea\Core\Language;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: builder (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -31,7 +31,7 @@ trait BuilderTools
     {
         $auth = $this->app->auth();
         $siteSettings = $this->app->settings();
-        $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Kaleta\Core\Extensions::enabled($siteSettings));
+        $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
 
         return $this->englishSchema($schema, $a);
     }
@@ -43,7 +43,7 @@ trait BuilderTools
 
         return $this->describeTarget($target) + ['published' => $target['build'] !== null,
             'unsaved_changes' => $target['draft'] !== null && $target['draft'] !== $target['build']]
-            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => \Kaleta\Mcp\PublicIds::buildOut($this->app->db(), Build::compact($this->targetBuild($target)))]);
+            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => \Talea\Mcp\PublicIds::buildOut($this->app->db(), Build::compact($this->targetBuild($target)))]);
     }
 
     /** edit_build */
@@ -52,7 +52,7 @@ trait BuilderTools
         $this->mayPublish($a);
         $target = $this->loadBuildTarget($a);
         $operationErrors = [];
-        $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operations'] ?? null) ? \Kaleta\Mcp\PublicIds::buildIn($this->app->db(), $a['operations']) : [], $operationErrors);
+        $build = \Talea\Builder\Edits::apply($this->targetBuild($target), is_array($a['operations'] ?? null) ? \Talea\Mcp\PublicIds::buildIn($this->app->db(), $a['operations']) : [], $operationErrors);
 
         return $this->saveBuild($target, $build, !empty($a['publish'])) + ['operation_errors' => $operationErrors];
     }
@@ -85,7 +85,7 @@ trait BuilderTools
         }
         $this->mayPublish($a);
 
-        return $this->saveBuild($this->loadBuildTarget($a), \Kaleta\Mcp\PublicIds::buildIn($this->app->db(), $a['build']), !empty($a['publish']));
+        return $this->saveBuild($this->loadBuildTarget($a), \Talea\Mcp\PublicIds::buildIn($this->app->db(), $a['build']), !empty($a['publish']));
     }
 
     /** insert_section */
@@ -98,7 +98,7 @@ trait BuilderTools
         if ((int) ($a['saved_section'] ?? 0) > 0) {
             // a section someone saved in the builder ("Save as section"), with fresh element ids
             $saved = $db->value('SELECT element FROM {sections} WHERE section_id = ?', [(int) $a['saved_section']]) ?? throw new \InvalidArgumentException('The saved section does not exist – saved_sections in builder_schema lists them.');
-            [$clean] = Build::sanitize(['v' => Build::VERSION, 'children' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->canWriteCode());
+            [$clean] = Build::sanitize(['v' => Build::VERSION, 'children' => [\Talea\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->canWriteCode());
             $section = ['element' => $clean['children'][0] ?? throw new \InvalidArgumentException('The saved section is empty.')];
         } else {
             $section = Library::section((string) ($a['section'] ?? ''), $target['language']) ?? throw new \InvalidArgumentException('The section is not in the library. Keys: ' . implode(', ', array_column(Library::listAll(), 'key')) . '.');
@@ -162,7 +162,7 @@ trait BuilderTools
         $r = $target['row'];
         match ($target['kind']) {
             'page' => $db->update('pages', ['build_draft' => null], ['page_id' => $r['page_id']]),
-            'collection' => \Kaleta\Builder\Collections::writeTemplate($db, $r, ['build_draft' => null]),
+            'collection' => \Talea\Builder\Collections::writeTemplate($db, $r, ['build_draft' => null]),
             'popup' => $db->update('popups', ['build_draft' => null], ['popup_id' => $r['popup_id']]),
             'component' => $db->update('components', ['build_draft' => null], ['component_id' => $r['component_id']]),
             default => $db->update('site_parts', ['build_draft' => null], ['type' => $r['type'], 'language' => $r['language'], 'variant' => $r['variant']]),
@@ -211,7 +211,7 @@ trait BuilderTools
         $db = $this->app->db();
 
         return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => $k['properties'], 'published' => $k['build'] !== null,
-            'unpublished_changes' => $k['build_draft'] !== null], \Kaleta\Builder\Components::all($db));
+            'unpublished_changes' => $k['build_draft'] !== null], \Talea\Builder\Components::all($db));
     }
 
     /** save_component */
@@ -227,20 +227,20 @@ trait BuilderTools
         };
 
         $need($auth->isAdmin(), 'Components can be changed only by an administrator.');
-        $current = $id > 0 ? (\Kaleta\Builder\Components::byId($db, $id) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.')) : null;
+        $current = $id > 0 ? (\Talea\Builder\Components::byId($db, $id) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.')) : null;
         $name = mb_substr(trim((string) ($a['name'] ?? ($current['name'] ?? ''))), 0, 100);
         if ($name === '') {
             throw new \InvalidArgumentException('The component needs a name.');
         }
-        $data = ['name' => $name, 'updated_at' => date('Y-m-d H:i:s'), 'properties' => (string) json_encode(\Kaleta\Builder\Components::sanitizeProperties(
+        $data = ['name' => $name, 'updated_at' => date('Y-m-d H:i:s'), 'properties' => (string) json_encode(\Talea\Builder\Components::sanitizeProperties(
             is_array($a['properties'] ?? null) ? $a['properties'] : ($current['properties'] ?? [])), JSON_UNESCAPED_UNICODE)];
         if ($current !== null) {
             $db->update('components', $data, ['component_id' => $id]);
         } else {
             $id = $db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])]);
         }
-        \Kaleta\Front\Cache::clear();
-        $k = (array) \Kaleta\Builder\Components::byId($db, $id);
+        \Talea\Front\Cache::clear();
+        $k = (array) \Talea\Builder\Components::byId($db, $id);
 
         return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","content":{"component":"' . $this->pid('components', $id) . '","values":{}}}',
             'build' => 'edit it with get_build / save_build / edit_build and component: ' . $this->pid('components', $id) . ', then publish_build'];
@@ -260,7 +260,7 @@ trait BuilderTools
 
         $need($auth->isAdmin(), 'Components can be deleted only by an administrator.');
         $need($db->delete('components', ['component_id' => $id]) > 0, 'The component does not exist. Use list_components.');
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return ['deleted' => $id];
     }
@@ -310,7 +310,7 @@ trait BuilderTools
             }
             Publisher::version($this->app, ['part' => SiteParts::versionKey($type, $language, $variant)], $row['build'], null, $row['updated_at']);
             $db->delete('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant]);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
 
             return ['part' => self::partName($type), 'variant' => $variant, 'status' => 'variant deleted – the selected pages use the default'];
         }
@@ -321,7 +321,7 @@ trait BuilderTools
         $pages = array_values(array_filter(array_map('intval', is_array($a['pages'] ?? null) ? $a['pages'] : []),
             fn (int $pageId): bool => $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND language = ? AND deleted_at IS NULL', [$pageId, $language]) !== null));
         $variant = SiteParts::saveVariant($db, $type, $language, $variant, $variantName, $pages, Language::ofContent($siteSettings, $language));
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return ['part' => self::partName($type), 'language' => $language, 'variant' => $variant, 'name' => $variantName, 'pages' => $pages,
             'status' => 'saved – edit the variant with the *_build tools and the variant parameter, then publish it; until then the default applies'];
@@ -345,7 +345,7 @@ trait BuilderTools
         }
         $language = in_array($a['language'] ?? '', Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
         $variant = (string) ($a['variant'] ?? '');
-        if (!SiteParts::applyTemplate($db, $type, $language, $variant, (string) ($a['template'] ?? ''), Language::ofContent($this->app->settings(), $language), \Kaleta\Core\Extensions::enabled($this->app->settings()))) {
+        if (!SiteParts::applyTemplate($db, $type, $language, $variant, (string) ($a['template'] ?? ''), Language::ofContent($this->app->settings(), $language), \Talea\Core\Extensions::enabled($this->app->settings()))) {
             throw new \InvalidArgumentException('Unknown template or variant – builder_schema lists part_templates, list_site_parts the variants.');
         }
         $target = $this->loadBuildTarget(['part' => $type, 'language' => $language, 'variant' => $variant]);
@@ -368,8 +368,8 @@ trait BuilderTools
                 throw new \DomainException('The preview of the whole site is for editors and administrators.');
             }
 
-            return ['preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, $minutes), 'valid_until' => date('Y-m-d H:i', time() + $minutes * 60),
-                'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings)];
+            return ['preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, $minutes), 'valid_until' => date('Y-m-d H:i', time() + $minutes * 60),
+                'look_draft' => \Talea\Core\Look::summary($db, $siteSettings)];
         }
         $target = $this->loadBuildTarget($a);
         // comments (2.15, Core\DraftComments): the flag is signed into the key; only a page draft has the comment widget

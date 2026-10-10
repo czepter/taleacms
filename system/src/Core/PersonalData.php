@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Personal data requests (2.14): someone writes "what do you have about me" or "delete me". The administrator enters the
@@ -86,7 +86,7 @@ final class PersonalData
     {
         $found = self::find($app->db(), $email);
         unset($found['account']['user_id']);
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
 
         return (string) json_encode(['site' => $app->settings()->get('site_name'), 'email' => $email, 'exported_at' => date('c')] + $found,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -102,7 +102,7 @@ final class PersonalData
     {
         $db = $app->db();
         $found = self::find($db, $email);
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'enquiry_id'))) . ')'));
+        \Talea\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'enquiry_id'))) . ')'));
         foreach (array_column($found['enquiries'], 'enquiry_id') as $idp) {
             $db->delete('enquiries', ['enquiry_id' => (int) $idp]);
         }
@@ -121,7 +121,7 @@ final class PersonalData
         AgentJournal::forget($db, $email);
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
         $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
 
         return ['erased' => $erased, 'kept_testimonials' => $kept];

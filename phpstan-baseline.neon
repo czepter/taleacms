@@ -79,13 +79,13 @@ parameters:
 			path: system/src/Builder/HtmlConverter.php
 
 		-
-			message: '#^Method Kaleta\\Builder\\HtmlConverter\:\:figure\(\) never returns null so it can be removed from the return type\.$#'
+			message: '#^Method Talea\\Builder\\HtmlConverter\:\:figure\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
 			path: system/src/Builder/HtmlConverter.php
 
 		-
-			message: '#^Parameter &\$skipped by\-ref type of method Kaleta\\Builder\\HtmlConverter\:\:withoutClasses\(\) expects list\<string\>, array given\.$#'
+			message: '#^Parameter &\$skipped by\-ref type of method Talea\\Builder\\HtmlConverter\:\:withoutClasses\(\) expects list\<string\>, array given\.$#'
 			identifier: parameterByRef.type
 			count: 1
 			path: system/src/Builder/HtmlConverter.php
@@ -127,7 +127,7 @@ parameters:
 			path: system/src/Core/Qr.php
 
 		-
-			message: '#^Method Kaleta\\Core\\RemoteBackup\:\:ftp\(\) should return array\{callable\(string, string\)\: void, callable\(\)\: void\} but returns array\{Closure\(string, string\)\: void, Closure\(\)\: bool\}\.$#'
+			message: '#^Method Talea\\Core\\RemoteBackup\:\:ftp\(\) should return array\{callable\(string, string\)\: void, callable\(\)\: void\} but returns array\{Closure\(string, string\)\: void, Closure\(\)\: bool\}\.$#'
 			identifier: return.type
 			count: 1
 			path: system/src/Core/RemoteBackup.php
@@ -163,7 +163,7 @@ parameters:
 			path: system/src/Front/Kernel.php
 
 		-
-			message: '#^Property Kaleta\\Builder\\Context\:\:\$menu \(list\<array\{titulek\: string, seo_link\: string\}\>\) does not accept array\{hlavni\: list\<array\<string, mixed\>\>, paticka\: list\<array\<string, mixed\>\>\}\.$#'
+			message: '#^Property Talea\\Builder\\Context\:\:\$menu \(list\<array\{titulek\: string, seo_link\: string\}\>\) does not accept array\{hlavni\: list\<array\<string, mixed\>\>, paticka\: list\<array\<string, mixed\>\>\}\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: system/src/Front/Kernel.php
@@ -181,7 +181,7 @@ parameters:
 			path: system/src/Mcp/Tools.php
 
 		-
-			message: '#^Constant Kaleta\\Mcp\\Translator\:\:TOOLS \(array\<string, array\<int, array\<string, mixed\>\|string\>\>\) does not accept value array\{site_info\: array\{''info_o_webu'', ''Site name, home…'', array\{\}\}, list_pages\: array\{''seznam_stranek'', ''Pages of the site …'', array\{\}\}, get_page\: array\{''nacti_stranku'', ''The whole page…'', array\{id\: array\{''id'', ''Page ID''\}\}\}, create_page\: array\{''vytvor_stranku'', ''Creates a page …'', array\{''\*stranka''\}\}, update_page\: array\{''uprav_stranku'', ''Changes the given…'', array\{id\: array\{''id'', ''Page ID''\}, 0\: ''\*stranka''\}\}, get_menu\: array\{''nacti_menu'', ''The site menu \(main…'', array\{location\: array\{''umisteni'', ''main \(default\) \|…''\}, language\: array\{''jazyk'', ''language version …''\}\}\}, save_menu\: array\{''uloz_menu'', ''Saves the whole…'', array\{location\: array\{''umisteni'', ''main \| footer''\}, language\: array\{''jazyk'', ''language version …''\}, items\: array\{''polozky'', ''menu items''\}\}\}, builder_schema\: array\{''stavba_schema'', ''How a page is put…'', array\{elements\: array\{''prvky'', ''element types to…''\}, full\: array\{''uplne'', ''true \= the whole…''\}\}\}, \.\.\.\}\.$#'
+			message: '#^Constant Talea\\Mcp\\Translator\:\:TOOLS \(array\<string, array\<int, array\<string, mixed\>\|string\>\>\) does not accept value array\{site_info\: array\{''info_o_webu'', ''Site name, home…'', array\{\}\}, list_pages\: array\{''seznam_stranek'', ''Pages of the site …'', array\{\}\}, get_page\: array\{''nacti_stranku'', ''The whole page…'', array\{id\: array\{''id'', ''Page ID''\}\}\}, create_page\: array\{''vytvor_stranku'', ''Creates a page …'', array\{''\*stranka''\}\}, update_page\: array\{''uprav_stranku'', ''Changes the given…'', array\{id\: array\{''id'', ''Page ID''\}, 0\: ''\*stranka''\}\}, get_menu\: array\{''nacti_menu'', ''The site menu \(main…'', array\{location\: array\{''umisteni'', ''main \(default\) \|…''\}, language\: array\{''jazyk'', ''language version …''\}\}\}, save_menu\: array\{''uloz_menu'', ''Saves the whole…'', array\{location\: array\{''umisteni'', ''main \| footer''\}, language\: array\{''jazyk'', ''language version …''\}, items\: array\{''polozky'', ''menu items''\}\}\}, builder_schema\: array\{''stavba_schema'', ''How a page is put…'', array\{elements\: array\{''prvky'', ''element types to…''\}, full\: array\{''uplne'', ''true \= the whole…''\}\}\}, \.\.\.\}\.$#'
 			identifier: classConstant.value
 			count: 1
 			path: system/src/Mcp/Translator.php

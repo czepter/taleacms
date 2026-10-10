@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\JobsFleetFacts;
+namespace Talea\Tests\Site\JobsFleetFacts;
 
-use Kaleta\Tests\Site\Support\Response;
-use Kaleta\Tests\Site\Support\Site;
+use Talea\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\Site;
 
 /** Small helpers shared by the classes of this area (the old `mcp` + `contains` and `expect` shell functions). */
 trait Helpers

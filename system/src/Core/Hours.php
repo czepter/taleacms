@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\Company;
+use Talea\Front\Company;
 
 /**
  * Opening hours with exceptions (2.10). The week stays in Business details (company_hours, as people write it); the
- * exceptions – holidays, a closed day, shorter hours – are dated rows in ka_hours_exceptions. From both the site knows
+ * exceptions – holidays, a closed day, shorter hours – are dated rows in tl_hours_exceptions. From both the site knows
  * whether it is open now, the hours of today, shows a notice bar a few days ahead until an exception ends, and adds the
  * exceptions to the structured data (specialOpeningHoursSpecification).
  *
@@ -247,7 +247,7 @@ final class Hours
             return '';
         }
 
-        return '<div class="ka-notice-hours" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
+        return '<div class="tl-notice-hours" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
     }
 
     /**
@@ -308,9 +308,9 @@ final class Hours
         } else {
             $db->insert('hours_exceptions', $row + ['created_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
+        \Talea\Admin\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
         if ($row['proposed'] === 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
             GoogleBusiness::hoursChanged($app); // the Business Profile gets the exception (2.13)
         }
 
@@ -324,8 +324,8 @@ final class Hours
         if ($proposal === null || $app->db()->update('hours_exceptions', ['proposed' => 0], ['id' => $id, 'proposed' => 1]) === 0) {
             return false;
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
+        \Talea\Front\Cache::clear();
         GoogleBusiness::hoursChanged($app);
 
         return true;
@@ -336,7 +336,7 @@ final class Hours
     {
         $discarded = $app->db()->delete('hours_exceptions', ['id' => $id, 'proposed' => 1]) > 0;
         if ($discarded) {
-            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
+            \Talea\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
         }
 
         return $discarded;
@@ -346,8 +346,8 @@ final class Hours
     {
         $deleted = $app->db()->delete('hours_exceptions', ['id' => $id]) > 0;
         if ($deleted) {
-            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
+            \Talea\Front\Cache::clear();
             GoogleBusiness::hoursChanged($app);
         }
 

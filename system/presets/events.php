@@ -1,6 +1,6 @@
 <?php
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 // Events (2.11): upcoming events list themselves and archive the past, a repeating event moves to its next date on its
 // own (Core\Calendar), each can be added to a calendar (iCal) and has a registration form that closes when it is full.
@@ -24,7 +24,7 @@ return [
         ['price', 'Price', 'number'],
         ['capacity', 'Capacity', 'number'],
         ['registration_until', 'Registration until', 'datetime'],
-        ['repeat', 'Repeats', 'radio', ['options' => array_keys(Kaleta\Core\Calendar::REPEATS)]],
+        ['repeat', 'Repeats', 'radio', ['options' => array_keys(Talea\Core\Calendar::REPEATS)]],
         ['repeat_until', 'Repeats until', 'date'],
     ],
     'schema' => ['type' => 'Event', 'fields' => ['startDate' => 'start', 'endDate' => 'end', 'location' => 'venue', 'address' => 'address', 'online' => 'online', 'price' => 'price']],

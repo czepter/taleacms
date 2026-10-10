@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * Ghost: the JSON export from Ghost Admin → Settings → Labs → Export your content.

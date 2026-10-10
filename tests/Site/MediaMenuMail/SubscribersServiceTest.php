@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\MediaMenuMail;
+namespace Talea\Tests\Site\MediaMenuMail;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Subscribers passed on to a mailing service, against a fake service (was: section 33 of tools/test.sh). */
@@ -47,9 +47,9 @@ PHP);
         foreach (['newsletter_service' => $service, 'newsletter_key' => $key, 'newsletter_list' => $list, 'newsletter_webhook' => $webhook, 'newsletter_test_url' => 'http://127.0.0.1:' . self::$servicePort] as $name => $value) {
             $site->setting($name, $value);
         }
-        $site->exec('DELETE FROM ka_subscription_queue');
-        $site->exec('DELETE FROM ka_subscribers');
-        $site->exec("INSERT INTO ka_subscribers (email, status, token, created_at, confirmed_at) VALUES ('sluzba@example.cz', 1, ?, NOW(), NOW())", [bin2hex(random_bytes(16))]);
+        $site->exec('DELETE FROM tl_subscription_queue');
+        $site->exec('DELETE FROM tl_subscribers');
+        $site->exec("INSERT INTO tl_subscribers (email, status, token, created_at, confirmed_at) VALUES ('sluzba@example.cz', 1, ?, NOW(), NOW())", [bin2hex(random_bytes(16))]);
         file_put_contents($this->serviceLog(), '');
     }
 
@@ -71,10 +71,10 @@ PHP);
         $this->setService('brevo', 'brevo-klic', '7', '');
         $this->subscriberAction('sync');
         $this->assertSame('POST /brevo/v3/contacts brevo-klic {"email":"sluzba@example.cz","listIds":[7],"updateEnabled":true}', $this->lastRequest(), 'Brevo: adding to the list');
-        $this->assertSame('ok/0', $this->site()->value("SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM ka_subscription_queue)) FROM ka_subscribers"), 'the subscriber is in the service');
+        $this->assertSame('ok/0', $this->site()->value("SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM tl_subscription_queue)) FROM tl_subscribers"), 'the subscriber is in the service');
         $this->assertPage('/admin.php?module=subscribers', 200, 'sent', message: 'service state at the subscribers');
 
-        $this->subscriberAction('delete', ['subscriber_id' => $this->site()->value('SELECT public_id FROM ka_subscribers')]);
+        $this->subscriberAction('delete', ['subscriber_id' => $this->site()->value('SELECT public_id FROM tl_subscribers')]);
         $this->subscriberAction('retry');
         $this->assertSame('POST /brevo/v3/contacts/lists/7/contacts/remove brevo-klic {"emails":["sluzba@example.cz"]}', $this->lastRequest(), 'Brevo: the deleted subscriber is removed from the list');
     }
@@ -84,7 +84,7 @@ PHP);
         $this->setService('mailchimp', 'abc123-us21', 'aud1', '');
         $this->subscriberAction('sync');
         $line = $this->lastRequest();
-        $this->assertStringStartsWith('PUT /mailchimp/3.0/lists/aud1/members/' . md5('sluzba@example.cz') . ' Basic ' . base64_encode('kaleta:abc123-us21') . ' ', $line, 'Mailchimp: audience member address and login');
+        $this->assertStringStartsWith('PUT /mailchimp/3.0/lists/aud1/members/' . md5('sluzba@example.cz') . ' Basic ' . base64_encode('talea:abc123-us21') . ' ', $line, 'Mailchimp: audience member address and login');
         $this->assertStringContainsString('"status":"subscribed"', $line, 'Mailchimp: audience member');
 
         $this->setService('mailerlite', 'ml-klic', '99', '');
@@ -109,7 +109,7 @@ PHP);
         $this->setService('ecomail', 'eco-klic', 'error', '');
         $this->subscriberAction('sync');
 
-        $this->assertSame('1|1|1', $this->site()->value("SELECT CONCAT(attempts, '|', error LIKE 'HTTP 500%', '|', next_attempt_at > NOW()) FROM ka_subscription_queue"), 'a failed transfer waits for the next attempt with the error');
+        $this->assertSame('1|1|1', $this->site()->value("SELECT CONCAT(attempts, '|', error LIKE 'HTTP 500%', '|', next_attempt_at > NOW()) FROM tl_subscription_queue"), 'a failed transfer waits for the next attempt with the error');
         $line = $this->lastRequest();
         $this->assertStringStartsWith('POST /ecomail/lists/error/subscribe eco-klic ', $line, 'Ecomail: signing in to the list');
         $this->assertStringContainsString('"skip_confirmation":true', $line, 'Ecomail: signing in to the list');

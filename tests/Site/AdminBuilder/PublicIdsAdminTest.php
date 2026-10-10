@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Uuid;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Core\Db;
+use Talea\Core\Uuid;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -22,8 +22,8 @@ final class PublicIdsAdminTest extends SiteTestCase
     public function testIntegerIdsAreRefusedOnPagesAndNews(): void
     {
         $site = $this->site();
-        $pageId = (int) $site->value("SELECT page_id FROM ka_pages WHERE deleted_at IS NULL ORDER BY page_id LIMIT 1");
-        $newsId = (int) $site->value('SELECT news_id FROM ka_news WHERE deleted_at IS NULL ORDER BY news_id LIMIT 1');
+        $pageId = (int) $site->value("SELECT page_id FROM tl_pages WHERE deleted_at IS NULL ORDER BY page_id LIMIT 1");
+        $newsId = (int) $site->value('SELECT news_id FROM tl_news WHERE deleted_at IS NULL ORDER BY news_id LIMIT 1');
         $this->assertGreaterThan(0, $pageId);
         $this->assertGreaterThan(0, $newsId);
 
@@ -32,35 +32,35 @@ final class PublicIdsAdminTest extends SiteTestCase
         $this->assertPage('/admin.php?module=news&action=edit&id=' . $site->publicId('news', $newsId), 200, 'name="news_id"', message: 'a news item opens by its public id');
         $this->assertPage('/admin.php?module=news&action=edit&id=' . $newsId, 404, message: 'a news item does not open by its integer key');
 
-        $pageTitle = (string) $site->value('SELECT title FROM ka_pages WHERE page_id = ?', [$pageId]);
-        $pages = (int) $site->value('SELECT COUNT(*) FROM ka_pages');
+        $pageTitle = (string) $site->value('SELECT title FROM tl_pages WHERE page_id = ?', [$pageId]);
+        $pages = (int) $site->value('SELECT COUNT(*) FROM tl_pages');
         $response = $site->admin()->post('/admin.php?module=pages&action=save', ['_csrf' => $site->csrf(), 'page_id' => (string) $pageId, 'title' => 'Changed by integer', 'slug' => 'changed-by-integer']);
         $this->assertSame(404, $response->status, 'saving a page under its integer key is refused');
-        $this->assertSame($pageTitle, (string) $site->value('SELECT title FROM ka_pages WHERE page_id = ?', [$pageId]), 'the page is not changed');
-        $this->assertSame($pages, (int) $site->value('SELECT COUNT(*) FROM ka_pages'), 'and no page is created in its place');
+        $this->assertSame($pageTitle, (string) $site->value('SELECT title FROM tl_pages WHERE page_id = ?', [$pageId]), 'the page is not changed');
+        $this->assertSame($pages, (int) $site->value('SELECT COUNT(*) FROM tl_pages'), 'and no page is created in its place');
 
-        $newsTitle = (string) $site->value('SELECT title FROM ka_news WHERE news_id = ?', [$newsId]);
-        $news = (int) $site->value('SELECT COUNT(*) FROM ka_news');
+        $newsTitle = (string) $site->value('SELECT title FROM tl_news WHERE news_id = ?', [$newsId]);
+        $news = (int) $site->value('SELECT COUNT(*) FROM tl_news');
         $response = $site->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $site->csrf(), 'news_id' => (string) $newsId, 'title' => 'Changed by integer',
-            'category_id' => $site->publicId('categories', (int) $site->value('SELECT MIN(category_id) FROM ka_categories')), 'author_id' => $site->publicId('users', 1)]);
+            'category_id' => $site->publicId('categories', (int) $site->value('SELECT MIN(category_id) FROM tl_categories')), 'author_id' => $site->publicId('users', 1)]);
         $this->assertSame(404, $response->status, 'saving a news item under its integer key is refused');
-        $this->assertSame($newsTitle, (string) $site->value('SELECT title FROM ka_news WHERE news_id = ?', [$newsId]), 'the news item is not changed');
-        $this->assertSame($news, (int) $site->value('SELECT COUNT(*) FROM ka_news'), 'and no news item is created in its place');
+        $this->assertSame($newsTitle, (string) $site->value('SELECT title FROM tl_news WHERE news_id = ?', [$newsId]), 'the news item is not changed');
+        $this->assertSame($news, (int) $site->value('SELECT COUNT(*) FROM tl_news'), 'and no news item is created in its place');
 
         // an integer where a related record belongs counts as no record: the category field is refused, nothing is saved
         $response = $site->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $site->csrf(), 'news_id' => '0', 'title' => 'Integer category',
-            'category_id' => (string) $site->value('SELECT MIN(category_id) FROM ka_categories'), 'author_id' => $site->publicId('users', 1)]);
+            'category_id' => (string) $site->value('SELECT MIN(category_id) FROM tl_categories'), 'author_id' => $site->publicId('users', 1)]);
         $this->assertSame(200, $response->status, 'the form comes back');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_news WHERE title = 'Integer category'"), 'a news item with a category given as a number is not saved');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_news WHERE title = 'Integer category'"), 'a news item with a category given as a number is not saved');
     }
 
     public function testListsCarryPublicIdsOnly(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO ka_media (image_path, thumb_path, name, created_at) VALUES ('media/2026/01/public-ids.jpg', 'media/2026/01/public-ids-thumb.jpg', 'Public ids', NOW())");
-        $folderId = (int) $site->value("SELECT folder_id FROM ka_media_folders LIMIT 1");
+        $site->exec("INSERT INTO tl_media (image_path, thumb_path, name, created_at) VALUES ('media/2026/01/public-ids.jpg', 'media/2026/01/public-ids-thumb.jpg', 'Public ids', NOW())");
+        $folderId = (int) $site->value("SELECT folder_id FROM tl_media_folders LIMIT 1");
         if ($folderId === 0) {
-            $site->exec("INSERT INTO ka_media_folders (name) VALUES ('Folder')");
+            $site->exec("INSERT INTO tl_media_folders (name) VALUES ('Folder')");
         }
 
         $lists = [
@@ -72,7 +72,7 @@ final class PublicIdsAdminTest extends SiteTestCase
         foreach ($lists as $name => [$path, $table]) {
             $body = $this->assertPage($path, 200, message: "the $name list opens")->body;
             $this->assertSame(0, preg_match(self::INTEGER_ID, $body, $match, PREG_OFFSET_CAPTURE), "the $name list carries no integer id: " . substr($body, max(0, (int) ($match[0][1] ?? 0) - 120), 200));
-            $publicIds = array_column($site->rows("SELECT public_id FROM ka_$table"), 'public_id');
+            $publicIds = array_column($site->rows("SELECT public_id FROM tl_$table"), 'public_id');
             $this->assertNotSame([], $publicIds, "$name has rows");
             $shown = array_filter($publicIds, fn (string $uuid): bool => str_contains($body, $uuid));
             $this->assertNotSame([], $shown, "the $name list carries the public ids of its rows");
@@ -82,7 +82,7 @@ final class PublicIdsAdminTest extends SiteTestCase
         }
 
         // a form of one record: the hidden field and the links carry the public id
-        $pageId = (int) $site->value('SELECT page_id FROM ka_pages WHERE deleted_at IS NULL ORDER BY page_id LIMIT 1');
+        $pageId = (int) $site->value('SELECT page_id FROM tl_pages WHERE deleted_at IS NULL ORDER BY page_id LIMIT 1');
         $form = $this->assertPage('/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', $pageId), 200)->body;
         $this->assertSame(0, preg_match(self::INTEGER_ID, $form, $match, PREG_OFFSET_CAPTURE), 'the page form carries no integer id: ' . substr($form, max(0, (int) ($match[0][1] ?? 0) - 120), 200));
         $this->assertStringContainsString('name="page_id" value="' . $site->publicId('pages', $pageId) . '"', $form);
@@ -115,8 +115,8 @@ final class PublicIdsAdminTest extends SiteTestCase
             $this->assertSame(0, preg_match($number, $response->body, $match, PREG_OFFSET_CAPTURE), "$module: a row number in the page: " . substr($response->body, max(0, (int) ($match[0][1] ?? 0) - 100), 200));
         }
         // the headings of a detail name the record, not its number
-        $site->exec("INSERT INTO ka_enquiries (created_at, status, email, data, topic) VALUES (NOW(), 0, 'scan@example.test', '{}', 'Scan')");
-        $enquiry = $site->publicId('enquiries', (int) $site->value('SELECT MAX(enquiry_id) FROM ka_enquiries'));
+        $site->exec("INSERT INTO tl_enquiries (created_at, status, email, data, topic) VALUES (NOW(), 0, 'scan@example.test', '{}', 'Scan')");
+        $enquiry = $site->publicId('enquiries', (int) $site->value('SELECT MAX(enquiry_id) FROM tl_enquiries'));
         $heading = $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $enquiry, 200)->body;
         $this->assertStringContainsString('scan@example.test', $heading);
         $this->assertSame(0, preg_match('/<h1[^>]*>[^<]*#\d+/', $heading), 'the enquiry heading has no row number');

@@ -1,5 +1,5 @@
 {
-    "kaleta_blueprint": 1,
+    "talea_blueprint": 1,
     "key": "beauty_wellness",
     "group": "services",
     "name": "Hair, beauty or wellness salon",
@@ -18,7 +18,7 @@
         {"fact": "booking_method", "question": "How do clients book an appointment?",
             "help": "For example \"online on this site, by phone or by a message; walk-ins when a chair is free\"."},
         {"fact": "booking_url", "question": "Do you use an outside online booking system? Give its address.",
-            "help": "Leave it empty if you use Bookings in Kaleta – the Booking element on the site then takes appointments – or if clients book by phone."},
+            "help": "Leave it empty if you use Bookings in Talea – the Booking element on the site then takes appointments – or if clients book by phone."},
         {"fact": "product_brands", "question": "Which products or brands do you work with?",
             "help": "Name a brand partnership or certified salon status only if the brand has granted it to you."},
         {"fact": "gift_vouchers", "question": "Do you sell gift vouchers? How can people get one, and how long is it valid?",

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Star rating ("4.8 out of 5 · 120 reviews"). The stars are one SVG with a clipped fill (half a star too),
@@ -29,11 +29,11 @@ final class Rating extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-rating { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-space-xs); }
-.ka-rating svg { width: 6.5em; height: 1.3em; flex: none; }
-.ka-rating-full { fill: #f5a524; }
-.ka-rating-empty { fill: var(--ka-color-line); }
-.ka-rating strong { font-variant-numeric: tabular-nums; }';
+        return '.tl-rating { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tl-space-xs); }
+.tl-rating svg { width: 6.5em; height: 1.3em; flex: none; }
+.tl-rating-full { fill: #f5a524; }
+.tl-rating-empty { fill: var(--tl-color-line); }
+.tl-rating strong { font-variant-numeric: tabular-nums; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -49,9 +49,9 @@ final class Rating extends Element
         $width = round($value / 5 * 128, 2);
         $number = rtrim(rtrim(format_number($value), '0'), ',.');
         $svg = '<svg viewBox="0 0 128 24" aria-hidden="true" focusable="false"><defs><clipPath id="hv-' . e($p['id']) . '"><rect width="' . $width . '" height="24"/></clipPath></defs>'
-            . '<g class="ka-rating-empty">' . $stars . '</g><g class="ka-rating-full" clip-path="url(#hv-' . e($p['id']) . ')">' . $stars . '</g></svg>';
+            . '<g class="tl-rating-empty">' . $stars . '</g><g class="tl-rating-full" clip-path="url(#hv-' . e($p['id']) . ')">' . $stars . '</g></svg>';
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-rating') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
+        return '<' . $p['tag'] . Text::withClass($a, 'tl-rating') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
             . $svg . '<strong aria-hidden="true">' . e($number) . '</strong>' . ($o['text'] !== '' ? '<span aria-hidden="true">' . e($o['text']) . '</span>' : '') . '</' . $p['tag'] . '>';
     }
 }

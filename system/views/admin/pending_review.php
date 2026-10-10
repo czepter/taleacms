@@ -3,7 +3,7 @@
  * "Waiting for you" on the dashboard (3.2, Core\PendingReview): one row per kind of draft or proposal that waits for a
  * person – the count, the link to where it is reviewed, and a few examples. Rendered only when something waits.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending
  */
 ?>

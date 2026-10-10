@@ -1,6 +1,6 @@
 <?php
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 // Products without a checkout (2.11, Builder\Products): parameters to compare, variants, a datasheet and an enquiry basket –
 // the visitor collects products and sends one enquiry.

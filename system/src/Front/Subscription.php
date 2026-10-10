@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Mail;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Mail;
 
 /**
  * News subscription (Newsletter extension): sign-up from the News subscription element, confirmation and unsubscribe by
@@ -40,7 +40,7 @@ final class Subscription
         if ($antispam->count($r->ip(), 'subscribe', 0, 10) >= self::LIMIT) {
             return 'limit';
         }
-        if (!\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
+        if (!\Talea\Core\Captcha::accepted($this->app->settings(), \Talea\Core\Captcha::verify($this->app->settings(), $r))) {
             return 'captcha';
         }
         $antispam->write($r->ip(), 'subscribe', 0);
@@ -96,14 +96,14 @@ final class Subscription
         if ($action === 'unsubscribe') {
             $db->delete('subscribers', ['subscriber_id' => (int) $o['subscriber_id']]);
             if ((int) $o['status'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
+                \Talea\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
             }
 
             return [t('Unsubscribed'), '<p>' . e(t('We have removed %s from the subscriber list.', $o['email'])) . '</p>'];
         }
         if ((int) $o['status'] === 0) {
             $db->update('subscribers', ['status' => 1, 'confirmed_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $o['subscriber_id']]);
-            \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'add'); // to the mailing service, sent by the background cleanup
+            \Talea\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'add'); // to the mailing service, sent by the background cleanup
         }
 
         return [t('Subscription confirmed'), '<p>' . e(t('Thank you, we will send news to %s. You can unsubscribe using the link in every e-mail.', $o['email'])) . '</p>'];

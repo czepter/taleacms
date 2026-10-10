@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Support;
+namespace Talea\Tests\Site\Support;
 
 use Dom\HTMLDocument;
 
@@ -15,7 +15,7 @@ trait CzechCheck
     /** Asserts that a body has no Czech (--de: German admin, where German words spelled like Czech ones are fine). */
     protected function assertNoCzech(string $body, string $label, bool $german = false): void
     {
-        $file = tempnam(sys_get_temp_dir(), 'kaleta-czech-');
+        $file = tempnam(sys_get_temp_dir(), 'talea-czech-');
         file_put_contents($file, $body);
         try {
             $command = [PHP_BINARY, dirname(__DIR__, 3) . '/tools/check-english.php', ...($german ? ['--de'] : []), $file];

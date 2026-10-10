@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Connectors;
+namespace Talea\Connectors;
 
 /**
  * HubSpot (2.13): enquiries become a contact (found by e-mail or created) with a note that carries the message. The
@@ -22,7 +22,7 @@ final class HubSpot extends Connector
 
     public static function settings(): array
     {
-        return \Kaleta\Core\EnquiryDelivery::SETTINGS;
+        return \Talea\Core\EnquiryDelivery::SETTINGS;
     }
 
     /** The search for the contact with this e-mail. @return array<string, mixed> */
@@ -39,7 +39,7 @@ final class HubSpot extends Connector
      */
     public static function contactBody(array $lead): array
     {
-        [$first, $last] = \Kaleta\Core\EnquiryDelivery::splitName($lead['name']);
+        [$first, $last] = \Talea\Core\EnquiryDelivery::splitName($lead['name']);
 
         return ['properties' => array_filter(['email' => $lead['email'], 'firstname' => $first, 'lastname' => $last, 'phone' => $lead['phone'], 'company' => $lead['company']], fn (string $v): bool => $v !== '')];
     }

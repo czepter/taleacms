@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Modules\Redirects $module
+ * @var Talea\Admin\Modules\Redirects $module
  * @var string $csrf
  * @var list<array<string, mixed>> $records
  * @var list<array<string, mixed>> $notFound  urls that ended with a 404 error in the last 60 days

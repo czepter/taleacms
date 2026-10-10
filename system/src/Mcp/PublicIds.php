@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp;
+namespace Talea\Mcp;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Uuid;
+use Talea\Core\Db;
+use Talea\Core\Uuid;
 
 /**
  * The public ids of MCP (HF-16): a row of the site is named by its UUID v4 in every argument and every result of a tool –

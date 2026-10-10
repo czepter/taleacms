@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Enquiry triage (2.12): every enquiry gets a kind (sales, support, a job application, a supplier's offer, spam, other), a

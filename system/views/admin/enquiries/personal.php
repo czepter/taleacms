@@ -2,8 +2,8 @@
 /**
  * A personal data request (2.14): find, export or erase everything about one e-mail address.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Enquiries $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Enquiries $module
  * @var string $csrf
  * @var string $email
  * @var array<string, mixed>|null $found Core\PersonalData::find
@@ -16,7 +16,7 @@
 <div class="row"><label for="personal-email"><?= e(t('E-mail address')) ?></label><div><input class="textfield" type="email" id="personal-email" name="email" value="<?= e($email) ?>" required> <button class="btn" name="bulk" value="find"><?= e(t('Find')) ?></button></div></div>
 </form>
 <?php if ($found !== null): ?>
-<?php $counts = Kaleta\Core\PersonalData::counts($found); ?>
+<?php $counts = Talea\Core\PersonalData::counts($found); ?>
 <h2><?= e(t('What the site keeps about %s', $email)) ?></h2>
 <?php if (array_sum($counts) === 0): ?>
 <p><?= e(t('Nothing – the site keeps no data about this address.')) ?></p>

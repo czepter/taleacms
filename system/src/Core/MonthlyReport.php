@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Monthly report by e-mail (2.9): once a month the site tells its owner what happened in the previous calendar month –
@@ -50,7 +50,7 @@ final class MonthlyReport
         $path = static fn (string $url): string => (string) (parse_url($url, PHP_URL_PATH) ?: '/');
 
         $stats = null;
-        if (\Kaleta\Front\Stats::isOn($app)) {
+        if (\Talea\Front\Stats::isOn($app)) {
             $previousStart = $monthStart->modify('first day of last month');
             $totals = fn (string $a, string $b): array => $db->one('SELECT COALESCE(SUM(visits), 0) AS visits, COALESCE(SUM(views), 0) AS views FROM {stats_days} WHERE day >= ? AND day < ?', [$a, $b]) ?? ['visits' => 0, 'views' => 0];
             $now = $totals($fromDay, $toDay);

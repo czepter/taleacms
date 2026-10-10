@@ -26,7 +26,7 @@ if (preg_match('#^/webmasters/v3/sites/([^/]+)/(searchAnalytics/query|sitemaps)$
     $log('search', ['site' => $site, 'dimension' => $dimension, 'start' => $json['startDate'] ?? '', 'end' => $json['endDate'] ?? '', 'limit' => $json['rowLimit'] ?? 0]);
     $rows = $dimension === 'page'
         ? [['keys' => ['https://example.com/services'], 'clicks' => 31, 'impressions' => 640, 'ctr' => 0.0484, 'position' => 6.2], ['keys' => ['https://example.com/'], 'clicks' => 12, 'impressions' => 200, 'ctr' => 0.06, 'position' => 2.1]]
-        : [['keys' => ['kaleta cms'], 'clicks' => 42, 'impressions' => 900, 'ctr' => 0.0467, 'position' => 3.4], ['keys' => ['company website free'], 'clicks' => 7, 'impressions' => 310, 'ctr' => 0.0226, 'position' => 11.8]];
+        : [['keys' => ['talea cms'], 'clicks' => 42, 'impressions' => 900, 'ctr' => 0.0467, 'position' => 3.4], ['keys' => ['company website free'], 'clicks' => 7, 'impressions' => 310, 'ctr' => 0.0226, 'position' => 11.8]];
 
     return $reply(200, ['rows' => $rows, 'responseAggregationType' => 'byProperty']);
 }
@@ -39,8 +39,8 @@ if (preg_match('#^/webmaster/api.svc/json/(GetQueryStats|GetPageStats)$#', $path
     $old = '/Date(' . ((time() - 60 * 86400) * 1000) . ')/';
     $rows = $m[1] === 'GetPageStats'
         ? [['Query' => 'https://example.com/contact', 'Clicks' => 4, 'Impressions' => 50, 'AvgImpressionPosition' => 5.0, 'AvgClickPosition' => 3.0, 'Date' => $date]]
-        : [['Query' => 'kaleta bing', 'Clicks' => 5, 'Impressions' => 100, 'AvgImpressionPosition' => 4.0, 'AvgClickPosition' => 2.0, 'Date' => $date],
-            ['Query' => 'kaleta bing', 'Clicks' => 1, 'Impressions' => 20, 'AvgImpressionPosition' => 10.0, 'AvgClickPosition' => 8.0, 'Date' => $date],
+        : [['Query' => 'talea bing', 'Clicks' => 5, 'Impressions' => 100, 'AvgImpressionPosition' => 4.0, 'AvgClickPosition' => 2.0, 'Date' => $date],
+            ['Query' => 'talea bing', 'Clicks' => 1, 'Impressions' => 20, 'AvgImpressionPosition' => 10.0, 'AvgClickPosition' => 8.0, 'Date' => $date],
             ['Query' => 'stale query', 'Clicks' => 9, 'Impressions' => 90, 'AvgImpressionPosition' => 1.0, 'AvgClickPosition' => 1.0, 'Date' => $old]];
 
     return $reply(200, ['d' => $rows]);

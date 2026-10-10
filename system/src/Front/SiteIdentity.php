@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Settings;
+use Talea\Core\Settings;
 
 /**
  * Site identity ("Vzhled → Identita webu", Appearance → Site identity): the main color and fonts that flow into the page frame.
  *
- * The frame (image/template.css) uses the identity through the CSS custom properties --ka-accent, --ka-font-heading and
- * --ka-font-body, each with its own default value, e.g. --accent: var(--ka-accent, #326891).
+ * The frame (image/template.css) uses the identity through the CSS custom properties --tl-accent, --tl-font-heading and
+ * --tl-font-body, each with its own default value, e.g. --accent: var(--tl-accent, #326891).
  * Fonts are system fonts only (no downloads from third-party servers - speed and GDPR).
  */
 final class SiteIdentity
@@ -46,14 +46,14 @@ final class SiteIdentity
         if ($icon !== '') {
             $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $icon) ? '' : $base . '/') . $icon) . "\">\n";
         }
-        $png = KALETA_ROOT . '/media/icon-180.png';
+        $png = TALEA_ROOT . '/media/icon-180.png';
         if (is_file($png)) {
             $v = '?v=' . filemtime($png);
             $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($base . '/media/icon-32.png' . $v) . "\">\n"
                 . '<link rel="apple-touch-icon" href="' . e($base . '/media/icon-180.png' . $v) . "\">\n";
         }
         $html .= '<link rel="manifest" href="' . e($base . '/manifest.webmanifest') . "\">\n";
-        $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['colors'];
+        $colors = \Talea\Builder\DesignSystem::load($siteSettings)['colors'];
         $html .= '<meta name="theme-color" content="' . e($colors['background']) . '">' . "\n";
 
         return $html;
@@ -62,11 +62,11 @@ final class SiteIdentity
     /** Site manifest: name, colors and icons – a phone then pins the site to the home screen with its own icon and name. */
     public static function manifest(Settings $siteSettings, string $base): string
     {
-        $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['colors'];
+        $colors = \Talea\Builder\DesignSystem::load($siteSettings)['colors'];
         $name = $siteSettings->get('site_name') ?: 'Website';
         $icons = [];
         foreach ([192, 512] as $n) {
-            if (is_file(KALETA_ROOT . '/media/icon-' . $n . '.png')) {
+            if (is_file(TALEA_ROOT . '/media/icon-' . $n . '.png')) {
                 $icons[] = ['src' => $base . '/media/icon-' . $n . '.png', 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
             }
         }

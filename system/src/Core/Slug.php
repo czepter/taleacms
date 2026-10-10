@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * A free slug in the URL (seo_link of a page, news item, category, collection item, popup slug): when the base is taken,

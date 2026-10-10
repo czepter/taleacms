@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\EnglishInstall;
+namespace Talea\Tests\Site\EnglishInstall;
 
-use Kaleta\Tests\Site\Support\CzechCheck;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\CzechCheck;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** English install of the crafts starter without the Forms extension: no Czech on the public site. */

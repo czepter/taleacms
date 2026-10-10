@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Google;
+use Talea\Connectors\Google;
 
 /**
  * Enquiries to the connected services (2.13): a row in a Google sheet (EnquirySheet) and a lead in the CRM

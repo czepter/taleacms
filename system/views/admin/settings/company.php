@@ -1,6 +1,6 @@
 <?php
 /** The "Business details" tab: details for the site (the Company details element) and for search engines (schema.org Organization / LocalBusiness). */
-use Kaleta\Front\Company;
+use Talea\Front\Company;
 
 ?>
 <p class="notice"><?= e(t('Fill these in once and the site uses them everywhere: in the footer and on the contact page (the Company details element in the builder) and for Google, maps and AI assistants – so they answer correctly when you are open and where to find you.')) ?></p>
@@ -53,7 +53,7 @@ $field('company_gps', 'Coordinates (optional)', 'text', 'Latitude and longitude,
 <?php if ($hoursExceptions !== []): ?>
 <div class="tab-wrap"><table class="listing"><tbody>
 <?php foreach ($hoursExceptions as $ex): ?>
-	<tr><td><?= e(Kaleta\Core\Hours::describe($ex)) ?></td><td class="small-text"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
+	<tr><td><?= e(Talea\Core\Hours::describe($ex)) ?></td><td class="small-text"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
 		<td class="actions"><a class="navigation" href="<?= e($module->url('hours_sign', ['exception' => $ex['id']])) ?>" target="_blank" rel="noopener"><?= e(t('Door sign')) ?></a>
 			<button class="navigation danger" type="submit" formaction="<?= e($module->url('hours_delete')) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Delete')) ?></button></td></tr>
 <?php endforeach ?>

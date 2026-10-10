@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Support;
+namespace Talea\Tests\Site\Support;
 
 use PDO;
 
@@ -46,14 +46,14 @@ final class Site
         // whatever the constructor has started is stopped even when it fails halfway (a failed installer must not leak servers or databases)
         register_shutdown_function(fn () => $this->close());
         $project = dirname(__DIR__, 3);
-        $server = ['host' => (string) getenv('KALETA_TEST_DB_HOST'), 'port' => (int) getenv('KALETA_TEST_DB_PORT'), 'username' => (string) getenv('KALETA_TEST_DB_USER'), 'password' => (string) getenv('KALETA_TEST_DB_PASSWORD')];
+        $server = ['host' => (string) getenv('TALEA_TEST_DB_HOST'), 'port' => (int) getenv('TALEA_TEST_DB_PORT'), 'username' => (string) getenv('TALEA_TEST_DB_USER'), 'password' => (string) getenv('TALEA_TEST_DB_PASSWORD')];
         $admin = new PDO(sprintf('mysql:host=%s;port=%d', $server['host'], $server['port']), $server['username'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
-        $this->work = sys_get_temp_dir() . '/kaleta-site-' . getmypid() . '-' . bin2hex(random_bytes(3));
+        $this->work = sys_get_temp_dir() . '/talea-site-' . getmypid() . '-' . bin2hex(random_bytes(3));
         mkdir($this->work . '/jars', 0775, true);
         $this->root = $this->work . '/web';
         $templateBuild = $this->options['_templateBuild'] ?? null;
-        $this->database = $templateBuild ?? 'kaleta_site_' . getmypid() . '_' . bin2hex(random_bytes(3));
+        $this->database = $templateBuild ?? 'talea_site_' . getmypid() . '_' . bin2hex(random_bytes(3));
         $this->keepDatabase = $templateBuild !== null;
         // an installed site is built once per run and set of installer options and cloned for every class; freshInstall runs the real installer
         $template = $templateBuild === null && !($this->options['freshInstall'] ?? false) ? self::template($this->options, $server, $admin) : null;
@@ -71,14 +71,14 @@ final class Site
             $this->cloneTemplate($template);
         }
         $this->startPhp($this->root, 'system/dev-router.php', [
-            'KALETA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'KALETA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
-            'KALETA_ANTISPAM_MIN' => '1', 'KALETA_IMPORT_LOCAL' => '1', 'KALETA_FIREWALL_LOCAL' => '1', 'KALETA_LINKS_LOCAL' => '1', 'KALETA_FLEET_LOCAL' => '1',
+            'TALEA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'TALEA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
+            'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
         ], $this->port);
 
         if ($template !== null) {
             $this->password = $template['password'];
             $this->installerResponse = new Response(200, str_replace($template['base'], $this->base, $template['body']), '', []);
-            $this->exec("UPDATE ka_settings SET value = ? WHERE name = 'site_url'", [$this->base]);
+            $this->exec("UPDATE tl_settings SET value = ? WHERE name = 'site_url'", [$this->base]);
         } else {
             $this->password = $templateBuild !== null ? self::TEMPLATE_PASSWORD : 'Test-' . bin2hex(random_bytes(6)) . '-pw';
             $this->installerResponse = $this->install($server);
@@ -90,10 +90,10 @@ final class Site
         if (($this->options['login'] ?? true) !== false) {
             $this->signIn($this->admin);
         }
-        $this->mcpToken = 'kaleta_' . bin2hex(random_bytes(24));
-        $this->exec("INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM ka_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
+        $this->mcpToken = 'talea_' . bin2hex(random_bytes(24));
+        $this->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
         $this->setting('tasks_token', $this->tasksToken());
-        $this->exec("INSERT INTO ka_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+        $this->exec("INSERT INTO tl_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
             [$this->options['enabledExtensions'] ?? 'news,enquiries,newsletter_signup,stats,redirects,assistant,languages,claude']);
     }
 
@@ -102,7 +102,7 @@ final class Site
     private const string TEMPLATE_PASSWORD = 'Template-Pw-1';
 
     /**
-     * The installed state for these installer options: a database `kaleta_tpl_<code>_<options>` plus the installer's answer and config.php.
+     * The installed state for these installer options: a database `talea_tpl_<code>_<options>` plus the installer's answer and config.php.
      * Built under a lock by the first class that needs it (the others wait); templates of older code are dropped.
      *
      * @param array<string, mixed> $options @param array<string, mixed> $server
@@ -117,14 +117,14 @@ final class Site
         }
         $code = substr(md5($fingerprint . md5_file(__FILE__)), 0, 8); // the installer defaults of this harness are part of what a template is
         $key = substr(md5((string) json_encode(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])))), 0, 8);
-        $name = "kaleta_tpl_{$code}_{$key}";
+        $name = "talea_tpl_{$code}_{$key}";
         $marker = sys_get_temp_dir() . "/$name.json";
         $lock = fopen(sys_get_temp_dir() . "/$name.lock", 'c');
         flock($lock, LOCK_EX);
         try {
             if (!is_file($marker)) {
-                foreach ($admin->query("SHOW DATABASES LIKE 'kaleta\\_tpl\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $old) {
-                    if (!str_starts_with((string) $old, "kaleta_tpl_{$code}_")) {
+                foreach ($admin->query("SHOW DATABASES LIKE 'talea\\_tpl\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $old) {
+                    if (!str_starts_with((string) $old, "talea_tpl_{$code}_")) {
                         $admin->exec('DROP DATABASE IF EXISTS `' . $old . '`');
                         @unlink(sys_get_temp_dir() . '/' . $old . '.json');
                     }
@@ -245,7 +245,7 @@ final class Site
     /** The request log the fake outside-services server wrote for $name (oauth, search, sheets …); empty when there is none. */
     public function fakeLog(string $name): string
     {
-        $file = sys_get_temp_dir() . '/kaleta-fake-' . $this->port('fake') . '-' . $name . '.log';
+        $file = sys_get_temp_dir() . '/talea-fake-' . $this->port('fake') . '-' . $name . '.log';
 
         return is_file($file) ? (string) file_get_contents($file) : '';
     }
@@ -283,24 +283,24 @@ final class Site
     /** The public id (UUID v4) of a row, as a link or an MCP argument must carry it: tests look rows up by their integer key and address them by this. */
     public function publicId(string $table, int $id): string
     {
-        $pk = \Kaleta\Core\Db::PRIMARY_KEYS[$table] ?? throw new \InvalidArgumentException("No public ids for $table");
+        $pk = \Talea\Core\Db::PRIMARY_KEYS[$table] ?? throw new \InvalidArgumentException("No public ids for $table");
 
-        return (string) $this->value("SELECT public_id FROM ka_$table WHERE $pk = ?", [$id]);
+        return (string) $this->value("SELECT public_id FROM tl_$table WHERE $pk = ?", [$id]);
     }
 
     /** The integer key (internal, only for tests that query the database) of the row with this public id. */
     public function internalId(string $table, string $uuid): int
     {
-        $pk = \Kaleta\Core\Db::PRIMARY_KEYS[$table] ?? throw new \InvalidArgumentException("No public ids for $table");
+        $pk = \Talea\Core\Db::PRIMARY_KEYS[$table] ?? throw new \InvalidArgumentException("No public ids for $table");
 
-        return (int) $this->value("SELECT $pk FROM ka_$table WHERE public_id = ?", [$uuid]);
+        return (int) $this->value("SELECT $pk FROM tl_$table WHERE public_id = ?", [$uuid]);
     }
 
     /** The integer key of the row with this public id in whichever table holds it – for a test that reads an id out of a tool answer and queries the database with it. */
     public function rowId(string $uuid): int
     {
-        foreach (\Kaleta\Core\Db::PRIMARY_KEYS as $table => $pk) {
-            $id = $this->value("SELECT $pk FROM ka_$table WHERE public_id = ?", [$uuid]);
+        foreach (\Talea\Core\Db::PRIMARY_KEYS as $table => $pk) {
+            $id = $this->value("SELECT $pk FROM tl_$table WHERE public_id = ?", [$uuid]);
             if ($id !== null) {
                 return (int) $id;
             }
@@ -311,12 +311,12 @@ final class Site
 
     public function setting(string $name, string $value): void
     {
-        $this->exec('INSERT INTO ka_settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [$name, $value]);
+        $this->exec('INSERT INTO tl_settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [$name, $value]);
     }
 
     public function settingValue(string $name): string
     {
-        return (string) $this->value('SELECT value FROM ka_settings WHERE name = ?', [$name]);
+        return (string) $this->value('SELECT value FROM tl_settings WHERE name = ?', [$name]);
     }
 
     // ---- the site on disk
@@ -420,8 +420,8 @@ final class Site
             return;
         }
         $this->closed = true;
-        // KALETA_TEST_ERRLOG=<file>: the application error logs of all test sites are collected there (to see the causes of a failed run at once)
-        $collect = getenv('KALETA_TEST_ERRLOG');
+        // TALEA_TEST_ERRLOG=<file>: the application error logs of all test sites are collected there (to see the causes of a failed run at once)
+        $collect = getenv('TALEA_TEST_ERRLOG');
         if ($collect !== false && $collect !== '' && isset($this->root) && is_file($this->root . '/storage/log/errors.log')) {
             file_put_contents($collect, (string) file_get_contents($this->root . '/storage/log/errors.log'), FILE_APPEND | LOCK_EX);
         }
@@ -473,7 +473,7 @@ final class Site
         $visitor = $this->client('installer');
         $fields = [
             'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
-            'db_prefix' => $this->options['prefix'] ?? 'ka_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
+            'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
             'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects'],
         ];

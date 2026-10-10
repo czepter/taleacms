@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** New builder elements: breadcrumbs, icon, gallery, tabs, carousel, map, accordion (was: section 31). */
@@ -28,7 +28,7 @@ final class NewElementsTest extends SiteTestCase
         $this->site()->clearPageCache();
 
         $body = $this->visit('/z-html');
-        foreach (['class="ka-breadcrumbs"', 'aria-current="page">Z HTML', 'class="ka-icon ka-icon--circle" aria-hidden="true"><svg', 'class="ka-gallery"', 'alt="Workshop"', 'role="tablist"', 'aria-controls="zp-', 'data-carousel', '--ka-per-view:2', 'data-insert="https://maps.google.com/maps?q=Brno', 'name="faq-'] as $pattern) {
+        foreach (['class="tl-breadcrumbs"', 'aria-current="page">Z HTML', 'class="tl-icon tl-icon--circle" aria-hidden="true"><svg', 'class="tl-gallery"', 'alt="Workshop"', 'role="tablist"', 'aria-controls="zp-', 'data-carousel', '--tl-per-view:2', 'data-insert="https://maps.google.com/maps?q=Brno', 'name="faq-'] as $pattern) {
             $this->assertStringContainsString($pattern, $body, "new element on the site: $pattern");
         }
         $this->assertStringContainsString('"BreadcrumbList"', $body, 'breadcrumbs for search engines too');

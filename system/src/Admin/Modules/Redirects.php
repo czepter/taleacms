@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Db;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Db;
+use Talea\Core\Response;
 
 /**
  * 301 redirects: old URL -> new. Created automatically when the slug of a page, news item or category changes,
@@ -41,7 +41,7 @@ final class Redirects extends Module
             [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255)],
         );
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
-        \Kaleta\Core\LinkHealing::heal($db, $z, $commandName);
+        \Talea\Core\LinkHealing::heal($db, $z, $commandName);
     }
 
     private const int PER_PAGE = 50;
@@ -54,16 +54,16 @@ final class Redirects extends Module
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {redirects} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));
 
-        $notFound = \Kaleta\Core\NotFound::pending($this->app, 60, 50);
+        $notFound = \Talea\Core\NotFound::pending($this->app, 60, 50);
 
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {redirects} ' . $whereParts . ' ORDER BY redirect_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
             'edit' => ($editId = $this->idParam('edit')) > 0 ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$editId]) : null,
             'notFound' => $notFound,
-            'suggestions' => \Kaleta\Core\RedirectMatcher::suggestions($this->app, $notFound),
+            'suggestions' => \Talea\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
-            'threshold' => \Kaleta\Core\RedirectMatcher::threshold($this->app->settings()),
+            'threshold' => \Talea\Core\RedirectMatcher::threshold($this->app->settings()),
             'fromUrl' => mb_substr($this->request->get('from'), 0, 255),
         ]);
     }
@@ -75,8 +75,8 @@ final class Redirects extends Module
             $threshold = $this->request->postInt('redirect_auto_threshold');
             $s = $this->app->settings();
             $s->set('redirect_auto', $this->request->post('redirect_auto') === '1' ? '1' : '0');
-            $s->set('redirect_auto_threshold', (string) ($threshold >= 50 && $threshold <= 100 ? $threshold : \Kaleta\Core\RedirectMatcher::DEFAULT_THRESHOLD));
-            \Kaleta\Admin\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
+            $s->set('redirect_auto_threshold', (string) ($threshold >= 50 && $threshold <= 100 ? $threshold : \Talea\Core\RedirectMatcher::DEFAULT_THRESHOLD));
+            \Talea\Admin\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
         }
 
         return $this->back('Settings saved.');
@@ -113,7 +113,7 @@ final class Redirects extends Module
     protected function actionIgnore(): Response
     {
         if ($this->request->isPost()) {
-            \Kaleta\Core\NotFound::ignore($this->app, [$this->request->post('path')]);
+            \Talea\Core\NotFound::ignore($this->app, [$this->request->post('path')]);
         }
 
         return Response::redirect($this->url() . '#not-found');
@@ -122,7 +122,7 @@ final class Redirects extends Module
     /** All addresses waiting now – the warning on the start screen goes away until a new address appears. */
     protected function actionIgnoreAll(): Response
     {
-        $count = $this->request->isPost() ? \Kaleta\Core\NotFound::ignore($this->app) : 0;
+        $count = $this->request->isPost() ? \Talea\Core\NotFound::ignore($this->app) : 0;
         $this->app->session->flash('ok', t('%d addresses ignored. A new address that visitors cannot find will show up again.', $count));
 
         return Response::redirect($this->request->post('back') === 'overview' ? $this->app->url('admin.php') : $this->url() . '#not-found');

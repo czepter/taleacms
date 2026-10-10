@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Appearance;
+namespace Talea\Tests\Site\Appearance;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -39,7 +39,7 @@ final class CompanyTest extends SiteTestCase
     {
         $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'company', 'company_type' => 'LocalBusiness', 'company_country' => 'GB', 'company_hours' => 'anytime'], '/admin.php?module=business');
 
-        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%8:00%' AND value NOT LIKE '%anytime%' FROM ka_settings WHERE name = 'company_hours'"), 'an incomprehensible opening hours text is rejected');
+        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%8:00%' AND value NOT LIKE '%anytime%' FROM tl_settings WHERE name = 'company_hours'"), 'an incomprehensible opening hours text is rejected');
     }
 
     #[Depends('testAnIncomprehensibleOpeningHoursTextIsRejected')]

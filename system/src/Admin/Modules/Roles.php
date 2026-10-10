@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Kernel;
-use Kaleta\Admin\Module;
-use Kaleta\Core\Auth;
-use Kaleta\Core\Db;
-use Kaleta\Core\Response;
+use Talea\Admin\Kernel;
+use Talea\Admin\Module;
+use Talea\Core\Auth;
+use Talea\Core\Db;
+use Talea\Core\Response;
 
 /**
  * Custom roles (Users → Roles): a named set of admin sections and a level – e.g. "Sales" with

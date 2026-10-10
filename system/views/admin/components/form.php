@@ -2,12 +2,12 @@
 /**
  * Name and properties of a component.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Components $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Components $module
  * @var string $csrf
  * @var array<string, mixed> $k
  */
-use Kaleta\Builder\Components;
+use Talea\Builder\Components;
 
 $properties = array_merge($k['properties'], array_fill(0, 3, ['key' => '', 'label' => '', 'type' => 'text', 'default' => '']));
 ?>

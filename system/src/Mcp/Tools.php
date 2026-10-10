@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp;
+namespace Talea\Mcp;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * Tools the MCP server offers to Claude. Every tool respects the permissions of the user whose token Claude signs in with:
@@ -48,7 +48,7 @@ final class Tools
     public function listAll(): array
     {
         return [...array_values(array_filter(self::definitions(), fn (array $n): bool => ($extension = Catalog::extension($n['name'])) === ''
-            || \Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension))), ...\Kaleta\Extension\Registry::get()->toolDefinitions()];
+            || \Talea\Core\Extensions::isEnabled($this->app->settings(), $extension))), ...\Talea\Extension\Registry::get()->toolDefinitions()];
     }
 
     /**
@@ -121,7 +121,7 @@ final class Tools
             ['get_build', 'The build of a page or site part (a tree of elements with ids) – the draft in progress, otherwise the published version. Default values are left out. A page without a build returns a build made from its text. With texts_only just the texts and links of elements by id (for translating: send them back as “update” operations in edit_build).', $s($target + ['texts_only' => ['type' => 'boolean', 'description' => 'true = instead of the build a list texts: [{id, type, content: only text properties and links, attributes}]']])],
             ['edit_build', 'Partial edits of the draft by element id (ids from get_build) – fix a text, a link or a style without sending the whole build. Operations: {"op":"update","id":"…","content":{…},"style":{"mobile":{"gap":"s"}},"classes":[…]} (content and style merge, a null value removes) | {"op":"replace","id":"…","element":{…}} | {"op":"delete","id":"…"} | {"op":"insert","elements":[…],"into":"parent id or null = root","position":0 | "after":"id" | "before":"id"} | {"op":"move","id":"…","into":…,"after":…}. Elements use the build JSON keys of builder_schema (type, content, style, children…).', $s($target + ['operations' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'list of operations, applied in order'], 'publish' => ['type' => 'boolean', 'description' => 'true = publish (only when the user explicitly asks)']], ['operations'])],
             ['list_classes', 'Shared classes of the site (card, dark band…) with their style per state and custom CSS. An element gets a class in its "classes" list.', $s(['name' => $text('only this class (optional)')])],
-            ['save_classes', 'Creates or changes shared classes (administrators). A new class applies at once; a change or deletion of an existing one goes to the draft look (publish_look). Write CSS as in a <style> block: rules of one class (.card { … }), .card:hover { … } and @media (max-width: 1023px) = tablet, (max-width: 767px) = mobile. Use tokens var(--ka-…), and override tokens inside a class (--ka-color-text: #fff) for dark bands.', $s(['css' => $text('class rules; they merge with the existing ones – a .card:hover or @media rule alone leaves the base of the class unchanged'), 'replace' => ['type' => 'boolean', 'description' => 'true = replace the classes in css entirely (base and all states)'], 'delete' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'names of classes to delete']])],
+            ['save_classes', 'Creates or changes shared classes (administrators). A new class applies at once; a change or deletion of an existing one goes to the draft look (publish_look). Write CSS as in a <style> block: rules of one class (.card { … }), .card:hover { … } and @media (max-width: 1023px) = tablet, (max-width: 767px) = mobile. Use tokens var(--ka-…), and override tokens inside a class (--tl-color-text: #fff) for dark bands.', $s(['css' => $text('class rules; they merge with the existing ones – a .card:hover or @media rule alone leaves the base of the class unchanged'), 'replace' => ['type' => 'boolean', 'description' => 'true = replace the classes in css entirely (base and all states)'], 'delete' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'names of classes to delete']])],
             ['build_from_html', 'RECOMMENDED for a new page or sections: write semantic HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) and put the look in a <style> block as rules of one class (.card { … }, .card:hover { … }) with tokens var(--ka-…); breakpoints from desktop down: @media (max-width: 1023px) = tablet, @media (max-width: 767px) = mobile. An element with a class from <style> gets no default style – layout (display:grid, gap) belongs in the class. It is converted to a build and classes; the result says what could not be converted. Saved as a draft.', $s(['html' => $text('HTML of the content (without <html>/<head>); <style> may be inside. Build the header and footer from the logo, navigation and company details elements with save_build – HTML does not convert them.'), 'id' => $pid('Page ID; without it (and without part) a new hidden page is created with the name from title'), 'part' => $text('Instead of a page, a site part (administrators only)'), 'language' => $text('Language version of the site part or of the collection item template on a multilingual site (empty = default)'), 'variant' => $text('Header or footer variant (key from list_site_parts; empty = the default)'), 'collection' => $text('Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'), 'popup' => $pid('Instead of a page, the content of a pop-up window (ID from list_popups, administrators only)'), 'title' => $text('Name of the new page (when there is no id)'), 'mode' => $text('replace (default) = the whole build from the HTML | append = sections at the end of the existing build'), 'overwrite_classes' => ['type' => 'boolean', 'description' => 'true = classes that already exist on the site are overwritten by the <style>; otherwise they stay'], 'publish' => ['type' => 'boolean', 'description' => 'true = publish straight away (only when the user explicitly asks); otherwise a draft to preview']], ['html'])],
             ['save_build', 'Saves the whole build of a page (the tree from get_build with your changes) as a draft. For small edits of content and style of single elements. Returns the cleaned build, errors and the check before publishing.', $s($target + ['build' => ['type' => 'object', 'description' => '{"v":1,"children":[…]} according to builder_schema'], 'publish' => ['type' => 'boolean', 'description' => 'true = publish (only when the user explicitly asks)']], ['build'])],
             ['insert_section', 'Adds a ready-made section from the library (hero, benefits, services, numbers, testimonials, faq, call to action, news, contact) to the end of the draft of a page or site part.', $s($target + ['section' => $text('section key from builder_schema → knihovna'), 'saved_section' => $pid('instead of a library section, a section saved in the builder (id from builder_schema → saved_sections)')])],
@@ -226,7 +226,7 @@ final class Tools
                 $s(['id' => $pid('newsletter ID – only when changing it'), 'subject' => $text('subject of the e-mail, also its heading'), 'preheader' => $text('preview text next to the subject in the inbox (optional)'),
                     'intro' => $text('introduction as plain text; an empty line starts a new paragraph, web addresses become links'),
                     'news_mode' => $text('latest (the latest news_count items at the time of sending, default) | chosen (news_ids) | none'),
-                    'news_count' => $number('how many of the latest news items, 1–' . \Kaleta\Core\Mailing::MAX_NEWS . ', default 3'),
+                    'news_count' => $number('how many of the latest news items, 1–' . \Talea\Core\Mailing::MAX_NEWS . ', default 3'),
                     'news_ids' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'chosen news item public ids (UUID) in order (list_news), with news_mode chosen'],
                     'button_label' => $text('button text (optional, with button_url)'), 'button_url' => $text('button link: a path on the site (/contact) or https://…'),
                     'language' => $text('language of the footer texts and the latest news on a multilingual site (code; empty = default)')])],
@@ -295,7 +295,7 @@ final class Tools
             ['get_blueprint', 'The site\'s industry blueprint (read-only, 2.11): which is applied (a clinic, a manufacturer, a craftsman…) and which are available, the questions to ask the owner with their answers so far, the checks that fail and how to work on such a site.',
                 $s([])],
             ['apply_blueprint', 'Applies an industry blueprint (administrators, only when the user wants it, 2.11): creates its ready-made collections with hidden list pages and its facts without values; adds its questions, audit checks and instructions. key = a shipped one from get_blueprint, or manifest = a blueprint JSON (e.g. from export_blueprint of another site).',
-                $s(['key' => $text('a shipped blueprint (get_blueprint → available)'), 'manifest' => ['type' => 'object', 'description' => 'a blueprint manifest {"kaleta_blueprint":1,"key":…,"name":…,"presets":[…],"facts":[…],"questions":[…],"audit":[…],"claude":"…"} instead of key']])],
+                $s(['key' => $text('a shipped blueprint (get_blueprint → available)'), 'manifest' => ['type' => 'object', 'description' => 'a blueprint manifest {"talea_blueprint":1,"key":…,"name":…,"presets":[…],"facts":[…],"questions":[…],"audit":[…],"claude":"…"} instead of key']])],
             ['remove_blueprint', 'Takes an industry blueprint off the site (administrators, only on the user\'s explicit request): its questions, checks and instructions; the collections and facts it created stay.',
                 $s(['key' => $text('the applied blueprint')], ['key'])],
             ['export_blueprint', 'Writes the current site as an industry blueprint manifest (administrators, read-only, 2.11): the presets its collections come from, its facts without values, the questions, checks and instructions of its blueprints – to set up similar sites the same way.',
@@ -306,7 +306,7 @@ final class Tools
                 $s(['collection' => $text('collection slug of the notice board (preset notices)'), 'id' => $pid('only one notice (item ID from list_collection_items)')], ['collection'])],
             ['delete_hours_exception', 'Deletes an exception to the opening hours (people with access to Business details, only on the user\'s explicit request).',
                 $s(['id' => $number('exception id from list_hours')], ['id'])],
-            ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Kaleta sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',
+            ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Talea sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',
                 $s(['attention_only' => ['type' => 'boolean', 'description' => 'only the sites that need attention']])],
             ['get_site', 'Fleet console (administrators, read-only, 2.9): the full last report of one site – health problems, background jobs, backups, updates, enquiries and visits (counts only), audit findings – plus uptime and the update ring.',
                 $s(['id' => $pid('site id from list_sites')], ['id'])],
@@ -346,7 +346,7 @@ final class Tools
     /** @return list<string> names of all tools (including those of disabled extensions) */
     public function names(): array
     {
-        return [...array_keys(Catalog::TOOLS), ...array_column(\Kaleta\Extension\Registry::get()->toolDefinitions(), 'name')];
+        return [...array_keys(Catalog::TOOLS), ...array_column(\Talea\Extension\Registry::get()->toolDefinitions(), 'name')];
     }
 
     /** Site parts by their public names (MCP) => the stored types. */
@@ -380,10 +380,10 @@ final class Tools
     {
         // an add-on's tool (3.0): the connection's access and the guardrails were checked by Mcp\Server like for any tool;
         // the user's role or section like the built-in tools check theirs (3.3.2)
-        $addon = \Kaleta\Extension\Registry::get()->tool($name);
+        $addon = \Talea\Extension\Registry::get()->tool($name);
         if ($addon !== null) {
-            if (!\Kaleta\Extension\Api::userMay($this->app->auth(), $addon['requires'])) {
-                throw new \DomainException('This add-on tool needs ' . (in_array($addon['requires'], \Kaleta\Extension\Api::TOOL_ROLES, true)
+            if (!\Talea\Extension\Api::userMay($this->app->auth(), $addon['requires'])) {
+                throw new \DomainException('This add-on tool needs ' . (in_array($addon['requires'], \Talea\Extension\Api::TOOL_ROLES, true)
                     ? ['author' => 'a signed-in user', 'editor' => 'an editor or an administrator', 'admin' => 'an administrator'][$addon['requires']] : 'access to the ' . $addon['requires'] . ' section') . ' – this connection belongs to a user without it.');
             }
 
@@ -394,7 +394,7 @@ final class Tools
         }
         $extension = Catalog::extension($name);
         // the Newsletter tools check the extension together with the user's access (Handlers\Newsletter)
-        if ($extension !== '' && $extension !== 'newsletter_signup' && !\Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension)) {
+        if ($extension !== '' && $extension !== 'newsletter_signup' && !\Talea\Core\Extensions::isEnabled($this->app->settings(), $extension)) {
             throw new \DomainException($extension === 'news' ? 'News is switched off on this site (Features).' : 'This tool needs a feature that is switched off on this site (Features).');
         }
 
@@ -422,7 +422,7 @@ final class Tools
         }
         foreach (['intro', 'text'] as $field) {
             if (isset($data[$field])) {
-                $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
+                $data[$field] = \Talea\Core\Html::forUser($data[$field], $this->app->auth());
             }
         }
         if (array_key_exists('category', $a)) {
@@ -458,12 +458,12 @@ final class Tools
             $id = $db->insert('news', $data);
         } else {
             $id = (int) $previous['news_id'];
-            \Kaleta\Admin\Modules\News::version($db, $previous, $auth->id()); // history is pruned the same way as in the administration
+            \Talea\Admin\Modules\News::version($db, $previous, $auth->id()); // history is pruned the same way as in the administration
             $db->update('news', $data, ['news_id' => $id]);
         }
-        \Kaleta\Core\Search::index($db, $id);
+        \Talea\Core\Search::index($db, $id);
         if (array_key_exists('tags', $a)) {
-            \Kaleta\Admin\Modules\News::tags($db, $id, (string) $a['tags']);
+            \Talea\Admin\Modules\News::tags($db, $id, (string) $a['tags']);
         }
         $saved = $db->one('SELECT * FROM {news} WHERE news_id = ?', [$id]);
         Media::recordUsage($db, $id, $saved['image'], $saved['intro'], $saved['text']);
@@ -497,7 +497,7 @@ final class Tools
         }
         foreach (['intro', 'text'] as $field) {
             if (isset($data[$field])) {
-                $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
+                $data[$field] = \Talea\Core\Html::forUser($data[$field], $this->app->auth());
             }
         }
         foreach (['in_menu' => 'in_menu', 'visible' => 'visible', 'noindex' => 'noindex'] as $field => $column) {
@@ -563,7 +563,7 @@ final class Tools
                 : ($previous !== null ? basename((string) $previous['slug']) : $data['title']);
             $prefix = $parent !== null ? $parent['slug'] . '/' : '';
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
-            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $db))) {
+            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $db))) {
                 throw new \InvalidArgumentException('The address “' . $seo . '” is used by the system, choose another.');
             }
             if ($db->value('SELECT page_id FROM {pages} WHERE slug = ? AND page_id <> ?', [$seo, (int) ($previous['page_id'] ?? 0)]) !== null) {
@@ -584,7 +584,7 @@ final class Tools
             }
             $id = $db->insert('pages', $data + ['text' => '', 'visible' => 0, 'in_menu' => 0]);
             if (!empty($data['in_menu'])) {
-                \Kaleta\Core\Menu::setPage($db, $id, $language, true);
+                \Talea\Core\Menu::setPage($db, $id, $language, true);
             }
         } else {
             $id = (int) $previous['page_id'];
@@ -629,10 +629,10 @@ final class Tools
                 continue;
             }
             $value = is_string($a[$key]) ? trim($a[$key]) : $a[$key];
-            if ($value !== '' && $value !== null && !\Kaleta\Core\Validity::isDate($value)) {
+            if ($value !== '' && $value !== null && !\Talea\Core\Validity::isDate($value)) {
                 throw new \InvalidArgumentException($key . ' must be a date YYYY-MM-DD, or an empty string to clear it.');
             }
-            $out[$key] = \Kaleta\Core\Validity::date($value);
+            $out[$key] = \Talea\Core\Validity::date($value);
         }
 
         return $out;
@@ -644,13 +644,13 @@ final class Tools
         return array_filter(['valid_until' => $row['valid_until'] ?? null, 'review_by' => $row['review_by'] ?? null], fn (mixed $v): bool => $v !== null);
     }
 
-    /** Structured data of a collection from Claude as stored in ka_collections.schema_org; null = none. */
+    /** Structured data of a collection from Claude as stored in tl_collections.schema_org; null = none. */
     private static function collectionSchema(mixed $input, array $fields): ?string
     {
         $input = is_array($input) ? ['type' => $input['type'] ?? '', 'fields' => $input['fields'] ?? [], 'currency' => $input['currency'] ?? ''] : null;
-        $clean = \Kaleta\Builder\CollectionSchema::sanitize($input, $fields);
+        $clean = \Talea\Builder\CollectionSchema::sanitize($input, $fields);
         if ($input !== null && $input['type'] !== '' && $clean === null) {
-            throw new \InvalidArgumentException('Unknown structured data type. Use one of: ' . implode(', ', array_keys(\Kaleta\Builder\CollectionSchema::TYPES)) . '.');
+            throw new \InvalidArgumentException('Unknown structured data type. Use one of: ' . implode(', ', array_keys(\Talea\Builder\CollectionSchema::TYPES)) . '.');
         }
 
         return $clean === null ? null : (string) json_encode($clean, JSON_UNESCAPED_UNICODE);
@@ -688,10 +688,10 @@ final class Tools
             return $out;
         }
         $admin = fn (string $text): string => Language::runWith('en', fn (): string => t($text), 'admin-');
-        $library = Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings));
+        $library = Library::listAll(\Talea\Core\Extensions::enabled($siteSettings));
 
         return $out + [
-            'components' => array_map(fn (array $k): array => ['id' => $this->pid('components', $k['component_id']), 'name' => $k['name'], 'properties' => $k['properties']], \Kaleta\Builder\Components::all($db))
+            'components' => array_map(fn (array $k): array => ['id' => $this->pid('components', $k['component_id']), 'name' => $k['name'], 'properties' => $k['properties']], \Talea\Builder\Components::all($db))
                 + ['note' => 'Use: {"type":"component","content":{"component":"<id>","values":{"<key>":"value"}}}; an empty value = the default. Edit a component with the *_build tools and component: <id>.'],
             'site_parts' => ['header' => 'the header of every page', 'footer' => 'the footer of every page', 'news_item' => 'the wrapper of a news item', 'news_list' => 'the wrapper of the news list',
                 'not_found' => 'the wrapper of the 404 page', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found) must contain exactly one page_content element.'],
@@ -699,15 +699,15 @@ final class Tools
             'saved_sections' => array_map(fn (array $r): array => ['id' => $this->pid('sections', $r['section_id']), 'name' => $r['name']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
                 + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
             'part_templates' => array_map(fn (string $type): array => array_column(array_map(fn (array $t): array => ['key' => $t['key'], 'text' => $admin($t['name']) . ' – ' . $admin($t['description'])],
-                \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($siteSettings))), 'text', 'key'), self::PART_NAMES)
+                \Talea\Builder\PartTemplates::forType($type, \Talea\Core\Extensions::enabled($siteSettings))), 'text', 'key'), self::PART_NAMES)
                 + ['note' => 'apply_part_template puts one into the draft of the part; the look comes from the design system.'],
-            'collection_schema' => array_map(fn (array $t): array => array_keys($t[1]), \Kaleta\Builder\CollectionSchema::TYPES)
+            'collection_schema' => array_map(fn (array $t): array => array_keys($t[1]), \Talea\Builder\CollectionSchema::TYPES)
                 + ['note' => 'structured_data of create_collection / update_collection: the type and which field fills each property; name, url, description and image come from the item. An offer needs a price field and currency. FAQPage: the item name is the question, the answer field the answer. LocalBusiness (branches): geo from a location field, openingHours from a text field with one rule per line (Mo-Fr 9-17).'],
             'site_classes' => array_column($db->all('SELECT name FROM {classes} ORDER BY name'), 'name'),
             'design_system' => DesignSystem::load($siteSettings) + ['presets' => array_map(fn (array $p): string => $admin($p[0]) . ' – ' . $admin($p[1]), DesignSystem::PRESETS),
                 'heading_fonts' => array_keys(SiteIdentity::TITLE_FONTS), 'text_fonts' => array_keys(SiteIdentity::TEXT_FONTS),
                 'note' => 'Keys as update_design_system takes them (colors, colors_dark, font_heading, font_body, custom_fonts, text_width, radius…).'],
-            'css_tokens' => 'In <style> and custom CSS use var(--ka-color-primary|secondary|text|muted|background|surface|line|primary-soft|on-primary), var(--ka-space-2xs…3xl) for spacing, var(--ka-step--1…5) for font size, var(--ka-radius), var(--ka-shadow-s|m|l), var(--ka-width), var(--ka-font-body|heading). To restyle a section, override the token in the class or element style.',
+            'css_tokens' => 'In <style> and custom CSS use var(--tl-color-primary|secondary|text|muted|background|surface|line|primary-soft|on-primary), var(--tl-space-2xs…3xl) for spacing, var(--tl-step--1…5) for font size, var(--tl-radius), var(--tl-shadow-s|m|l), var(--tl-width), var(--tl-font-body|heading). To restyle a section, override the token in the class or element style.',
         ];
     }
 
@@ -753,7 +753,7 @@ final class Tools
     private function savePopup(array $a): array
     {
         $db = $this->app->db();
-        $popups = \Kaleta\Builder\Popups::class;
+        $popups = \Talea\Builder\Popups::class;
         if (isset($a['id'])) {
             $p = $popups::byId($db, (int) $a['id']) ?? throw new \InvalidArgumentException('The pop-up window does not exist. Use list_popups.');
         } else {
@@ -826,7 +826,7 @@ final class Tools
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Only the site administrator can change pop-up windows.');
             }
-            $row = \Kaleta\Builder\Popups::byId($db, (int) $a['popup']) ?? throw new \InvalidArgumentException('The pop-up window does not exist. Use list_popups.');
+            $row = \Talea\Builder\Popups::byId($db, (int) $a['popup']) ?? throw new \InvalidArgumentException('The pop-up window does not exist. Use list_popups.');
 
             return ['kind' => 'popup', 'row' => $row, 'build' => $row['build'], 'draft' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, ''),
                 'revision' => ['part' => 'popup:' . $row['popup_id']]];
@@ -835,7 +835,7 @@ final class Tools
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Components can be changed only by an administrator.');
             }
-            $row = \Kaleta\Builder\Components::byId($db, (int) $a['component']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
+            $row = \Talea\Builder\Components::byId($db, (int) $a['component']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
 
             return ['kind' => 'component', 'row' => $row, 'build' => $row['build'], 'draft' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, ''),
                 'revision' => ['part' => 'component:' . (int) $row['component_id']]];
@@ -844,19 +844,19 @@ final class Tools
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Only the site administrator can change the item page template of a collection.');
             }
-            $row = \Kaleta\Builder\Collections::bySlug($db, (string) $a['collection']) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+            $row = \Talea\Builder\Collections::bySlug($db, (string) $a['collection']) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
             $language = (string) ($a['language'] ?? '') === Language::defaults($siteSettings) ? '' : (string) ($a['language'] ?? '');
             if ($language !== '' && !in_array($language, Language::additional($siteSettings), true)) {
                 throw new \InvalidArgumentException('The language version “' . $language . '” is not switched on (Extensions → Language versions, languages in Settings).');
             }
-            $row = \Kaleta\Builder\Collections::inLanguage($db, $row, $language);
+            $row = \Talea\Builder\Collections::inLanguage($db, $row, $language);
             if ($row['build'] === null && $row['build_draft'] === null) {
                 // the template the builder would show until someone edits it (another language starts with a copy of the default)
-                $row['build_draft'] = \Kaleta\Builder\Collections::initialTemplateDraft($db, $row);
+                $row['build_draft'] = \Talea\Builder\Collections::initialTemplateDraft($db, $row);
             }
 
             return ['kind' => 'collection', 'row' => $row, 'build' => $row['build'], 'draft' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, $language),
-                'revision' => ['part' => \Kaleta\Builder\Collections::templateKey($row)]];
+                'revision' => ['part' => \Talea\Builder\Collections::templateKey($row)]];
         }
         if (isset($a['part']) && $a['part'] !== '') {
             if (!$auth->isAdmin()) {
@@ -935,14 +935,14 @@ final class Tools
         if ($target['kind'] === 'page') {
             Publisher::page($this->app, (array) $db->one('SELECT * FROM {pages} WHERE page_id = ?', [$target['row']['page_id']]));
         } elseif ($target['kind'] === 'collection') {
-            $row = \Kaleta\Builder\Collections::inLanguage($db, (array) \Kaleta\Builder\Collections::byId($db, (int) $target['row']['collection_id']), $target['row']['template_language']);
+            $row = \Talea\Builder\Collections::inLanguage($db, (array) \Talea\Builder\Collections::byId($db, (int) $target['row']['collection_id']), $target['row']['template_language']);
             // a default template nobody saved is published too (otherwise there would be nothing to publish)
             $row['build_draft'] ??= $target['draft'];
             Publisher::collection($this->app, $row);
         } elseif ($target['kind'] === 'popup') {
-            Publisher::popup($this->app, (array) \Kaleta\Builder\Popups::byId($db, $target['row']['popup_id']));
+            Publisher::popup($this->app, (array) \Talea\Builder\Popups::byId($db, $target['row']['popup_id']));
         } elseif ($target['kind'] === 'component') {
-            Publisher::component($this->app, (array) \Kaleta\Builder\Components::byId($db, (int) $target['row']['component_id']));
+            Publisher::component($this->app, (array) \Talea\Builder\Components::byId($db, (int) $target['row']['component_id']));
         } else {
             $this->createSitePart($target['row']);
             Publisher::part($this->app, (array) SiteParts::row($db, $target['row']['type'], $target['row']['language'], (string) $target['row']['variant']));
@@ -970,7 +970,7 @@ final class Tools
         if ($target['kind'] === 'page') {
             $db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $r['page_id']]);
         } elseif ($target['kind'] === 'collection') {
-            \Kaleta\Builder\Collections::writeTemplate($db, $r, ['build_draft' => Build::toJson($build)]);
+            \Talea\Builder\Collections::writeTemplate($db, $r, ['build_draft' => Build::toJson($build)]);
             $target['draft'] = Build::toJson($build);
         } elseif ($target['kind'] === 'popup') {
             $db->update('popups', ['build_draft' => Build::toJson($build)], ['popup_id' => $r['popup_id']]);
@@ -1002,7 +1002,7 @@ final class Tools
      */
     private function checkTarget(array $target, array $build): array
     {
-        $findings = \Kaleta\Builder\Check::builds($build, $target['kind'] === 'page');
+        $findings = \Talea\Builder\Check::builds($build, $target['kind'] === 'page');
 
         return $findings === [] ? [] : ['check' => $findings];
     }
@@ -1019,11 +1019,11 @@ final class Tools
         }
         $signature = match ($target['kind']) {
             'page' => 'page:' . (int) $r['page_id'],
-            'collection' => \Kaleta\Builder\Collections::templateKey($r),
+            'collection' => \Talea\Builder\Collections::templateKey($r),
             'popup' => 'popup:' . (int) $r['popup_id'],
             default => 'part:' . $r['type'] . ':' . $r['language'] . ($r['variant'] !== '' ? ':' . $r['variant'] : ''), // a link to the header would not show the variant's draft
         };
-        $key = \Kaleta\Core\Preview::key($this->app->db(), $this->app->settings(), $signature, $minutes, $comments && $target['kind'] === 'page');
+        $key = \Talea\Core\Preview::key($this->app->db(), $this->app->settings(), $signature, $minutes, $comments && $target['kind'] === 'page');
         if ($target['kind'] === 'popup') {
             return $this->targetUrl($target) . '?build=draft&preview_key=' . $key;
         }
@@ -1097,7 +1097,7 @@ final class Tools
                 throw new \InvalidArgumentException('Files can be downloaded only from an https address.');
             }
             try {
-                $content = (new \Kaleta\Core\ImageDownloader($url))->download($url, false);
+                $content = (new \Talea\Core\ImageDownloader($url))->download($url, false);
             } catch (\RuntimeException $e) {
                 throw new \InvalidArgumentException('The file could not be downloaded: ' . $e->getMessage());
             }
@@ -1110,13 +1110,13 @@ final class Tools
         if (strlen($content) > self::MAX_UPLOAD) {
             throw new \InvalidArgumentException('The file is larger than ' . (self::MAX_UPLOAD >> 20) . ' MB.');
         }
-        $temporary = tempnam(sys_get_temp_dir(), 'kaleta-mcp-');
+        $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');
         file_put_contents($temporary, $content);
         try {
             $data = match (true) {
                 $extension === 'svg' => Media::saveSvgContent($content, $displayName),
-                \Kaleta\Core\Files::isAttachment($displayName) => \Kaleta\Core\Files::saveFile($temporary, $displayName),
-                default => \Kaleta\Core\Images::saveFile($temporary, $displayName),
+                \Talea\Core\Files::isAttachment($displayName) => \Talea\Core\Files::saveFile($temporary, $displayName),
+                default => \Talea\Core\Images::saveFile($temporary, $displayName),
             };
         } catch (\RuntimeException $e) {
             throw new \InvalidArgumentException($e->getMessage());
@@ -1140,7 +1140,7 @@ final class Tools
     private function availableCollectionSlug(string $given, int $collectionId): string
     {
         $seo = slugify($given, 110);
-        if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $this->app->db())
+        if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->app->db())
             || $this->app->db()->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $collectionId]) !== null) {
             throw new \InvalidArgumentException('The address “' . $seo . '” is already used by the system or another collection.');
         }
@@ -1183,6 +1183,6 @@ final class Tools
 
     private function availableSlug(string $table, string $key, string $seo): string
     {
-        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->app->db()->value("SELECT {$key} FROM {{$table}} WHERE slug = ?", [$a]) !== null, $table === 'news' ? 160 : 120);
+        return \Talea\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->app->db()->value("SELECT {$key} FROM {{$table}} WHERE slug = ?", [$a]) !== null, $table === 'news' ? 160 : 120);
     }
 }

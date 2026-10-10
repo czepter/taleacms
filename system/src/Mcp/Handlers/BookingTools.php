@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Core\Booking;
+use Talea\Admin\ChangeLog;
+use Talea\Core\Booking;
 
 /**
  * MCP tools for online booking (3.0, Core\Booking): the set-up (services, people with their hours and days off), the free

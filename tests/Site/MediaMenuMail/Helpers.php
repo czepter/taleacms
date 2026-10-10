@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\MediaMenuMail;
+namespace Talea\Tests\Site\MediaMenuMail;
 
-use Kaleta\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\Response;
 
 /** Small helpers shared by the classes of this area (the old lib.sh functions they used). */
 trait Helpers

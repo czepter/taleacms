@@ -19,17 +19,17 @@ $style ??= 'auto';
 $attributes ??= '';
 ?>
 <?php if ($style === 'row' || ($style === 'auto' && count($languages) <= 3)): ?>
-<nav<?= Kaleta\Builder\Elements\Text::withClass($attributes, 'ka-languages') ?> lang="en" aria-label="Language">
+<nav<?= Talea\Builder\Elements\Text::withClass($attributes, 'tl-languages') ?> lang="en" aria-label="Language">
 <?php foreach ($languages as $code => $j): ?>
 	<a href="<?= e($j['url']) ?>" hreflang="<?= e($code) ?>" lang="<?= e($code) ?>" title="<?= e($j['name']) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($code)) ?></a>
 <?php endforeach ?>
 </nav>
-<?php else: $id = 'ka-languages-' . bin2hex(random_bytes(3)); ?>
-<nav<?= Kaleta\Builder\Elements\Text::withClass($attributes, 'ka-languages-select' . (($direction ?? '') === 'up' ? ' ka-languages-select--up' : '')) ?> lang="en" aria-label="Language">
-	<button type="button" class="ka-languages-btn" popovertarget="<?= $id ?>" style="anchor-name: --<?= $id ?>" aria-label="Language: <?= e($languages[$active]['name']) ?>">
+<?php else: $id = 'tl-languages-' . bin2hex(random_bytes(3)); ?>
+<nav<?= Talea\Builder\Elements\Text::withClass($attributes, 'tl-languages-select' . (($direction ?? '') === 'up' ? ' tl-languages-select--up' : '')) ?> lang="en" aria-label="Language">
+	<button type="button" class="tl-languages-btn" popovertarget="<?= $id ?>" style="anchor-name: --<?= $id ?>" aria-label="Language: <?= e($languages[$active]['name']) ?>">
 		<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
 		<span><?= e($style === 'dropdown' ? $languages[$active]['name'] : strtoupper((string) $active)) ?></span><?php if ($style === 'dropdown'): ?>
-		<svg class="ka-languages-arrow" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><?php endif ?>
+		<svg class="tl-languages-arrow" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><?php endif ?>
 	</button>
 	<ul id="<?= $id ?>" popover style="position-anchor: --<?= $id ?>">
 <?php foreach ($languages as $code => $j): ?>

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * "Ask Claude" on the dashboard (3.1): one box where staff write what they need – it becomes a request (Core\Requests),
@@ -94,7 +94,7 @@ final class AskClaude
         // the texts for visitors follow the site's form of address, not the one the administration speaks to the person
         $address = $visitorAddress === null ? '' : ' ' . t($visitorAddress === 'informal' ? 'Write German texts for visitors with the informal “du”.' : 'Write German texts for visitors with the formal “Sie”.');
 
-        return t('On my Kaleta site %s (use its connector):', rtrim($siteUrl, '/')) . "\n\n" . '{text}' . "\n\n"
+        return t('On my Talea site %s (use its connector):', rtrim($siteUrl, '/')) . "\n\n" . '{text}' . "\n\n"
             . t('Work as drafts and send me the preview links – do not publish anything.') . $address;
     }
 

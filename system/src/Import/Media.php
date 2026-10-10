@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /**
  * A file of the old site's media library (Import\Source) – optional: the preview counts them, images used in posts are

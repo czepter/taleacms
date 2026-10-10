@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Presets;
-use Kaleta\Core\App;
-use Kaleta\Core\Extensions;
-use Kaleta\Core\Hours;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
+use Talea\Builder\Collections;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Presets;
+use Talea\Core\App;
+use Talea\Core\Extensions;
+use Talea\Core\Hours;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Core\Settings;
 
 /**
  * Screen mode (2.11): a kiosk address /screen/<secret> for a TV or a tablet in a reception, showroom or waiting room that
@@ -242,26 +242,26 @@ final class Screen
     private static function css(): string
     {
         return '
-html, body { margin: 0; height: 100%; background: var(--ka-color-background); color: var(--ka-color-text); font-family: var(--ka-font-body); overflow: hidden; }
+html, body { margin: 0; height: 100%; background: var(--tl-color-background); color: var(--tl-color-text); font-family: var(--tl-font-body); overflow: hidden; }
 .screen-head { position: fixed; inset: 0 0 auto 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 2vmin 3vmin; font-size: clamp(1.2rem, 2.2vw, 2rem); }
 .screen-logo { max-height: 7vmin; width: auto; }
-.screen-name { font-family: var(--ka-font-heading); font-weight: 700; }
-.screen-hours { font-variant-numeric: tabular-nums; color: var(--ka-color-muted); }
+.screen-name { font-family: var(--tl-font-heading); font-weight: 700; }
+.screen-hours { font-variant-numeric: tabular-nums; color: var(--tl-color-muted); }
 .screen-slides { position: relative; height: 100vh; height: 100dvh; }
 .screen-slide { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr; align-items: center; padding: 12vmin 6vmin 6vmin; box-sizing: border-box; opacity: 0; visibility: hidden; transition: opacity .7s ease, visibility .7s; }
 .screen-slide.active { opacity: 1; visibility: visible; }
 .screen-slide.with-image { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 5vmin; }
 .screen-image { margin: 0; height: 100%; max-height: 76vh; }
-.screen-image img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--ka-radius); display: block; }
+.screen-image img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--tl-radius); display: block; }
 .screen-content { min-width: 0; }
-.screen-badge { margin: 0 0 1.5vmin; font-size: clamp(1.1rem, 1.8vw, 1.8rem); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ka-color-primary); }
-.screen-slide h1 { margin: 0; font-family: var(--ka-font-heading); font-weight: 700; font-size: clamp(2.4rem, 5.6vw, 5.5rem); line-height: 1.1; overflow-wrap: anywhere; }
+.screen-badge { margin: 0 0 1.5vmin; font-size: clamp(1.1rem, 1.8vw, 1.8rem); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--tl-color-primary); }
+.screen-slide h1 { margin: 0; font-family: var(--tl-font-heading); font-weight: 700; font-size: clamp(2.4rem, 5.6vw, 5.5rem); line-height: 1.1; overflow-wrap: anywhere; }
 .screen-date, .screen-text, .screen-rows { font-size: clamp(1.4rem, 2.6vw, 2.6rem); line-height: 1.45; }
 .screen-date { margin: 2vmin 0 0; font-weight: 600; }
-.screen-text { margin: 3vmin 0 0; color: var(--ka-color-muted); }
+.screen-text { margin: 3vmin 0 0; color: var(--tl-color-muted); }
 .screen-rows { margin: 3vmin 0 0; padding: 0; list-style: none; }
 .screen-rows li { margin: 0 0 1vmin; }
-.screen-hours h1 { color: var(--ka-color-primary); }
+.screen-hours h1 { color: var(--tl-color-primary); }
 @media (orientation: portrait) {
   .screen-slide.with-image { grid-template-columns: 1fr; grid-template-rows: minmax(0, 42vh) auto; align-content: center; }
   .screen-image { max-height: 42vh; }

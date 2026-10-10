@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Claude over MCP builds the site without the administration (was: section 10). */
@@ -31,7 +31,7 @@ final class McpSiteBuildTest extends SiteTestCase
 
     private function pageId(string $seo): int
     {
-        return (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$seo]);
+        return (int) $this->site()->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$seo]);
     }
 
     /** What section 9 left: a visible page "from-html" (the old section needed it for the preview-key check). */
@@ -43,17 +43,17 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->site()->mcp('build_from_html', ['title' => 'From HTML', 'html' => '<section><h1>Page from Claude</h1></section>']);
         $id = $this->pageId('from-html');
         $this->site()->mcp('publish_build', ['id' => $this->site()->publicId('pages', $id)]);
-        $this->site()->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [$id]);
+        $this->site()->exec('UPDATE tl_pages SET visible = 1 WHERE page_id = ?', [$id]);
         $this->site()->clearPageCache();
     }
 
     public function testHtmlConvertedWithMediaAndHoverStatesAndPartialEdits(): void
     {
         $this->ensureFromHtml();
-        $this->site()->mcp('build_from_html', ['title' => 'Grid', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-space-l) } .kar-t:hover { box-shadow: var(--ka-shadow-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
+        $this->site()->mcp('build_from_html', ['title' => 'Grid', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--tl-space-l) } .kar-t:hover { box-shadow: var(--tl-shadow-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
         $id = $this->pageId('grid');
 
-        $this->assertSame('{"mobile":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
+        $this->assertSame('{"mobile":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM tl_classes WHERE name = 'mriz-t'), (SELECT style FROM tl_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
 
         $loaded = $this->raw('get_build', ['id' => $this->site()->publicId('pages', $id)]);
         $this->assertStringContainsString('mriz-t', $loaded);
@@ -63,7 +63,7 @@ final class McpSiteBuildTest extends SiteTestCase
 
         $edited = $this->raw('edit_build', ['id' => $this->site()->publicId('pages', $id), 'operations' => [['op' => 'update', 'id' => $heading, 'content' => ['text' => 'Corrected']], ['op' => 'delete', 'id' => 'missing']]]);
         $this->assertStringContainsString('operation_errors":{"op[1', $edited, 'a bad operation is reported');
-        $this->assertSame('1', (string) $this->site()->value('SELECT build_draft LIKE ? FROM ka_pages WHERE page_id = ?', ['%Corrected%', $id]), 'MCP: partial edit of an element by id');
+        $this->assertSame('1', (string) $this->site()->value('SELECT build_draft LIKE ? FROM tl_pages WHERE page_id = ?', ['%Corrected%', $id]), 'MCP: partial edit of an element by id');
 
         $result = json_decode($edited, true);
         $this->assertStringContainsString('(h1)', implode('|', array_column($result['check'] ?? [], 'message')), 'MCP: a write returns the pre-publish check (page without h1)');
@@ -83,13 +83,13 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertStringContainsString('part=footer&build=draft&preview_key=', $this->raw('preview_link', ['part' => 'footer']), 'MCP: link to the preview of a site part');
 
         $this->site()->mcp('trash_page', ['id' => $this->site()->publicId('pages', $id)]);
-        $this->assertSame('1', (string) $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [$id]), 'MCP: page to the trash');
+        $this->assertSame('1', (string) $this->site()->value('SELECT deleted_at IS NOT NULL FROM tl_pages WHERE page_id = ?', [$id]), 'MCP: page to the trash');
         $this->assertTrue($this->isError('trash_page', ['id' => (int) $this->site()->settingValue('home_page')]), 'MCP: the home page cannot be deleted');
     }
 
     public function testSharedClassFilesAndFonts(): void
     {
-        $this->site()->mcp('save_classes', ['css' => '.stitek-t { padding: var(--ka-space-2xs) var(--ka-space-s); border-radius: var(--ka-radius) } @media (max-width: 1023px) { .stitek-t { font-size: var(--ka-step--1) } }']);
+        $this->site()->mcp('save_classes', ['css' => '.stitek-t { padding: var(--tl-space-2xs) var(--tl-space-s); border-radius: var(--tl-radius) } @media (max-width: 1023px) { .stitek-t { font-size: var(--tl-step--1) } }']);
         $this->site()->mcp('save_classes', ['css' => '.stitek-t:hover { background-color: #ffe3dc }']);
         $classes = $this->raw('list_classes', ['name' => 'stitek-t']);
         foreach (['font_size":"-1', 'hover', 'border-radius'] as $needle) {
@@ -105,7 +105,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $address = (string) ($uploaded['path'] ?? '');
         $this->assertNotSame('', $address);
         $this->assertFileExists($this->site()->path($address), 'the uploaded image is on disk');
-        $this->assertSame('Team in the workshop', $this->site()->value('SELECT name FROM ka_media WHERE image_path = ?', [$address]), 'MCP: an image uploaded in base64 is in Media');
+        $this->assertSame('Team in the workshop', $this->site()->value('SELECT name FROM tl_media WHERE image_path = ?', [$address]), 'MCP: an image uploaded in base64 is in Media');
 
         $font = base64_encode((string) file_get_contents($this->site()->path('image/fonts/bricolage-grotesque-latin.woff2')));
         $text = $this->raw('upload_file', ['filename' => 'font.woff2', 'data' => $font]);
@@ -134,8 +134,8 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->site()->mcp('update_settings', ['settings' => ['security_contact' => 'security@example.com']]);
         $this->assertPage('/.well-known/security.txt', 200, 'Contact: mailto:security@example.com', message: 'security.txt from the security contact (RFC 9116)');
 
-        $this->site()->mcp('update_settings', ['settings' => ['logo' => 'image/kaleta-logo.svg', 'favicon' => '../config.php']]);
-        $this->assertSame('image/kaleta-logo.svg|', $this->site()->settingValue('logo') . '|' . (string) $this->site()->value("SELECT COALESCE((SELECT value FROM ka_settings WHERE name = 'favicon'), '')"),
+        $this->site()->mcp('update_settings', ['settings' => ['logo' => 'image/talea-logo.svg', 'favicon' => '../config.php']]);
+        $this->assertSame('image/talea-logo.svg|', $this->site()->settingValue('logo') . '|' . (string) $this->site()->value("SELECT COALESCE((SELECT value FROM tl_settings WHERE name = 'favicon'), '')"),
             'MCP: the logo from system files, a path outside media/ and image/ does not pass');
 
         $this->ensureFromHtml();
@@ -154,7 +154,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $page = $this->assertPage('/news/category/category-xss', 200, 'Intro', message: 'MCP: category description is cleaned');
         $this->assertDoesNotMatchRegularExpression('/<script>alert|onerror/', $page->body, 'no script left in the category description');
 
-        $this->site()->exec("UPDATE ka_categories SET description = '<p>Old description</p><script>alert(3)</script>' WHERE slug = 'category-xss'");
+        $this->site()->exec("UPDATE tl_categories SET description = '<p>Old description</p><script>alert(3)</script>' WHERE slug = 'category-xss'");
         $old = $this->assertPage('/news/category/category-xss', 200, 'Old description', message: 'a stored old category description');
         $this->assertStringNotContainsString('<script>alert(3)', $old->body, 'the listing cleans an earlier stored description too');
     }

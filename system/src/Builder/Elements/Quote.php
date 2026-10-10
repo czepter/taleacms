@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** A customer testimonial or a quote: text, name and position / company. */
 final class Quote extends Element
@@ -27,10 +27,10 @@ final class Quote extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-quote { margin: 0; }
-.ka-quote p { margin: 0; font-size: var(--ka-step-1); line-height: 1.5; }
-.ka-quote footer { margin-block-start: var(--ka-space-s); font-size: var(--ka-step--1); color: var(--ka-color-muted); }
-.ka-quote footer strong { color: var(--ka-color-text); }';
+        return '.tl-quote { margin: 0; }
+.tl-quote p { margin: 0; font-size: var(--tl-step-1); line-height: 1.5; }
+.tl-quote footer { margin-block-start: var(--tl-space-s); font-size: var(--tl-step--1); color: var(--tl-color-muted); }
+.tl-quote footer strong { color: var(--tl-color-text); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -38,6 +38,6 @@ final class Quote extends Element
         $o = $p['content'];
         $who = $o['author'] !== '' ? '<strong>' . e($o['author']) . '</strong>' . ($o['position'] !== '' ? ', ' . e($o['position']) : '') : e($o['position']);
 
-        return '<blockquote' . Text::withClass($a, 'ka-quote') . '><p>' . $o['text'] . '</p>' . ($who !== '' ? '<footer>' . $who . '</footer>' : '') . '</blockquote>';
+        return '<blockquote' . Text::withClass($a, 'tl-quote') . '><p>' . $o['text'] . '</p>' . ($who !== '' ? '<footer>' . $who . '</footer>' : '') . '</blockquote>';
     }
 }

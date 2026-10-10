@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Icons;
+use Talea\Builder\Icons;
 
 /**
  * Site menu ("Vzhled → Menu", Appearance → Menu): main navigation and footer menu, separately for each language version.

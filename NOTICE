@@ -1,0 +1,15 @@
+Talea
+=====
+
+Talea is licensed under the GNU General Public License, version 2 or (at your option) any later
+version. The licence text is in LICENSE.
+
+Talea is a fork of Kaleta by Miroslav Kaleta and contributors, https://github.com/phprs-cms/kaletacms.
+This fork diverges deliberately and merges nothing from upstream.
+
+Original work: Copyright (C) Miroslav Kaleta and the contributors of Kaleta (committed as
+"Miroslav Kaleta" and "KaletaCMS" in the project history, which this repository keeps).
+Changes made in this fork: Copyright (C) Christian Zepter and the contributors of Talea.
+
+Bundled third-party software keeps its own licence: Bricolage Grotesque (image/fonts/OFL.txt,
+SIL Open Font License 1.1) and the libraries under image/vendor and vendor/.

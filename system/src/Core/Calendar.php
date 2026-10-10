@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Events that keep themselves current (2.11): a collection made from a preset with a 'calendar' entry (events) knows its
@@ -248,12 +248,12 @@ final class Calendar
                     $data[$fields['end']] = $next[1];
                 }
                 $db->update('collection_items', ['data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE)], ['item_id' => (int) $r['item_id']]);
-                \Kaleta\Admin\ChangeLog::write($app, 'collections', 'event_next', $r['name'] . ': ' . $next[0]);
+                \Talea\Admin\ChangeLog::write($app, 'collections', 'event_next', $r['name'] . ': ' . $next[0]);
                 $moved++;
             }
         }
         if ($moved > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return 'moved ' . $moved;
@@ -270,7 +270,7 @@ final class Calendar
     public static function ics(array $collection, array $events, string $name, string $host): string
     {
         $fields = self::fields($collection) ?? [];
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kaleta//Events//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:' . self::escape($name)];
+        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Talea//Events//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:' . self::escape($name)];
         foreach ($events as [$item, $url]) {
             $data = (array) ($item['data'] ?? []);
             $get = fn (string $role): string => ($fields[$role] ?? '') !== '' ? trim(html_entity_decode(strip_tags((string) ($data[$fields[$role]] ?? '')), ENT_QUOTES | ENT_HTML5)) : '';
@@ -280,7 +280,7 @@ final class Calendar
             }
             $end = $get('end');
             $wholeDay = strlen($start) === 10;
-            $event = ['BEGIN:VEVENT', 'UID:kaleta-' . ($item['public_id'] ?? '') . '@' . $host, 'DTSTAMP:' . self::utc((string) ($item['updated_at'] ?? $item['created_at'] ?? 'now'))];
+            $event = ['BEGIN:VEVENT', 'UID:talea-' . ($item['public_id'] ?? '') . '@' . $host, 'DTSTAMP:' . self::utc((string) ($item['updated_at'] ?? $item['created_at'] ?? 'now'))];
             if ($wholeDay) {
                 $event[] = 'DTSTART;VALUE=DATE:' . str_replace('-', '', $start);
                 $event[] = 'DTEND;VALUE=DATE:' . (new \DateTimeImmutable(substr($end !== '' ? $end : $start, 0, 10)))->modify('+1 day')->format('Ymd');

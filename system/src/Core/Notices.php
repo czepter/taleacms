@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Official notice board (2.11): a collection made from the notices preset (Builder\Presets, system/presets/notices.php)
@@ -16,12 +16,12 @@ use Kaleta\Builder\Presets;
  *  - {{notice_status}} on the item page says whether the notice is posted, to be posted or taken down (statusText);
  *  - a notice cannot go to the trash (admin and MCP refuse), and cannot be hidden once its posting date has come – hiding
  *    is for a notice still to be posted; the collection cannot be deleted while it has notices;
- *  - ka_notice_log is the append-only audit trail: created and changed (what changed: key => [old, new]) on every save
+ *  - tl_notice_log is the append-only audit trail: created and changed (what changed: key => [old, new]) on every save
  *    – admin, MCP, import – and posted / taken_down written once each by the hourly job 'notices' (Core\Scheduler) when
  *    the day comes. Nothing edits or deletes its rows: no UI, no MCP. The admin item form shows it; the administrator
  *    downloads the whole log as CSV; Claude reads it with list_notice_log.
  *
- * The selection and the status are pure helpers (unit-tested); the preset key is remembered in ka_collections.preset, so a
+ * The selection and the status are pure helpers (unit-tested); the preset key is remembered in tl_collections.preset, so a
  * board is recognised even after the administrator renames the collection – and only while it still has the posting
  * date field (Presets::field).
  */
@@ -158,7 +158,7 @@ final class Notices
     }
 
     /**
-     * Appends one row. The only way anything gets into ka_notice_log – there is no update or delete of it anywhere.
+     * Appends one row. The only way anything gets into tl_notice_log – there is no update or delete of it anywhere.
      *
      * @param array<string, mixed> $fields what changed: key => [old, new]; the job writes [action => date]
      */
@@ -295,7 +295,7 @@ final class Notices
             }
         }
         if ($posted + $takenDown > 0) {
-            \Kaleta\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
+            \Talea\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
         }
 
         return 'posted ' . $posted . ', taken down ' . $takenDown;

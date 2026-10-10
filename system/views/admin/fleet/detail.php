@@ -2,8 +2,8 @@
 /**
  * One site in the fleet console: what needs attention, its last report, its update ring and the console's events about it.
  *
- * @var Kaleta\Admin\Modules\Fleet $module
- * @var array<string, mixed> $site a row of ka_fleet_sites + score, reasons, beat (the decoded report)
+ * @var Talea\Admin\Modules\Fleet $module
+ * @var array<string, mixed> $site a row of tl_fleet_sites + score, reasons, beat (the decoded report)
  * @var list<array<string, mixed>> $events
  * @var string $latest
  */

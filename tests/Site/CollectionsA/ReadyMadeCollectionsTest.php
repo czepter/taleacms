@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsA;
+namespace Talea\Tests\Site\CollectionsA;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** 2.11 ready-made collections and the date-time, file and location fields (was: section 56 of tools/test.sh). */
@@ -22,10 +22,10 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
         $text = $this->mcpText('create_collection', ['name' => 'Our team', 'preset' => 'people']);
         $this->assertStringContainsString('how_to_use', $text);
-        $this->assertSame('people|phone|Our team', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[3].key')), '|', name) FROM ka_collections WHERE slug = 'our-team'"), 'the collection remembers its preset and gets English field keys');
-        $this->assertSame('0|1|1', $this->sq("SELECT CONCAT(visible, '|', build LIKE '%\"collection\":\"our-team\"%', '|', build LIKE '%{{photo}}%') FROM ka_pages WHERE slug = 'our-team'"), 'a hidden page lists the new collection');
+        $this->assertSame('people|phone|Our team', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[3].key')), '|', name) FROM tl_collections WHERE slug = 'our-team'"), 'the collection remembers its preset and gets English field keys');
+        $this->assertSame('0|1|1', $this->sq("SELECT CONCAT(visible, '|', build LIKE '%\"collection\":\"our-team\"%', '|', build LIKE '%{{photo}}%') FROM tl_pages WHERE slug = 'our-team'"), 'a hidden page lists the new collection');
         $this->assertStringContainsString('list_page', $text, 'Claude is told about the hidden list page');
-        $this->assertSame('phone', $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.telephone')) FROM ka_collections WHERE slug = 'our-team'"), 'the team gets Person structured data mapped to its fields');
+        $this->assertSame('phone', $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.telephone')) FROM tl_collections WHERE slug = 'our-team'"), 'the team gets Person structured data mapped to its fields');
 
         $this->assertStringContainsString('list_collection_presets', $this->mcpText('create_collection', ['name' => 'Nonsense', 'preset' => 'nothing-like-it']), 'an unknown preset names the known ones');
         $this->assertPage('/admin.php?module=collections', 200, 'name="preset" value="people"', message: 'the collections list offers the ready-made collections');
@@ -36,11 +36,11 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Field types', 'slug' => 'field-types', 'item_pages' => true, 'fields' => [
             ['label' => 'Start', 'type' => 'datetime'], ['label' => 'Brochure', 'type' => 'file'], ['label' => 'Place', 'type' => 'location'],
         ]]);
-        $this->assertSame('datetime,file,location', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].type'))) ORDER BY n.i) FROM ka_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'field-types'"), "Claude's datetime, file and location types");
+        $this->assertSame('datetime,file,location', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].type'))) ORDER BY n.i) FROM tl_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'field-types'"), "Claude's datetime, file and location types");
 
         $this->mcpText('save_collection_item', ['collection' => 'field-types', 'name' => 'Open day', 'slug' => 'open-day',
             'values' => ['start' => '2026-11-02T17:00', 'brochure' => '/media/brochure-2026.pdf', 'place' => '49.1951;16.6068'], 'visible' => true]);
-        $row = $this->site()->rows("SELECT data->>'\$.start' a, data->>'\$.brochure' b, data->>'\$.place' c FROM ka_collection_items WHERE slug = 'open-day'")[0];
+        $row = $this->site()->rows("SELECT data->>'\$.start' a, data->>'\$.brochure' b, data->>'\$.place' c FROM tl_collection_items WHERE slug = 'open-day'")[0];
         $this->assertSame('2026-11-02 17:00|/media/brochure-2026.pdf|49.1951, 16.6068', implode('|', $row), 'the date and time, the file and the location are stored clean');
 
         $page = $this->visitor()->get('/field-types/open-day');
@@ -48,8 +48,8 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('#href="[^"]*media/brochure-2026.pdf"#', $page->body, '... a button to the file');
         $this->assertStringContainsString('brochure-2026.pdf)', $page->body, '... with its name');
 
-        $idk = $this->sq("SELECT public_id FROM ka_collections WHERE slug = 'field-types'");
-        $idp = $this->sq("SELECT public_id FROM ka_collection_items WHERE slug = 'open-day'");
+        $idk = $this->sq("SELECT public_id FROM tl_collections WHERE slug = 'field-types'");
+        $idp = $this->sq("SELECT public_id FROM tl_collection_items WHERE slug = 'open-day'");
         $form = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$idp", 200, message: 'the item form');
         $this->assertMatchesRegularExpression('/type="datetime-local" id="field-start" name="data\[start\]" value="2026-11-02T17:00"/', $form->body, 'the item form has a date-time input');
         $this->assertStringContainsString('data-file', $form->body, 'the file field opens Media');
@@ -74,9 +74,9 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
     private function inPeriod(string $period, string $endField): string
     {
-        $out = $this->site()->php('[$sql, $p] = Kaleta\Builder\Collections::periodCondition(' . var_export($period, true) . ', "begin", ' . var_export($endField, true) . ', date("Y-m-d H:i")); echo json_encode([$sql, $p]);');
+        $out = $this->site()->php('[$sql, $p] = Talea\Builder\Collections::periodCondition(' . var_export($period, true) . ', "begin", ' . var_export($endField, true) . ', date("Y-m-d H:i")); echo json_encode([$sql, $p]);');
         [$sql, $params] = json_decode($out, true);
 
-        return $this->sq("SELECT GROUP_CONCAT(slug ORDER BY slug) FROM ka_collection_items WHERE collection_id = (SELECT collection_id FROM ka_collections WHERE slug = 'period-test') AND $sql", $params);
+        return $this->sq("SELECT GROUP_CONCAT(slug ORDER BY slug) FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = 'period-test') AND $sql", $params);
     }
 }

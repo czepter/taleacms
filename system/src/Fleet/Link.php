@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Core\App;
-use Kaleta\Core\Events;
-use Kaleta\Core\Settings;
+use Talea\Admin\ChangeLog;
+use Talea\Core\App;
+use Talea\Core\Events;
+use Talea\Core\Settings;
 
 /**
  * The site's side of a fleet console (2.9). An administrator pastes the pairing key from the console in Settings →
@@ -27,7 +27,7 @@ final class Link
     }
 
     /**
-     * The pairing key a console shows: "kaleta-console:" + base64url of {u: console address, c: one-time code, k: console
+     * The pairing key a console shows: "talea-console:" + base64url of {u: console address, c: one-time code, k: console
      * public key, n: console name}. Returns null when it is not one.
      *
      * @return array{url: string, code: string, key: string, name: string}|null
@@ -35,10 +35,10 @@ final class Link
     public static function parseKey(string $pairingKey): ?array
     {
         $pairingKey = preg_replace('/\s+/', '', $pairingKey) ?? '';
-        if (!str_starts_with($pairingKey, 'kaleta-console:')) {
+        if (!str_starts_with($pairingKey, 'talea-console:')) {
             return null;
         }
-        $data = json_decode((string) base64_decode(strtr(substr($pairingKey, 15), '-_', '+/'), true), true);
+        $data = json_decode((string) base64_decode(strtr(substr($pairingKey, strlen('talea-console:')), '-_', '+/'), true), true);
         if (!is_array($data) || !is_string($data['u'] ?? null) || !is_string($data['c'] ?? null) || !is_string($data['k'] ?? null)
             || !preg_match('/^[a-f0-9]{32}$/', $data['c']) || !Keys::isPublicKey($data['k']) || !Http::allowedUrl($data['u'])) {
             return null;
@@ -49,7 +49,7 @@ final class Link
 
     public static function makeKey(string $consoleUrl, string $code, string $consoleKey, string $consoleName): string
     {
-        return 'kaleta-console:' . rtrim(strtr(base64_encode((string) json_encode(['u' => $consoleUrl, 'c' => $code, 'k' => $consoleKey, 'n' => $consoleName], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
+        return 'talea-console:' . rtrim(strtr(base64_encode((string) json_encode(['u' => $consoleUrl, 'c' => $code, 'k' => $consoleKey, 'n' => $consoleName], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
     }
 
     /** Pairs the site with a console; $manageUpdates = the console decides when new versions install here. */
@@ -58,16 +58,16 @@ final class Link
         $s = $app->settings();
         $key = self::parseKey($pairingKey);
         if ($key === null) {
-            throw new \RuntimeException(t('This is not a pairing key of a Kaleta console (it starts with kaleta-console:).'));
+            throw new \RuntimeException(t('This is not a pairing key of a Talea console (it starts with talea-console:).'));
         }
         if (rtrim($s->get('site_url'), '/') === '') {
             throw new \RuntimeException(t('Fill in the site address in Settings → General first.'));
         }
         $answer = Http::post($key['url'] . '/fleet/pair', [
-            'action' => 'pair', 'code' => $key['code'], 'url' => rtrim($s->get('site_url'), '/'), 'name' => $s->get('site_name'), 'version' => KALETA_VERSION,
+            'action' => 'pair', 'code' => $key['code'], 'url' => rtrim($s->get('site_url'), '/'), 'name' => $s->get('site_name'), 'version' => TALEA_VERSION,
             'public_key' => Keys::publicKey($s), 'manage_updates' => $manageUpdates, 'ts' => time(),
         ], fn (string $body): string => Keys::sign($s, $body), 20);
-        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $key['key']) || !\Kaleta\Core\Uuid::valid($answer['json']['site_id'] ?? null)) {
+        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $key['key']) || !\Talea\Core\Uuid::valid($answer['json']['site_id'] ?? null)) {
             $reason = (string) ($answer['json']['error'] ?? ($answer['error'] !== '' ? $answer['error'] : 'HTTP ' . $answer['status']));
             throw new \RuntimeException(t('The console refused the pairing: %s', mb_substr($reason, 0, 200)));
         }

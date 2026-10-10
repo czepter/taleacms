@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
+use Talea\Core\Db;
 
 /**
  * A product catalogue without a checkout (2.11): products with parameters to compare, variants, a datasheet and an
@@ -87,7 +87,7 @@ final class Products
     {
         $rows = self::parameters($text);
 
-        return $rows === [] ? '' : '<table class="ka-parameters"><tbody>' . implode('', array_map(fn (array $r): string => '<tr><th scope="row">' . e($r[0]) . '</th><td>' . e($r[1]) . '</td></tr>', $rows)) . '</tbody></table>';
+        return $rows === [] ? '' : '<table class="tl-parameters"><tbody>' . implode('', array_map(fn (array $r): string => '<tr><th scope="row">' . e($r[0]) . '</th><td>' . e($r[1]) . '</td></tr>', $rows)) . '</tbody></table>';
     }
 
     public static function variantsTable(string $text): string
@@ -99,7 +99,7 @@ final class Products
         $code = array_filter(array_column($rows, 'code')) !== [];
         $price = array_filter(array_column($rows, 'price')) !== [];
 
-        return '<table class="ka-variants"><thead><tr><th scope="col">' . e(t('Variant')) . '</th>' . ($code ? '<th scope="col">' . e(t('Code')) . '</th>' : '') . ($price ? '<th scope="col">' . e(t('Price')) . '</th>' : '')
+        return '<table class="tl-variants"><thead><tr><th scope="col">' . e(t('Variant')) . '</th>' . ($code ? '<th scope="col">' . e(t('Code')) . '</th>' : '') . ($price ? '<th scope="col">' . e(t('Price')) . '</th>' : '')
             . '</tr></thead><tbody>' . implode('', array_map(fn (array $r): string => '<tr><td>' . e($r['name']) . '</td>' . ($code ? '<td>' . e($r['code']) . '</td>' : '') . ($price ? '<td>' . e($r['price']) . '</td>' : '') . '</tr>', $rows))
             . '</tbody></table>';
     }

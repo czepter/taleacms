@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\HubSpot;
-use Kaleta\Connectors\Pipedrive;
-use Kaleta\Connectors\Raynet;
+use Talea\Connectors\HubSpot;
+use Talea\Connectors\Pipedrive;
+use Talea\Connectors\Raynet;
 
 /**
  * An enquiry as a lead in the CRM (2.13, the queue action crm.lead of EnquiryDelivery): the contact is found by e-mail

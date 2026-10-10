@@ -1,14 +1,14 @@
-/* Kaleta - admin odds and ends. No libraries, no build step. */
+/* Talea - admin odds and ends. No libraries, no build step. */
 
 (function () {
 	'use strict';
 
-	// translation of admin script texts: the window.KALETA_TRANSLATIONS dictionary comes from image/languages/admin-<code>.js (Czech too); English is the source and has none
-	window.T = function (s) { return (window.KALETA_TRANSLATIONS || {})[s] || s; };
+	// translation of admin script texts: the window.TALEA_TRANSLATIONS dictionary comes from image/languages/admin-<code>.js (Czech too); English is the source and has none
+	window.T = function (s) { return (window.TALEA_TRANSLATIONS || {})[s] || s; };
 	var T = window.T;
 
 	// date and time like date() in PHP, in the site's time zone (<html data-timezone>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31
-	window.kaletaTime = function (time, timeOnly) {
+	window.taleaTime = function (time, timeOnly) {
 		var c = {};
 		var format = function (timeZone) {
 			new Intl.DateTimeFormat('en-GB', { timeZone: timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -83,7 +83,7 @@
 			var root = document.documentElement;
 			var dark = root.getAttribute('data-theme') ? root.getAttribute('data-theme') === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
 			root.setAttribute('data-theme', dark ? 'light' : 'dark');
-			try { localStorage.setItem('kaleta-theme', dark ? 'light' : 'dark'); } catch (e) { /* nothing */ }
+			try { localStorage.setItem('talea-theme', dark ? 'light' : 'dark'); } catch (e) { /* nothing */ }
 		});
 	}
 
@@ -130,7 +130,7 @@
 		var buttons = Array.prototype.slice.call(wrapper.querySelectorAll('[role="tab"]'));
 		var panels = buttons.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
 		var shouldSave = wrapper.querySelector('.appearance-save');
-		var key = 'ka-tab' + location.search;
+		var key = 'tl-tab' + location.search;
 		var show = function (i, focusTarget) {
 			buttons.forEach(function (t, j) {
 				t.setAttribute('aria-selected', i === j ? 'true' : 'false');
@@ -167,8 +167,8 @@
 		var insertCss = function () {
 			var doc = preview.contentDocument;
 			if (!doc || !doc.head || lastCss === '') { return; }
-			var style = doc.getElementById('ka-appearance-preview');
-			if (!style) { style = doc.createElement('style'); style.id = 'ka-appearance-preview'; doc.head.appendChild(style); }
+			var style = doc.getElementById('tl-appearance-preview');
+			if (!style) { style = doc.createElement('style'); style.id = 'tl-appearance-preview'; doc.head.appendChild(style); }
 			style.textContent = lastCss;
 		};
 		var recalculate = function () {
@@ -539,7 +539,7 @@
 	// a success message confirmed the save: unsaved copies of submitted forms (image/editor.js) are no longer needed
 	if (document.querySelector('.notice-ok')) {
 		try {
-			Object.keys(localStorage).filter(function (k) { return k.indexOf('kaleta-draft:') === 0; }).forEach(function (k) {
+			Object.keys(localStorage).filter(function (k) { return k.indexOf('talea-draft:') === 0; }).forEach(function (k) {
 				var d = JSON.parse(localStorage.getItem(k) || 'null');
 				if (d && d.submitted && Date.now() - d.submitted < 15 * 60 * 1000) { localStorage.removeItem(k); }
 			});

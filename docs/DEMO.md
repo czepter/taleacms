@@ -1,18 +1,18 @@
 # Public demo
 
-A Kaleta site where anyone signs in with a shared account and tries the admin and the builder. Everything goes back to
-a saved state every hour. kaletacms.com runs one at **demo.kaletacms.com** (2.6).
+A Talea site where anyone signs in with a shared account and tries the admin and the builder. Everything goes back to
+a saved state every hour. The project can run one on a subdomain of its own site (2.6; TODO: the domain is not registered yet, see NAME-CHECK.md).
 
 ## Setting it up
 
-1. Create the subdomain (for example `demo.kaletacms.com`) and an empty database on the hosting.
-2. Upload the Kaleta release package to the subdomain, open `https://demo.kaletacms.com/install.php` and install it with
-   the sign-in name `demo` and the password visitors will use (for example `demo-kaleta`).
+1. Create the subdomain (for example `demo.example.com`) and an empty database on the hosting.
+2. Upload the Talea release package to the subdomain, open `https://demo.example.com/install.php` and install it with
+   the sign-in name `demo` and the password visitors will use (for example `demo-talea`).
 
 3. Switch the demo mode on in `config.php`, with the same sign-in:
 
    ```php
-   'demo' => ['user' => 'demo', 'password' => 'demo-kaleta'],
+   'demo' => ['user' => 'demo', 'password' => 'demo-talea'],
    ```
 
 4. Prepare the content visitors should start from (a starter site, a few pages, images) and switch on the features they
@@ -34,7 +34,7 @@ To change the starting state later, edit the site and run `snapshot` again.
 ## What the demo mode does
 
 - The sign-in screen shows and fills in the shared account; the admin shows when the next reset comes.
-- Public pages carry `noindex` and a small "Kaleta demo" badge; `robots.txt` disallows everything.
+- Public pages carry `noindex` and a small "Talea demo" badge; `robots.txt` disallows everything.
 - Refused, so the demo cannot be abused or taken over:
   - sending e-mail, webhooks, downloads from other sites, updates, off-site backups, IndexNow;
   - the Claude connection (MCP and OAuth);

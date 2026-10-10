@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\Backup;
-use Kaleta\Core\Events;
-use Kaleta\Core\Health;
-use Kaleta\Core\Language;
-use Kaleta\Core\Scheduler;
+use Talea\Core\Backup;
+use Talea\Core\Events;
+use Talea\Core\Health;
+use Talea\Core\Language;
+use Talea\Core\Scheduler;
 
 /**
  * MCP tools for a site that runs itself (2.8): its health and what happened on it. Part of Mcp\Tools.
@@ -30,7 +30,7 @@ trait HealthTools
 
         return [
             'status' => ['ok' => 'ok', 'warning' => 'warning', 'error' => 'error'][Health::summary($checks)],
-            'kaleta_version' => KALETA_VERSION,
+            'talea_version' => TALEA_VERSION,
             'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['group'], 'check' => $c['name'], 'status' => $c['status'] === 'error' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
                 array_filter($checks, fn (array $c): bool => $c['status'] !== 'ok'))),
             'jobs' => array_map(fn (array $j): array => ['job' => $j['name'], 'last_run' => $j['last_run'], 'failures_in_a_row' => $j['failures'], 'last_error' => $j['last_error'] !== '' ? $j['last_error'] : null], Scheduler::overview($db, $this->app->settings())),

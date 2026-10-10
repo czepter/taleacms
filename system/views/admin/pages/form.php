@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Modules\Pages $module
+ * @var Talea\Admin\Modules\Pages $module
  * @var string $csrf
  * @var array<string, mixed> $page
  * @var array<string, string> $errors
@@ -39,7 +39,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<label for="template"><?= e(t('Start from a template')) ?></label>
 	<div><select id="template" name="template">
 		<option value=""><?= e(t('blank page (text)')) ?></option>
-<?php foreach (Kaleta\Builder\Library::PAGE_TEMPLATES as $key => [$name]): ?>
+<?php foreach (Talea\Builder\Library::PAGE_TEMPLATES as $key => [$name]): ?>
 		<option value="<?= e($key) ?>"><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select><span class="help"><?= e(t('A template builds the page from ready-made sections with sample texts and opens it in the builder.')) ?></span></div>
@@ -94,7 +94,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 </div>
 <div class="row">
 	<label for="page_password"><?= e(t('Page password')) ?></label>
-	<div><input class="textfield" type="password" id="page_password" name="page_password" autocomplete="new-password" minlength="<?= Kaleta\Core\PageLock::MIN_LENGTH ?>" placeholder="<?= e(!empty($page['password_hash']) ? t('protected – type a new password to change it') : t('none – the page is public')) ?>">
+	<div><input class="textfield" type="password" id="page_password" name="page_password" autocomplete="new-password" minlength="<?= Talea\Core\PageLock::MIN_LENGTH ?>" placeholder="<?= e(!empty($page['password_hash']) ? t('protected – type a new password to change it') : t('none – the page is public')) ?>">
 	<?php if (!empty($page['password_hash'])): ?><label><input type="checkbox" name="remove_password" value="1"> <?= e(t('Remove the password')) ?></label><?php endif ?>
 	<?= $error('page_password') ?>
 	<span class="help"><?= e(t('Visitors see the page only after entering the password – e.g. a price list for partners. It is not an account: whoever knows the password reads the page. A protected page is never in search engines, the sitemap or the site search.')) ?></span></div>

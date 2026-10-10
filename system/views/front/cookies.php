@@ -1,6 +1,6 @@
 <?php
 /**
- * Built-in cookie bar. Consent is stored in the cookie "kaleta_consent" for 6 months. A browser sending Global Privacy
+ * Built-in cookie bar. Consent is stored in the cookie "talea_consent" for 6 months. A browser sending Global Privacy
  * Control counts as "only necessary" without asking (2.3).
  * Scripts waiting for consent have type="text/plain" data-consent="analytics", marketing codes are in <template data-consent="marketing">.
  * The appearance is deliberately neutral and independent of the layout; the layout can override it with the .cookies-* classes.
@@ -49,7 +49,7 @@
 (function () {
 	var bar = document.getElementById('cookies-bar'), reopen = document.getElementById('cookies-reopen');
 	var options = bar.querySelector('.cookies-options');
-	function readConsent() { var m = document.cookie.match(/(?:^|; )kaleta_consent=([^;]*)/); return m ? decodeURIComponent(m[1]).split(',') : null; }
+	function readConsent() { var m = document.cookie.match(/(?:^|; )talea_consent=([^;]*)/); return m ? decodeURIComponent(m[1]).split(',') : null; }
 	function allow(category) {
 		// Google consent mode first, so tags that start now already see the granted consent
 		if (window.gtag) {
@@ -68,12 +68,12 @@
 			t.replaceWith.apply(t, Array.prototype.slice.call(box.childNodes));
 		});
 		if (category === 'marketing') { origin(true); }
-		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'kaleta_consent', consent: category === 'analytics' ? 'analytics' : 'marketing' }); }
+		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'talea_consent', consent: category === 'analytics' ? 'analytics' : 'marketing' }); }
 	}
 	// where a lead came from (2.3): with consent to marketing, the first page of this visit, its campaign and the site that
 	// sent the visitor are remembered for this tab only (sessionStorage) and go with forms and newsletter sign-ups
 	function origin(allowed) {
-		var key = 'ka-origin', data = null;
+		var key = 'tl-origin', data = null;
 		try {
 			if (!allowed) { sessionStorage.removeItem(key); return; }
 			data = JSON.parse(sessionStorage.getItem(key) || 'null');
@@ -87,16 +87,16 @@
 			}
 		} catch (e) { return; }
 		var fill = function (name, value) { document.querySelectorAll('input[name="' + name + '"]').forEach(function (i) { i.value = value || ''; }); };
-		fill('ka_landing', data.landing); fill('ka_campaign', data.campaign); fill('ka_referrer', data.referrer);
+		fill('tl_landing', data.landing); fill('tl_campaign', data.campaign); fill('tl_referrer', data.referrer);
 	}
 	function save(category) {
 		var had = readConsent() || [];
-		document.cookie = 'kaleta_consent=' + encodeURIComponent(category.join(',') || 'none') + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+		document.cookie = 'talea_consent=' + encodeURIComponent(category.join(',') || 'none') + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
 		bar.hidden = true; reopen.hidden = false;
 		var evidence = <?= json_encode($evidence) ?>;
 		if (evidence) {
-			var id = (document.cookie.match(/(?:^|; )kaleta_consent_id=([a-f0-9]{32})/) || [])[1];
-			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'kaleta_consent_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax'; }
+			var id = (document.cookie.match(/(?:^|; )talea_consent_id=([a-f0-9]{32})/) || [])[1];
+			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'talea_consent_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax'; }
 			var data = new FormData(); data.append('id', id); data.append('category', category.join(',') || 'none');
 			if (navigator.sendBeacon) { navigator.sendBeacon(evidence, data); } else { fetch(evidence, { method: 'POST', body: data }); }
 		}

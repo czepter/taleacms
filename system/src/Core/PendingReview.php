@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * "Waiting for you" (3.2): everything on the site that waits for a person – drafts and proposals from Claude and from
@@ -99,7 +99,7 @@ final class PendingReview
                     return null; // an author's drafts wait for an editor, not for the author
                 }
                 $where = 'FROM {news} c WHERE c.visible = 0 AND c.deleted_at IS NULL' . $auth->articleScope('c.')
-                    . ' AND (COALESCE(c.edited_at, c.published_at) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
+                    . ' AND (COALESCE(c.edited_at, c.published_at) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY OR ' . \Talea\Admin\Modules\News::AWAITING_PUBLICATION . ')';
 
                 return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=news&status=drafts', $titles($db->all('SELECT c.title ' . $where . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC' . $limit), 'title')];
             case 'hidden_items':
@@ -117,7 +117,7 @@ final class PendingReview
             case 'part_drafts':
                 $rows = $db->all('SELECT type, language, variant, name FROM {site_parts} WHERE build_draft IS NOT NULL ORDER BY updated_at DESC');
 
-                return [count($rows), 'admin.php?module=parts', array_map(fn (array $r): string => t(\Kaleta\Builder\SiteParts::TYPES[$r['type']][0] ?? (string) $r['type'])
+                return [count($rows), 'admin.php?module=parts', array_map(fn (array $r): string => t(\Talea\Builder\SiteParts::TYPES[$r['type']][0] ?? (string) $r['type'])
                     . ($r['variant'] !== '' ? ' – ' . ($r['name'] !== '' ? $r['name'] : $r['variant']) : '') . ($r['language'] !== '' ? ' (' . strtoupper((string) $r['language']) . ')' : ''), $rows)];
             case 'look_draft':
                 $summary = Look::hasDraft($app->settings()) ? Look::summary($db, $app->settings()) : [];

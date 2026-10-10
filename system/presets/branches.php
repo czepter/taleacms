@@ -25,7 +25,7 @@ return [
         . 'Create the branches before the team – a team created afterwards gets a field linking a person to a branch.',
     'card' => ['address', 'phone'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $labels = array_column($fields, 'label', 'key');
         $has = fn (string $key): bool => isset($labels[$key]);
         $line = fn (string $key, string $inner): string => $has($key) ? '<p><strong>' . e($labels[$key]) . ':</strong> ' . $inner . '</p>' : '';

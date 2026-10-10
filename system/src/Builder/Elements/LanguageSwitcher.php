@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Switcher of the site's language versions as a separate element – e.g. in the footer, when the Navigation element does not have it
@@ -38,6 +38,6 @@ final class LanguageSwitcher extends Element
                 . e(t('Language switcher – it shows when the site has more language versions')) . '</span>' : '';
         }
 
-        return $k->app->view->render('front/language-switcher', ['languages' => $k->languageList, 'style' => $p['content']['style'] ?? 'dropdown', 'direction' => $p['content']['direction'] ?? 'up', 'attributes' => Text::withClass($a, 'ka-languages-element')]);
+        return $k->app->view->render('front/language-switcher', ['languages' => $k->languageList, 'style' => $p['content']['style'] ?? 'dropdown', 'direction' => $p['content']['direction'] ?? 'up', 'attributes' => Text::withClass($a, 'tl-languages-element')]);
     }
 }

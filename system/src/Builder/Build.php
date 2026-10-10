@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\WpContent;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\WpContent;
 
 /**
  * Page build: a tree of elements {"v": 1, "children": [{"id", "type", "tag", "content", "style", "classes", "anchor", "children"}]}.
@@ -27,10 +27,10 @@ final class Build
      * data-leaflet, data-attribution or data-basket makes a script load a file or build a link from the value (3.3.2, N25). The list is
      * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|file|form|frequency|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!tl-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|file|form|frequency|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
-    private const string CONTENT_MARK = "\u{E000}ka-page-content\u{E000}";
+    private const string CONTENT_MARK = "\u{E000}tl-page-content\u{E000}";
 
     /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
     public const array RESERVED_ANCHORS = ['main', 'navigation', 'cookies-bar', 'cookies-heading', 'cookies-reopen'];
@@ -224,7 +224,7 @@ final class Build
         if (is_array($input['languages'] ?? null)) {
             $languages = [];
             foreach ($input['languages'] as $code) {
-                if (is_string($code) && ($code === '' || isset(\Kaleta\Core\Language::AVAILABLE[$code]))) {
+                if (is_string($code) && ($code === '' || isset(\Talea\Core\Language::AVAILABLE[$code]))) {
                     $languages[$code] = true;
                 } else {
                     $errors[$place] = 'The language of the display condition must be a language version code of the site ("" = the default language).';
@@ -361,7 +361,7 @@ final class Build
         }
         self::codeNode($body);
 
-        return \Kaleta\Core\Html::inner($body); // attribute values without a raw < or >
+        return \Talea\Core\Html::inner($body); // attribute values without a raw < or >
     }
 
     private static function codeNode(\Dom\Node $node): void
@@ -438,7 +438,7 @@ final class Build
 
     /**
      * Renders a build: HTML and CSS of only what the page uses (type bases, used classes, element styles) in cascade layers.
-     * In editor mode every element gets data-ka-id so that it can be selected on the canvas.
+     * In editor mode every element gets data-tl-id so that it can be selected on the canvas.
      *
      * @return array{html:string, css:string, faq:list<array{0:string, 1:string}>}
      */
@@ -466,7 +466,7 @@ final class Build
             $k->content = $content;
         }
         // business facts (2.10) and add-on tokens (3.0) filled for visitors
-        $html = \Kaleta\Extension\Registry::fillTokens(\Kaleta\Core\Facts::fill($html, $k->app));
+        $html = \Talea\Extension\Registry::fillTokens(\Talea\Core\Facts::fill($html, $k->app));
 
         return $content === '' ? $html : str_replace(self::CONTENT_MARK, $content, $html);
     }
@@ -480,7 +480,7 @@ final class Build
             } catch (\Throwable $e) {
                 // "doctor": a broken element is left out on the site, the editor shows a message
                 error_log('Builder: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
-                $html .= $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('This element could not be displayed.')) . '</div>' : '';
+                $html .= $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('This element could not be displayed.')) . '</div>' : '';
             }
         }
 
@@ -531,9 +531,9 @@ final class Build
                 return '';
             }
         }
-        if ($className::EXTENSION !== '' && !\Kaleta\Core\Extensions::isEnabled($k->app->settings(), $className::EXTENSION)) {
+        if ($className::EXTENSION !== '' && !\Talea\Core\Extensions::isEnabled($k->app->settings(), $className::EXTENSION)) {
             // an element of a disabled extension (news, form): nothing on the site, a notice in the editor – the build stays, it comes back once enabled
-            return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-type="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
+            return $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" data-tl-type="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
                 . e(t('%s – the feature is switched off and will not appear on the website.', t($className::NAME))) . '</div>' : '';
         }
         // a build saved by an older version may lack properties the element got later – they are filled with the default value
@@ -567,8 +567,8 @@ final class Build
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
             . $custom
-            . ($k->editor || $k->markIds ? ' data-ka-id="' . e((string) $p['id']) . '"' : '')
-            . ($k->editor ? ' data-ka-type="' . e($className::TYPE) . '"' . (!empty($p['locked']) ? ' data-ka-lock' : '') : '');
+            . ($k->editor || $k->markIds ? ' data-tl-id="' . e((string) $p['id']) . '"' : '')
+            . ($k->editor ? ' data-tl-type="' . e($className::TYPE) . '"' . (!empty($p['locked']) ? ' data-tl-lock' : '') : '');
 
         $html = $className::render($p, $a, $children, $k);
 
@@ -626,12 +626,12 @@ final class Build
         return $content;
     }
 
-    /** Page CSS: the base of the used types, the used classes (from ka_classes) and the style of individual elements – each in its own layer. */
+    /** Page CSS: the base of the used types, the used classes (from tl_classes) and the style of individual elements – each in its own layer. */
     public static function css(Db $db, Context $k): string
     {
         // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
         $base = ':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
-            . ':where(.build) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
+            . ':where(.build) :where(.tl-text) > * + * { margin-block-start: 1em; }' . "\n";
         foreach (self::ELEMENTS as $className) {
             if (isset($k->types[$className::TYPE]) && $className::baseCss() !== '') {
                 $base .= $className::baseCss() . "\n";
@@ -640,7 +640,7 @@ final class Build
         $classes = '';
         if ($k->classes !== []) {
             $names = array_keys($k->classes);
-            foreach (\Kaleta\Core\Look::classesForCss($db, $names) as $r) { // the draft classes in a preview of the draft look
+            foreach (\Talea\Core\Look::classesForCss($db, $names) as $r) { // the draft classes in a preview of the draft look
                 $classes .= Style::css('.' . $r['name'], json_decode((string) $r['style'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
             }
         }
@@ -652,7 +652,7 @@ final class Build
             }
             $base .= '@media (prefers-reduced-motion: reduce) { :where(.build) * { animation: none !important; } }' . "\n";
         }
-        if (str_contains($k->css, 'animation: ka-header-')) {
+        if (str_contains($k->css, 'animation: tl-header-')) {
             $base .= Elements\Section::scrollCss() . "\n"; // the header that is transparent at the top or shrinks after scrolling – only when a header uses it
         }
         $css = DesignSystem::LAYERS . "\n";
@@ -741,7 +741,7 @@ final class Build
     public static function schema(bool $admin = true, string $language = 'en', bool $parts = false, ?array $extensions = null): array
     {
         // the default content of new elements is in the page language, the editor translates field labels into the admin language
-        return \Kaleta\Core\Language::runWith($language, fn (): array => self::buildSchema($admin, $parts, $extensions));
+        return \Talea\Core\Language::runWith($language, fn (): array => self::buildSchema($admin, $parts, $extensions));
     }
 
     /**
@@ -755,7 +755,7 @@ final class Build
      */
     public static function overview(array $schema, array $only = [], bool $full = false): array
     {
-        $admin = fn (string $text): string => \Kaleta\Core\Language::runWith('en', fn (): string => t($text), 'admin-');
+        $admin = fn (string $text): string => \Talea\Core\Language::runWith('en', fn (): string => t($text), 'admin-');
         $definitions = [];
         $lines = [];
         foreach ($schema['elements'] as $p) {

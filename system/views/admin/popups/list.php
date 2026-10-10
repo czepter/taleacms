@@ -2,12 +2,12 @@
 /**
  * The site's popups with counters.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Popups $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Popups $module
  * @var string $csrf
  * @var list<array<string, mixed>> $popups
  */
-use Kaleta\Builder\Popups;
+use Talea\Builder\Popups;
 
 ?>
 <p class="navigation-row"><a class="btn" href="<?= e($module->url('new')) ?>"><?= e(t('New pop-up')) ?></a></p>

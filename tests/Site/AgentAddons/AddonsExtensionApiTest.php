@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AgentAddons;
+namespace Talea\Tests\Site\AgentAddons;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -33,15 +33,15 @@ final class AddonsExtensionApiTest extends SiteTestCase
 
     public function testAddonsListsWhatIsInTheFolderAndSaysWhyAnOldOneCannotRun(): void
     {
-        self::$category = $this->sq("SELECT name FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1");
+        self::$category = $this->sq("SELECT name FROM tl_categories WHERE language = '' ORDER BY category_id LIMIT 1");
 
         $hello = $this->site()->path('extensions/hello');
         mkdir($hello, 0775, true);
         $source = dirname(__DIR__, 3) . '/docs/examples/extensions/hello';
         copy($source . '/Extension.php', $hello . '/Extension.php');
-        // the example asks for Kaleta 3.0; before the version is bumped for a release the tree may still say 2.x
+        // the example asks for Talea 3.0; before the version is bumped for a release the tree may still say 2.x
         file_put_contents($hello . '/extension.json', str_replace('">=3.0"', '">=2.0"', (string) file_get_contents($source . '/extension.json')));
-        $this->extension('broken', '{"name":"Broken","class":"Broken\\\\Ext","requires":{"api":1}}', '<?php namespace Broken; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void { throw new \RuntimeException("deliberately broken"); } }' . "\n");
+        $this->extension('broken', '{"name":"Broken","class":"Broken\\\\Ext","requires":{"api":1}}', '<?php namespace Broken; final class Ext implements \Talea\Extension\ExtensionInterface { public function register(\Talea\Extension\Api $api): void { throw new \RuntimeException("deliberately broken"); } }' . "\n");
         $this->extension('old', '{"name":"Old","class":"Old\\\\Ext","requires":{"api":0}}', '<?php' . "\n");
 
         $this->assertPage('/admin.php?module=addons', 200, 'written for extension API 0', message: 'add-ons: Add-ons lists what is in extensions/ and says why an old one cannot run');
@@ -66,7 +66,7 @@ final class AddonsExtensionApiTest extends SiteTestCase
     public function testSwitchingOnNeedsTheTrustTickAndABrokenAddonIsSwitchedOff(): void
     {
         $this->toggle('hello', 1, trust: false);
-        $this->assertSame('', $this->sq("SELECT value FROM ka_settings WHERE name = 'addons_enabled'"), 'add-ons: switching on needs the trust tick');
+        $this->assertSame('', $this->sq("SELECT value FROM tl_settings WHERE name = 'addons_enabled'"), 'add-ons: switching on needs the trust tick');
 
         $this->toggle('hello', 1);
         $this->toggle('broken', 1);
@@ -83,7 +83,7 @@ final class AddonsExtensionApiTest extends SiteTestCase
         $this->assertStringNotContainsString('hello-greeting', $without->body, 'add-ons: a token in the search query is not run');
         $this->assertStringContainsString('ext.hello.greeting name=&quot;Mallory&quot;', $withAttributes->body, 'add-ons: the search query is shown escaped');
 
-        $this->assertSame('hello|1', $this->sq("SELECT value FROM ka_settings WHERE name = 'addons_enabled'") . '|' . $this->sq("SELECT value LIKE '%deliberately broken%' FROM ka_settings WHERE name = 'addons_error.broken'"), 'add-ons: a broken add-on is switched off at once and its error kept');
+        $this->assertSame('hello|1', $this->sq("SELECT value FROM tl_settings WHERE name = 'addons_enabled'") . '|' . $this->sq("SELECT value LIKE '%deliberately broken%' FROM tl_settings WHERE name = 'addons_error.broken'"), 'add-ons: a broken add-on is switched off at once and its error kept');
         $this->assertPage('/admin.php?module=addons', 200, 'deliberately broken', message: 'add-ons: the error shows in Add-ons');
     }
 
@@ -98,15 +98,15 @@ final class AddonsExtensionApiTest extends SiteTestCase
     {
         // 3.3.2 (N39): a write tool needs an editor by default, a tool may require a section; a read tool stays open to every user
         $this->extension('gate', '{"name":"Gate","class":"Gate\\\\Ext","requires":{"api":1}}', <<<'PHP'
-<?php namespace Gate; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void {
+<?php namespace Gate; final class Ext implements \Talea\Extension\ExtensionInterface { public function register(\Talea\Extension\Api $api): void {
     $api->mcpTool('write', 'A write tool without a role.', [], 'write', fn (array $a): array => ['written' => true]);
     $api->mcpTool('leads', 'A read tool for the Enquiries section.', [], 'read', fn (array $a): array => ['leads' => 1], 'enquiries');
     $api->mcpTool('look', 'A read tool without a role.', [], 'read', fn (array $a): array => ['looked' => true]);
 } }
 PHP . "\n");
-        $this->site()->exec("UPDATE ka_settings SET value = 'hello,gate' WHERE name = 'addons_enabled'");
-        $this->site()->exec("INSERT INTO ka_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n39-author', '', 'Author N39', 0, NOW(), NOW())");
-        $this->site()->exec("DELETE FROM ka_user_permissions WHERE user_id = (SELECT user_id FROM ka_users WHERE username = 'n39-author') AND module = 'enquiries'");
+        $this->site()->exec("UPDATE tl_settings SET value = 'hello,gate' WHERE name = 'addons_enabled'");
+        $this->site()->exec("INSERT INTO tl_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n39-author', '', 'Author N39', 0, NOW(), NOW())");
+        $this->site()->exec("DELETE FROM tl_user_permissions WHERE user_id = (SELECT user_id FROM tl_users WHERE username = 'n39-author') AND module = 'enquiries'");
         $author = $this->tokenOf('n39-author', 'author', 'e');
 
         $this->assertSame(
@@ -115,8 +115,8 @@ PHP . "\n");
             '3.3.2 add-ons: an author\'s connection cannot call a write tool or a tool of a section it lacks, may call a read tool; the admin may call all',
         );
 
-        $this->site()->exec("UPDATE ka_settings SET value = 'hello' WHERE name = 'addons_enabled'");
-        $this->site()->exec("DELETE FROM ka_users WHERE username = 'n39-author'");
+        $this->site()->exec("UPDATE tl_settings SET value = 'hello' WHERE name = 'addons_enabled'");
+        $this->site()->exec("DELETE FROM tl_users WHERE username = 'n39-author'");
         $this->deleteDirectory($this->site()->path('extensions/gate'));
     }
 
@@ -124,8 +124,8 @@ PHP . "\n");
     {
         // 3.3.2 (N12)
         $draft = $this->site()->rowId((string) $this->pick($this->mcpData('create_news', ['title' => 'N12 draft only for News', 'category' => self::$category]), 'id'));
-        $this->site()->exec("INSERT INTO ka_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW())");
-        $this->site()->exec("INSERT INTO ka_user_permissions (user_id, module) SELECT user_id, 'pages' FROM ka_users WHERE username = 'n12-editor'");
+        $this->site()->exec("INSERT INTO tl_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW())");
+        $this->site()->exec("INSERT INTO tl_user_permissions (user_id, module) SELECT user_id, 'pages' FROM tl_users WHERE username = 'n12-editor'");
         $editor = $this->tokenOf('n12-editor', 'editor', 'd');
 
         $this->assertGreaterThan(0, $draft, 'the draft news was created');
@@ -140,18 +140,18 @@ PHP . "\n");
     public function testAnAuthorLevelRoleWithCategoriesNeitherRenamesNorDeletesACategory(): void
     {
         // 3.3.2 (N11)
-        $this->site()->exec('UPDATE ka_users SET admin = 0, password = ? WHERE username = ?', [password_hash($this->site()->password, PASSWORD_DEFAULT), 'n12-editor']);
-        $this->site()->exec("INSERT INTO ka_user_permissions (user_id, module) SELECT user_id, 'categories' FROM ka_users WHERE username = 'n12-editor'");
+        $this->site()->exec('UPDATE tl_users SET admin = 0, password = ? WHERE username = ?', [password_hash($this->site()->password, PASSWORD_DEFAULT), 'n12-editor']);
+        $this->site()->exec("INSERT INTO tl_user_permissions (user_id, module) SELECT user_id, 'categories' FROM tl_users WHERE username = 'n12-editor'");
         $client = $this->site()->client('n11');
         $this->site()->signIn($client, 'n12-editor');
-        $id = (int) $this->sq('SELECT category_id FROM ka_categories WHERE slug = ? OR name = ? LIMIT 1', [self::$category, self::$category]);
-        $name = $this->sq('SELECT name FROM ka_categories WHERE category_id = ?', [$id]);
+        $id = (int) $this->sq('SELECT category_id FROM tl_categories WHERE slug = ? OR name = ? LIMIT 1', [self::$category, self::$category]);
+        $name = $this->sq('SELECT name FROM tl_categories WHERE category_id = ?', [$id]);
 
         $client->post('/admin.php?module=categories&action=save', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'category_id' => $id, 'name' => 'Renamed-by-author', 'slug' => 'renamed-by-author']);
         $client->post('/admin.php?module=categories&action=delete', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'category_id' => $id]);
 
-        $this->assertSame($name, $this->sq('SELECT name FROM ka_categories WHERE category_id = ?', [$id]), '3.3.2 admin: an author-level role with the Categories section neither renames nor deletes a category');
-        $this->site()->exec("DELETE FROM ka_users WHERE username = 'n12-editor'");
+        $this->assertSame($name, $this->sq('SELECT name FROM tl_categories WHERE category_id = ?', [$id]), '3.3.2 admin: an author-level role with the Categories section neither renames nor deletes a category');
+        $this->site()->exec("DELETE FROM tl_users WHERE username = 'n12-editor'");
     }
 
     public function testTheAddonsAdminPageJobAndSwitchingOff(): void
@@ -159,11 +159,11 @@ PHP . "\n");
         $this->assertPage('/admin.php?module=addons&action=page&p=hello.settings', 200, 'Greeting word', message: 'add-ons: the add-on\'s admin page');
         $this->adminPost('/admin.php?module=addons&action=page&p=hello.settings', ['word' => 'Ahoj'], '/admin.php?module=addons&action=page&p=hello.settings');
         $this->site()->clearPageCache();
-        $this->assertSame('Ahoj|1', $this->sq("SELECT value FROM ka_settings WHERE name = 'ext.hello.word'") . '|' . $this->lines('Ahoj, Jana!', $this->site()->client('visitor')->get('/addon-page')->body), 'add-ons: the admin page saved the add-on\'s own setting, the page uses it');
+        $this->assertSame('Ahoj|1', $this->sq("SELECT value FROM tl_settings WHERE name = 'ext.hello.word'") . '|' . $this->lines('Ahoj, Jana!', $this->site()->client('visitor')->get('/addon-page')->body), 'add-ons: the admin page saved the add-on\'s own setting, the page uses it');
 
         // a daily job: a page view's background run may have done it just before this call, then only the job table shows it
         $output = $this->site()->runTasks();
-        $this->assertTrue(str_contains($output, 'ext_hello_daily') || $this->sq("SELECT COUNT(*) FROM ka_jobs WHERE name = 'ext_hello_daily' AND last_ok IS NOT NULL") === '1', 'add-ons: the add-on\'s job runs with the others');
+        $this->assertTrue(str_contains($output, 'ext_hello_daily') || $this->sq("SELECT COUNT(*) FROM tl_jobs WHERE name = 'ext_hello_daily' AND last_ok IS NOT NULL") === '1', 'add-ons: the add-on\'s job runs with the others');
 
         $this->toggle('hello', 0, trust: false);
         $this->site()->clearPageCache();

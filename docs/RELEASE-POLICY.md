@@ -1,10 +1,10 @@
 # Release and support policy
 
-This is what you can rely on when you build sites on Kaleta – for yourself or for clients. It applies from Kaleta 2.1.
+This is what you can rely on when you build sites on Talea – for yourself or for clients. It applies from Talea 2.1.
 
 ## Versions and pace
 
-Kaleta versions are `MAJOR.MINOR.PATCH`.
+Talea versions are `MAJOR.MINOR.PATCH`.
 
 | Release | What it brings | How often |
 | --- | --- | --- |
@@ -13,8 +13,7 @@ Kaleta versions are `MAJOR.MINOR.PATCH`.
 | **Security** (a patch marked as security) | A fix for a vulnerability. Installs itself unless the administrator turned that off. | When needed, as fast as possible |
 | **Major** (3.0…) | Removes what was deprecated earlier (see below). No surprise removals. | At most once a year |
 
-Every release is announced in the [GitHub releases](https://github.com/phprs-cms/kaletacms/releases) and in the
-[changelog on kaletacms.com](https://kaletacms.com/changelog), in English, Czech and German.
+Every release is announced in the GitHub releases of the project (TODO: and a changelog on the project site once its domain is registered, see NAME-CHECK.md).
 
 ## Which versions are supported
 
@@ -42,18 +41,18 @@ any of them is removed or changed outside a deprecation:
 
 - **The Claude connection (MCP):** tool names, their parameters and parameter types, which parameters are required, and
   each tool's annotations (read, write, destructive). The hidden Czech tool names of older connections keep working too.
-- **Design tokens** – both the stored names (`--ka-color-primary`) and the English ones (`--ka-color-primary`) – so
+- **Design tokens** – both the stored names (`--tl-color-primary`) and the English ones (`--tl-color-primary`) – so
   custom CSS in shared classes keeps working.
 - **Builder elements** and their content properties, so every saved page keeps rendering.
 - **The site export** (Administration → Import and export): an export can be imported into the same or any later release.
 - **Addresses of your content:** an update never changes the address of a page, news item, collection item or feed.
-  When you change the address of a page, news item or category yourself, Kaleta adds a redirect from the old one
+  When you change the address of a page, news item or category yourself, Talea adds a redirect from the old one
   (Redirects extension).
 - **The update channel and its signatures**, so installed sites keep receiving updates.
 
 ## What is not a contract
 
-- PHP classes, functions and database tables. Kaleta has no plug-in API; build on the export, the Claude connection,
+- PHP classes, functions and database tables. Talea has no plug-in API; build on the export, the Claude connection,
   webhooks and feeds instead.
 - The HTML of the admin and the exact HTML of public pages (the look is yours through the design system and classes; the
   markup around it may improve).

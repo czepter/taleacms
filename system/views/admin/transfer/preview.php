@@ -2,8 +2,8 @@
 /**
  * WordPress import, step 2: preview – what the file contains, what will not be converted, and the import options. Nothing has been written to the database yet.
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state  import state (Core\WpImport::newState)
  * @var list<string> $languages  language versions of the site, the first one is the default
@@ -36,7 +36,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php foreach ($p['types'] ?? [] as $type => $t): ?>
 <?php $prefixes = $t['prefixes']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
 <p><?= e(t('Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['count'], $address,
-    $t['fields'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Kaleta\Builder\Collections::FIELD_TYPES[Kaleta\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['fields']), $t['fields'])))) ?>
+    $t['fields'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Talea\Builder\Collections::FIELD_TYPES[Talea\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['fields']), $t['fields'])))) ?>
 <?php if ($t['left_out'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['left_out'])))) ?><?php endif ?></p>
 <?php endforeach ?>
 <?php foreach ($p['seo'] ?? [] as $plugin => $n): ?>
@@ -68,7 +68,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php if (count($languages) > 1): ?>
 <div class="row"><label for="language"><?= e(t('Language version')) ?></label><div><select id="language" name="language">
 <?php foreach ($languages as $i => $code): ?>
-	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['language'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
+	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['language'] ? ' selected' : '' ?>><?= e(Talea\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
 <?php endforeach ?>
 </select><span class="help"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Builder\Build;
+use Talea\Admin\ChangeLog;
+use Talea\Builder\Build;
 
 /**
  * Business facts (2.10): what the site states in many places – the year the company was founded, the number of
@@ -16,7 +16,7 @@ use Kaleta\Builder\Build;
  *  - Built-in facts come from Business details (company_phone, company_address…), the site name and the current year;
  *    they cannot be edited here.
  *  - A language version may have its own value of a fact; without one the default value is used.
- *  - Every change of a value is kept (ka_fact_history), and occurrences() finds the sentences that still state the old
+ *  - Every change of a value is kept (tl_fact_history), and occurrences() finds the sentences that still state the old
  *    value as plain text – the claims inventory.
  *  - Computed facts (COMPUTED_PATTERN, computed()) are worked out when a page is shown: years since a year, a date or a
  *    fact, the number of visible items of a collection or of published news – they never go stale.
@@ -99,7 +99,7 @@ final class Facts
         foreach (self::BUILT_IN as $key => $label) {
             $value = match ($key) {
                 'site_name' => $s->get('site_name'),
-                'company_address' => implode(', ', \Kaleta\Front\Company::address($s)),
+                'company_address' => implode(', ', \Talea\Front\Company::address($s)),
                 'year' => date('Y'),
                 default => $s->get($key),
             };
@@ -650,7 +650,7 @@ final class Facts
         }
         ChangeLog::write($app, 'facts', $existing === null ? 'create' : 'update', $key . ($language !== '' ? ' (' . $language . ')' : ''));
         self::$cache = [];
-        \Kaleta\Front\Cache::clear(); // cached pages show the new value right away
+        \Talea\Front\Cache::clear(); // cached pages show the new value right away
 
         return null;
     }
@@ -661,7 +661,7 @@ final class Facts
         if ($deleted) {
             ChangeLog::write($app, 'facts', 'delete', $key);
             self::$cache = [];
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $deleted;

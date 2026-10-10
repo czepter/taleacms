@@ -3,8 +3,8 @@
  * Import from a website (2.6): finding the pages, the preview, the import in batches and the result. While it runs, the
  * form submits itself (data-auto-submit in image/admin.js) – each submission is one batch.
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state  Core\WebImport
  */
@@ -23,7 +23,7 @@ $urls = array_keys($state['urls']);
 <p class="notice notice-ok"><?= e(t('%s pages found. They will be imported as hidden pages; nothing changes for visitors until you publish them.', count($urls))) ?></p>
 <div class="tab-wrap"><table class="listing"><thead><tr><th scope="col"><?= e(t('Address')) ?></th></tr></thead><tbody>
 <?php foreach (array_slice($urls, 0, 40) as $url): ?>
-	<tr><td><?= e('/' . Kaleta\Core\WebImport::path($url)) ?></td></tr>
+	<tr><td><?= e('/' . Talea\Core\WebImport::path($url)) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php if (count($urls) > 40): ?><p class="small-text"><?= e(t('… and %s more.', count($urls) - 40)) ?></p><?php endif ?>

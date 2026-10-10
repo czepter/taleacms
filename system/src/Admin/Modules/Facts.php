@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Facts as FactStore;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Facts as FactStore;
+use Talea\Core\Language;
+use Talea\Core\Response;
 
 /**
  * Business facts (2.10, Core\Facts): the facts the site states, where each is used, the sentences that still state an

@@ -1,4 +1,4 @@
-/* Kaleta - text editor (news, pages) and working with images. No libraries, no build step.
+/* Talea - text editor (news, pages) and working with images. No libraries, no build step.
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
  *   <input data-image>              image URL field + "Choose from gallery" button and a preview
@@ -20,7 +20,7 @@
 	var GALLERY = ADMIN + '?module=media';
 	var NEWS_ID = (document.querySelector('form[data-draft] input[name="news_id"]') || {}).value || ''; // public id of the news item ('' = a new one)
 	var LANGUAGE = document.documentElement.lang || 'cs'; // date and time format by the page language
-	var time = function (t, timeOnly) { return window.kaletaTime ? window.kaletaTime(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
+	var time = function (t, timeOnly) { return window.taleaTime ? window.taleaTime(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
 
 	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -494,15 +494,15 @@
 		if (field.form) { field.form.addEventListener('submit', function () { if (!source) { field.value = cleanHtml(surface.innerHTML); } }); }
 		count();
 		// the editor helper (accessibility check, AI assistant) redraws the editor after writing into the field
-		window.kaletaEditors = window.kaletaEditors || {};
-		if (field.id) { window.kaletaEditors[field.id] = { refresh: function () { fromField(); count(); } }; }
+		window.taleaEditors = window.taleaEditors || {};
+		if (field.id) { window.taleaEditors[field.id] = { refresh: function () { fromField(); count(); } }; }
 		return { refresh: fromField, status: state.lastChild };
 	}
 
 	/* ---------- automatic saving of unsaved text to the browser ---------- */
 
 	function autosave(form, editors) {
-		var key = 'kaleta-draft:' + form.getAttribute('data-draft');
+		var key = 'talea-draft:' + form.getAttribute('data-draft');
 		var field = Array.prototype.filter.call(form.elements, function (p) { return p.name && p.name !== '_csrf' && p.type !== 'password' && p.type !== 'file' && p.type !== 'submit'; });
 		var timer = null;
 
@@ -622,8 +622,8 @@
 		});
 	});
 
-	window.kaletaCreateEditor = createEditor; // the page builder creates the editor itself over a dynamic field
-	window.kaletaPickImage = pickImage; // picking an image from Media for the builder (the callback gets {url, name, …})
+	window.taleaCreateEditor = createEditor; // the page builder creates the editor itself over a dynamic field
+	window.taleaPickImage = pickImage; // picking an image from Media for the builder (the callback gets {url, name, …})
 
 	var editors = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), createEditor);
 	var draftForm = document.querySelector('form[data-draft]');

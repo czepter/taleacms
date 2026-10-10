@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Core\Antispam;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Enquiry / contact form. It is sent to /form (Front\Forms): the server takes the fields from the published build
@@ -75,7 +75,7 @@ final class Form extends Element
             'no_captcha' => ['type' => 'boolean', 'label' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'default' => false],
             // what happens next (2.12, Front\NextSteps): shown with the thank-you and sent in the confirmation e-mail
             'next_steps' => ['type' => 'lines', 'label' => 'What happens next (one step per line, shown with the thank-you)', 'default' => '', 'max' => 2000],
-            'reply_within_hours' => ['type' => 'number', 'label' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'default' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
+            'reply_within_hours' => ['type' => 'number', 'label' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'default' => 0, 'min' => 0, 'max' => \Talea\Front\NextSteps::MAX_HOURS],
             'who_replies' => ['type' => 'text', 'label' => 'Who replies (e.g. “Jana from the office”)', 'default' => '', 'max' => 120],
         ];
     }
@@ -83,44 +83,44 @@ final class Form extends Element
     public static function baseCss(): string
     {
         // the anchor after sending points to the form: an offset so that the heading above it is visible too and the sticky header does not cover it
-        return '.ka-form { display: grid; gap: var(--ka-space-s); }
-.ka-form, .ka-form-done { scroll-margin-top: 6rem; }
-.ka-field { display: grid; gap: var(--ka-space-2xs); margin: 0; }
-.ka-field > label { font-weight: 600; }
-.ka-field input:not([type="checkbox"]):not([type="radio"]), .ka-field select, .ka-field textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: var(--ka-color-text); font: inherit; }
-.ka-field textarea { min-height: 8em; resize: vertical; }
-.ka-field :focus-visible { outline: 2px solid var(--ka-color-primary); outline-offset: 1px; }
-.ka-field-consent label { display: flex; gap: var(--ka-space-xs); align-items: flex-start; }
-.ka-field-consent input { margin-block-start: 0.3em; accent-color: var(--ka-color-primary); }
-.ka-step { display: grid; gap: var(--ka-space-s); margin: 0; padding: 0; border: 0; }
-.ka-step > legend { margin-bottom: var(--ka-space-xs); font-weight: 700; font-size: 1.1em; }
-.ka-steps-navigation { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); align-items: center; }
-.ka-steps-navigation span { margin-inline-end: auto; color: var(--ka-color-muted); font-size: 0.9em; }
-.ka-estimate { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5em; padding: 0.75em 1em; border-radius: var(--ka-radius-m); background: var(--ka-color-surface); }
-.ka-estimate output { font-size: 1.4em; font-weight: 700; }
-.ka-estimate small { flex-basis: 100%; }
-.ka-basket { display: grid; gap: var(--ka-space-xs); margin: 0; padding: 0; list-style: none; }
-.ka-basket li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-space-xs); padding: 0.5em 0.75em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-m); }
-.ka-basket li > span { flex: 1 1 12rem; }
-.ka-basket input { width: 5em; }
-.ka-basket button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
-.ka-basket-empty { margin: 0; color: var(--ka-color-muted); }
-.ka-field-policy { display: inline-block; margin-inline-start: 1.6em; font-size: var(--ka-step--1); }
-.ka-required { color: var(--ka-color-primary); }
-.ka-field fieldset { display: grid; gap: var(--ka-space-2xs); margin: 0; padding: 0; border: 0; }
-.ka-field legend { margin-block-end: var(--ka-space-2xs); padding: 0; font-weight: 600; }
-.ka-field fieldset label { display: flex; gap: var(--ka-space-xs); align-items: center; font-weight: 400; }
-.ka-field fieldset input { accent-color: var(--ka-color-primary); }
-.ka-field [aria-invalid="true"] { border-color: #c4281c !important; }
-.ka-field-help { color: var(--ka-color-muted); font-size: var(--ka-step--1); }
-.ka-field-error { color: color-mix(in oklch, #c4281c 80%, var(--ka-color-text)); font-size: var(--ka-step--1); }
-.ka-form-done, .ka-form-error { margin: 0; padding: var(--ka-space-m); border-radius: var(--ka-radius); }
-.ka-form-done { background: var(--ka-color-primary-soft); color: var(--ka-color-text); }
-.ka-form-error { background: color-mix(in oklch, #c4281c 12%, var(--ka-color-background)); color: color-mix(in oklch, #c4281c 80%, var(--ka-color-text)); }
-.ka-form-done p + p, .ka-form-done ol + p { margin-block-start: var(--ka-space-s); }
-.ka-form-done .ka-steps-heading { font-weight: 600; }
-.ka-form-done ol { margin: var(--ka-space-2xs) 0 0; padding-inline-start: 1.5em; }
-.ka-form [hidden] { display: none !important; }'; // the display of steps, fields and buttons above would otherwise beat the hidden attribute
+        return '.tl-form { display: grid; gap: var(--tl-space-s); }
+.tl-form, .tl-form-done { scroll-margin-top: 6rem; }
+.tl-field { display: grid; gap: var(--tl-space-2xs); margin: 0; }
+.tl-field > label { font-weight: 600; }
+.tl-field input:not([type="checkbox"]):not([type="radio"]), .tl-field select, .tl-field textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: var(--tl-color-text); font: inherit; }
+.tl-field textarea { min-height: 8em; resize: vertical; }
+.tl-field :focus-visible { outline: 2px solid var(--tl-color-primary); outline-offset: 1px; }
+.tl-field-consent label { display: flex; gap: var(--tl-space-xs); align-items: flex-start; }
+.tl-field-consent input { margin-block-start: 0.3em; accent-color: var(--tl-color-primary); }
+.tl-step { display: grid; gap: var(--tl-space-s); margin: 0; padding: 0; border: 0; }
+.tl-step > legend { margin-bottom: var(--tl-space-xs); font-weight: 700; font-size: 1.1em; }
+.tl-steps-navigation { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); align-items: center; }
+.tl-steps-navigation span { margin-inline-end: auto; color: var(--tl-color-muted); font-size: 0.9em; }
+.tl-estimate { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5em; padding: 0.75em 1em; border-radius: var(--tl-radius-m); background: var(--tl-color-surface); }
+.tl-estimate output { font-size: 1.4em; font-weight: 700; }
+.tl-estimate small { flex-basis: 100%; }
+.tl-basket { display: grid; gap: var(--tl-space-xs); margin: 0; padding: 0; list-style: none; }
+.tl-basket li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tl-space-xs); padding: 0.5em 0.75em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius-m); }
+.tl-basket li > span { flex: 1 1 12rem; }
+.tl-basket input { width: 5em; }
+.tl-basket button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+.tl-basket-empty { margin: 0; color: var(--tl-color-muted); }
+.tl-field-policy { display: inline-block; margin-inline-start: 1.6em; font-size: var(--tl-step--1); }
+.tl-required { color: var(--tl-color-primary); }
+.tl-field fieldset { display: grid; gap: var(--tl-space-2xs); margin: 0; padding: 0; border: 0; }
+.tl-field legend { margin-block-end: var(--tl-space-2xs); padding: 0; font-weight: 600; }
+.tl-field fieldset label { display: flex; gap: var(--tl-space-xs); align-items: center; font-weight: 400; }
+.tl-field fieldset input { accent-color: var(--tl-color-primary); }
+.tl-field [aria-invalid="true"] { border-color: #c4281c !important; }
+.tl-field-help { color: var(--tl-color-muted); font-size: var(--tl-step--1); }
+.tl-field-error { color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); font-size: var(--tl-step--1); }
+.tl-form-done, .tl-form-error { margin: 0; padding: var(--tl-space-m); border-radius: var(--tl-radius); }
+.tl-form-done { background: var(--tl-color-primary-soft); color: var(--tl-color-text); }
+.tl-form-error { background: color-mix(in oklch, #c4281c 12%, var(--tl-color-background)); color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); }
+.tl-form-done p + p, .tl-form-done ol + p { margin-block-start: var(--tl-space-s); }
+.tl-form-done .tl-steps-heading { font-weight: 600; }
+.tl-form-done ol { margin: var(--tl-space-2xs) 0 0; padding-inline-start: 1.5em; }
+.tl-form [hidden] { display: none !important; }'; // the display of steps, fields and buttons above would otherwise beat the hidden attribute
     }
 
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
@@ -132,12 +132,12 @@ final class Form extends Element
     /** The CAPTCHA widget when the site has one (2.6); in the editor only a note, the provider's script does not load there. */
     public static function captcha(Context $k): string
     {
-        if (\Kaleta\Core\Captcha::provider($k->app->settings()) === null) {
+        if (\Talea\Core\Captcha::provider($k->app->settings()) === null) {
             return '';
         }
 
-        return $k->editor ? '<p class="ka-field ka-captcha"><small>' . e(t('CAPTCHA is checked here when the form is sent.')) . '</small></p>'
-            : '<div class="ka-field">' . \Kaleta\Core\Captcha::widget($k->app->settings()) . '</div>';
+        return $k->editor ? '<p class="tl-field tl-captcha"><small>' . e(t('CAPTCHA is checked here when the form is sent.')) . '</small></p>'
+            : '<div class="tl-field">' . \Talea\Core\Captcha::widget($k->app->settings()) . '</div>';
     }
 
     /** Message after sending by the code in the url (?form=<id>&result=<code>) – the text never comes from the url. */
@@ -163,19 +163,19 @@ final class Form extends Element
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         $hasBasket = in_array('basket', array_column($o['fields'], 'type'), true);
         if ($result === 'ok') {
-            // data-sent: image/web.js reports the conversion (the kaleta:form_sent event and dataLayer, when the site has it);
+            // data-sent: image/web.js reports the conversion (the talea:form_sent event and dataLayer, when the site has it);
             // data-basket-sent: the enquiry basket was sent – the script empties it
             // after the thank-you text the next steps, the reply deadline and who replies (2.12, Front\NextSteps) when the form has them
-            return '<div' . Text::withClass($a, 'ka-form-done') . $id . ' role="status" data-sent="' . e($o['name']) . '"' . ($hasBasket ? ' data-basket-sent' : '') . '><p>' . e($o['thank_you']) . '</p>'
-                . \Kaleta\Front\NextSteps::html($k->app, $o) . '</div>';
+            return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status" data-sent="' . e($o['name']) . '"' . ($hasBasket ? ' data-basket-sent' : '') . '><p>' . e($o['thank_you']) . '</p>'
+                . \Talea\Front\NextSteps::html($k->app, $o) . '</div>';
         }
         // the registration form of an event (2.11, Core\Calendar): closed after the event or its deadline, or when it is full
         $registration = !$k->editor ? (string) ($k->item['_registration'][0] ?? '') : '';
         if ($registration === 'full' || $registration === 'closed') {
-            return '<div' . Text::withClass($a, 'ka-form-done') . $id . ' role="status"><p>' . e(self::messages($registration === 'full' ? 'full' : 'closed')) . '</p></div>';
+            return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e(self::messages($registration === 'full' ? 'full' : 'closed')) . '</p></div>';
         }
         $k->types['button'] = true; // the form button looks like the Button element
-        $html = $result !== '' ? '<p class="ka-form-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
+        $html = $result !== '' ? '<p class="tl-form-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'field' ? $r->getInt('field', -1) : -1;
         [$steps, $stepTitle, $current] = [[], '', ''];
         foreach ($o['fields'] as $i => $field) {
@@ -194,19 +194,19 @@ final class Form extends Element
             $one = match ($field['type']) {
                 'basket' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'estimate' => self::estimateField($field, $o['fields']),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings())),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings())),
             };
             // a condition (2.12): the script shows the field only for the answer; without the script it is always shown
             $when = mb_strtolower(trim((string) ($field['show_when_field'] ?? '')));
             $target = $when !== '' ? array_search($when, array_map(fn (array $f): string => mb_strtolower(trim((string) $f['label'])), $o['fields']), true) : false;
-            $current .= $one !== '' && $target !== false ? '<div class="ka-condition" data-when="p' . (int) $target . '" data-when-value="' . e(trim((string) ($field['show_when_value'] ?? ''))) . '">' . $one . '</div>' : $one;
+            $current .= $one !== '' && $target !== false ? '<div class="tl-condition" data-when="p' . (int) $target . '" data-when-value="' . e(trim((string) ($field['show_when_value'] ?? ''))) . '">' . $one . '</div>' : $one;
         }
         if ($steps === []) {
             $html .= $current;
         } else {
             // a multi-step form (2.12): one fieldset per step; the script shows one at a time with Back and Next, without it they are all shown
             $steps[] = [$stepTitle, $current];
-            $html .= '<div class="ka-form-steps" data-steps>' . implode('', array_map(fn (array $step, int $n): string => '<fieldset class="ka-step"><legend>'
+            $html .= '<div class="tl-form-steps" data-steps>' . implode('', array_map(fn (array $step, int $n): string => '<fieldset class="tl-step"><legend>'
                 . e($step[0] !== '' ? $step[0] : t('Step %d', $n + 1)) . '</legend>' . $step[1] . '</fieldset>', $steps, array_keys($steps))) . '</div>';
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
@@ -214,13 +214,13 @@ final class Form extends Element
         // data-form: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
         $files = in_array('file', array_column($o['fields'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
-        return '<form' . Text::withClass($a, 'ka-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"' . ($result !== '' ? ' data-restore' : '') . '>'
+        return '<form' . Text::withClass($a, 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"' . ($result !== '' ? ' data-restore' : '') . '>'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
-            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
+            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('form|' . $k->source . '|' . $p['id'])
             . $html
             . (empty($o['no_captcha']) ? self::captcha($k) : '')
-            . '<p class="ka-field"><button class="ka-button ka-button--primary" type="submit">' . e($o['button_text']) . '</button></p></form>';
+            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e($o['button_text']) . '</button></p></form>';
     }
 
     /**
@@ -235,7 +235,7 @@ final class Form extends Element
         $list = '';
         if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $r->get('product'), $m) === 1) {
             $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('variant'), 0, 100), 'q' => max(1, min(9999, $r->getInt('quantity', 1)))];
-            $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
+            $lines = \Talea\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
             if ($lines !== null && $lines !== []) {
                 $line['n'] = (string) $k->app->db()->value('SELECT p.name FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.slug = ? AND p.visible = 1 LIMIT 1', [$m[1], $m[2]]);
                 $prefill = (string) json_encode([$line], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -243,12 +243,12 @@ final class Form extends Element
             }
         }
         $id = 'f-' . $element . '-' . $i;
-        $star = $field['required'] ? ' <span class="ka-required" aria-hidden="true">*</span>' : '';
-        $message = $error ? '<span class="ka-field-error" id="' . $id . '-error">' . e(t('Add at least one product to the enquiry.')) . '</span>' : '';
+        $star = $field['required'] ? ' <span class="tl-required" aria-hidden="true">*</span>' : '';
+        $message = $error ? '<span class="tl-field-error" id="' . $id . '-error">' . e(t('Add at least one product to the enquiry.')) . '</span>' : '';
 
-        return '<div class="ka-field ka-basket-field" id="poptavka"><span class="ka-caption" id="' . $id . '">' . e($field['label']) . $star . '</span>'
-            . '<ul class="ka-basket" data-basket-list aria-labelledby="' . $id . '">' . $list . '</ul>'
-            . '<p class="ka-basket-empty"' . ($list !== '' ? ' hidden' : '') . '>' . e(t('The enquiry is empty – add products with Add to enquiry.')) . '</p>'
+        return '<div class="tl-field tl-basket-field" id="poptavka"><span class="tl-caption" id="' . $id . '">' . e($field['label']) . $star . '</span>'
+            . '<ul class="tl-basket" data-basket-list aria-labelledby="' . $id . '">' . $list . '</ul>'
+            . '<p class="tl-basket-empty"' . ($list !== '' ? ' hidden' : '') . '>' . e(t('The enquiry is empty – add products with Add to enquiry.')) . '</p>'
             . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-basket-field' . ($field['required'] ? ' data-required' : '') . '>' . $message . '</div>';
     }
 
@@ -257,15 +257,15 @@ final class Form extends Element
         $id = 'f-' . $element . '-' . $i;
         $displayName = 'p' . $i;
         $required = $field['required'] ? ' required' : '';
-        $star = $field['required'] ? ' <span class="ka-required" aria-hidden="true">*</span>' : '';
+        $star = $field['required'] ? ' <span class="tl-required" aria-hidden="true">*</span>' : '';
         $labelText = e($field['label']);
         // a field the server rejected: marked and with a message that aria-describedby points to
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-error" autofocus' : '';
-        $message = $error ? '<span class="ka-field-error" id="' . $id . '-error">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
+        $message = $error ? '<span class="tl-field-error" id="' . $id . '-error">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
         if ($field['type'] === 'checkbox') {
-            $link = $privacyPolicy !== '' ? ' <a class="ka-field-policy" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
+            $link = $privacyPolicy !== '' ? ' <a class="tl-field-policy" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
 
-            return '<p class="ka-field ka-field-consent"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
+            return '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }
         if ($field['type'] === 'hidden') {
             return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
@@ -276,7 +276,7 @@ final class Form extends Element
                 $options .= '<label><input type="checkbox" name="' . $displayName . '[]" value="' . e((string) $m) . '"' . self::priceAttribute($price) . $marking . '> ' . e((string) $m) . '</label>';
             }
             // required = at least one ticked; the browser cannot say that about a group, the server does (Front\Forms)
-            return '<div class="ka-field ka-field-checkboxes"><fieldset' . ($field['required'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
+            return '<div class="tl-field tl-field-checkboxes"><fieldset' . ($field['required'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
         }
         if ($field['type'] === 'radio') {
             $options = '';
@@ -285,7 +285,7 @@ final class Form extends Element
                 $options .= '<label><input type="radio" name="' . $displayName . '" value="' . e((string) $m) . '"' . self::priceAttribute($price) . ($j++ === 0 ? $required . $marking : '') . '> ' . e((string) $m) . '</label>';
             }
 
-            return '<div class="ka-field"><fieldset><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
+            return '<div class="tl-field"><fieldset><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
         }
         $label = '<label for="' . $id . '">' . $labelText . $star . '</label>';
         $input = match ($field['type']) {
@@ -296,13 +296,13 @@ final class Form extends Element
             'number' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"'
                 . (self::price($field['unit_price'] ?? '') != 0.0 ? ' data-price-per="' . self::price($field['unit_price']) . '"' : '') . $required . $marking . '>',
             'file' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
-                . '<small class="ka-field-help">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
+                . '<small class="tl-field-help">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
             'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $required . $marking . '>',
             default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['type'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['label'])) . '" maxlength="300"' . $required . $marking . '>',
         };
 
-        return '<p class="ka-field">' . $label . $input . $message . '</p>';
+        return '<p class="tl-field">' . $label . $input . $message . '</p>';
     }
 
     /**
@@ -360,8 +360,8 @@ final class Form extends Element
         $base = self::price($field['base_price'] ?? '');
         $currency = mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10);
 
-        return '<p class="ka-field ka-estimate" data-estimate data-base="' . $base . '" data-currency="' . e($currency) . '"><span>' . e((string) $field['label']) . '</span> <output aria-live="polite">'
-            . e(self::money($base, $currency)) . '</output><small class="ka-field-help">' . e(t('An estimate from your answers – the final price follows in our reply.')) . '</small></p>';
+        return '<p class="tl-field tl-estimate" data-estimate data-base="' . $base . '" data-currency="' . e($currency) . '"><span>' . e((string) $field['label']) . '</span> <output aria-live="polite">'
+            . e(self::money($base, $currency)) . '</output><small class="tl-field-help">' . e(t('An estimate from your answers – the final price follows in our reply.')) . '</small></p>';
     }
 
     /** The price of an option for the estimate script; nothing without one. */

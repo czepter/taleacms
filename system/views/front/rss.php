@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Core\Settings $web
+ * @var Talea\Core\Settings $web
  * @var list<array<string, mixed>> $news
  * @var string $url  absolute url of the site with a trailing slash
  */
@@ -11,8 +11,8 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<title><?= e($web->get('site_name')) ?></title>
 	<link><?= e($url) ?></link>
 	<description><?= e($web->get('site_description')) ?></description>
-	<language><?= e(\Kaleta\Core\Language::code()) ?></language>
-	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
+	<language><?= e(\Talea\Core\Language::code()) ?></language>
+	<generator>Talea <?= e(TALEA_VERSION) ?></generator>
 <?php foreach ($news as $c): ?>
 	<item>
 		<title><?= e($c['title']) ?></title>

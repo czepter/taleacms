@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\Components;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Style;
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Events;
-use Kaleta\Core\Look;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
+use Talea\Admin\ChangeLog;
+use Talea\Builder\Build;
+use Talea\Builder\Components;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Style;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Events;
+use Talea\Core\Look;
+use Talea\Core\Response;
+use Talea\Core\Settings;
 
 /**
  * The shared design kit of a fleet (2.16): the console snapshots its design system, chosen shared classes, components and
- * saved sections into a numbered kit version (ka_fleet_kits); the member sites that opted in (fleet_kit) pick it up.
+ * saved sections into a numbered kit version (tl_fleet_kits); the member sites that opted in (fleet_kit) pick it up.
  *
  * The security model of 2.9 holds: a site always calls the console, never the other way round. The heartbeat reply only
  * announces {version, sha256} of the newest kit; the site then asks POST /fleet/kit (signed by its own key, it must be
@@ -42,7 +42,7 @@ final class Kit
 
     /**
      * A manifest from the console's rows: the published design system, published classes (name => [styl, css]), rows of
-     * ka_components (the published build, or the draft of a component that was never published) and rows of ka_sekce.
+     * tl_components (the published build, or the draft of a component that was never published) and rows of tl_sekce.
      * Sanitized like everything that comes from outside, so the kit is clean before it is signed.
      *
      * @param array<string, mixed>|null $designSystem
@@ -268,7 +268,7 @@ final class Kit
         }
         $json = self::encode($manifest);
         if (strlen($json) > self::MAX_BYTES) {
-            throw new \RuntimeException(t('The kit is too large (%s) – choose fewer components or sections.', \Kaleta\Core\Files::size(strlen($json))));
+            throw new \RuntimeException(t('The kit is too large (%s) – choose fewer components or sections.', \Talea\Core\Files::size(strlen($json))));
         }
         $version = (int) $db->value('SELECT COALESCE(MAX(version), 0) + 1 FROM {fleet_kits}');
         $summary = self::summary($manifest);

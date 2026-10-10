@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
-use Kaleta\Core\Demo;
-use Kaleta\Core\ImageDownloader;
+use Talea\Core\Demo;
+use Talea\Core\ImageDownloader;
 
 /**
  * The fetch step of the importers that have no export file (Import\Remote: Joomla, Drupal): the old site's API is read
@@ -31,7 +31,7 @@ final class Fetch
     public const int MAX_REDIRECTS = 3;
     public const int CONNECT_TIMEOUT = 5;
     public const int TIMEOUT = 25;
-    private const string USER_AGENT = 'Kaleta-import';
+    private const string USER_AGENT = 'Talea-import';
 
     /** The session key of the token for a fetched file (one fetch per file at a time). */
     public static function sessionKey(string $file): string
@@ -68,7 +68,7 @@ final class Fetch
      */
     public static function skeleton(string $key, string $siteUrl): array
     {
-        return ['kaleta_fetch' => ['system' => $key, 'site' => rtrim($siteUrl, '/'), 'fetched' => date('c'), 'done' => false, 'skipped' => []], 'steps' => []];
+        return ['talea_fetch' => ['system' => $key, 'site' => rtrim($siteUrl, '/'), 'fetched' => date('c'), 'done' => false, 'skipped' => []], 'steps' => []];
     }
 
     /**
@@ -90,12 +90,12 @@ final class Fetch
         $f = &$state['download'];
         $site = (string) $f['web'];
         $document = json_decode((string) file_get_contents($path), true);
-        $document = is_array($document) && isset($document['kaleta_fetch']) ? $document : self::skeleton($class::key(), $site);
+        $document = is_array($document) && isset($document['talea_fetch']) ? $document : self::skeleton($class::key(), $site);
         try {
             for ($n = 0; $n < $pages; $n++) {
                 if ($f['step'] >= count($f['steps'])) {
-                    $document['kaleta_fetch']['done'] = true;
-                    $document['kaleta_fetch']['skipped'] = $f['left_out'];
+                    $document['talea_fetch']['done'] = true;
+                    $document['talea_fetch']['skipped'] = $f['left_out'];
                     $state['phase'] = 'analysis';
                     $state['position'] = 0;
 
@@ -151,7 +151,7 @@ final class Fetch
      */
     public static function allowedSite(string $siteUrl): bool
     {
-        $target = \Kaleta\Core\Outbound::url($siteUrl);
+        $target = \Talea\Core\Outbound::url($siteUrl);
 
         return $target !== null && self::allowedUrl($siteUrl, $siteUrl) && (new ImageDownloader($siteUrl))->verifiedIp($target['host']) !== null;
     }
@@ -175,7 +175,7 @@ final class Fetch
         $downloader = new ImageDownloader($siteUrl);
         $limit = min(self::PAGE_BYTES, max(0, $budget));
         for ($hop = 0; $hop <= self::MAX_REDIRECTS; $hop++) {
-            $target = \Kaleta\Core\Outbound::url($url);
+            $target = \Talea\Core\Outbound::url($url);
             if ($target === null || !$downloader->isAllowedUrl($url)) {
                 throw new \RuntimeException('The address does not belong to the old site, or it is not a public http(s) address on the standard port.');
             }
@@ -243,7 +243,7 @@ final class Fetch
         $data = '';
         $found = ['content-type' => '', 'location' => ''];
         $ch = curl_init($target['url']);
-        \Kaleta\Core\Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
+        \Talea\Core\Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
         curl_setopt_array($ch, [
             CURLOPT_HTTPGET => true,
             CURLOPT_FOLLOWLOCATION => false,

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Copy of the database backup off the server: FTP/FTPS (another hosting, NAS) or S3-compatible storage
@@ -67,7 +67,7 @@ final class RemoteBackup
         }
         $pending = [];
         foreach (SiteExport::mediaFiles() as $path => $size) {
-            $signature = $size . ':' . (int) @filemtime(KALETA_ROOT . '/' . $path);
+            $signature = $size . ':' . (int) @filemtime(TALEA_ROOT . '/' . $path);
             if (($manifest['files'][$path] ?? '') !== $signature) {
                 $pending[$path] = $signature;
             }
@@ -83,7 +83,7 @@ final class RemoteBackup
                         if (microtime(true) - $start > $seconds) {
                             break;
                         }
-                        $put($path, KALETA_ROOT . '/' . $path);
+                        $put($path, TALEA_ROOT . '/' . $path);
                         $manifest['files'][$path] = $signature;
                         $done++;
                     }
@@ -142,7 +142,7 @@ final class RemoteBackup
         }
         $connection = @ftp_ssl_connect($host, 21, 15);
         if ($connection === false) {
-            throw new \RuntimeException('The FTP server ' . $host . ' does not support an encrypted connection (FTPS). Kaleta does not use unencrypted FTP – choose S3 storage.');
+            throw new \RuntimeException('The FTP server ' . $host . ' does not support an encrypted connection (FTPS). Talea does not use unencrypted FTP – choose S3 storage.');
         }
         if (!@ftp_login($connection, $s->get('backup_user'), $s->get('backup_password'))) {
             throw new \RuntimeException('Could not sign in to the FTP server ' . $host . '.');

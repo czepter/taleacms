@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Install;
+namespace Talea\Install;
 
-use Kaleta\Core\Auth;
-use Kaleta\Core\Config;
-use Kaleta\Core\Db;
-use Kaleta\Core\Migrator;
-use Kaleta\Core\Request;
-use Kaleta\Core\Response;
-use Kaleta\Core\Extensions;
-use Kaleta\Core\View;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Build;
+use Talea\Core\Auth;
+use Talea\Core\Config;
+use Talea\Core\Db;
+use Talea\Core\Migrator;
+use Talea\Core\Request;
+use Talea\Core\Response;
+use Talea\Core\Extensions;
+use Talea\Core\View;
+use Talea\Builder\Library;
+use Talea\Builder\Build;
 
 /**
- * Web installer: checks the server, creates the tables and the first administrator and writes config.php. Kaleta is
+ * Web installer: checks the server, creates the tables and the first administrator and writes config.php. Talea is
  * installed by upload – upload the files, create a database, open install.php (2.6: no Docker, no command line).
  */
 final class Installer
@@ -27,7 +27,7 @@ final class Installer
     public function __construct()
     {
         $this->request = Request::fromGlobals();
-        $this->view = new View([KALETA_SYSTEM . '/views']);
+        $this->view = new View([TALEA_SYSTEM . '/views']);
     }
 
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
@@ -68,18 +68,18 @@ final class Installer
     {
         if (Config::load() !== null) {
             $language = $this->chooseLanguage();
-            \Kaleta\Core\Language::set($language, 'install-', $this->chooseRegister($language));
+            \Talea\Core\Language::set($language, 'install-', $this->chooseRegister($language));
 
             return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf(), 'fromExport' => false]);
         }
 
         $this->language = $this->chooseLanguage();
         $this->register = $this->chooseRegister($this->language);
-        \Kaleta\Core\Language::setSiteRegister($this->register); // the sample content for visitors is written in the chosen form of address
-        \Kaleta\Core\Language::set($this->language, 'install-', $this->register);
+        \Talea\Core\Language::setSiteRegister($this->register); // the sample content for visitors is written in the chosen form of address
+        \Talea\Core\Language::set($this->language, 'install-', $this->register);
         $requirements = $this->requirements();
         $data = [
-            'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
+            'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'tl_',
             'site_name' => t('My website'), 'username' => 'admin', 'name' => '', 'email' => '',
             'time_zone' => self::TIME_ZONES[$this->language], 'starter' => 'business', 'site_language' => $this->language,
         ];
@@ -101,7 +101,7 @@ final class Installer
                 $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                     'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
-            $data['site_language'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['site_language']]) ? $data['site_language'] : $this->language;
+            $data['site_language'] = isset(\Talea\Core\Language::AVAILABLE[$data['site_language']]) ? $data['site_language'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('extensions'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
@@ -121,20 +121,20 @@ final class Installer
      */
     private function deleteSelf(): bool
     {
-        if (is_dir(KALETA_ROOT . '/.git')) {
+        if (is_dir(TALEA_ROOT . '/.git')) {
             return false;
         }
         if (Config::fromEnv()) {
             return true; // the file belongs to the image; the installer refuses to run once installed
         }
 
-        return !is_file(KALETA_ROOT . '/install.php') || @unlink(KALETA_ROOT . '/install.php');
+        return !is_file(TALEA_ROOT . '/install.php') || @unlink(TALEA_ROOT . '/install.php');
     }
 
     /** @return list<array{nazev:string, ok:bool, info:string}> */
     private function requirements(): array
     {
-        $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
+        $write = fn (string $path): bool => is_writable(TALEA_ROOT . $path);
 
         $requirements = [
             ['name' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
@@ -159,7 +159,7 @@ final class Installer
     {
         $errors = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
-            $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. ka_).');
+            $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. tl_).');
         }
         if ($d['db_name'] === '' || $d['db_user'] === '') {
             $errors['db_name'] = t('Fill in the database name and user.');
@@ -215,8 +215,8 @@ final class Installer
         if (Config::fromEnv()) {
             return Config::markInstalled() ? [] : ['db_name' => t('The tables were created, but the storage/ folder is not writable.')]; // configuration comes from the environment, no config.php
         }
-        $content = "<?php\n/**\n * Kaleta - configuration created by the installer " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
-        if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
+        $content = "<?php\n/**\n * Talea - configuration created by the installer " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
+        if (file_put_contents(TALEA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }
 
@@ -275,7 +275,7 @@ final class Installer
 
                 return;
             }
-            $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
+            $x = fn (string $text): string => \Talea\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
                 [$x('Home'), slugify($x('Home')), 0, '<h1>' . e($d['site_name']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
@@ -301,13 +301,13 @@ final class Installer
             // privacy policy: a skeleton to fill in, in the site language (the site dictionary, not the installer's), hidden until the
             // administrator fills it in and publishes it (First steps remind of it); outside the main menu, linked from the footer,
             // the cookie bar and the consent in the form
-            [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
+            [$privacyPolicy, $privacyPolicyText] = \Talea\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
             $privacyPolicyId = $db->insert('pages', ['title' => $privacyPolicy, 'slug' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'visible' => 0, 'in_menu' => 0, 'sort_order' => 90]);
-            \Kaleta\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'page_id' => $privacyPolicyId, 'text' => '']]);
+            \Talea\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'page_id' => $privacyPolicyId, 'text' => '']]);
 
-            \Kaleta\Core\Search::complete($db);
+            \Talea\Core\Search::complete($db);
             $settings = ['site_name' => $d['site_name'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['preset']), JSON_UNESCAPED_SLASHES),
+                'design_system' => (string) json_encode(\Talea\Builder\DesignSystem::preset($siteSettings['preset']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['time_zone'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
@@ -340,8 +340,8 @@ final class Installer
     private function page(string $template, array $data): Response
     {
         return Response::html($this->view->render('install/' . $template, $data + [
-            'base' => $this->request->basePath(), 'language' => \Kaleta\Core\Language::code(), 'register' => $this->register,
-            'languages' => array_intersect_key(\Kaleta\Core\Language::ADMIN_LANGUAGES, self::TIME_ZONES),
+            'base' => $this->request->basePath(), 'language' => \Talea\Core\Language::code(), 'register' => $this->register,
+            'languages' => array_intersect_key(\Talea\Core\Language::ADMIN_LANGUAGES, self::TIME_ZONES),
         ]));
     }
 }

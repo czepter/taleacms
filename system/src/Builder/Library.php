@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Section library for a company site: ready-made builds from design system tokens and a few shared classes, so that after
@@ -14,8 +14,8 @@ final class Library
     /** Shared classes of the library (name => style). Created on the first insertion of a section that uses them; then they belong to the site. */
     public const array CLASSES = [
         'card' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 's', 'padding_y' => 'l', 'padding_x' => 'l', 'background' => 'surface', 'radius' => 'm']],
-        'section-heading' => ['base' => ['line_length' => 'var(--ka-text-width)', 'margin_bottom' => 'l']],
-        'subtitle' => ['base' => ['font_size' => '1', 'color' => 'muted', 'line_length' => 'var(--ka-text-width)']],
+        'section-heading' => ['base' => ['line_length' => 'var(--tl-text-width)', 'margin_bottom' => 'l']],
+        'subtitle' => ['base' => ['font_size' => '1', 'color' => 'muted', 'line_length' => 'var(--tl-text-width)']],
     ];
 
     /** @return array<string, array{nazev:string, popis:string, stavba:callable(): array}> */
@@ -96,7 +96,7 @@ final class Library
             ])],
 
             'news' => ['name' => t('Latest news'), 'description' => t('The three latest news items and a link to all of them.'), 'build' => fn (): array => $n('section', [], [
-                $s($n('container', [], [$z($n('heading', ['text' => t('News')]), 'h2'), $n('button', ['text' => t('All news'), 'link' => '/' . \Kaleta\Core\Routes::publicPath('news', null), 'variant' => 'link'])]),
+                $s($n('container', [], [$z($n('heading', ['text' => t('News')]), 'h2'), $n('button', ['text' => t('All news'), 'link' => '/' . \Talea\Core\Routes::publicPath('news', null), 'variant' => 'link'])]),
                     ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'baseline', 'wrap' => 'wrap', 'gap' => 's']]),
                 $n('news_list'),
             ])],
@@ -138,7 +138,7 @@ final class Library
 
             'hero-dark' => ['name' => t('Hero on a dark background'), 'description' => t('A bold hero on a dark background – set a background image in the section style.'), 'build' => fn (): array => $s($n('section', [], [
                 $s($z($n('heading', ['text' => t('Quality that lasts for decades')]), 'h1'), ['base' => ['font_size' => '5', 'line_length' => '20ch', 'color' => 'background']]),
-                $s($n('text', ['html' => '<p>' . t('We work with honest materials and guarantee every job.') . '</p>']), ['base' => ['font_size' => '1', 'line_length' => 'var(--ka-text-width)', 'color' => 'background']]),
+                $s($n('text', ['html' => '<p>' . t('We work with honest materials and guarantee every job.') . '</p>']), ['base' => ['font_size' => '1', 'line_length' => 'var(--tl-text-width)', 'color' => 'background']]),
                 $buttonRow($n('button', ['text' => t('Request a quote'), 'link' => $url('Contact')])),
             ]), ['base' => ['padding_y' => '3xl', 'background' => 'text', 'display' => 'flex', 'direction' => 'column', 'gap' => 'm'], 'mobile' => ['padding_y' => '2xl']])],
 
@@ -193,7 +193,7 @@ final class Library
                     $s($z($n('heading', ['text' => $d[0]]), 'p'), ['base' => ['font_size' => '3', 'font_weight' => '800', 'color' => 'primary']]),
                     $z($n('heading', ['text' => $d[1]]), 'h3'),
                     $n('text', ['html' => '<p>' . $d[2] . '</p>']),
-                ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'xs', 'border_top' => '2px solid var(--ka-color-primary)', 'padding_y' => 's']]), [
+                ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'xs', 'border_top' => '2px solid var(--tl-color-primary)', 'padding_y' => 's']]), [
                     ['01', t('Enquiry'), t('You tell us what you need.')], ['02', t('Design and price'), t('Within a week you get a design and a fixed price.')],
                     ['03', t('Delivery'), t('We work on the agreed dates.')], ['04', t('Handover'), t('We go through everything together and hand it over.')],
                 ])), ['base' => ['display' => 'grid', 'columns' => '4', 'gap' => 'l'], 'tablet' => ['columns' => '2']]),
@@ -204,7 +204,7 @@ final class Library
                 $s($n('container', [], array_map(fn (array $d): array => $s($n('container', [], [
                     $s($n('container', [], [$z($n('heading', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'subtitle')]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => '2xs']]),
                     $s($z($n('heading', ['text' => $d[2]]), 'p'), ['base' => ['font_weight' => '700', 'font_size' => '1']]),
-                ]), ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'baseline', 'gap' => 'm', 'padding_y' => 'm', 'border_bottom' => '1px solid var(--ka-color-line)'], 'mobile' => ['direction' => 'column', 'gap' => 'xs']]), [
+                ]), ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'baseline', 'gap' => 'm', 'padding_y' => 'm', 'border_bottom' => '1px solid var(--tl-color-line)'], 'mobile' => ['direction' => 'column', 'gap' => 'xs']]), [
                     [t('Consultation'), t('An hour with an expert at your place or online.'), t('from £40')],
                     [t('Tailored design'), t('A design including visualisation and budget.'), t('from £190')],
                     [t('Delivery'), t('Complete execution according to the design.'), t('depending on scope')],
@@ -218,7 +218,7 @@ final class Library
                     $s($z($n('heading', ['text' => $d[1]]), 'p'), ['base' => ['font_size' => '3', 'font_weight' => '800']]),
                     $n('list', ['items' => $d[2], 'style' => 'checks']),
                     $n('button', ['text' => t('I\'m interested'), 'link' => $url('Contact'), 'variant' => $d[3] ? 'primary' : 'outline']),
-                ]), 'card'), $d[3] ? ['base' => ['border' => '2px solid var(--ka-color-primary)', 'shadow' => 'm']] : []), [
+                ]), 'card'), $d[3] ? ['base' => ['border' => '2px solid var(--tl-color-primary)', 'shadow' => 'm']] : []), [
                     [t('Basic'), t('£120'), t('Consultation') . "\n" . t('Solution design'), false],
                     [t('Standard'), t('£290'), t('Consultation') . "\n" . t('Solution design') . "\n" . t('Delivery') . "\n" . t('A year of free service'), true],
                     [t('Custom'), t('by agreement'), t('Everything in Standard') . "\n" . t('Your own schedule') . "\n" . t('A personal project manager'), false],
@@ -330,7 +330,7 @@ final class Library
             'values' => ['name' => t('Our values'), 'description' => t('Three or four principles you work by.'), 'build' => fn (): array => $n('section', [], [
                 $t($n('heading', ['text' => t('What we stand for')]), 'section-heading'),
                 $s($n('grid', [], array_map(fn (array $d): array => $s($n('container', [], [$z($n('heading', ['text' => $d[0]]), 'h3'), $n('text', ['html' => '<p>' . $d[1] . '</p>'])]),
-                    ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'xs', 'border_top' => '1px solid var(--ka-color-line)', 'padding_y' => 's']]), [
+                    ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'xs', 'border_top' => '1px solid var(--tl-color-line)', 'padding_y' => 's']]), [
                     [t('Honesty'), t('We say what we will do, and we do what we say.')], [t('Craftsmanship'), t('We make every detail as if it were for ourselves.')], [t('Consideration'), t('For customers, neighbours and nature.')],
                 ])), ['base' => ['display' => 'grid', 'columns' => '3', 'gap' => 'l'], 'tablet' => ['columns' => '1']]),
             ])],
@@ -340,7 +340,7 @@ final class Library
                 $s($n('container', [], array_map(fn (array $d): array => $s($n('container', [], [
                     $s($z($n('heading', ['text' => $d[0]]), 'p'), ['base' => ['font_weight' => '800', 'color' => 'primary', 'font_size' => '1']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                ]), ['base' => ['display' => 'grid', 'columns' => '6rem 1fr', 'gap' => 'm', 'padding_y' => 's', 'border_bottom' => '1px solid var(--ka-color-line)'], 'mobile' => ['columns' => '1', 'gap' => '2xs']]), [
+                ]), ['base' => ['display' => 'grid', 'columns' => '6rem 1fr', 'gap' => 'm', 'padding_y' => 's', 'border_bottom' => '1px solid var(--tl-color-line)'], 'mobile' => ['columns' => '1', 'gap' => '2xs']]), [
                     ['2005', t('The company is founded in a family garage.')], ['2012', t('A new workshop and the first employees.')], ['2020', t('The five-hundredth finished project.')], ['2026', t('Opening of the showroom.')],
                 ])), ['base' => ['display' => 'flex', 'direction' => 'column']]),
             ])],
@@ -438,11 +438,11 @@ final class Library
      * record, maps, a CRM webhook), and the company details, periods and services already filled in. What the site does
      * not know stays in square brackets. It is a template with a disclaimer at the top, never legal advice.
      */
-    public static function privacyPolicyText(?\Kaleta\Core\Settings $s = null): string
+    public static function privacyPolicyText(?\Talea\Core\Settings $s = null): string
     {
         $o = fn (string $heading, string ...$texts): string => '<h2>' . e(t($heading)) . '</h2>' . implode('', array_map(fn (string $x): string => '<p>' . $x . '</p>', array_filter($texts)));
         $x = fn (string $text, mixed ...$args): string => e(t($text, ...$args));
-        $on = fn (string $extension): bool => $s === null ? $extension === 'enquiries' : \Kaleta\Core\Extensions::isEnabled($s, $extension);
+        $on = fn (string $extension): bool => $s === null ? $extension === 'enquiries' : \Talea\Core\Extensions::isEnabled($s, $extension);
         $get = fn (string $key): string => $s === null ? '' : trim($s->get($key));
         $address = trim($get('company_street') . ', ' . trim($get('company_postcode') . ' ' . $get('company_city')), ', ');
 
@@ -456,7 +456,7 @@ final class Library
         }
         if ($on('newsletter_signup')) {
             // a named mailing service is a processor; a generic webhook is described by the administrator
-            $service = (\Kaleta\Core\Newsletter::SERVICES[$get('newsletter_service')][1] ?? false) ? \Kaleta\Core\Newsletter::SERVICES[$get('newsletter_service')][0] : '';
+            $service = (\Talea\Core\Newsletter::SERVICES[$get('newsletter_service')][1] ?? false) ? \Talea\Core\Newsletter::SERVICES[$get('newsletter_service')][0] : '';
             $html .= $o('Newsletter', $x('If you subscribe to our newsletter, we keep your e-mail address and the time of your consent. You confirm the subscription in an e-mail (double opt-in) and can unsubscribe with one click in every newsletter; after that we delete the address.'),
                 $service !== '' ? $x('We send the newsletter through %s, who processes the addresses for us.', $service) : '');
         }
@@ -473,8 +473,8 @@ final class Library
         if ($get('gtm_id') !== '') {
             $analytics[] = $x('With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.');
         }
-        if ($s !== null && \Kaleta\Core\Captcha::provider($s) !== null) {
-            $analytics[] = $x('To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.', \Kaleta\Core\Captcha::PROVIDERS[$get('captcha_provider')][0]);
+        if ($s !== null && \Talea\Core\Captcha::provider($s) !== null) {
+            $analytics[] = $x('To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.', \Talea\Core\Captcha::PROVIDERS[$get('captcha_provider')][0]);
         }
         if ($get('matomo_url') !== '') {
             $analytics[] = $x('The website measures traffic with Matomo, run at %s.', (string) parse_url($get('matomo_url'), PHP_URL_HOST));
@@ -522,7 +522,7 @@ final class Library
      * @param list<string> $withoutTypes sections with these elements are left out or replaced (disabled extensions)
      * @param bool $withoutImages leave out empty images (the starter site from the installation has no photos, they would leave an empty space on the site)
      */
-    public static function page(\Kaleta\Core\Db $db, array $section, string $title, string $language, array $withoutTypes = [], bool $withoutImages = false): array
+    public static function page(\Talea\Core\Db $db, array $section, string $title, string $language, array $withoutTypes = [], bool $withoutImages = false): array
     {
         [$build, $classes] = self::assemble($section, $title, $language, $withoutTypes, $withoutImages);
         self::createClasses($db, $classes);
@@ -633,7 +633,7 @@ final class Library
      */
     public static function section(string $key, string $language = 'en'): ?array
     {
-        return \Kaleta\Core\Language::runWith($language, fn (): ?array => self::create($key));
+        return \Talea\Core\Language::runWith($language, fn (): ?array => self::create($key));
     }
 
     /** @return array{prvek: array<string, mixed>, tridy: list<string>}|null */
@@ -672,7 +672,7 @@ final class Library
     }
 
     /** Creates the missing library classes (never overwrites an existing class of the site). */
-    public static function createClasses(\Kaleta\Core\Db $db, array $names): void
+    public static function createClasses(\Talea\Core\Db $db, array $names): void
     {
         foreach ($names as $name) {
             if (isset(self::CLASSES[$name])) {

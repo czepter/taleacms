@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 use Phinx\Config\Config;
 use Phinx\Migration\Manager;
@@ -18,7 +18,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 final class Migrator
 {
-    public const string FOLDER = KALETA_SYSTEM . '/database/migrations';
+    public const string FOLDER = TALEA_SYSTEM . '/database/migrations';
 
     /** Phinx is a Composer package: an installation uploaded without vendor/ cannot migrate. */
     public static function available(): bool
@@ -34,7 +34,7 @@ final class Migrator
      */
     public static function phinxConfig(array $db): array
     {
-        $prefix = $db['prefix'] ?? 'ka_';
+        $prefix = $db['prefix'] ?? 'tl_';
         $environment = [
             'adapter' => 'mysql',
             'name' => $db['name'],
@@ -90,7 +90,7 @@ final class Migrator
             throw new \RuntimeException('Phinx is not installed: run "composer install --no-dev" (the vendor/ folder is missing).');
         }
         $db = Db::fromConfig($config);
-        $lock = substr('kaleta-migrate-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix), 0, 64);
+        $lock = substr('talea-migrate-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix), 0, 64);
         if ((int) $db->value('SELECT GET_LOCK(?, 60)', [$lock]) !== 1) {
             throw new \RuntimeException('Another migration is running.');
         }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Core integrity: the release package carries a signed list of files with hashes (system/files.json).
@@ -12,10 +12,10 @@ namespace Kaleta\Core;
  */
 final class Integrity
 {
-    private const string CATALOG = KALETA_SYSTEM . '/files.json';
+    private const string CATALOG = TALEA_SYSTEM . '/files.json';
 
     /** @return array{stav:string, info:string, zmenene:list<string>, chybi:list<string>, navic:list<string>} */
-    public static function check(string $keyFile = KALETA_SYSTEM . '/update.pub'): array
+    public static function check(string $keyFile = TALEA_SYSTEM . '/update.pub'): array
     {
         $empty = ['changed' => [], 'missing' => [], 'extra' => []];
         if (!is_file(self::CATALOG)) {
@@ -28,7 +28,7 @@ final class Integrity
         }
         $changed = $missing = [];
         foreach ($files as $path => $hash) {
-            $file = KALETA_ROOT . '/' . $path;
+            $file = TALEA_ROOT . '/' . $path;
             if (!is_file($file)) {
                 $missing[] = $path;
             } elseif (!hash_equals((string) $hash, hash_file('sha256', $file))) {
@@ -37,15 +37,15 @@ final class Integrity
         }
         // PHP files that do not belong to the core (site root and system/) - a typical trace of a compromised site
         $extra = [];
-        $candidates = glob(KALETA_ROOT . '/*.php') ?: [];
-        $tree = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_SYSTEM, \FilesystemIterator::SKIP_DOTS));
+        $candidates = glob(TALEA_ROOT . '/*.php') ?: [];
+        $tree = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_SYSTEM, \FilesystemIterator::SKIP_DOTS));
         foreach ($tree as $f) {
             if ($f->isFile() && preg_match('/\.(php\d?|phtml|phar)$/i', $f->getFilename())) {
                 $candidates[] = $f->getPathname();
             }
         }
         foreach ($candidates as $file) {
-            $path = ltrim(str_replace('\\', '/', substr($file, strlen(KALETA_ROOT))), '/');
+            $path = ltrim(str_replace('\\', '/', substr($file, strlen(TALEA_ROOT))), '/');
             if (!isset($files[$path]) && !in_array($path, ['config.php', 'install.php'], true)) {
                 $extra[] = $path;
             }
@@ -70,6 +70,6 @@ final class Integrity
     {
         ksort($files);
 
-        return 'kaleta-files|' . $version . '|' . hash('sha256', (string) json_encode($files, JSON_UNESCAPED_SLASHES));
+        return 'talea-files|' . $version . '|' . hash('sha256', (string) json_encode($files, JSON_UNESCAPED_SLASHES));
     }
 }

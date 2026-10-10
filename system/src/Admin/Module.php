@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Request;
-use Kaleta\Core\Response;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Request;
+use Talea\Core\Response;
 
 /**
  * Base class of admin modules.
@@ -172,11 +172,11 @@ abstract class Module
     protected function readLanguageFilter(): array
     {
         $siteSettings = $this->app->settings();
-        $additional = \Kaleta\Core\Language::additional($siteSettings);
-        $languages = $additional === [] ? [] : [\Kaleta\Core\Language::defaults($siteSettings), ...$additional];
+        $additional = \Talea\Core\Language::additional($siteSettings);
+        $languages = $additional === [] ? [] : [\Talea\Core\Language::defaults($siteSettings), ...$additional];
         $code = in_array($this->request->get('language'), $languages, true) ? $this->request->get('language') : '';
 
-        return [$languages, $code, $code === '' ? null : \Kaleta\Core\Language::column($siteSettings, $code)];
+        return [$languages, $code, $code === '' ? null : \Talea\Core\Language::column($siteSettings, $code)];
     }
 
     protected function redirectToSite(string $target, string $suffix = ''): Response

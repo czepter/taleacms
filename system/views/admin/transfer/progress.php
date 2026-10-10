@@ -3,8 +3,8 @@
  * WordPress import, step 3: progress in batches (reading the file, importing content, downloading images) and the result.
  * Until it is done, the form submits itself (data-auto-submit in image/admin.js) – each submission is one batch.
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state
  * @var string $error  already translated error of the last batch (the import stopped)

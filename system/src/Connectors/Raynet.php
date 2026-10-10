@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Connectors;
+namespace Talea\Connectors;
 
 /**
  * Raynet CRM (2.13): an enquiry becomes a lead with the sender's contact and the message. The administrator enters the
@@ -19,7 +19,7 @@ final class Raynet extends Connector
 
     public static function settings(): array
     {
-        return ['instance' => ['Instance name', 'The instance of your Raynet account (X-Instance-Name)']] + \Kaleta\Core\EnquiryDelivery::SETTINGS;
+        return ['instance' => ['Instance name', 'The instance of your Raynet account (X-Instance-Name)']] + \Talea\Core\EnquiryDelivery::SETTINGS;
     }
 
     public static function authHeaders(string $credential, string $account): array
@@ -33,7 +33,7 @@ final class Raynet extends Connector
      */
     public static function leadBody(string $topic, array $lead, string $notice): array
     {
-        [$first, $last] = \Kaleta\Core\EnquiryDelivery::splitName($lead['name']);
+        [$first, $last] = \Talea\Core\EnquiryDelivery::splitName($lead['name']);
 
         return array_filter(['topic' => $topic, 'firstName' => $first, 'lastName' => $last, 'companyName' => $lead['company'],
             'contactInfo' => array_filter(['email' => $lead['email'], 'tel1' => $lead['phone']], fn (string $v): bool => $v !== ''), 'notice' => $notice], fn (mixed $v): bool => $v !== '' && $v !== []);

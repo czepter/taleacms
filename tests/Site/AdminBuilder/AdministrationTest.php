@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -62,13 +62,13 @@ final class AdministrationTest extends SiteTestCase
         $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
 
         // 3.3.2 (N41): the cron and monitoring tokens change only from System status
-        $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')");
+        $this->site()->exec("REPLACE INTO tl_settings (name, value) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')");
         $this->adminPost('/admin.php?module=business&action=save', ['new_tasks_token' => '1', 'new_token' => '1'], '/admin.php?module=business');
-        $afterBusiness = (string) $this->site()->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM ka_settings WHERE name IN ('tasks_token', 'health_token')");
-        $alerts = (string) $this->site()->value("SELECT value FROM ka_settings WHERE name = 'alerts_enabled'");
+        $afterBusiness = (string) $this->site()->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM tl_settings WHERE name IN ('tasks_token', 'health_token')");
+        $alerts = (string) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'alerts_enabled'");
         $fields = ['new_token' => '1'] + ($alerts === '0' ? [] : ['alerts_enabled' => '1']);
         $this->adminPost('/admin.php?module=status&action=save', $fields, '/admin.php?module=status');
-        $health = (string) $this->site()->value("SELECT CONCAT(value <> 'before-n41', LENGTH(value)) FROM ka_settings WHERE name = 'health_token'");
+        $health = (string) $this->site()->value("SELECT CONCAT(value <> 'before-n41', LENGTH(value)) FROM tl_settings WHERE name = 'health_token'");
         $this->assertSame('before-n41,before-n41|132', "$afterBusiness|$health", '3.3.2: Business details never replace the cron or monitoring token, System status does');
     }
 
@@ -79,7 +79,7 @@ final class AdministrationTest extends SiteTestCase
         $this->assertPage('/admin.php?module=does-not-exist', 403, message: 'unknown module');
         $this->assertPage('/api/news', 404, message: '2.0: the public API of 1.x is gone');
 
-        $this->site()->exec("INSERT INTO ka_settings VALUES ('additional_languages','cs') ON DUPLICATE KEY UPDATE value='cs'");
+        $this->site()->exec("INSERT INTO tl_settings VALUES ('additional_languages','cs') ON DUPLICATE KEY UPDATE value='cs'");
         $this->assertPage('/cs/', 200, 'lang="cs"', message: 'Czech version of the site');
 
         // 2.3.1: saving Settings → General as a browser does (every field of the form as it is) keeps the language versions
@@ -127,17 +127,17 @@ final class AdministrationTest extends SiteTestCase
         $pdo = $this->site()->pdo;
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
         $pdo->exec('DROP TABLE IF EXISTS kat_zaloha');
-        $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM ka_categories');
-        $pdo->exec('DELETE FROM ka_categories');
-        $pdo->exec("UPDATE ka_settings SET value='cs' WHERE name='site_language'");
+        $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM tl_categories');
+        $pdo->exec('DELETE FROM tl_categories');
+        $pdo->exec("UPDATE tl_settings SET value='cs' WHERE name='site_language'");
         try {
             $this->assertPage('/admin.php?module=news&action=new', 200, 'name="title"', message: 'a new news item without a category opens the editor');
-            $this->assertSame('1:Novinky', $this->site()->value("SELECT CONCAT(COUNT(*), ':', MAX(name)) FROM ka_categories"), 'default category created in the site language'); // check-english: allow
+            $this->assertSame('1:Novinky', $this->site()->value("SELECT CONCAT(COUNT(*), ':', MAX(name)) FROM tl_categories"), 'default category created in the site language'); // check-english: allow
         } finally {
-            $pdo->exec('DELETE FROM ka_categories');
-            $pdo->exec('INSERT INTO ka_categories SELECT * FROM kat_zaloha');
+            $pdo->exec('DELETE FROM tl_categories');
+            $pdo->exec('INSERT INTO tl_categories SELECT * FROM kat_zaloha');
             $pdo->exec('DROP TABLE kat_zaloha');
-            $pdo->exec("UPDATE ka_settings SET value='en' WHERE name='site_language'");
+            $pdo->exec("UPDATE tl_settings SET value='en' WHERE name='site_language'");
             $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         }
     }
@@ -145,7 +145,7 @@ final class AdministrationTest extends SiteTestCase
     #[Depends('testNewsValidationAndDefaultCategory')]
     public function testNewsAuthorSeesOnlyTheirOwnAndPublishesNothing(): void
     {
-        $newsId = $this->site()->publicId('news', (int) $this->site()->value('SELECT news_id FROM ka_news ORDER BY news_id LIMIT 1'));
+        $newsId = $this->site()->publicId('news', (int) $this->site()->value('SELECT news_id FROM tl_news ORDER BY news_id LIMIT 1'));
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Author', 'username' => 'author', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
         $author = $this->site()->client('author');
         $this->site()->signIn($author, 'author');
@@ -161,7 +161,7 @@ final class AdministrationTest extends SiteTestCase
             '_csrf' => $csrf, 'news_id' => 0, 'title' => 'XSS-test', 'category_id' => $this->site()->publicId('categories', 1),
             'intro' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">link</a></p>',
         ]);
-        $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');
+        $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM tl_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');
 
         $this->assertPage('/admin.php', 200, 'News from authors awaiting publication', message: 'the editor sees authors\' news waiting for publishing on the overview');
         $this->assertPage('/admin.php?module=news&status=awaiting_publication', 200, 'XSS-test', message: 'news list: filter Waiting for publishing');

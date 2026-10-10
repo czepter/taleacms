@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Connectors as Hub;
-use Kaleta\Core\GoogleBusiness;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Connectors as Hub;
+use Talea\Core\GoogleBusiness;
+use Talea\Core\Response;
 
 /**
  * Connections to outside services (2.13, Core\Connectors): for each service of the curated list its credentials (the
@@ -48,7 +48,7 @@ final class Connectors extends Module
             return $this->back();
         }
         try {
-            $this->app->session->set('connector_properties', \Kaleta\Core\SearchData::properties($this->app));
+            $this->app->session->set('connector_properties', \Talea\Core\SearchData::properties($this->app));
         } catch (\RuntimeException $e) {
             return $this->back(t('The properties could not be loaded: %s', $e->getMessage()), '', [], 'error');
         }
@@ -63,7 +63,7 @@ final class Connectors extends Module
         if (!$this->request->isPost() || $site === '' || preg_match('#^(sc-domain:[a-z0-9.-]+|https?://[^\s"<>]+)$#i', $site) !== 1) {
             return $this->back();
         }
-        Hub::saveConfig($this->app, \Kaleta\Connectors\Google::KEY, ['search_console_site' => $site]);
+        Hub::saveConfig($this->app, \Talea\Connectors\Google::KEY, ['search_console_site' => $site]);
 
         return $this->back(t('Search data will be loaded for %s.', $site));
     }
@@ -71,7 +71,7 @@ final class Connectors extends Module
     /** "Load my locations": the Business Profile locations of the connected Google account, for the location select. */
     protected function actionGbpLocations(): Response
     {
-        if (!$this->request->isPost() || !Hub::isConnected($this->db, \Kaleta\Connectors\Google::KEY)) {
+        if (!$this->request->isPost() || !Hub::isConnected($this->db, \Talea\Connectors\Google::KEY)) {
             return $this->back();
         }
         [$locations, $error] = GoogleBusiness::loadLocations($this->app);
@@ -141,7 +141,7 @@ final class Connectors extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $error = \Kaleta\Core\EnquirySheet::create($this->app);
+        $error = \Talea\Core\EnquirySheet::create($this->app);
 
         return $error === '' ? $this->back('The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.') : $this->back($error, '', [], 'error');
     }

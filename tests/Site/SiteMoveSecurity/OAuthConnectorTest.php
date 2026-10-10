@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Was: section 43 of tools/test.sh – OAuth for the Claude connector (dynamic registration, consent, PKCE, tokens). */
@@ -13,7 +13,7 @@ final class OAuthConnectorTest extends SiteTestCase
 {
     private const string REDIRECT_URI = 'https://claude.ai/api/mcp/auth_callback';
 
-    private function json(string $path, string $body): \Kaleta\Tests\Site\Support\Response
+    private function json(string $path, string $body): \Talea\Tests\Site\Support\Response
     {
         return $this->site()->client()->post($path, $body, ['Content-Type: application/json']);
     }
@@ -50,7 +50,7 @@ final class OAuthConnectorTest extends SiteTestCase
         $consent = $admin->get('/admin.php?action=oauth');
         $this->assertStringContainsString('Allow access', $consent->body, 'the consent page');
         $this->assertStringContainsString("form-action 'self' https://claude.ai;", $consent->headers['content-security-policy'] ?? '', 'the consent CSP allows the return to the app (form-action)');
-        $this->assertArrayNotHasKey('x-kaleta-form-action', $consent->headers, 'the internal form-action header does not leak');
+        $this->assertArrayNotHasKey('x-talea-form-action', $consent->headers, 'the internal form-action header does not leak');
 
         $csrf = $consent->csrf();
         $redirect = $admin->post('/admin.php?action=oauth', ['_csrf' => $csrf, 'allow' => 1])->redirect;

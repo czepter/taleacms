@@ -4,8 +4,8 @@
  * together with the plain text (image/admin.js, data-copy-signature), the plain-text version and where to paste it
  * in Gmail, Outlook and Apple Mail.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Collections $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Collections $module
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
  * @var array{html: string, text: string} $signature

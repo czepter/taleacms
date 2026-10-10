@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Background jobs (2.8): one list of what the site does by itself, when each job runs, and what happened last time.
@@ -11,7 +11,7 @@ namespace Kaleta\Core;
  *  - cron calling /tasks (every 5 minutes, the reliable way): every due job, with a larger time budget;
  *  - a visit to the site (Notifications::runInBackground, at most once a minute, after the page is sent): only jobs marked
  *    "any", with a small budget, so a site without cron still publishes on time and sends its mail.
- * A job is due when INTERVAL seconds passed since it last ran. Its result goes to ka_jobs (last run, last success, the
+ * A job is due when INTERVAL seconds passed since it last ran. Its result goes to tl_jobs (last run, last success, the
  * error, failures in a row); after FAILURES_TO_ALERT failures in a row the event task.failed is recorded (Core\Events),
  * and task.recovered when it works again. One run at a time: a database lock, so cron and a visit never run jobs twice.
  */
@@ -58,7 +58,7 @@ final class Scheduler
     /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
     private static function lockName(Db $db): string
     {
-        return substr('kaleta-sched-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix), 0, 64);
+        return substr('talea-sched-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix), 0, 64);
     }
 
     /**
@@ -121,8 +121,8 @@ final class Scheduler
             'gbp' => fn (App $app): string => GoogleBusiness::run($app),
             'notices' => fn (App $app): string => Notices::run($app),
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
-            'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
-            'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
+            'heartbeat' => fn (App $app): string => \Talea\Fleet\Link::send($app),
+            'fleet_uptime' => fn (App $app): string => \Talea\Fleet\Console::checkUptime($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
                 $scan = Privacy::scan($app);
@@ -142,7 +142,7 @@ final class Scheduler
             $all[$name] = [$interval, $where, $label, $jobs[$name]];
         }
 
-        return $all + \Kaleta\Extension\Registry::get()->jobs(); // jobs of add-ons (3.0), ext_<slug>_<name>
+        return $all + \Talea\Extension\Registry::get()->jobs(); // jobs of add-ons (3.0), ext_<slug>_<name>
     }
 
     /**
@@ -153,7 +153,7 @@ final class Scheduler
      */
     public static function run(App $app, string $source, float $budget): array
     {
-        \Kaleta\Extension\Registry::boot($app);
+        \Talea\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
         if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::lockName($db), $source === 'cron' ? 20 : 0]) !== 1) {
@@ -190,7 +190,7 @@ final class Scheduler
     public static function applies(string $name, Settings $s): bool
     {
         return match ($name) {
-            'heartbeat' => \Kaleta\Fleet\Link::isPaired($s),
+            'heartbeat' => \Talea\Fleet\Link::isPaired($s),
             'fleet_uptime' => Extensions::isEnabled($s, 'fleet'),
             default => true,
         };

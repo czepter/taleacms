@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Images;
-use Kaleta\Core\Settings;
+use Talea\Core\Db;
+use Talea\Core\Images;
+use Talea\Core\Settings;
 
 /**
- * Reading news for the site (table ka_news). The site shows only a published news item (visible = 1) whose publish
+ * Reading news for the site (table tl_news). The site shows only a published news item (visible = 1) whose publish
  * date has already come.
  */
 final class NewsRepository
@@ -24,7 +24,7 @@ final class NewsRepository
 
     /**
      * Columns for listings: without the long texts (text, FAQ) that a listing does not print. The keys stay in the array
-     * (empty) so that templates do not break. A new ka_news column that should be visible in listings must be added here too.
+     * (empty) so that templates do not break. A new tl_news column that should be visible in listings must be added here too.
      */
     private const string LIST_COLUMNS = "c.news_id, c.public_id, c.slug, c.title, c.intro, '' AS text, c.image, c.category_id, c.author_id, c.published_at, c.visible, c.keywords, c.noindex, '' AS faq, c.visit,
         c.edited_at, c.updated_at, c.language, c.translation_of";
@@ -37,7 +37,7 @@ final class NewsRepository
     /** @param string $base path to the installation ("" or "/web") - prepended to URLs of images from media/ */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base = '')
     {
-        $this->published = self::PUBLISHED . " AND c.language = '" . \Kaleta\Core\Language::siteColumn() . "'";
+        $this->published = self::PUBLISHED . " AND c.language = '" . \Talea\Core\Language::siteColumn() . "'";
     }
 
     /**
@@ -97,9 +97,9 @@ final class NewsRepository
     public function search(string $q, int $pageNumber): array
     {
         // index without diacritics (Core\Search): "cafe" finds "café"; short words and parts of words are searched in the title
-        \Kaleta\Core\Search::complete($this->db); // news from before the index are filled in automatically
+        \Talea\Core\Search::complete($this->db); // news from before the index are filled in automatically
         $like = '%' . addcslashes($q, '%_\\') . '%';
-        $query = \Kaleta\Core\Search::query($q);
+        $query = \Talea\Core\Search::query($q);
         if ($query === '') {
             return $this->query($this->published . ' AND c.title LIKE ?', [$like], 'c.published_at DESC, c.news_id DESC', $pageNumber);
         }

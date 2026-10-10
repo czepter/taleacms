@@ -2,15 +2,15 @@
 /**
  * Claude sessions (2.17): the changes one Claude connection made in a row, each undoable as a whole.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\ChangeLog $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\ChangeLog $module
  * @var string $csrf
  * @var list<array<string, mixed>> $sessions
  * @var array<string, mixed>|null $result the last undo: restored, removed, conflicts, untracked
  */
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('Change log')) ?></a></p>
-<p><?= e(t('Changes one Claude connection makes in a row (with less than %d minutes between them) form a session. Undo puts back everything the session changed – pages, builds and drafts, news, collection items, menus, settings, the look – as it was before. Sessions are kept %d days.', Kaleta\Core\AgentJournal::SESSION_GAP, Kaleta\Core\AgentJournal::JOURNAL_DAYS)) ?></p>
+<p><?= e(t('Changes one Claude connection makes in a row (with less than %d minutes between them) form a session. Undo puts back everything the session changed – pages, builds and drafts, news, collection items, menus, settings, the look – as it was before. Sessions are kept %d days.', Talea\Core\AgentJournal::SESSION_GAP, Talea\Core\AgentJournal::JOURNAL_DAYS)) ?></p>
 <?php if ($result !== null && ($result['conflicts'] !== [] || $result['untracked'] !== [])): ?>
 <div class="notice error" role="alert">
 <?php if ($result['conflicts'] !== []): ?><p><?= e(t('%d rows were changed after the session (by a person or another session) and were left as they are. Undo again with “Also overwrite later changes” to put them back too.', count($result['conflicts']))) ?></p>

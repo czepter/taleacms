@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * A booking calendar, a form or a player from a known service (2.3). Only addresses of the services below are embedded,
@@ -64,16 +64,16 @@ final class Embed extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-embed { position: relative; margin: 0; background: var(--ka-color-surface); border-radius: var(--ka-radius); overflow: hidden; }
-.ka-embed > button, .ka-embed > iframe { display: block; width: 100%; height: 700px; border: 0; }
-.ka-embed-160 > button, .ka-embed-160 > iframe { height: 160px; }
-.ka-embed-450 > button, .ka-embed-450 > iframe { height: 450px; }
-.ka-embed-950 > button, .ka-embed-950 > iframe { height: min(950px, 90vh); }
-.ka-embed > button { display: grid; place-content: center; gap: var(--ka-space-xs); padding: var(--ka-space-m); background: var(--ka-color-surface); color: var(--ka-color-text); font: inherit; text-align: center; cursor: pointer; }
-.ka-embed > button strong { font-size: var(--ka-step-1); }
-.ka-embed > button small { color: var(--ka-color-muted); }
-.ka-embed > button:hover strong { color: var(--ka-color-primary); }
-.ka-embed figcaption, .ka-embed > p { margin: 0; padding: 0.4em 0.8em; font-size: var(--ka-step--1); }';
+        return '.tl-embed { position: relative; margin: 0; background: var(--tl-color-surface); border-radius: var(--tl-radius); overflow: hidden; }
+.tl-embed > button, .tl-embed > iframe { display: block; width: 100%; height: 700px; border: 0; }
+.tl-embed-160 > button, .tl-embed-160 > iframe { height: 160px; }
+.tl-embed-450 > button, .tl-embed-450 > iframe { height: 450px; }
+.tl-embed-950 > button, .tl-embed-950 > iframe { height: min(950px, 90vh); }
+.tl-embed > button { display: grid; place-content: center; gap: var(--tl-space-xs); padding: var(--tl-space-m); background: var(--tl-color-surface); color: var(--tl-color-text); font: inherit; text-align: center; cursor: pointer; }
+.tl-embed > button strong { font-size: var(--tl-step-1); }
+.tl-embed > button small { color: var(--tl-color-muted); }
+.tl-embed > button:hover strong { color: var(--tl-color-primary); }
+.tl-embed figcaption, .tl-embed > p { margin: 0; padding: 0.4em 0.8em; font-size: var(--tl-step--1); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -81,7 +81,7 @@ final class Embed extends Element
         $o = $p['content'];
         $service = self::resolve((string) $o['address']);
         if ($service === null) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">'
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">'
                 . e(t('Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.')) . '</div>' : '';
         }
         [$key, $frame] = $service;
@@ -92,7 +92,7 @@ final class Embed extends Element
             . '<strong>' . e(t('Show: %s', $title)) . '</strong><small>' . e(t('Loads from %s after a click.', $name)) . '</small></button>';
         $link = '<a href="' . e((string) $o['address']) . '" target="_blank" rel="noopener">' . e(t('Open in %s', $name)) . '</a>';
 
-        $classes = 'ka-embed' . ($height !== '700' ? ' ka-embed-' . $height : '');
+        $classes = 'tl-embed' . ($height !== '700' ? ' tl-embed-' . $height : '');
 
         return $p['tag'] === 'figure'
             ? '<figure' . Text::withClass($a, $classes) . '>' . $button . '<figcaption>' . $link . '</figcaption></figure>'

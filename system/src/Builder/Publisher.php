@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
+use Talea\Core\App;
+use Talea\Core\Db;
 
 /**
  * Publishing a build draft (page, site part, collection, component or popup) – from the editor and from MCP. The previous published version goes to the history
- * (ka_build_revisions, the last 20 for each target), the site cache is cleared.
+ * (tl_build_revisions, the last 20 for each target), the site cache is cleared.
  */
 final class Publisher
 {
@@ -22,7 +22,7 @@ final class Publisher
         self::version($app, ['page_id' => $page['page_id']], $page['build'], $new, $page['updated_at'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
         $app->db()->update('pages', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['page_id' => $page['page_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 
     public static function part(App $app, array $row): void
@@ -31,7 +31,7 @@ final class Publisher
         $variant = (string) ($row['variant'] ?? '');
         self::version($app, ['part' => SiteParts::versionKey($row['type'], $row['language'], $variant)], $row['build'], $new, $row['updated_at'] ?? null);
         $app->db()->update('site_parts', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['type' => $row['type'], 'language' => $row['language'], 'variant' => $variant]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 
     /**
@@ -43,7 +43,7 @@ final class Publisher
         $new = $collection['build_draft'] ?? $collection['build'];
         self::version($app, ['part' => Collections::templateKey($collection)], $collection['build'], $new, $collection['updated_at'] ?? null);
         Collections::writeTemplate($app->db(), $collection, ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 
     /** Popup (versions under the key „popup:<idpp>“). */
@@ -52,7 +52,7 @@ final class Publisher
         $new = $popup['build_draft'] ?? $popup['build'];
         self::version($app, ['part' => 'popup:' . (int) $popup['popup_id']], $popup['build'], $new, $popup['updated_at'] ?? null);
         $app->db()->update('popups', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['popup_id' => $popup['popup_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 
     /** Component (versions under the key „component:<idm>“) – the change shows on all pages where it is used. */
@@ -61,14 +61,14 @@ final class Publisher
         $new = $component['build_draft'] ?? $component['build'];
         self::version($app, ['part' => 'component:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
         $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 
     /** Saves the previous published version to the history. @param array{page_id?: int|string, part?: string} $target */
     public static function version(App $app, array $target, ?string $old, ?string $newVersion, ?string $date): void
     {
         // 2.8: every publishing is an event (who: a user id and whether it came through a Claude connection)
-        \Kaleta\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['page_id']) ? 'page ' . (int) $target['page_id'] : (string) ($target['part'] ?? '')),
+        \Talea\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['page_id']) ? 'page ' . (int) $target['page_id'] : (string) ($target['part'] ?? '')),
             $target + ['username' => $app->auth()->id() ?: null, 'claude' => $app->auth()->connection() !== null]);
         if ($old === null || $old === $newVersion) {
             return;

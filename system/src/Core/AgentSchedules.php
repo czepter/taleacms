@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Scheduled Claude runs (2.17): a weekly review, a monthly report, a daily triage of enquiries, the open requests, or the
@@ -14,7 +14,7 @@ namespace Kaleta\Core;
  * the Claude app or a Claude Code routine – over a drafts-only connection to this site, so whatever the instructions say,
  * nothing is published, deleted or sent without a person.
  *
- *  - A run is handed out once: the first get_due_agent_runs after next_due creates the ka_agent_runs row (running); a
+ *  - A run is handed out once: the first get_due_agent_runs after next_due creates the tl_agent_runs row (running); a
  *    second call within HANDOUT_HOURS gets the same open run. An open run older than that is written off as failed and a
  *    new one handed out – the routine gets another chance, the owner sees the gap in the history.
  *  - next_due is computed in the site's time zone (Settings time_zone, App::applyTimezone) from the cadence, the day and
@@ -304,6 +304,6 @@ final class AgentSchedules
     {
         $url = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/') . $app->url('mcp');
 
-        return 'Connect to the Kaleta site ' . $url . ' and call get_due_agent_runs. For each run it returns, follow its instructions as drafts only – never publish, make visible, delete or send anything – and when you are done call report_agent_run with the run id, the status (ok, partial or failed), a short summary of what you did and what needs a person, and links to the drafts. If nothing is due, stop.';
+        return 'Connect to the Talea site ' . $url . ' and call get_due_agent_runs. For each run it returns, follow its instructions as drafts only – never publish, make visible, delete or send anything – and when you are done call report_agent_run with the run id, the status (ok, partial or failed), a short summary of what you did and what needs a person, and links to the drafts. If nothing is due, stop.';
     }
 }

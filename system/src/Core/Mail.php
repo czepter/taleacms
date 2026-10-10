@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Sending e-mails: either with the server's mail() function or through the site's own SMTP server ("Settings → Mail",
@@ -56,7 +56,7 @@ final class Mail
     private static bool $pending = false;
 
     /**
-     * Puts the message into the queue (ka_mail) and sends it right after the response (afterResponse in admin.php; the
+     * Puts the message into the queue (tl_mail) and sends it right after the response (afterResponse in admin.php; the
      * background jobs retry it like any queued message). The answer to the request then takes as long whether a message
      * was sent or not – the password reset does not reveal by its timing which accounts exist (3.3.3, N59).
      */
@@ -157,7 +157,7 @@ final class Mail
             $h['Content-Transfer-Encoding'] = 'base64';
             $body = chunk_split(base64_encode($text));
         } else {
-            $boundary = 'kaleta-' . bin2hex(random_bytes(8));
+            $boundary = 'talea-' . bin2hex(random_bytes(8));
             $h['Content-Type'] = 'multipart/alternative; boundary="' . $boundary . '"';
             $body = "--{$boundary}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text))
                 . "--{$boundary}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html)) . "--{$boundary}--\r\n";

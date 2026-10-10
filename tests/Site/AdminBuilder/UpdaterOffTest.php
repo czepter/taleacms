@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** HF-12: the in-app updater is switched off – no update UI, no update item in the health check, no channel check, no install. */
@@ -38,6 +38,6 @@ final class UpdaterOffTest extends SiteTestCase
 
         $this->assertSame('', $this->site()->settingValue('update_cache'), 'no channel check was made, so nothing is cached');
         $this->assertStringNotContainsString('99.0.0', $this->site()->settingValue('update_cache'));
-        $this->assertNotContains('updated', array_column($this->site()->rows("SELECT type FROM ka_events WHERE type LIKE 'update.%'"), 'type'));
+        $this->assertNotContains('updated', array_column($this->site()->rows("SELECT type FROM tl_events WHERE type LIKE 'update.%'"), 'type'));
     }
 }

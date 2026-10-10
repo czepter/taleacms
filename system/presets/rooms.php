@@ -25,12 +25,12 @@ return [
     'claude' => 'One item per room type, apartment or cottage – the name as guests know it ("Double room with a balcony"). Guests: the most it takes; beds e.g. '
         . '"1 double + 1 sofa bed"; size in m²; price per night from as a number with the note for what it includes ("breakfast included", "min. 2 nights"). '
         . 'Amenities: one per line (Wi-Fi, parking, kitchenette…), the same wording across rooms. Booking link: the booking engine or the contact page – '
-        . 'Kaleta takes no payments and has no room availability. Never invent prices, ratings or amenities – ask the owner. A Collection list on the rooms '
+        . 'Talea takes no payments and has no room availability. Never invent prices, ratings or amenities – ask the owner. A Collection list on the rooms '
         . 'page (sorted by order) shows cards with the summary, guests and price; hide a room that is not let any more – its page then leads to the list.',
     'list' => ['sort' => 'order'],
     'card' => ['summary', 'guests', 'price_from', 'price_note'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $label = array_column($fields, 'label', 'key');
 
         return [

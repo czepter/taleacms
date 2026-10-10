@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Pages $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Pages $module
  * @var string $csrf
  * @var list<array<string, mixed>> $pages
  * @var bool $trash     the trash is shown

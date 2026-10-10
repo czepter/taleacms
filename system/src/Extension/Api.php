@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Extension;
+namespace Talea\Extension;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * The extension API (3.0): everything an add-on may hook into, versioned by VERSION. Methods and hook names listed in
  * tools/contracts/extension-api.json are a public contract – they keep working through 3.x; a change that breaks them
- * needs 4.0. Anything else in Kaleta (classes, tables, columns) is internal and may change in any release.
+ * needs 4.0. Anything else in Talea (classes, tables, columns) is internal and may change in any release.
  *
  * One Api object belongs to one add-on: its slug prefixes its settings, its MCP tools (ext_<slug>_<name>), its jobs and
- * its admin pages, so add-ons cannot overwrite each other or Kaleta's own names.
+ * its admin pages, so add-ons cannot overwrite each other or Talea's own names.
  */
 final class Api
 {
@@ -38,7 +38,7 @@ final class Api
     {
     }
 
-    /** Called after Kaleta records an event (Core\Events::TYPES, e.g. enquiry.received): fn (string $type, array $data). */
+    /** Called after Talea records an event (Core\Events::TYPES, e.g. enquiry.received): fn (string $type, array $data). */
     public function on(string $eventType, callable $listener): void
     {
         $this->registry->addListener($eventType, $listener);
@@ -63,8 +63,8 @@ final class Api
     }
 
     /**
-     * A page in the administration (Add-ons, administrators only): fn (\Kaleta\Core\Request $request): string returns the
-     * HTML of the page body; a POST is CSRF-checked by Kaleta before the callable runs.
+     * A page in the administration (Add-ons, administrators only): fn (\Talea\Core\Request $request): string returns the
+     * HTML of the page body; a POST is CSRF-checked by Talea before the callable runs.
      */
     public function adminPage(string $name, string $title, callable $render): void
     {
@@ -94,7 +94,7 @@ final class Api
     }
 
     /** May the signed-in user call a tool that requires $requires (a role of TOOL_ROLES or a section ident)? */
-    public static function userMay(\Kaleta\Core\Auth $auth, string $requires): bool
+    public static function userMay(\Talea\Core\Auth $auth, string $requires): bool
     {
         return match ($requires) {
             'author' => $auth->user() !== null,

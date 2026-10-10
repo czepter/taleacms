@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * SEO data of WordPress SEO plugins in a WXR export: the custom <title>, meta description and noindex of a post or page.
  *
  * The plugins keep them in <wp:postmeta> of each item. Core\WpFile collects the keys listed in PLUGINS, this class turns them
- * into our fields (ka_news.seo_title / seo_description / noindex, ka_pages.seo_title / description / noindex):
+ * into our fields (tl_news.seo_title / seo_description / noindex, tl_pages.seo_title / description / noindex):
  *  - plugin titles are templates with variables (Yoast and SmartCrawl "%%title%% %%sep%% %%sitename%%", Rank Math "%title% %sep% %sitename%");
  *    the common ones are filled in or removed, a title with an unknown variable is dropped rather than imported broken;
  *  - a title made only of variables (the plugin's default pattern) is not imported at all – the site builds "title – site name" itself;

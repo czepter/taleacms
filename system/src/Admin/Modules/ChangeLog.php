@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * Change log - overview of actions in the admin (administrator only), and the Claude sessions that can be undone as a
@@ -63,7 +63,7 @@ final class ChangeLog extends Module
     {
         $sessions = [];
         try {
-            $sessions = \Kaleta\Core\AgentJournal::sessions($this->db, 100);
+            $sessions = \Talea\Core\AgentJournal::sessions($this->db, 100);
         } catch (\PDOException) {
             // before the migration
         }
@@ -80,7 +80,7 @@ final class ChangeLog extends Module
             return $this->back('', 'sessions');
         }
         try {
-            $result = \Kaleta\Core\AgentJournal::undo($this->app, $this->request->postInt('id'), $this->request->postBool('force'));
+            $result = \Talea\Core\AgentJournal::undo($this->app, $this->request->postInt('id'), $this->request->postBool('force'));
         } catch (\InvalidArgumentException | \DomainException $e) {
             return $this->back($e->getMessage(), 'sessions', [], 'error');
         }

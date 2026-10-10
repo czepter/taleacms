@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Core\Response;
+use Talea\Core\Response;
 
 /**
  * Business details (3.2): the hub for what is true about the business – the company and its opening hours (formerly

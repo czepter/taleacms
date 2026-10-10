@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\Http;
+use Talea\Tests\Site\Support\Http;
 
 /**
  * Shared by the classes of this area: the anonymous visitor, MCP answers as text/data, and the page the old section 9 created
@@ -55,14 +55,14 @@ trait McpBuilderHelpers
         }
         $site = $this->site();
         $site->mcp('build_from_html', ['title' => 'Z HTML', 'html' => self::Z_HTML]);
-        self::$zPage = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'z-html'");
+        self::$zPage = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'z-html'");
         $site->mcp('insert_section', ['id' => $site->publicId('pages', self::$zPage), 'section' => 'faq']);
         $site->mcp('publish_build', ['id' => $site->publicId('pages', self::$zPage)]);
-        $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
+        $site->exec('UPDATE tl_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 
         return self::$zPage;
     }
 
-    private const string Z_HTML = '<style>.intro-x { padding-block: var(--ka-space-2xl); } .intro-x h1 { color: red }</style><header class="intro-x"><div class="container"><h1>Page by Claude</h1><p>Text <b>bold</b>.</p><a class="btn" href="/contact">Contact</a></div></header><form><input></form>';
+    private const string Z_HTML = '<style>.intro-x { padding-block: var(--tl-space-2xl); } .intro-x h1 { color: red }</style><header class="intro-x"><div class="container"><h1>Page by Claude</h1><p>Text <b>bold</b>.</p><a class="btn" href="/contact">Contact</a></div></header><form><input></form>';
 }

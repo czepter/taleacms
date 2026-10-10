@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Comparison of two versions of a text: by paragraphs, in changed paragraphs by words.

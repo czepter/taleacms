@@ -3,15 +3,15 @@
  * Scheduled runs (2.17): the schedules with the next due time and the last run, and the "Set up in Claude" panel – the
  * routine prompt to copy and the advice to connect with a drafts-only token.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Schedules $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Schedules $module
  * @var string $csrf
  * @var list<array<string, mixed>> $schedules with last_status, last_finished, last_summary
  * @var string $prompt the routine prompt with the site's MCP address
  * @var bool $claudeOn the Claude connection extension is on
  * @var int $draftTokens how many drafts-only tokens or connections exist
  */
-use Kaleta\Core\AgentSchedules;
+use Talea\Core\AgentSchedules;
 
 $tag = fn (?string $status): string => $status === null ? '<span class="small-text">' . e(t('no run yet')) . '</span>'
     : '<span class="badge' . match ($status) { 'ok' => ' badge-published', 'running' => ' badge-draft', 'failed', 'missed' => ' badge-error', default => '' } . '">' . e(t(AgentSchedules::STATUSES[$status] ?? $status)) . '</span>';

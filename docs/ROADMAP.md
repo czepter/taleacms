@@ -1,4 +1,6 @@
-# Kaleta roadmap
+> Kaleta history: this roadmap was written for Kaleta, the project Talea was forked from. It is kept for reference and is not a plan for Talea.
+
+# Talea roadmap
 
 What is planned next. Dates are not promised; releases ship when they are tested.
 
@@ -57,7 +59,7 @@ Two steps: the first in 1.3, the second in 1.5.
 
 1. **Subscribers sent to the mailing service the site already uses**. After the double opt-in the address goes to
    Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing (API key and list in the admin), or to any service through the
-   existing webhook (Make, Zapier). Unsubscribing in Kaleta removes the address there too. Deliverability, bounces and
+   existing webhook (Make, Zapier). Unsubscribing in Talea removes the address there too. Deliverability, bounces and
    spam rules stay with the specialist service.
 2. **1.5 – a minimal built-in mailing for small lists** – “send the latest news to subscribers”, see 1.5 below.
 
@@ -72,7 +74,7 @@ Done in 1.4.0:
 1. Preparation: the glossary, a rename tool (by PHP tokens, refusing name collisions), old class names as
    aliases, an update test (dropped in the hard fork) and a browser test.
 2. Tools and tests.
-3. PHP classes, functions, constants and variables (`Kaleta\Builder`, `Admin\Modules`…); release packages carry the
+3. PHP classes, functions, constants and variables (`Talea\Builder`, `Admin\Modules`…); release packages carry the
    previous release's class files for the update request.
 4. Admin and installer templates, admin and site scripts.
 5. Admin URLs `admin.php?module=pages&action=edit`, old URLs redirected, permissions migrated.
@@ -145,7 +147,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 
 ## 1.8 – own and move your site (released 28 September 2026)
 
-1. **Import of a Kaleta export:** “Start from an export” in the installer and Transfer → Import on an empty site; builds
+1. **Import of a Talea export:** “Start from an export” in the installer and Transfer → Import on an empty site; builds
    go through the same sanitising as any build, users and secrets are never carried. It serves host moves and agency
    starter kits at once.
 2. **Backups include media:** an incremental media copy to the same FTPS or S3 target, a daily database backup when
@@ -177,8 +179,8 @@ Not new features – everything that exists is one English, builder-based system
 
 ## Direction after 2.0
 
-Decided on 29 September 2026 after an evaluation of the product and the market: Kaleta does what it set out to do, but
-nobody outside kaletacms.com uses it yet, and an MCP server alone no longer sets a CMS apart. The next releases earn trust
+Decided on 29 September 2026 after an evaluation of the product and the market: Talea does what it set out to do, but
+nobody outside taleacms.com uses it yet, and an MCP server alone no longer sets a CMS apart. The next releases earn trust
 first, then make "Claude runs your site, safely" the product, then prove business value, then serve agencies. About one
 minor release a month; the [release policy](RELEASE-POLICY.md) says what stays compatible.
 
@@ -188,11 +190,11 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
    any version, at least two minor releases and six months between deprecation and removal, removals only in a major.
 2. **Recorded public contracts** (`tools/contracts`): MCP tools and parameters, design tokens and builder elements; the
    tests fail when any of them is removed or changed.
-3. **English design token names** (`--ka-color-primary`, `--ka-space-m`…) next to the stored ones.
+3. **English design token names** (`--tl-color-primary`, `--tl-space-m`…) next to the stored ones.
 4. **Output budget in CI** (`tools/test-lighthouse.sh`): every starter site scores 99–100 in Lighthouse. Pages without
    their own description get one from their first longer paragraph; lazy images use `sizes="auto"`.
 5. **MCP layer rebuilt** on one catalog (`Mcp\Catalog`) with one method per tool; PHPStan in CI.
-6. **Docker image** (`ghcr.io/phprs-cms/kaleta`) and `compose.yaml`.
+6. **Docker image** (`ghcr.io/phprs-cms/talea`) and `compose.yaml`.
 7. The daily check of the update channel and the project website runs again; documentation caught up.
 
 ## 2.2 – Claude, in charge and safe (released 29 September 2026)
@@ -230,7 +232,7 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
    on the sign-in screen and at the foot of the admin, and a **Before handing over** check in the site audit (also for
    Claude: `site_audit`, `kind: handover`).
 3. **A guide link on every screen:** each part of the admin and the builder opens its article in the guide on
-   kaletacms.com, in the admin language.
+   taleacms.com, in the admin language.
 4. Moved to Later: visitor dictionaries keyed by English text – an internal change with no visible effect, better done
    on its own than next to a new admin language.
 - 2.4.1: the guide gains Media, Statistics, Privacy and cookies, and Sending e-mail, and those screens link to them;
@@ -238,10 +240,10 @@ minor release a month; the [release policy](RELEASE-POLICY.md) says what stays c
 
 ## 2.5 – easy to start (released 29 September 2026)
 
-Kaleta does what it set out to do, but few people have tried it. 2.5 makes the first install short wherever it happens.
+Talea does what it set out to do, but few people have tried it. 2.5 makes the first install short wherever it happens.
 
 1. **The installer in German**, next to English and Czech.
-2. **No database typing on platforms:** Docker, Coolify and similar platforms set the database (`KALETA_DB_*`); the
+2. **No database typing on platforms:** Docker, Coolify and similar platforms set the database (`TALEA_DB_*`); the
    installer asks only for the site and the administrator.
 3. **Installation without the browser:** `php install.php` for scripts;
    the container installs itself on the first start when the address and the administrator's password are set.
@@ -252,7 +254,7 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 
 1. **Import from any site by its address:** the pages of a site on any platform (Wix, Webnode, Jimdo, Squarespace, Joomla,
    Drupal, WordPress without an export…) become builder pages with their images, and the old addresses redirect.
-2. **A public demo** of the admin at demo.kaletacms.com, reset every hour.
+2. **A public demo** of the admin at demo.taleacms.com, reset every hour.
 3. **Google Tag Manager** in one field, with Consent Mode and ready-made conversion events for campaigns.
 4. **An optional CAPTCHA** for forms: hCaptcha, Google reCAPTCHA v3 or Cloudflare Turnstile, on top of the built-in
    protection.
@@ -262,7 +264,7 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 ## Direction after 2.6
 
 Decided on 2 October 2026: the owner approved 102 items of a feature map – what business sites use on other platforms and
-what Kaleta could become. They are ordered so that each release stands on the ones before: first moving sites (2.7),
+what Talea could become. They are ordered so that each release stands on the ones before: first moving sites (2.7),
 then a site that runs itself (2.8), many sites as one (2.9), the business as data (2.10), content types that keep
 themselves current (2.11), leads and forms (2.12), Google and CRM connections (2.13), upkeep and EU duties (2.14), Claude as
 the site's operator (2.15), shared design and blocks across sites (2.16), and in 3.0 an extension API, appointment
@@ -298,7 +300,7 @@ booking and structured importers.
 ## 2.9 – many sites as one (released 2 October 2026)
 
 1. **Site keys:** every site has its own Ed25519 key pair, like the publisher's update signatures.
-2. **Fleet console:** a Kaleta install with the extension "fleet" shows every paired site on one screen, the ones that
+2. **Fleet console:** a Talea install with the extension "fleet" shows every paired site on one screen, the ones that
    need attention first, with a signed hourly report from each site and its own uptime check every 5 minutes.
 3. **Staged updates:** test sites first, the rest after 48 hours without problems; security releases at once.
 4. **The console cannot get into the sites** (decided on 2 October 2026): sites always call the console, never the other
@@ -494,7 +496,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 - More style presets, approval workflows, PHP themes.
 - A fleet console that reaches into sites – remote commands or Claude tokens held by the console (decided on 2 October 2026).
 - Reversed on 2 October 2026 and delivered: form logic (2.12), appointment booking, structured importers and an
-  extension API (3.0). Add-ons are installed by copying a folder – never uploaded or downloaded by Kaleta.
+  extension API (3.0). Add-ons are installed by copying a folder – never uploaded or downloaded by Talea.
 
 ## Later
 

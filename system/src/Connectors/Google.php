@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Connectors;
+namespace Talea\Connectors;
 
 /**
  * Google (2.13): one sign-in for the Business Profile, Search Console and Sheets. The site uses its own OAuth app – the
@@ -35,12 +35,12 @@ final class Google extends Connector
     {
         return ['search_console_site' => ['Search Console property', 'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.'],
             'location' => ['Business Profile location', 'accounts/…/locations/… – choose it from the loaded list'], 'post_news' => ['Post news to the Business Profile', ''],
-            'enquiries' => ['Enquiries to a sheet', '', 'check']] + \Kaleta\Core\EnquiryDelivery::SETTINGS
+            'enquiries' => ['Enquiries to a sheet', '', 'check']] + \Talea\Core\EnquiryDelivery::SETTINGS
             + ['sheet_id' => ['Spreadsheet ID', 'Filled in by “Create the sheet”; clear it to have a new sheet created']];
     }
 
-    public static function disconnected(\Kaleta\Core\App $app): void
+    public static function disconnected(\Talea\Core\App $app): void
     {
-        \Kaleta\Core\GoogleBusiness::forget($app);
+        \Talea\Core\GoogleBusiness::forget($app);
     }
 }

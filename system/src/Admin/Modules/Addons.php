@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
-use Kaleta\Extension\Registry;
+use Talea\Admin\Module;
+use Talea\Core\Response;
+use Talea\Extension\Registry;
 
 /**
  * Add-ons (3.0): code from other developers copied into extensions/<slug>/ – switched on and off here, with what each
  * needs and the error that switched it off, and the administration pages add-ons register (Extension\Api::adminPage).
- * Built-in parts of Kaleta stay in Extensions; nothing is uploaded or downloaded from here.
+ * Built-in parts of Talea stay in Extensions; nothing is uploaded or downloaded from here.
  */
 final class Addons extends Module
 {
@@ -29,13 +29,13 @@ final class Addons extends Module
 
         return $this->view('list', 'Add-ons', ['addons' => Registry::discover(), 'enabled' => Registry::enabled($s),
             'errors' => array_map(fn (array $m): string => $s->get('addons_error.' . $m['slug']), Registry::discover()),
-            'pages' => Registry::get()->adminPages(), 'safeMode' => ($this->app->config['addons'] ?? true) === false, 'demo' => \Kaleta\Core\Demo::active()]);
+            'pages' => Registry::get()->adminPages(), 'safeMode' => ($this->app->config['addons'] ?? true) === false, 'demo' => \Talea\Core\Demo::active()]);
     }
 
     protected function actionToggle(): Response
     {
         $slug = $this->request->post('slug');
-        if (!$this->request->isPost() || \Kaleta\Core\Demo::active()) {
+        if (!$this->request->isPost() || \Talea\Core\Demo::active()) {
             return $this->back();
         }
         if ($this->request->post('on') === '1') {

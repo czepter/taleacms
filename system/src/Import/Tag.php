@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Import;
+namespace Talea\Import;
 
 /** A tag (label) of the old site (Import\Source). Created on first use by a news item; looked up by the slug of its name. */
 final readonly class Tag

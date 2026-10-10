@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\ChangeLog $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\ChangeLog $module
  * @var list<array<string, mixed>> $records
  * @var array<string, string> $users  public id => name
  * @var string $who  public id of the user the list is filtered by ('' = all)
@@ -14,7 +14,7 @@
  * @var int $total
  */
 // names of the admin modules (including those added later) and a few places outside modules
-$names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
+$names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Talea\Admin\Kernel::MODULES), Talea\Admin\Kernel::MODULES))
     + ['assistant' => 'Writing assistant (your own key)', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'signed_in' => 'Sign in', 'account' => 'My account'];
 $action = ['save' => 'save', 'delete' => 'deletion', 'delete_permanently' => 'deleted permanently', 'restore' => 'restored from trash', 'duplicate' => 'copy',
     'publish' => 'publication', 'bulk' => 'bulk action', 'upload' => 'upload', 'login' => 'sign-in', 'failed_attempt' => 'failed attempt',

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * The site's system URLs: /news, /news/category/…, /news/tag/… and /search. Code inside the system works with these words;
@@ -47,7 +47,7 @@ final class Routes
         if ($slug === '') {
             return null;
         }
-        $system = array_diff(\Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, ['news']);
+        $system = array_diff(\Talea\Admin\Modules\Pages::RESERVED_SLUGS, ['news']);
         if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug) !== 1 || strlen($slug) > 40 || in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
             return 'This URL is used by the system, choose another one.';
         }

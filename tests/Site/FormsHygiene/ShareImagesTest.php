@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsHygiene;
+namespace Talea\Tests\Site\FormsHygiene;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Share images drawn by the site (was: section 71,). */
@@ -21,7 +21,7 @@ final class ShareImagesTest extends SiteTestCase
         return preg_match('/property="og:image" content="([^"]*)"/', $body, $m) === 1 ? $m[1] : '';
     }
 
-    private function fetchPage(): \Kaleta\Tests\Site\Support\Response
+    private function fetchPage(): \Talea\Tests\Site\Support\Response
     {
         $this->site()->clearPageCache();
 
@@ -33,7 +33,7 @@ final class ShareImagesTest extends SiteTestCase
         if (!function_exists('imagecreatetruecolor') || !function_exists('imagettftext')) {
             $this->markTestSkipped('The PHP used by the test has no GD – the image checks are skipped.');
         }
-        $this->site()->exec("DELETE FROM ka_settings WHERE name IN ('share_image', 'share_image_auto')");
+        $this->site()->exec("DELETE FROM tl_settings WHERE name IN ('share_image', 'share_image_auto')");
         self::$page = $this->createPage(['title' => 'Custom wooden stairs', 'slug' => 'wooden-stairs', 'visible' => true, 'content' => '<p>Stairs.</p>']);
 
         $response = $this->fetchPage();
@@ -75,7 +75,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testAChangedTitleIsANewAddress(): void
     {
-        $this->site()->exec("UPDATE ka_pages SET title = 'Stone stairs' WHERE page_id = ?", [self::$page]);
+        $this->site()->exec("UPDATE tl_pages SET title = 'Stone stairs' WHERE page_id = ?", [self::$page]);
         $url = $this->ogImage($this->fetchPage()->body);
 
         $this->assertNotSame(self::$imageUrl, $url, 'the address changed with the title (no stale copies at the social networks)');
@@ -85,7 +85,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testAPageWithItsOwnImageKeepsIt(): void
     {
-        $this->site()->exec("UPDATE ka_pages SET image = 'media/2026/01/sharing.jpg' WHERE page_id = ?", [self::$page]);
+        $this->site()->exec("UPDATE tl_pages SET image = 'media/2026/01/sharing.jpg' WHERE page_id = ?", [self::$page]);
         $response = $this->fetchPage();
 
         $this->assertTrue($response->matches('#og:image" content="http[^"]*/media/2026/01/sharing.jpg"#'), "a page's own share image is used");
@@ -94,7 +94,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testWithTheSettingOffThereIsNoGeneratedImage(): void
     {
-        $this->site()->exec("UPDATE ka_pages SET image = '' WHERE page_id = ?", [self::$page]);
+        $this->site()->exec("UPDATE tl_pages SET image = '' WHERE page_id = ?", [self::$page]);
         $this->site()->setting('share_image_auto', '0');
         $response = $this->fetchPage();
 
@@ -105,7 +105,7 @@ final class ShareImagesTest extends SiteTestCase
         $this->assertNull($page['share_image_generated'] ?? null, 'get_page without share_image_generated when the setting is off');
         $this->assertPage('/admin.php?module=settings&tab=seo', 200, 'name="share_image_auto"', message: 'settings → SEO offers the switch');
 
-        $this->site()->exec("DELETE FROM ka_settings WHERE name = 'share_image_auto'");
+        $this->site()->exec("DELETE FROM tl_settings WHERE name = 'share_image_auto'");
         $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', self::$page)]);
     }
 }

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsB;
+namespace Talea\Tests\Site\CollectionsB;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -27,33 +27,33 @@ final class NoticeBoardTest extends SiteTestCase
     {
         $site = $this->site();
         // the job runs only when the test asks (a day ahead: MySQL and PHP may be in different time zones)
-        $site->exec("INSERT INTO ka_jobs (name, last_run) VALUES ('notices', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)");
+        $site->exec("INSERT INTO tl_jobs (name, last_run) VALUES ('notices', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)");
         $yesterday = $this->day('-1 day');
         $tomorrow = $this->day('+1 day');
         $tenAgo = $this->day('-10 day');
 
         $text = $this->mcpText('create_collection', ['name' => 'Notice board', 'preset' => 'notices']);
         // over MCP the texts are English (as the field labels of every preset); from the admin the name is translated
-        $this->assertSame('notices|2|1|1|Notice board – archive', $site->value("SELECT CONCAT((SELECT preset FROM ka_collections WHERE slug = 'notice-board'), '|', (SELECT COUNT(*) FROM ka_pages WHERE slug IN ('notice-board', 'notice-board-archive') AND visible = 0), '|', (SELECT build LIKE '%\"period\":\"current\"%' FROM ka_pages WHERE slug = 'notice-board'), '|', (SELECT build LIKE '%\"period\":\"past\"%' AND build LIKE '%\"collection\":\"notice-board\"%' FROM ka_pages WHERE slug = 'notice-board-archive'), '|', (SELECT title FROM ka_pages WHERE slug = 'notice-board-archive'))"),
+        $this->assertSame('notices|2|1|1|Notice board – archive', $site->value("SELECT CONCAT((SELECT preset FROM tl_collections WHERE slug = 'notice-board'), '|', (SELECT COUNT(*) FROM tl_pages WHERE slug IN ('notice-board', 'notice-board-archive') AND visible = 0), '|', (SELECT build LIKE '%\"period\":\"current\"%' FROM tl_pages WHERE slug = 'notice-board'), '|', (SELECT build LIKE '%\"period\":\"past\"%' AND build LIKE '%\"collection\":\"notice-board\"%' FROM tl_pages WHERE slug = 'notice-board-archive'), '|', (SELECT title FROM tl_pages WHERE slug = 'notice-board-archive'))"),
             'notices: the collection with its board and its archive page, both hidden, each listing its period');
         $this->assertStringContainsString('more_pages', $text, 'notices: Claude is told about more pages');
         $this->assertStringContainsString('notice-board-archive', $text, 'notices: Claude is told about the archive page');
-        $this->assertSame('1', (string) $site->value("SELECT build LIKE '%{{notice_status}}%' FROM ka_collections WHERE slug = 'notice-board'"), 'notices: the item template comes from the preset with the status line');
-        self::$board = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'notice-board'");
+        $this->assertSame('1', (string) $site->value("SELECT build LIKE '%{{notice_status}}%' FROM tl_collections WHERE slug = 'notice-board'"), 'notices: the item template comes from the preset with the status line');
+        self::$board = (int) $site->value("SELECT collection_id FROM tl_collections WHERE slug = 'notice-board'");
 
         self::$noticeA = $site->rowId($site->mcpResult('save_collection_item', ['collection' => 'notice-board', 'name' => 'Lease notice', 'slug' => 'lease-notice',
             'values' => ['posted' => $yesterday, 'taken_down' => $tomorrow, 'reference' => 'MU/2026/41', 'issuer' => 'City office', 'category' => 'Property', 'summary' => 'Intention to lease a plot.'], 'visible' => true])['id']);
         self::$noticeB = $site->rowId($site->mcpResult('save_collection_item', ['collection' => 'notice-board', 'name' => 'Budget 2026', 'slug' => 'budget-2026',
             'values' => ['posted' => $tenAgo, 'taken_down' => $yesterday, 'reference' => 'MU/2026/12', 'category' => 'Budget'], 'visible' => true])['id']);
         $site->mcp('save_collection_item', ['collection' => 'notice-board', 'name' => 'Future decree', 'slug' => 'future', 'values' => ['posted' => '2099-01-01']]);
-        $this->assertSame('0', (string) $site->value("SELECT visible FROM ka_collection_items WHERE slug = 'future'"), 'notices: a notice still to be posted may stay hidden');
+        $this->assertSame('0', (string) $site->value("SELECT visible FROM tl_collection_items WHERE slug = 'future'"), 'notices: a notice still to be posted may stay hidden');
 
         $text = $this->mcpText('save_collection_item', ['collection' => 'notice-board', 'name' => 'Hidden past', 'values' => ['posted' => $yesterday]]);
         $this->assertStringContainsString('cannot be hidden', $text, 'MCP: a notice whose posting day has come cannot be created hidden');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_collection_items WHERE name = 'Hidden past'"), 'MCP: the refused notice was not created');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_collection_items WHERE name = 'Hidden past'"), 'MCP: the refused notice was not created');
 
         foreach (['notice-board', 'notice-board-archive'] as $slug) {
-            $site->mcp('update_page', ['id' => $site->publicId('pages', (int) $site->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$slug])), 'visible' => true]);
+            $site->mcp('update_page', ['id' => $site->publicId('pages', (int) $site->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$slug])), 'visible' => true]);
         }
         $board = $site->client()->get('/notice-board')->body;
         foreach (['Lease notice', 'MU/2026/41', 'Property'] as $needle) {
@@ -86,11 +86,11 @@ final class NoticeBoardTest extends SiteTestCase
 
         $text = $this->mcpText('save_collection_item', ['collection' => 'notice-board', 'id' => $this->site()->publicId('collection_items', $a), 'visible' => false]);
         $this->assertStringContainsString('cannot be hidden', $text, 'MCP: a posted notice cannot be hidden');
-        $this->assertSame('1', (string) $site->value('SELECT visible FROM ka_collection_items WHERE item_id = ?', [$a]), 'MCP: the posted notice stays visible');
+        $this->assertSame('1', (string) $site->value('SELECT visible FROM tl_collection_items WHERE item_id = ?', [$a]), 'MCP: the posted notice stays visible');
 
         $text = $this->mcpText('delete_collection_item', ['collection' => 'notice-board', 'id' => $this->site()->publicId('collection_items', $b)]);
         $this->assertStringContainsString('stay in the archive', $text, 'MCP: delete_collection_item refuses a notice with a clear message');
-        $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM ka_collection_items WHERE item_id = ?', [$b]), 'MCP: the notice was not deleted');
+        $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM tl_collection_items WHERE item_id = ?', [$b]), 'MCP: the notice was not deleted');
 
         $items = $this->assertPage("/admin.php?module=collections&action=items&id={$site->publicId('collections', $board)}");
         $this->assertStringNotContainsString('action=delete_item"', $items->body, 'admin: the notices list has no Delete button');
@@ -98,15 +98,15 @@ final class NoticeBoardTest extends SiteTestCase
         $token = $items->csrf();
 
         $site->admin()->post('/admin.php?module=collections&action=delete_item', ['_csrf' => $token, 'collection_id' => $site->publicId('collections', $board), 'item_id' => $site->publicId('collection_items', $b)]);
-        $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM ka_collection_items WHERE item_id = ?', [$b]), 'admin: the delete action refuses a notice');
+        $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM tl_collection_items WHERE item_id = ?', [$b]), 'admin: the delete action refuses a notice');
         $this->assertPage("/admin.php?module=collections&action=items&id={$site->publicId('collections', $board)}", 200, 'change the takedown date instead', message: 'admin: the refusal is explained');
 
         $text = $this->mcpText('delete_collection', ['collection' => 'notice-board']);
         $this->assertStringContainsString('cannot be deleted', $text, 'MCP: the board cannot be deleted while it has notices');
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_collections WHERE slug = 'notice-board'"), 'MCP: the board is still there');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_collections WHERE slug = 'notice-board'"), 'MCP: the board is still there');
 
         $site->admin()->post('/admin.php?module=collections&action=delete', ['_csrf' => $token, 'collection_id' => $site->publicId('collections', $board)]);
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_collections WHERE slug = 'notice-board'"), 'admin: the collection delete refuses a board with notices');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_collections WHERE slug = 'notice-board'"), 'admin: the collection delete refuses a board with notices');
     }
 
     #[Depends('testThePermanentArchiveRefusesHidingAndDeleting')]
@@ -119,25 +119,25 @@ final class NoticeBoardTest extends SiteTestCase
         $yesterday = $this->day('-1 day');
         $tenAgo = $this->day('-10 day');
 
-        $this->assertSame('3|Claude|MU/2026/41', $site->value("SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(DISTINCT `by`), '|', (SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.reference[1]')) FROM ka_notice_log WHERE item_id = $a AND action = 'created')) FROM ka_notice_log WHERE action = 'created'"),
+        $this->assertSame('3|Claude|MU/2026/41', $site->value("SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(DISTINCT `by`), '|', (SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.reference[1]')) FROM tl_notice_log WHERE item_id = $a AND action = 'created')) FROM tl_notice_log WHERE action = 'created'"),
             'notices: a created row per notice, written by Claude, with the values');
 
         $save = ['collection' => 'notice-board', 'id' => $site->publicId('collection_items', $b), 'values' => ['summary' => 'Approved budget.']];
         $site->mcp('save_collection_item', $save);
         $site->mcp('save_collection_item', $save);
-        $this->assertSame('1||Approved budget.|0', $site->value("SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[0]'))), ''), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[1]'))), '|', MAX(JSON_CONTAINS_PATH(fields, 'one', '\$.reference'))) FROM ka_notice_log WHERE item_id = $b AND action = 'changed'"),
+        $this->assertSame('1||Approved budget.|0', $site->value("SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[0]'))), ''), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[1]'))), '|', MAX(JSON_CONTAINS_PATH(fields, 'one', '\$.reference'))) FROM tl_notice_log WHERE item_id = $b AND action = 'changed'"),
             'notices: a change is logged once with the field, the old and the new value');
 
         $token = $this->assertPage("/admin.php?module=collections&action=item&id={$site->publicId('collections', $board)}&item={$site->publicId('collection_items', $b)}")->csrf();
         $form = ['_csrf' => $token, 'collection_id' => $site->publicId('collections', $board), 'item_id' => $site->publicId('collection_items', $b), 'name' => 'Budget 2026', 'slug' => 'budget-2026', 'sort_order' => 100, 'visible' => 1,
             'data' => ['posted' => $tenAgo, 'taken_down' => $yesterday, 'reference' => 'MU/2026/12', 'issuer' => 'City council', 'category' => 'Budget', 'document' => '', 'summary' => 'Approved budget.']];
         $site->admin()->post('/admin.php?module=collections&action=save_item', $form);
-        $this->assertSame('Tester|City council', $site->value("SELECT CONCAT(`by`, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.issuer[1]'))) FROM ka_notice_log WHERE item_id = $b AND action = 'changed' ORDER BY id DESC LIMIT 1"),
+        $this->assertSame('Tester|City council', $site->value("SELECT CONCAT(`by`, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.issuer[1]'))) FROM tl_notice_log WHERE item_id = $b AND action = 'changed' ORDER BY id DESC LIMIT 1"),
             "admin: saving the form logs the change under the user's name");
 
         unset($form['visible'], $form['data']['category'], $form['data']['document'], $form['data']['summary']);
         $site->admin()->post('/admin.php?module=collections&action=save_item', $form);
-        $this->assertSame('1', (string) $site->value('SELECT visible FROM ka_collection_items WHERE item_id = ?', [$b]), 'admin: the form cannot hide a posted notice either');
+        $this->assertSame('1', (string) $site->value('SELECT visible FROM tl_collection_items WHERE item_id = ?', [$b]), 'admin: the form cannot hide a posted notice either');
     }
 
     #[Depends('testTheAuditTrailOfCreatedAndChangedNotices')]
@@ -149,17 +149,17 @@ final class NoticeBoardTest extends SiteTestCase
         $board = self::$board;
         $yesterday = $this->day('-1 day');
 
-        $site->exec("UPDATE ka_jobs SET last_run = NULL WHERE name = 'notices'");
+        $site->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'notices'");
         $out = $site->runTasks();
         $this->assertStringContainsString('notices: posted 2, taken down 1', $out, 'notices: the job reports what it recorded');
 
-        $this->assertSame('1|1|3|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_notice_log WHERE item_id = $a AND action = 'posted'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE item_id = $b AND action = 'taken_down' AND JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.taken_down')) = '$yesterday'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE action IN ('posted', 'taken_down') AND `by` = 'system'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE item_id = (SELECT item_id FROM ka_collection_items WHERE slug = 'future') AND action <> 'created'))"),
+        $this->assertSame('1|1|3|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_notice_log WHERE item_id = $a AND action = 'posted'), '|', (SELECT COUNT(*) FROM tl_notice_log WHERE item_id = $b AND action = 'taken_down' AND JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.taken_down')) = '$yesterday'), '|', (SELECT COUNT(*) FROM tl_notice_log WHERE action IN ('posted', 'taken_down') AND `by` = 'system'), '|', (SELECT COUNT(*) FROM tl_notice_log WHERE item_id = (SELECT item_id FROM tl_collection_items WHERE slug = 'future') AND action <> 'created'))"),
             'notices: posted for both visible notices, taken_down for the archived one, by system');
 
-        $site->exec("UPDATE ka_jobs SET last_run = NULL WHERE name = 'notices'");
+        $site->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'notices'");
         $out = $site->runTasks();
         $this->assertStringContainsString('notices: posted 0, taken down 0', $out, 'notices: a second run reports nothing new');
-        $this->assertSame('3', (string) $site->value("SELECT COUNT(*) FROM ka_notice_log WHERE action IN ('posted', 'taken_down')"), 'notices: a second run records nothing twice');
+        $this->assertSame('3', (string) $site->value("SELECT COUNT(*) FROM tl_notice_log WHERE action IN ('posted', 'taken_down')"), 'notices: a second run records nothing twice');
 
         // the log under the item form and the CSV for an administrator, not for a guest
         $form = $this->assertPage("/admin.php?module=collections&action=item&id={$site->publicId('collections', $board)}&item={$site->publicId('collection_items', $b)}", 200, 'action=notice_log', message: 'notices: the item form shows the log with the CSV link');

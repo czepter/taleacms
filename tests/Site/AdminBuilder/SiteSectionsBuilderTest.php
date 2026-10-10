@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Tests\Site\Support\Response;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Site parts (header, footer, content wrappers) in the builder (was: section 11 "site parts in the builder"). */
@@ -34,17 +34,17 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
         $body = $this->visit('/about-us')->body;
         $this->assertStringContainsString('header class="header"', $body, 'the unpublished header is drawn by the template');
-        $this->assertStringNotContainsString('ka-nav', $body, 'no builder navigation yet');
+        $this->assertStringNotContainsString('tl-nav', $body, 'no builder navigation yet');
 
-        $this->assertPage('/about-us?part=header&build=draft&editor=1', 200, 'data-ka-type="navigation"', message: 'header draft preview for the editor');
-        $this->assertStringNotContainsString('data-ka-type', $this->site()->client()->get('/about-us?part=header&build=draft&editor=1')->body, 'the visitor does not see the part preview');
+        $this->assertPage('/about-us?part=header&build=draft&editor=1', 200, 'data-tl-type="navigation"', message: 'header draft preview for the editor');
+        $this->assertStringNotContainsString('data-tl-type', $this->site()->client()->get('/about-us?part=header&build=draft&editor=1')->body, 'the visitor does not see the part preview');
     }
 
     public function testPublishedHeaderAndWrapper(): void
     {
         $this->assertSame(200, $this->partAction('build_publish', 'header')->status, 'publishing the header');
         $body = $this->visit('/about-us')->body;
-        $this->assertStringContainsString('class="ka-nav"', $body, 'the header from the builder is on the web');
+        $this->assertStringContainsString('class="tl-nav"', $body, 'the header from the builder is on the web');
         $this->assertStringNotContainsString('header class="header"', $body, 'instead of the template one');
         $this->assertStringContainsString('href="/about-us" aria-current="page"', $body, 'with the active menu item');
         $this->assertSame(1, substr_count($body, '<style>'), 'the page and the site parts share one stylesheet');
@@ -64,7 +64,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
     {
         $this->partAction('build_save', 'header', ['build' => '{"v":1,"children":[{"type":"section","tag":"header","children":[{"type":"logo"}]}]}']);
         $this->partAction('build_publish', 'header');
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'header:'"), 'the previous header is in the versions');
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM tl_build_revisions WHERE part = 'header:'"), 'the previous header is in the versions');
 
         $this->partAction('template', 'header');
         $this->assertStringContainsString('header class="header"', $this->visit('/about-us')->body, 'the header goes back to the template');
@@ -76,7 +76,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
         $this->assertStringContainsString('published', (string) json_encode($result, JSON_UNESCAPED_UNICODE), 'MCP: footer from a build');
 
         $body = $this->visit('/about-us')->body;
-        $this->assertStringContainsString('<p class="ka-detail">&copy; ' . date('Y') . ' Test Company</p>', $body, 'the footer from MCP is on the web');
+        $this->assertStringContainsString('<p class="tl-detail">&copy; ' . date('Y') . ' Test Company</p>', $body, 'the footer from MCP is on the web');
         $this->assertStringNotContainsString('footer class="footer"', $body, 'instead of the template one');
 
         $this->assertSame(403, $this->authorClient()->get('/admin.php?module=parts')->status, 'a news author may not use site parts');

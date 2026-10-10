@@ -1,6 +1,6 @@
 <?php
 /**
- * @var Kaleta\Admin\Modules\Roles $module
+ * @var Talea\Admin\Modules\Roles $module
  * @var string $csrf
  * @var array<string, mixed> $role
  * @var array<string, string> $errors
@@ -25,7 +25,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <fieldset>
 <legend><?= e(t('News')) ?></legend>
 <div class="cards-options cards-options-text">
-<?php foreach (Kaleta\Admin\Modules\Roles::LEVELS as $value => [$name, $description]): ?>
+<?php foreach (Talea\Admin\Modules\Roles::LEVELS as $value => [$name, $description]): ?>
 	<label class="card-option"><input type="radio" name="level" value="<?= $value ?>"<?= (int) $role['level'] === $value ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>
 <?php endforeach ?>
 </div>

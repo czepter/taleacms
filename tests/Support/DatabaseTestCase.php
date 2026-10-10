@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Support;
+namespace Talea\Tests\Support;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Migrator;
+use Talea\Core\Db;
+use Talea\Core\Migrator;
 use PDO;
 use PHPUnit\Framework\TestCase;
 
@@ -14,11 +14,11 @@ use PHPUnit\Framework\TestCase;
  * (Core\Migrator), every test in a transaction that is rolled back. Skips (does not fail) when no MySQL is reachable, so
  * `vendor/bin/phpunit` still works on a machine without the dev stack.
  *
- * Connection: KALETA_TEST_DB_HOST / _PORT / _USER / _PASSWORD (defaults of phpunit.xml.dist = the db-test service of docker-compose-dev.yaml).
+ * Connection: TALEA_TEST_DB_HOST / _PORT / _USER / _PASSWORD (defaults of phpunit.xml.dist = the db-test service of docker-compose-dev.yaml).
  */
 abstract class DatabaseTestCase extends TestCase
 {
-    protected const string PREFIX = 'ka_';
+    protected const string PREFIX = 'tl_';
 
     /** @var array<string, mixed>|null connection settings of the class's database; null = no MySQL reachable */
     private static ?array $config = null;
@@ -29,8 +29,8 @@ abstract class DatabaseTestCase extends TestCase
     {
         parent::setUpBeforeClass();
         $server = [
-            'host' => (string) getenv('KALETA_TEST_DB_HOST'), 'port' => (int) getenv('KALETA_TEST_DB_PORT'),
-            'username' => (string) getenv('KALETA_TEST_DB_USER'), 'password' => (string) getenv('KALETA_TEST_DB_PASSWORD'),
+            'host' => (string) getenv('TALEA_TEST_DB_HOST'), 'port' => (int) getenv('TALEA_TEST_DB_PORT'),
+            'username' => (string) getenv('TALEA_TEST_DB_USER'), 'password' => (string) getenv('TALEA_TEST_DB_PASSWORD'),
         ];
         try {
             $admin = new PDO("mysql:host={$server['host']};port={$server['port']}", $server['username'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -39,7 +39,7 @@ abstract class DatabaseTestCase extends TestCase
 
             return;
         }
-        self::$database = 'kaleta_phpunit_' . getmypid() . '_' . substr(md5(static::class), 0, 6);
+        self::$database = 'talea_phpunit_' . getmypid() . '_' . substr(md5(static::class), 0, 6);
         // the charset and collation are the database's, exactly as the installer and docker-compose create it
         $admin->exec('DROP DATABASE IF EXISTS `' . self::$database . '`');
         $admin->exec('CREATE DATABASE `' . self::$database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');

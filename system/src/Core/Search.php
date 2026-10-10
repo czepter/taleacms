@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Search index of articles: the column ka_news.search_text holds the text in lowercase without diacritics, so a reader
+ * Search index of articles: the column tl_news.search_text holds the text in lowercase without diacritics, so a reader
  * finds "café" even after typing "cafe". For locked articles only the title and the intro are indexed - so the
  * locked text cannot be pieced together from search results.
  */

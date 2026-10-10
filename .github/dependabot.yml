@@ -1,4 +1,4 @@
-# Kaleta has no third-party libraries at runtime; only the actions used in GitHub Actions are watched.
+# Talea has no third-party libraries at runtime; only the actions used in GitHub Actions are watched.
 version: 2
 updates:
   - package-ecosystem: github-actions

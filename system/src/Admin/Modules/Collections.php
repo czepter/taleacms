@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Admin\BuilderActions;
-use Kaleta\Core\Language;
-use Kaleta\Core\Notices;
-use Kaleta\Core\Response;
-use Kaleta\Builder\Collections as KolekceObsahu;
-use Kaleta\Builder\Publisher;
+use Talea\Admin\Module;
+use Talea\Admin\BuilderActions;
+use Talea\Core\Language;
+use Talea\Core\Notices;
+use Talea\Core\Response;
+use Talea\Builder\Collections as KolekceObsahu;
+use Talea\Builder\Publisher;
 
 /**
  * Collections – custom content types (references, team, products, branches…). The field definition and the item template
@@ -32,7 +32,7 @@ final class Collections extends Module
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
-            'presets' => \Kaleta\Builder\Presets::all(),
+            'presets' => \Talea\Builder\Presets::all(),
             'collection' => $this->db->all('SELECT k.collection_id, k.public_id, k.name, k.slug, k.detail, (SELECT COUNT(*) FROM {collection_items} p WHERE p.collection_id = k.collection_id AND p.deleted_at IS NULL) AS count FROM {collections} k ORDER BY k.name'),
         ]);
     }
@@ -58,9 +58,9 @@ final class Collections extends Module
     }
 
     /** Creates a ready-made collection; returns its id, or null for an unknown preset. Also for MCP (create_collection preset). */
-    public static function createPreset(\Kaleta\Core\App $app, string $preset, string $name = ''): ?int
+    public static function createPreset(\Talea\Core\App $app, string $preset, string $name = ''): ?int
     {
-        return \Kaleta\Builder\Presets::create($app, $preset, $name);
+        return \Talea\Builder\Presets::create($app, $preset, $name);
     }
 
     protected function actionNew(): Response
@@ -93,7 +93,7 @@ final class Collections extends Module
             return $this->back('The collection needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 110);
-        if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $this->db) || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $id]) !== null) {
+        if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->db) || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $id]) !== null) {
             return $this->back(t('The address “%s” is already used by the system or another collection.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
@@ -104,7 +104,7 @@ final class Collections extends Module
         }
         $data = ['name' => $name, 'slug' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
         if (is_array($_POST['schema'] ?? null)) {
-            $schema = \Kaleta\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
+            $schema = \Talea\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);
         }
         if ($previous !== null) {
@@ -112,7 +112,7 @@ final class Collections extends Module
         } else {
             $id = $this->db->insert('collections', $data);
         }
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back('The collection was saved.', 'items', ['id' => $this->publicId($id)]);
     }
@@ -149,7 +149,7 @@ final class Collections extends Module
         return $this->view('items', $k['name'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['collection_id']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
-            'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['collection_id']) : null,
+            'downloads' => \Talea\Core\Documents::fileField($k) !== null ? \Talea\Core\Documents::counts($this->db, (int) $k['collection_id']) : null,
             'items' => $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by FROM {collection_items} WHERE collection_id = ? AND deleted_at IS ' . ($trash ? 'NOT NULL' : 'NULL')
                 . ($column !== null ? ' AND language = ?' : '') . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $column !== null ? [$k['collection_id'], $column] : [$k['collection_id']])]);
     }
@@ -176,7 +176,7 @@ final class Collections extends Module
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
-            'versions' => $p['item_id'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
+            'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);
     }
@@ -201,10 +201,10 @@ final class Collections extends Module
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 150);
         // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('language'));
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $language, $a, $idp]) !== null);
+        $seo = \Talea\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $language, $a, $idp]) !== null);
         $row = ['collection_id' => $k['collection_id'], 'name' => $name, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'sort_order' => max(-9999, min(9999, $r->postInt('sort_order'))), 'language' => $language, 'updated_at' => date('Y-m-d H:i:s'),
-            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
+            'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')), 'review_by' => \Talea\Core\Validity::date($r->post('review_by'))] // 2.10
             + KolekceObsahu::pageFields($_POST, $r->postBool('visible'));
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['visible'])) {
@@ -218,7 +218,7 @@ final class Collections extends Module
             $idp = $this->db->insert('collection_items', $row + ['created_at' => date('Y-m-d H:i:s')]);
         }
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
         if ($errors !== []) {
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
         }
@@ -255,11 +255,11 @@ final class Collections extends Module
                 'language' => $this->db->update('collection_items', ['language' => $language, 'updated_at' => $now], ['item_id' => $idp]),
                 default => self::trashItem($this->db, $idp, $idk),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['visible' => 'shown', 'hide' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'trash' => 'moved to trash'][$action], mb_substr($k['slug'] . ': ' . $p['name'], 0, 80));
+            \Talea\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['visible' => 'shown', 'hide' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'trash' => 'moved to trash'][$action], mb_substr($k['slug'] . ': ' . $p['name'], 0, 80));
             $done++;
         }
         if ($done > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
         $message = match ($action) {
             'visible' => t('Items published: %d.', $done), 'hide' => t('Items hidden: %d.', $done),
@@ -279,7 +279,7 @@ final class Collections extends Module
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
-        return $this->view('signature', t('E-mail signature: %s', $p['name']), ['k' => $k, 'p' => $p, 'signature' => \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $p)]);
+        return $this->view('signature', t('E-mail signature: %s', $p['name']), ['k' => $k, 'p' => $p, 'signature' => \Talea\Builder\EmailSignature::forItem($this->app, $k, $p)]);
     }
 
     /** Copy of an item (hidden, with a free slug) – a quick start for a similar reference, team member, product. */
@@ -290,7 +290,7 @@ final class Collections extends Module
         if ($p === null) {
             return $this->back('', 'items', ['id' => $this->publicId($idk)]);
         }
-        $seo = \Kaleta\Core\Slug::makeUnique($p['slug'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $p['language'], $a]) !== null);
+        $seo = \Talea\Core\Slug::makeUnique($p['slug'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $p['language'], $a]) !== null);
         $copy = ['collection_id' => $idk, 'name' => mb_substr(t('%s (copy)', $p['name']), 0, 200), 'slug' => $seo, 'data' => $p['data'],
             'seo_title' => $p['seo_title'], 'description' => $p['description'], 'image' => $p['image'], 'noindex' => $p['noindex'],
             'sort_order' => $p['sort_order'], 'visible' => 0, 'language' => $p['language'], 'created_at' => date('Y-m-d H:i:s')];
@@ -317,7 +317,7 @@ final class Collections extends Module
         KolekceObsahu::saveVersion($this->app, $item, $version);
         $this->db->update('collection_items', $version + ['updated_at' => date('Y-m-d H:i:s')], ['item_id' => $idp]);
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back('The earlier version of the item is back; the one before it is in the history.', 'item', ['id' => $this->publicId($idk), 'item' => $this->publicId($idp, 'collection_items')]);
     }
@@ -352,7 +352,7 @@ final class Collections extends Module
         if ($k === null || !Notices::isNotices($k)) {
             return $this->error('The collection is not an official notice board.', 404);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'notice log CSV', $k['slug']);
+        \Talea\Admin\ChangeLog::write($this->app, 'collections', 'notice log CSV', $k['slug']);
 
         return new Response(Notices::csv($this->db, $k), 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $k['slug'] . '-log-' . date('Y-m-d') . '.csv"']);
     }
@@ -382,21 +382,21 @@ final class Collections extends Module
     }
 
     /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */
-    public static function trashItem(\Kaleta\Core\Db $db, int $idp, int $idk): bool
+    public static function trashItem(\Talea\Core\Db $db, int $idp, int $idk): bool
     {
         $moved = $db->run('UPDATE {collection_items} SET deleted_at = NOW(), visible = 0 WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk])->rowCount() > 0;
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $moved;
     }
 
-    public static function restoreItem(\Kaleta\Core\Db $db, int $idp, int $idk): bool
+    public static function restoreItem(\Talea\Core\Db $db, int $idp, int $idk): bool
     {
         return $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND collection_id = ? AND deleted_at IS NOT NULL', [$idp, $idk])->rowCount() > 0;
     }
 
     /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit). */
-    public static function emptyTrash(\Kaleta\Core\Db $db): void
+    public static function emptyTrash(\Talea\Core\Db $db): void
     {
         $db->run('DELETE FROM {collection_items} WHERE deleted_at < NOW() - INTERVAL 30 DAY');
     }

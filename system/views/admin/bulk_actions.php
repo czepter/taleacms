@@ -10,7 +10,7 @@
  * @var array<int, string>|null $categories  idt => name (news)
  * @var array<string, string>|null $hidden  extra hidden fields (collection_id of a collection)
  */
-use Kaleta\Core\Language;
+use Talea\Core\Language;
 ?>
 <form id="bulk" class="bulk" method="post" action="<?= e($action) ?>" data-confirm="<?= e(t('Apply the action to the selected items?')) ?>">
 	<?= $csrf ?>

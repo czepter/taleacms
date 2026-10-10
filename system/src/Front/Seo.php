@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * SEO, GEO, analytics and consent: robots.txt, sitemap.xml, llms.txt, Markdown version of a news item,
@@ -30,7 +30,7 @@ final class Seo
     /** System path with the custom news address applied – Core\Routes. */
     private function path(string $path): string
     {
-        return \Kaleta\Core\Routes::publicPath($path, $this->app->db());
+        return \Talea\Core\Routes::publicPath($path, $this->app->db());
     }
 
     /**
@@ -50,8 +50,8 @@ final class Seo
     public function robotsTxt(): string
     {
         $s = $this->app->settings();
-        if (\Kaleta\Core\Demo::active()) {
-            return "# The public demo of Kaleta is not indexed.\nUser-agent: *\nDisallow: /\n";
+        if (\Talea\Core\Demo::active()) {
+            return "# The public demo of Talea is not indexed.\nUser-agent: *\nDisallow: /\n";
         }
         if (!$s->bool('indexing')) {
             return "# Indexing of the site is turned off in Settings.\nUser-agent: *\nDisallow: /\n";
@@ -74,7 +74,7 @@ final class Seo
     /** Absolute URL of a page-like path in the form of the url_slash setting; $after goes behind it (a news item's ".md"). */
     private function page(string $path, string $after = ''): string
     {
-        $suffix = \Kaleta\Core\Routes::pageLike('/' . $path) && $after === '' ? \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '';
+        $suffix = \Talea\Core\Routes::pageLike('/' . $path) && $after === '' ? \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '';
 
         return $this->siteSettings . $path . $suffix . $after;
     }
@@ -83,14 +83,14 @@ final class Seo
     {
         $db = $this->app->db();
         // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
-        $suffix = \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash'));
+        $suffix = \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash'));
         $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
-            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Kaleta\Core\Routes::publicPath($path, $db))
-                . (\Kaleta\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
+            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Talea\Core\Routes::publicPath($path, $db))
+                . (\Talea\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
             . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
 
         // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
-        $languages = ['', ...\Kaleta\Core\Language::published($this->app->settings(), $db)];
+        $languages = ['', ...\Talea\Core\Language::published($this->app->settings(), $db)];
         $inLanguages = ' AND language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')';
         $xml = [$url('', null, '1.0')];
         foreach (array_slice($languages, 1) as $language) {
@@ -103,7 +103,7 @@ final class Seo
         foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.deleted_at IS NULL AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language']);
         }
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
@@ -133,7 +133,7 @@ final class Seo
 
         return [
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
-            'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
+            'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Talea\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'news-' . $c['public_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
                 'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
@@ -151,7 +151,7 @@ final class Seo
     /** @param string $url URL on the site from the server root (App::newsItemUrl()) */
     public function indexNow(string $url): void
     {
-        if (\Kaleta\Core\Demo::active()) {
+        if (\Talea\Core\Demo::active()) {
             return;
         }
         $s = $this->app->settings();
@@ -176,7 +176,7 @@ final class Seo
             array_push($rows, '> ' . str_replace("\n", ' ', $s->get('site_description')), '');
         }
         // business facts (2.10): what the company states about itself, kept in one place
-        $facts = array_filter(\Kaleta\Core\Facts::all($this->app, \Kaleta\Core\Language::siteColumn()), fn (array $f): bool => !$f['builtIn'] && $f['display'] !== '');
+        $facts = array_filter(\Talea\Core\Facts::all($this->app, \Talea\Core\Language::siteColumn()), fn (array $f): bool => !$f['builtIn'] && $f['display'] !== '');
         if ($facts !== []) {
             $rows[] = '## ' . t('Facts');
             foreach ($facts as $f) {
@@ -186,14 +186,14 @@ final class Seo
         }
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
-        foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [\Kaleta\Core\Language::siteColumn()]) as $r) {
+        foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [\Talea\Core\Language::siteColumn()]) as $r) {
             $rows[] = '- [' . $r['title'] . '](' . $this->page((int) $r['page_id'] === $home ? '' : $r['slug']) . ')' . ($r['description'] !== '' ? ': ' . $r['description'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = 1 ORDER BY name') as $k) {
             $field = json_decode((string) $k['fields'], true) ?: [];
             $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['lines', 'html', 'text'], true)), 'key');
-            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Kaleta\Core\Language::siteColumn()]);
+            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Talea\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
             }
@@ -210,15 +210,15 @@ final class Seo
                 $rows[] = '- [' . $p['name'] . '](' . $this->page($k['slug'] . '/' . $p['slug']) . ')' . ($description !== '' ? ': ' . $description : '');
             }
         }
-        if (!\Kaleta\Core\Extensions::isEnabled($s, 'news')) {
-            return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
+        if (!\Talea\Core\Extensions::isEnabled($s, 'news')) {
+            return \Talea\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
         array_push($rows, '', '## ' . t('News'));
-        foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = 1 AND published_at <= NOW() AND noindex = 0 AND deleted_at IS NULL AND language = ? ORDER BY published_at DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
+        foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = 1 AND published_at <= NOW() AND noindex = 0 AND deleted_at IS NULL AND language = ? ORDER BY published_at DESC LIMIT 30', [\Talea\Core\Language::siteColumn()]) as $c) {
             $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('news/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
         }
 
-        return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
+        return \Talea\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
     }
 
     /** @param array<string, mixed> $newsItem */
@@ -266,7 +266,7 @@ final class Seo
         }
         // language versions: hreflang only to existing translations (news item, page, category, collection item), on the home
         // page to the home page of each version
-        $defaults = \Kaleta\Core\Language::defaults($s);
+        $defaults = \Talea\Core\Language::defaults($s);
         foreach ($meta['languages'] ?? [] as $code => $j) {
             if ($j['translated'] || ($meta['main'] ?? false)) {
                 $h[] = '<link rel="alternate" hreflang="' . e($code) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
@@ -276,7 +276,7 @@ final class Seo
                 }
             }
         }
-        $h[] = '<meta property="og:locale" content="' . \Kaleta\Core\Language::AVAILABLE[\Kaleta\Core\Language::code()][1] . '">';
+        $h[] = '<meta property="og:locale" content="' . \Talea\Core\Language::AVAILABLE[\Talea\Core\Language::code()][1] . '">';
         if (($meta['description'] ?? '') !== '') {
             $h[] = '<meta property="og:description" content="' . e($meta['description']) . '">';
         }
@@ -288,13 +288,13 @@ final class Seo
             $h[] = '<script type="application/ld+json">' . json_encode($this->structuredData($title, $meta, $newsItem), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
         // the site's own fonts that render text above the fold (the body and the heading face) start downloading right away
-        $designSystem = \Kaleta\Builder\DesignSystem::load($s);
-        $h[] = \Kaleta\Builder\DesignSystem::fontPreloads($designSystem, $this->app->request->basePath());
+        $designSystem = \Talea\Builder\DesignSystem::load($s);
+        $h[] = \Talea\Builder\DesignSystem::fontPreloads($designSystem, $this->app->request->basePath());
         // design system (tokens and cascade layer order) and the style of the page build, if it is a page from the builder
-        $h[] = '<style>' . \Kaleta\Builder\DesignSystem::css($designSystem, $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
+        $h[] = '<style>' . \Talea\Builder\DesignSystem::css($designSystem, $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = SiteIdentity::head($s, $this->app->request->basePath());
         // shared site elements (photo gallery, photo viewer, video, sharing…) for all templates
-        $version = rawurlencode(KALETA_VERSION);
+        $version = rawurlencode(TALEA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $version . '">';
         // blocking="render": the page is first rendered only with the script loaded (it loads in parallel with the styles, which
         // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
@@ -350,21 +350,21 @@ final class Seo
         $mode = $s->get('cookies_mode');
         $marketing = trim($s->get('marketing_code'));
         $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
-        if (\Kaleta\Core\Demo::active()) {
+        if (\Talea\Core\Demo::active()) {
             // the public demo (2.6): a badge that leads to the admin; inline styles, so no site class can hide it
             $html .= '<a href="' . e($this->app->url('admin.php')) . '" style="position:fixed;left:12px;bottom:12px;z-index:2147483000;padding:8px 12px;border-radius:999px;background:#121212;color:#fff;font:600 13px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">'
-                . e(t('Kaleta demo – try the admin')) . '</a>';
+                . e(t('Talea demo – try the admin')) . '</a>';
         }
         // remembering where leads came from needs the visitor's consent to marketing (2.3)
         $hasMarketing = $marketing !== '' || $s->bool('lead_attribution') || $s->get('gtm_id') !== ''; // GTM usually also runs ad tags
         if ($mode !== 'builtin' || (!$this->usesAnalyticsCookies() && !$hasMarketing)) {
             return $html;
         }
-        $view = new \Kaleta\Core\View([KALETA_SYSTEM . '/views/front']);
+        $view = new \Talea\Core\View([TALEA_SYSTEM . '/views/front']);
 
         return $html . $view->render('cookies', [
             'text' => $s->get('cookies_text'),
-            'policy' => \Kaleta\Core\Privacy::policyUrl($s),
+            'policy' => \Talea\Core\Privacy::policyUrl($s),
             'analytics' => $this->usesAnalyticsCookies(),
             'marketing' => $hasMarketing,
             'evidence' => $s->bool('cookies_log') ? $this->app->url('consent') : '',
@@ -448,14 +448,14 @@ final class Seo
     {
         $s = $this->app->settings();
         // company from "Settings → Business details" (Organization or LocalBusiness with address, opening hours and map)
-        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Kaleta\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
-        if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Kaleta\Core\Hours::schema(\Kaleta\Core\Hours::exceptions($this->app->db()))) !== []) {
+        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Talea\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
+        if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Talea\Core\Hours::schema(\Talea\Core\Hours::exceptions($this->app->db()))) !== []) {
             $issuer['specialOpeningHoursSpecification'] = $special; // holidays and other exceptions to the opening hours (2.10)
         }
         if ($newsItem === null) {
             $chart = [
                 ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,
-                    'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
+                    'description' => $s->get('site_description'), 'inLanguage' => \Talea\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
                     'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('search?q={q}'), 'query-input' => 'required name=q']],
                 $issuer,
             ];
@@ -468,7 +468,7 @@ final class Seo
             foreach ($meta['structured'] ?? [] as $i => $node) {
                 // typed structured data of the page (the Structured data element): joins the same graph, linked to the company and website nodes;
                 // a manual FAQPage replaces the automatic one so the page never carries two
-                $rendered = \Kaleta\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']);
+                $rendered = \Talea\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']);
                 if (($rendered['@type'] ?? '') === 'FAQPage') {
                     $chart = array_values(array_filter($chart, fn (array $c): bool => ($c['@type'] ?? '') !== 'FAQPage'));
                 }
@@ -476,7 +476,7 @@ final class Seo
             }
             if (!empty($meta['item'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)
-                $node = \Kaleta\Builder\CollectionSchema::forItem($meta['item']['collection'], $meta['item']['item'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
+                $node = \Talea\Builder\CollectionSchema::forItem($meta['item']['collection'], $meta['item']['item'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
                     (string) ($meta['description'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
                 if ($node !== null) {
                     $chart[] = $node;
@@ -506,7 +506,7 @@ final class Seo
                 'articleSection' => $newsItem['category_name'],
                 'keywords' => implode(', ', array_column($newsItem['tags'] ?? [], 'name')) ?: null,
                 'mainEntityOfPage' => $this->page($this->path('news/') . $newsItem['slug']),
-                'inLanguage' => \Kaleta\Core\Language::code(),
+                'inLanguage' => \Talea\Core\Language::code(),
             ]),
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [

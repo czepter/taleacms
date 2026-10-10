@@ -2,8 +2,8 @@
 /**
  * Add-ons (3.0): what is in extensions/, what is on, and the pages add-ons added.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Addons $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Addons $module
  * @var string $csrf
  * @var array<string, array<string, mixed>> $addons Extension\Registry::discover()
  * @var list<string> $enabled
@@ -13,8 +13,8 @@
  * @var bool $demo
  */
 ?>
-<p><?= e(t('Add-ons are code from other developers. Copy an add-on into the folder extensions/<name>/ on your hosting and switch it on here. An add-on runs with the same rights as Kaleta – switch on only code you trust, from a source you know. Kaleta never uploads or downloads add-ons by itself.')) ?></p>
-<p class="help"><?= e(t('A developer’s guide is in docs/EXTENSIONS.md. This Kaleta offers extension API %d.', Kaleta\Extension\Api::VERSION)) ?></p>
+<p><?= e(t('Add-ons are code from other developers. Copy an add-on into the folder extensions/<name>/ on your hosting and switch it on here. An add-on runs with the same rights as Talea – switch on only code you trust, from a source you know. Talea never uploads or downloads add-ons by itself.')) ?></p>
+<p class="help"><?= e(t('A developer’s guide is in docs/EXTENSIONS.md. This Talea offers extension API %d.', Talea\Extension\Api::VERSION)) ?></p>
 <?php if ($safeMode || $demo): ?><p class="notice error"><?= e($demo ? t('Add-ons do not run in the public demo.') : t('Add-ons are switched off in config.php (safe mode) – none is loaded.')) ?></p><?php endif ?>
 <?php if ($addons === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'extensions', 'heading' => t('No add-on in extensions/ yet.'), 'text' => t('Most sites need none – the features of a business site are built in. A developer can write one with the extension API.'), 'action' => null]) ?>

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Pricing table: plans as cards in a responsive grid – name, price with its period, a short description, features and a button.
@@ -46,22 +46,22 @@ final class PricingTable extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: var(--ka-space-m); align-items: stretch; }
-.ka-pricing-plan { position: relative; display: flex; flex-direction: column; gap: var(--ka-space-s); padding: var(--ka-space-l); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); }
-.ka-pricing-plan--highlighted { border: 2px solid var(--ka-color-primary); background: var(--ka-color-primary-soft); box-shadow: var(--ka-shadow-m); }
-.ka-pricing-badge { position: absolute; inset-block-start: 0; inset-inline-start: 50%; margin: 0; padding: 0.25em 0.9em; translate: -50% -50%; border-radius: 999px; background: var(--ka-color-primary); color: var(--ka-color-on-primary); font-size: var(--ka-step--1); font-weight: 600; white-space: nowrap; }
-.ka-pricing-plan h3 { margin: 0; font-size: var(--ka-step-1); }
-.ka-pricing-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em; margin: 0; }
-.ka-pricing-price strong { font: 800 var(--ka-step-4) / 1 var(--ka-font-heading); }
-.ka-pricing-price span { color: var(--ka-color-muted); }
-.ka-pricing-description { margin: 0; color: var(--ka-color-muted); }
-.ka-pricing-features { display: grid; flex: 1; gap: var(--ka-space-2xs); margin: 0; padding: 0; list-style: none; }
-.ka-pricing-features li { display: flex; align-items: flex-start; gap: 0.6em; }
-.ka-pricing-features li::before { content: "✓"; content: "✓" / ""; flex: none; color: var(--ka-color-primary); font-weight: 700; }
-.ka-pricing-features .ka-pricing-no { color: var(--ka-color-muted); text-decoration: line-through; }
-.ka-pricing-features .ka-pricing-no::before { content: "–"; content: "–" / ""; color: var(--ka-color-muted); }
-.ka-pricing-plan .ka-button { justify-content: center; margin-block-start: auto; }
-.ka-pricing-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
+        return '.tl-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: var(--tl-space-m); align-items: stretch; }
+.tl-pricing-plan { position: relative; display: flex; flex-direction: column; gap: var(--tl-space-s); padding: var(--tl-space-l); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); }
+.tl-pricing-plan--highlighted { border: 2px solid var(--tl-color-primary); background: var(--tl-color-primary-soft); box-shadow: var(--tl-shadow-m); }
+.tl-pricing-badge { position: absolute; inset-block-start: 0; inset-inline-start: 50%; margin: 0; padding: 0.25em 0.9em; translate: -50% -50%; border-radius: 999px; background: var(--tl-color-primary); color: var(--tl-color-on-primary); font-size: var(--tl-step--1); font-weight: 600; white-space: nowrap; }
+.tl-pricing-plan h3 { margin: 0; font-size: var(--tl-step-1); }
+.tl-pricing-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em; margin: 0; }
+.tl-pricing-price strong { font: 800 var(--tl-step-4) / 1 var(--tl-font-heading); }
+.tl-pricing-price span { color: var(--tl-color-muted); }
+.tl-pricing-description { margin: 0; color: var(--tl-color-muted); }
+.tl-pricing-features { display: grid; flex: 1; gap: var(--tl-space-2xs); margin: 0; padding: 0; list-style: none; }
+.tl-pricing-features li { display: flex; align-items: flex-start; gap: 0.6em; }
+.tl-pricing-features li::before { content: "✓"; content: "✓" / ""; flex: none; color: var(--tl-color-primary); font-weight: 700; }
+.tl-pricing-features .tl-pricing-no { color: var(--tl-color-muted); text-decoration: line-through; }
+.tl-pricing-features .tl-pricing-no::before { content: "–"; content: "–" / ""; color: var(--tl-color-muted); }
+.tl-pricing-plan .tl-button { justify-content: center; margin-block-start: auto; }
+.tl-pricing-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
     }
 
     /** @return list<array{0: bool, 1: string}> features as [included, text] – a line starting with "-" is not included */
@@ -83,7 +83,7 @@ final class PricingTable extends Element
     {
         $plans = array_values(array_filter($p['content']['plans'], fn (array $x): bool => $x['name'] !== ''));
         if ($plans === []) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Add plans in the Content panel.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">' . e(t('Add plans in the Content panel.')) . '</div>' : '';
         }
         $k->types['button'] = true; // the plan buttons are Button elements in appearance – their CSS goes to the page too
         $html = '';
@@ -92,18 +92,18 @@ final class PricingTable extends Element
             $heading = 'cn-' . $p['id'] . '-' . $i;
             $features = '';
             foreach (self::features((string) $plan['features']) as [$included, $text]) {
-                $features .= '<li' . ($included ? '' : ' class="ka-pricing-no"') . '><span class="ka-pricing-sr">' . e($included ? t('Included:') : t('Not included:')) . ' </span>' . e($text) . '</li>';
+                $features .= '<li' . ($included ? '' : ' class="tl-pricing-no"') . '><span class="tl-pricing-sr">' . e($included ? t('Included:') : t('Not included:')) . ' </span>' . e($text) . '</li>';
             }
-            $html .= '<article class="ka-pricing-plan' . ($highlighted ? ' ka-pricing-plan--highlighted' : '') . '" aria-labelledby="' . $heading . '">'
-                . ($highlighted && $plan['badge'] !== '' ? '<p class="ka-pricing-badge">' . e($plan['badge']) . '</p>' : '')
+            $html .= '<article class="tl-pricing-plan' . ($highlighted ? ' tl-pricing-plan--highlighted' : '') . '" aria-labelledby="' . $heading . '">'
+                . ($highlighted && $plan['badge'] !== '' ? '<p class="tl-pricing-badge">' . e($plan['badge']) . '</p>' : '')
                 . '<h3 id="' . $heading . '">' . e($plan['name']) . '</h3>'
-                . ($plan['price'] !== '' ? '<p class="ka-pricing-price"><strong>' . e($plan['price']) . '</strong>' . ($plan['period'] !== '' ? ' <span>' . e($plan['period']) . '</span>' : '') . '</p>' : '')
-                . ($plan['description'] !== '' ? '<p class="ka-pricing-description">' . e($plan['description']) . '</p>' : '')
-                . ($features !== '' ? '<ul class="ka-pricing-features">' . $features . '</ul>' : '')
-                . ($plan['button_text'] !== '' ? '<a class="ka-button ka-button--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['button_text']) . '</a>' : '')
+                . ($plan['price'] !== '' ? '<p class="tl-pricing-price"><strong>' . e($plan['price']) . '</strong>' . ($plan['period'] !== '' ? ' <span>' . e($plan['period']) . '</span>' : '') . '</p>' : '')
+                . ($plan['description'] !== '' ? '<p class="tl-pricing-description">' . e($plan['description']) . '</p>' : '')
+                . ($features !== '' ? '<ul class="tl-pricing-features">' . $features . '</ul>' : '')
+                . ($plan['button_text'] !== '' ? '<a class="tl-button tl-button--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['button_text']) . '</a>' : '')
                 . '</article>';
         }
 
-        return '<div' . Text::withClass($a, 'ka-pricing') . '>' . $html . '</div>';
+        return '<div' . Text::withClass($a, 'tl-pricing') . '>' . $html . '</div>';
     }
 }

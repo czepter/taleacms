@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\EnglishInstall;
+namespace Talea\Tests\Site\EnglishInstall;
 
-use Kaleta\Tests\Site\Support\CzechCheck;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\CzechCheck;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** German installation through the web installer (2.5): German site, admin (du) and the Claude address. */
@@ -32,8 +32,8 @@ final class GermanInstallTest extends SiteTestCase
     public function testAdminAndSiteAreGerman(): void
     {
         $site = $this->site();
-        $this->assertSame('admin:de:de', $site->value("SELECT CONCAT(u.username, ':', u.language, ':', n.value) FROM ka_users u, ka_settings n WHERE n.name = 'site_language'"), 'the admin and the site are German');
-        $this->assertSame('informal:informal', $site->value("SELECT CONCAT(u.register, ':', n.value) FROM ka_users u, ka_settings n WHERE n.name = 'german_register'"), 'the form of address (du) is saved for the admin and the site');
+        $this->assertSame('admin:de:de', $site->value("SELECT CONCAT(u.username, ':', u.language, ':', n.value) FROM tl_users u, tl_settings n WHERE n.name = 'site_language'"), 'the admin and the site are German');
+        $this->assertSame('informal:informal', $site->value("SELECT CONCAT(u.register, ':', n.value) FROM tl_users u, tl_settings n WHERE n.name = 'german_register'"), 'the form of address (du) is saved for the admin and the site');
         $home = $site->client('visitor')->get('/');
         $this->assertStringContainsString('lang="de"', $home->body, 'the German home page is there');
         $this->assertStringContainsString('Acme GmbH', $home->body, 'the site name is on the home page');

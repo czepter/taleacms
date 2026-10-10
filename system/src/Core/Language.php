@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Site language and translations of template texts.
@@ -110,18 +110,18 @@ final class Language
         self::$baseOnly = false;
         if (self::$code === 'cs') {
             // the source texts are English since 1.4.1; Czech is a dictionary like any other (texts still Czech pass through)
-            $file = KALETA_SYSTEM . '/languages/' . $dictionarySet . 'cs.php';
+            $file = TALEA_SYSTEM . '/languages/' . $dictionarySet . 'cs.php';
             self::$dictionary = is_file($file) ? require $file : [];
 
             return;
         }
-        $file = KALETA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '.php';
+        $file = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '.php';
         $custom = is_file($file) ? require $file : [];
-        $overlay = KALETA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '-du.php';
+        $overlay = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '-du.php';
         if (self::$register === 'informal' && is_file($overlay)) {
             $custom = (require $overlay) + $custom;
         }
-        $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/languages/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/languages/' . $dictionarySet . 'en.php' : [];
+        $baseDictionary = self::$code !== 'en' && is_file(TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php') ? require TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
         if (self::$code !== 'en') {
             // the date format from the English dictionary is not taken over: its own, otherwise the language's numeric format and the date in words from the Czech keys of days and months

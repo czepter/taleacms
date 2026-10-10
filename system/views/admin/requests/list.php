@@ -2,15 +2,15 @@
 /**
  * Requests to Claude (2.15): the team's inbox – open requests first (new, in progress), then done and declined.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Requests $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Requests $module
  * @var string $csrf
  * @var list<array<string, mixed>> $requests with 'author' and decoded 'attachments'
  * @var string $status the filter ('' = all)
  * @var int $open new and in progress together
  * @var bool $claudeOn the Claude connection extension is on
  */
-use Kaleta\Core\Requests;
+use Talea\Core\Requests;
 
 $tag = fn (string $status): string => '<span class="badge' . match ($status) { 'done' => ' badge-published', 'new' => ' badge-draft', 'declined' => ' badge-error', default => '' } . '">' . e(t(Requests::STATUSES[$status] ?? $status)) . '</span>';
 ?>

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Settings;
-use Kaleta\Front\SiteIdentity;
+use Talea\Core\Settings;
+use Talea\Front\SiteIdentity;
 
 /**
  * The site's design system: a few decisions (colors, fonts, base size and scale ratio, width, corner radius) from which the
@@ -124,22 +124,14 @@ final class DesignSystem
         return array_map(fn (array $d): array => ['description' => $d[0], 'ratio' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);
     }
 
-    /** @return array<string, mixed> the stored value completed with the defaults (and with the color and fonts from the older site Identity) */
+    /** @return array<string, mixed> the stored value completed with the defaults */
     public static function load(Settings $siteSettings): array
     {
         // a preview of the draft look (Core\Look) renders with the draft design system
-        $stored = \Kaleta\Core\Look::activeDesignSystem() ?? json_decode($siteSettings->get('design_system'), true);
+        $stored = \Talea\Core\Look::activeDesignSystem() ?? json_decode($siteSettings->get('design_system'), true);
         $ds = is_array($stored) ? $stored + self::DEFAULTS : self::DEFAULTS;
         $ds['colors'] = (is_array($stored['colors'] ?? null) ? $stored['colors'] : []) + self::DEFAULTS['colors'];
         $ds['colors_dark'] = (is_array($stored['colors_dark'] ?? null) ? $stored['colors_dark'] : []) + self::DEFAULTS['colors_dark'];
-        if (!isset($stored['colors']['primary']) && preg_match('/^#[0-9a-f]{6}$/i', $siteSettings->get('brand_accent'))) {
-            $ds['colors']['primary'] = strtolower($siteSettings->get('brand_accent'));
-        }
-        foreach (['font_heading' => 'brand_heading_font', 'font_body' => 'brand_text_font'] as $key => $old) {
-            if (!isset($stored[$key]) && $siteSettings->get($old) !== '' && $siteSettings->get($old) !== 'default') {
-                $ds[$key] = $siteSettings->get($old);
-            }
-        }
 
         return self::sanitize($ds);
     }
@@ -264,41 +256,41 @@ final class DesignSystem
         }
         $b = $ds['colors'];
         $p = [
-            '--ka-color-primary' => $b['primary'], '--ka-color-secondary' => $b['secondary'], '--ka-color-text' => $b['text'],
-            '--ka-color-background' => $b['background'], '--ka-color-surface' => $b['surface'],
-            '--ka-color-on-primary' => self::contrastColor($b['primary']),
-            '--ka-color-white' => '#ffffff', '--ka-color-black' => '#000000',
+            '--tl-color-primary' => $b['primary'], '--tl-color-secondary' => $b['secondary'], '--tl-color-text' => $b['text'],
+            '--tl-color-background' => $b['background'], '--tl-color-surface' => $b['surface'],
+            '--tl-color-on-primary' => self::contrastColor($b['primary']),
+            '--tl-color-white' => '#ffffff', '--tl-color-black' => '#000000',
             // text of the light and dark mode, fixed – for surfaces that do not change with the mode (white and black background)
-            '--ka-color-text-light' => $b['text'], '--ka-color-text-dark' => $ds['colors_dark']['text'],
-            '--ka-color-muted' => 'color-mix(in oklch, var(--ka-color-text) 64%, var(--ka-color-background))',
-            '--ka-color-line' => 'color-mix(in oklch, var(--ka-color-text) 14%, var(--ka-color-background))',
-            '--ka-color-primary-soft' => 'color-mix(in oklch, var(--ka-color-primary) 12%, var(--ka-color-background))',
-            '--ka-accent' => 'var(--ka-color-primary)', // older name from the site Identity
-            '--ka-font-body' => self::fontFamily($ds, $ds['font_body'], false),
-            '--ka-font-heading' => self::fontFamily($ds, $ds['font_heading'], true),
-            '--ka-width' => $ds['width'] . 'rem', '--ka-text-width' => $ds['text_width'] . 'rem',
-            '--ka-radius' => 'var(--ka-radius-' . $ds['radius'] . ')',
+            '--tl-color-text-light' => $b['text'], '--tl-color-text-dark' => $ds['colors_dark']['text'],
+            '--tl-color-muted' => 'color-mix(in oklch, var(--tl-color-text) 64%, var(--tl-color-background))',
+            '--tl-color-line' => 'color-mix(in oklch, var(--tl-color-text) 14%, var(--tl-color-background))',
+            '--tl-color-primary-soft' => 'color-mix(in oklch, var(--tl-color-primary) 12%, var(--tl-color-background))',
+            '--tl-accent' => 'var(--tl-color-primary)', // older name from the site Identity
+            '--tl-font-body' => self::fontFamily($ds, $ds['font_body'], false),
+            '--tl-font-heading' => self::fontFamily($ds, $ds['font_heading'], true),
+            '--tl-width' => $ds['width'] . 'rem', '--tl-text-width' => $ds['text_width'] . 'rem',
+            '--tl-radius' => 'var(--tl-radius-' . $ds['radius'] . ')',
         ];
         // typographic scale: step n = base × ratio^n, a smaller base and ratio on a phone, larger on a large monitor
         foreach (self::STEPS as $n) {
-            $p['--ka-step-' . $n] = self::clamp($ds['base_min'] * $ds['ratio_min'] ** (int) $n, $ds['base_max'] * $ds['ratio_max'] ** (int) $n);
+            $p['--tl-step-' . $n] = self::clamp($ds['base_min'] * $ds['ratio_min'] ** (int) $n, $ds['base_max'] * $ds['ratio_max'] ** (int) $n);
         }
         foreach (self::SPACES as $key => $multiplier) {
-            $p['--ka-space-' . $key] = self::clamp($ds['base_min'] * $multiplier, $ds['base_max'] * $multiplier * ($multiplier >= 2 ? 1.25 : 1));
+            $p['--tl-space-' . $key] = self::clamp($ds['base_min'] * $multiplier, $ds['base_max'] * $multiplier * ($multiplier >= 2 ? 1.25 : 1));
         }
         foreach (self::RADII as $key => $value) {
-            $p['--ka-radius-' . $key] = $value;
+            $p['--tl-radius-' . $key] = $value;
         }
         foreach (self::SHADOWS as $key => $value) {
-            $p['--ka-shadow-' . $key] = $value;
+            $p['--tl-shadow-' . $key] = $value;
         }
         foreach (self::TYPOGRAPHY as $key => [, $step, $weight, $lineHeight, $forHeadings]) {
             $t = ($ds['typography'] ?? [])[$key] ?? [];
-            $p['--ka-type-' . $key] = ($t['weight'] ?? $weight) . ' var(--ka-step-' . ($t['step'] ?? $step) . ')/' . $lineHeight . ' var(--ka-font-' . ($forHeadings ? 'heading' : 'body') . ')';
+            $p['--tl-type-' . $key] = ($t['weight'] ?? $weight) . ' var(--tl-step-' . ($t['step'] ?? $step) . ')/' . $lineHeight . ' var(--tl-font-' . ($forHeadings ? 'heading' : 'body') . ')';
         }
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         // the dark overrides replace the colour properties (surfaces and text follow the mode)
-        $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-color-" . $k . ": {$h};", array_keys($ds['colors_dark']), $ds['colors_dark']);
+        $dark = array_map(fn (string $k, string $h): string => "\t\t--tl-color-" . $k . ": {$h};", array_keys($ds['colors_dark']), $ds['colors_dark']);
 
         // dark colors: by the device (unless the visitor chose „light“) and always when the site or the visitor chooses dark mode
         return self::LAYERS . "\n" . $fonts . "@layer tokens {\n:root {\n" . implode("\n", $rows) . "\n}\n"
@@ -309,7 +301,7 @@ final class DesignSystem
 
     /**
      * Design tokens in the W3C Design Tokens format (DTCG, https://tr.designtokens.org/format/) for Figma, Tokens Studio and other tools.
-     * Kaleta's complete design system is also in $extensions, so that nothing is lost when importing back.
+     * Talea's complete design system is also in $extensions, so that nothing is lost when importing back.
      *
      * @param array<string, mixed> $ds
      * @return array<string, mixed>
@@ -340,12 +332,12 @@ final class DesignSystem
             'space' => array_map(fn (float $n): array => ['$type' => 'dimension', '$value' => ['value' => round($ds['base_max'] * $n, 3), 'unit' => 'rem']], self::SPACES),
             'radius' => ['$type' => 'dimension', '$value' => ['value' => (float) (self::RADII[$ds['radius']] === '999px' ? 999 : (float) self::RADII[$ds['radius']]), 'unit' => self::RADII[$ds['radius']] === '999px' ? 'px' : 'rem']],
             'width' => ['content' => ['$type' => 'dimension', '$value' => ['value' => $ds['width'], 'unit' => 'rem']], 'text' => ['$type' => 'dimension', '$value' => ['value' => $ds['text_width'], 'unit' => 'rem']]],
-            '$extensions' => ['cz.kaleta' => ['design_system' => $ds]],
+            '$extensions' => ['cz.talea' => ['design_system' => $ds]],
         ];
     }
 
     /**
-     * Design system from DTCG tokens: from a Kaleta export the whole of it (extension cz.kaleta), from another tool at least the colors –
+     * Design system from DTCG tokens: from a Talea export the whole of it (extension cz.talea), from another tool at least the colors –
      * by our keys and by common English names (primary, secondary, text, background, surface). The rest stays as it is.
      *
      * @param array<string, mixed> $tokens
@@ -354,8 +346,8 @@ final class DesignSystem
      */
     public static function fromDtcg(array $tokens, array $ds): ?array
     {
-        if (is_array($tokens['$extensions']['cz.kaleta']['design_system'] ?? null)) {
-            return self::sanitize($tokens['$extensions']['cz.kaleta']['design_system'] + $ds);
+        if (is_array($tokens['$extensions']['cz.talea']['design_system'] ?? null)) {
+            return self::sanitize($tokens['$extensions']['cz.talea']['design_system'] + $ds);
         }
         $names = ['primary' => ['primary', 'primary', 'brand', 'accent'], 'secondary' => ['secondary', 'secondary'], 'text' => ['text', 'foreground', 'on-background'],
             'background' => ['background', 'background', 'bg'], 'surface' => ['surface', 'surface', 'muted']];

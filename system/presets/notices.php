@@ -33,7 +33,7 @@ return [
     ],
     // the item page: the name, the status line, the reference details, the summary and the document
     'template' => function (array $fields): array {
-        $n = Kaleta\Builder\Build::fresh(...);
+        $n = Talea\Builder\Build::fresh(...);
         $label = array_column($fields, 'label', 'key');
         $line = fn (string $key): string => isset($label[$key]) ? '<p><strong>' . e($label[$key]) . ':</strong> {{' . $key . '}}</p>' : '';
 

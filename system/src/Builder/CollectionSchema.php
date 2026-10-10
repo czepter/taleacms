@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Structured data of collection item pages (1.9): a collection says which schema.org type its items are – a service,
@@ -126,7 +126,7 @@ final class CollectionSchema
                 + ['organizer' => ['@id' => $issuerId], 'offers' => $offer],
             // the branch belongs to the company; hours that do not parse are left out rather than guessed
             'LocalBusiness' => ['address' => $value('address'), 'telephone' => $value('telephone'), 'email' => $value('email'), 'geo' => self::geo($value('geo')),
-                'openingHoursSpecification' => \Kaleta\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
+                'openingHoursSpecification' => \Talea\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
         }, fn (mixed $v): bool => $v !== '' && $v !== null);
     }
 

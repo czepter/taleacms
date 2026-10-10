@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Menu $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Menu $module
  * @var string $csrf
  * @var string $location  hlavni | paticka
  * @var string $language     the language column ('' = default)
@@ -14,7 +14,7 @@
 $choice = ['location' => $location, 'language' => $language];
 ?>
 <nav class="tabs" aria-label="<?= e(t('Menu')) ?>">
-<?php foreach (Kaleta\Core\Menu::LOCATIONS as $key => $name): ?>
+<?php foreach (Talea\Core\Menu::LOCATIONS as $key => $name): ?>
 	<a href="<?= e($module->url('', ['location' => $key, 'language' => $language])) ?>"<?= $key === $location ? ' class="active" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
@@ -31,7 +31,7 @@ $choice = ['location' => $location, 'language' => $language];
 <form method="post" action="<?= e($module->url('save', $choice)) ?>" class="menu-form" data-menu>
 <?= $csrf ?>
 <input type="hidden" name="items" value="">
-<script type="application/json" data-menu-data><?= json_encode(['items' => $items, 'pages' => $pages, 'icons' => ['' => t('no icon')] + array_map(fn (string $n): string => t($n), Kaleta\Builder\Icons::options())], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<script type="application/json" data-menu-data><?= json_encode(['items' => $items, 'pages' => $pages, 'icons' => ['' => t('no icon')] + array_map(fn (string $n): string => t($n), Talea\Builder\Icons::options())], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <ol class="menu-editor" data-menu-list></ol>
 <p class="help" data-menu-empty hidden><?= e(t('The menu is empty – add the first item.')) ?></p>
 <fieldset class="menu-add">
@@ -45,7 +45,7 @@ $choice = ['location' => $location, 'language' => $language];
 	</label>
 	<button class="navigation" type="button" data-menu-add="page"><?= e(t('Add page')) ?></button>
 	<button class="navigation" type="button" data-menu-add="link"><?= e(t('Custom link')) ?></button>
-<?php if (Kaleta\Core\Extensions::isEnabled($app->settings(), 'news')): ?>
+<?php if (Talea\Core\Extensions::isEnabled($app->settings(), 'news')): ?>
 	<button class="navigation" type="button" data-menu-add="news"><?= e(t('News')) ?></button>
 <?php endif ?>
 	<button class="navigation" type="button" data-menu-add="group" title="<?= e(t('An item without a link that only opens a submenu')) ?>"><?= e(t('Group')) ?></button>
@@ -55,4 +55,4 @@ $choice = ['location' => $location, 'language' => $language];
 <?php if (!$automatic || $location !== 'main'): ?>
 <div class="navigation-row actions-bottom"><form class="inline" method="post" action="<?= e($module->url('automatic', $choice)) ?>" data-confirm="<?= e(t($location === 'main' ? 'Return the menu to being built automatically from pages? Your changes will be discarded.' : 'Empty the footer menu?')) ?>"><?= $csrf ?><button class="navigation danger" type="submit"><?= e(t($location === 'main' ? 'Back to automatic menu' : 'Empty the menu')) ?></button></form></div>
 <?php endif ?>
-<script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>

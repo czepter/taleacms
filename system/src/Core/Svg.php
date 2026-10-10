@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Uploaded SVG (logos, icons): it is cleaned down to a list of allowed tags and attributes. Scripts, event handlers,

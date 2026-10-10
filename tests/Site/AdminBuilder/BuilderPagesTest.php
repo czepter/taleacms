@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AdminBuilder;
+namespace Talea\Tests\Site\AdminBuilder;
 
-use Kaleta\Tests\Site\Support\Response;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\Response;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** The page builder in the administration: draft, conflicts, library, classes, preview, publishing, versions (was: section 8 "page builder"). */
@@ -18,7 +18,7 @@ final class BuilderPagesTest extends SiteTestCase
 
     private function pageId(): int
     {
-        return (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
+        return (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'about-us'");
     }
 
     /** The page as the administration addresses it. */
@@ -85,7 +85,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertStringContainsString('Declaration not allowed', $class->body, 'class saved, dangerous CSS dropped');
 
         $this->assertSame(400, $this->pageAction('build_class', ['name' => 'Big Card'])->status, 'invalid class name refused');
-        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"card\"%' FROM ka_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
+        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"card\"%' FROM tl_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
     }
 
     public function testDraftIsNotOnTheWebBeforePublishingAndPreviewsWork(): void
@@ -94,7 +94,7 @@ final class BuilderPagesTest extends SiteTestCase
         $visitor = $this->site()->client();
 
         $this->assertStringNotContainsString('Builder test', $visitor->get('/about-us')->body, 'the draft is not on the web before publishing');
-        $this->assertPage('/about-us?build=draft&editor=1', 200, 'data-ka-id="nad1"', message: 'draft preview for the editor');
+        $this->assertPage('/about-us?build=draft&editor=1', 200, 'data-tl-id="nad1"', message: 'draft preview for the editor');
         $this->assertPage('/about-us?build=draft', 200, 'noindex', message: 'draft preview is not indexed');
         $this->assertStringNotContainsString('Builder test', $visitor->get('/about-us?build=draft&editor=1')->body, 'the visitor does not see the draft preview');
 
@@ -104,7 +104,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertSame(200, $share->status);
         $this->assertStringStartsWith($this->site()->base . '/about-us?build=draft&preview_key=', $link, 'signed share link');
         $this->assertStringContainsString('Builder test', $shared->body, 'the shared link shows the draft without signing in');
-        $this->assertStringNotContainsString('data-ka-id', $shared->body, 'and without editor marks');
+        $this->assertStringNotContainsString('data-tl-id', $shared->body, 'and without editor marks');
     }
 
     public function testPublishedBuildOnTheWeb(): void
@@ -117,10 +117,10 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertStringContainsString('<h2 id="how-it-works">', $body, 'subheading anchors');
         $this->assertStringContainsString('<h2 id="how-it-works-2">', $body, 'anchors are unique');
         $this->assertStringContainsString('<h3 id="custom">', $body, 'a custom id stays');
-        $this->assertStringNotContainsString('data-ka-id', $body, 'no editor marks on the public web');
+        $this->assertStringNotContainsString('data-tl-id', $body, 'no editor marks on the public web');
         $this->assertStringContainsString('@layer elements', $body, 'element CSS in layers');
-        $this->assertStringContainsString('#s-nad1 { color: var(--ka-color-primary); }', $body, 'element style');
-        $this->assertStringContainsString('.card { background-color: var(--ka-color-surface)', $body, 'class style');
+        $this->assertStringContainsString('#s-nad1 { color: var(--tl-color-primary); }', $body, 'element style');
+        $this->assertStringContainsString('.card { background-color: var(--tl-color-surface)', $body, 'class style');
         $this->assertStringContainsString('"FAQPage"', $body, 'questions and answers as structured data');
         $this->assertPage('/search?q=Builder+test', 200, 'Found: 1', message: 'search finds the build content');
     }
@@ -131,8 +131,8 @@ final class BuilderPagesTest extends SiteTestCase
         $this->pageAction('build_publish');
         $id = $this->pageId();
 
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'"), 'the previously published version is in the history');
-        $idr = (int) $this->site()->value("SELECT revision_id FROM ka_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'");
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM tl_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'"), 'the previously published version is in the history');
+        $idr = (int) $this->site()->value("SELECT revision_id FROM tl_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'");
 
         $this->assertStringContainsString('Builder test', $this->pageAction('build_restore', ['revision_id' => (string) $idr])->body, 'restoring a version to the draft');
         $this->assertStringContainsString('Second version', $this->pageAction('build_discard')->body, 'discarding changes returns the published build');

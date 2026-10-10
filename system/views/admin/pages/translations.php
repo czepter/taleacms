@@ -3,8 +3,8 @@
  * Translation overview (2.14, Core\Translations): pages, news items and collection items in the default language × the
  * site's other languages – present, missing, or older than the original.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Pages $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Pages $module
  * @var string $csrf
  * @var list<string> $languages
  * @var list<array<string, mixed>> $rows
@@ -12,8 +12,8 @@
  * @var bool $news  the user may open News
  * @var bool $collections  the user may open Collections
  */
-use Kaleta\Core\Language;
-use Kaleta\Core\Translations;
+use Talea\Core\Language;
+use Talea\Core\Translations;
 
 $types = ['page' => t('Pages'), 'news' => t('News'), 'collection_item' => t('Collection items')];
 $editUrl = fn (array $row, string $id): string => match ($row['type']) {

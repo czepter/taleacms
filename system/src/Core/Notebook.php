@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
+use Talea\Admin\ChangeLog;
 
 /**
  * Agent notebook (2.15): notes the site keeps for whoever works on it next – Claude in a new conversation, or a

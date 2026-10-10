@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Core\Antispam;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Subscription to news by e-mail (the Newsletter extension). The address is saved only after confirmation via the link in the e-mail
@@ -32,12 +32,12 @@ final class Newsletter extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-newsletter { display: grid; gap: var(--ka-space-xs); max-width: 32rem; }
-.ka-newsletter-row { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); }
-.ka-newsletter input[type="email"] { flex: 1 1 14rem; min-width: 0; padding: 0.65em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: inherit; font: inherit; }
-.ka-newsletter button { padding: 0.65em 1.2em; border: 0; border-radius: var(--ka-radius); background: var(--ka-color-primary); color: var(--ka-color-on-primary); font: inherit; font-weight: 600; cursor: pointer; }
-.ka-newsletter small { color: var(--ka-color-muted); }
-.ka-newsletter-notice { margin: 0; font-weight: 600; }';
+        return '.tl-newsletter { display: grid; gap: var(--tl-space-xs); max-width: 32rem; }
+.tl-newsletter-row { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); }
+.tl-newsletter input[type="email"] { flex: 1 1 14rem; min-width: 0; padding: 0.65em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: inherit; font: inherit; }
+.tl-newsletter button { padding: 0.65em 1.2em; border: 0; border-radius: var(--tl-radius); background: var(--tl-color-primary); color: var(--tl-color-on-primary); font: inherit; font-weight: 600; cursor: pointer; }
+.tl-newsletter small { color: var(--tl-color-muted); }
+.tl-newsletter-notice { margin: 0; font-weight: 600; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -60,14 +60,14 @@ final class Newsletter extends Element
             $a = ' id="' . e($id) . '"' . $a;
         }
 
-        return '<form' . Text::withClass($a, 'ka-newsletter') . ' method="post" action="' . e($k->url('subscribe')) . '">'
-            . ($message !== '' ? '<p class="ka-newsletter-notice" role="status">' . e($message) . '</p>' : '')
-            . '<label class="ka-reader-only" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
-            . '<div class="ka-newsletter-row"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
+        return '<form' . Text::withClass($a, 'tl-newsletter') . ' method="post" action="' . e($k->url('subscribe')) . '">'
+            . ($message !== '' ? '<p class="tl-newsletter-notice" role="status">' . e($message) . '</p>' : '')
+            . '<label class="tl-reader-only" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
+            . '<div class="tl-newsletter-row"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
             . '<button type="submit">' . e($o['button_text']) . '</button></div>'
             . Form::captcha($k)
             . ($o['consent'] !== '' ? '<small>' . e($o['consent']) . '</small>' : '')
-            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="anchor" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
+            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="anchor" value="' . e($anchor) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('subscribe') . '</form>';
     }
 }

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * The migration parity report (2.7): before a moved site goes live, every address of the old site must still work on
@@ -224,7 +224,7 @@ final class MigrationReport
     }
 
     /**
-     * @param array<string, mixed> $p a row of ka_pages
+     * @param array<string, mixed> $p a row of tl_pages
      * @return array{type: string, title: string, description: string, form: bool, images: int, visible: bool}
      */
     private static function page(array $p): array

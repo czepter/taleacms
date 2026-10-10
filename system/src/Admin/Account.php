@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\Passkey;
-use Kaleta\Core\Response;
-use Kaleta\Core\Extensions;
-use Kaleta\Core\Totp;
+use Talea\Core\Passkey;
+use Talea\Core\Response;
+use Talea\Core\Extensions;
+use Talea\Core\Totp;
 
 /**
  * My account: own name and e-mail, password change, two-factor sign-in. Available to every signed-in user.
@@ -47,7 +47,7 @@ final class Account
                     }
                     $db->update('users', ['name' => mb_substr($r->post('name'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'position' => mb_substr($r->post('position'), 0, 100), 'photo' => mb_substr($r->post('photo'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
-                        'language' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('language')]) ? $r->post('language') : '',
+                        'language' => isset(\Talea\Core\Language::ADMIN_LANGUAGES[$r->post('language')]) ? $r->post('language') : '',
                         // form of address in the German administration: '' = formal
                         'register' => $r->post('register') === 'informal' ? 'informal' : ''], ['user_id' => $user['user_id']]);
                     if ($emailChanged) {
@@ -81,8 +81,8 @@ final class Account
                         $message = ['error', 'The website requires two-step sign-in – you can create a token once you turn it on.'];
                         break;
                     }
-                    $token = 'kaleta_' . bin2hex(random_bytes(24));
-                    $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'full');
+                    $token = 'talea_' . bin2hex(random_bytes(24));
+                    $access = \Talea\Front\OAuth::access($r->post('access') ?: 'full');
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('lifetime', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('lifetime', 365) : 365;
                     $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
@@ -168,7 +168,7 @@ final class Account
 
             return Response::json(Passkey::registrationOptions(
                 $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
-                Passkey::b64(substr(hash('sha256', 'kaleta-passkey|' . $url . '|' . $user['user_id'], true), 0, 16)),
+                Passkey::b64(substr(hash('sha256', 'talea-passkey|' . $url . '|' . $user['user_id'], true), 0, 16)),
                 (string) $user['username'], (string) $user['name'],
                 array_map(static fn (array $k): string => (string) $k['credential_id'], $app->auth()->accountKeys((int) $user['user_id'])),
             ));
@@ -209,13 +209,13 @@ final class Account
             return;
         }
         $site = $app->settings()->get('site_name');
-        $language = (string) ($user['language'] ?? '') !== '' ? (string) $user['language'] : \Kaleta\Core\Language::defaults($app->settings());
-        [$subject, $text] = \Kaleta\Core\Language::runWith($language, fn (): array => [
+        $language = (string) ($user['language'] ?? '') !== '' ? (string) $user['language'] : \Talea\Core\Language::defaults($app->settings());
+        [$subject, $text] = \Talea\Core\Language::runWith($language, fn (): array => [
             t('The e-mail address of your account was changed') . ' – ' . $site,
             t('Hello,') . "\n\n" . t('the e-mail address of the account %s in the administration of %s was changed to %s.', (string) $user['username'], $site, $newEmail !== '' ? $newEmail : '–')
                 . "\n\n" . t('If you did not change it, tell the administrator of the site at once – someone else may be using your account.'),
         ], 'admin-');
-        \Kaleta\Core\Mail::send($app->settings(), $old, $subject, $text);
+        \Talea\Core\Mail::send($app->settings(), $old, $subject, $text);
     }
 
     /** @param array<string, mixed> $data */

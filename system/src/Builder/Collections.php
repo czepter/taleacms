@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\WpContent;
+use Talea\Core\Db;
+use Talea\Core\WpContent;
 
 /**
  * Collections – custom content types (references, team, products, branches…): field definitions, items and values for the builder.
@@ -255,8 +255,8 @@ final class Collections
                 'file' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
                 'location' => self::cleanLocation($h),
                 'radio' => $h === '' || in_array($h, (array) ($p['options'] ?? []), true) ? $h : null,
-                'parameters' => \Kaleta\Builder\Products::cleanParameters($h),
-                'variants' => \Kaleta\Builder\Products::cleanVariants($h),
+                'parameters' => \Talea\Builder\Products::cleanParameters($h),
+                'variants' => \Talea\Builder\Products::cleanVariants($h),
                 'item' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
                 default => '',
             };
@@ -406,10 +406,10 @@ final class Collections
             $h[$p['key']] = [$value, $p['type']];
         }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
-            $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $h += \Talea\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
             $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
         }
-        foreach (\Kaleta\Core\Notices::placeholders($collection, $item) as $key => $value) {
+        foreach (\Talea\Core\Notices::placeholders($collection, $item) as $key => $value) {
             $h[$key] ??= $value; // {{notice_status}} of an official notice board (2.11) – a field with that key wins
         }
 
@@ -424,7 +424,7 @@ final class Collections
      */
     public static function linked(Db $db, string $collectionSlug, ?string $language = null): array
     {
-        $language ??= \Kaleta\Core\Language::siteColumn();
+        $language ??= \Talea\Core\Language::siteColumn();
         $key = $collectionSlug . '|' . $language;
         if (isset(self::$linked[$key])) {
             return self::$linked[$key];
@@ -460,7 +460,7 @@ final class Collections
         foreach ($collection['fields'] as $p) {
             $h[$p['key']] = [in_array($p['type'], ['image', 'link', 'file'], true) ? '' : '[' . $p['label'] . ']', $p['type'] === 'file' ? 'link' : (in_array($p['type'], ['datetime', 'radio', 'location', 'parameters', 'variants'], true) ? 'text' : $p['type'])];
         }
-        if (\Kaleta\Core\Notices::isBoard($collection)) {
+        if (\Talea\Core\Notices::isBoard($collection)) {
             $h['notice_status'] ??= ['[' . t('Notice status') . ']', 'text'];
         }
 
@@ -497,7 +497,7 @@ final class Collections
                 'html' => $type === 'html' ? $h : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
                 'inline_text' => $type === 'lines' ? nl2br(e($h), false) : e($plain),
                 // Custom HTML is output as it is (the code filter ran on save, the filling only now): the value must not bring tags
-                'code' => $type === 'html' ? \Kaleta\Core\Html::safe($h) : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
+                'code' => $type === 'html' ? \Talea\Core\Html::safe($h) : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
                 default => $plain,
             };
         }, $text);
@@ -533,7 +533,7 @@ final class Collections
 
     /* ---------- items as full pages (1.9) ---------- */
 
-    /** Columns of an item that make up one version in the history (ka_build_revisions, cast item:<idp>). */
+    /** Columns of an item that make up one version in the history (tl_build_revisions, cast item:<idp>). */
     public const array VERSIONED = ['name', 'slug', 'data', 'seo_title', 'description', 'image', 'noindex'];
 
     /**
@@ -562,9 +562,9 @@ final class Collections
      * Keeps the item as it was before a save in its history (the last Publisher::VERSIONS_KEPT) – and, for a document
      * whose file changes, the previous file for good (2.11, Core\Documents).
      */
-    public static function saveVersion(\Kaleta\Core\App $app, array $previous, array $new): void
+    public static function saveVersion(\Talea\Core\App $app, array $previous, array $new): void
     {
-        \Kaleta\Core\Documents::keepVersion($app, $previous, $new);
+        \Talea\Core\Documents::keepVersion($app, $previous, $new);
         $snapshot = fn (array $r): string => (string) json_encode(array_intersect_key($r, array_flip(self::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $old = $snapshot($previous);
         $new = $snapshot(array_replace($previous, $new));

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\Requests;
+use Talea\Core\Requests;
 
 /**
  * MCP tools for the requests staff write to Claude (2.15, Core\Requests): reading the inbox and answering a request with a

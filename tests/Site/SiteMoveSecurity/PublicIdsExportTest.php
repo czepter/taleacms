@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Core\Uuid;
-use Kaleta\Tests\Site\Support\Site;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Core\Uuid;
+use Talea\Tests\Site\Support\Site;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -73,33 +73,33 @@ final class PublicIdsExportTest extends SiteTestCase
         $this->uploadPhoto($site);
         $site->admin()->post('/admin.php?module=redirects&action=save', ['_csrf' => $site->csrf(), 'from_path' => '/ids-old', 'to_path' => '/contact', 'type' => 301]);
 
-        $site->exec("INSERT INTO ka_booking_services (name) VALUES ('Ids service')");
-        $site->exec("INSERT INTO ka_booking_staff (name) VALUES ('Ids person')");
-        $service = (int) $site->value("SELECT id FROM ka_booking_services WHERE name = 'Ids service'");
-        $staff = (int) $site->value("SELECT id FROM ka_booking_staff WHERE name = 'Ids person'");
-        $site->exec('INSERT INTO ka_booking_staff_services (staff_id, service_id) VALUES (?, ?)', [$staff, $service]);
+        $site->exec("INSERT INTO tl_booking_services (name) VALUES ('Ids service')");
+        $site->exec("INSERT INTO tl_booking_staff (name) VALUES ('Ids person')");
+        $service = (int) $site->value("SELECT id FROM tl_booking_services WHERE name = 'Ids service'");
+        $staff = (int) $site->value("SELECT id FROM tl_booking_staff WHERE name = 'Ids person'");
+        $site->exec('INSERT INTO tl_booking_staff_services (staff_id, service_id) VALUES (?, ?)', [$staff, $service]);
         $heading = fn (string $id, string $text): array => ['id' => $id, 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => $text]];
-        $site->exec("INSERT INTO ka_components (name, properties, build, updated_at) VALUES ('Ids card', '[]', ?, NOW())", [json_encode(['v' => 1, 'children' => [$heading('idc1', 'Card')]])]);
-        $component = (int) $site->value("SELECT component_id FROM ka_components WHERE name = 'Ids card'");
-        $site->exec("INSERT INTO ka_pages (slug, title, text, visible, updated_at) VALUES ('ids-parent', 'Ids parent', '', 1, NOW())");
-        $parent = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'ids-parent'");
+        $site->exec("INSERT INTO tl_components (name, properties, build, updated_at) VALUES ('Ids card', '[]', ?, NOW())", [json_encode(['v' => 1, 'children' => [$heading('idc1', 'Card')]])]);
+        $component = (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Ids card'");
+        $site->exec("INSERT INTO tl_pages (slug, title, text, visible, updated_at) VALUES ('ids-parent', 'Ids parent', '', 1, NOW())");
+        $parent = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'ids-parent'");
         $build = json_encode(['v' => 1, 'children' => [$heading('idh1', 'Child'),
             ['id' => 'idk1', 'type' => 'component', 'content' => ['component' => (string) $component]],
             ['id' => 'idb1', 'type' => 'booking', 'content' => ['service' => $service, 'staff_member' => $staff]]]]);
-        $site->exec("INSERT INTO ka_pages (slug, title, text, visible, parent_id, build, updated_at) VALUES ('ids-parent/ids-child', 'Ids child', '', 1, ?, ?, NOW())", [$parent, $build]);
-        $child = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'ids-parent/ids-child'");
-        $site->exec("INSERT INTO ka_pages (slug, title, text, visible, language, translation_of, updated_at) VALUES ('ids-eltern', 'Ids Eltern', '', 1, 'de', ?, NOW())", [$parent]);
-        $site->exec("INSERT INTO ka_popups (name, slug, rules, build, updated_at) VALUES ('Ids popup', 'ids-popup', ?, ?, NOW())", [json_encode(['where' => 'selected', 'pages' => [$child]]), json_encode(['v' => 1, 'children' => [$heading('idp1', 'Popup')]])]);
-        $site->exec("INSERT INTO ka_menus (location, language, items, updated_at) VALUES ('main', '', ?, NOW()) ON DUPLICATE KEY UPDATE items = VALUES(items)",
+        $site->exec("INSERT INTO tl_pages (slug, title, text, visible, parent_id, build, updated_at) VALUES ('ids-parent/ids-child', 'Ids child', '', 1, ?, ?, NOW())", [$parent, $build]);
+        $child = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'ids-parent/ids-child'");
+        $site->exec("INSERT INTO tl_pages (slug, title, text, visible, language, translation_of, updated_at) VALUES ('ids-eltern', 'Ids Eltern', '', 1, 'de', ?, NOW())", [$parent]);
+        $site->exec("INSERT INTO tl_popups (name, slug, rules, build, updated_at) VALUES ('Ids popup', 'ids-popup', ?, ?, NOW())", [json_encode(['where' => 'selected', 'pages' => [$child]]), json_encode(['v' => 1, 'children' => [$heading('idp1', 'Popup')]])]);
+        $site->exec("INSERT INTO tl_menus (location, language, items, updated_at) VALUES ('main', '', ?, NOW()) ON DUPLICATE KEY UPDATE items = VALUES(items)",
             [json_encode([['type' => 'page', 'page_id' => $child, 'text' => '', 'new_window' => false, 'children' => []]])]);
-        $site->exec("INSERT INTO ka_tags (name, slug) VALUES ('Ids tag', 'ids-tag')");
-        $site->exec('INSERT INTO ka_news_tags (news_id, tag_id) SELECT MIN(news_id), (SELECT tag_id FROM ka_tags WHERE slug = ?) FROM ka_news', ['ids-tag']);
-        $site->exec("INSERT INTO ka_media_folders (name) VALUES ('Ids folder')");
-        $site->exec("UPDATE ka_media SET folder_id = (SELECT folder_id FROM ka_media_folders WHERE name = 'Ids folder') WHERE media_id = (SELECT media_id FROM (SELECT MIN(media_id) AS media_id FROM ka_media) m)");
-        $site->exec("UPDATE ka_pages SET translation_of = NULL WHERE page_id = ?", [$child]);
+        $site->exec("INSERT INTO tl_tags (name, slug) VALUES ('Ids tag', 'ids-tag')");
+        $site->exec('INSERT INTO tl_news_tags (news_id, tag_id) SELECT MIN(news_id), (SELECT tag_id FROM tl_tags WHERE slug = ?) FROM tl_news', ['ids-tag']);
+        $site->exec("INSERT INTO tl_media_folders (name) VALUES ('Ids folder')");
+        $site->exec("UPDATE tl_media SET folder_id = (SELECT folder_id FROM tl_media_folders WHERE name = 'Ids folder') WHERE media_id = (SELECT media_id FROM (SELECT MIN(media_id) AS media_id FROM tl_media) m)");
+        $site->exec("UPDATE tl_pages SET translation_of = NULL WHERE page_id = ?", [$child]);
 
         self::$ids = ['parent' => $site->publicId('pages', $parent), 'child' => $site->publicId('pages', $child), 'component' => $site->publicId('components', $component),
-            'popup' => (string) $site->value("SELECT public_id FROM ka_popups WHERE slug = 'ids-popup'"), 'service' => $site->publicId('booking_services', $service), 'staff' => $site->publicId('booking_staff', $staff)];
+            'popup' => (string) $site->value("SELECT public_id FROM tl_popups WHERE slug = 'ids-popup'"), 'service' => $site->publicId('booking_services', $service), 'staff' => $site->publicId('booking_staff', $staff)];
 
         $content = self::$old = $this->exportOf($site);
         $this->assertSame(3, $content['format_version'], 'the format with public ids');
@@ -132,10 +132,10 @@ final class PublicIdsExportTest extends SiteTestCase
         $admin = $new->admin();
         $upload = $admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['file' => self::$old['_zip']]);
         $file = substr($upload->redirect, (int) strrpos($upload->redirect, 'file=') + 5);
-        $admin->post('/admin.php?module=transfer&action=kaleta_run', ['_csrf' => $new->csrf(), 'file' => $file, 'confirmation' => 1]);
+        $admin->post('/admin.php?module=transfer&action=talea_run', ['_csrf' => $new->csrf(), 'file' => $file, 'confirmation' => 1]);
         $result = null;
         for ($i = 0; $i < 80; $i++) {
-            $result = $admin->post('/admin.php?module=transfer&action=kaleta', ['_csrf' => $new->csrf(), 'file' => $file]);
+            $result = $admin->post('/admin.php?module=transfer&action=talea', ['_csrf' => $new->csrf(), 'file' => $file]);
             if ($result->contains('The site has been imported') || $result->contains('The import has stopped')) {
                 break;
             }
@@ -144,24 +144,24 @@ final class PublicIdsExportTest extends SiteTestCase
 
         foreach (array_keys(self::TABLES) as $table) {
             $rows = $table === 'pages' || $table === 'news' || $table === 'collection_items' ? ' WHERE deleted_at IS NULL' : '';
-            $this->assertSame($this->publicIds(self::$old, $table), array_values(array_map(fn (array $r): string => $r['public_id'], $new->rows("SELECT public_id FROM ka_$table$rows ORDER BY public_id"))), "$table: the imported rows keep their public ids");
+            $this->assertSame($this->publicIds(self::$old, $table), array_values(array_map(fn (array $r): string => $r['public_id'], $new->rows("SELECT public_id FROM tl_$table$rows ORDER BY public_id"))), "$table: the imported rows keep their public ids");
         }
         $parent = $new->internalId('pages', self::$ids['parent']);
         $child = $new->internalId('pages', self::$ids['child']);
         $component = $new->internalId('components', self::$ids['component']);
-        $this->assertSame($parent, (int) $new->value('SELECT parent_id FROM ka_pages WHERE page_id = ?', [$child]), 'the parent relation points at the new key');
-        $this->assertSame((string) $parent, (string) $new->value("SELECT translation_of FROM ka_pages WHERE slug = 'ids-eltern'"), 'the translation relation points at the new key');
-        $build = json_decode((string) $new->value('SELECT build FROM ka_pages WHERE page_id = ?', [$child]), true);
+        $this->assertSame($parent, (int) $new->value('SELECT parent_id FROM tl_pages WHERE page_id = ?', [$child]), 'the parent relation points at the new key');
+        $this->assertSame((string) $parent, (string) $new->value("SELECT translation_of FROM tl_pages WHERE slug = 'ids-eltern'"), 'the translation relation points at the new key');
+        $build = json_decode((string) $new->value('SELECT build FROM tl_pages WHERE page_id = ?', [$child]), true);
         $this->assertSame((string) $component, (string) ($build['children'][1]['content']['component'] ?? ''), 'a component element points at the new component');
         $this->assertSame([$new->internalId('booking_services', self::$ids['service']), $new->internalId('booking_staff', self::$ids['staff'])],
             [(int) $build['children'][2]['content']['service'], (int) $build['children'][2]['content']['staff_member']], 'a booking element points at the new service and person');
-        $this->assertSame([$child], json_decode((string) $new->value("SELECT rules FROM ka_popups WHERE slug = 'ids-popup'"), true)['pages'], 'the pages of a pop-up are the new keys');
-        $this->assertStringContainsString('"page_id":' . $child, (string) $new->value("SELECT items FROM ka_menus WHERE location = 'main' AND language = ''"), 'a menu page points at the new key');
+        $this->assertSame([$child], json_decode((string) $new->value("SELECT rules FROM tl_popups WHERE slug = 'ids-popup'"), true)['pages'], 'the pages of a pop-up are the new keys');
+        $this->assertStringContainsString('"page_id":' . $child, (string) $new->value("SELECT items FROM tl_menus WHERE location = 'main' AND language = ''"), 'a menu page points at the new key');
         $this->assertSame((string) $new->internalId('pages', self::$old['settings']['home_page']), $new->settingValue('home_page'), 'the home page setting points at the new key');
-        $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM ka_news_tags nt JOIN ka_tags t ON t.tag_id = nt.tag_id WHERE t.slug = ?', ['ids-tag']), 'a tag link of a news item is kept');
-        $this->assertSame('1', (string) $new->value("SELECT COUNT(*) FROM ka_media m JOIN ka_media_folders f ON f.folder_id = m.folder_id WHERE f.name = 'Ids folder'"), 'a media folder relation is kept');
-        $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM ka_booking_staff_services'), 'the person and the service stay linked');
-        $this->assertSame(200, $new->client()->get('/' . $new->value('SELECT slug FROM ka_pages WHERE page_id = ?', [$child]))->status, 'the moved child page is served');
+        $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_news_tags nt JOIN tl_tags t ON t.tag_id = nt.tag_id WHERE t.slug = ?', ['ids-tag']), 'a tag link of a news item is kept');
+        $this->assertSame('1', (string) $new->value("SELECT COUNT(*) FROM tl_media m JOIN tl_media_folders f ON f.folder_id = m.folder_id WHERE f.name = 'Ids folder'"), 'a media folder relation is kept');
+        $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_booking_staff_services'), 'the person and the service stay linked');
+        $this->assertSame(200, $new->client()->get('/' . $new->value('SELECT slug FROM tl_pages WHERE page_id = ?', [$child]))->status, 'the moved child page is served');
     }
 
     #[Depends('testAnImportKeepsThePublicIdsAndPointsRelationsAtTheNewKeys')]

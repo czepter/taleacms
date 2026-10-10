@@ -1,4 +1,4 @@
-// Kaleta – screenshots of one install (called by tools/screenshots.sh for each starter site).
+// Talea – screenshots of one install (called by tools/screenshots.sh for each starter site).
 // Env: BASE (http://127.0.0.1:8097), SITE (business | crafts | consulting), PASSWORD (admin), OUT (folder), CHROME (browser binary),
 // NODE_PATH (folder with playwright-core).
 import { createRequire } from 'node:module';
@@ -13,7 +13,7 @@ const PHONE = { width: 390, height: 844 };
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: DESKTOP, deviceScaleFactor: 2, colorScheme: 'light', locale: 'en-GB' });
 // the builder's first-run tour would cover the canvas
-await context.addInitScript(() => { try { localStorage.setItem('ka-bd-tour', '1'); } catch (e) { /* ignore */ } });
+await context.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
 const page = await context.newPage();
 const canvas = () => page.frameLocator('.bd-canvas iframe').first();
 

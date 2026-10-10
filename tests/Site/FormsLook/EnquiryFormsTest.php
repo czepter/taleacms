@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsLook;
+namespace Talea\Tests\Site\FormsLook;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -29,8 +29,8 @@ final class EnquiryFormsTest extends SiteTestCase
             <?php
             $log = __DIR__ . '/calls.log';
             $h = array_change_key_case(getallheaders());
-            file_put_contents($log, json_encode(['uri' => $_SERVER['REQUEST_URI'], 'event' => $h['x-kaleta-event'] ?? '', 'delivery' => $h['x-kaleta-delivery'] ?? '', 'ts' => $h['x-kaleta-timestamp'] ?? '',
-                'sig' => $h['x-kaleta-signature'] ?? '', 'body' => file_get_contents('php://input')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
+            file_put_contents($log, json_encode(['uri' => $_SERVER['REQUEST_URI'], 'event' => $h['x-talea-event'] ?? '', 'delivery' => $h['x-talea-delivery'] ?? '', 'ts' => $h['x-talea-timestamp'] ?? '',
+                'sig' => $h['x-talea-signature'] ?? '', 'body' => file_get_contents('php://input')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
             http_response_code(str_contains($_SERVER['REQUEST_URI'], 'error') ? 500 : 204); return true;
             PHP);
         $port = $this->site()->startPhp($dir, 'router.php');
@@ -42,7 +42,7 @@ final class EnquiryFormsTest extends SiteTestCase
         $page = $this->site()->client()->get('/contact');
         self::$loadedAt = microtime(true);
         self::$html = $page->body;
-        $this->assertStringContainsString('class="ka-form"', self::$html, 'contact has the enquiry form');
+        $this->assertStringContainsString('class="tl-form"', self::$html, 'contact has the enquiry form');
         $this->assertStringContainsString('name="as_signature"', self::$html, 'the form carries the antispam signature');
         self::$source = $this->formField(self::$html, 'source');
         self::$element = $this->formField(self::$html, 'element');
@@ -77,7 +77,7 @@ final class EnquiryFormsTest extends SiteTestCase
     #[Depends('testFormMarkupHelpsBrowsersAndDelaysTheSubmit')]
     public function testASubmittedEnquiryIsStoredWithCampaignAndSentToTheWebhook(): void
     {
-        // the form asks for 1 second (KALETA_ANTISPAM_MIN) between loading and sending
+        // the form asks for 1 second (TALEA_ANTISPAM_MIN) between loading and sending
         $wait = 1.2 - (microtime(true) - self::$loadedAt);
         if ($wait > 0) {
             usleep((int) ($wait * 1_000_000));
@@ -85,12 +85,12 @@ final class EnquiryFormsTest extends SiteTestCase
         $location = $this->submit(['p0' => 'Jane', 'p1' => 'jane@example.org', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => '1'],
             ['Referer: ' . $this->site()->base . '/contact?utm_source=newsletter&utm_medium=email&utm_campaign=spring']);
         $this->assertMatchesRegularExpression('~/contact\?form=' . self::$element . '&result=ok#.*' . self::$element . '$~', $location, 'form submit');
-        $this->assertSame('1/jane@example.org/0', $this->sqlRow("SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(status)) FROM ka_enquiries"), 'enquiry stored');
+        $this->assertSame('1/jane@example.org/0', $this->sqlRow("SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(status)) FROM tl_enquiries"), 'enquiry stored');
 
         $this->assertSame('enquiry_received|signed|/crm|enquiry_received/204/1/1', $this->hookCheck(1) . '|' . $this->sql(
-            "SELECT CONCAT(event, '/', status, '/', delivered IS NOT NULL, '/', body IS NULL) FROM ka_webhook_deliveries"), 'webhook: new enquiry delivered after the response, signed');
+            "SELECT CONCAT(event, '/', status, '/', delivered IS NOT NULL, '/', body IS NULL) FROM tl_webhook_deliveries"), 'webhook: new enquiry delivered after the response, signed');
         $this->assertMatchesRegularExpression('/email.":."jane@example\.org/', (string) file_get_contents(self::$hookLog), 'webhook: the enquiry data are in the body');
-        $this->assertSame('utm_source=newsletter&utm_medium=email&utm_campaign=spring', $this->sql('SELECT campaign FROM ka_enquiries'), 'enquiry carries the campaign from the utm_* page with the form');
+        $this->assertSame('utm_source=newsletter&utm_medium=email&utm_campaign=spring', $this->sql('SELECT campaign FROM tl_enquiries'), 'enquiry carries the campaign from the utm_* page with the form');
     }
 
     #[Depends('testASubmittedEnquiryIsStoredWithCampaignAndSentToTheWebhook')]
@@ -112,23 +112,23 @@ final class EnquiryFormsTest extends SiteTestCase
         $this->assertStringContainsString('result=verification', $forged->redirect, 'forged signature rejected');
 
         $this->assertStringNotContainsString('form=', $this->submit(['source' => 'page:999', 'p0' => 'A']), 'a form that does not exist is not accepted');
-        $this->assertSame('1', $this->sql('SELECT COUNT(*) FROM ka_enquiries'), 'the robot and the errors added no enquiry');
+        $this->assertSame('1', $this->sql('SELECT COUNT(*) FROM tl_enquiries'), 'the robot and the errors added no enquiry');
     }
 
     #[Depends('testInvalidSubmitsAreRejectedAndNothingIsStored')]
     public function testEnquiryInTheAdminListDetailAndCsv(): void
     {
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => '0', 'name' => 'Author', 'username' => 'author', 'password' => $this->site()->password, 'admin' => '0'], '/admin.php?module=users');
-        $id = $this->sql('SELECT enquiry_id FROM ka_enquiries');
+        $id = $this->sql('SELECT enquiry_id FROM tl_enquiries');
 
         $this->assertPage('/admin.php?module=enquiries', 200, 'jane@example.org', message: 'enquiries in the admin');
         $detail = $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $this->site()->publicId('enquiries', (int) $id), 200, 'I want a custom kitchen.', message: 'enquiry detail');
         $this->assertStringContainsString('>Tester</option>', $detail->body, 'the assignee list offers the administrator');
         $this->assertStringNotContainsString('>Author</option>', $detail->body, 'only someone with access to Enquiries can handle one');
-        $this->assertSame('1', $this->sql('SELECT status FROM ka_enquiries'), 'an opened enquiry is read');
+        $this->assertSame('1', $this->sql('SELECT status FROM tl_enquiries'), 'an opened enquiry is read');
 
         $this->assertStringContainsString('I want a custom kitchen.', $this->site()->admin()->get('/admin.php?module=enquiries&action=csv')->body, 'enquiries export to CSV');
-        $this->assertPage('/contact?form=' . self::$element . '&result=ok', 200, 'class="ka-form-done"', message: 'thank-you in place of the form');
+        $this->assertPage('/contact?form=' . self::$element . '&result=ok', 200, 'class="tl-form-done"', message: 'thank-you in place of the form');
     }
 
     /** The old submit_form: the redirect address of a POST to /form with the page's fields. @param array<string, string> $fields @param list<string> $headers */

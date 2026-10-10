@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\EnglishInstall;
+namespace Talea\Tests\Site\EnglishInstall;
 
-use Kaleta\Tests\Site\Support\CzechCheck;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\CzechCheck;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -25,7 +25,7 @@ final class BusinessStarterTest extends SiteTestCase
 
     public function testPrivacyPolicyIsInEnglishAndHiddenUntilCompleted(): void
     {
-        $row = $this->site()->rows("SELECT title, visible, text LIKE '%This policy explains%' AS english FROM ka_pages WHERE slug = 'privacy-policy'")[0] ?? [];
+        $row = $this->site()->rows("SELECT title, visible, text LIKE '%This policy explains%' AS english FROM tl_pages WHERE slug = 'privacy-policy'")[0] ?? [];
         $this->assertSame(['Privacy policy', 0, 1], [$row['title'] ?? null, (int) ($row['visible'] ?? -1), (int) ($row['english'] ?? -1)], 'privacy policy page after an English install');
     }
 
@@ -37,7 +37,7 @@ final class BusinessStarterTest extends SiteTestCase
     #[Depends('testPublicSite')]
     public function testNewsWithoutNewsItems(): void
     {
-        $this->site()->exec('UPDATE ka_news SET visible = 0');
+        $this->site()->exec('UPDATE tl_news SET visible = 0');
         $this->site()->clearPageCache();
         $this->assertCzechFree('/news', 200, label: 'business: news without news items');
     }

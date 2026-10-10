@@ -2,7 +2,7 @@
 /**
  * Reset of a forgotten admin password (Admin\PasswordReset).
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var string $step request | password | invalid
  * @var bool $sent
  * @var ?string $error
@@ -11,17 +11,17 @@
  */
 ?>
 <!doctype html>
-<html lang="<?= e(Kaleta\Core\Language::code()) ?>">
+<html lang="<?= e(Talea\Core\Language::code()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
-<title><?= e(t('Forgotten password')) ?> – Kaleta</title>
-<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/kaleta-mark.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/kaleta-mark-32.png">
-<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/kaleta-mark-180.png">
-<link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
+<script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(TALEA_VERSION) ?>"></script>
+<title><?= e(t('Forgotten password')) ?> – Talea</title>
+<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/talea-mark.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/talea-mark-32.png">
+<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/talea-mark-180.png">
+<link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
 </head>
 <body class="login">
 <div class="login-card">

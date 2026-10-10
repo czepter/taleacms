@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
- * Custom post types and custom fields of a WordPress export as Kaleta collections (2.7): CPT UI, ACF, Secure Custom
+ * Custom post types and custom fields of a WordPress export as Talea collections (2.7): CPT UI, ACF, Secure Custom
  * Fields, Pods and plain custom fields keep their values in <wp:postmeta>.
  *
  *  - Which post types count: everything except the WordPress internals and the types of known plugins (menus, blocks,

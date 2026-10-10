@@ -1,4 +1,4 @@
-/* Kaleta – page builder (admin.php?module=pages&action=builder). Colors from the admin variables (image/admin.css) – both light and dark mode. */
+/* Talea – page builder (admin.php?module=pages&action=builder). Colors from the admin variables (image/admin.css) – both light and dark mode. */
 
 body.builder-body { display: block; margin: 0; padding: 0; max-width: none; overflow: hidden; background: var(--base); font: 14px/1.45 var(--font); color: var(--text); }
 .bd { display: grid; grid-template: "lista lista lista" auto "levy platno pravy" 1fr / 272px 1fr 320px; height: 100vh; height: 100dvh; }

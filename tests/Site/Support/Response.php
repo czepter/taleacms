@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Support;
+namespace Talea\Tests\Site\Support;
 
 /** An HTTP answer of the test site. */
 final class Response

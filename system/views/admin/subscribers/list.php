@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Admin\Modules\Subscribers $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Subscribers $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $subscribers
  * @var int $total
@@ -11,7 +11,7 @@
  * @var string $service connected mailing service (empty = none)
  * @var array{pending: ?string, failed: ?string} $queue
  */
-use Kaleta\Core\Newsletter;
+use Talea\Core\Newsletter;
 
 $admin = $app->auth()->isAdmin();
 ?>

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsB;
+namespace Talea\Tests\Site\CollectionsB;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Was: section 68 (2.12 multi-step forms, conditions and a price estimate – the calculator form is built here). */
@@ -29,7 +29,7 @@ final class CalculatorFormTest extends SiteTestCase
 
         $visitor = $site->client();
         $form = $visitor->get('/calculator-212');
-        $this->assertSame(2, substr_count($form->body, 'class="ka-step"'), 'multi-step: the form is split into two steps');
+        $this->assertSame(2, substr_count($form->body, 'class="tl-step"'), 'multi-step: the form is split into two steps');
         $this->assertStringContainsString('data-steps', $form->body, 'multi-step: the form carries the steps marker');
         $this->assertStringContainsString('<legend>Details</legend>', $form->body, 'multi-step: the step has its legend');
 
@@ -38,7 +38,7 @@ final class CalculatorFormTest extends SiteTestCase
         }
         $this->assertStringNotContainsString('| 1200', $form->body, 'calculator: the visitor never sees the price syntax');
 
-        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $fields = ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => '/calculator-212', 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
         sleep(4); // the anti-spam signature has a minimum age
 
@@ -48,7 +48,7 @@ final class CalculatorFormTest extends SiteTestCase
         $redirect = $visitor->post('/form', $fields + ['p0' => 'Windows', 'p1' => 4, 'p4' => 'o@example.com', 'p3' => 'Oak', 'p5' => 1])->redirect;
         $this->assertStringContainsString('result=ok', $redirect, 'conditions: a hidden required field does not block the form');
 
-        $stored = json_decode((string) $site->value('SELECT data FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);
+        $stored = json_decode((string) $site->value('SELECT data FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);
         $this->assertSame('Type=Windows|Count=4|Email=o@example.com|Estimate=7,700 $', implode('|', array_map(fn ($r) => $r[0] . '=' . str_replace("\u{a0}", ' ', $r[1]), $stored)), 'calculator: the server computes the estimate and drops the hidden answer');
     }
 }

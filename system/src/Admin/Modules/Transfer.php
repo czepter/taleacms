@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\SiteExport;
-use Kaleta\Core\SiteImport;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Core\ImageDownloader;
-use Kaleta\Core\MigrationReport;
-use Kaleta\Core\WebImport;
-use Kaleta\Core\WpImport;
-use Kaleta\Core\WpFile;
-use Kaleta\Import\Batch;
-use Kaleta\Import\Fetch;
-use Kaleta\Import\Mapping;
-use Kaleta\Import\Remote;
-use Kaleta\Import\Sources;
+use Talea\Admin\Module;
+use Talea\Core\SiteExport;
+use Talea\Core\SiteImport;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Core\ImageDownloader;
+use Talea\Core\MigrationReport;
+use Talea\Core\WebImport;
+use Talea\Core\WpImport;
+use Talea\Core\WpFile;
+use Talea\Import\Batch;
+use Talea\Import\Fetch;
+use Talea\Import\Mapping;
+use Talea\Import\Remote;
+use Talea\Import\Sources;
 
 /**
  * Import and export: import from any website by its address (2.6, Core\WebImport), moving from WordPress (a WXR file),
- * from another system with a structured export (3.0, Import\Batch: Ghost, Blogger…), moving a whole Kaleta site into a
+ * from another system with a structured export (3.0, Import\Batch: Ghost, Blogger…), moving a whole Talea site into a
  * new installation (1.8, Core\SiteImport) and export of the whole site to an open format.
  *
  * The import has three steps on one screen: 1. file (uploaded with the form, or via FTP to storage/import/),
@@ -51,7 +51,7 @@ final class Transfer extends Module
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
             'exports' => SiteExport::listAll(),
-            'kaletaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['file'])], SiteImport::listAll()),
+            'taleaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['file'])], SiteImport::listAll()),
             'siteContent' => SiteImport::siteContent($this->db),
             'hasZip' => class_exists(\ZipArchive::class),
             'webImports' => array_values(array_filter(array_map(fn (string $f): ?array => WebImport::load(substr(basename($f, '.json'), 4)), glob(WpFile::folder() . '/web-*.json') ?: []))),
@@ -191,7 +191,7 @@ final class Transfer extends Module
             return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'error');
         }
         if (in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), ['zip', 'json'], true)) {
-            // an export of another Kaleta site
+            // an export of another Talea site
             $name = SiteImport::uploadName((string) $file['name']);
             try {
                 if (!move_uploaded_file((string) $file['tmp_name'], WpFile::folder() . '/' . $name)) {
@@ -201,7 +201,7 @@ final class Transfer extends Module
                 return $this->back(self::message($e), type: 'error');
             }
 
-            return $this->startKaleta($name);
+            return $this->startTalea($name);
         }
         if (strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) !== 'xml') {
             return $this->back('The file must have the .xml extension – it is an export from WordPress (Tools → Export).', type: 'error');
@@ -270,7 +270,7 @@ final class Transfer extends Module
             'state' => $state,
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
-            'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'redirects'),
+            'redirectsEnabled' => \Talea\Core\Extensions::isEnabled($settings, 'redirects'),
         ]);
     }
 
@@ -496,7 +496,7 @@ final class Transfer extends Module
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
             'users' => $this->db->all('SELECT user_id, public_id, name, username FROM {users} WHERE blocked = 0 ORDER BY name, username'),
-            'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'redirects'),
+            'redirectsEnabled' => \Talea\Core\Extensions::isEnabled($settings, 'redirects'),
         ]);
     }
 
@@ -596,10 +596,10 @@ final class Transfer extends Module
         return Batch::path($file) === null ? null : Batch::loadState($file);
     }
 
-    /* ---------- import of a Kaleta export (1.8) ---------- */
+    /* ---------- import of a Talea export (1.8) ---------- */
 
-    /** Reads the export (header, rows per table) and shows the preview; a file that is not a Kaleta export is deleted. */
-    private function startKaleta(string $file): Response
+    /** Reads the export (header, rows per table) and shows the preview; a file that is not a Talea export is deleted. */
+    private function startTalea(string $file): Response
     {
         SiteImport::deleteState($file);
         $state = SiteImport::newState($file);
@@ -614,21 +614,21 @@ final class Transfer extends Module
         }
         SiteImport::saveState($state);
 
-        return $this->back('', 'kaleta', ['file' => $file]);
+        return $this->back('', 'talea', ['file' => $file]);
     }
 
     /** An export already in storage/import (uploaded over FTP): read it again from the start. */
-    protected function actionKaletaSelect(): Response
+    protected function actionTaleaSelect(): Response
     {
         $file = $this->request->post('file');
         if (!$this->request->isPost() || SiteImport::path($file) === null) {
             return $this->back('The file does not exist.', type: 'error');
         }
 
-        return $this->startKaleta($file);
+        return $this->startTalea($file);
     }
 
-    protected function actionKaletaDelete(): Response
+    protected function actionTaleaDelete(): Response
     {
         $file = $this->request->post('file');
         if ($this->request->isPost() && ($path = SiteImport::path($file)) !== null) {
@@ -643,7 +643,7 @@ final class Transfer extends Module
      * Preview, progress and result of the import. GET only shows; POST (the form submits itself) does one batch under
      * a lock, so two browser windows never import at the same time.
      */
-    protected function actionKaleta(): Response
+    protected function actionTalea(): Response
     {
         $file = $this->request->isPost() ? $this->request->post('file') : $this->request->get('file');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
@@ -661,7 +661,7 @@ final class Transfer extends Module
                     $state['phase'] === 'data' ? $import->importData($state) : $import->importMedia($state);
                     if ($state['phase'] === 'done') {
                         SiteImport::cleanUp($file);
-                        \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'import of a Kaleta export', $file);
+                        \Talea\Admin\ChangeLog::write($this->app, 'transfer', 'import of a Talea export', $file);
                     }
                 } catch (\RuntimeException $e) {
                     $error = self::message($e);
@@ -672,24 +672,24 @@ final class Transfer extends Module
             }
         }
 
-        return $this->view('kaleta', 'Import from Kaleta', ['state' => $state, 'error' => $error, 'siteContent' => SiteImport::siteContent($this->db)]);
+        return $this->view('talea', 'Import from Talea', ['state' => $state, 'error' => $error, 'siteContent' => SiteImport::siteContent($this->db)]);
     }
 
     /** Confirmation in the preview: the import starts (the first batch backs up the database and empties the content). */
-    protected function actionKaletaRun(): Response
+    protected function actionTaleaRun(): Response
     {
         $file = $this->request->post('file');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if (!$this->request->isPost() || $state === null || $state['phase'] !== 'preview' || !$this->request->postBool('confirmation')) {
-            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['file' => $file], 'error');
+            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'talea', $state === null ? [] : ['file' => $file], 'error');
         }
         if (!SiteImport::siteContent($this->db)['empty']) {
-            return $this->back('The site already has its own content. A Kaleta export can be imported only into a new, empty site.', 'kaleta', ['file' => $file], 'error');
+            return $this->back('The site already has its own content. A Talea export can be imported only into a new, empty site.', 'talea', ['file' => $file], 'error');
         }
         $state['phase'] = 'data';
         SiteImport::saveState($state);
 
-        return $this->back('', 'kaleta', ['file' => $file]);
+        return $this->back('', 'talea', ['file' => $file]);
     }
 
     /* ---------- export ---------- */

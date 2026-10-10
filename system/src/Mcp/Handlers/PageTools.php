@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: site and pages (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -32,25 +32,25 @@ trait PageTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
         // the agent notebook (2.15, Core\Notebook): how many notes colleagues and earlier conversations left, and the pinned titles – read_notebook has them all
-        $notebook = \Kaleta\Core\Notebook::summary($db);
+        $notebook = \Talea\Core\Notebook::summary($db);
 
         return [
             'site' => $siteSettings->get('site_name'), 'url' => $this->app->request->origin() . $this->app->url(''), 'description' => $siteSettings->get('site_description'),
-            'home_page' => $siteSettings->int('home_page') ?: null, 'kaleta_version' => KALETA_VERSION,
+            'home_page' => $siteSettings->int('home_page') ?: null, 'talea_version' => TALEA_VERSION,
             'pages' => (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL'),
             'published_news' => (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL'),
-            'username' => $auth->user()['username'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'can_publish' => $auth->canPublish(),
+            'username' => $auth->user()['username'], 'role' => \Talea\Core\Auth::TYPES[(int) $auth->user()['admin']], 'can_publish' => $auth->canPublish(),
             'can_edit_pages' => $auth->hasModule('pages'),
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
             'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
             // what the site has switched on, so Claude does not guess (extension keys: news, enquiries, newsletter_signup…)
-            'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
+            'extensions' => \Talea\Core\Extensions::enabled($siteSettings),
             'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
             'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings),
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
             'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
-            'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
-        ] + (\Kaleta\Fleet\Link::isPaired($siteSettings) ? [
+            'look_draft' => \Talea\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
+        ] + (\Talea\Fleet\Link::isPaired($siteSettings) ? [
             // the shared design kit of the fleet console (2.16, Fleet\Kit): which version arrived here as drafts, and when
             'fleet_kit' => ['enabled' => $siteSettings->bool('fleet_kit'), 'version' => $siteSettings->int('fleet_kit_version') ?: null,
                 'applied_at' => $siteSettings->int('fleet_kit_applied_at') > 0 ? date('Y-m-d H:i:s', $siteSettings->int('fleet_kit_applied_at')) : null],
@@ -88,14 +88,14 @@ trait PageTools
         if ($page['image'] === '' && $this->app->settings()->get('share_image') === '') {
             // the picture the site draws for sharing (2.12) – the same title as on the page (the home page has none)
             $title = $page['seo_title'] !== '' ? $page['seo_title'] : ((int) $page['page_id'] === $this->app->settings()->int('home_page') ? '' : $page['title']);
-            $generated = \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($title, $this->app));
+            $generated = \Talea\Front\ShareImage::url($this->app, \Talea\Core\Facts::fillText($title, $this->app));
             if ($generated !== null) {
                 $page['share_image_generated'] = $generated;
             }
         }
         // content check of the saved version (2.14, Core\ContentCheck), read-only – the same list the editor shows
         $builds = $this->app->db()->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]) ?? [];
-        $page['content_check'] = Language::runWith('en', fn (): array => \Kaleta\Core\ContentCheck::forPage($page + $builds), 'admin-');
+        $page['content_check'] = Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::forPage($page + $builds), 'admin-');
 
         return ['id' => $page['page_id'], 'visible' => $page['visible'], 'order' => $page['sort_order'], 'parent' => $page['parent_id']]
             + array_diff_key($page, ['page_id' => 1, 'visible' => 1, 'sort_order' => 1, 'parent_id' => 1, 'text' => 1]) + ['content' => $page['text']];
@@ -104,7 +104,7 @@ trait PageTools
     /** translation_status (2.14, Core\Translations) */
     private function toolTranslationStatus(string $name, array $a): mixed
     {
-        $matrix = \Kaleta\Core\Translations::matrix($this->app);
+        $matrix = \Talea\Core\Translations::matrix($this->app);
         $status = in_array($a['status'] ?? '', ['missing', 'outdated', 'all'], true) ? $a['status'] : '';
         $type = in_array($a['type'] ?? '', ['page', 'news', 'collection_item'], true) ? $a['type'] : '';
         $counts = ['missing' => 0, 'outdated' => 0, 'present' => 0];
@@ -114,7 +114,7 @@ trait PageTools
                 $counts[$cell['status']]++;
             }
             $keep = $status === 'all' ? $row['translations']
-                : array_filter($row['translations'], fn (array $c): bool => $status === '' ? $c['status'] !== \Kaleta\Core\Translations::PRESENT : $c['status'] === $status);
+                : array_filter($row['translations'], fn (array $c): bool => $status === '' ? $c['status'] !== \Talea\Core\Translations::PRESENT : $c['status'] === $status);
             if ($keep === [] || ($type !== '' && $row['type'] !== $type)) {
                 continue;
             }
@@ -160,7 +160,7 @@ trait PageTools
             throw new \DomainException('The home page cannot be deleted – set another one first (update_settings → home_page).');
         }
         $db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ? AND deleted_at IS NULL', [(int) $page['page_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return ['id' => (int) $page['page_id'], 'status' => 'in the trash – it can be restored for 30 days in the admin (Pages → Trash)'];
     }
@@ -172,7 +172,7 @@ trait PageTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
-        $location = isset(\Kaleta\Core\Menu::LOCATIONS[$a['location'] ?? '']) ? $a['location'] : 'main';
+        $location = isset(\Talea\Core\Menu::LOCATIONS[$a['location'] ?? '']) ? $a['location'] : 'main';
         $menuLanguage = in_array($a['language'] ?? '', Language::additional($siteSettings), true) ? $a['language'] : '';
         if ($name === 'save_menu') {
             if (!$auth->isAdmin()) {
@@ -182,13 +182,13 @@ trait PageTools
             if (!array_key_exists('items', $a) || ($a['items'] !== null && !is_array($a['items']))) {
                 throw new \InvalidArgumentException('The items parameter must be a list of menu items, or null for the automatic menu.');
             }
-            \Kaleta\Core\Look::setMenu($siteSettings, $location, $menuLanguage, $a['items']); // to the draft look
+            \Talea\Core\Look::setMenu($siteSettings, $location, $menuLanguage, $a['items']); // to the draft look
         }
-        [$inDraft, $saved] = \Kaleta\Core\Look::menuForEditing($db, $siteSettings, $location, $menuLanguage);
+        [$inDraft, $saved] = \Talea\Core\Look::menuForEditing($db, $siteSettings, $location, $menuLanguage);
 
         return ['location' => $location, 'language' => $menuLanguage, 'automatic' => $saved === null, 'items' => $saved ?? [],
             'look_draft' => $inDraft ? 'the items are in the draft look – visitors see them after publish_look' : null,
-            'on_site' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
+            'on_site' => \Talea\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
             'pages' => $db->all('SELECT page_id, title, visible FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$menuLanguage])];
     }
 
@@ -209,7 +209,7 @@ trait PageTools
             $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['page_id'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT page_id, title, deleted_at FROM {pages} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100'));
         }
-        if ($auth->hasModule('news') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
+        if ($auth->hasModule('news') && \Talea\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
             $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['news_id'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT news_id, title, deleted_at FROM {news} WHERE deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND author_id = ' . (int) $auth->id()) . ' ORDER BY deleted_at DESC LIMIT 100'));
         }

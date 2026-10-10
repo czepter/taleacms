@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Password-protected pages (2.14): a price list for partners, documents for one client, a page for the members of a
  * club – behind one password the administrator gives to the people who should read it. Not an account system: whoever
  * knows the password reads the page.
  *
- *  - Only a password_hash() is stored (ka_pages.heslo_hash). The visitor who enters the password gets a cookie for
+ *  - Only a password_hash() is stored (tl_pages.heslo_hash). The visitor who enters the password gets a cookie for
  *    30 days bound to the page and to the hash, so a new password locks everyone out again.
  *  - A protected page is never in the page cache, the sitemap, llms.txt or the site search, and it is noindex; users who
  *    can edit pages see it without the password.
@@ -96,16 +96,16 @@ final class PageLock
     /** The password form shown instead of the page content, in the site's form styles. @param array<string, mixed> $page */
     public static function form(array $page, string $error): string
     {
-        return '<div class="ka-system-page"><h1>' . e((string) $page['title']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
-            . ($error !== '' ? '<p class="ka-form-error" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="ka-form" method="post"><p class="ka-field"><label for="ka-password-page">' . e(t('Password')) . '</label>'
-            . '<input type="password" id="ka-password-page" name="ka_page_password" autocomplete="current-password" required></p>'
-            . '<p class="ka-field"><button class="ka-button ka-button--primary" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
+        return '<div class="tl-system-page"><h1>' . e((string) $page['title']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
+            . ($error !== '' ? '<p class="tl-form-error" role="alert">' . e($error) . '</p>' : '')
+            . '<form class="tl-form" method="post"><p class="tl-field"><label for="tl-password-page">' . e(t('Password')) . '</label>'
+            . '<input type="password" id="tl-password-page" name="tl_page_password" autocomplete="current-password" required></p>'
+            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
     }
 
     private static function cookie(int $ids): string
     {
-        return 'ka_stranka_' . $ids;
+        return 'tl_stranka_' . $ids;
     }
 
     /** @param array<string, mixed> $page */

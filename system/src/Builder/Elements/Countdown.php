@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Countdown to a date (an event, an opening, a deadline): days, hours, minutes and seconds. The server outputs the state at the moment
@@ -29,10 +29,10 @@ final class Countdown extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-countdown { display: flex; flex-wrap: wrap; gap: var(--ka-space-s); margin: 0; }
-.ka-countdown > div { display: grid; min-width: 4.5rem; padding: var(--ka-space-s); border-radius: var(--ka-radius); background: var(--ka-color-surface); text-align: center; }
-.ka-countdown dd { order: -1; margin: 0; font: 800 var(--ka-step-4)/1 var(--ka-font-heading); font-variant-numeric: tabular-nums; }
-.ka-countdown dt { color: var(--ka-color-muted); font-size: var(--ka-step--1); }';
+        return '.tl-countdown { display: flex; flex-wrap: wrap; gap: var(--tl-space-s); margin: 0; }
+.tl-countdown > div { display: grid; min-width: 4.5rem; padding: var(--tl-space-s); border-radius: var(--tl-radius); background: var(--tl-color-surface); text-align: center; }
+.tl-countdown dd { order: -1; margin: 0; font: 800 var(--tl-step-4)/1 var(--tl-font-heading); font-variant-numeric: tabular-nums; }
+.tl-countdown dt { color: var(--tl-color-muted); font-size: var(--tl-step--1); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -44,7 +44,7 @@ final class Countdown extends Element
         }
         $remaining = $target - time();
         if ($remaining <= 0) {
-            return '<p' . Text::withClass($a, 'ka-countdown-end') . '>' . e($o['end_text']) . '</p>';
+            return '<p' . Text::withClass($a, 'tl-countdown-end') . '>' . e($o['end_text']) . '</p>';
         }
         $parts = ['d' => [intdiv($remaining, 86400), t('days')], 'h' => [intdiv($remaining % 86400, 3600), t('hours')], 'm' => [intdiv($remaining % 3600, 60), t('minutes')], 's' => [$remaining % 60, t('seconds')]];
         $html = '';
@@ -52,6 +52,6 @@ final class Countdown extends Element
             $html .= '<div><dt>' . e($name) . '</dt><dd data-part="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
         }
 
-        return '<dl' . Text::withClass($a, 'ka-countdown') . ' data-countdown="' . e(date('c', $target)) . '" data-end="' . e($o['end_text']) . '" role="timer" aria-live="off">' . $html . '</dl>';
+        return '<dl' . Text::withClass($a, 'tl-countdown') . ' data-countdown="' . e(date('c', $target)) . '" data-end="' . e($o['end_text']) . '" role="timer" aria-live="off">' . $html . '</dl>';
     }
 }

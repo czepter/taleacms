@@ -2,13 +2,13 @@
 /**
  * Form row "Language version" - only when the site has other languages (the Language versions extension).
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var string $value  current value of the jazyk column ('' = default language)
  * @var string $hint
  * @var array<string, string> $originals  items in the default language from which the original of the translation can be chosen
  * @var string $translationOf  public id of the original ('' = none)
  */
-use Kaleta\Core\Language;
+use Talea\Core\Language;
 
 $additional = Language::additional($app->settings());
 if ($additional === []) {

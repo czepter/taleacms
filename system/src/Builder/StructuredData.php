@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Typed schema.org structured data (HF-11): the vocabulary in system/data/schemaorg.json, the only gate for what an editor or the AI
@@ -25,7 +25,7 @@ final class StructuredData
     public static function vocabulary(): array
     {
         if (self::$vocabulary === null) {
-            $data = json_decode((string) @file_get_contents(KALETA_SYSTEM . '/data/schemaorg.json'), true);
+            $data = json_decode((string) @file_get_contents(TALEA_SYSTEM . '/data/schemaorg.json'), true);
             self::$vocabulary = is_array($data['types'] ?? null) ? $data['types'] : [];
         }
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AgentAddons;
+namespace Talea\Tests\Site\AgentAddons;
 
 /**
  * Small helpers shared by the Claude/add-on site tests of this area (the old lib.sh mcp, mcp_as, mcp_text, mcp_value, contains,
@@ -69,8 +69,8 @@ trait AgentHelpers
         $admin = $this->site()->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
         $response = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude drafts', 'access' => 'drafts']);
-        $this->assertMatchesRegularExpression('/kaleta_[a-f0-9]{48}/', $response->body, 'My account shows the new drafts-only token');
-        preg_match('/kaleta_[a-f0-9]{48}/', $response->body, $m);
+        $this->assertMatchesRegularExpression('/talea_[a-f0-9]{48}/', $response->body, 'My account shows the new drafts-only token');
+        preg_match('/talea_[a-f0-9]{48}/', $response->body, $m);
 
         return self::$draftsToken = $m[0];
     }
@@ -78,8 +78,8 @@ trait AgentHelpers
     /** An API token for a user, made directly in the database (a fixed secret of 48 repeated characters). */
     private function tokenOf(string $user, string $name, string $char): string
     {
-        $token = 'kaleta_' . str_repeat($char, 48);
-        $this->site()->exec('INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, ?, ?, NOW() FROM ka_users WHERE username = ?', [$name, hash('sha256', $token), $user]);
+        $token = 'talea_' . str_repeat($char, 48);
+        $this->site()->exec('INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, ?, ?, NOW() FROM tl_users WHERE username = ?', [$name, hash('sha256', $token), $user]);
 
         return $token;
     }

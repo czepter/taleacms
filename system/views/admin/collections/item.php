@@ -2,15 +2,15 @@
 /**
  * Collection item form – fields according to the collection definition.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Collections $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Collections $module
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
  * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
  * @var list<array<string, mixed>> $noticeLog  the audit trail of a notice (2.11, Core\Notices), newest first
  */
-use Kaleta\Core\Language;
+use Talea\Core\Language;
 
 $languages = Language::additional($app->settings());
 ?>
@@ -36,7 +36,7 @@ $languages = Language::additional($app->settings());
         'radio' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $option): string => '<option value="' . e($option) . '"' . ($option === $h ? ' selected' : '') . '>' . e(t($option)) . '</option>',
             (array) ($field['options'] ?? []))) . '</select>',
         'item' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
-            array_keys($choices = Kaleta\Builder\Collections::choices($app->db(), (string) ($field['collection'] ?? ''))), $choices)) . '</select>',
+            array_keys($choices = Talea\Builder\Collections::choices($app->db(), (string) ($field['collection'] ?? ''))), $choices)) . '</select>',
         default => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500">',
     } ?> <code class="help">{{<?= e($field['key']) ?>}}</code></div>
 </div>
@@ -82,7 +82,7 @@ $languages = Language::additional($app->settings());
 </select></div></div>
 <?php endif ?>
 </details>
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigation" href="<?= e($module->url('items', ['id' => $k['public_id']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['item_id'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigation" href="<?= e($module->url('items', ['id' => $k['public_id']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['item_id'] > 0 && Talea\Builder\EmailSignature::isPeople($k)): ?>
 	<a class="navigation" href="<?= e($module->url('signature', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
 <?php if (($versions ?? []) !== []): ?>
@@ -106,7 +106,7 @@ $languages = Language::additional($app->settings());
 <thead><tr><th scope="col"><?= e(t('Date')) ?></th><th scope="col"><?= e(t('Action')) ?></th><th scope="col"><?= e(t('By')) ?></th><th scope="col"><?= e(t('Changes')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($noticeLog as $l): ?>
-<tr><td><?= e(format_date($l['at'], true)) ?></td><td><?= e($actions[$l['action']] ?? $l['action']) ?></td><td><?= e($l['by']) ?></td><td><?= e(Kaleta\Core\Notices::changesText($l['fields'])) ?></td></tr>
+<tr><td><?= e(format_date($l['at'], true)) ?></td><td><?= e($actions[$l['action']] ?? $l['action']) ?></td><td><?= e($l['by']) ?></td><td><?= e(Talea\Core\Notices::changesText($l['fields'])) ?></td></tr>
 <?php endforeach ?>
 </tbody>
 </table>

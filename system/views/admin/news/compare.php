@@ -2,7 +2,7 @@
 /**
  * Comparison of a saved version of a news item with its current wording.
  *
- * @var Kaleta\Admin\Modules\News $module
+ * @var Talea\Admin\Modules\News $module
  * @var array<string, mixed> $newsItem
  * @var array<string, mixed> $versions
  * @var array{html:string, added:int, deleted:int} $title

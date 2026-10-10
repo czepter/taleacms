@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Notebook as Notes;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Notebook as Notes;
+use Talea\Core\Response;
 
 /**
  * Agent notebook (2.15, Core\Notebook): notes for whoever works on the site next – Claude in a new conversation or a

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Requests to Claude (2.15): staff write in the administration what they need changed on the site – "change the opening

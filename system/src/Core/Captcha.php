@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * An optional CAPTCHA for visitors' forms (2.6): hCaptcha, Google reCAPTCHA v3 or Cloudflare Turnstile, on top of the
@@ -41,7 +41,7 @@ final class Captcha
         [, $script, $field, , $class] = self::PROVIDERS[$provider];
         $key = $s->get('captcha_site_key');
         $html = $class !== null
-            ? '<div class="ka-captcha ' . $class . '" data-sitekey="' . e($key) . '"></div>'
+            ? '<div class="tl-captcha ' . $class . '" data-sitekey="' . e($key) . '"></div>'
             : '<input type="hidden" name="' . $field . '" value="" data-recaptcha="' . e($key) . '">'; // reCAPTCHA v3: image/web.js fills it in on submit
         if (!self::$scriptPrinted) {
             self::$scriptPrinted = true;
@@ -66,8 +66,8 @@ final class Captcha
         if ($answer === '' || strlen($answer) > 4096) {
             return false;
         }
-        // KALETA_CAPTCHA_VERIFY replaces the provider's address in the tests (tools/test.sh), never needed on a real site
-        $url = (string) (getenv('KALETA_CAPTCHA_VERIFY') ?: $url);
+        // TALEA_CAPTCHA_VERIFY replaces the provider's address in the tests (tools/test.sh), never needed on a real site
+        $url = (string) (getenv('TALEA_CAPTCHA_VERIFY') ?: $url);
         $result = self::post($url, ['secret' => $s->get('captcha_secret'), 'response' => $answer, 'remoteip' => $r->ip()]);
         if ($result === null) {
             return null;

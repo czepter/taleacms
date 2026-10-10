@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsLook;
+namespace Talea\Tests\Site\FormsLook;
 
 /** Small shell-helper replacements shared by the classes of this area (mcp_value, sq, grep -c, field_value). */
 trait SiteHelpers

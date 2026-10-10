@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Admin\Modules\Tags $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Tags $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $tags
  * @var array<string, mixed>|null $edit

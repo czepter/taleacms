@@ -28,7 +28,7 @@ return [
     'list' => ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'field', 'sort_field' => 'start'],
     'card' => ['start', 'place'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $label = array_column($fields, 'label', 'key');
 
         return [

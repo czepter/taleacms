@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Categories $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Categories $module
  * @var string $csrf
  * @var list<array<string, mixed>> $category
  * @var list<string> $siteLanguages

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Timeline: milestones one after another – a date or year, a title, formatted text and an optional image. A vertical line with dots
@@ -34,21 +34,21 @@ final class Timeline extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-timeline { --ka-axis-x: 0.75rem; position: relative; display: grid; gap: var(--ka-space-l); margin: 0; padding: 0; list-style: none; }
-.ka-timeline::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--ka-axis-x); width: 2px; translate: -50% 0; background: var(--ka-color-line); }
-.ka-timeline-item { position: relative; padding-inline-start: calc(var(--ka-axis-x) + var(--ka-space-m)); }
-.ka-timeline-item::before { content: ""; position: absolute; inset-block-start: 0.3rem; inset-inline-start: var(--ka-axis-x); width: 1rem; height: 1rem; translate: -50% 0; border: 3px solid var(--ka-color-background); border-radius: 50%; background: var(--ka-color-primary); box-shadow: 0 0 0 2px var(--ka-color-primary); }
-.ka-timeline-date { display: block; margin-block-end: var(--ka-space-2xs); color: var(--ka-color-primary); font-size: var(--ka-step--1); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-.ka-timeline h3 { margin: 0; font-size: var(--ka-step-1); }
-.ka-timeline img { display: block; width: 100%; height: auto; border-radius: var(--ka-radius); }
-.ka-timeline-card > * + * { margin-block-start: var(--ka-space-xs); }
+        return '.tl-timeline { --tl-axis-x: 0.75rem; position: relative; display: grid; gap: var(--tl-space-l); margin: 0; padding: 0; list-style: none; }
+.tl-timeline::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--tl-axis-x); width: 2px; translate: -50% 0; background: var(--tl-color-line); }
+.tl-timeline-item { position: relative; padding-inline-start: calc(var(--tl-axis-x) + var(--tl-space-m)); }
+.tl-timeline-item::before { content: ""; position: absolute; inset-block-start: 0.3rem; inset-inline-start: var(--tl-axis-x); width: 1rem; height: 1rem; translate: -50% 0; border: 3px solid var(--tl-color-background); border-radius: 50%; background: var(--tl-color-primary); box-shadow: 0 0 0 2px var(--tl-color-primary); }
+.tl-timeline-date { display: block; margin-block-end: var(--tl-space-2xs); color: var(--tl-color-primary); font-size: var(--tl-step--1); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.tl-timeline h3 { margin: 0; font-size: var(--tl-step-1); }
+.tl-timeline img { display: block; width: 100%; height: auto; border-radius: var(--tl-radius); }
+.tl-timeline-card > * + * { margin-block-start: var(--tl-space-xs); }
 @media (min-width: 768px) {
-	.ka-timeline { --ka-axis-x: 50%; }
-	.ka-timeline-item { width: 50%; padding-inline-start: 0; }
-	.ka-timeline-item:nth-child(odd) { padding-inline-end: var(--ka-space-l); text-align: end; }
-	.ka-timeline-item:nth-child(odd)::before { inset-inline-start: 100%; }
-	.ka-timeline-item:nth-child(even) { margin-inline-start: 50%; padding-inline-start: var(--ka-space-l); }
-	.ka-timeline-item:nth-child(even)::before { inset-inline-start: 0; }
+	.tl-timeline { --tl-axis-x: 50%; }
+	.tl-timeline-item { width: 50%; padding-inline-start: 0; }
+	.tl-timeline-item:nth-child(odd) { padding-inline-end: var(--tl-space-l); text-align: end; }
+	.tl-timeline-item:nth-child(odd)::before { inset-inline-start: 100%; }
+	.tl-timeline-item:nth-child(even) { margin-inline-start: 50%; padding-inline-start: var(--tl-space-l); }
+	.tl-timeline-item:nth-child(even)::before { inset-inline-start: 0; }
 }';
     }
 
@@ -59,16 +59,16 @@ final class Timeline extends Element
             if ($item['name'] === '' && $item['date'] === '') {
                 continue;
             }
-            $html .= '<li class="ka-timeline-item"><div class="ka-timeline-card">'
-                . ($item['date'] !== '' ? '<span class="ka-timeline-date">' . e($item['date']) . '</span>' : '')
+            $html .= '<li class="tl-timeline-item"><div class="tl-timeline-card">'
+                . ($item['date'] !== '' ? '<span class="tl-timeline-date">' . e($item['date']) . '</span>' : '')
                 . ($item['name'] !== '' ? '<h3>' . e($item['name']) . '</h3>' : '')
                 . ($item['src'] !== '' ? '<img src="' . e($k->image($item['src'])) . '" alt="' . e($item['alt']) . '" loading="lazy">' : '')
                 . $item['content'] . '</div></li>';
         }
         if ($html === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Add milestones in the Content panel.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">' . e(t('Add milestones in the Content panel.')) . '</div>' : '';
         }
 
-        return '<ol' . Text::withClass($a, 'ka-timeline') . '>' . $html . '</ol>';
+        return '<ol' . Text::withClass($a, 'tl-timeline') . '>' . $html . '</ol>';
     }
 }

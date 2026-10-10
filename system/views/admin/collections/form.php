@@ -2,14 +2,14 @@
 /**
  * Collection definition: name, slug, item pages and fields.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Collections $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Collections $module
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, string> $otherCollections other collections for item links (2.10): address => name
  */
-use Kaleta\Builder\CollectionSchema;
-use Kaleta\Builder\Collections;
+use Talea\Builder\CollectionSchema;
+use Talea\Builder\Collections;
 
 $field = array_merge($k['fields'], array_fill(0, 3, ['key' => '', 'label' => '', 'type' => 'text']));
 $schema = CollectionSchema::of($k) ?? ['type' => '', 'fields' => [], 'currency' => ''];

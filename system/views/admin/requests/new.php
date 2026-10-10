@@ -3,8 +3,8 @@
  * A new request to Claude (2.15): the title, what should change, what it is about (a page, a news item, a collection
  * item, or a pasted address) and up to five files – they are saved to Media, so Claude can put them on the site.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Requests $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Requests $module
  * @var string $csrf
  * @var array<int, string> $pages ids => title
  * @var array<int, string> $news idc => title
@@ -19,7 +19,7 @@
 <fieldset>
 <legend><?= e(t('What should change')) ?></legend>
 <div class="row"><label for="req-title"><?= e(t('Title')) ?></label><div><input class="textfield wide" id="req-title" name="title" required maxlength="190" placeholder="<?= e(t('e.g. Opening hours on Monday')) ?>"></div></div>
-<div class="row"><label for="req-text"><?= e(t('Request')) ?></label><div><textarea class="textbox" id="req-text" name="text" rows="8" required maxlength="<?= Kaleta\Core\Requests::MAX_TEXT ?>" placeholder="<?= e(t('Write it as you would to a colleague: what, where on the site, and by when it matters.')) ?>"></textarea>
+<div class="row"><label for="req-text"><?= e(t('Request')) ?></label><div><textarea class="textbox" id="req-text" name="text" rows="8" required maxlength="<?= Talea\Core\Requests::MAX_TEXT ?>" placeholder="<?= e(t('Write it as you would to a colleague: what, where on the site, and by when it matters.')) ?>"></textarea>
 	<span class="help"><?= e(t('Claude reads it as a job to do as drafts – it never publishes anything by itself; you or an administrator review and publish the drafts.')) ?></span></div></div>
 <div class="row"><label for="req-about"><?= e(t('It is about')) ?></label><div><select id="req-about" name="about">
 	<option value=""><?= e(t('— the site in general —')) ?></option>

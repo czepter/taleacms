@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Subscribers into the mailing service the site already uses: after the subscription is confirmed (double opt-in) the
  * address is added to the list in the service, after unsubscribing it is removed from it. Sending, deliverability and
  * unsubscribing from e-mails are handled by the service.
  *
- * Confirming and unsubscribing only write a task to the queue (ka_subscription_queue); the background cleanup sends it
+ * Confirming and unsubscribing only write a task to the queue (tl_subscription_queue); the background cleanup sends it
  * (Notifications::runInBackground), so the visitor does not wait for the service. A failed attempt is retried later
  * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "error" in the admin and can be retried.
  *
@@ -122,7 +122,7 @@ final class Newsletter
             'mailerlite' => ['POST', 'https://connect.mailerlite.com/api/subscribers', ['Authorization: Bearer ' . $key],
                 $toAdd ? ['email' => $email, 'groups' => [$items], 'status' => 'active'] : ['email' => $email, 'status' => 'unsubscribed'], !$toAdd],
             'mailchimp' => [$toAdd ? 'PUT' : 'PATCH', 'https://' . self::dataCenter($key) . '.api.mailchimp.com/3.0/lists/' . rawurlencode($items) . '/members/' . md5(mb_strtolower($email)),
-                ['Authorization: Basic ' . base64_encode('kaleta:' . $key)], $toAdd ? ['email_address' => $email, 'status_if_new' => 'subscribed', 'status' => 'subscribed'] : ['status' => 'unsubscribed'], !$toAdd],
+                ['Authorization: Basic ' . base64_encode('talea:' . $key)], $toAdd ? ['email_address' => $email, 'status_if_new' => 'subscribed', 'status' => 'subscribed'] : ['status' => 'unsubscribed'], !$toAdd],
             'ecomail' => $toAdd
                 ? ['POST', 'https://api2.ecomailapp.cz/lists/' . rawurlencode($items) . '/subscribe', ['key: ' . $key], ['subscriber_data' => ['email' => $email], 'update_existing' => true, 'resubscribe' => true, 'skip_confirmation' => true], false]
                 : ['DELETE', 'https://api2.ecomailapp.cz/lists/' . rawurlencode($items) . '/unsubscribe', ['key: ' . $key], ['email' => $email], true],
@@ -156,7 +156,7 @@ final class Newsletter
     {
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
             'method' => $method, 'timeout' => 6, 'ignore_errors' => true, 'follow_location' => 0, // the service does not redirect the request elsewhere
-            'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Kaleta/' . KALETA_VERSION], $headers)) . "\r\n",
+            'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Talea/' . TALEA_VERSION], $headers)) . "\r\n",
             'content' => $body === null ? '' : (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]]));
         $code = isset($http_response_header[0]) && preg_match('#^HTTP/\S+\s+(\d{3})#', $http_response_header[0], $m) ? (int) $m[1] : 0;

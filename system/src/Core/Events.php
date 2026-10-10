@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * What happened on the site (2.8): one table of events that the alert e-mails, the monthly report, the heartbeat and Claude
@@ -27,7 +27,7 @@ final class Events
         'look.published' => 'The draft look (design system, classes, menus) was published.',
         'backup.created' => 'An automatic database backup was made.',
         'backup.failed' => 'A database backup or its off-site copy failed.',
-        'update.applied' => 'A new version of Kaleta was installed.',
+        'update.applied' => 'A new version of Talea was installed.',
         'update.failed' => 'Installing an update failed; the site stayed on its version.',
         'update.rolled_back' => 'An update was installed but the site did not work afterwards, so it went back to the previous version.',
         'mail.failed' => 'An e-mail could not be sent after all attempts.',
@@ -83,7 +83,7 @@ final class Events
                 'message' => mb_substr($message, 0, 255),
                 'data' => $data === [] ? null : (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]);
-            \Kaleta\Extension\Registry::dispatch($type, $data); // add-ons listening to events (3.0)
+            \Talea\Extension\Registry::dispatch($type, $data); // add-ons listening to events (3.0)
 
             return $id;
         } catch (\Throwable) {

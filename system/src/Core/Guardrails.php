@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Guardrails for Claude (2.15): limits the site owner sets on what any Claude connection may do, on top of the access

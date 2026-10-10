@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * A simple container of shared services. No magic - what the application can do is visible here.
@@ -22,7 +22,7 @@ final class App
     {
         $this->request = $request ?? Request::fromGlobals();
         $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
-        $this->view = new View([KALETA_SYSTEM . '/views']);
+        $this->view = new View([TALEA_SYSTEM . '/views']);
         Demo::configure($config['demo'] ?? null);
     }
 
@@ -37,7 +37,7 @@ final class App
         }
         // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored);
         // the dictionary is not loaded here yet, so the page is plain English
-        $lock = KALETA_ROOT . '/storage/maintenance.lock';
+        $lock = TALEA_ROOT . '/storage/maintenance.lock';
         if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
@@ -142,7 +142,7 @@ final class App
         });
         set_exception_handler(function (\Throwable $e): void {
             $line = sprintf("[%s] %s: %s in %s:%d\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-            @file_put_contents(KALETA_ROOT . '/storage/log/errors.log', $line, FILE_APPEND | LOCK_EX);
+            @file_put_contents(TALEA_ROOT . '/storage/log/errors.log', $line, FILE_APPEND | LOCK_EX);
             if (!headers_sent()) {
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');

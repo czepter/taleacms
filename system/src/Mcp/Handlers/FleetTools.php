@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Fleet\Console;
-use Kaleta\Fleet\Kit;
+use Talea\Fleet\Console;
+use Talea\Fleet\Kit;
 
 /**
  * MCP tools of a fleet console (2.9, extension "fleet"): the sites that report to it – read-only. Claude changes a site

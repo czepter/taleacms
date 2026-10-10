@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Tests\Site\Support\Site;
+use Talea\Tests\Site\Support\Site;
 
 /** State the old sections 37, 38 and 40 took from earlier sections (media upload, the "Team" collection), recreated in the simplest way. */
 trait SiteFixtures
@@ -25,7 +25,7 @@ trait SiteFixtures
         $site->admin()->post('/admin.php?module=collections&action=save', ['_csrf' => $site->csrf(), 'collection_id' => 0, 'name' => 'Team', 'detail' => 1, 'fields' => [
             ['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html'],
         ]]);
-        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
+        $idk = (int) $site->value("SELECT collection_id FROM tl_collections WHERE slug = 'team'");
         $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'collection_id' => $site->publicId('collections', $idk), 'item_id' => 0] + $fields);
         $save(['name' => 'Jane Novak', 'data' => ['role' => 'Managing director', 'bio' => '<p>Twenty years <b>in the trade</b>.</p>'], 'sort_order' => 1, 'visible' => 1]);
         $save(['name' => 'Hidden Member', 'data' => ['role' => 'Secret'], 'sort_order' => 2]);

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
 /**
  * Hubs (3.2): related screens behind one menu item, with tabs across the top. The screens stay separate modules with

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Login keys (passkeys, the WebAuthn standard): fingerprint, Face ID, Windows Hello or a security key

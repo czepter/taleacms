@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Comments on drafts (2.15): a client with a shared preview link that allows comments (Preview::key with the flag) clicks an

@@ -1,13 +1,12 @@
-<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/kaleta-logo-dark.svg"><img src="image/kaleta-logo.svg" alt="Kaleta" height="48"></picture></p>
+<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/talea-logo-dark.svg"><img src="image/talea-logo.svg" alt="Talea" height="48"></picture></p>
 
-# Kaleta
+# Talea
 
-**An open-source CMS for business websites** – services, testimonials, team, careers, contact and news. A visual page builder
-whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and a WordPress importer.
+**A self-hosted website builder for small businesses and freelancers**: pages, news,
+a visual page builder whose output reads like hand-written HTML, forms and enquiries, an AI assistant, Claude over MCP,
+and a WordPress importer. You own the site, the data and the server.
 
-![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
-
-> Project website: [kaletacms.com](https://kaletacms.com) · guide: [kaletacms.com/guide](https://kaletacms.com/guide) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md) · [release policy](docs/RELEASE-POLICY.md)
+![The Talea builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 
 ## Features
 
@@ -46,32 +45,40 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 - **Privacy and accessibility by default:** no third-party scripts or fonts, colour contrast checks.
 - **FTP installation**, signed updates.
 
-## Installation
+## Quick start (Docker)
 
-1. Download `kaleta-X.Y.Z.zip` from [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) and upload its contents
-   (including the hidden `.htaccess` files) to hosting with PHP 8.4+ and MySQL 8 / MariaDB 10.6+.
-2. Create an empty database.
-3. Open `https://your-site.com/install.php`, fill in the form and choose a starter site.
+```bash
+# set TALEA_DB_PASSWORD and TALEA_SITE_URL in docker-compose.yaml (or in your environment)
+docker compose up -d --build   # then open http://localhost:8080: the installer asks for the site and the administrator
+```
 
-Later versions are downloaded and installed by the site itself (Settings → Backups and updates); packages are signed by the publisher.
-Nginx does not read `.htaccess` – use the example in `system/nginx.example.conf`. The user guide is in [docs/guide.md](docs/guide.md).
+The stack is Talea on FrankenPHP plus MySQL 8.4; configuration comes from environment variables, updates are a new image
+(the entrypoint applies pending migrations). All variables and volumes: [docker/README.md](docker/README.md).
+Other ways to run it (hosting, reverse proxy, backups): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Development
 
 ```bash
-php -S localhost:8080 system/dev-router.php
+export DEV_UID=$(id -u) DEV_GID=$(id -g)
+docker compose -f docker-compose-dev.yaml up -d --build   # code mounted from the checkout, mail catcher, Adminer
+composer test                                             # PHPUnit: unit, integration against MySQL, whole installed sites
 ```
 
-Tests: `composer test` (PHPUnit with ParaTest: unit, integration against MySQL 8, whole installed sites over HTTP in parallel;
-the dev stack's `db-test` service provides the database, see CONTRIBUTING.md). `tools/test-lighthouse.sh` holds every
-starter site to the output budget; `php tools/contracts.php` shows changes of the public contracts (MCP tools, design tokens,
-builder elements); static analysis is PHPStan with `phpstan.neon.dist`. How to contribute is in
-[`CONTRIBUTING.md`](CONTRIBUTING.md); architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
+`php tools/unit-tests.php` runs the fast checks, `php tools/contracts.php` shows changes of the public contracts (MCP tools,
+design tokens, builder elements), static analysis is PHPStan. How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md);
+architecture notes for contributors and agents: [CLAUDE.md](CLAUDE.md).
+
+## Documentation
+
+- [User manual](docs/manual.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Releasing](docs/RELEASING.md) and [release policy](docs/RELEASE-POLICY.md)
+- [Writing add-ons](docs/EXTENSIONS.md)
+- [Where Talea differs from its origin](docs/DECISIONS.md)
 
 ## Licence
 
-GNU GPL version 2 or later. The licence text is in [`LICENSE`](LICENSE).
+GNU GPL version 2 or later; the licence text is in [`LICENSE`](LICENSE).
 
-## Docker / FrankenPHP
-
-This fork runs in a container with configuration from environment variables instead of the web installer – see [docker/README.md](docker/README.md).
+Talea is a fork of Kaleta by Miroslav Kaleta and contributors. It diverges deliberately and merges nothing from upstream;
+see [`NOTICE`](NOTICE) for the attribution.

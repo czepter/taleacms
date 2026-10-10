@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Build;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Build;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** Custom HTML (a map, a booking system, embed code of a service). Only an administrator inserts and changes it; scripts are not let through. */
 final class Html extends Element

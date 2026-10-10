@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
-use Kaleta\Builder\Build;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
+use Talea\Builder\Build;
 
 /**
  * Carousel: a horizontal strip of slides (nested elements) with scroll snapping – with a finger on a phone, with arrows on a desktop
@@ -42,15 +42,15 @@ final class Carousel extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-carousel { position: relative; }
-.ka-carousel-strip { display: flex; gap: var(--ka-space-m); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-block-end: var(--ka-space-2xs); }
-.ka-carousel-strip > * { flex: 0 0 calc((100% - (var(--ka-per-view) - 1) * var(--ka-space-m)) / var(--ka-per-view)); scroll-snap-align: start; min-width: 0; }
-@media (max-width: 767px) { .ka-carousel-strip > * { flex-basis: 85%; } }
-.ka-carousel-arrows { display: flex; justify-content: flex-end; gap: var(--ka-space-2xs); margin-block-start: var(--ka-space-xs); }
-.ka-carousel-arrows button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-color-line); border-radius: 50%; background: var(--ka-color-background); color: var(--ka-color-text); font-size: 1.2em; cursor: pointer; }
-.ka-carousel-arrows button:disabled { opacity: 0.35; cursor: default; }
-.ka-carousel:not([data-enabled]) .ka-carousel-arrows { display: none; }
-@media (prefers-reduced-motion: reduce) { .ka-carousel-strip { scroll-behavior: auto; } }';
+        return '.tl-carousel { position: relative; }
+.tl-carousel-strip { display: flex; gap: var(--tl-space-m); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-block-end: var(--tl-space-2xs); }
+.tl-carousel-strip > * { flex: 0 0 calc((100% - (var(--tl-per-view) - 1) * var(--tl-space-m)) / var(--tl-per-view)); scroll-snap-align: start; min-width: 0; }
+@media (max-width: 767px) { .tl-carousel-strip > * { flex-basis: 85%; } }
+.tl-carousel-arrows { display: flex; justify-content: flex-end; gap: var(--tl-space-2xs); margin-block-start: var(--tl-space-xs); }
+.tl-carousel-arrows button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--tl-color-line); border-radius: 50%; background: var(--tl-color-background); color: var(--tl-color-text); font-size: 1.2em; cursor: pointer; }
+.tl-carousel-arrows button:disabled { opacity: 0.35; cursor: default; }
+.tl-carousel:not([data-enabled]) .tl-carousel-arrows { display: none; }
+@media (prefers-reduced-motion: reduce) { .tl-carousel-strip { scroll-behavior: auto; } }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -58,9 +58,9 @@ final class Carousel extends Element
         $o = $p['content'];
         $description = $o['description'] !== '' ? ' aria-label="' . e($o['description']) . '"' : '';
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-carousel') . ' data-carousel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--ka-per-view:' . (int) $o['per_view'] . '">'
-            . '<div class="ka-carousel-strip" tabindex="0">' . $children . '</div>'
-            . '<div class="ka-carousel-arrows"><button type="button" data-step="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-step="1" aria-label="' . e(t('Next')) . '">›</button></div>'
+        return '<' . $p['tag'] . Text::withClass($a, 'tl-carousel') . ' data-carousel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--tl-per-view:' . (int) $o['per_view'] . '">'
+            . '<div class="tl-carousel-strip" tabindex="0">' . $children . '</div>'
+            . '<div class="tl-carousel-arrows"><button type="button" data-step="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-step="1" aria-label="' . e(t('Next')) . '">›</button></div>'
             . '</' . $p['tag'] . '>';
     }
 }

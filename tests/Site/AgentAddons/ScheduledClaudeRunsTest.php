@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AgentAddons;
+namespace Talea\Tests\Site\AgentAddons;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -30,11 +30,11 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
         $csrf = $page->csrf();
         $admin = $this->site()->admin();
         $admin->post('/admin.php?module=schedules&action=save', ['_csrf' => $csrf, 'id' => 0, 'name' => 'Weekly review', 'task' => 'review', 'text' => 'Only the Services pages.', 'cadence' => 'weekly', 'weekday' => 1, 'monthday' => 1, 'time' => '07:00', 'active' => 1]);
-        self::$schedule = (int) $this->sq("SELECT id FROM ka_agent_schedules WHERE name = 'Weekly review'");
-        $this->assertSame('1|weekly|1|07:00|1|2|07:00:00', $this->sq("SELECT CONCAT(active, '|', cadence, '|', day, '|', time, '|', next_due > NOW(), '|', DAYOFWEEK(next_due), '|', TIME(next_due)) FROM ka_agent_schedules WHERE id = ?", [self::$schedule]), 'schedules: saved, active, next due the coming Monday 07:00');
+        self::$schedule = (int) $this->sq("SELECT id FROM tl_agent_schedules WHERE name = 'Weekly review'");
+        $this->assertSame('1|weekly|1|07:00|1|2|07:00:00', $this->sq("SELECT CONCAT(active, '|', cadence, '|', day, '|', time, '|', next_due > NOW(), '|', DAYOFWEEK(next_due), '|', TIME(next_due)) FROM tl_agent_schedules WHERE id = ?", [self::$schedule]), 'schedules: saved, active, next due the coming Monday 07:00');
 
         $admin->post('/admin.php?module=schedules&action=save', ['_csrf' => $csrf, 'id' => 0, 'name' => 'Bad', 'task' => 'custom', 'text' => '', 'cadence' => 'monthly', 'weekday' => 1, 'monthday' => 31, 'time' => '07:00', 'active' => 1]);
-        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM ka_agent_schedules WHERE name = 'Bad'"), 'schedules: custom instructions without a text are refused');
+        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM tl_agent_schedules WHERE name = 'Bad'"), 'schedules: custom instructions without a text are refused');
     }
 
     public function testADueScheduleIsHandedOutOnce(): void
@@ -42,7 +42,7 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
         $token = $this->draftsToken();
         $this->assertSame('0', $this->pick($this->mcpData('get_due_agent_runs', [], $token), 'count'), 'schedules: nothing due - the drafts-only connection gets an empty list');
 
-        $this->site()->exec('UPDATE ka_agent_schedules SET next_due = NOW() - INTERVAL 1 HOUR WHERE id = ?', [self::$schedule]);
+        $this->site()->exec('UPDATE tl_agent_schedules SET next_due = NOW() - INTERVAL 1 HOUR WHERE id = ?', [self::$schedule]);
         $data = $this->mcpData('get_due_agent_runs', [], $token);
         $text = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         self::$run = (int) $this->pick($data, 'runs', 0, 'id');
@@ -53,7 +53,7 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
         $this->assertStringContainsString('"connection":"drafts only', (string) $text, 'schedules: the connection');
 
         $again = $this->mcpData('get_due_agent_runs', [], $token);
-        $this->assertSame(self::$run . '|1|running|Claude drafts', $this->pick($again, 'runs', 0, 'id') . '|' . $this->sq("SELECT CONCAT(COUNT(*), '|', MAX(status), '|', MAX(connection)) FROM ka_agent_runs WHERE schedule_id = ?", [self::$schedule]), 'schedules: a second call returns the same open run - one row, running, the connection remembered');
+        $this->assertSame(self::$run . '|1|running|Claude drafts', $this->pick($again, 'runs', 0, 'id') . '|' . $this->sq("SELECT CONCAT(COUNT(*), '|', MAX(status), '|', MAX(connection)) FROM tl_agent_runs WHERE schedule_id = ?", [self::$schedule]), 'schedules: a second call returns the same open run - one row, running, the connection remembered');
     }
 
     public function testTheRunIsReportedOnceAndTheScheduleMovesOn(): void
@@ -67,7 +67,7 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
 
         $this->assertSame(
             'ok|1|1|1|1|2|07:00:00',
-            $this->sq("SELECT CONCAT(r.status, '|', r.finished_at IS NOT NULL, '|', r.links LIKE '%$base/sluzby%' AND r.links NOT LIKE '%javascript%', '|', s.last_run_at IS NOT NULL, '|', s.next_due > NOW() AND s.next_due <= NOW() + INTERVAL 7 DAY, '|', DAYOFWEEK(s.next_due), '|', TIME(s.next_due)) FROM ka_agent_runs r JOIN ka_agent_schedules s ON s.id = r.schedule_id WHERE r.id = ?", [self::$run]),
+            $this->sq("SELECT CONCAT(r.status, '|', r.finished_at IS NOT NULL, '|', r.links LIKE '%$base/sluzby%' AND r.links NOT LIKE '%javascript%', '|', s.last_run_at IS NOT NULL, '|', s.next_due > NOW() AND s.next_due <= NOW() + INTERVAL 7 DAY, '|', DAYOFWEEK(s.next_due), '|', TIME(s.next_due)) FROM tl_agent_runs r JOIN tl_agent_schedules s ON s.id = r.schedule_id WHERE r.id = ?", [self::$run]),
             'schedules: the run is ok with the web link only, last_run_at set, next_due moved on to the next Monday 07:00',
         );
         $this->assertStringContainsString('already reported', $this->mcpRawText('report_agent_run', ['id' => self::$run, 'status' => 'ok', 'summary' => 'again'], $token), 'schedules: a run is reported once');
@@ -76,14 +76,14 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
 
     public function testAMissedRunIsMarkedAndWarnedAbout(): void
     {
-        $this->site()->exec('UPDATE ka_agent_schedules SET next_due = NOW() - INTERVAL 7 HOUR WHERE id = ?', [self::$schedule]);
-        $this->site()->exec("UPDATE ka_jobs SET last_run = NULL WHERE name = 'agent_runs'");
+        $this->site()->exec('UPDATE tl_agent_schedules SET next_due = NOW() - INTERVAL 7 HOUR WHERE id = ?', [self::$schedule]);
+        $this->site()->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'agent_runs'");
         $this->assertStringContainsString('agent_runs: missed 1', $this->site()->runTasks(), 'schedules: the job reports the missed run');
 
         $id = self::$schedule;
         $this->assertSame(
             '1|1|1',
-            $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_runs WHERE schedule_id = $id AND status = 'missed'), '|', (SELECT next_due > NOW() FROM ka_agent_schedules WHERE id = $id), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'agent_run.missed' AND severity = 'warning' AND data LIKE '%\"schedule\":$id,%'))"),
+            $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM tl_agent_runs WHERE schedule_id = $id AND status = 'missed'), '|', (SELECT next_due > NOW() FROM tl_agent_schedules WHERE id = $id), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'agent_run.missed' AND severity = 'warning' AND data LIKE '%\"schedule\":$id,%'))"),
             'schedules: a missed run, next_due in the future, the event agent_run.missed as a warning with the schedule id',
         );
     }

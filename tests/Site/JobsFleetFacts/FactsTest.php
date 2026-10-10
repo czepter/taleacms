@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\JobsFleetFacts;
+namespace Talea\Tests\Site\JobsFleetFacts;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -53,13 +53,13 @@ final class FactsTest extends SiteTestCase
         $site = $this->site();
         // 3.3.2 (N26) / 3.3.3 (N50): saving such a fact is refused; one stored before (here straight in the database) is still caught when filled
         $this->assertStringContainsString('cannot begin with an address scheme', $this->mcpText('save_fact', ['key' => 'promo_link', 'label' => 'Promo', 'type' => 'text', 'value' => 'javascript:alert(document.domain)']), 'facts: save_fact refuses a text fact "javascript:…"');
-        $site->exec("INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('promo_link', '', 'Promo', 'text', 'javascript:alert(document.domain)', NOW())");
+        $site->exec("INSERT INTO tl_facts (fact_key, language, label, type, value, updated_at) VALUES ('promo_link', '', 'Promo', 'text', 'javascript:alert(document.domain)', NOW())");
         $this->mcpText('create_page', ['title' => 'Fact link', 'slug' => 'fact-link', 'visible' => true, 'content' => '<p><a href="{{fact.promo_link}}">Promo</a></p>']);
         $body = $this->page('/fact-link');
         $this->assertStringNotContainsStringIgnoringCase('href="javascript:', $body, 'facts: no javascript: link');
         $this->assertStringContainsString('href="#">Promo</a>', $body, 'facts: a text fact "javascript:…" in a link becomes a link to #');
-        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'fact-link'"))]);
-        $site->exec("DELETE FROM ka_facts WHERE fact_key = 'promo_link'");
+        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'fact-link'"))]);
+        $site->exec("DELETE FROM tl_facts WHERE fact_key = 'promo_link'");
     }
 
     public function testLlmsTxtListsTheFactsAndAChangeFindsTheOldSentences(): void
@@ -97,7 +97,7 @@ final class FactsTest extends SiteTestCase
         // the old run had the team collection from an earlier section
         $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'Team', 'preset' => 'people']), 'the team collection exists');
         $years = (int) date('Y') - 2004;
-        $team = $site->value("SELECT COUNT(*) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'team' AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''");
+        $team = $site->value("SELECT COUNT(*) FROM tl_collection_items p JOIN tl_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'team' AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''");
         $this->mcpText('create_page', ['title' => 'Computed test', 'slug' => 'computed-test', 'visible' => true, 'content' => '<p>Years: {{years_since:2004}} / {{ years_since:fact.founded }}. Team: {{count:team}}. News: {{count:news}}. Bad: {{count:missing}}|{{years_since:soon}}.</p>']);
         $body = $this->site()->client()->get('/computed-test')->body;
 
@@ -117,7 +117,7 @@ final class FactsTest extends SiteTestCase
     {
         $site = $this->site();
         $years = (int) date('Y') - 2004;
-        $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'computed-test'");
+        $page = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'computed-test'");
         $this->mcpText('save_build', ['id' => $this->site()->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['id' => 'cnt1', 'type' => 'counter', 'content' => ['number' => '1500', 'suffix' => '+', 'caption' => 'projects']],
             ['id' => 'cnt2', 'type' => 'counter', 'content' => ['number' => '{{fact.projects}}', 'suffix' => '', 'caption' => 'projects from a fact']],
@@ -139,8 +139,8 @@ final class FactsTest extends SiteTestCase
     public function testComputedTokensAreListedAndDeletingAFactShowsWhereItWasUsed(): void
     {
         $site = $this->site();
-        $first = (string) $site->value('SELECT slug FROM ka_collections ORDER BY collection_id LIMIT 1');
-        $count = $site->value("SELECT COUNT(*) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''", [$first]);
+        $first = (string) $site->value('SELECT slug FROM tl_collections ORDER BY collection_id LIMIT 1');
+        $count = $site->value("SELECT COUNT(*) FROM tl_collection_items p JOIN tl_collections k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''", [$first]);
         $list = $this->mcpText('list_facts');
         $this->assertStringContainsString('years_since:fact.founded', $list, 'MCP list_facts: the computed tokens');
         $this->assertStringContainsString("count:$first", $list, 'MCP list_facts: the computed tokens with their values');
@@ -149,7 +149,7 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('years_since:fact.founded', $admin, 'facts: the admin list explains the computed tokens');
         $this->assertStringContainsString("count:$first}}</code></td><td>$count<", $admin, 'facts: the admin list shows their current values');
 
-        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'computed-test'"))]);
+        $this->mcpText('trash_page', ['id' => $this->site()->publicId('pages', (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'computed-test'"))]);
         $this->assertStringContainsString('Facts test', $this->mcpText('delete_fact', ['key' => 'founded']), 'deleting a fact lists where it was still used');
     }
 
@@ -158,13 +158,13 @@ final class FactsTest extends SiteTestCase
     public function testOpeningHoursExceptions(): void
     {
         $site = $this->site();
-        $site->exec("REPLACE INTO ka_settings VALUES ('company_hours', 'Mon-Fri 8:00-17:00'), ('company_type', 'LocalBusiness')");
+        $site->exec("REPLACE INTO tl_settings VALUES ('company_hours', 'Mon-Fri 8:00-17:00'), ('company_type', 'LocalBusiness')");
         $tomorrow = date('Y-m-d', strtotime('+1 day'));
         $this->assertStringContainsString('Stocktaking', $this->mcpText('save_hours_exception', ['from' => $tomorrow, 'note' => 'Stocktaking', 'notice_days' => 7]), 'hours: Claude adds an exception (closed tomorrow)');
         $this->assertStringContainsString('YYYY-MM-DD', $this->mcpText('save_hours_exception', ['from' => '2026-13-01']), 'hours: a wrong date is refused');
 
         $home = $this->page('/');
-        $this->assertTrue(str_contains($home, 'class="ka-notice-hours"') && str_contains($home, 'Stocktaking'), 'hours: the notice bar on the site');
+        $this->assertTrue(str_contains($home, 'class="tl-notice-hours"') && str_contains($home, 'Stocktaking'), 'hours: the notice bar on the site');
         $this->assertStringContainsString('"specialOpeningHoursSpecification"', $home, 'hours: the exception in the structured data');
 
         $this->mcpText('create_page', ['title' => 'Hours test', 'slug' => 'hours-test', 'visible' => true, 'content' => '<p>Today: {{hours.today}}. {{hours.status}}</p>']);
@@ -178,7 +178,7 @@ final class FactsTest extends SiteTestCase
 
         $business = $site->admin()->get('/admin.php?module=business')->body;
         $this->assertTrue(str_contains($business, 'Stocktaking') && str_contains($business, 'name="exception_from"'), 'hours: the exceptions in Settings → Company');
-        $exception = (int) $site->value('SELECT id FROM ka_hours_exceptions LIMIT 1');
+        $exception = (int) $site->value('SELECT id FROM tl_hours_exceptions LIMIT 1');
         $this->assertStringContainsString("action=hours_sign&amp;exception=$exception", $business, 'hours: every exception has a Door sign link');
 
         $sign = $this->assertPage("/admin.php?module=settings&action=hours_sign&exception=$exception", 200, 'Stocktaking', message: 'hours: the door sign is a printable page with the note');
@@ -191,8 +191,8 @@ final class FactsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=settings&action=hours_sign&exception=999999', 404, message: 'hours: a sign for an unknown exception is a 404');
 
         $this->adminPost('/admin.php?module=settings&action=hours_delete', ['exception' => $exception], '/admin.php?module=business');
-        $this->sameValue('0', $site->value('SELECT COUNT(*) FROM ka_hours_exceptions'), 'hours: an exception is deleted in the admin');
-        $this->assertStringNotContainsString('ka-notice-hours', $this->page('/'), 'hours: without an exception there is no notice bar');
+        $this->sameValue('0', $site->value('SELECT COUNT(*) FROM tl_hours_exceptions'), 'hours: an exception is deleted in the admin');
+        $this->assertStringNotContainsString('tl-notice-hours', $this->page('/'), 'hours: without an exception there is no notice bar');
     }
 
     // ---- 54 links between collections, people
@@ -203,12 +203,12 @@ final class FactsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Branches test', 'slug' => 'branches-test', 'item_pages' => true, 'fields' => [['label' => 'City', 'type' => 'text']]]);
         $this->mcpText('save_collection_item', ['collection' => 'branches-test', 'name' => 'Prague centre', 'slug' => 'prague-centre', 'values' => ['city' => 'Prague'], 'visible' => true]);
         $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'People test', 'slug' => 'people-test', 'item_pages' => true, 'redirect_hidden_to' => '/branches-test', 'fields' => [['label' => 'Branch', 'type' => 'item', 'collection' => 'branches-test']]]), 'collections: Claude links a field to another collection');
-        $this->sameValue('branches-test', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].collection')) FROM ka_collections WHERE slug = 'people-test'"), 'collections: the link remembers the collection');
+        $this->sameValue('branches-test', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].collection')) FROM tl_collections WHERE slug = 'people-test'"), 'collections: the link remembers the collection');
 
         $this->mcpText('save_collection_item', ['collection' => 'people-test', 'name' => 'Jane Novak', 'slug' => 'jane-novak', 'values' => ['branch' => 'prague-centre'], 'visible' => true]);
         $this->assertStringContainsString('Prague centre', $site->client()->get('/people-test/jane-novak')->body, 'collections: the item page shows the linked item by its name');
 
-        $this->mcpText('save_collection_item', ['collection' => 'people-test', 'id' => $this->site()->publicId('collection_items', (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jane-novak'")), 'visible' => false]);
+        $this->mcpText('save_collection_item', ['collection' => 'people-test', 'id' => $this->site()->publicId('collection_items', (int) $site->value("SELECT item_id FROM tl_collection_items WHERE slug = 'jane-novak'")), 'visible' => false]);
         $hidden = $site->client()->get('/people-test/jane-novak');
         $this->assertSame('301 ' . $site->base . '/branches-test', $hidden->status . ' ' . $hidden->redirect, 'people: the page of a hidden person leads to the chosen page (301)');
         $this->assertSame(404, $site->client()->get('/people-test/nobody-like-that')->status, 'people: an address that never existed is still not found');
@@ -222,13 +222,13 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('image', $preset, 'people: the ready-made team collection (photo)');
 
         // field keys by the preset's order (system/presets/people.php: photo, role, languages, phone, email, on_leave, about)
-        self::$team = (string) $site->value("SELECT slug FROM ka_collections WHERE schema_org LIKE '%Person%' ORDER BY collection_id DESC LIMIT 1");
-        self::$teamIdk = (int) $site->value('SELECT collection_id FROM ka_collections WHERE slug = ?', [self::$team]);
-        $key = fn (int $i): string => (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, ?)) FROM ka_collections WHERE slug = ?", ["\$[$i].key", self::$team]);
+        self::$team = (string) $site->value("SELECT slug FROM tl_collections WHERE schema_org LIKE '%Person%' ORDER BY collection_id DESC LIMIT 1");
+        self::$teamIdk = (int) $site->value('SELECT collection_id FROM tl_collections WHERE slug = ?', [self::$team]);
+        $key = fn (int $i): string => (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, ?)) FROM tl_collections WHERE slug = ?", ["\$[$i].key", self::$team]);
         $saved = $this->mcpText('save_collection_item', ['collection' => self::$team, 'name' => 'Peter Signature', 'slug' => 'peter-signature', 'visible' => true, 'values' => [
             $key(1) => 'Sales director', $key(3) => '+420 777 123 456', $key(4) => 'peter@example.com', $key(5) => 'On leave until Friday',
         ]]);
-        self::$person = (int) $site->value('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$teamIdk, 'peter-signature']);
+        self::$person = (int) $site->value('SELECT item_id FROM tl_collection_items WHERE collection_id = ? AND slug = ?', [self::$teamIdk, 'peter-signature']);
         $this->assertGreaterThan(0, self::$person, 'people: a person with a role, a phone and an e-mail ' . substr($saved, 0, 300));
 
         $signature = $this->mcpText('get_email_signature', ['collection' => self::$team, 'id' => $this->site()->publicId('collection_items', self::$person)]);
@@ -254,11 +254,11 @@ final class FactsTest extends SiteTestCase
         }
         $this->assertStringNotContainsString('On leave', $preview->body, 'people: the preview never shows the absence');
 
-        $linked = (string) $site->value("SELECT public_id FROM ka_collections WHERE slug = 'people-test'");
+        $linked = (string) $site->value("SELECT public_id FROM tl_collections WHERE slug = 'people-test'");
         $form = $site->admin()->get("/admin.php?module=collections&action=edit&id=$linked")->body;
         $this->assertStringContainsString('name="hidden_redirect"', $form, 'collections: the form offers the redirect');
         $this->assertStringContainsString('name="fields[0][collection]"', $form, 'collections: the form offers links');
-        $item = (string) $site->value("SELECT public_id FROM ka_collection_items WHERE slug = 'jane-novak'");
+        $item = (string) $site->value("SELECT public_id FROM tl_collection_items WHERE slug = 'jane-novak'");
         $this->assertStringContainsString('<option value="prague-centre" selected>Prague centre</option>', $site->admin()->get("/admin.php?module=collections&action=item&id=$linked&item=$item")->body, 'collections: the item form chooses the linked item');
     }
 }

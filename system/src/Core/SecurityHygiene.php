@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
+use Talea\Admin\ChangeLog;
 
 /**
  * Security hygiene that runs itself (2.8): a daily look at accounts and access.
  *
  *  - administrators who sign in without two-step sign-in or a passkey;
  *  - accounts nobody has used for ACCOUNT_DAYS – the last completed sign-in, the last use of a Claude connection of the
- *    account, or the moment an administrator created or confirmed the account (ka_users.potvrzeno), whichever is latest;
+ *    account, or the moment an administrator created or confirmed the account (tl_users.potvrzeno), whichever is latest;
  *  - Claude connections (personal tokens from My account and applications connected via OAuth) nobody has used for
  *    CONNECTION_DAYS, and personal tokens that never expire.
  *
@@ -105,7 +105,7 @@ final class SecurityHygiene
      * connections, or the creation / confirmation by an administrator. Null = nothing is known (an account from before
      * the record existed) – such an account is never treated as unused.
      *
-     * @param array<string, mixed> $account row of ka_users with pouzit = MAX(ka_api_tokens.pouzit) of the account
+     * @param array<string, mixed> $account row of tl_users with pouzit = MAX(tl_api_tokens.pouzit) of the account
      */
     public static function lastActivity(array $account): ?string
     {

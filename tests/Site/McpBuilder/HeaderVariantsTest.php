@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Header variants for chosen pages (was: section 15). */
@@ -28,7 +28,7 @@ final class HeaderVariantsTest extends SiteTestCase
 
         $page = $this->visit('/z-html');
         $this->assertStringNotContainsString('header class="header"', $page, 'the page with the empty variant has no header');
-        $this->assertStringNotContainsString('ka-nav', $page, 'the page with the empty variant has no navigation');
+        $this->assertStringNotContainsString('tl-nav', $page, 'the page with the empty variant has no navigation');
         $this->assertStringContainsString('header class="header"', $this->visit('/contact'), 'other pages keep the default header');
         $this->assertPage('/admin.php?module=parts', 200, 'Landing page', message: 'the variant is in the list of parts');
     }

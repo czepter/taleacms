@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsB;
+namespace Talea\Tests\Site\CollectionsB;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -26,26 +26,26 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $text = $this->mcpText('create_collection', ['name' => 'Preset services', 'preset' => 'services']);
         $this->assertStringContainsString('how_to_use', $text, 'create_collection preset services answers with how to use it');
         $this->assertSame('services|1|Service|5|1', $this->presetRow('preset-services'), 'presets: services – item pages, Service schema, five fields, a hidden list page');
-        $this->assertSame('price_from', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.price')) FROM ka_collections WHERE slug = 'preset-services'"), 'presets: the Service schema maps the price to price_from');
+        $this->assertSame('price_from', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.price')) FROM tl_collections WHERE slug = 'preset-services'"), 'presets: the Service schema maps the price to price_from');
 
         $site->mcp('create_collection', ['name' => 'Preset references', 'preset' => 'references']);
         $this->assertSame('references|1|-|7|1', $this->presetRow('preset-references'), 'presets: references – item pages, no schema, seven fields (the service link included), a hidden list page');
-        $this->assertSame('service|item|preset-services', $site->value("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].key')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].collection'))) FROM ka_collections WHERE slug = 'preset-references'"), 'presets: the service field of a reference links to the services collection');
+        $this->assertSame('service|item|preset-services', $site->value("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].key')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].collection'))) FROM tl_collections WHERE slug = 'preset-references'"), 'presets: the service field of a reference links to the services collection');
 
         $site->mcp('create_collection', ['name' => 'Preset price list', 'preset' => 'price_list']);
         $this->assertSame('price_list|0|-|4|1', $this->presetRow('preset-price-list'), 'presets: price list – no item pages, four fields, a hidden list page');
-        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"filter_field\":\"category\"%', '|', build LIKE '%\"filters\":true%', '|', build LIKE '%<p>{{price}}</p>%') FROM ka_pages WHERE slug = 'preset-price-list'"), 'presets: the price list page filters by category with buttons, sorted by order');
+        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"filter_field\":\"category\"%', '|', build LIKE '%\"filters\":true%', '|', build LIKE '%<p>{{price}}</p>%') FROM tl_pages WHERE slug = 'preset-price-list'"), 'presets: the price list page filters by category with buttons, sorted by order');
 
         $site->mcp('create_collection', ['name' => 'Preset FAQ', 'preset' => 'faq']);
         $this->assertSame('faq|0|FAQPage|2|1', $this->presetRow('preset-faq'), 'presets: questions and answers – no item pages, FAQPage schema, two fields, a hidden list page');
 
         $site->mcp('create_collection', ['name' => 'Preset machines', 'preset' => 'machines']);
-        $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-machines') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.sku')) FROM ka_collections WHERE slug = 'preset-machines'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
+        $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-machines') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.sku')) FROM tl_collections WHERE slug = 'preset-machines'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
 
         $site->mcp('create_collection', ['name' => 'Preset courses', 'preset' => 'courses']);
         $this->assertSame('courses|1|Event|7|1', $this->presetRow('preset-courses'), 'presets: courses – item pages, Event schema, seven fields, a hidden list page');
-        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"period\":\"upcoming\"%', '|', build LIKE '%\"period_start_field\":\"start\"%', '|', build LIKE '%\"sort_field\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM ka_pages WHERE slug = 'preset-courses'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
-        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%<strong>{{when}}</strong>%', '|', build LIKE '%{{capacity}}%', '|', build LIKE '%\"type\":\"form\"%') FROM ka_collections WHERE slug = 'preset-courses'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
+        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"period\":\"upcoming\"%', '|', build LIKE '%\"period_start_field\":\"start\"%', '|', build LIKE '%\"sort_field\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM tl_pages WHERE slug = 'preset-courses'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
+        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%<strong>{{when}}</strong>%', '|', build LIKE '%{{capacity}}%', '|', build LIKE '%\"type\":\"form\"%') FROM tl_collections WHERE slug = 'preset-courses'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
     }
 
     #[Depends('testServicesReferencesPriceListFaqMachinesAndCoursesCome')]
@@ -93,7 +93,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
         $this->assertStringContainsString('<noscript><meta http-equiv="refresh" content="7; url=/screen/' . $secret . '?s=1">', $page->body, 'screen: rotates by a meta refresh without the script');
         $this->assertStringContainsString('setInterval(function(){i=(i+1)%n;show(i)},7000)', $page->body, 'screen: rotates every 7 seconds with the script');
-        $this->assertStringContainsString('--ka-color-primary:', $page->body, "screen: in the site's design tokens");
+        $this->assertStringContainsString('--tl-color-primary:', $page->body, "screen: in the site's design tokens");
 
         $headers = $site->client('screen-headers')->get("/screen/$secret?s=1")->headers;
         $this->assertStringStartsWith('noindex', $headers['x-robots-tag'] ?? '', 'screen: noindex header');

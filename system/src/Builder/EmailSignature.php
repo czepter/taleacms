@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\App;
+use Talea\Core\App;
 
 /**
  * E-mail signatures from people records (2.10). Every person in a people collection – the ready-made Team

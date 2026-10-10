@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AgentAddons;
+namespace Talea\Tests\Site\AgentAddons;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** The agent notebook over MCP, in the admin and in the export (was: section 87, 2.15). The tests run in order and build on each other. */
@@ -74,12 +74,12 @@ final class AgentNotebookTest extends SiteTestCase
     public function testNotesFromTheAdminCarryTheUsersNameAndCanBePinnedAndEdited(): void
     {
         $this->adminPost('/admin.php?module=notebook&action=save', ['id' => 0, 'topic' => 'decisions', 'title' => 'Client is sensitive about the About us page', 'text' => 'The About us texts are approved by the director personally.']);
-        self::$adminNote = (int) $this->sq("SELECT id FROM ka_notebook WHERE title LIKE 'Client is sensitive%'");
+        self::$adminNote = (int) $this->sq("SELECT id FROM tl_notebook WHERE title LIKE 'Client is sensitive%'");
         $this->assertGreaterThan(0, self::$adminNote);
-        $this->assertSame('decisions|Tester|0', $this->sq("SELECT CONCAT(topic, '|', author, '|', pinned) FROM ka_notebook WHERE id = ?", [self::$adminNote]), 'notebook: a note from the admin carries the user\'s name as its author');
+        $this->assertSame('decisions|Tester|0', $this->sq("SELECT CONCAT(topic, '|', author, '|', pinned) FROM tl_notebook WHERE id = ?", [self::$adminNote]), 'notebook: a note from the admin carries the user\'s name as its author');
 
         $this->adminPost('/admin.php?module=notebook&action=pin', ['id' => self::$adminNote]);
-        $this->assertSame('1', $this->sq('SELECT pinned FROM ka_notebook WHERE id = ?', [self::$adminNote]), 'notebook: one click pins the note');
+        $this->assertSame('1', $this->sq('SELECT pinned FROM tl_notebook WHERE id = ?', [self::$adminNote]), 'notebook: one click pins the note');
 
         $this->adminPost('/admin.php?module=notebook&action=save', ['id' => self::$adminNote, 'topic' => 'decisions', 'title' => 'Client is sensitive about the About us page', 'text' => 'The About us texts are approved by the director personally – even small changes.', 'pinned' => 1]);
         $this->assertPage('/admin.php?module=notebook&action=edit&id=' . self::$adminNote, 200, 'even small changes', message: 'notebook: the edit form shows the changed text');
@@ -114,7 +114,7 @@ final class AgentNotebookTest extends SiteTestCase
 
         $this->assertSame(
             '0|' . (self::$before + 1) . '|,test',
-            $this->sq('SELECT COUNT(*) FROM ka_notebook WHERE id IN (?, ?)', [self::$note, self::$adminNote]) . '|' . $this->pick($deleted, 'count') . '|' . $this->sq("SELECT GROUP_CONCAT(DISTINCT via ORDER BY via) FROM ka_change_log WHERE module = 'notebook' AND action = 'delete'"),
+            $this->sq('SELECT COUNT(*) FROM tl_notebook WHERE id IN (?, ?)', [self::$note, self::$adminNote]) . '|' . $this->pick($deleted, 'count') . '|' . $this->sq("SELECT GROUP_CONCAT(DISTINCT via ORDER BY via) FROM tl_change_log WHERE module = 'notebook' AND action = 'delete'"),
             'notebook: deleted in the admin and over MCP; the change log names both',
         );
         $this->assertStringContainsString('does not exist', $this->mcpRawText('delete_notebook_entry', ['id' => 999999]), 'notebook: deleting a note that does not exist is an error');

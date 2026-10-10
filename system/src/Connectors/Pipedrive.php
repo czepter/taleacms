@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Connectors;
+namespace Talea\Connectors;
 
 /**
  * Pipedrive (2.13): an enquiry becomes a lead "<form> – <topic>" of the person found by e-mail (or created), with a
@@ -20,7 +20,7 @@ final class Pipedrive extends Connector
 
     public static function settings(): array
     {
-        return ['domain' => ['Company domain', 'The <x> of <x>.pipedrive.com']] + \Kaleta\Core\EnquiryDelivery::SETTINGS;
+        return ['domain' => ['Company domain', 'The <x> of <x>.pipedrive.com']] + \Talea\Core\EnquiryDelivery::SETTINGS;
     }
 
     public static function authHeaders(string $credential, string $account): array

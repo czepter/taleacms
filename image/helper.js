@@ -1,4 +1,4 @@
-/* Kaleta - editor helper: accessibility check of the content and the AI assistant. No libraries.
+/* Talea - editor helper: accessibility check of the content and the AI assistant. No libraries.
  *
  *   <fieldset data-check>          the running check is listed here (alt texts, headings, links, tables)
  *   <form data-assistant="url">         form fields get "✦ Suggest" buttons (only with the extension enabled)
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function set(id, value) {
 		var p = field(id);
 		p.value = value;
-		if (window.kaletaEditors && window.kaletaEditors[id]) { window.kaletaEditors[id].refresh(); }
+		if (window.taleaEditors && window.taleaEditors[id]) { window.taleaEditors[id].refresh(); }
 		p.dispatchEvent(new Event('input', { bubbles: true }));
 	}
 	function tree(html) { return new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').body.firstChild; }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
-use Kaleta\Builder\Check;
+use Talea\Builder\Build;
+use Talea\Builder\Check;
 
 /**
  * Site audit (1.9): what hurts a site in search engines and for visitors, collected across the whole site – for the
@@ -312,10 +312,10 @@ final class Audit
         $db = $this->app->db();
         $s = $this->app->settings();
         // the design system: text and buttons in light and (when the site has it) dark mode
-        $ds = \Kaleta\Builder\DesignSystem::load($s);
+        $ds = \Talea\Builder\DesignSystem::load($s);
         $looks = ['' => $ds] + ($s->get('dark_mode') !== 'off' ? [t(' (dark mode)') => ['colors' => $ds['colors_dark'] + $ds['colors']] + $ds] : []);
         foreach ($looks as $suffix => $look) {
-            foreach (\Kaleta\Builder\DesignSystem::contrasts($look) as $c) {
+            foreach (\Talea\Builder\DesignSystem::contrasts($look) as $c) {
                 if (!$c['ok']) {
                     $this->add('accessibility', t('Site appearance') . $suffix, t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['description']), number_format($c['ratio'], 1)),
                         'admin.php?module=appearance', null, ['look' => 'design_system']);
@@ -428,7 +428,7 @@ final class Audit
         $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'off', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup');
         $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Company details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company');
         $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing');
-        $check($s->get('favicon') !== '' || is_file(KALETA_ROOT . '/media/icon-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
+        $check($s->get('favicon') !== '' || is_file(TALEA_ROOT . '/media/icon-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
         $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
         $check(!$tracking || $s->get('cookies_mode') !== 'none', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
         $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact');
@@ -559,7 +559,7 @@ final class Audit
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
         $ok = match (true) {
             $s === [] => true,
-            is_file(KALETA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
+            is_file(TALEA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
             in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
             $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1)),
             $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = 1 AND deleted_at IS NULL', [implode('/', $s)]) !== null => true,

@@ -19,14 +19,14 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <div class="row">
 	<span class="caption"><?= e(t('Suspend automatically')) ?></span>
 	<div class="options">
-		<label><input type="checkbox" name="auto_suspend[]" value="<?= e(Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS) ?>"<?= in_array(Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS, $autoSuspend, true) ? ' checked' : '' ?>> <?= e(t('block accounts nobody has used for %d days (never the last administrator)', Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></label><br>
-		<label><input type="checkbox" name="auto_suspend[]" value="<?= e(Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS) ?>"<?= in_array(Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS, $autoSuspend, true) ? ' checked' : '' ?>> <?= e(t('revoke Claude connections nobody has used for %d days', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></label>
+		<label><input type="checkbox" name="auto_suspend[]" value="<?= e(Talea\Core\SecurityHygiene::SUSPEND_ACCOUNTS) ?>"<?= in_array(Talea\Core\SecurityHygiene::SUSPEND_ACCOUNTS, $autoSuspend, true) ? ' checked' : '' ?>> <?= e(t('block accounts nobody has used for %d days (never the last administrator)', Talea\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></label><br>
+		<label><input type="checkbox" name="auto_suspend[]" value="<?= e(Talea\Core\SecurityHygiene::SUSPEND_CONNECTIONS) ?>"<?= in_array(Talea\Core\SecurityHygiene::SUSPEND_CONNECTIONS, $autoSuspend, true) ? ' checked' : '' ?>> <?= e(t('revoke Claude connections nobody has used for %d days', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></label>
 		<span class="help"><?= e(t('Checked once a day. While this is off, System status and the site audit only report unused accounts and connections. A blocked account shows the reason in Users and an administrator can reactivate it; a revoked connection has to be connected again.')) ?></span>
 	</div>
 </div>
 <?php
 ?>
-<?php if (($additionalLanguages = Kaleta\Core\Language::additional($app->settings())) !== []): ?>
+<?php if (($additionalLanguages = Talea\Core\Language::additional($app->settings())) !== []): ?>
 <details class="advanced"<?= array_filter($additionalLanguages, fn (string $j): bool => ($values['site_name_' . $j] ?? '') . ($values['site_description_' . $j] ?? '') !== '') !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Name and description in other language versions')) ?></summary>
 <p class="help"><?= e(t('An empty field means the same text as in the default language.')) ?></p>
@@ -48,7 +48,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <div class="row">
 	<label for="site_language"><?= e(t('Site language')) ?></label>
 	<div><select id="site_language" name="site_language">
-<?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
+<?php foreach (Talea\Core\Language::AVAILABLE as $code => [$languageName]): ?>
 		<option value="<?= e($code) ?>"<?= $values['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 	</select>
@@ -64,17 +64,17 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<span class="help"><?= e(t('How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.')) ?></span></div>
 </div>
 <?php endif ?>
-<?php if (Kaleta\Core\Extensions::isEnabled($app->settings(), 'languages')): ?>
+<?php if (Talea\Core\Extensions::isEnabled($app->settings(), 'languages')): ?>
 <div class="row" id="additional_languages">
 	<span class="caption"><?= e(t('Other language versions')) ?></span>
 	<div class="options">
 		<div class="options-languages">
-<?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): if ($code === $values['site_language']) { continue; } ?>
+<?php foreach (Talea\Core\Language::AVAILABLE as $code => [$languageName]): if ($code === $values['site_language']) { continue; } ?>
 		<label><input type="checkbox" name="additional_languages[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/)</small></label>
 <?php endforeach ?>
 		</div>
 		<span class="help"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
-<?php $translated = array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(KALETA_SYSTEM . '/languages/' . $code . '.php')))); ?>
+<?php $translated = array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Talea\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(TALEA_SYSTEM . '/languages/' . $code . '.php')))); ?>
 		<span class="help"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>
@@ -121,7 +121,7 @@ $field('maintenance_text', 'Notice text', 'text', '', 'maxlength="300"');
 <p class="help"><?= e(t('A TV or a tablet in the reception, showroom or waiting room opens the address below and rotates slides by itself: the latest news, items of the chosen collections and today\'s opening hours. The address has a secret part, so nobody finds the screen by guessing; it is not indexed and sets no cookies.')) ?></p>
 <?php
 $field('screen_mode', 'Screen mode on', 'flag', '');
-$field('screen_seconds', 'Seconds per slide', 'number', '', 'min="' . Kaleta\Front\Screen::MIN_SECONDS . '" max="' . Kaleta\Front\Screen::MAX_SECONDS . '"');
+$field('screen_seconds', 'Seconds per slide', 'number', '', 'min="' . Talea\Front\Screen::MIN_SECONDS . '" max="' . Talea\Front\Screen::MAX_SECONDS . '"');
 ?>
 <div class="row">
 	<span class="caption"><?= e(t('Collections to show')) ?></span>
@@ -154,7 +154,7 @@ $field('screen_clock', 'Show a clock', 'flag', '');
 </details>
 <details class="advanced">
 <summary><?= e(t('Follow us')) ?></summary>
-<?php foreach (Kaleta\Admin\Modules\Settings::SOCIAL_NETWORKS as $key => $name) { $field($key, $name, 'url', '', 'placeholder="https://"'); } ?>
+<?php foreach (Talea\Admin\Modules\Settings::SOCIAL_NETWORKS as $key => $name) { $field($key, $name, 'url', '', 'placeholder="https://"'); } ?>
 <p class="help"><?= e(t('Filled-in profiles are shown in the site footer and passed to search engines.')) ?></p>
 </details>
 <details class="advanced">
@@ -163,11 +163,11 @@ $field('screen_clock', 'Show a clock', 'flag', '');
 $field('footer_text', 'Footer text', 'text', 'For example the registered company name and company ID.', 'maxlength="300"');
 $field('share_buttons', 'Share links below the news item', 'flag', 'Facebook, X, LinkedIn, WhatsApp, e-mail and copy link – no third-party scripts.');
 ?>
-<?php $socialNetworks = Kaleta\Core\SocialDrafts::chosen($values['social_networks'] ?? ''); ?>
+<?php $socialNetworks = Talea\Core\SocialDrafts::chosen($values['social_networks'] ?? ''); ?>
 <div class="row">
 	<span class="caption"><?= e(t('Social post drafts')) ?></span>
 	<div class="options">
-<?php foreach (Kaleta\Core\SocialDrafts::NETWORKS as $networkKey => $networkName): ?>
+<?php foreach (Talea\Core\SocialDrafts::NETWORKS as $networkKey => $networkName): ?>
 		<label><input type="checkbox" name="social_networks[]" value="<?= e($networkKey) ?>"<?= in_array($networkKey, $socialNetworks, true) ? ' checked' : '' ?>> <?= e($networkName) ?></label>
 <?php endforeach ?>
 		<span class="help"><?= e(t('When a news item is published, a post draft per network is prepared under the news item – with a tracked link and the image. You copy and post it yourself; the site never posts anywhere.')) ?></span>

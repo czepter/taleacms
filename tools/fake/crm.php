@@ -3,7 +3,7 @@
 // The CRMs (2.13, Core\EnquiryCrm): HubSpot (Bearer token, paths /crm/v3/…), Pipedrive (?api_token=, /api/v1/…) and
 // Raynet (Basic + X-Instance-Name, /api/v2/lead/). Every call is logged with its body and how it was authorised. The
 // contact known@example.cz already exists in HubSpot and Pipedrive (the update branch). The flag file
-// kaleta-fake-<port>-crm.fail makes every CRM answer 500 (the retry test).
+// talea-fake-<port>-crm.fail makes every CRM answer 500 (the retry test).
 $fail = is_file($fakeFile('crm.fail'));
 
 if (str_starts_with($path, '/crm/v3/objects/')) {

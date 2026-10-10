@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site;
+namespace Talea\Tests\Site;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** The public face of a freshly installed site (was: the web section of tools/test.sh). */
@@ -72,7 +72,7 @@ final class PublicSiteTest extends SiteTestCase
     {
         $this->assertPage('/privacy-policy', 404);
 
-        $this->site()->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'privacy-policy'");
+        $this->site()->exec("UPDATE tl_pages SET visible = 1 WHERE slug = 'privacy-policy'");
 
         $this->assertPage('/privacy-policy', 200, 'What data we process');
         $this->assertPage('/about-us', 200, 'privacy-policy', message: 'the footer links the policy');
@@ -81,7 +81,7 @@ final class PublicSiteTest extends SiteTestCase
     public function testMissingPagesAndPrivateFilesAreNotServed(): void
     {
         $this->assertPage('/this-does-not-exist', 404);
-        $this->assertPage('/system/sql/schema.sql', 403);
+        $this->assertPage('/system/bootstrap.php', 403);
         $this->assertPage('/config.php', 403);
     }
 

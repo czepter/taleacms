@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\CollectionsB;
+namespace Talea\Tests\Site\CollectionsB;
 
 /** Small helpers shared by the CollectionsB classes (the old lib.sh mcp/preset_row/sq equivalents). Needs a SiteTestCase. */
 trait Helpers
@@ -19,7 +19,7 @@ trait Helpers
     protected function presetRow(string $slug): string
     {
         return (string) $this->site()->value(
-            "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.type')), '-'), '|', JSON_LENGTH(k.fields), '|', (SELECT COUNT(*) FROM ka_pages s WHERE s.slug = k.slug AND s.visible = 0)) FROM ka_collections k WHERE k.slug = ?",
+            "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.type')), '-'), '|', JSON_LENGTH(k.fields), '|', (SELECT COUNT(*) FROM tl_pages s WHERE s.slug = k.slug AND s.visible = 0)) FROM tl_collections k WHERE k.slug = ?",
             [$slug],
         );
     }
@@ -27,7 +27,7 @@ trait Helpers
     /** The last inserted enquiry with these columns (old: INSERT … ; SELECT LAST_INSERT_ID()). */
     protected function insertEnquiry(string $email, string $data, int $state): int
     {
-        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, source, page, email, data, status) VALUES (NOW(), 'Contact', 'page:1', '/contact', ?, ?, ?)", [$email, $data, $state]);
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, source, page, email, data, status) VALUES (NOW(), 'Contact', 'page:1', '/contact', ?, ?, ?)", [$email, $data, $state]);
 
         return (int) $this->site()->pdo->lastInsertId();
     }

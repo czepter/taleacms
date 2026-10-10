@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsLook;
+namespace Talea\Tests\Site\FormsLook;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -36,7 +36,7 @@ final class PopupsTest extends SiteTestCase
     /** The public id of the pop-up the test works on (the only one on the site): what the page and the routes carry. */
     private function publicPopup(): string
     {
-        return (string) $this->sql('SELECT public_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1');
+        return (string) $this->sql('SELECT public_id FROM tl_popups ORDER BY popup_id DESC LIMIT 1');
     }
 
     public function testPublishedWindowIsOnTheSiteWithTriggerAndBrowserRules(): void
@@ -52,7 +52,7 @@ final class PopupsTest extends SiteTestCase
         $body = $this->site()->client()->get('/')->body;
         $id = self::$popup;
         $this->assertStringContainsString("data-popup=\"{$this->publicPopup()}\"", $body, 'the switched-on window is on the site');
-        $this->assertStringContainsString('class="ka-popup ka-popup--slide_in" popover="manual" role="region"', $body, 'panel window uses the Popover API');
+        $this->assertStringContainsString('class="tl-popup tl-popup--slide_in" popover="manual" role="region"', $body, 'panel window uses the Popover API');
         $this->assertStringContainsString('data-trigger="time" data-value="3" data-frequency="until_closed"', $body, 'trigger and frequency are in the markup');
         $this->assertStringContainsString('data-device="phone"', $body, 'the device rule is in the markup');
         $this->assertStringContainsString('Okno akce', $body, 'the window content is in the page');
@@ -63,7 +63,7 @@ final class PopupsTest extends SiteTestCase
     public function testServerRulesPlacesAndPeriod(): void
     {
         $id = self::$popup;
-        $about = (int) $this->sql("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
+        $about = (int) $this->sql("SELECT page_id FROM tl_pages WHERE slug = 'about-us'");
         $this->call('save_popup', ['id' => $this->site()->publicId('popups', $id), 'rules' => ['where' => 'selected', 'pages' => [$this->site()->publicId('pages', $about)]]]);
         $this->site()->clearPageCache();
         $visitor = $this->site()->client();
@@ -87,8 +87,8 @@ final class PopupsTest extends SiteTestCase
         $visitor->post('/popup', ['popup' => $this->publicPopup(), 'event' => 'view']);
         $visitor->post('/popup', ['popup' => $this->publicPopup(), 'event' => 'conversion']);
         $visitor->post('/popup', ['popup' => $this->publicPopup(), 'event' => 'nothing']);
-        $visitor->post('/popup', ['popup' => (string) $this->sql('SELECT popup_id FROM ka_popups LIMIT 1'), 'event' => 'view']); // an integer key is not a public id: not counted
-        $this->assertSame('1/0/1', $this->sql("SELECT CONCAT(impressions, '/', closes, '/', conversions) FROM ka_popups WHERE popup_id = $id"), 'window counters without cookies');
+        $visitor->post('/popup', ['popup' => (string) $this->sql('SELECT popup_id FROM tl_popups LIMIT 1'), 'event' => 'view']); // an integer key is not a public id: not counted
+        $this->assertSame('1/0/1', $this->sql("SELECT CONCAT(impressions, '/', closes, '/', conversions) FROM tl_popups WHERE popup_id = $id"), 'window counters without cookies');
 
         $this->assertSame(404, $visitor->get("/_popup/{$this->publicPopup()}?build=draft")->status, 'the window draft does not exist for a visitor');
         $preview = $visitor->get(self::$previewUrl)->body;
@@ -96,7 +96,7 @@ final class PopupsTest extends SiteTestCase
         $this->assertStringContainsString('noindex', $preview, 'the preview is not indexed');
 
         $this->assertPage("/admin.php?module=popups&action=builder&id={$this->publicPopup()}", 200, 'id="builder-data"', message: 'window in the builder');
-        $this->assertPage("/_popup/{$this->publicPopup()}?build=draft&editor=1", 200, 'ka-popup--editor', message: 'window canvas in the builder');
+        $this->assertPage("/_popup/{$this->publicPopup()}?build=draft&editor=1", 200, 'tl-popup--editor', message: 'window canvas in the builder');
         $this->assertStringContainsString("data-popup=\"{$this->publicPopup()}\"", $this->site()->admin()->get('/about-us')->body, 'the site shows the window to the administrator');
         $this->assertStringNotContainsString('data-popup=', $this->site()->admin()->get('/about-us?build=draft&editor=1')->body, 'the page builder canvas is without the site pop-ups');
     }
@@ -117,7 +117,7 @@ final class PopupsTest extends SiteTestCase
             'source' => $source, 'element' => $element, 'back' => '/', 'as_time' => $time, 'as_signature' => $this->formField($html, 'as_signature'), 'p0' => 'okno@example.cz',
         ])->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the form in the window is submitted');
-        $this->assertSame("Z okna|popup:$id", $this->sql("SELECT CONCAT(form, '|', source) FROM ka_enquiries WHERE email = 'okno@example.cz'"), 'the enquiry from the window is stored');
+        $this->assertSame("Z okna|popup:$id", $this->sql("SELECT CONCAT(form, '|', source) FROM tl_enquiries WHERE email = 'okno@example.cz'"), 'the enquiry from the window is stored');
 
         $list = $this->call('list_popups');
         $this->assertSame('Akce okno|1|1', $this->pick($list, 0, 'name') . '|' . $this->pick($list, 0, 'views') . '|' . $this->pick($list, 0, 'conversions'), 'MCP: list of windows with counters');
@@ -127,9 +127,9 @@ final class PopupsTest extends SiteTestCase
 
     public function testEditingRightOnTheSiteIsOnlyForSignedInUsers(): void
     {
-        $this->assertPage('/news/our-new-website-is-live', 200, 'ka-edit-here', message: 'edit in place: link');
-        $this->assertPage('/news/our-new-website-is-live?edit=text', 200, 'ka-edit-text', message: 'edit in place: form');
-        $this->assertPage('/about-us?edit=text', 200, 'ka-edit-text', message: 'edit a page in place');
-        $this->assertStringNotContainsString('ka-edit', $this->site()->client()->get('/news/our-new-website-is-live?edit=text')->body, 'edit in place is not visible without signing in');
+        $this->assertPage('/news/our-new-website-is-live', 200, 'tl-edit-here', message: 'edit in place: link');
+        $this->assertPage('/news/our-new-website-is-live?edit=text', 200, 'tl-edit-text', message: 'edit in place: form');
+        $this->assertPage('/about-us?edit=text', 200, 'tl-edit-text', message: 'edit a page in place');
+        $this->assertStringNotContainsString('tl-edit', $this->site()->client()->get('/news/our-new-website-is-live?edit=text')->body, 'edit in place is not visible without signing in');
     }
 }

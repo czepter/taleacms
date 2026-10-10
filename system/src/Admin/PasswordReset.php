@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Firewall;
-use Kaleta\Core\Language;
-use Kaleta\Core\Mail;
-use Kaleta\Core\Response;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Firewall;
+use Talea\Core\Language;
+use Talea\Core\Mail;
+use Talea\Core\Response;
 
 /**
  * Reset of a forgotten admin password with a link from an e-mail (admin.php?action=password).

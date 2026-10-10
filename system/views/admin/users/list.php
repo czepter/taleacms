@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Users $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Users $module
  * @var string $csrf
  * @var list<array<string, mixed>> $authors
  */
@@ -16,7 +16,7 @@
 	<td><a href="<?= e($module->url('edit', ['id' => $a['public_id']])) ?>"><?= e($a['username']) ?></a><?= $a['blocked'] ? ' <strong>(' . e(t($a['auto_blocked_at'] !== null ? 'blocked automatically' : 'blocked')) . ')</strong>' : '' ?><?= $a['totp_secret'] !== '' ? ' <span class="badge badge-published" title="' . e(t('two-factor sign-in')) . '">2FA</span>' : '' ?></td>
 	<td><?= e($a['name']) ?><br><span class="small-text"><?= e($a['summary']) ?></span></td>
 	<td><?= e($a['email']) ?></td>
-	<td><?= e($a['role_name'] ?? t(Kaleta\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
+	<td><?= e($a['role_name'] ?? t(Talea\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
 	<td class="number"><?= (int) $a['news_count'] ?></td>
 	<td class="number"><?= e(format_date($a['last_login_at'], true)) ?: '-' ?></td>
 	<td class="actions">

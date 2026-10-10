@@ -1,14 +1,14 @@
 <?php
 /** The "Backups and updates" tab. */
 ?>
-<?php if (!\Kaleta\Core\Updater::ENABLED): ?>
+<?php if (!\Talea\Core\Updater::ENABLED): ?>
 <fieldset>
 <legend><?= e(t('New versions')) ?></legend>
-<p><?= e(t('Installed version:')) ?> <strong><?= e(KALETA_VERSION) ?></strong></p>
-<?php $field('update_check', 'Tell me when a new version is available', 'flag', 'Once a day the site reads the project\'s signed release feed (no identifier is sent). It only shows a notice: you update by pulling the new image and restarting. Needs the address of the feed in KALETA_UPDATE_FEED; KALETA_UPDATE_CHECK=0 switches the check off for good.') ?>
+<p><?= e(t('Installed version:')) ?> <strong><?= e(TALEA_VERSION) ?></strong></p>
+<?php $field('update_check', 'Tell me when a new version is available', 'flag', 'Once a day the site reads the project\'s signed release feed (no identifier is sent). It only shows a notice: you update by pulling the new image and restarting. Needs the address of the feed in TALEA_UPDATE_FEED; TALEA_UPDATE_CHECK=0 switches the check off for good.') ?>
 </fieldset>
 <?php endif ?>
-<?php if (\Kaleta\Core\Updater::ENABLED): ?>
+<?php if (\Talea\Core\Updater::ENABLED): ?>
 <fieldset>
 <legend><?= e(t('System update')) ?></legend>
 <p><?= e(t('Installed version:')) ?> <strong><?= e($update['current']) ?></strong></p>
@@ -92,11 +92,11 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <details class="advanced">
 <summary><?= e(t('How to restore the site after losing the hosting')) ?></summary>
 <ol>
-	<li><?= e(t('Install Kaleta on the new hosting with the same table prefix (ka_ unless you changed it) and any starter site.')) ?></li>
-	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into storage/backups/.')) ?></li>
+	<li><?= e(t('Install Talea on the new hosting with the same table prefix (tl_ unless you changed it) and any starter site.')) ?></li>
+	<li><?= e(t('Upload the latest database backup (talea-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into storage/backups/.')) ?></li>
 	<li><?= e(t('Copy the media/ folder from the same place into the root of the site.')) ?></li>
 	<li><?= e(t('Here in Backups, click Restore at that backup. Then sign in with the accounts from the backup.')) ?></li>
 </ol>
-<p class="help"><?= e(t('Moving a site to another Kaleta installation without accounts and secrets is simpler with Export of the whole site and Import from Kaleta (Import and export).')) ?></p>
+<p class="help"><?= e(t('Moving a site to another Talea installation without accounts and secrets is simpler with Export of the whole site and Import from Talea (Import and export).')) ?></p>
 </details>
 </fieldset>

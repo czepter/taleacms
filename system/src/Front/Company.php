@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Settings;
+use Talea\Core\Settings;
 
 /**
  * Company details from "Settings → Business details": address, company ID, phone, opening hours, map. Used by
@@ -121,7 +121,7 @@ final class Company
             'address' => count($url) > 1 ? $url : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
             'hasMap' => $s->get('company_map'),
-            'openingHoursSpecification' => $type !== 'Organization' ? (\Kaleta\Core\Hours::specification($s->get('company_hours')) ?: null) : null,
+            'openingHoursSpecification' => $type !== 'Organization' ? (\Talea\Core\Hours::specification($s->get('company_hours')) ?: null) : null,
             'sameAs' => array_values(array_filter(array_map($s->get(...), ['social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin']))) ?: null,
         ], fn (mixed $v): bool => $v !== null && $v !== '');
     }

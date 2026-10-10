@@ -2,12 +2,12 @@
 /**
  * One schedule (2.17): what the run does, the administrator's text, how often and when.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Schedules $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Schedules $module
  * @var string $csrf
  * @var array<string, mixed>|null $s the schedule, null for a new one
  */
-use Kaleta\Core\AgentSchedules;
+use Talea\Core\AgentSchedules;
 
 $isNew = $s === null;
 $task = (string) ($s['task'] ?? 'review');

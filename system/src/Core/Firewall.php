@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Firewall of the public site (2.8): blocked addresses and networks, blocked countries, a limit of requests per minute,
@@ -15,7 +15,7 @@ namespace Kaleta\Core;
  *    is known only there (CF-IPCountry) or when the hosting sends GEOIP_COUNTRY_CODE; without it country blocking does nothing.
  *  - Probing is counted only for addresses that end in 404 (Front\Kernel::notFound), never for pages that exist.
  *  - The limits count in small files under storage/cache/firewall (no database write per request); the clean-up job deletes them.
- *  - Every refused request is logged (ka_firewall_log, 30 days, at most LOG_PER_HOUR rows an hour).
+ *  - Every refused request is logged (tl_firewall_log, 30 days, at most LOG_PER_HOUR rows an hour).
  */
 final class Firewall
 {
@@ -87,8 +87,8 @@ final class Firewall
             return null;
         }
         $ip = self::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
-        // the automated tests connect from 127.0.0.1 (KALETA_FIREWALL_LOCAL=1); never set on a real site
-        if ($ip === '' || (self::isLocal($ip) && getenv('KALETA_FIREWALL_LOCAL') !== '1')) {
+        // the automated tests connect from 127.0.0.1 (TALEA_FIREWALL_LOCAL=1); never set on a real site
+        if ($ip === '' || (self::isLocal($ip) && getenv('TALEA_FIREWALL_LOCAL') !== '1')) {
             return null;
         }
 
@@ -224,7 +224,7 @@ final class Firewall
      */
     public static function count(string $ip, string $kind, int $window, bool $add = true): int
     {
-        $folder = KALETA_ROOT . '/storage/cache/firewall';
+        $folder = TALEA_ROOT . '/storage/cache/firewall';
         if (!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
             return 0;
         }
@@ -240,7 +240,7 @@ final class Firewall
     /** The clean-up job: old counters, old log rows and expired blocks. */
     public static function cleanUp(Db $db): void
     {
-        foreach (glob(KALETA_ROOT . '/storage/cache/firewall/*') ?: [] as $file) {
+        foreach (glob(TALEA_ROOT . '/storage/cache/firewall/*') ?: [] as $file) {
             if (filemtime($file) < time() - 7200) {
                 @unlink($file);
             }

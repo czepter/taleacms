@@ -2,12 +2,12 @@
 /**
  * Business facts (2.10): the site's own facts and the built-in ones from the settings, with where each is used.
  *
- * @var Kaleta\Admin\Modules\Facts $module
+ * @var Talea\Admin\Modules\Facts $module
  * @var array<string, array<string, mixed>> $facts
  * @var array<string, int> $usage
  * @var list<array{token: string, value: string, about: string}> $computed the computed tokens with an example and its value now
  */
-use Kaleta\Core\Facts;
+use Talea\Core\Facts;
 
 $own = array_filter($facts, fn (array $f): bool => !$f['builtIn']);
 $builtIn = array_filter($facts, fn (array $f): bool => $f['builtIn']);

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Self-healing internal links (2.14): when an address of the site changes (a page, news item or category gets a new

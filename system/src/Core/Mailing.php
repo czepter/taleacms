@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Front\Company;
-use Kaleta\Front\Subscription;
+use Talea\Builder\DesignSystem;
+use Talea\Front\Company;
+use Talea\Front\Subscription;
 
 /**
  * Newsletters (Newsletter extension): "send the latest news to subscribers". There is no e-mail builder – one template
@@ -209,7 +209,7 @@ final class Mailing
         }
         $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, subscriber_id, NOW() FROM {subscribers} WHERE status = 1', [$n['id']])->rowCount();
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
-        \Kaleta\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
+        \Talea\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
 
     /**
@@ -390,7 +390,7 @@ final class Mailing
             return $path;
         }
         $path = ltrim($path, '/');
-        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#', $path, $m) && is_file(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
+        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#', $path, $m) && is_file(TALEA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
             $path = $m[1] . '-1200.' . $m[2];
         }
 

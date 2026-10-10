@@ -2,11 +2,11 @@
 /**
  * A new popup from a ready-made template.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Popups $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Popups $module
  * @var string $csrf
  */
-use Kaleta\Builder\Popups;
+use Talea\Builder\Popups;
 
 ?>
 <form class="form" method="post" action="<?= e($module->url('create')) ?>">

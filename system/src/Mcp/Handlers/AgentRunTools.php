@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\AgentSchedules;
-use Kaleta\Core\Language;
+use Talea\Core\AgentSchedules;
+use Talea\Core\Language;
 
 /**
  * MCP tools for the scheduled Claude runs (2.17, Core\AgentSchedules): a routine in Claude asks what is due, does each

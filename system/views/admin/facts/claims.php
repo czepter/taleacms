@@ -3,7 +3,7 @@
  * The claims inventory (2.10): sentences that state a year, a number, a percentage or an amount as plain text. Each one is
  * a candidate for a fact – once it is a fact, the next change finds every place that states it.
  *
- * @var Kaleta\Admin\Modules\Facts $module
+ * @var Talea\Admin\Modules\Facts $module
  * @var list<array<string, mixed>> $claims
  */
 ?>

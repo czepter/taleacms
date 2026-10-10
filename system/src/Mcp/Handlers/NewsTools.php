@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Core\SocialDrafts;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Core\SocialDrafts;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: news (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -70,7 +70,7 @@ trait NewsTools
             throw new \InvalidArgumentException('The news item does not exist or the user has no access to it.'); // 3.3.2 (N12): a draft only with the News section
         }
         $generated = $c['image'] === '' && $this->app->settings()->get('share_image') === ''
-            ? \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($c['seo_title'] !== '' ? $c['seo_title'] : $c['title'], $this->app)) : null; // drawn by the site (2.12)
+            ? \Talea\Front\ShareImage::url($this->app, \Talea\Core\Facts::fillText($c['seo_title'] !== '' ? $c['seo_title'] : $c['title'], $this->app)) : null; // drawn by the site (2.12)
 
         return ['id' => $c['news_id'], 'date' => $c['published_at'], 'title' => $c['title'], 'slug' => $c['slug'], 'intro' => $c['intro'], 'content' => $c['text'], 'image' => $c['image'],
             'image_caption' => $c['image_caption'], 'published' => $c['visible'], 'faq' => $c['faq'], 'seo_title' => $c['seo_title'], 'seo_description' => $c['seo_description']]
@@ -114,7 +114,7 @@ trait NewsTools
         $item = $db->one('SELECT news_id, visible, author_id FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id]) ?? throw new \InvalidArgumentException('The news item does not exist. Use list_news.');
         $need($auth->canPublish() || (!$item['visible'] && (int) $item['author_id'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
         $db->run('UPDATE {news} SET deleted_at = NOW(), visible = 0 WHERE news_id = ?', [$id]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return ['trashed' => $id, 'restore' => 'restore_from_trash with type news within 30 days'];
     }
@@ -151,7 +151,7 @@ trait NewsTools
         if ($error !== null) {
             throw new \DomainException($error);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' – ' . (string) $db->value('SELECT title FROM {news} WHERE news_id = ?', [$draft['news_id']]));
+        \Talea\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' – ' . (string) $db->value('SELECT title FROM {news} WHERE news_id = ?', [$draft['news_id']]));
 
         return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['news_id' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
     }
@@ -179,7 +179,7 @@ trait NewsTools
         }
         $seo = $this->availableSlug('categories', 'category_id', slugify($displayName, 110));
 
-        return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Kaleta\Core\Html::safe((string) ($a['description'] ?? ''))]), 'slug' => $seo];
+        return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Talea\Core\Html::safe((string) ($a['description'] ?? ''))]), 'slug' => $seo];
     }
 
     /** update_category */
@@ -201,20 +201,20 @@ trait NewsTools
             $changes['name'] = mb_substr(trim((string) $a['name']), 0, 255);
         }
         if (isset($a['description'])) {
-            $changes['description'] = \Kaleta\Core\Html::forUser((string) $a['description'], $auth);
+            $changes['description'] = \Talea\Core\Html::forUser((string) $a['description'], $auth);
         }
         if (isset($a['order'])) {
             $changes['weight'] = max(0, min(65535, (int) $a['order']));
         }
         if (trim((string) ($a['slug'] ?? '')) !== '') {
-            $changes['slug'] = \Kaleta\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => $db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$x, $id]) !== null, 120);
+            $changes['slug'] = \Talea\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => $db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$x, $id]) !== null, 120);
         }
         if ($changes !== []) {
             $db->update('categories', $changes, ['category_id' => $id]);
             if (isset($changes['slug']) && $changes['slug'] !== $c['slug']) {
-                \Kaleta\Admin\Modules\Redirects::add($db, 'news/category/' . $c['slug'], 'news/category/' . $changes['slug']);
+                \Talea\Admin\Modules\Redirects::add($db, 'news/category/' . $c['slug'], 'news/category/' . $changes['slug']);
             }
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
         $c = (array) $db->one('SELECT * FROM {categories} WHERE category_id = ?', [$id]);
 

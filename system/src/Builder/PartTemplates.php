@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
-use Kaleta\Core\Language;
+use Talea\Core\Language;
 
 /**
  * Ready-made templates of site parts (1.7): a few clean skeletons of the header, the footer and the wrappers. They carry
  * structure only – colours, fonts, spacing and corners come from the design system tokens, so every template fits every
- * site (Kaleta is themeless). A template goes into the part's draft; the published version stays until publishing.
+ * site (Talea is themeless). A template goes into the part's draft; the published version stays until publishing.
  */
 final class PartTemplates
 {
@@ -73,9 +73,9 @@ final class PartTemplates
             $row = fn (array $children, string $distribution = 'space-between'): array => $s($n('container', [], $children),
                 ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => $distribution, 'align_items' => 'center', 'wrap' => 'wrap', 'gap' => 'm']]);
             $header = fn (array $children, array $style = []): array => $s($z($n('section', [], $children), 'header'),
-                ['base' => $style + ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-color-line)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']]);
+                ['base' => $style + ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--tl-color-line)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']]);
             $footer = fn (array $children): array => $s($z($n('section', [], $children), 'footer'),
-                ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-color-line)']]);
+                ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--tl-color-line)']]);
             $copyright = $s($n('company_details', ['detail' => 'copyright']), ['base' => ['margin_top' => 'l', 'font_size' => '-1', 'color' => 'muted']]);
             $companyName = $s($z($n('company_details', ['detail' => 'name']), 'p'), ['base' => ['font_weight' => '700']]);
             $footerMenu = $n('navigation', ['menu' => 'footer', 'news_link' => false, 'phone_menu' => false]);

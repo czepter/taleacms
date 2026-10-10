@@ -14,8 +14,8 @@ $field('gtm_id', 'Google Tag Manager', 'text', 'The container ID in the form GTM
 <?php if ($values['gtm_id'] !== '' && $values['ga4_id'] !== ''): ?>
 <p class="notice notice-warning"><?= e(t('Google Analytics is set here and probably also in your Tag Manager container – visits would be counted twice. Keep it in one place.')) ?></p>
 <?php endif ?>
-<p class="help"><?= e(t('Kaleta sends these events to the data layer for your tags: generate_lead (a form was sent), sign_up (newsletter), popup_conversion, click_phone, click_email and file_download.')) ?>
-	<a href="<?= e($siteUrl . 'image/gtm-kaleta.json') ?>" download><?= e(t('Download a container template with these triggers')) ?></a></p>
+<p class="help"><?= e(t('Talea sends these events to the data layer for your tags: generate_lead (a form was sent), sign_up (newsletter), popup_conversion, click_phone, click_email and file_download.')) ?>
+	<a href="<?= e($siteUrl . 'image/gtm-talea.json') ?>" download><?= e(t('Download a container template with these triggers')) ?></a></p>
 </fieldset>
 <details class="advanced"<?= $values['matomo_url'] . $values['plausible_domain'] . $values['head_code'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Other tools (Matomo, Plausible, custom code)')) ?></summary>

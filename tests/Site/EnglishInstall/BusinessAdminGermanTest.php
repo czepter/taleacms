@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\EnglishInstall;
+namespace Talea\Tests\Site\EnglishInstall;
 
-use Kaleta\Tests\Site\Support\CzechCheck;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\CzechCheck;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -18,7 +18,7 @@ final class BusinessAdminGermanTest extends SiteTestCase
 
     public function testFormalGermanAdmin(): void
     {
-        $this->site()->exec("UPDATE ka_users SET language = 'de' WHERE username = 'admin'");
+        $this->site()->exec("UPDATE tl_users SET language = 'de' WHERE username = 'admin'");
         $last = null;
         foreach ($this->adminScreens() as $query) {
             $last = $this->assertCzechFree("/admin.php?$query", 200, $this->site()->admin(), true, 'German admin');
@@ -30,7 +30,7 @@ final class BusinessAdminGermanTest extends SiteTestCase
     #[Depends('testFormalGermanAdmin')]
     public function testInformalGermanAdmin(): void
     {
-        $this->site()->exec("UPDATE ka_users SET register = 'informal' WHERE username = 'admin'");
+        $this->site()->exec("UPDATE tl_users SET register = 'informal' WHERE username = 'admin'");
         $last = null;
         foreach ($this->adminScreens() as $query) {
             $last = $this->assertCzechFree("/admin.php?$query", 200, $this->site()->admin(), true, 'German informal admin');

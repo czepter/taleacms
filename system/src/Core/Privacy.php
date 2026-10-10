@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * EU duties a site owner would otherwise do by hand on every site (2.14): what cookies and storage the site really uses,
@@ -12,7 +12,7 @@ use Kaleta\Builder\Build;
  * style) and an accessibility statement filled from the site audit. Everything generated here is a template the owner
  * reviews – never legal advice; the admin screens say so where a document is produced.
  *
- * The cookie table has three sources: what Kaleta itself sets (a fixed list – the code is the source of truth), the known
+ * The cookie table has three sources: what Talea itself sets (a fixed list – the code is the source of truth), the known
  * third-party embeds and tags found in published builds and in the settings (KNOWN maps a provider to its cookies), and the
  * Set-Cookie headers the site's own pages answer with (scan(): only the site's own address, a few pages, stored in the
  * setting cookie_scan). Visitors see the table through the {{cookie_table}} placeholder on the cookie policy page.
@@ -68,12 +68,12 @@ final class Privacy
         'hcaptcha' => ['hCaptcha', '~hcaptcha~i', [['hc_accessibility', 'Spam check: accessibility of the challenge', '1 month', 'necessary']]],
     ];
 
-    /** Cookies and storage Kaleta sets itself – the code is the source of truth, so the list is fixed. */
+    /** Cookies and storage Talea sets itself – the code is the source of truth, so the list is fixed. */
     private const array OWN = [
-        ['kaleta_consent', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
-        ['ka-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
-        ['ka-language', 'The chosen language version (local storage)', 'until removed', 'necessary'],
-        ['ka-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
+        ['talea_consent', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
+        ['tl-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
+        ['tl-language', 'The chosen language version (local storage)', 'until removed', 'necessary'],
+        ['tl-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
         ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
     ];
 
@@ -83,7 +83,7 @@ final class Privacy
     /* ---------- cookie table ---------- */
 
     /**
-     * The table of cookies and storage: Kaleta's own, the known providers found in content and settings, and names the
+     * The table of cookies and storage: Talea's own, the known providers found in content and settings, and names the
      * last scan saw in Set-Cookie headers that no known provider explains.
      *
      * @return list<array{name: string, provider: string, purpose: string, duration: string, category: string}>
@@ -118,11 +118,11 @@ final class Privacy
     {
         $rows = [];
         foreach (self::OWN as [$name, $purpose, $duration, $category]) {
-            if (($name === 'ka-theme' && !$s->bool('theme_switcher')) || ($name === 'ka-accessibility' && !$s->bool('accessibility_toolbar'))
-                || ($name === 'kaleta_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'ka-language' && Language::additional($s) === [])) {
+            if (($name === 'tl-theme' && !$s->bool('theme_switcher')) || ($name === 'tl-accessibility' && !$s->bool('accessibility_toolbar'))
+                || ($name === 'talea_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'tl-language' && Language::additional($s) === [])) {
                 continue;
             }
-            $rows[] = ['name' => $name, 'provider' => 'Kaleta', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
+            $rows[] = ['name' => $name, 'provider' => 'Talea', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
         }
 
         return $rows;
@@ -231,7 +231,7 @@ final class Privacy
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 4, CURLOPT_CONNECTTIMEOUT => 2,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Kaleta cookie scan)',
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Talea cookie scan)',
             CURLOPT_HEADERFUNCTION => function (\CurlHandle $ch, string $header) use (&$names): int {
                 if (preg_match('/^set-cookie:\s*([^=;\s]+)=/i', $header, $m)) {
                     $names[] = $m[1];
@@ -249,7 +249,7 @@ final class Privacy
     /** The table for visitors, in the site language – {{cookie_table}} on the cookie policy page. */
     public static function cookieTableHtml(App $app): string
     {
-        $html = '<table class="ka-cookies-table"><thead><tr><th>' . e(t('Name')) . '</th><th>' . e(t('Provider')) . '</th><th>' . e(t('Purpose')) . '</th><th>' . e(t('Duration')) . '</th><th>' . e(t('Category')) . '</th></tr></thead><tbody>';
+        $html = '<table class="tl-cookies-table"><thead><tr><th>' . e(t('Name')) . '</th><th>' . e(t('Provider')) . '</th><th>' . e(t('Purpose')) . '</th><th>' . e(t('Duration')) . '</th><th>' . e(t('Category')) . '</th></tr></thead><tbody>';
         foreach (self::cookieTable($app) as $r) {
             $html .= '<tr><td><code>' . e($r['name']) . '</code></td><td>' . e($r['provider']) . '</td><td>' . e($r['purpose']) . '</td><td>' . e($r['duration']) . '</td><td>' . e(t(self::CATEGORIES[$r['category']] ?? $r['category'])) . '</td></tr>';
         }
@@ -296,7 +296,7 @@ final class Privacy
             return 0;
         }
         $rows = $db->all('SELECT enquiry_id, data FROM {enquiries} WHERE anonymised_at IS NULL AND enquiry_id IN (' . implode(',', $ids) . ')');
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows);
+        \Talea\Admin\Modules\Enquiries::deleteAttachments($rows);
         foreach ($rows as $r) {
             $db->update('enquiries', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
                 'email' => '', 'suggested_reply' => null, 'note' => null, 'landing_page' => '', 'referrer' => '', 'anonymised_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $r['enquiry_id']]);
@@ -356,7 +356,7 @@ final class Privacy
             ]];
         }
         $statistics = [];
-        if (\Kaleta\Front\Stats::enabled($s)) {
+        if (\Talea\Front\Stats::enabled($s)) {
             $statistics[] = t('Built-in statistics: page views, devices and campaigns counted without cookies; the visitor’s address is hashed with a daily salt and never stored.');
         }
         foreach (['ga4_id' => 'Google Analytics', 'gtm_id' => 'Google Tag Manager', 'matomo_url' => 'Matomo', 'plausible_domain' => 'Plausible'] as $key => $name) {
@@ -424,7 +424,7 @@ final class Privacy
                         foreach ((array) ($n['content']['fields'] ?? []) as $field) {
                             $type = (string) ($field['type'] ?? 'text');
                             if (!in_array($type, ['step', 'hidden', 'estimate'], true)) {
-                                $fields[] = ['label' => (string) ($field['label'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
+                                $fields[] = ['label' => (string) ($field['label'] ?? ''), 'type' => \Talea\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
                         $forms[] = ['name' => (string) ($n['content']['name'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['content']['recipient'] ?? ''), 'confirmation' => !empty($n['content']['confirmation'])];
@@ -490,14 +490,14 @@ final class Privacy
         $id = $s->int('accessibility_statement_page');
         if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {
             $db->update('pages', $record, ['page_id' => $id]);
-            \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated: ' . $statement['title']);
+            \Talea\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated: ' . $statement['title']);
 
             return $id;
         }
         $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$u]) !== null);
         $id = $db->insert('pages', $record + ['slug' => $slug, 'visible' => 0, 'in_menu' => 1, 'sort_order' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created: ' . $statement['title']);
+        \Talea\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created: ' . $statement['title']);
 
         return $id;
     }

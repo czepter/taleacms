@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
-use Kaleta\Core\Facts;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
+use Talea\Core\Facts;
 
 /**
  * Animated counter ("1,200 happy customers"): the number is complete in the HTML (search engines, screen readers, site without a script),
@@ -34,9 +34,9 @@ final class Counter extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-counter { display: grid; gap: var(--ka-space-2xs); }
-.ka-counter-number { font: 800 var(--ka-step-5)/1 var(--ka-font-heading); font-variant-numeric: tabular-nums; color: var(--ka-color-primary); }
-.ka-counter-caption { color: var(--ka-color-muted); }';
+        return '.tl-counter { display: grid; gap: var(--tl-space-2xs); }
+.tl-counter-number { font: 800 var(--tl-step-5)/1 var(--tl-font-heading); font-variant-numeric: tabular-nums; color: var(--tl-color-primary); }
+.tl-counter-caption { color: var(--tl-color-muted); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -54,8 +54,8 @@ final class Counter extends Element
             [$number, $format] = [0, $raw]; // the token in the editor, or something that is not a number – shown as typed, without the count-up
         }
 
-        return '<div' . Text::withClass($a, 'ka-counter') . '><span class="ka-counter-number">' . e($o['prefix'])
+        return '<div' . Text::withClass($a, 'tl-counter') . '><span class="tl-counter-number">' . e($o['prefix'])
             . '<span' . ($number > 0 ? ' data-counter="' . $number . '"' : '') . '>' . e($format) . '</span>' . e($o['suffix']) . '</span>'
-            . ($o['caption'] !== '' ? '<span class="ka-counter-caption">' . e($o['caption']) . '</span>' : '') . '</div>';
+            . ($o['caption'] !== '' ? '<span class="tl-counter-caption">' . e($o['caption']) . '</span>' : '') . '</div>';
     }
 }

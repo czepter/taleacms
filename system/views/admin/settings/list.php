@@ -2,7 +2,7 @@
 /**
  * Settings: tabs + the form of the selected tab (settings/<tab>.php).
  *
- * @var Kaleta\Admin\Modules\Settings $module
+ * @var Talea\Admin\Modules\Settings $module
  * @var string $csrf
  * @var string $tab
  * @var array<string, string> $values
@@ -21,7 +21,7 @@
  * @var array{time?: int, pages?: int, cookies?: list<string>, error?: string} $cookieScan  the last scan of the site's own pages (2.14)
  * @var array<string, mixed>|null $statementPage  the accessibility statement page created from the audit (2.14), null = none yet
  */
-use Kaleta\Admin\Modules\Settings;
+use Talea\Admin\Modules\Settings;
 
 /** Form row: $field('key', 'Label', 'text|radky|kod|ano|cislo|url|email', 'hint', [attributes]) */
 $invalidFields ??= [];
@@ -33,7 +33,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
     // a hint without its own HTML: menu paths ("Settings → Mail") turn into links
-    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
+    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Talea\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
     echo '<div class="row">';
     if ($kind === 'flag') {
         echo '<span class="caption">' . e($labelText) . '</span><div class="options"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';

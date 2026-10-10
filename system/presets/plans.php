@@ -27,5 +27,5 @@ return [
     'list' => ['sort' => 'order'],
     'card' => ['badge', 'price', 'price_period', 'price_note', 'summary', 'features'],
     // the button of each plan leads to its link (sign-up, trial, contact); a plan without a link shows none (Button on a card)
-    'card_extra' => fn (): array => [\Kaleta\Builder\Build::fresh('button', ['text' => t('Choose this plan'), 'link' => '{{link}}'])],
+    'card_extra' => fn (): array => [\Talea\Builder\Build::fresh('button', ['text' => t('Choose this plan'), 'link' => '{{link}}'])],
 ];

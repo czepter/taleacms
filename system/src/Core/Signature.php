@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Verification of publisher signatures (Ed25519). The file system/update.pub may hold SEVERAL public keys - one per line

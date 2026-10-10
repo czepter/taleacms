@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Connections;
+namespace Talea\Tests\Site\Connections;
 
-use Kaleta\Tests\Site\Support\Http;
+use Talea\Tests\Site\Support\Http;
 
 /** Shared helpers of the connection tests: MCP answers as text, and the OAuth connector flow of section 43 (PKCE, consent, tokens). */
 trait ConnectionHelpers

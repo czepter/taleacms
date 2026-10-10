@@ -2,10 +2,10 @@
 /**
  * Connections to outside services (2.13): per service its credentials, settings and connection; the last calls.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Connectors $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Connectors $module
  * @var string $csrf
- * @var array<string, array{class: class-string<Kaleta\Connectors\Connector>, row: array<string, mixed>|null, config: array<string, string>}> $services
+ * @var array<string, array{class: class-string<Talea\Connectors\Connector>, row: array<string, mixed>|null, config: array<string, string>}> $services
  * @var array<string, array<string, mixed>> $status
  * @var string $redirectUri
  * @var list<array<string, mixed>> $log
@@ -43,7 +43,7 @@
 	<?php endif ?>
 	<div class="row"><label for="c-<?= e($key) ?>-secret"><?= e(t('API key')) ?></label><div><input class="textfield wide" type="password" id="c-<?= e($key) ?>-secret" name="secret" value="" autocomplete="new-password" placeholder="<?= e(($row['secret'] ?? null) !== null ? t('stored – type to replace') : '') ?>"></div></div>
 <?php endif ?>
-<?php if ($key === Kaleta\Connectors\Google::KEY): ?>
+<?php if ($key === Talea\Connectors\Google::KEY): ?>
 	<h3><?= e(t('Business Profile')) ?></h3>
 	<p class="help"><?= e(t('The opening hours from Business details and their exceptions go to the chosen location whenever they change and once a day; the newest reviews and the rating come back for the Google reviews element and the facts {{fact.google_rating}} and {{fact.google_reviews}}.')) ?></p>
 	<div class="row"><label for="c-google-location"><?= e(t('Location')) ?></label><div><select id="c-google-location" name="config[location]">
@@ -57,7 +57,7 @@
 		<span class="help"><?= e(t('Every newly published news item becomes a post with its image and a “Learn more” button.')) ?></span></div></div>
 	<?php if ($gbpSummary['synced'] !== ''): ?><p class="small-text"><?= e($gbpSummary['rating'] !== null ? t('Google rating %s out of 5 from %d reviews', format_number($gbpSummary['rating']), $gbpSummary['count']) : t('No reviews on Google yet.')) ?> · <?= e(t('fetched %s', format_date($gbpSummary['synced'], true))) ?></p><?php endif ?>
 <?php endif ?>
-<?php foreach ($class::settings() as $name => $setting): [$label, $hint] = $setting; if ($key === Kaleta\Connectors\Google::KEY && in_array($name, Kaleta\Core\GoogleBusiness::CONFIG, true)) { continue; } ?>
+<?php foreach ($class::settings() as $name => $setting): [$label, $hint] = $setting; if ($key === Talea\Connectors\Google::KEY && in_array($name, Talea\Core\GoogleBusiness::CONFIG, true)) { continue; } ?>
 <?php if (($setting[2] ?? '') === 'check'): ?>
 	<div class="row"><span class="caption"></span><div class="options"><label><input type="checkbox" name="config[<?= e($name) ?>]" value="1"<?= ($config[$name] ?? '') === '1' ? ' checked' : '' ?>> <?= e(t($label)) ?></label><?php if ($hint !== ''): ?> <span class="help"><?= e(t($hint)) ?></span><?php endif ?></div></div>
 <?php else: ?>
@@ -67,7 +67,7 @@
 	<p class="buttons"><button class="navigation" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
 </details>
-<?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): /* Search Console (Core\SearchData): the property is picked from the account's list */ ?>
+<?php if ($key === Talea\Connectors\Google::KEY && $st['connected']): /* Search Console (Core\SearchData): the property is picked from the account's list */ ?>
 <div class="buttons">
 	<form class="inline" method="post" action="<?= e($module->url('properties')) ?>"><?= $csrf ?><button class="navigation" type="submit"><?= e(t('Load my properties')) ?></button></form>
 <?php if ($properties === []): ?>
@@ -82,12 +82,12 @@
 <?php if ($class::AUTH === 'oauth' && !$st['connected'] && $st['has_app']): ?>
 	<form class="inline" method="post" action="<?= e($module->url('connect')) ?>"><?= $csrf ?><input type="hidden" name="service" value="<?= e($key) ?>"><button class="btn" type="submit"><?= e(t('Connect %s', $class::NAME)) ?></button></form>
 <?php endif ?>
-<?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): ?>
+<?php if ($key === Talea\Connectors\Google::KEY && $st['connected']): ?>
 	<form class="inline" method="post" action="<?= e($module->url('gbp_locations')) ?>"><?= $csrf ?><button class="navigation" type="submit"><?= e(t('Load my locations')) ?></button></form>
 	<?php if ($gbpLocation !== ''): ?><form class="inline" method="post" action="<?= e($module->url('gbp_sync')) ?>"><?= $csrf ?><button class="navigation" type="submit"><?= e(t('Sync the Business Profile now')) ?></button></form><?php endif ?>
 <?php endif ?>
-<?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): /* the sheet of enquiries (2.13, Core\EnquirySheet) */ ?>
-	<?php if (($config['sheet_id'] ?? '') !== ''): ?><a class="btn" href="<?= e(Kaleta\Core\EnquirySheet::url($config['sheet_id'])) ?>" target="_blank" rel="noopener"><?= e(t('Open the sheet')) ?></a><?php else: ?>
+<?php if ($key === Talea\Connectors\Google::KEY && $st['connected']): /* the sheet of enquiries (2.13, Core\EnquirySheet) */ ?>
+	<?php if (($config['sheet_id'] ?? '') !== ''): ?><a class="btn" href="<?= e(Talea\Core\EnquirySheet::url($config['sheet_id'])) ?>" target="_blank" rel="noopener"><?= e(t('Open the sheet')) ?></a><?php else: ?>
 	<form class="inline" method="post" action="<?= e($module->url('sheet')) ?>"><?= $csrf ?><button class="btn" type="submit"><?= e(t('Create the sheet')) ?></button></form>
 	<?php if (($config['enquiries'] ?? '') === '1'): ?><p class="notice error"><?= e(t('Create the sheet first – without it no enquiry is sent.')) ?></p><?php endif ?>
 	<?php endif ?>

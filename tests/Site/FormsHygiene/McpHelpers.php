@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsHygiene;
+namespace Talea\Tests\Site\FormsHygiene;
 
 /** The few MCP shortcuts the old shell helpers (mcp, mcp_text, mcp_value) gave to the sections of this area. */
 trait McpHelpers
@@ -31,7 +31,7 @@ trait McpHelpers
     /** A page id by its address. */
     private function pageIdBySlug(string $slug): int
     {
-        return (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$slug]);
+        return (int) $this->site()->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$slug]);
     }
 
     /** A PNG as base64 for upload_file (the old $PNG); skips the test when GD is missing. */

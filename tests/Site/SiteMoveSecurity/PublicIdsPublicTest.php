@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\SiteMoveSecurity;
+namespace Talea\Tests\Site\SiteMoveSecurity;
 
-use Kaleta\Core\Uuid;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Core\Uuid;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -31,20 +31,20 @@ final class PublicIdsPublicTest extends SiteTestCase
     public function testPublicPagesFeedsAndFormsCarryNoIntegerKeys(): void
     {
         $site = $this->site();
-        $form = $site->php('echo Kaleta\Builder\Build::toJson(Kaleta\Builder\Build::sanitize(["v" => 1, "children" => [["type" => "form", "content" => ["name" => "Ids popup form", "fields" => [["label" => "E-mail", "type" => "email", "required" => true]]]]]], true)[0]);');
-        $site->exec("INSERT INTO ka_popups (name, slug, rules, build, build_draft, active, updated_at) VALUES ('Ids popup', 'ids-popup', '{}', ?, NULL, 1, NOW())", [$form]);
-        $site->exec("UPDATE ka_popups SET rules = '{\"where\":\"all\"}' WHERE slug = 'ids-popup'");
+        $form = $site->php('echo Talea\Builder\Build::toJson(Talea\Builder\Build::sanitize(["v" => 1, "children" => [["type" => "form", "content" => ["name" => "Ids popup form", "fields" => [["label" => "E-mail", "type" => "email", "required" => true]]]]]], true)[0]);');
+        $site->exec("INSERT INTO tl_popups (name, slug, rules, build, build_draft, active, updated_at) VALUES ('Ids popup', 'ids-popup', '{}', ?, NULL, 1, NOW())", [$form]);
+        $site->exec("UPDATE tl_popups SET rules = '{\"where\":\"all\"}' WHERE slug = 'ids-popup'");
         $site->clearPageCache();
         $visitor = $site->client();
 
         $home = $visitor->get('/');
         $this->assertSame(200, $home->status);
-        $popup = (string) $site->value("SELECT public_id FROM ka_popups WHERE slug = 'ids-popup'");
+        $popup = (string) $site->value("SELECT public_id FROM tl_popups WHERE slug = 'ids-popup'");
         $this->assertStringContainsString('data-popup="' . $popup . '"', $home->body, 'the pop-up carries its public id');
         $this->assertMatchesRegularExpression('#name="source" value="popup:' . $popup . '"#', $home->body, 'the form in the pop-up has the pop-up public id as its source');
         $this->assertNoIntegerKeys('home', $home->body);
 
-        $news = (string) $site->value("SELECT slug FROM ka_news WHERE visible = 1 AND deleted_at IS NULL ORDER BY news_id LIMIT 1");
+        $news = (string) $site->value("SELECT slug FROM tl_news WHERE visible = 1 AND deleted_at IS NULL ORDER BY news_id LIMIT 1");
         $contact = $visitor->get('/contact');
         $this->assertMatchesRegularExpression('#name="source" value="page:' . self::UUID . '"#', $contact->body, 'a page form has the page public id as its source');
         foreach (['/contact' => $contact->body, '/news/' . $news => $visitor->get('/news/' . $news)->body, '/news' => $visitor->get('/news')->body, '/sitemap.xml' => $visitor->get('/sitemap.xml')->body,
@@ -53,30 +53,30 @@ final class PublicIdsPublicTest extends SiteTestCase
             $this->assertNoIntegerKeys($path, $body);
         }
         $this->assertMatchesRegularExpression('#<guid isPermaLink="false">news-' . self::UUID . '</guid>#', $visitor->get('/rss.xml')->body, 'the feed id of a news item is its public id');
-        $this->assertStringContainsString('"id":"news-' . $site->publicId('news', (int) $site->value('SELECT MAX(news_id) FROM ka_news WHERE visible = 1')) . '"', $visitor->get('/feed.json')->body, 'the JSON feed id is the public id');
+        $this->assertStringContainsString('"id":"news-' . $site->publicId('news', (int) $site->value('SELECT MAX(news_id) FROM tl_news WHERE visible = 1')) . '"', $visitor->get('/feed.json')->body, 'the JSON feed id is the public id');
     }
 
     public function testTheRoutesAcceptOnlyPublicIds(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO ka_popups (name, slug, rules, build, active, updated_at) VALUES ('Ids route', 'ids-route', '{}', ?, 1, NOW())", [json_encode(['v' => 1, 'children' => []])]);
-        $id = (int) $site->value("SELECT popup_id FROM ka_popups WHERE slug = 'ids-route'");
+        $site->exec("INSERT INTO tl_popups (name, slug, rules, build, active, updated_at) VALUES ('Ids route', 'ids-route', '{}', ?, 1, NOW())", [json_encode(['v' => 1, 'children' => []])]);
+        $id = (int) $site->value("SELECT popup_id FROM tl_popups WHERE slug = 'ids-route'");
         $admin = $site->admin();
         $this->assertSame(404, $admin->get("/_popup/$id?build=draft")->status, 'an integer key is not a pop-up route');
         $this->assertSame(200, $admin->get('/_popup/' . $site->publicId('popups', $id) . '?build=draft')->status, 'the public id is');
-        $before = (int) $site->value('SELECT impressions FROM ka_popups WHERE popup_id = ?', [$id]);
+        $before = (int) $site->value('SELECT impressions FROM tl_popups WHERE popup_id = ?', [$id]);
         $site->client()->post('/popup', ['popup' => (string) $id, 'event' => 'view']);
-        $this->assertSame($before, (int) $site->value('SELECT impressions FROM ka_popups WHERE popup_id = ?', [$id]), 'the counter ignores an integer key');
+        $this->assertSame($before, (int) $site->value('SELECT impressions FROM tl_popups WHERE popup_id = ?', [$id]), 'the counter ignores an integer key');
         $site->client()->post('/popup', ['popup' => $site->publicId('popups', $id), 'event' => 'view']);
-        $this->assertSame($before + 1, (int) $site->value('SELECT impressions FROM ka_popups WHERE popup_id = ?', [$id]), 'and counts a public id');
+        $this->assertSame($before + 1, (int) $site->value('SELECT impressions FROM tl_popups WHERE popup_id = ?', [$id]), 'and counts a public id');
     }
 
     public function testTheCommentWidgetOfADraftNamesThePageByItsPublicId(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO ka_pages (slug, title, text, visible, build, updated_at) VALUES ('ids-draft', 'Ids draft', '', 0, ?, NOW())",
+        $site->exec("INSERT INTO tl_pages (slug, title, text, visible, build, updated_at) VALUES ('ids-draft', 'Ids draft', '', 0, ?, NOW())",
             [json_encode(['v' => 1, 'children' => [['id' => 'idd1', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Draft heading']]]])]);
-        $id = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'ids-draft'");
+        $id = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'ids-draft'");
         $public = $site->publicId('pages', $id);
         $until = time() + 3600;
         // the signed key covers the internal target (it is a hash, nothing of it is readable); the page and the comment form carry the public id
@@ -90,7 +90,7 @@ final class PublicIdsPublicTest extends SiteTestCase
         $post = fn (string $target) => $visitor->post('/_comment', ['target' => $target, 'key' => $key, 'back' => '/ids-draft?build=draft&preview_key=' . $key, 'name' => 'Client', 'text' => 'Please change this.']);
         $this->assertSame(403, $post("page:$id")->status, 'an integer key is not a target');
         $this->assertSame(303, $post("page:$public")->status, 'the public id is');
-        $this->assertSame("page:$id", (string) $site->value('SELECT target FROM ka_draft_comments ORDER BY id DESC LIMIT 1'), 'the comment is stored against the internal key');
+        $this->assertSame("page:$id", (string) $site->value('SELECT target FROM tl_draft_comments ORDER BY id DESC LIMIT 1'), 'the comment is stored against the internal key');
     }
 
     public function testAWebhookPayloadHasPublicIdsOnly(): void
@@ -103,11 +103,11 @@ final class PublicIdsPublicTest extends SiteTestCase
         sleep(2); // the form asks for a moment between loading and sending
         $site->client()->post('/form', ['source' => $field('source'), 'element' => $field('element'), 'back' => '/contact', 'as_time' => $field('as_time'), 'as_signature' => $field('as_signature'),
             'p0' => 'Jane', 'p1' => 'jane@example.org', 'p2' => '', 'p3' => 'Hello', 'p4' => '1']);
-        $body = (string) $site->value("SELECT body FROM ka_webhook_deliveries WHERE event = 'enquiry_received' ORDER BY id DESC LIMIT 1");
+        $body = (string) $site->value("SELECT body FROM tl_webhook_deliveries WHERE event = 'enquiry_received' ORDER BY id DESC LIMIT 1");
         $this->assertNotSame('', $body, 'the enquiry call is in the delivery log');
         $payload = json_decode($body, true);
         $this->assertTrue(Uuid::valid($payload['id'] ?? null), 'the enquiry in the payload is its public id');
-        $this->assertSame((string) $site->value('SELECT public_id FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1'), $payload['id'], 'the public id of the stored enquiry');
+        $this->assertSame((string) $site->value('SELECT public_id FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), $payload['id'], 'the public id of the stored enquiry');
         $this->assertDoesNotMatchRegularExpression('/"[a-z_]*id":\s*\d/', $body, 'no integer id anywhere in the payload');
     }
 }

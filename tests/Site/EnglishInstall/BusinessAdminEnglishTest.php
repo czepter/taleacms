@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\EnglishInstall;
+namespace Talea\Tests\Site\EnglishInstall;
 
-use Kaleta\Tests\Site\Support\CzechCheck;
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\CzechCheck;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** The English admin of the business starter: every screen, the messages after saving and pop-ups – no Czech. */
@@ -31,7 +31,7 @@ final class BusinessAdminEnglishTest extends SiteTestCase
     }
 
     /** Like curl -L: follows the redirects (at most five) and returns the body of the page the message is shown on. */
-    private function follow(\Kaleta\Tests\Site\Support\Http $client, \Kaleta\Tests\Site\Support\Response $response, string $label): string
+    private function follow(\Talea\Tests\Site\Support\Http $client, \Talea\Tests\Site\Support\Response $response, string $label): string
     {
         for ($hop = 0; $hop < 5 && $response->redirect !== ''; $hop++) {
             $response = $client->get($response->redirect);
@@ -74,12 +74,12 @@ final class BusinessAdminEnglishTest extends SiteTestCase
     {
         $token = $this->site()->csrf(null, '/admin.php?module=popups&action=new');
         $this->site()->admin()->post('/admin.php?module=popups&action=create', ['_csrf' => $token, 'template' => 'lead_magnet', 'name' => '']);
-        $popup = (string) $this->site()->value('SELECT public_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1');
+        $popup = (string) $this->site()->value('SELECT public_id FROM tl_popups ORDER BY popup_id DESC LIMIT 1');
         $this->assertNotSame('', $popup, 'the pop-up from the template was created');
         $admin = $this->site()->admin();
         $this->assertCzechFree("/admin.php?module=popups&action=edit&id=$popup", 200, $admin, label: 'pop-up settings');
         $this->assertCzechFree("/admin.php?module=popups&action=builder&id=$popup", 200, $admin, label: 'pop-up in the builder');
-        $this->assertCzechFree("/_popup/" . $this->site()->publicId('popups', (int) $this->site()->value('SELECT popup_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1')) . "?build=draft&editor=1", 200, $admin, label: 'pop-up template on the builder canvas');
+        $this->assertCzechFree("/_popup/" . $this->site()->publicId('popups', (int) $this->site()->value('SELECT popup_id FROM tl_popups ORDER BY popup_id DESC LIMIT 1')) . "?build=draft&editor=1", 200, $admin, label: 'pop-up template on the builder canvas');
         $toggle = $admin->post('/admin.php?module=popups&action=toggle', ['_csrf' => $token, 'popup_id' => $popup]);
         $this->assertMessageWithoutCzech($this->follow($admin, $toggle, 'toggle'), 'message: an unpublished pop-up cannot be turned on');
         $this->assertCzechFree('/admin.php?module=popups', 200, $admin, label: 'pop-up list');

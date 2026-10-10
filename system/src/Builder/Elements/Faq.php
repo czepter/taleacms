@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Expandable items (accordion) as <details> – without JavaScript. Optionally only one open at a time (the name attribute)
@@ -31,13 +31,13 @@ final class Faq extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-faq details { border-block-end: 1px solid var(--ka-color-line); }
-.ka-faq summary { display: flex; justify-content: space-between; gap: 1em; padding-block: var(--ka-space-s); font-weight: 600; cursor: pointer; list-style: none; }
-.ka-faq summary::-webkit-details-marker { display: none; }
-.ka-faq summary::after { content: "+"; font-size: 1.4em; line-height: 1; color: var(--ka-color-primary); transition: rotate 0.2s; }
-.ka-faq details[open] summary::after { rotate: 45deg; }
-.ka-faq details > div { padding-block-end: var(--ka-space-s); color: var(--ka-color-muted); }
-.ka-faq details > div > :last-child { margin-block-end: 0; }';
+        return '.tl-faq details { border-block-end: 1px solid var(--tl-color-line); }
+.tl-faq summary { display: flex; justify-content: space-between; gap: 1em; padding-block: var(--tl-space-s); font-weight: 600; cursor: pointer; list-style: none; }
+.tl-faq summary::-webkit-details-marker { display: none; }
+.tl-faq summary::after { content: "+"; font-size: 1.4em; line-height: 1; color: var(--tl-color-primary); transition: rotate 0.2s; }
+.tl-faq details[open] summary::after { rotate: 45deg; }
+.tl-faq details > div { padding-block-end: var(--tl-space-s); color: var(--tl-color-muted); }
+.tl-faq details > div > :last-child { margin-block-end: 0; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -55,6 +55,6 @@ final class Faq extends Element
             $html .= '<details' . $group . ($i === 0 && $k->editor ? ' open' : '') . '><summary>' . e($item['question']) . '</summary><div>' . $item['answer'] . '</div></details>';
         }
 
-        return '<div' . Text::withClass($a, 'ka-faq') . '>' . $html . '</div>';
+        return '<div' . Text::withClass($a, 'tl-faq') . '>' . $html . '</div>';
     }
 }

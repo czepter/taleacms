@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\ImageDownloader;
-use Kaleta\Core\MigrationReport;
+use Talea\Core\ImageDownloader;
+use Talea\Core\MigrationReport;
 
 /**
- * MCP tools for moving a site to Kaleta (2.7): the parity report and the import of old form entries. Part of Mcp\Tools.
+ * MCP tools for moving a site to Talea (2.7): the parity report and the import of old form entries. Part of Mcp\Tools.
  *
  * @phpstan-ignore trait.unused
  */
@@ -24,7 +24,7 @@ trait MigrationTools
         if ($id === '') {
             $url = trim((string) ($a['url'] ?? ''));
             $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
-            if (!\Kaleta\Core\WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
+            if (!\Talea\Core\WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
                 throw new \InvalidArgumentException('Give the address of the old site, e.g. https://www.example.com.');
             }
             $state = MigrationReport::newState($url);

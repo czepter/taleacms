@@ -24,7 +24,7 @@ return [
     'list' => ['sort' => 'name', 'filter_field' => 'category', 'filters' => true],
     'card' => ['summary', 'version'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
 
         return [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),

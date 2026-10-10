@@ -1,4 +1,4 @@
-/* Kaleta - site script for visitors. No libraries; everything is an optional enhancement, the site works without JavaScript too.
+/* Talea - site script for visitors. No libraries; everything is an optional enhancement, the site works without JavaScript too.
  * The mobile menu, dialogs and expanding are handled by HTML and CSS (popover, <details>), not by this script. */
 (function () {
 	'use strict';
@@ -47,7 +47,7 @@
 	function open(list, index) {
 		if (!modal) {
 			modal = document.createElement('dialog');
-			modal.className = 'ka-lightbox';
+			modal.className = 'tl-lightbox';
 			modal.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-step="-1" aria-label="' + A('Previous photo') + '">‹</button>'
 				+ '<button type="button" data-step="1" aria-label="' + A('Next photo') + '">›</button><button type="button" data-close aria-label="' + A('Close') + '">×</button>';
 			document.body.appendChild(modal);
@@ -74,8 +74,8 @@
 
 	document.addEventListener('click', function (e) {
 		var img = e.target;
-		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .lead, figure.gallery, .ka-gallery')) { return; }
-		var gallery = img.closest('figure.gallery, .ka-gallery');
+		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .lead, figure.gallery, .tl-gallery')) { return; }
+		var gallery = img.closest('figure.gallery, .tl-gallery');
 		var list = Array.prototype.slice.call((gallery || img.closest('.text, .lead')).querySelectorAll(gallery ? 'img' : 'figure:not(.gallery) img'));
 		if (list.indexOf(img) === -1) { list = [img]; }
 		open(list, list.indexOf(img));
@@ -85,18 +85,18 @@
 
 	document.addEventListener('keydown', function (e) {
 		if (e.key !== 'Escape') { return; }
-		var li = e.target.closest && e.target.closest('.ka-nav li.submenu');
-		if (li && !li.closest('.ka-nav-menu:popover-open')) {
+		var li = e.target.closest && e.target.closest('.tl-nav li.submenu');
+		if (li && !li.closest('.tl-nav-menu:popover-open')) {
 			li.classList.add('closed');
 			var top = li.querySelector(':scope > a, :scope > .menu-group');
 			if (top && top !== e.target) { top.focus(); }
 		}
 		// a panel opened only by mouse hover
-		document.querySelectorAll('.ka-nav li.submenu:hover').forEach(function (h) { h.classList.add('closed'); });
+		document.querySelectorAll('.tl-nav li.submenu:hover').forEach(function (h) { h.classList.add('closed'); });
 	});
 	['focusout', 'mouseout'].forEach(function (event) {
 		document.addEventListener(event, function (e) {
-			var li = e.target.closest && e.target.closest('.ka-nav li.submenu.closed');
+			var li = e.target.closest && e.target.closest('.tl-nav li.submenu.closed');
 			if (li && !li.contains(e.relatedTarget)) { li.classList.remove('closed'); }
 		});
 	});
@@ -149,7 +149,7 @@
 	/* ---------- carousel: arrows scroll the strip by the width of the visible slides ---------- */
 
 	document.querySelectorAll('[data-carousel]').forEach(function (k) {
-		var strip = k.querySelector('.ka-carousel-strip');
+		var strip = k.querySelector('.tl-carousel-strip');
 		var arrows = k.querySelectorAll('[data-step]');
 		function state() {
 			arrows[0].disabled = strip.scrollLeft <= 2;
@@ -168,7 +168,7 @@
 	document.querySelectorAll('[data-before-after]').forEach(function (s) {
 		var control = s.querySelector('input[type="range"]');
 		if (!control) { return; }
-		var move = function () { s.style.setProperty('--ka-split', control.value + '%'); };
+		var move = function () { s.style.setProperty('--tl-split', control.value + '%'); };
 		control.addEventListener('input', move);
 		s.setAttribute('data-enabled', '');
 		move();
@@ -181,7 +181,7 @@
 		if (!modal.showPopover || modal.matches(':popover-open')) { return; }
 		var fromUrl = document.activeElement;
 		modal.showPopover();
-		var target = modal.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-popup-close)') || modal.querySelector('button');
+		var target = modal.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.tl-popup-close)') || modal.querySelector('button');
 		if (target) { if (!target.matches('a, button, input, select, textarea')) { target.setAttribute('tabindex', '-1'); } target.focus(); }
 		modal.addEventListener('toggle', function revert(e) {
 			if (e.newState !== 'closed') { return; }
@@ -204,22 +204,22 @@
 	}
 	/* ---------- popups (Builder\Popups): trigger, browser rules, frequency and counters – no cookies ---------- */
 
-	var popups = document.querySelectorAll('.ka-popup[data-popup]');
+	var popups = document.querySelectorAll('.tl-popup[data-popup]');
 	if (popups.length) {
 		var session = function () { try { return sessionStorage; } catch (error) { return null; } };
 		var persistent = function () { try { return localStorage; } catch (error) { return null; } };
 		var read = function (u, k) { try { return u ? u.getItem(k) : null; } catch (error) { return null; } };
 		var write = function (u, k, v) { try { if (u) { u.setItem(k, v); } } catch (error) { /* private mode */ } };
 		// visit: page count, campaign and where it came from (the first page of the visit) – only in the visitor's sessionStorage
-		var pageCount = (parseInt(read(session(), 'ka-pages'), 10) || 0) + 1;
-		write(session(), 'ka-pages', String(pageCount));
-		if (read(session(), 'ka-campaign') === null) {
+		var pageCount = (parseInt(read(session(), 'tl-pages'), 10) || 0) + 1;
+		write(session(), 'tl-pages', String(pageCount));
+		if (read(session(), 'tl-campaign') === null) {
 			var utm = [];
 			new URLSearchParams(location.search).forEach(function (v, k) { if (k.indexOf('utm_') === 0) { utm.push(v); } });
-			write(session(), 'ka-campaign', utm.join(' ').toLowerCase());
+			write(session(), 'tl-campaign', utm.join(' ').toLowerCase());
 			var fromUrl = '';
 			try { fromUrl = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : ''; } catch (error) { /* invalid URL */ }
-			write(session(), 'ka-referrer', fromUrl.toLowerCase());
+			write(session(), 'tl-referrer', fromUrl.toLowerCase());
 		}
 		var phone = window.matchMedia('(max-width: 767px)').matches;
 		var report = function (modal, event) {
@@ -233,9 +233,9 @@
 
 		popups.forEach(function (modal) {
 			var id = modal.getAttribute('data-popup');
-			var key = 'ka-popup-' + id;
+			var key = 'tl-popup-' + id;
 			var frequency = modal.getAttribute('data-frequency');
-			var dialog = modal.classList.contains('ka-popup--window') || modal.classList.contains('ka-popup--fullscreen');
+			var dialog = modal.classList.contains('tl-popup--window') || modal.classList.contains('tl-popup--fullscreen');
 			var conversion = false;
 			var openItems = false;
 
@@ -261,7 +261,7 @@
 			});
 			var open = function () {
 				// nothing else opens over an open popup; a bar or a panel does not block the popup
-				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.ka-popup--window:popover-open, .ka-popup--fullscreen:popover-open, dialog[open]')) { return false; }
+				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.tl-popup--window:popover-open, .tl-popup--fullscreen:popover-open, dialog[open]')) { return false; }
 				if (dialog) { openModal(modal); } else { modal.showPopover(); }
 				return true;
 			};
@@ -274,7 +274,7 @@
 				var wanted = (modal.getAttribute(attribute) || '').toLowerCase();
 				return wanted === '' || (read(session(), sessionKey) || '').indexOf(wanted) !== -1;
 			};
-			if (!search('data-campaign', 'ka-campaign') || !search('data-referrer', 'ka-referrer')) { return; }
+			if (!search('data-campaign', 'tl-campaign') || !search('data-referrer', 'tl-referrer')) { return; }
 			// frequency: when the popup does not show by itself again
 			var was = read(persistent(), key);
 			if ((frequency === 'session' && read(session(), key)) || (frequency === 'until_submitted' && (read(session(), key) || read(persistent(), key + '-submitted')))
@@ -291,7 +291,7 @@
 					return;
 				}
 				// nor does it close a menu the visitor is using right now (a popover on a phone): it waits until they close it
-				var menu = document.querySelector('.ka-nav [popover]:popover-open');
+				var menu = document.querySelector('.tl-nav [popover]:popover-open');
 				if (menu) {
 					menu.addEventListener('toggle', function delay(e) {
 						if (e.newState !== 'closed') { return; }
@@ -332,7 +332,7 @@
 		// Esc also closes a panel and a bar (popover="manual" does not close by itself)
 		document.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') { return; }
-			document.querySelectorAll('.ka-popup[popover="manual"]:popover-open').forEach(function (o) { o.hidePopover(); });
+			document.querySelectorAll('.tl-popup[popover="manual"]:popover-open').forEach(function (o) { o.hidePopover(); });
 		});
 	}
 
@@ -368,7 +368,7 @@
 			var remaining = Math.floor((target - Date.now()) / 1000);
 			if (remaining <= 0) {
 				var end = document.createElement('p');
-				end.className = 'ka-countdown-end';
+				end.className = 'tl-countdown-end';
 				end.textContent = o.getAttribute('data-end');
 				o.replaceWith(end);
 				return;
@@ -382,7 +382,7 @@
 		if (!isNaN(target) && parts.s) { tick(); }
 	});
 
-	/* ---------- the data layer (Google Tag Manager, GA4): Kaleta pushes conversion events only when the site has one ---------- */
+	/* ---------- the data layer (Google Tag Manager, GA4): Talea pushes conversion events only when the site has one ---------- */
 	function track(data) { if (Array.isArray(window.dataLayer)) { window.dataLayer.push(data); } }
 
 	/* ---------- reCAPTCHA v3 (2.6): the token is fetched when the form is sent, then the form goes on as usual ---------- */
@@ -406,7 +406,7 @@
 
 	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
 	document.querySelectorAll('form[data-form]').forEach(function (f) {
-		var key = 'ka-form-' + f.getAttribute('data-form');
+		var key = 'tl-form-' + f.getAttribute('data-form');
 		var wait = f.querySelector('input[data-wait]');
 		f.addEventListener('submit', function (e) {
 			var values = {};
@@ -438,9 +438,9 @@
 	});
 	var sent = new URLSearchParams(location.search).get('sent');
 	Array.prototype.map.call(document.querySelectorAll('[data-sent]'), function (h) { return h.getAttribute('data-sent'); }).concat(sent ? [sent] : []).forEach(function (name) {
-		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-form-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
+		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('tl-form-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
 		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
-		window.dispatchEvent(new CustomEvent('kaleta:form_sent', { detail: { form: name } }));
+		window.dispatchEvent(new CustomEvent('talea:form_sent', { detail: { form: name } }));
 				track({ event: 'generate_lead', form_name: name });
 	});
 	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter_signup' }); }
@@ -484,11 +484,11 @@
 		}
 		var wrapper = form.querySelector('[data-steps]');
 		if (!wrapper) { return; }
-		var steps = Array.prototype.slice.call(wrapper.children).filter(function (el) { return el.classList.contains('ka-step'); });
-		var submit = form.querySelector('button[type=submit]'), submitRow = submit ? submit.closest('.ka-field') : null;
+		var steps = Array.prototype.slice.call(wrapper.children).filter(function (el) { return el.classList.contains('tl-step'); });
+		var submit = form.querySelector('button[type=submit]'), submitRow = submit ? submit.closest('.tl-field') : null;
 		var nav = document.createElement('p');
-		nav.className = 'ka-steps-navigation';
-		nav.innerHTML = '<span aria-live="polite"></span><button type="button" class="ka-button ka-button--outline">' + A('Back') + '</button><button type="button" class="ka-button ka-button--primary">' + A('Next') + '</button>';
+		nav.className = 'tl-steps-navigation';
+		nav.innerHTML = '<span aria-live="polite"></span><button type="button" class="tl-button tl-button--outline">' + A('Back') + '</button><button type="button" class="tl-button tl-button--primary">' + A('Next') + '</button>';
 		wrapper.after(nav);
 		var back = nav.children[1], next = nav.children[2], current = 0;
 		steps.forEach(function (step, i) { if (step.querySelector('[aria-invalid="true"]')) { current = i; } }); // after an error: the step with the marked field
@@ -559,19 +559,19 @@
 		if (!options.length) { return; }
 		var root = document.documentElement;
 		function mark(v) {
-			document.querySelectorAll('.ka-theme').forEach(function (n) { n.setAttribute('data-option', v); });
+			document.querySelectorAll('.tl-theme').forEach(function (n) { n.setAttribute('data-option', v); });
 			options.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-option') === v)); });
 		}
 		var storedValue = null;
-		try { storedValue = localStorage.getItem('ka-theme'); } catch (e) { /* storage unavailable */ }
-		var defaults = (document.querySelector('.ka-theme') || root).getAttribute('data-theme-default') || 'auto';
+		try { storedValue = localStorage.getItem('tl-theme'); } catch (e) { /* storage unavailable */ }
+		var defaults = (document.querySelector('.tl-theme') || root).getAttribute('data-theme-default') || 'auto';
 		mark(storedValue === 'auto' || storedValue === 'light' || storedValue === 'dark' ? storedValue : defaults);
 		document.addEventListener('click', function (e) {
 			var b = e.target.closest && e.target.closest('[data-theme-option]');
 			if (!b) { return; }
 			var v = b.getAttribute('data-theme-option');
 			if (v === 'auto') { root.removeAttribute('data-theme'); } else { root.setAttribute('data-theme', v); }
-			try { localStorage.setItem('ka-theme', v); } catch (err) { /* the choice applies to this page only */ }
+			try { localStorage.setItem('tl-theme', v); } catch (err) { /* the choice applies to this page only */ }
 			mark(v);
 			var offer = b.closest('[popover]');
 			if (offer && offer.matches(':popover-open')) { offer.hidePopover(); }
@@ -584,22 +584,22 @@
 	function swapList(wrapper, url, push) {
 		var id = wrapper.getAttribute('data-collection');
 		wrapper.setAttribute('aria-busy', 'true');
-		fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'kaleta-list' } }).then(function (r) {
+		fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'talea-list' } }).then(function (r) {
 			if (!r.ok) { throw new Error('HTTP ' + r.status); }
 			return r.text();
 		}).then(function (html) {
 			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-collection="' + id + '"]');
 			if (!fresh) { throw new Error('no list'); }
 			wrapper.replaceWith(fresh);
-			document.dispatchEvent(new CustomEvent('kaleta:list')); // new cards: the comparison marks its boxes again
+			document.dispatchEvent(new CustomEvent('talea:list')); // new cards: the comparison marks its boxes again
 			if (push) { history.pushState({ collection: id }, '', url); }
-			var current = fresh.querySelector('.ka-collection-filters [aria-current], .ka-collection-pages [aria-current]');
+			var current = fresh.querySelector('.tl-collection-filters [aria-current], .tl-collection-pages [aria-current]');
 			if (current) { current.focus({ preventScroll: true }); }
 		}).catch(function () { location.href = url; }); // anything unexpected: the ordinary page load
 	}
 
 	document.addEventListener('click', function (e) {
-		var link = e.target.closest && e.target.closest('[data-collection] .ka-collection-filters a, [data-collection] .ka-collection-pages a');
+		var link = e.target.closest && e.target.closest('[data-collection] .tl-collection-filters a, [data-collection] .tl-collection-pages a');
 		if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0 || !window.fetch || !window.DOMParser) { return; }
 		e.preventDefault();
 		swapList(link.closest('[data-collection]'), link.href, true);
@@ -615,10 +615,10 @@
 	   with OpenStreetMap tiles loads only after a click – until then no third party is contacted. Texts come translated in data attributes ---------- */
 
 	document.querySelectorAll('[data-locator]').forEach(function (locator) {
-		var list = locator.querySelector('.ka-locator-list');
+		var list = locator.querySelector('.tl-locator-list');
 		var items = list ? Array.prototype.slice.call(list.children) : [];
 		var message = locator.querySelector('[data-message]');
-		var controls = locator.querySelector('.ka-locator-controls');
+		var controls = locator.querySelector('.tl-locator-controls');
 		if (!list || !controls) { return; }
 		controls.hidden = false;
 		function say(text) { if (message) { message.textContent = text || ''; } }
@@ -674,7 +674,7 @@
 		}
 
 		var mapButton = locator.querySelector('[data-map]');
-		var mapBox = locator.querySelector('.ka-locator-map');
+		var mapBox = locator.querySelector('.tl-locator-map');
 		// Leaflet only from the site's own copy (StoreLocator::LEAFLET_PATH): a script from anywhere else would run with the
 		// site's rights (3.3.2)
 		var base = '';
@@ -712,7 +712,7 @@
 					var at = position(li);
 					if (!at) { return; }
 					var popup = document.createElement('div');
-					['.ka-locator-name', '.ka-locator-address'].forEach(function (part) { var n = li.querySelector(part); if (n) { popup.appendChild(n.cloneNode(true)); } });
+					['.tl-locator-name', '.tl-locator-address'].forEach(function (part) { var n = li.querySelector(part); if (n) { popup.appendChild(n.cloneNode(true)); } });
 					window.L.marker(at).addTo(map).bindPopup(popup);
 					bounds.push(at);
 				});
@@ -720,8 +720,8 @@
 			};
 			mapButton.addEventListener('click', function () {
 				mapButton.disabled = true;
-				loaded('ka-leaflet-css', function () { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'leaflet.css'; return l; });
-				var script = loaded('ka-leaflet-js', function () { var s = document.createElement('script'); s.src = base + 'leaflet.js'; s.defer = true; return s; });
+				loaded('tl-leaflet-css', function () { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'leaflet.css'; return l; });
+				var script = loaded('tl-leaflet-js', function () { var s = document.createElement('script'); s.src = base + 'leaflet.js'; s.defer = true; return s; });
 				var ready = function () {
 					mapBox.hidden = false;
 					mapButton.hidden = true;
@@ -738,7 +738,7 @@
 	   cookies). Add to enquiry works without the script too – it opens the enquiry page with the product. The server checks
 	   every basket line against the products when the form is sent. ---------- */
 
-	var BASKET = 'kaleta-enquiry', COMPARE = 'kaleta-compare';
+	var BASKET = 'talea-enquiry', COMPARE = 'talea-compare';
 	function load(key, empty) { try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v && typeof v === 'object' ? v : empty; } catch (e) { return empty; } }
 	function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage blocked: the basket lasts for this page */ } }
 	var basket = load(BASKET, { lines: [], page: '' }), compare = load(COMPARE, { c: '', url: '', items: [] });
@@ -761,7 +761,7 @@
 		addLine({ c: product.c, i: product.i, n: product.n, v: variant ? variant.value : '', q: Math.max(1, Math.min(9999, parseInt(quantity ? quantity.value : '1', 10) || 1)) });
 		basket.page = safeUrl(form.getAttribute('data-basket')) || basket.page;
 		store(BASKET, basket);
-		var status = form.querySelector('.ka-enquiry-button-status');
+		var status = form.querySelector('.tl-enquiry-button-status');
 		var page = safeUrl(basket.page);
 		if (status) { status.innerHTML = A('Added to the enquiry.') + (page ? ' <a href="' + E(page) + '">' + A('Show the enquiry') + '</a>' : ''); }
 		renderBasket();
@@ -782,7 +782,7 @@
 		compare.items = compare.items.filter(function (it) { return it.i !== product.i; });
 		if (box.checked && compare.items.length >= 4) {
 			box.checked = false;
-			var status = box.form.querySelector('.ka-enquiry-button-status');
+			var status = box.form.querySelector('.tl-enquiry-button-status');
 			if (status) { status.textContent = T('You can compare up to four products.'); }
 		} else if (box.checked) {
 			compare.items.push({ i: product.i, n: product.n });
@@ -790,11 +790,11 @@
 		store(COMPARE, compare);
 		renderBar();
 	});
-	document.addEventListener('kaleta:list', markCompared);
+	document.addEventListener('talea:list', markCompared);
 
 	/* the floating bar: the enquiry (when it is not on this page) and the comparison */
 	function renderBar() {
-		var old = document.querySelector('.ka-bar-compare');
+		var old = document.querySelector('.tl-bar-compare');
 		if (old) { old.remove(); }
 		var parts = [];
 		// the addresses come from localStorage, which an older version or another page could have filled: checked again (3.3.2)
@@ -807,7 +807,7 @@
 		}
 		if (!parts.length) { return; }
 		var bar = document.createElement('div');
-		bar.className = 'ka-bar-compare';
+		bar.className = 'tl-bar-compare';
 		bar.innerHTML = parts.join(' · ');
 		var clear = bar.querySelector('button');
 		if (clear) { clear.addEventListener('click', function () { compare.items = []; store(COMPARE, compare); markCompared(); renderBar(); }); }
@@ -817,7 +817,7 @@
 	/* the basket field of a form: the lines with a quantity and Remove; the hidden field carries them as JSON */
 	function renderBasket() {
 		document.querySelectorAll('[data-basket-field]').forEach(function (field) {
-			var wrapper = field.closest('.ka-basket-field'), list = wrapper.querySelector('[data-basket-list]'), empty = wrapper.querySelector('.ka-basket-empty');
+			var wrapper = field.closest('.tl-basket-field'), list = wrapper.querySelector('[data-basket-list]'), empty = wrapper.querySelector('.tl-basket-empty');
 			list.innerHTML = '';
 			basket.lines.forEach(function (line, index) {
 				var li = document.createElement('li');
@@ -853,13 +853,13 @@
 (function () {
 	var alternatives = document.querySelectorAll('link[rel="alternate"][hreflang]:not([hreflang="x-default"])');
 	if (alternatives.length < 2 || navigator.webdriver || /bot|crawl|spider|slurp|facebookexternalhit|preview|lighthouse|headless/i.test(navigator.userAgent)) { return; }
-	var save = function (language) { try { localStorage.setItem('ka-language', language); } catch (e) { /* storage unavailable – nothing */ } };
+	var save = function (language) { try { localStorage.setItem('tl-language', language); } catch (e) { /* storage unavailable – nothing */ } };
 	document.addEventListener('click', function (e) {
-		var link = e.target.closest && e.target.closest('.ka-languages a[hreflang], .ka-languages-select a[hreflang]');
+		var link = e.target.closest && e.target.closest('.tl-languages a[hreflang], .tl-languages-select a[hreflang]');
 		if (link) { save(link.getAttribute('hreflang')); }
 	});
 	var storedItem = null;
-	try { storedItem = localStorage.getItem('ka-language'); } catch (e) { return; }
+	try { storedItem = localStorage.getItem('tl-language'); } catch (e) { return; }
 	if (storedItem) { return; }
 	var version = {};
 	alternatives.forEach(function (l) { version[l.getAttribute('hreflang').toLowerCase().slice(0, 2)] = l.href; });
@@ -925,14 +925,14 @@
 			var s = service();
 			timesRequest++; // times still loading for the previous month or service are dropped
 			times.hidden = true; times.innerHTML = '';
-			if (!s) { calendar.innerHTML = '<p class="ka-booking-empty">' + T('Choose a service first.') + '</p>'; return; }
+			if (!s) { calendar.innerHTML = '<p class="tl-booking-empty">' + T('Choose a service first.') + '</p>'; return; }
 			var ticket = ++monthRequest, key = month.getFullYear() + '-' + pad(month.getMonth() + 1);
-			calendar.innerHTML = '<p class="ka-booking-empty">' + T('Loading…') + '</p>';
+			calendar.innerHTML = '<p class="tl-booking-empty">' + T('Loading…') + '</p>';
 			load(form.getAttribute('data-days-url'), { service: s, staff: staff(), month: key }, function (data) {
 				if (ticket !== monthRequest) { return; }
 				freeDays = data && data.days ? data.days : [];
 				calendar.innerHTML = '';
-				var head = document.createElement('div'); head.className = 'ka-booking-month';
+				var head = document.createElement('div'); head.className = 'tl-booking-month';
 				var previous = button('‹', function () { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); renderMonth(); }, { 'aria-label': T('Previous month') });
 				previous.disabled = month <= new Date(today.getFullYear(), today.getMonth(), 1);
 				var next = button('›', function () { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderMonth(); }, { 'aria-label': T('Next month') });
@@ -940,7 +940,7 @@
 				var title = document.createElement('span'); title.textContent = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(month);
 				head.appendChild(previous); head.appendChild(title); head.appendChild(next);
 				calendar.appendChild(head);
-				var grid = document.createElement('div'); grid.className = 'ka-booking-days'; grid.setAttribute('role', 'group');
+				var grid = document.createElement('div'); grid.className = 'tl-booking-days'; grid.setAttribute('role', 'group');
 				for (var w = 0; w < 7; w++) { // Monday first
 					var name = document.createElement('span'); name.textContent = new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(new Date(2024, 0, 1 + w)); grid.appendChild(name);
 				}
@@ -966,12 +966,12 @@
 		function loadTimes() {
 			if (!day) { return; }
 			var ticket = ++timesRequest;
-			times.hidden = false; times.innerHTML = '<p class="ka-booking-empty">' + T('Loading…') + '</p>';
+			times.hidden = false; times.innerHTML = '<p class="tl-booking-empty">' + T('Loading…') + '</p>';
 			load(form.getAttribute('data-slots'), { service: service(), staff: staff(), day: day }, function (data) {
 				if (ticket !== timesRequest) { return; } // another day was picked meanwhile
 				times.innerHTML = '';
 				var slots = data && data.slots ? data.slots : [];
-				if (!slots.length) { times.innerHTML = '<p class="ka-booking-empty">' + T('No free times on this day.') + '</p>'; return; }
+				if (!slots.length) { times.innerHTML = '<p class="tl-booking-empty">' + T('No free times on this day.') + '</p>'; return; }
 				var label = new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(day + 'T12:00:00'));
 				slots.forEach(function (time) {
 					times.appendChild(button(time, function (e) {

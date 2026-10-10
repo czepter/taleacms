@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Blueprint;
-use Kaleta\Core\Facts;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Blueprint;
+use Talea\Core\Facts;
+use Talea\Core\Response;
 
 /**
- * Industry blueprints (2.11, Core\Blueprint): apply one shipped with Kaleta or a manifest from another site, answer its
+ * Industry blueprints (2.11, Core\Blueprint): apply one shipped with Talea or a manifest from another site, answer its
  * questions (each answer is a fact), see its failing checks, take it off, and download the current site as a manifest.
  */
 final class Blueprints extends Module

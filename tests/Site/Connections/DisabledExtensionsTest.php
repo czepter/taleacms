@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\Connections;
+namespace Talea\Tests\Site\Connections;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** With News and Forms & enquiries switched off the site, the admin, the builder schema and MCP lose them (was: section 47 of tools/test.sh). */
@@ -21,7 +21,7 @@ final class DisabledExtensionsTest extends SiteTestCase
         foreach (glob($site->path('storage/cache/*.txt')) ?: [] as $file) {
             unlink($file);
         }
-        $newsSlug = (string) $site->value('SELECT slug FROM ka_news ORDER BY news_id LIMIT 1');
+        $newsSlug = (string) $site->value('SELECT slug FROM tl_news ORDER BY news_id LIMIT 1');
         $visitor = $site->client();
 
         $this->assertPage('/news', 404, message: 'the news list is gone');

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Bing;
-use Kaleta\Connectors\Google;
+use Talea\Connectors\Bing;
+use Talea\Connectors\Google;
 
 /**
  * Search data (2.13): what Google Search Console and Bing Webmaster Tools know about the site – the queries people
@@ -14,7 +14,7 @@ use Kaleta\Connectors\Google;
  *
  * The daily job search_data (Core\Scheduler) asks every connected engine for the last 28 days (Search Console's own
  * "last 28 days" ends three days back, where the data is final) and stores the answer as one snapshot per day in
- * ka_search_stats; snapshots are kept 16 months, so a later version can draw trends. The Statistics screen, get_stats and
+ * tl_search_stats; snapshots are kept 16 months, so a later version can draw trends. The Statistics screen, get_stats and
  * the monthly report show the latest snapshot of the period. Nothing here is personal: queries and page addresses only.
  *
  * The response → rows mapping is pure (googleRows, bingRows) and tested without a network; the fake services in

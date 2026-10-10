@@ -2,8 +2,8 @@
 /**
  * The people who take bookings (3.0) and the days off of everyone.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Bookings $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Bookings $module
  * @var string $csrf
  * @var list<array<string, mixed>> $staff
  * @var list<array<string, mixed>> $services

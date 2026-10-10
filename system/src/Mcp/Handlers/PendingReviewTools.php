@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Core\PendingReview;
+use Talea\Core\PendingReview;
 
 /**
  * "Waiting for you" over MCP (3.2, Core\PendingReview): what waits for a person, the same list as on the dashboard.
@@ -18,7 +18,7 @@ trait PendingReviewTools
     private function toolListPendingReview(string $name, array $a): mixed
     {
         // only the kinds this user may open in the administration
-        $waiting = PendingReview::all($this->app, (new \Kaleta\Admin\Kernel($this->app))->modules());
+        $waiting = PendingReview::all($this->app, (new \Talea\Admin\Kernel($this->app))->modules());
         $origin = $this->app->request->origin();
 
         return [

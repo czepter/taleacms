@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Images;
+use Talea\Core\Db;
+use Talea\Core\Images;
 
 /**
  * Less page jumping while loading (CLS): adds dimensions and the dominant color, as a background until the photo loads,
@@ -31,7 +31,7 @@ final class ImageHtml
         foreach ($known as $path => $o) {
             if ($o['color'] === '' && $computed < self::PER_REQUEST) {
                 $computed++;
-                $known[$path]['color'] = Images::color(KALETA_ROOT . '/' . ($o['thumb_path'] !== '' ? $o['thumb_path'] : $path)) ?: '-';
+                $known[$path]['color'] = Images::color(TALEA_ROOT . '/' . ($o['thumb_path'] !== '' ? $o['thumb_path'] : $path)) ?: '-';
                 $db->update('media', ['color' => $known[$path]['color']], ['media_id' => $o['media_id']]); // „-“ = cannot be determined, do not try again
             }
         }

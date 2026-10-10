@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Admin\BuilderActions;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Builder\Popups as Okna;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
+use Talea\Admin\Module;
+use Talea\Admin\BuilderActions;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Builder\Popups as Okna;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
 
 /**
  * Popups: the content is built in the builder as a site part, the settings define the type, trigger, rules and frequency.
@@ -97,9 +97,9 @@ final class Popups extends Module
             'sort_order' => max(-9999, min(9999, $r->postInt('sort_order', 100))),
             'rules' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s'),
             // true until and review by (2.10, Core\Validity): empty or not a date = none
-            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
+            'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')), 'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
         ], ['popup_id' => $p['popup_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back('The pop-up settings were saved.');
     }
@@ -117,7 +117,7 @@ final class Popups extends Module
             return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'error');
         }
         $this->db->update('popups', ['active' => $p['active'] ? 0 : 1], ['popup_id' => $p['popup_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back($p['active'] ? 'The pop-up is off – it no longer shows on the site.' : 'The pop-up is on and shows on the site according to its rules.', $action, $args);
     }
@@ -135,7 +135,7 @@ final class Popups extends Module
     {
         if ($this->request->isPost()) {
             $this->db->delete('popups', ['popup_id' => $this->idParam('popup_id')]);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $this->back('The pop-up was deleted.');

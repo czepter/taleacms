@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\MediaMenuMail;
+namespace Talea\Tests\Site\MediaMenuMail;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -17,7 +17,7 @@ final class MenuTest extends SiteTestCase
     public function testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite(): void
     {
         $this->assertPage('/admin.php?module=menu', 200, 'data-menu-list', message: 'menu editor');
-        $about = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
+        $about = (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'about-us'");
         // 2.7: an icon (people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
         $menu = [
             ['type' => 'page', 'page_id' => $this->site()->publicId('pages', $about), 'text' => 'About the company', 'icon' => 'people', 'description' => 'Who we are', 'children' => [
@@ -30,7 +30,7 @@ final class MenuTest extends SiteTestCase
         $this->adminPost('/admin.php?module=menu&action=save&location=main', ['items' => json_encode($menu, JSON_UNESCAPED_UNICODE)], '/admin.php?module=menu');
         $this->adminPost('/admin.php?module=menu&action=save&location=footer', ['items' => '[{"type":"link","text":"Privacy policy","url":"/privacy"}]'], '/admin.php?module=menu');
 
-        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menus WHERE location = 'footer' AND items LIKE '%/privacy%'"), 'the menu waits in the draft look');
+        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM tl_menus WHERE location = 'footer' AND items LIKE '%/privacy%'"), 'the menu waits in the draft look');
 
         $this->publishLook();
         $page = $this->site()->client()->get('/news');
@@ -56,13 +56,13 @@ final class MenuTest extends SiteTestCase
     #[Depends('testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite')]
     public function testACheckedPageIsAppendedToTheBuiltMenuAndTheAutomaticMenuReturns(): void
     {
-        $ids = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'contact'");
+        $ids = (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'contact'");
         $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => $this->site()->publicId('pages', $ids), 'title' => 'Contact', 'slug' => 'contacts', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Address.</p>'], '/admin.php?module=pages');
-        $this->assertSame('1', (string) $this->site()->value("SELECT items LIKE ? FROM ka_menus WHERE location = 'main'", ['%"page_id":' . $ids . '%']), 'a checked page is appended to the built menu');
+        $this->assertSame('1', (string) $this->site()->value("SELECT items LIKE ? FROM tl_menus WHERE location = 'main'", ['%"page_id":' . $ids . '%']), 'a checked page is appended to the built menu');
 
         $this->adminPost('/admin.php?module=menu&action=automatic&location=main', [], '/admin.php?module=menu');
         $this->publishLook();
 
-        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menus WHERE location = 'main'"), 'back to the automatic menu');
+        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM tl_menus WHERE location = 'main'"), 'back to the automatic menu');
     }
 }

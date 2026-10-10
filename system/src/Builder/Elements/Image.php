@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Core\Images;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Core\Images;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /** Image from Media: srcset from the prepared variants, lazy loading (except for the page's main image), optionally a caption and a link. */
 final class Image extends Element
@@ -37,7 +37,7 @@ final class Image extends Element
     {
         $o = $p['content'];
         if ($o['src'] === '') {
-            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-color-surface);color:var(--ka-color-muted)">' . e(t('Choose an image')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--tl-color-surface);color:var(--tl-color-muted)">' . e(t('Choose an image')) . '</div>' : '';
         }
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
@@ -48,13 +48,13 @@ final class Image extends Element
             $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['link']) . '">' . $img . '</a>';
         }
 
-        return $labelText ? '<figure' . Text::withClass($a, 'ka-figure') . '>' . $img . '<figcaption>' . e($o['caption']) . '</figcaption></figure>' : $img;
+        return $labelText ? '<figure' . Text::withClass($a, 'tl-figure') . '>' . $img . '<figcaption>' . e($o['caption']) . '</figcaption></figure>' : $img;
     }
 
     public static function baseCss(): string
     {
-        return '.ka-figure { margin: 0; }
-.ka-figure img { display: block; width: 100%; height: auto; border-radius: inherit; }
-.ka-figure figcaption { margin-block-start: var(--ka-space-xs); font-size: var(--ka-step--1); color: var(--ka-color-muted); }';
+        return '.tl-figure { margin: 0; }
+.tl-figure img { display: block; width: 100%; height: auto; border-radius: inherit; }
+.tl-figure figcaption { margin-block-start: var(--tl-space-xs); font-size: var(--tl-step--1); color: var(--tl-color-muted); }';
     }
 }

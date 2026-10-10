@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Downloading images from the old site during an import from WordPress.
@@ -15,7 +15,7 @@ namespace Kaleta\Core;
  *  3. at most 3 redirects, never automatic – every step goes through points 1 and 2 again;
  *  4. connection within 5 s, the whole download within 20 s, at most 15 MB (checked already while reading);
  *  5. only JPEG, PNG, GIF and WebP are accepted – by the response header AND by the actual content. Never SVG;
- *  6. no cookies, credentials or headers from the import are sent; the client identifies itself as „Kaleta-import“.
+ *  6. no cookies, credentials or headers from the import are sent; the client identifies itself as „Talea-import“.
  * The downloaded data goes on only through Core\Images, which re-encodes the image.
  */
 final class ImageDownloader
@@ -24,7 +24,7 @@ final class ImageDownloader
     public const int MAX_REDIRECTS = 3;
     public const int CONNECT_TIMEOUT = 5;
     public const int TOTAL_TIMEOUT = 20;
-    private const string USER_AGENT = 'Kaleta-import';
+    private const string USER_AGENT = 'Talea-import';
     private const array TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
     /**
@@ -51,10 +51,10 @@ final class ImageDownloader
         $this->domain = self::domainFromUrl($siteUrl);
     }
 
-    /** The automated tests download from their own server on 127.0.0.1 (KALETA_IMPORT_LOCAL=1); never set on a real site. */
+    /** The automated tests download from their own server on 127.0.0.1 (TALEA_IMPORT_LOCAL=1); never set on a real site. */
     private static function localTests(): bool
     {
-        return getenv('KALETA_IMPORT_LOCAL') === '1';
+        return getenv('TALEA_IMPORT_LOCAL') === '1';
     }
 
     /** Can the server download at all? Without both curl and allow_url_fopen the images have to be moved manually. */

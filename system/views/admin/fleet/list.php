@@ -2,7 +2,7 @@
 /**
  * The fleet console: all paired sites, the ones that need attention first (Fleet\Console::overview).
  *
- * @var Kaleta\Admin\Modules\Fleet $module
+ * @var Talea\Admin\Modules\Fleet $module
  * @var list<array<string, mixed>> $sites
  * @var int $total
  * @var int $needing
@@ -11,7 +11,7 @@
  * @var string $latest the newest version the console knows
  * @var string $pairingKey a pairing key made just now (shown once)
  */
-use Kaleta\Fleet\Console;
+use Talea\Fleet\Console;
 
 $reasonLabels = require __DIR__ . '/reasons.php';
 $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['errors'] ? 'error' : (Console::REASONS[$r] >= Console::REASONS['warnings'] ? 'draft' : '');

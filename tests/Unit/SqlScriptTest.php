@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Unit;
+namespace Talea\Tests\Unit;
 
-use Kaleta\Core\SqlScript;
+use Talea\Core\SqlScript;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(SqlScript::class)]
 final class SqlScriptTest extends TestCase
 {
-    private const string SCRIPT = "-- comment\nALTER TABLE ka_news ADD COLUMN x INT;   -- note after the statement\nCREATE TABLE ka_new (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n";
+    private const string SCRIPT = "-- comment\nALTER TABLE tl_news ADD COLUMN x INT;   -- note after the statement\nCREATE TABLE tl_new (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE tl_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES tl_b (id);\n";
 
     public function testSplitsIntoStatementsAndIgnoresCommentsAndSemicolonsInValues(): void
     {
@@ -36,6 +36,6 @@ final class SqlScriptTest extends TestCase
 
     public function testAScriptOfOnlyCommentsHasNoStatements(): void
     {
-        $this->assertSame([], SqlScript::statements("-- nothing\n-- here\n", 'ka_'));
+        $this->assertSame([], SqlScript::statements("-- nothing\n-- here\n", 'tl_'));
     }
 }

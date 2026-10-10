@@ -1,4 +1,4 @@
-/* Kaleta – page builder. No libraries and no build step.
+/* Talea – page builder. No libraries and no build step.
  *
  * The state is a tree of elements (the same shape PHP cleans and renders: Builder\Build). Every change goes into the history (undo/redo),
  * shortly afterwards it is saved as a draft (action stavba_uloz) and the canvas – the real site page in an iframe – is re-rendered.
@@ -341,10 +341,10 @@
 		const doc = frame.contentDocument;
 		if (!doc) { return; }
 		doc.head.append(Object.assign(doc.createElement('style'), { textContent:
-			'[data-ka-id]{cursor:default} .ka-bd-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .ka-bd-selected{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
-			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .ka-edit-here,.cookies-bar,.cookies-reopen{display:none!important}' }));
+			'[data-tl-id]{cursor:default} .tl-bd-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .tl-bd-selected{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
+			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .tl-edit-here,.cookies-bar,.cookies-reopen{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-bd-grip') { return; }
+			if (e.target.closest('[contenteditable]') || e.target.id === 'tl-bd-grip') { return; }
 			e.preventDefault();
 			e.stopPropagation(); // page scripts do not run on the canvas (player, popups, sharing) – a click only selects
 			if (state.placing) {
@@ -357,9 +357,9 @@
 				return;
 			}
 			// a locked element (Structure → lock) cannot be selected on the canvas: the nearest unlocked ancestor gets the selection
-			let t = e.target.closest('[data-ka-id]');
-			while (t && t.hasAttribute('data-ka-lock')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
-			selection(t ? t.getAttribute('data-ka-id') : null);
+			let t = e.target.closest('[data-tl-id]');
+			while (t && t.hasAttribute('data-tl-lock')) { t = t.parentElement && t.parentElement.closest('[data-tl-id]'); }
+			selection(t ? t.getAttribute('data-tl-id') : null);
 		}, true);
 		hiddenOnCanvas(doc);
 		doc.addEventListener('pointermove', (e) => {
@@ -369,11 +369,11 @@
 			state.dragging = null;
 		});
 		doc.addEventListener('mouseover', (e) => {
-			doc.querySelectorAll('.ka-bd-hover').forEach((x) => x.classList.remove('ka-bd-hover'));
-			const t = e.target.closest('[data-ka-id]');
-			if (t) { t.classList.add('ka-bd-hover'); }
+			doc.querySelectorAll('.tl-bd-hover').forEach((x) => x.classList.remove('tl-bd-hover'));
+			const t = e.target.closest('[data-tl-id]');
+			if (t) { t.classList.add('tl-bd-hover'); }
 		});
-		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ka-id]'); if (t && !t.hasAttribute('data-ka-lock')) { editOnCanvas(t); } });
+		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-tl-id]'); if (t && !t.hasAttribute('data-tl-lock')) { editOnCanvas(t); } });
 		doc.addEventListener('keydown', keys);
 		doc.addEventListener('paste', onPaste);
 		doc.addEventListener('dragover', (e) => {
@@ -397,9 +397,9 @@
 	function hiddenOnCanvas(doc) {
 		doc = doc || (preview && preview.contentDocument);
 		if (!doc) { return; }
-		let st = doc.getElementById('ka-bd-hidden');
-		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'ka-bd-hidden' }); doc.head.append(st); }
-		st.textContent = Object.keys(state.hidden).filter((id) => state.hidden[id]).map((id) => '[data-ka-id="' + id + '"]{display:none!important}').join('');
+		let st = doc.getElementById('tl-bd-hidden');
+		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'tl-bd-hidden' }); doc.head.append(st); }
+		st.textContent = Object.keys(state.hidden).filter((id) => state.hidden[id]).map((id) => '[data-tl-id="' + id + '"]{display:none!important}').join('');
 	}
 
 	/* ---------- dragging on the canvas: a new element, a ready-made section or moving the selected element ---------- */
@@ -408,7 +408,7 @@
 		hideSectionPreview();
 		state.dragging = what;
 		e.dataTransfer.effectAllowed = what.move ? 'move' : 'copy';
-		e.dataTransfer.setData('text/plain', 'kaleta');
+		e.dataTransfer.setData('text/plain', 'talea');
 	}
 
 	/** Move by tapping – a replacement for dragging on touch devices: select an element, tap "Move" and then the place. */
@@ -437,13 +437,13 @@
 	 */
 	function canvasSpot(doc, e) {
 		const type = state.dragging.newType || (state.dragging.section ? 'section' : (find(state.dragging.move) || { p: {} }).p.type);
-		let node = e.target.closest ? e.target.closest('[data-ka-id]') : null;
-		while (node && !find(node.getAttribute('data-ka-id'))) { node = node.parentElement && node.parentElement.closest('[data-ka-id]'); }
+		let node = e.target.closest ? e.target.closest('[data-tl-id]') : null;
+		while (node && !find(node.getAttribute('data-tl-id'))) { node = node.parentElement && node.parentElement.closest('[data-tl-id]'); }
 		if (!node) { return state.build.children.length ? null : { root: true }; }
-		let n = find(node.getAttribute('data-ka-id'));
+		let n = find(node.getAttribute('data-tl-id'));
 		if (type === 'section' || type === 'page_content') {
 			while (n.parent) { n = find(n.parent.id); }
-			node = doc.querySelector('[data-ka-id="' + n.p.id + '"]') || node;
+			node = doc.querySelector('[data-tl-id="' + n.p.id + '"]') || node;
 		}
 		const moving = state.dragging.move && find(state.dragging.move);
 		if (moving && (moving.p.id === n.p.id || contains(moving.p, n.p.id))) { return null; }
@@ -455,10 +455,10 @@
 
 	/** A blue line (before / after) or a frame (inside) on the canvas. */
 	function showSpot(doc, place) {
-		let htmlTag = doc.getElementById('ka-bd-place');
+		let htmlTag = doc.getElementById('tl-bd-place');
 		if (!place || !place.node) { if (htmlTag) { htmlTag.hidden = true; } return; }
 		if (!htmlTag) {
-			htmlTag = Object.assign(doc.createElement('div'), { id: 'ka-bd-place' });
+			htmlTag = Object.assign(doc.createElement('div'), { id: 'tl-bd-place' });
 			htmlTag.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;border-radius:3px';
 			doc.body.append(htmlTag);
 		}
@@ -515,15 +515,15 @@
 	function markInPreview(shift) {
 		const doc = preview && preview.contentDocument;
 		if (!doc) { return; }
-		doc.querySelectorAll('.ka-bd-selected').forEach((x) => x.classList.remove('ka-bd-selected'));
-		const t = state.selected && doc.querySelector('[data-ka-id="' + state.selected + '"]');
-		let handle = doc.getElementById('ka-bd-grip');
+		doc.querySelectorAll('.tl-bd-selected').forEach((x) => x.classList.remove('tl-bd-selected'));
+		const t = state.selected && doc.querySelector('[data-tl-id="' + state.selected + '"]');
+		let handle = doc.getElementById('tl-bd-grip');
 		if (t) {
-			t.classList.add('ka-bd-selected');
+			t.classList.add('tl-bd-selected');
 			if (shift) { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 			// handle at the top left: dragging it moves the selected element elsewhere on the page
 			if (!handle) {
-				handle = Object.assign(doc.createElement('div'), { id: 'ka-bd-grip', draggable: true, title: T('Drag or tap to move') });
+				handle = Object.assign(doc.createElement('div'), { id: 'tl-bd-grip', draggable: true, title: T('Drag or tap to move') });
 				handle.textContent = '⠿';
 				handle.style.cssText = 'position:absolute;z-index:2147483647;display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#ff4f2e;color:#fff;font:14px/1 system-ui;cursor:grab;user-select:none';
 				handle.addEventListener('dragstart', (e) => startDrag(e, { move: state.selected }));
@@ -532,15 +532,15 @@
 				doc.body.append(handle);
 			}
 			// a component without its own wrapper has display: contents – it has no box, the outline is drawn around its content
-			handle.style.display = t.hasAttribute('data-ka-lock') ? 'none' : ''; // a locked element is not dragged
+			handle.style.display = t.hasAttribute('data-tl-lock') ? 'none' : ''; // a locked element is not dragged
 			let r = t.getBoundingClientRect();
-			let outline = doc.getElementById('ka-bd-outline');
+			let outline = doc.getElementById('tl-bd-outline');
 			if (doc.defaultView.getComputedStyle(t).display === 'contents') {
 				const scope = doc.createRange();
 				scope.selectNodeContents(t);
 				r = scope.getBoundingClientRect();
 				if (!outline) {
-					outline = Object.assign(doc.createElement('div'), { id: 'ka-bd-outline' });
+					outline = Object.assign(doc.createElement('div'), { id: 'tl-bd-outline' });
 					outline.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;outline:2px solid #ff4f2e;outline-offset:2px';
 					doc.body.append(outline);
 				}
@@ -554,14 +554,14 @@
 			handle.style.top = Math.max(0, r.top + doc.defaultView.scrollY - 24) + 'px';
 		} else if (handle) {
 			handle.hidden = true;
-			const outline = doc.getElementById('ka-bd-outline');
+			const outline = doc.getElementById('tl-bd-outline');
 			if (outline) { outline.hidden = true; }
 		}
 	}
 
 	/** Double-click on a heading, text, button or reference: typing right on the canvas. */
 	function editOnCanvas(node) {
-		const n = find(node.getAttribute('data-ka-id'));
+		const n = find(node.getAttribute('data-tl-id'));
 		if (!n || !['heading', 'text', 'button', 'testimonial'].includes(n.p.type)) { return; }
 		// in a collection the canvas shows the item's substituted value – editing would overwrite the {{placeholder}}; the text is changed in the Content panel
 		if (elementCollection(n.p.id) && JSON.stringify(n.p.content).includes('{{')) { selection(n.p.id); setState(T('Edit text with collection {{tags}} in the Content panel.')); return; }
@@ -642,15 +642,15 @@
 		});
 	}
 
-	/* ---------- clipboard (also between pages and between Kaleta sites) ---------- */
+	/* ---------- clipboard (also between pages and between Talea sites) ---------- */
 
-	// Within one site the copy lives in localStorage. For another Kaleta site the same element goes as text into the system
-	// clipboard: an envelope {"kaleta":"elements",…} with its classes and components (Builder\ElementClipboard), which the
+	// Within one site the copy lives in localStorage. For another Talea site the same element goes as text into the system
+	// clipboard: an envelope {"talea":"elements",…} with its classes and components (Builder\ElementClipboard), which the
 	// paste event of the other builder recognises and sends to its server.
 	const CLIPBOARD_FORMAT = 'elements';
 	function envelope(elements) {
 		return query(D.urls.package, { elements: JSON.stringify(elements) })
-			.then((j) => JSON.stringify(j.ok ? j.clipboard : { kaleta: CLIPBOARD_FORMAT, v: 1, site: location.origin, elements, classes: [], components: [] }));
+			.then((j) => JSON.stringify(j.ok ? j.clipboard : { talea: CLIPBOARD_FORMAT, v: 1, site: location.origin, elements, classes: [], components: [] }));
 	}
 	/** Writes a promised text into the system clipboard; Safari accepts a promise only through ClipboardItem. */
 	function writeClipboard(text) {
@@ -663,22 +663,22 @@
 	function copy() {
 		const n = state.selected && find(state.selected);
 		if (!n) { return; }
-		try { localStorage.setItem('ka-builder-clipboard', JSON.stringify(n.p)); } catch (e) { /* private mode */ }
+		try { localStorage.setItem('tl-builder-clipboard', JSON.stringify(n.p)); } catch (e) { /* private mode */ }
 		setState(T('Copied'));
-		writeClipboard(envelope([n.p])).catch(() => setState(T('Copied within this site – for another Kaleta site use More actions → Copy for another Kaleta site.')));
+		writeClipboard(envelope([n.p])).catch(() => setState(T('Copied within this site – for another Talea site use More actions → Copy for another Talea site.')));
 	}
 	/** The copy from this site (localStorage). */
 	function pasteFromClipboard() {
 		let p = null;
-		try { p = JSON.parse(localStorage.getItem('ka-builder-clipboard') || 'null'); } catch (e) { p = null; }
+		try { p = JSON.parse(localStorage.getItem('tl-builder-clipboard') || 'null'); } catch (e) { p = null; }
 		if (p && TYPY[p.type]) { insert(withNewIds(p)); return true; }
 		return false;
 	}
-	/** Text from the system clipboard: an envelope from this or another Kaleta site; anything else is not for the editor. */
+	/** Text from the system clipboard: an envelope from this or another Talea site; anything else is not for the editor. */
 	function pasteText(text) {
 		let data = null;
 		try { data = JSON.parse(text); } catch (e) { return false; }
-		if (!data || data.kaleta !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
+		if (!data || data.talea !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
 		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.type]).map(withNewIds)); return true; }
 		setState(T('Inserting elements from another site…'));
 		query(D.urls.paste, { clipboard: text }).then((j) => {
@@ -722,24 +722,24 @@
 		} }, T('Copy'));
 		envelope([n.p]).then((text) => { area.value = text; copyButton.disabled = false; area.focus(); area.select(); });
 		const d = el('dialog', { class: 'bd-dialog' },
-			el('div', {}, el('h2', {}, T('Copy for another Kaleta site')),
-				el('p', {}, T('The text carries the element with its classes and components. In the builder of the other site press Ctrl+V, or choose More actions → Paste from another Kaleta site.')), area),
+			el('div', {}, el('h2', {}, T('Copy for another Talea site')),
+				el('p', {}, T('The text carries the element with its classes and components. In the builder of the other site press Ctrl+V, or choose More actions → Paste from another Talea site.')), area),
 			el('footer', {}, el('button', { type: 'button', class: 'bd-btn', onclick: () => d.close() }, T('Close')), copyButton));
 		d.addEventListener('close', () => d.remove());
 		document.body.append(d);
 		d.showModal();
 	}
 	function pasteDialog() {
-		const area = el('textarea', { rows: 8, placeholder: '{"kaleta":"elements", …}', 'aria-label': T('Elements as text') });
+		const area = el('textarea', { rows: 8, placeholder: '{"talea":"elements", …}', 'aria-label': T('Elements as text') });
 		const note = el('p', { class: 'bd-share-error', hidden: true });
 		const d = el('dialog', { class: 'bd-dialog' },
-			el('div', {}, el('h2', {}, T('Paste from another Kaleta site')),
-				el('p', {}, T('Paste the text the builder of the other site copied (Ctrl+C on an element, or More actions → Copy for another Kaleta site).')), area, note),
+			el('div', {}, el('h2', {}, T('Paste from another Talea site')),
+				el('p', {}, T('Paste the text the builder of the other site copied (Ctrl+C on an element, or More actions → Copy for another Talea site).')), area, note),
 			el('footer', {}, el('button', { type: 'button', class: 'bd-btn', onclick: () => d.close() }, T('Close')),
 				el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => {
 					if (pasteText(area.value.trim())) { d.close(); return; }
 					note.hidden = false;
-					note.textContent = T('The text is not a copy of Kaleta elements.');
+					note.textContent = T('The text is not a copy of Talea elements.');
 				} }, T('Insert'))));
 		d.addEventListener('close', () => d.remove());
 		document.body.append(d);
@@ -851,10 +851,10 @@
 		const luminance = ([r, g, b]) => [r, g, b].map((x) => { x /= 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }).reduce((s, x, i) => s + x * [0.2126, 0.7152, 0.0722][i], 0);
 		const findings = [];
 		const seen = new Set();
-		Array.from(doc.querySelectorAll('[data-ka-id]')).slice(0, 400).forEach((node) => {
+		Array.from(doc.querySelectorAll('[data-tl-id]')).slice(0, 400).forEach((node) => {
 			const text = Array.from(node.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim()) ? node : node.querySelector('h1,h2,h3,h4,p,li,a,span,strong');
 			if (!text || !text.textContent.trim()) { return; }
-			const id = node.getAttribute('data-ka-id');
+			const id = node.getAttribute('data-tl-id');
 			if (seen.has(id)) { return; }
 			const style = doc.defaultView.getComputedStyle(text);
 			let below = text;
@@ -878,11 +878,11 @@
 		return findings.slice(0, 6);
 	}
 
-	/** Help: keyboard shortcuts, the builder guide on kaletacms.com and starting the editor tour. */
+	/** Help: keyboard shortcuts, the builder guide on taleacms.com and starting the editor tour. */
 	function hint() {
 		const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 		const shortcuts = [[mod + '+S', T('Save draft')], [mod + '+Z / ' + mod + '+Shift+Z', T('Undo / redo')], [mod + '+D', T('Duplicate the selected element')],
-			[mod + '+C / ' + mod + '+V', T('Copy and paste an element (also between pages and Kaleta sites)')], ['Delete', T('Delete the selected element')], ['Esc', T('Select the parent element / cancel moving')],
+			[mod + '+C / ' + mod + '+V', T('Copy and paste an element (also between pages and Talea sites)')], ['Delete', T('Delete the selected element')], ['Esc', T('Select the parent element / cancel moving')],
 			[T('double-click'), T('Edit text right on the canvas')], ['↑ ↓ ← →', T('Move within Structure')], ['?', T('This help')]];
 		const d = el('dialog', { class: 'bd-dialog' },
 			el('div', {}, el('h2', {}, T('Keyboard shortcuts')),
@@ -904,7 +904,7 @@
 			[tabList, T('Saving and publishing'), T('Changes save automatically as a draft. Visitors see them only after Publish – before that we warn you about missing links, descriptions and low contrast.')],
 		];
 		document.querySelectorAll('.bd-highlighted').forEach((x) => x.classList.remove('bd-highlighted'));
-		try { localStorage.setItem('ka-bd-tour', '1'); } catch (e) { /* private mode */ }
+		try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* private mode */ }
 		if (step >= stops.length) { return; }
 		const [target, heading, text] = stops[step];
 		target.classList.add('bd-highlighted');
@@ -1192,8 +1192,8 @@
 					endPlacing();
 					dropAt(what, { target: p.id, where: TYPY[p.type] && TYPY[p.type].container && !hasChildren ? 'inside' : 'after' });
 				},
-				onmouseenter: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.add('ka-bd-hover'); } },
-				onmouseleave: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.remove('ka-bd-hover'); } },
+				onmouseenter: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-tl-id="' + p.id + '"]'); if (t) { t.classList.add('tl-bd-hover'); } },
+				onmouseleave: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-tl-id="' + p.id + '"]'); if (t) { t.classList.remove('tl-bd-hover'); } },
 				ondragstart: (e) => { state.draggedNode = p.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.id); },
 				ondragover: (e) => {
 					if (!state.draggedNode || state.draggedNode === p.id) { return; }
@@ -1273,8 +1273,8 @@
 			p.locked ? null : [icon('move'), state.placing ? T('Cancel move by tapping') : T('Move by tapping the target (works on touch screens too)'), () => (state.placing ? endPlacing() : startPlacing(p.id))],
 			D.urls.component && p.type !== 'component' ? [icon('component'), T('Save as component'), () => saveAsComponent(p.id)] : null,
 			D.urls.save_section ? [icon('library'), T('Save to my sections (then insert it on any page)'), () => saveToMySections(p.id)] : null,
-			[icon('clipboard'), T('Copy for another Kaleta site (as text)'), () => copyDialog(p.id)],
-			[icon('clipboard'), T('Paste from another Kaleta site (as text)'), () => pasteDialog()],
+			[icon('clipboard'), T('Copy for another Talea site (as text)'), () => copyDialog(p.id)],
+			[icon('clipboard'), T('Paste from another Talea site (as text)'), () => pasteDialog()],
 		].filter(Boolean);
 		const offer = more.length ? el('div', { id: 'bd-more', class: 'bd-more', popover: 'auto' },
 			more.map(([ik, description, action]) => el('button', { type: 'button', onclick: () => { offer.hidePopover(); action(); } }, ik, el('span', {}, description)))) : null;
@@ -1458,13 +1458,13 @@
 				const ta = el('textarea', { 'data-editor': 'small', oninput: (e) => change(e.target.value) });
 				ta.value = value || '';
 				wrapper.append(ta);
-				if (window.kaletaCreateEditor) { setTimeout(() => window.kaletaCreateEditor(ta), 0); }
+				if (window.taleaCreateEditor) { setTimeout(() => window.taleaCreateEditor(ta), 0); }
 				return wrapper;
 			}
 			case 'image': {
 				const imagePreview = el('img', { class: 'bd-image-preview', alt: '', src: value || null, hidden: !value });
 				inputEl = el('input', { type: 'text', value: value || '', placeholder: 'media/…', oninput: (e) => { change(e.target.value); imagePreview.src = e.target.value; imagePreview.hidden = !e.target.value; } });
-				const btn = el('button', { type: 'button', class: 'bd-btn', onclick: () => window.kaletaPickImage && window.kaletaPickImage((o) => {
+				const btn = el('button', { type: 'button', class: 'bd-btn', onclick: () => window.taleaPickImage && window.taleaPickImage((o) => {
 					inputEl.value = o.url; imagePreview.src = o.url; imagePreview.hidden = false; change(o.url);
 					// the description for blind users from the Media library, when the element has none yet (can be overwritten)
 					const p = options && options.element;
@@ -1479,7 +1479,7 @@
 				if (def.media === 'video' || def.media === 'file') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
 					const video = def.media === 'video';
 					inputEl = el('input', { type: 'text', value: value ?? '', placeholder: video ? 'media/…/video.mp4' : 'media/…/file.pdf', oninput: (e) => change(e.target.value) });
-					wrapper.append(el('span', { class: 'bd-field-row' }, inputEl, el('button', { type: 'button', class: 'bd-btn', onclick: () => window.kaletaPickImage && window.kaletaPickImage((o) => {
+					wrapper.append(el('span', { class: 'bd-field-row' }, inputEl, el('button', { type: 'button', class: 'bd-btn', onclick: () => window.taleaPickImage && window.taleaPickImage((o) => {
 						if (video && !/\.(mp4|webm)$/i.test(o.url || '')) { setState(T('Choose a video in MP4 or WebM format.'), true); return; }
 						inputEl.value = o.url; change(o.url);
 					}, false, true) }, T('Media'))));
@@ -1528,7 +1528,7 @@
 
 	const HINTS = {
 		space: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], step: ['-1', '0', '1', '2', '3', '4', '5'], radius: ['0', 's', 'm', 'l', 'full'], shadow: ['s', 'm', 'l', 'none'],
-		color: Object.keys(D.schema.tokens.colors).concat(['transparent']), length: ['auto', '100%', '50%', 'var(--ka-text-width)', 'var(--ka-width)', '20rem', '30rem', '60vh', 'fit-content'],
+		color: Object.keys(D.schema.tokens.colors).concat(['transparent']), length: ['auto', '100%', '50%', 'var(--tl-text-width)', 'var(--tl-width)', '20rem', '30rem', '60vh', 'fit-content'],
 		columns: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], number: ['-1', '0', '1', '2'],
 		rows: ['1', '2', '3', 'auto 1fr auto'], border: Object.keys((D.schema.style.border || {}).options || {}).concat(['1px solid line', '2px dashed primary']),
 		area: [],
@@ -1570,9 +1570,9 @@
 			el('span', { class: 'bd-group', role: 'group', 'aria-label': T('Element state') }, [['', T("Regular")], ['hover', T("Hover")], ['active', T('Press')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'bd-btn', 'aria-pressed': String(state.elementState === k), title: k === 'hover' ? T('Mouse hover – also applies to keyboard focus') : null, onclick: () => { state.elementState = k; redrawRight(); } }, n)))));
 		// copying only the style (without content) between elements and pages – the browser keeps it
-		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-bd-style') || 'null'); } catch (e) { return null; } };
+		const clipboard = () => { try { return JSON.parse(localStorage.getItem('tl-bd-style') || 'null'); } catch (e) { return null; } };
 		panel.append(el('div', { class: 'bd-field-row bd-style-clipboard' },
-			el('button', { type: 'button', class: 'bd-btn', onclick: () => { try { localStorage.setItem('ka-bd-style', JSON.stringify({ style: target.style, classes: target.classes || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
+			el('button', { type: 'button', class: 'bd-btn', onclick: () => { try { localStorage.setItem('tl-bd-style', JSON.stringify({ style: target.style, classes: target.classes || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
 			el('button', { type: 'button', class: 'bd-btn', disabled: !clipboard() || shouldSave, onclick: () => {
 				const v = clipboard();
 				if (!v) { return; }
@@ -1621,7 +1621,7 @@
 				el('input', { type: 'color', 'aria-label': T('Pick a custom colour'), value: /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000',
 					oninput: (e) => { sample.style.background = e.target.value; }, onchange: (e) => { field.value = e.target.value; change(e.target.value); } })) : null;
 			inputEl = el('span', { class: 'bd-field-row' }, sample, field,
-				def.type === 'image' ? el('button', { type: 'button', class: 'bd-btn', title: T('Media'), onclick: () => window.kaletaPickImage && window.kaletaPickImage((o) => { field.value = o.url; change(o.url); }) }, '…') : null,
+				def.type === 'image' ? el('button', { type: 'button', class: 'bd-btn', title: T('Media'), onclick: () => window.taleaPickImage && window.taleaPickImage((o) => { field.value = o.url; change(o.url); }) }, '…') : null,
 				def.type === 'shadow' || def.type === 'border' ? el('button', { type: 'button', class: 'bd-btn', title: T('Compose your own'), 'aria-expanded': 'false', onclick: (e) => {
 					const opened = e.currentTarget.getAttribute('aria-expanded') === 'true';
 					e.currentTarget.setAttribute('aria-expanded', String(!opened));
@@ -1846,7 +1846,7 @@
 	// no tour on a phone: there the builder shows only "needs a bigger screen" instead of itself (builder.css, same width);
 	// it is not marked as seen, so it starts on the first opening on a desktop or tablet
 	const narrow = window.matchMedia('(max-width: 719px)').matches;
-	try { if (!narrow && !localStorage.getItem('ka-bd-tour')) { setTimeout(() => tour(0), 800); } } catch (e) { /* private mode */ }
+	try { if (!narrow && !localStorage.getItem('tl-bd-tour')) { setTimeout(() => tour(0), 800); } } catch (e) { /* private mode */ }
 	state.saved = JSON.stringify(state.build);
 	root.addEventListener('focusout', () => setTimeout(adoptSanitized, 0));
 	window.addEventListener('focus', () => { if (state.retries && rejectInvalid()) { (state.signed_in ? refreshToken() : Promise.resolve()).then(save); } });

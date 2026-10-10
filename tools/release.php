@@ -1,14 +1,14 @@
 <?php
 /**
- * Kaleta - release preparation (run by the publisher on their own computer, not uploaded to the web).
+ * Talea - release preparation (run by the publisher on their own computer, not uploaded to the web).
  *
- *   php tools/release.php 1.0.1 --url=https://github.com/phprs-cms/kaletacms/releases/download/v1.0.1/kaleta-1.0.1.zip \
+ *   php tools/release.php 1.0.1 --url=<address of the package> \
  *       --change="Fix ..." --change="New ..." [--security]
  *
  * --security marks the release as a security fix: installations update to it by themselves and the administrator gets an e-mail.
- * Instead of a file, the private key can be passed in the KALETA_KEY environment variable (base64) - for releasing from GitHub Actions.
+ * Instead of a file, the private key can be passed in the TALEA_KEY environment variable (base64) - for releasing from GitHub Actions.
  *
- * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/update.json signed with the private key.
+ * Creates dist/talea-<version>.zip (files tracked by git) and dist/update.json signed with the private key.
  * Keys: tools/keys/publisher.key (primary) and tools/keys/backup.key (backup, should be kept offline) are PRIVATE - never into git.
  * system/update.pub carries the public keys (one per line), it is part of the system. Key rotation and revocation: docs/RELEASING.md.
  *   php tools/release.php --new-key=backup      creates a key pair and appends the public one to system/update.pub
@@ -54,17 +54,17 @@ if (str_starts_with($version, '--new-key=')) {
     chmod($target, 0600);
     $pk = sodium_crypto_sign_publickey($pair);
     $pub = $root . '/system/update.pub';
-    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $name . ' ' . date('Y-m-d') . ' id=' . Kaleta\Core\Signature::id($pk) . "\n");
+    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $name . ' ' . date('Y-m-d') . ' id=' . Talea\Core\Signature::id($pk) . "\n");
     file_put_contents($pub, ltrim((string) file_get_contents($pub)));
-    exit("New key \"{$name}\" (id " . Kaleta\Core\Signature::id($pk) . ") is in {$target}.\n"
+    exit("New key \"{$name}\" (id " . Talea\Core\Signature::id($pk) . ") is in {$target}.\n"
         . "1) Back up the private file RIGHT NOW outside this computer" . ($name === 'backup' ? " and then delete it from the disk - the backup key is to be kept offline" : '') . ".\n"
         . "2) Commit system/update.pub; installations recognise the new key only after the release that brings it (signed with a key they already know).\n");
 }
 if (!preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $version)) {
     exit("Usage: php tools/release.php <version> --url=<ZIP address> [--change=\"...\"]\n");
 }
-if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "const KALETA_VERSION = '{$version}';")) {
-    exit("system/bootstrap.php does not have KALETA_VERSION = '{$version}'. Raise the version and commit the change first.\n");
+if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "const TALEA_VERSION = '{$version}';")) {
+    exit("system/bootstrap.php does not have TALEA_VERSION = '{$version}'. Raise the version and commit the change first.\n");
 }
 
 // --- keys: system/update.pub carries several public keys (primary + backup), a signature is valid against any of them - see docs/RELEASING.md
@@ -72,12 +72,12 @@ require_once $root . '/system/src/Core/Signature.php';
 $publicKeyFile = $root . '/system/update.pub';
 $keyFiles = ['operating' => $root . '/tools/keys/publisher.key', 'backup' => $root . '/tools/keys/backup.key'];
 $privateKeyFile = $keyFiles[$options['key']] ?? exit("Unknown key \"{$options['key']}\" - use --key=operating or --key=backup.\n");
-$sk = base64_decode(trim(getenv('KALETA_KEY') !== false ? (string) getenv('KALETA_KEY') : (string) @file_get_contents($privateKeyFile)), true);
+$sk = base64_decode(trim(getenv('TALEA_KEY') !== false ? (string) getenv('TALEA_KEY') : (string) @file_get_contents($privateKeyFile)), true);
 if ($sk === false || strlen($sk) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
     exit("Private key {$privateKeyFile} is missing or damaged. Create a new pair with: php tools/release.php --new-key={$options['key']}\n");
 }
-$keyId = Kaleta\Core\Signature::id(sodium_crypto_sign_publickey_from_secretkey($sk));
-if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
+$keyId = Talea\Core\Signature::id(sodium_crypto_sign_publickey_from_secretkey($sk));
+if (!isset(Talea\Core\Signature::keys($publicKeyFile)[$keyId])) {
     exit("Key {$keyId} is not listed in system/update.pub - installations would reject its signature.\n");
 }
 
@@ -91,7 +91,7 @@ if ($options['feed']) {
     file_put_contents($root . '/dist/update.json', json_encode([
         'version' => $version, 'released' => date('Y-m-d'), 'security' => $options['security'], 'changes' => $options['changes'],
         'image' => $options['image'], 'digest' => 'sha256:' . $digest, 'key' => $keyId,
-        'signature' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $digest, $options['security']), $sk)),
+        'signature' => base64_encode(sodium_crypto_sign_detached(Talea\Core\Signature::packageMessage($version, $digest, $options['security']), $sk)),
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
     exit("Done: dist/update.json for {$options['image']}. Upload it to the release as the asset update.json.\n");
 }
@@ -100,7 +100,7 @@ if ($options['feed']) {
 $files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
 $exclude = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'docker-compose.yaml', 'docker-compose.coolify.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
 @mkdir($root . '/dist');
-$zipFile = $root . "/dist/kaleta-{$version}.zip";
+$zipFile = $root . "/dist/talea-{$version}.zip";
 @unlink($zipFile);
 $zip = new ZipArchive();
 $zip->open($zipFile, ZipArchive::CREATE);
@@ -138,17 +138,17 @@ require_once $root . '/system/src/Core/Integrity.php';
 ksort($hashes);
 $zip->addFromString('system/files.json', json_encode([
     'version' => $version, 'files' => $hashes, 'legacy' => $legacy,
-    'signature' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrity::stringToSign($version, $hashes), $sk)),
+    'signature' => base64_encode(sodium_crypto_sign_detached(Talea\Core\Integrity::stringToSign($version, $hashes), $sk)),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 $zip->close();
 
 $sha = hash_file('sha256', $zipFile);
 $manifest = [
     'version' => $version, 'released' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
-    'signature' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['security']), $sk)),
+    'signature' => base64_encode(sodium_crypto_sign_detached(Talea\Core\Signature::packageMessage($version, $sha, $options['security']), $sk)),
     'key' => $keyId, // only for reference, which key signed it; installations try all keys they know
     'min_php' => '8.4', 'security' => $options['security'], 'changes' => $options['changes'],
 ];
 file_put_contents($root . '/dist/update.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
-echo "Done: dist/kaleta-{$version}.zip (" . round(filesize($zipFile) / 1024) . " kB) and dist/update.json\n";
+echo "Done: dist/talea-{$version}.zip (" . round(filesize($zipFile) / 1024) . " kB) and dist/update.json\n";
 echo $options['url'] === '' ? "WARNING: no --url given - add the ZIP address to dist/update.json BEFORE signing (run again with --url).\n" : "1) Upload the ZIP to {$options['url']}\n2) Upload update.json to the project website.\n";

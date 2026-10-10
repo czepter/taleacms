@@ -2,7 +2,7 @@
 /**
  * My account.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var array<string, mixed> $user
  * @var string $csrf
  * @var list<array<string, mixed>> $keys the account's sign-in keys (passkeys)
@@ -39,9 +39,9 @@ $action = e($app->url('admin.php?action=account'));
 <div class="row"><label for="language"><?= e(t('Administration language')) ?></label><div><select id="language" name="language">
 <?php
 // the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
-$adminLanguage = $username['language'] ?: Kaleta\Core\Language::defaults($app->settings());
-$adminLanguage = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'en';
-foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
+$adminLanguage = $username['language'] ?: Talea\Core\Language::defaults($app->settings());
+$adminLanguage = isset(Talea\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'en';
+foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
 	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 </select><span class="help">Language · Jazyk</span></div></div>
@@ -81,7 +81,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <input type="hidden" name="op" value="totp_potvrd">
 <ol>
 	<li><?= e(t('In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:')) ?><br>
-		<span class="totp-qr"><?= Kaleta\Core\Qr::svg($uri, t('QR code for the authenticator app')) ?></span><br>
+		<span class="totp-qr"><?= Talea\Core\Qr::svg($uri, t('QR code for the authenticator app')) ?></span><br>
 		<?= e(t('Cannot scan it? Add the account by typing the key:')) ?><br><code class="totp-key"><?= e(trim(chunk_split($newSecret, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('On a phone you can tap here – the link opens your authenticator app.')) ?></a></small></li>
 	<li><?= e(t('Enter the six-digit code shown by the app:')) ?></li>
 </ol>
@@ -125,7 +125,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <p class="help" data-passkey-unsupported hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </fieldset>
 </form>
-<script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <?php endif ?>
 
 <?php if ($claude): ?>
@@ -137,7 +137,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 	<p><strong><?= e(t('The token has been created.')) ?></strong> <?= e(t('Copy it now – it will not be shown again.')) ?></p>
 	<p><code class="totp-key"><?= e($newToken) ?></code></p>
 	<p><?= e(t('In Claude Code, run:')) ?></p>
-	<p><code class="totp-key" style="font-size:12px">claude mcp add --transport http kaleta <?= e($mcpUrl) ?> --header "Authorization: Bearer <?= e($newToken) ?>"</code></p>
+	<p><code class="totp-key" style="font-size:12px">claude mcp add --transport http talea <?= e($mcpUrl) ?> --header "Authorization: Bearer <?= e($newToken) ?>"</code></p>
 	<p class="help"><?= e(t('In the Claude app you do not need a token: add a custom connector with the address %s and confirm access by signing in.', $mcpUrl)) ?></p>
 </div>
 <?php endif ?>
@@ -158,11 +158,11 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php endforeach ?>
 <div class="row"><label for="token-name"><?= e(t('Name of the new token')) ?></label><div><input class="textfield" type="text" id="token-name" name="name" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
 <div class="row"><label for="token-lifetime"><?= e(t('Valid for')) ?></label><div><select id="token-lifetime" name="lifetime">
-<?php foreach (Kaleta\Admin\Account::TOKEN_LIFETIMES as $days): ?>
+<?php foreach (Talea\Admin\Account::TOKEN_LIFETIMES as $days): ?>
 	<option value="<?= $days ?>"<?= $days === 365 ? ' selected' : '' ?>><?= e($days === 0 ? t('no expiry') : ($days === 365 ? t('1 year') : t('%d days', $days))) ?></option>
 <?php endforeach ?>
-</select><span class="help"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
-<?= $app->view->render('admin/connection-access', ['role' => t(Kaleta\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'full']) ?>
+</select><span class="help"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
+<?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'full']) ?>
 <p class="buttons"><button class="btn" type="submit" name="op" value="token_novy"><?= e(t('Create token')) ?></button></p>
 </fieldset>
 </form>

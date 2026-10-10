@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Builder\Elements\Booking as Element;
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Booking as Bookings;
-use Kaleta\Core\Captcha;
-use Kaleta\Core\Response;
+use Talea\Builder\Elements\Booking as Element;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Booking as Bookings;
+use Talea\Core\Captcha;
+use Talea\Core\Response;
 
 /**
  * The public side of online booking (3.0, Core\Booking):
@@ -97,7 +97,7 @@ final class Booking
         $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $this->app->db()->internalId('booking_services', $r->post('service'));
         $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $this->app->db()->internalId('booking_staff', $r->post('staff'));
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('name'), 'email' => $r->post('email'),
-            'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
+            'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Talea\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
             return $redirect($error === 'taken' ? 'taken' : (string) $error);
         }
@@ -141,7 +141,7 @@ final class Booking
         }
 
         return [t('Cancel the appointment?'), $details . '<form method="post" action="' . e($this->app->url('_booking/cancel/' . $token)) . '"><input type="hidden" name="zrusit" value="1">'
-            . '<p><button class="ka-button ka-button--primary" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
+            . '<p><button class="tl-button tl-button--primary" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
             . '<p>' . e(t('You can cancel online until %s.', format_date($deadline, true))) . '</p></form>', 200];
     }
 
@@ -177,7 +177,7 @@ final class Booking
         }
         $form = '<form method="post" action="' . e($this->app->url('_booking/choose/' . $token)) . '"><ul>';
         foreach ($proposals as $p) {
-            $form .= '<li><button class="ka-button ka-button--primary" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
+            $form .= '<li><button class="tl-button tl-button--primary" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
         }
 
         return [t('Choose a time'), $message . '<p>' . e((string) $booking['service']) . ' – ' . e((string) $booking['staff']) . '</p><p>' . e(t('These times are free. Pick the one that suits you:')) . '</p>' . $form . '</ul></form>', 200];

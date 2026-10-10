@@ -2,8 +2,8 @@
 /**
  * Online bookings (3.0): by day, with filters; the set-up links and the settings for administrators.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Bookings $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Bookings $module
  * @var string $csrf
  * @var array<string, list<array<string, mixed>>> $byDay day => bookings
  * @var string $shown upcoming | today | past | all
@@ -16,7 +16,7 @@
  * @var string $expiry
  * @var bool $isAdmin
  */
-use Kaleta\Core\Booking;
+use Talea\Core\Booking;
 
 $query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' => $filter['staff_public'], 'service' => $filter['service_public']]);
 ?>

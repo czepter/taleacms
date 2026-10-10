@@ -2,24 +2,24 @@
 /**
  * Sign-in to the admin.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var string|null $error
  * @var string $login
  * @var bool $code  second step: the password is already correct, waiting for the code from the authenticator app
  */
 ?>
 <!doctype html>
-<html lang="<?= e(Kaleta\Core\Language::code()) ?>">
+<html lang="<?= e(Talea\Core\Language::code()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
-<title><?= e(t('Sign in')) ?> – Kaleta</title>
-<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/kaleta-mark.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/kaleta-mark-32.png">
-<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/kaleta-mark-180.png">
-<link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
+<script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(TALEA_VERSION) ?>"></script>
+<title><?= e(t('Sign in')) ?> – Talea</title>
+<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/talea-mark.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/talea-mark-32.png">
+<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/talea-mark-180.png">
+<link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
 </head>
 <body class="login">
 <div class="login-card">
@@ -30,9 +30,9 @@
 <?php elseif ($app->request->get('password') === 'changed'): ?>
 <p class="notice notice-ok" role="status"><?= e(t('The password has been changed. Sign in with the new password.')) ?></p>
 <?php endif ?>
-<?php $demo = Kaleta\Core\Demo::account(); ?>
+<?php $demo = Talea\Core\Demo::account(); ?>
 <?php if ($demo !== null && !$code): // the public demo (2.6): the shared account is filled in ?>
-<p class="notice notice-ok"><?= e(t('This is the public demo of Kaleta. Sign in as %s with the password %s. Everything you change disappears at the next hourly reset.', $demo['username'], $demo['password'])) ?></p>
+<p class="notice notice-ok"><?= e(t('This is the public demo of Talea. Sign in as %s with the password %s. Everything you change disappears at the next hourly reset.', $demo['username'], $demo['password'])) ?></p>
 <?php endif ?>
 <form method="post" action="<?= e($app->url('admin.php')) ?>">
 <?= $app->session->csrfField() ?>
@@ -54,7 +54,7 @@
 <p class="notice notice-error" data-passkey-error hidden role="alert"></p>
 <p class="small-text" data-passkey-unsupported hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </form>
-<script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <?php endif ?>
 <?php if (!$code): ?>
 <p class="login-link"><a href="<?= e($app->url('admin.php?action=password')) ?>"><?= e(t('Forgotten your password?')) ?></a></p>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Doplní překlady do slovníku Kalety a správně je escapuje (apostrof v překladu jinak rozbije PHP soubor).
+"""Doplní překlady do slovníku Talea a správně je escapuje (apostrof v překladu jinak rozbije PHP soubor).
 
 Použití: tools/add-translations.py system/languages/admin-en.php < radky    (řádek = "česky|překlad")
          tools/add-translations.py image/languages/admin-en.js < radky       (slovník skriptů administrace, funkce T())
@@ -30,7 +30,7 @@ for radek in sys.stdin.read().splitlines():
         continue
     nove.append('\t' + js(cesky) + ': ' + js(preklad) if skript else '    ' + php(cesky) + ' => ' + php(preklad) + ',\n')
 if skript and nove:
-    # objekt window.KALETA_TRANSLATIONS = { … }; – poslední položka nemá čárku, nové se připojí za ni
+    # objekt window.TALEA_TRANSLATIONS = { … }; – poslední položka nemá čárku, nové se připojí za ni
     konec = obsah.rindex('};')
     pred = obsah[:konec].rstrip()
     obsah = pred + (',' if not pred.endswith('{') else '') + '\n' + ',\n'.join(nove) + '\n' + obsah[konec:]

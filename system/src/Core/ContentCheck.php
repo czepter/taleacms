@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * Content check of one page or news item (2.14): a short checklist computed on the server – the title and description
@@ -98,7 +98,7 @@ final class ContentCheck
     }
 
     /**
-     * The check of a page row (ka_pages): a build page is judged by the content of its draft (otherwise the published
+     * The check of a page row (tl_pages): a build page is judged by the content of its draft (otherwise the published
      * build), a text page by its text with the title as the H1 the site prints above it.
      *
      * @param array<string, mixed> $page
@@ -117,7 +117,7 @@ final class ContentCheck
     }
 
     /**
-     * The check of a news item (ka_news): the title is the H1, the lead and the text are the content; without its own
+     * The check of a news item (tl_news): the title is the H1, the lead and the text are the content; without its own
      * description the site uses the beginning of the lead.
      *
      * @param array<string, mixed> $newsItem

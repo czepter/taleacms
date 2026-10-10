@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Images;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Images;
+use Talea\Core\Response;
 
 /**
  * Media: uploading, also by drag and drop and directly from the editor, folders,
@@ -37,7 +37,7 @@ final class Media extends Module
             'pageNumber' => $pageNumber,
             'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
             'total' => $total,
-            'limit' => \Kaleta\Core\Files::limitText(),
+            'limit' => \Talea\Core\Files::limitText(),
             'filter' => $filter,
             'folders' => $this->folders(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
@@ -86,7 +86,7 @@ final class Media extends Module
      * Recounts which images a news item uses: the main image, images inserted by the editor
      * (data-id, file URL). Called when a news item is saved.
      */
-    public static function recordUsage(\Kaleta\Core\Db $db, int $idc, string ...$html): void
+    public static function recordUsage(\Talea\Core\Db $db, int $idc, string ...$html): void
     {
         $all = implode(' ', $html);
         preg_match_all('/data-id="(\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/', $all, $m);
@@ -112,7 +112,7 @@ final class Media extends Module
      *
      * @return array<int, list<string>> media_id => descriptions of the places
      */
-    public static function findUsagesElsewhere(\Kaleta\Core\Db $db): array
+    public static function findUsagesElsewhere(\Talea\Core\Db $db): array
     {
         $sources = [
             [t('page'), 'SELECT title AS used_in, CONCAT_WS(\' \', text, build, build_draft, image) AS content FROM {pages}'],
@@ -134,7 +134,7 @@ final class Media extends Module
         foreach ($sources as [$kind, $sql]) {
             foreach ($db->all($sql) as $r) {
                 // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
-                foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['content']) as $path) {
+                foreach (\Talea\Core\MediaHygiene::paths((string) $r['content']) as $path) {
                     $usages[$path][$kind . ' ' . $r['used_in']] = true;
                 }
             }
@@ -195,12 +195,12 @@ final class Media extends Module
      * @return array<string, mixed>
      * @throws \RuntimeException with the reason (an admin text to translate with t())
      */
-    public static function store(\Kaleta\Core\App $app, array $file, ?int $section = null): array
+    public static function store(\Talea\Core\App $app, array $file, ?int $section = null): array
     {
-        $attachment = \Kaleta\Core\Files::isAttachment((string) ($file['name'] ?? ''));
+        $attachment = \Talea\Core\Files::isAttachment((string) ($file['name'] ?? ''));
         $data = match (true) {
             strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::saveSvg($file),
-            $attachment => \Kaleta\Core\Files::save($file),
+            $attachment => \Talea\Core\Files::save($file),
             default => Images::save($file),
         };
         if (!$attachment) {
@@ -236,18 +236,18 @@ final class Media extends Module
      */
     public static function saveSvgContent(string $content, string $displayName): array
     {
-        $svg = strlen($content) < 2_000_000 ? \Kaleta\Core\Svg::sanitize($content) : null;
+        $svg = strlen($content) < 2_000_000 ? \Talea\Core\Svg::sanitize($content) : null;
         if ($svg === null) {
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(KALETA_ROOT . '/' . $folder)) {
-            mkdir(KALETA_ROOT . '/' . $folder, 0775, true);
+        if (!is_dir(TALEA_ROOT . '/' . $folder)) {
+            mkdir(TALEA_ROOT . '/' . $folder, 0775, true);
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $path = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.svg';
-        file_put_contents(KALETA_ROOT . '/' . $path, $svg);
-        [$w, $h] = \Kaleta\Core\Svg::dimensions($svg);
+        file_put_contents(TALEA_ROOT . '/' . $path, $svg);
+        [$w, $h] = \Talea\Core\Svg::dimensions($svg);
 
         return ['image_path' => $path, 'image_width' => min(65535, $w), 'image_height' => min(65535, $h), 'image_size' => strlen($svg),
             'thumb_path' => $path, 'thumb_width' => min(65535, $w), 'thumb_height' => min(65535, $h), 'name' => mb_substr(str_replace(['_', '-'], ' ', $name), 0, 150)];
@@ -268,7 +268,7 @@ final class Media extends Module
             return $this->back(t($e->getMessage()), 'list', ['edit' => $image['public_id']], 'error');
         }
         $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $image['public_id']]);
     }
@@ -284,7 +284,7 @@ final class Media extends Module
                 'author' => mb_substr(trim($this->request->post('author')), 0, 120),
                 'focal_point' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
             ], ['media_id' => $this->idParam('media_id')]);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $this->back('Image description saved.');
@@ -298,7 +298,7 @@ final class Media extends Module
             return Response::json(['ok' => false, 'error' => t('You cannot edit this image.')], 403);
         }
         $this->db->update('media', ['name' => mb_substr(trim($this->request->post('name')), 0, 150)], ['media_id' => $ido]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return Response::json(['ok' => true]);
     }
@@ -309,7 +309,7 @@ final class Media extends Module
      */
     protected function actionCleanup(): Response
     {
-        $report = \Kaleta\Core\MediaHygiene::report($this->db);
+        $report = \Talea\Core\MediaHygiene::report($this->db);
         $canEdit = fn (array $o): bool => $this->app->auth()->isAdmin() || (int) $o['owner_id'] === $this->app->auth()->id();
 
         return $this->view('cleanup', 'Media clean-up', $report + [
@@ -339,8 +339,8 @@ final class Media extends Module
             $saved += $this->db->update('media', ['name' => $alt], ['media_id' => $ido, 'name' => '']);
         }
         if ($saved > 0) {
-            \Kaleta\Front\Cache::clear();
-            \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'alt texts in bulk', (string) $saved);
+            \Talea\Front\Cache::clear();
+            \Talea\Admin\ChangeLog::write($this->app, 'media', 'alt texts in bulk', (string) $saved);
         }
 
         return $this->back(t('Image descriptions saved: %d.', $saved), 'cleanup');
@@ -360,10 +360,10 @@ final class Media extends Module
             return $this->back(t($e->getMessage()), 'cleanup', [], 'error');
         }
         $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'made smaller', $image['image_path']);
+        \Talea\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($this->app, 'media', 'made smaller', $image['image_path']);
 
-        return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['image_width'], \Kaleta\Core\Files::size($new['image_size'])), 'cleanup');
+        return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['image_width'], \Talea\Core\Files::size($new['image_size'])), 'cleanup');
     }
 
     /** Bulk action on the selected images: delete, or move to a folder. From the clean-up (zpet=cleanup) it returns there. */
@@ -389,7 +389,7 @@ final class Media extends Module
                 $skipped++; // a used file would disappear from the site – it is deleted once it is not used anywhere
             } else {
                 Images::delete($image['image_path'], $image['thumb_path']);
-                \Kaleta\Core\Files::delete($image['image_path']);
+                \Talea\Core\Files::delete($image['image_path']);
                 $count += $this->db->delete('media', ['media_id' => $image['media_id']]);
             }
         }
@@ -398,7 +398,7 @@ final class Media extends Module
             $this->app->session->flash('error', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
         }
         if (!$move && $count > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
+            \Talea\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
 
         return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $this->publicId($target, 'media_folders')] : []);
@@ -493,7 +493,7 @@ final class Media extends Module
             'url' => $this->app->url($o['image_path']), 'thumbnail' => $o['thumb_path'] === '' ? '' : $this->app->url($o['thumb_path']),
             'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
-            'file' => $o['thumb_path'] === '', 'extension' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'size' => \Kaleta\Core\Files::size((int) ($o['image_size'] ?? 0)),
+            'file' => $o['thumb_path'] === '', 'extension' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'size' => \Talea\Core\Files::size((int) ($o['image_size'] ?? 0)),
         ];
     }
 

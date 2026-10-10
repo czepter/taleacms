@@ -2,8 +2,8 @@
 /**
  * Collection items.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Collections $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Collections $module
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var list<array<string, mixed>> $items

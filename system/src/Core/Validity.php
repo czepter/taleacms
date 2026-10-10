@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
+use Talea\Admin\ChangeLog;
 
 /**
  * True until and review by (2.10): content that is only true for a while hides itself, content that should be checked
@@ -52,7 +52,7 @@ final class Validity
             }
         }
         if ($hidden > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return 'hidden ' . $hidden . ', reviews ' . $reviews;

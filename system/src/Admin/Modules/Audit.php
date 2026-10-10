@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /** Site audit (1.9): broken links, missing descriptions, duplicate titles, the menu, builder checks and frequent 404s (Core\Audit). */
 final class Audit extends Module
@@ -18,7 +18,7 @@ final class Audit extends Module
 
     protected function actionList(): Response
     {
-        $findings = (new \Kaleta\Core\Audit($this->app))->run();
+        $findings = (new \Talea\Core\Audit($this->app))->run();
         $groups = [];
         foreach ($findings as $f) {
             $groups[$f['kind']][] = $f;

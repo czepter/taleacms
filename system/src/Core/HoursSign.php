@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\Company;
+use Talea\Front\Company;
 
 /**
  * A door sign from an exception to the opening hours (2.10): a standalone printable page – A4 or A5 portrait – for the door
@@ -35,7 +35,7 @@ final class HoursSign
         return Language::runWith(Language::defaults($s), fn (): string => $app->view->render('admin/settings/hours_sign', self::data($s, $exception, $siteUrl, $logoUrl) + [
             'format' => in_array($format, self::FORMATS, true) ? $format : 'a4',
             'formatUrls' => $formatUrls,
-            'scriptUrl' => $app->url('image/print.js') . '?v=' . KALETA_VERSION,
+            'scriptUrl' => $app->url('image/print.js') . '?v=' . TALEA_VERSION,
         ]));
     }
 

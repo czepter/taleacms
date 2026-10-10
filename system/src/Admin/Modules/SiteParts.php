@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Admin\BuilderActions;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Builder\SiteParts as CastiWebu;
-use Kaleta\Builder\Publisher;
+use Talea\Admin\Module;
+use Talea\Admin\BuilderActions;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Builder\SiteParts as CastiWebu;
+use Talea\Builder\Publisher;
 
 /**
  * Site parts in the builder: header, footer and the wrappers of the news item detail, the list and the 404 page. Without a
@@ -67,7 +67,7 @@ final class SiteParts extends Module
         if ($row !== null) {
             Publisher::version($this->app, ['part' => CastiWebu::versionKey($type, $language, $variant)], $row['build'], null, $row['updated_at']);
             $this->db->delete('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant]);
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $this->back($variant !== '' ? 'The variant was deleted – the selected pages have the default version again.' : 'The site part is back to its default design. The previous design is in the history when you open it in the builder again.');
@@ -84,7 +84,7 @@ final class SiteParts extends Module
 
         return $this->view('templates', t('Templates: %s', t(CastiWebu::TYPES[$type][0])), [
             'type' => $type, 'language' => $language, 'variant' => $variant,
-            'templates' => \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($this->app->settings())),
+            'templates' => \Talea\Builder\PartTemplates::forType($type, \Talea\Core\Extensions::enabled($this->app->settings())),
         ]);
     }
 
@@ -93,7 +93,7 @@ final class SiteParts extends Module
     {
         [$type, $language, $variant] = $this->readPartParams();
         if (!$this->request->isPost() || $type === null
-            || !CastiWebu::applyTemplate($this->db, $type, $language, $variant, $this->request->post('template'), $this->contentLanguage($language), \Kaleta\Core\Extensions::enabled($this->app->settings()))) {
+            || !CastiWebu::applyTemplate($this->db, $type, $language, $variant, $this->request->post('template'), $this->contentLanguage($language), \Talea\Core\Extensions::enabled($this->app->settings()))) {
             return $this->back('The template could not be used.', '', [], 'error');
         }
         $this->app->session->flash('ok', 'The template is in the draft – adjust it and publish; until then visitors see the published version.');
@@ -128,9 +128,9 @@ final class SiteParts extends Module
             return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'error');
         }
         $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('variant'), $name, array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('pages', $uuid), $this->request->postList('pages')))), $this->contentLanguage($language));
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
-        return \Kaleta\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));
+        return \Talea\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));
     }
 
     protected function loadBuildTarget(): ?array

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Collections: fields, items, listing element, item pages, MCP, several languages, filters (was: section 13). */
@@ -34,9 +34,9 @@ final class CollectionsTest extends SiteTestCase
             'collection_id' => 0, 'name' => 'Team', 'detail' => 1,
             'fields' => [['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html']],
         ], '/admin.php?module=collections');
-        self::$idk = (int) $this->site()->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
+        self::$idk = (int) $this->site()->value("SELECT collection_id FROM tl_collections WHERE slug = 'team'");
 
-        $this->assertSame('1', (string) $this->site()->value("SELECT fields LIKE '%\"role\"%' AND fields LIKE '%\"bio\"%' FROM ka_collections WHERE collection_id = ?", [self::$idk]), 'collection created with fields');
+        $this->assertSame('1', (string) $this->site()->value("SELECT fields LIKE '%\"role\"%' AND fields LIKE '%\"bio\"%' FROM tl_collections WHERE collection_id = ?", [self::$idk]), 'collection created with fields');
     }
 
     public function testItemsAndTheListingElementOnAPage(): void
@@ -131,11 +131,11 @@ final class CollectionsTest extends SiteTestCase
         // earlier old sections had switched the German version on and published the German home page (language links appear only then)
         $site->setting('additional_languages', 'de');
         // ... and set the logo (section 10) and a header with the logo element (section 11)
-        $site->setting('logo', 'image/kaleta-logo.svg');
+        $site->setting('logo', 'image/talea-logo.svg');
         $site->mcp('save_build', ['part' => 'header', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'logo']]]]]]);
         $site->mcp('create_page', ['title' => 'Startseite', 'slug' => 'startseite', 'language' => 'de', 'translation_of' => $site->publicId('pages', (int) $site->settingValue('home_page')), 'content' => '<p>Startseite</p>', 'visible' => true]);
         $site->mcp('create_page', ['title' => 'Our team', 'slug' => 'team', 'content' => '<p>Team</p>', 'visible' => true]);
-        self::$idTym = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'team'");
+        self::$idTym = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'team'");
         $site->mcp('create_page', ['title' => 'Unser Team', 'slug' => 'unser-team', 'language' => 'de', 'translation_of' => $site->publicId('pages', self::$idTym), 'content' => '<p>Team</p>', 'visible' => true]);
 
         $first = $this->mcpText('save_collection_item', ['collection' => 'team', 'name' => 'Zdenek Zeman DE', 'slug' => 'zdenek', 'language' => 'de', 'values' => ['role' => 'Workshop lead'], 'visible' => true]);
@@ -157,9 +157,9 @@ final class CollectionsTest extends SiteTestCase
         $en = $this->visit('/team/zdenek');
         $this->assertStringContainsString('Profile: Zdenek Zeman<', $en, 'the default-language item keeps its template');
         $this->assertMatchesRegularExpression('/hreflang="de" href="[^"]*\/de\/team\/zdenek"/', $en, 'hreflang to the German item');
-        $this->assertMatchesRegularExpression('/class="logo"[^>]*><img src="\/image\/kaleta-logo.svg"/', $body, 'the logo of the language version');
+        $this->assertMatchesRegularExpression('/class="logo"[^>]*><img src="\/image\/talea-logo.svg"/', $body, 'the logo of the language version');
         $this->assertStringNotContainsString('src="/de/image/', $body, 'images of the template get no language prefix');
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = ?", ['collection:' . self::$idk . ':de']), 'versions of the language template are kept apart');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_build_revisions WHERE part = ?", ['collection:' . self::$idk . ':de']), 'versions of the language template are kept apart');
         $this->assertStringContainsString('de/unser-team', $this->mcpText('list_pages'), 'the page list shows the address with the language prefix');
         $this->assertPage('/admin.php?module=collections&action=builder&id=' . $this->site()->publicId('collections', self::$idk) . '&language=de', 200, 'de/team/zdenek', message: 'language item template in the builder');
     }
@@ -168,11 +168,11 @@ final class CollectionsTest extends SiteTestCase
     {
         $site = $this->site();
         $this->assertStringContainsString('needs translation_of', $this->mcpText('create_page', ['title' => 'Without original', 'slug' => 'without-original', 'copy_build' => true]), 'a build copy needs the original');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE slug = 'without-original'"), 'a build copy without the original creates no page');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_pages WHERE slug = 'without-original'"), 'a build copy without the original creates no page');
 
         $site->mcp('create_page', ['title' => 'From HTML', 'slug' => 'from-html', 'language' => 'de', 'translation_of' => $site->publicId('pages', $this->zPage()), 'copy_build' => true]);
-        $idEn = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'from-html'");
-        $this->assertSame('1', (string) $site->value('SELECT n.build_draft = COALESCE(o.build_draft, o.build) FROM ka_pages n JOIN ka_pages o ON o.page_id = n.translation_of WHERE n.page_id = ?', [$idEn]), 'the translation starts as a copy of the original build');
+        $idEn = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'from-html'");
+        $this->assertSame('1', (string) $site->value('SELECT n.build_draft = COALESCE(o.build_draft, o.build) FROM tl_pages n JOIN tl_pages o ON o.page_id = n.translation_of WHERE n.page_id = ?', [$idEn]), 'the translation starts as a copy of the original build');
 
         $texts = $this->mcpText('get_build', ['id' => $this->site()->publicId('pages', $idEn), 'texts_only' => true]);
         $this->assertStringContainsString('texts', $texts, 'only texts');
@@ -187,19 +187,19 @@ final class CollectionsTest extends SiteTestCase
         $this->assertStringMatchesFormat('%Aunknown_keys%Atitle%A', $this->mcpText('save_collection_item', ['collection' => 'team', 'name' => 'Extra key', 'values' => ['role' => 'x', 'title' => 'Other']]), 'a key the collection does not have is in the result');
 
         $site->mcp('create_page', ['title' => 'Hidden by text', 'slug' => 'hidden-by-text', 'visible' => 'false']);
-        $this->assertSame('0', (string) $site->value("SELECT visible FROM ka_pages WHERE slug = 'hidden-by-text'"), 'visible sent as the text "false" keeps the page hidden');
+        $this->assertSame('0', (string) $site->value("SELECT visible FROM tl_pages WHERE slug = 'hidden-by-text'"), 'visible sent as the text "false" keeps the page hidden');
 
         // the default footer exists (the old section 11 had saved one)
         $site->mcp('save_build', ['part' => 'footer', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
         $site->mcp('get_build', ['part' => 'footer', 'language' => 'de']);
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_site_parts WHERE type = 'footer' AND language = 'de'"), 'reading a part that does not exist yet creates nothing');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_site_parts WHERE type = 'footer' AND language = 'de'"), 'reading a part that does not exist yet creates nothing');
         $site->mcp('edit_build', ['part' => 'footer', 'language' => 'de', 'operations' => []]);
-        $this->assertSame('1', (string) $site->value("SELECT e.build_draft = COALESCE(c.build_draft, c.build) FROM ka_site_parts e JOIN ka_site_parts c ON c.type = e.type AND c.language = '' AND c.variant = '' WHERE e.type = 'footer' AND e.language = 'de' AND e.variant = ''"), 'the footer of a new language starts as a copy of the default footer');
+        $this->assertSame('1', (string) $site->value("SELECT e.build_draft = COALESCE(c.build_draft, c.build) FROM tl_site_parts e JOIN tl_site_parts c ON c.type = e.type AND c.language = '' AND c.variant = '' WHERE e.type = 'footer' AND e.language = 'de' AND e.variant = ''"), 'the footer of a new language starts as a copy of the default footer');
 
         $site->setting('tasks_token', 'testtoken123');
-        $site->exec("INSERT INTO ka_consents (visitor_token, created_at, categories) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'none'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')");
+        $site->exec("INSERT INTO tl_consents (visitor_token, created_at, categories) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'none'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')");
         $site->runTasks();
-        $this->assertSame('b', (string) $site->value("SELECT GROUP_CONCAT(LEFT(visitor_token, 1) ORDER BY visitor_token) FROM ka_consents WHERE visitor_token IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')"), 'the clean-up deletes old cookie consent records');
+        $this->assertSame('b', (string) $site->value("SELECT GROUP_CONCAT(LEFT(visitor_token, 1) ORDER BY visitor_token) FROM tl_consents WHERE visitor_token IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')"), 'the clean-up deletes old cookie consent records');
     }
 
     private function migrate(): string
@@ -209,14 +209,14 @@ final class CollectionsTest extends SiteTestCase
 
     private function pendingTables(): string
     {
-        return (string) $this->site()->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ka_test_pending'");
+        return (string) $this->site()->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'tl_test_pending'");
     }
 
     /** Migrations never run on a page request: a pending one leaves the site up, the administration says so, bin/migrate applies it. */
     public function testPendingMigrationIsAppliedOnlyByBinMigrate(): void
     {
         $site = $this->site();
-        $this->assertSame((string) count(glob($site->path('system/database/migrations/[0-9]*_*.php'))), (string) $site->value('SELECT COUNT(*) FROM ka_migrations'), 'the installation recorded all migrations in ka_migrations');
+        $this->assertSame((string) count(glob($site->path('system/database/migrations/[0-9]*_*.php'))), (string) $site->value('SELECT COUNT(*) FROM tl_migrations'), 'the installation recorded all migrations in tl_migrations');
         $this->assertStringContainsString('up to date', $this->migrate(), 'bin/migrate: nothing pending, the second run does nothing');
 
         $file = $site->path('system/database/migrations/20991231000000_test_pending.php');

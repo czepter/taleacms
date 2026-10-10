@@ -3,16 +3,16 @@
  * The shared design kit of the fleet (2.16, Fleet\Kit): choose what the console shares, publish a new version, see which
  * version each site applied.
  *
- * @var Kaleta\Admin\Modules\Fleet $module
+ * @var Talea\Admin\Modules\Fleet $module
  * @var array<string, mixed> $designSystem the console's published design system
  * @var array<string, array{styl: array<string, mixed>, css: string, draft: bool}> $classes published classes
- * @var list<array<string, mixed>> $components rows of ka_components
+ * @var list<array<string, mixed>> $components rows of tl_components
  * @var list<array<string, mixed>> $sections section_id, name
  * @var list<array{version: int, created_at: string, summary: string, author: ?string}> $kits newest first
- * @var list<array<string, mixed>> $sites rows of ka_fleet_sites
+ * @var list<array<string, mixed>> $sites rows of tl_fleet_sites
  * @var array<int, int> $applied site id => the kit version it applied (0 = none)
  */
-use Kaleta\Builder\DesignSystem;
+use Talea\Builder\DesignSystem;
 
 $newest = $kits[0]['version'] ?? 0;
 ?>

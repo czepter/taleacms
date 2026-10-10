@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Front\Company;
+use Talea\Admin\ChangeLog;
+use Talea\Front\Company;
 
 /**
  * Online booking of appointments (3.0): a hairdresser, a physiotherapist, a garage, a consultant. The visitor picks a
  * service, a person (or anyone), a day and a free time, leaves a name, e-mail and phone and gets a confirmation with a
  * cancel link; the business sees the bookings in Administration → Bookings and the site reminds the customer.
  *
- *  - Services (ka_booking_services) have a duration and a buffer kept free after them; people (ka_booking_staff) offer
- *    some of them, have their weekly hours (ka_booking_hours; without any, the site's opening hours from Core\Hours) and
- *    days off (ka_booking_off; a closed day in the site's hours exceptions is a day off for everyone).
+ *  - Services (tl_booking_services) have a duration and a buffer kept free after them; people (tl_booking_staff) offer
+ *    some of them, have their weekly hours (tl_booking_hours; without any, the site's opening hours from Core\Hours) and
+ *    days off (tl_booking_off; a closed day in the site's hours exceptions is a day off for everyone).
  *  - Free times (free()) are pure: the ranges of the day minus days off, minus existing bookings with the buffer around
  *    them, never in the past, after the lead time and within the horizon – unit tested without a database.
  *  - Booking (book()) runs in a transaction that first locks the rows of the people concerned (SELECT … FOR UPDATE) and
@@ -219,7 +219,7 @@ final class Booking
             self::link($db, 'service_id', $id, 'staff_id', array_map('intval', $data['staff']), array_column(self::staff($db, false), 'id'));
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'service_create' : 'service_update', $name);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return self::service($db, $id) ?? [];
     }
@@ -285,12 +285,12 @@ final class Booking
             }
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'staff_create' : 'staff_update', $name);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return self::member($db, $id) ?? [];
     }
 
-    /** Replaces the links of one side of ka_booking_staff_services. @param list<int> $ids @param list<int> $known */
+    /** Replaces the links of one side of tl_booking_staff_services. @param list<int> $ids @param list<int> $known */
     private static function link(Db $db, string $ownColumn, int $ownId, string $otherColumn, array $ids, array $known): void
     {
         $db->delete('booking_staff_services', [$ownColumn => $ownId]);
@@ -360,7 +360,7 @@ final class Booking
         }
         $app->db()->insert('booking_off', ['staff_id' => $staffId > 0 ? $staffId : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => mb_substr(trim(strip_tags($note)), 0, 150)]);
         ChangeLog::write($app, 'bookings', 'off_create', ($staffId > 0 ? (string) self::member($app->db(), $staffId)['name'] . ' ' : '') . $range[0] . ' – ' . $range[1]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -370,7 +370,7 @@ final class Booking
         $deleted = $app->db()->delete('booking_off', ['id' => $id]) > 0;
         if ($deleted) {
             ChangeLog::write($app, 'bookings', 'off_delete');
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         return $deleted;
@@ -402,7 +402,7 @@ final class Booking
         $name = (string) $db->value('SELECT name FROM {booking_services} WHERE id = ?', [$id]);
         $db->delete('booking_services', ['id' => $id]);
         ChangeLog::write($app, 'bookings', 'service_delete', $name);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -420,7 +420,7 @@ final class Booking
         $name = (string) $db->value('SELECT name FROM {booking_staff} WHERE id = ?', [$id]);
         $db->delete('booking_staff', ['id' => $id]);
         ChangeLog::write($app, 'bookings', 'staff_delete', $name);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -1303,9 +1303,9 @@ final class Booking
     public static function ics(App $app, array $booking, string $token): string
     {
         $s = $app->settings();
-        $host = (string) (parse_url($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), PHP_URL_HOST) ?: 'kaleta.invalid');
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kaleta//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-            'BEGIN:VEVENT', 'UID:kaleta-booking-' . $app->db()->publicId('bookings', (int) $booking['id']) . '@' . $host, 'DTSTAMP:' . Calendar::utc((string) $booking['created_at']),
+        $host = (string) (parse_url($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), PHP_URL_HOST) ?: 'talea.invalid');
+        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Talea//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+            'BEGIN:VEVENT', 'UID:talea-booking-' . $app->db()->publicId('bookings', (int) $booking['id']) . '@' . $host, 'DTSTAMP:' . Calendar::utc((string) $booking['created_at']),
             'DTSTART:' . Calendar::utc((string) $booking['starts_at']), 'DTEND:' . Calendar::utc((string) $booking['ends_at']),
             'SUMMARY:' . Calendar::escape((string) $booking['service'] . ' – ' . $s->get('site_name'))];
         if (self::place($s) !== '') {

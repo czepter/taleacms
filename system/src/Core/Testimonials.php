@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Testimonial requests with consent (2.12): after a won enquiry the site sends the customer a personal link; what they
@@ -51,7 +51,7 @@ final class Testimonials
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
             $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr((string) $enquiry['form'], 0, 80) . ($sent ? ' (e-mail)' : ''));
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr((string) $enquiry['form'], 0, 80) . ($sent ? ' (e-mail)' : ''));
 
         return ['link' => $link, 'sent' => $sent];
     }

@@ -2,8 +2,8 @@
 /**
  * Newsletters: drafts, scheduled, being sent and sent, with counts.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Newsletters $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Newsletters $module
  * @var string $csrf
  * @var list<array<string, mixed>> $newsletters
  * @var int $confirmed confirmed subscribers

@@ -1,10 +1,10 @@
 <?php
 /**
- * The frame of every page (Kaleta is themeless since 1.6): head, the header and footer site parts from the builder (or the
+ * The frame of every page (Talea is themeless since 1.6): head, the header and footer site parts from the builder (or the
  * built-in ones), the content. The look comes from the design system and image/template.css. On a phone the navigation
  * opens via the Popover API (no JavaScript).
  *
- * @var Kaleta\Core\Settings $web
+ * @var Talea\Core\Settings $web
  * @var string $title  empty on the home page
  * @var array{main:bool, description:string, keywords:string, image:string, type:string, noindex:bool, build?:bool} $meta  build = a page from the builder (full-width sections)
  * @var string $content  ready-made HTML of the page content (page, news list, news item…)
@@ -33,7 +33,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <head>
 <meta charset="utf-8">
 <?php if ($dark && $web->get('theme_switcher') === '1'): ?>
-<script>try{var t=localStorage.getItem('ka-theme'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-theme');else if(t==='light'||t==='dark')r.setAttribute('data-theme',t)}catch(e){}</script>
+<script>try{var t=localStorage.getItem('tl-theme'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-theme');else if(t==='light'||t==='dark')r.setAttribute('data-theme',t)}catch(e){}</script>
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title === '' ? $siteName : (str_contains(mb_strtolower($title), mb_strtolower($siteName)) ? $title : $title . ' – ' . $siteName)) ?></title>
@@ -55,7 +55,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?php if ($with_news ?? true): ?>
 <link rel="alternate" type="application/rss+xml" title="<?= e($siteName) ?> – <?= e(t('News')) ?>" href="<?= e($url('rss.xml')) ?>">
 <?php endif ?>
-<link rel="stylesheet" href="<?= e($url('image/template.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
+<link rel="stylesheet" href="<?= e($url('image/template.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
 <?= $head ?>
 </head>
 <body>

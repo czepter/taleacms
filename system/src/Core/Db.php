@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 use PDO;
 use PDOStatement;
@@ -12,7 +12,7 @@ use PDOStatement;
  *
  * Table names are written in SQL in curly braces without a prefix:
  *   SELECT * FROM {news} WHERE id = ?
- * and on execution the prefix from the configuration is filled in (default "ka_").
+ * and on execution the prefix from the configuration is filled in (default "tl_").
  */
 final class Db
 {
@@ -35,7 +35,7 @@ final class Db
         private readonly string $dsn,
         private readonly string $user,
         private readonly string $password,
-        public readonly string $prefix = 'ka_',
+        public readonly string $prefix = 'tl_',
     ) {
     }
 
@@ -46,7 +46,7 @@ final class Db
             ? sprintf('mysql:unix_socket=%s;dbname=%s;charset=utf8mb4', $c['socket'], $c['name'])
             : sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'] ?? 'localhost', $c['port'] ?? 3306, $c['name']);
 
-        return new self($dsn, $c['username'], $c['password'], $c['prefix'] ?? 'ka_');
+        return new self($dsn, $c['username'], $c['password'], $c['prefix'] ?? 'tl_');
     }
 
     public function pdo(): PDO
@@ -66,7 +66,7 @@ final class Db
         return $this->pdo;
     }
 
-    /** Fills in the table prefix: {news} -> `ka_news`. */
+    /** Fills in the table prefix: {news} -> `tl_news`. */
     public function sql(string $sql): string
     {
         return preg_replace_callback(

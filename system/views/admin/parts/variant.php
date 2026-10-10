@@ -2,8 +2,8 @@
 /**
  * A header or footer variant: name and the pages on which it applies instead of the default version.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\SiteParts $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\SiteParts $module
  * @var string $csrf
  * @var string $type
  * @var string $language

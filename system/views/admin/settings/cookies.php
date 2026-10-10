@@ -36,7 +36,7 @@ $field('cookies_log_months', 'Keep consent records (months)', 'number', 'Older r
 	<label for="captcha_provider"><?= e(t('Extra spam check')) ?></label>
 	<div><select id="captcha_provider" name="captcha_provider">
 		<option value=""<?= $values['captcha_provider'] === '' ? ' selected' : '' ?>><?= e(t('none – the built-in protection only')) ?></option>
-<?php foreach (Kaleta\Core\Captcha::PROVIDERS as $key => [$name]): ?>
+<?php foreach (Talea\Core\Captcha::PROVIDERS as $key => [$name]): ?>
 		<option value="<?= e($key) ?>"<?= $values['captcha_provider'] === $key ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>
 	</select>
@@ -59,12 +59,12 @@ $field('cookies_log_months', 'Keep consent records (months)', 'number', 'Older r
 <?php endif ?>
 <fieldset>
 <legend><?= e(t('Cookies and storage this site uses')) ?></legend>
-<p class="help"><?= e(t('What Kaleta itself sets, what the known embeds and tags found in your pages and settings set (YouTube, Google Maps, Analytics, Tag Manager, Matomo, Meta Pixel, CAPTCHA) and what the server answers with. Put {{cookie_table}} into your cookie policy page – the table appears there in the site language.')) ?></p>
+<p class="help"><?= e(t('What Talea itself sets, what the known embeds and tags found in your pages and settings set (YouTube, Google Maps, Analytics, Tag Manager, Matomo, Meta Pixel, CAPTCHA) and what the server answers with. Put {{cookie_table}} into your cookie policy page – the table appears there in the site language.')) ?></p>
 <table class="table cookies-table">
 <thead><tr><th><?= e(t('Name')) ?></th><th><?= e(t('Provider')) ?></th><th><?= e(t('Purpose')) ?></th><th><?= e(t('Duration')) ?></th><th><?= e(t('Category')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($cookieTable as $r): ?>
-	<tr><td><code><?= e($r['name']) ?></code></td><td><?= e($r['provider']) ?></td><td><?= e($r['purpose']) ?></td><td><?= e($r['duration']) ?></td><td><?= e(t(Kaleta\Core\Privacy::CATEGORIES[$r['category']] ?? $r['category'])) ?></td></tr>
+	<tr><td><code><?= e($r['name']) ?></code></td><td><?= e($r['provider']) ?></td><td><?= e($r['purpose']) ?></td><td><?= e($r['duration']) ?></td><td><?= e(t(Talea\Core\Privacy::CATEGORIES[$r['category']] ?? $r['category'])) ?></td></tr>
 <?php endforeach ?>
 </tbody>
 </table>

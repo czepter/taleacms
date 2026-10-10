@@ -1,9 +1,9 @@
-# Kaleta security policy
+# Talea security policy
 
 ## Reporting a vulnerability
 
 Please **do not report security issues publicly** in Issues. Use GitHub's private reporting
-(*Security → Report a vulnerability*) or email **info@kaletacms.com**. Describe the version, the steps
+(*Security → Report a vulnerability*). Describe the version, the steps
 and the impact. We reply within 3 working days and usually release a fix within 14 days; critical issues
 are fixed as soon as possible.
 

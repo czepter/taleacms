@@ -3,7 +3,7 @@
  * One business fact (2.10): its value, type, schema.org property, source, language versions, where it is used and – right
  * after a change – the sentences that still state the old value.
  *
- * @var Kaleta\Admin\Modules\Facts $module
+ * @var Talea\Admin\Modules\Facts $module
  * @var array<string, mixed>|null $fact
  * @var list<string> $languages
  * @var array<string, string> $translations
@@ -12,7 +12,7 @@
  * @var list<array<string, mixed>> $stillOld
  * @var list<array<string, mixed>> $used
  */
-use Kaleta\Core\Facts;
+use Talea\Core\Facts;
 
 $isNew = $fact === null;
 ?>

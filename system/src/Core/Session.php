@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 final class Session
 {
@@ -19,7 +19,7 @@ final class Session
         if ($this->started) {
             return;
         }
-        session_name('kaleta');
+        session_name('talea');
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => $this->cookiePath,

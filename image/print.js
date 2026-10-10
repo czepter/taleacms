@@ -1,4 +1,4 @@
-/* Kaleta – the Print button of a printable page (the door sign, Core\HoursSign). The administration allows no inline handlers (CSP). */
+/* Talea – the Print button of a printable page (the door sign, Core\HoursSign). The administration allows no inline handlers (CSP). */
 
 (function () {
 	'use strict';

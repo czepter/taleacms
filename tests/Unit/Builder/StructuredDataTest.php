@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Unit\Builder;
+namespace Talea\Tests\Unit\Builder;
 
-use Kaleta\Builder\StructuredData;
+use Talea\Builder\StructuredData;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -101,7 +101,7 @@ final class StructuredDataTest extends TestCase
     {
         $build = ['children' => [['id' => 'a', 'type' => 'structured_data', 'content' => ['data' => ['type' => 'Event', 'fields' => ['name' => 'Open day']]]],
             ['id' => 'b', 'type' => 'structured_data', 'content' => ['data' => ['type' => 'Nope', 'fields' => []]]]]];
-        $findings = \Kaleta\Builder\Check::builds($build, false);
+        $findings = \Talea\Builder\Check::builds($build, false);
 
         $this->assertSame(['a', 'b'], array_column($findings, 'id'));
         $this->assertStringContainsString('startDate', $findings[0]['message']);

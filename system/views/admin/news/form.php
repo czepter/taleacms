@@ -2,7 +2,7 @@
 /**
  * News item editor: text on the left, settings on the right (one below the other on a narrow screen).
  *
- * @var Kaleta\Admin\Modules\News $module
+ * @var Talea\Admin\Modules\News $module
  * @var string $csrf
  * @var array<string, mixed> $newsItem
  * @var array<string, string> $errors
@@ -154,7 +154,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <div class="row span-all">
 	<span class="caption"><?= e(t('Language versions')) ?></span>
 	<div class="options">
-<?php foreach ($translationLanguages as $languageCode): $languageName = Kaleta\Core\Language::AVAILABLE[$languageCode][0]; ?>
+<?php foreach ($translationLanguages as $languageCode): $languageName = Talea\Core\Language::AVAILABLE[$languageCode][0]; ?>
 <?php if (isset($translations[$languageCode])): ?>
 		<a class="navigation" href="<?= e($module->url('edit', ['id' => $translations[$languageCode]])) ?>"><?= e($languageName) ?>: <?= e(t('open translation')) ?></a>
 <?php elseif ($assistant): ?>
@@ -245,9 +245,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= $id ?>">
 <h3><?= e($d['network_name']) ?><?= $d['posted_at'] ? ' <span class="badge badge-published">' . e(t('posted %s', format_date($d['posted_at'], true))) . '</span>' : '' ?></h3>
-<textarea class="textbox" id="social-text-<?= $id ?>" name="text" rows="8" maxlength="<?= Kaleta\Core\SocialDrafts::MAX_TEXT ?>" aria-label="<?= e(t('Post for %s', $d['network_name'])) ?>"><?= e($d['text']) ?></textarea>
+<textarea class="textbox" id="social-text-<?= $id ?>" name="text" rows="8" maxlength="<?= Talea\Core\SocialDrafts::MAX_TEXT ?>" aria-label="<?= e(t('Post for %s', $d['network_name'])) ?>"><?= e($d['text']) ?></textarea>
 <?php if ($d['network'] === 'x'): ?>
-<p class="help"><?= e(t('At most %d characters; a link counts as %d.', Kaleta\Core\SocialDrafts::X_LIMIT, Kaleta\Core\SocialDrafts::X_LINK_LENGTH)) ?></p>
+<p class="help"><?= e(t('At most %d characters; a link counts as %d.', Talea\Core\SocialDrafts::X_LIMIT, Talea\Core\SocialDrafts::X_LINK_LENGTH)) ?></p>
 <?php endif ?>
 <?php if ($d['image'] !== ''): ?>
 <p class="small-text"><?= e(t('Image:')) ?> <a href="<?= e($d['image']) ?>" target="_blank" rel="noopener"><?= e(mb_strimwidth($d['image'], 0, 70, '…')) ?></a></p>
@@ -266,4 +266,4 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php endif ?>
 </section>
 <?php endif ?>
-<script src="<?= e($module->app()->url('image/helper.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<script src="<?= e($module->app()->url('image/helper.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Response;
+use Talea\Core\App;
+use Talea\Core\Response;
 
 /**
  * Full-page cache for visitors who are not signed in (files in storage/cache/pages, valid for 5 minutes).
@@ -14,11 +14,11 @@ use Kaleta\Core\Response;
  */
 final class Cache
 {
-    private const string FOLDER = KALETA_ROOT . '/storage/cache/pages';
+    private const string FOLDER = TALEA_ROOT . '/storage/cache/pages';
     private const int LINK_LIFETIME = 300;
 
     /** Ad and campaign tracking parameters: they do not change the page, so the cache should not be bypassed for them. */
-    private const string TRACKING_PARAMS = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|ka_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
+    private const string TRACKING_PARAMS = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|tl_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
 
     /** @var resource|null lock of the page this request is regenerating right now */
     private static $lock = null;
@@ -55,7 +55,7 @@ final class Cache
         }
         // the browser may keep the page and only ask whether it has changed (304 without a body)
         $etag = '"' . substr(md5($file . filemtime($file)), 0, 16) . '"';
-        $headers = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'kaleta', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
+        $headers = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'talea', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
         if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
             return new Response('', 304, $headers);
         }
@@ -135,11 +135,11 @@ final class Cache
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
-            if ($cookie === 'kaleta' || $cookie === 'ka_preview') { // signed-in administration user (session), preview of drafts
+            if ($cookie === 'talea' || $cookie === 'tl_preview') { // signed-in administration user (session), preview of drafts
                 return null;
             }
         }
 
-        return self::FOLDER . '/' . md5($r->origin() . '|' . \Kaleta\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
+        return self::FOLDER . '/' . md5($r->origin() . '|' . \Talea\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
     }
 }

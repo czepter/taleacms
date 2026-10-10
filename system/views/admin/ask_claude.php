@@ -4,11 +4,11 @@
  * attachments; example requests that fill the box (admin.js); whether a scheduled run picks requests up; the person's
  * latest requests. "Copy for the Claude app" copies the text with the site's address and opens Claude in a new tab.
  *
- * @var Kaleta\Core\App $app
+ * @var Talea\Core\App $app
  * @var array{connected: bool, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool} $ask
  */
-use Kaleta\Core\AgentSchedules;
-use Kaleta\Core\Requests;
+use Talea\Core\AgentSchedules;
+use Talea\Core\Requests;
 
 $requestsUrl = fn (string $action = '', array $params = []): string => $app->url('admin.php?module=requests' . ($action !== '' ? '&action=' . $action : '') . ($params !== [] ? '&' . http_build_query($params) : ''));
 $routine = $ask['routine'];

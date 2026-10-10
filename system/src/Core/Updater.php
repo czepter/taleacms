@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * System updates from the admin.
@@ -33,8 +33,8 @@ final class Updater
 
     public function __construct(
         private readonly Settings $settings,
-        private readonly string $root = KALETA_ROOT,
-        private readonly string $keyFile = KALETA_SYSTEM . '/update.pub',
+        private readonly string $root = TALEA_ROOT,
+        private readonly string $keyFile = TALEA_SYSTEM . '/update.pub',
     ) {
     }
 
@@ -60,7 +60,7 @@ final class Updater
      */
     public function state(bool $force = false): array
     {
-        $state = ['configured' => $this->url() !== '', 'current' => KALETA_VERSION, 'available' => null, 'error' => null, 'checked' => 0];
+        $state = ['configured' => $this->url() !== '', 'current' => TALEA_VERSION, 'available' => null, 'error' => null, 'checked' => 0];
         if (!$state['configured']) {
             return $state;
         }
@@ -81,7 +81,7 @@ final class Updater
             $state['checked'] = time();
             $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'checked' => time(), 'manifest' => $manifest, 'error' => $state['error']], JSON_UNESCAPED_UNICODE));
         }
-        if (is_array($manifest) && version_compare((string) $manifest['version'], KALETA_VERSION, '>')) {
+        if (is_array($manifest) && version_compare((string) $manifest['version'], TALEA_VERSION, '>')) {
             $state['available'] = $manifest;
         }
 
@@ -102,10 +102,10 @@ final class Updater
         if ($a->url() === '') {
             return 'no update source';
         }
-        $byConsole = $s->bool('fleet_updates') && \Kaleta\Fleet\Link::isPaired($s) ? $s->get('fleet_update_allowed') : '';
+        $byConsole = $s->bool('fleet_updates') && \Talea\Fleet\Link::isPaired($s) ? $s->get('fleet_update_allowed') : '';
         $cache = json_decode($s->get('update_cache'), true);
         $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['checked'] ?? 0) < (($cache['error'] ?? null) !== null ? 3600 : 12 * 3600);
-        if ($fresh && ($byConsole === '' || !version_compare($byConsole, KALETA_VERSION, '>') || $s->get('update_attempt') === $byConsole)) {
+        if ($fresh && ($byConsole === '' || !version_compare($byConsole, TALEA_VERSION, '>') || $s->get('update_attempt') === $byConsole)) {
             return 'checked recently';
         }
         $newVersion = $a->state(!$fresh)['available'];
@@ -139,7 +139,7 @@ final class Updater
             }
 
             return [
-                t('Kaleta: security update %s', $version),
+                t('Talea: security update %s', $version),
                 $message . "\n\n" . t('Changes:') . "\n- " . implode("\n- ", (array) $newVersion['changes']) . "\n\n" . $s->get('site_name'),
                 $result,
             ];
@@ -179,7 +179,7 @@ final class Updater
             @set_time_limit(300);
         }
         $m = $this->manifest();
-        if (!version_compare((string) $m['version'], KALETA_VERSION, '>')) {
+        if (!version_compare((string) $m['version'], TALEA_VERSION, '>')) {
             throw new \RuntimeException(t('No newer version is available.'));
         }
         // the manifest is checked again against what was decided on; the signature below covers the version and the flag
@@ -200,11 +200,11 @@ final class Updater
         }
 
         // lock: an automatic update from background tasks and an administrator's click (or two visits at once) must not overwrite files simultaneously
-        $lock = fopen(KALETA_ROOT . '/storage/cache/update.lock', 'c');
+        $lock = fopen(TALEA_ROOT . '/storage/cache/update.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             throw new \RuntimeException(t('An update is already running. Try again in a moment.'));
         }
-        $workDir = KALETA_ROOT . '/storage/cache/update-' . bin2hex(random_bytes(4));
+        $workDir = TALEA_ROOT . '/storage/cache/update-' . bin2hex(random_bytes(4));
         $zip = $workDir . '.zip';
         try {
             $this->download((string) $m['url'], $zip);
@@ -214,12 +214,12 @@ final class Updater
             }
             // the signature also covers the security-release flag: whoever controlled only the site with the manifest must not declare a regular release a security one
             if (!Signature::isValid(Signature::packageMessage((string) $m['version'], $sha, !empty($m['security'])), (string) $m['signature'], $this->keyFile)) {
-                throw new \RuntimeException(t('The package signature is not valid – the package does not come from the Kaleta publisher.'));
+                throw new \RuntimeException(t('The package signature is not valid – the package does not come from the Talea publisher.'));
             }
             $files = $this->extract($zip, $workDir);
             $previous = $this->releaseFiles();
             $releaseHashes = $this->releaseHashes();
-            touch(KALETA_ROOT . '/storage/maintenance.lock');
+            touch(TALEA_ROOT . '/storage/maintenance.lock');
             // every file being overwritten is set aside first: if writing fails halfway, the site returns to its original state (not a mix of versions)
             $setAside = $workDir . '-puvodni';
             $written = [];
@@ -228,7 +228,7 @@ final class Updater
                     $target = $this->root . '/' . $relativePath;
                     if ($relativePath === '.htaccess' && is_file($target) && isset($releaseHashes['.htaccess']) && !hash_equals($releaseHashes['.htaccess'], (string) hash_file('sha256', $target))) {
                         // custom edits of .htaccess (HTTPS, www, redirects) are not overwritten – the new version is placed next to it for comparison
-                        copy($workDir . '/' . $relativePath, $target . '.kaleta-nova');
+                        copy($workDir . '/' . $relativePath, $target . '.talea-nova');
                         continue;
                     }
                     if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true)) {
@@ -254,7 +254,7 @@ final class Updater
             }
             // 2.8: does the site work on the new version? Maintenance ends, the site is asked; when it answers with an error,
             // the previous files come back (the database changes are additive, the old version keeps working on them)
-            @unlink(KALETA_ROOT . '/storage/maintenance.lock');
+            @unlink(TALEA_ROOT . '/storage/maintenance.lock');
             $answers = [];
             $problem = $db !== null ? $this->probe((string) $m['version'], $answers) : null;
             if ($problem !== null) {
@@ -262,7 +262,7 @@ final class Updater
                 if (function_exists('opcache_reset')) {
                     @opcache_reset();
                 }
-                Events::record($db, 'update.rolled_back', 'error', mb_substr(t('Version %s did not work (%s), so the site went back to version %s.', (string) $m['version'], $problem, KALETA_VERSION), 0, 255),
+                Events::record($db, 'update.rolled_back', 'error', mb_substr(t('Version %s did not work (%s), so the site went back to version %s.', (string) $m['version'], $problem, TALEA_VERSION), 0, 255),
                     ['version' => (string) $m['version'], 'answers' => array_map(fn (array $a): array => [$a[0], mb_substr(trim(strip_tags($a[1])), 0, 80)], $answers)]);
                 $this->settings->set('update_attempt', (string) $m['version']); // an automatic update does not try the same version again
                 throw new \RuntimeException(t('Version %s was installed but the site did not work afterwards (%s). The website files have been returned to their state before the update.', (string) $m['version'], $problem));
@@ -270,7 +270,7 @@ final class Updater
             self::deleteFolder($setAside);
             self::cleanUpObsolete($this->root, $previous, $files);
         } finally {
-            @unlink(KALETA_ROOT . '/storage/maintenance.lock');
+            @unlink(TALEA_ROOT . '/storage/maintenance.lock');
             @unlink($zip);
             self::deleteFolder($workDir);
             flock($lock, LOCK_UN);
@@ -283,7 +283,7 @@ final class Updater
         // (asking the source in that moment failed on sites that are their own update source and showed a red error, 2.10.2)
         $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'checked' => time(), 'manifest' => $m, 'error' => null], JSON_UNESCAPED_UNICODE));
         if ($db !== null) {
-            Events::record($db, 'update.applied', 'info', t('Version %s was installed (from %s).', (string) $m['version'], KALETA_VERSION), ['version' => (string) $m['version'], 'from' => KALETA_VERSION]);
+            Events::record($db, 'update.applied', 'info', t('Version %s was installed (from %s).', (string) $m['version'], TALEA_VERSION), ['version' => (string) $m['version'], 'from' => TALEA_VERSION]);
         }
 
         return (string) $m['version'];
@@ -311,7 +311,7 @@ final class Updater
     {
         $answers = [];
         $site = rtrim($this->settings->get('site_url'), '/');
-        if ($site === '' || getenv('KALETA_UPDATE_PROBE') === 'off') {
+        if ($site === '' || getenv('TALEA_UPDATE_PROBE') === 'off') {
             return null;
         }
         $code = bin2hex(random_bytes(12));
@@ -331,7 +331,7 @@ final class Updater
         /** @var \Closure(string): array{0: int, 1: string} $fetch */
         $fetch = $this->probeFetch ?? function (string $url): array {
             $context = stream_context_create(['http' => ['timeout' => 5, 'ignore_errors' => true, 'follow_location' => 1, 'max_redirects' => 3,
-                'header' => "User-Agent: Kaleta-update-check/" . KALETA_VERSION . "\r\n"], 'ssl' => ['verify_peer' => true]]);
+                'header' => "User-Agent: Talea-update-check/" . TALEA_VERSION . "\r\n"], 'ssl' => ['verify_peer' => true]]);
             $body = @file_get_contents($url, false, $context, 0, 200_000);
             $status = 0;
             foreach (http_get_last_response_headers() ?? [] as $line) {
@@ -344,7 +344,7 @@ final class Updater
         };
         try {
             $probe = $fetch($site . '/tasks?probe=' . $code);
-            if (str_starts_with(trim($probe[1]), 'KALETA-PROBE ') && trim($probe[1]) !== 'KALETA-PROBE ' . $version) {
+            if (str_starts_with(trim($probe[1]), 'TALEA-PROBE ') && trim($probe[1]) !== 'TALEA-PROBE ' . $version) {
                 // the old version answered: PHP still runs the cached old files (opcache checks them every few seconds)
                 sleep(3);
                 $probe = $fetch($site . '/tasks?probe=' . $code);
@@ -372,7 +372,7 @@ final class Updater
      */
     public static function probeVerdict(array $answers, string $version): ?string
     {
-        if ($answers['probe'][0] >= 500 && trim($answers['probe'][1]) !== 'KALETA-PROBE ' . $version) {
+        if ($answers['probe'][0] >= 500 && trim($answers['probe'][1]) !== 'TALEA-PROBE ' . $version) {
             return t('the site does not start');
         }
         foreach (['home' => t('the home page'), 'admin' => t('the administration')] as $key => $what) {
@@ -409,7 +409,7 @@ final class Updater
         if (!preg_match('#^https://#i', $url) && !($isLocal && preg_match('#^http://#i', $url))) {
             throw new \RuntimeException(t('The update source must use an https:// address.'));
         }
-        $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
+        $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Talea/" . TALEA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
         if ($data === false || $data === '') {
             throw new \RuntimeException(t('The update source is not reachable (%s).', $host));
         }
@@ -462,7 +462,7 @@ final class Updater
         }
         $zip->close();
         if (!in_array('system/bootstrap.php', $files, true) || !in_array('index.php', $files, true)) {
-            throw new \RuntimeException(t('The package does not contain Kaleta.'));
+            throw new \RuntimeException(t('The package does not contain Talea.'));
         }
 
         return $files;

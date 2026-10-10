@@ -24,7 +24,7 @@ return [
     'list' => [],
     'card' => ['summary'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $label = array_column($fields, 'label', 'key');
 
         return [

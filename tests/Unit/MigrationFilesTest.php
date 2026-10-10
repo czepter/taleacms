@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Unit;
+namespace Talea\Tests\Unit;
 
-use Kaleta\Core\Migrator;
+use Talea\Core\Migrator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 

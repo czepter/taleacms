@@ -2,22 +2,22 @@
 /**
  * Import and export: step 1 of the WordPress import (file) and export of the whole site.
  *
- * @var Kaleta\Admin\Modules\Transfer $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Transfer $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $files  WordPress exports in storage/import/
  * @var int $uploadLimit  how many bytes the server allows to upload through a form
  * @var bool $missingXml  the server lacks the extension for reading XML
  * @var list<array{soubor:string, velikost:int, cas:int}> $exports
  * @var bool $hasZip
- * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $kaletaFiles  Kaleta exports in storage/import/
+ * @var list<array{soubor:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $taleaFiles  Talea exports in storage/import/
  * @var array{empty: bool, pages: int, news: int, items: int, media: int} $siteContent
  * @var list<array<string, mixed>> $webImports  imports from a website (2.6)
  * @var bool $canDownload  the server can download from other sites and has GD
  * @var list<string> $languages  additional language versions of the site
  * @var list<array<string, mixed>> $reports  migration parity reports (2.7)
- * @var array<string, class-string<Kaleta\Import\Source>> $sources  structured importers of other systems (3.0)
- * @var array<string, class-string<Kaleta\Import\Source&Kaleta\Import\Remote>> $remoteSources  those fetched from the site's API (Joomla, Drupal)
+ * @var array<string, class-string<Talea\Import\Source>> $sources  structured importers of other systems (3.0)
+ * @var array<string, class-string<Talea\Import\Source&Talea\Import\Remote>> $remoteSources  those fetched from the site's API (Joomla, Drupal)
  * @var bool $canFetch  the server has curl, so it can read a site's API
  * @var list<array{soubor:string, zdroj:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
  */
@@ -36,10 +36,10 @@ $phase = [
 <form class="form" method="post" action="<?= e($module->url('web_start')) ?>">
 <?= $csrf ?>
 <div class="row"><label for="url"><?= e(t('Address of the site')) ?></label><div><input class="textfield wide" type="url" id="url" name="url" placeholder="https://www.example.com" required maxlength="300">
-	<span class="help"><?= e(t('Kaleta reads the sitemap, or follows the site’s links when there is none – at most %s pages.', Kaleta\Core\WebImport::MAX_PAGES)) ?></span></div></div>
+	<span class="help"><?= e(t('Talea reads the sitemap, or follows the site’s links when there is none – at most %s pages.', Talea\Core\WebImport::MAX_PAGES)) ?></span></div></div>
 <?php if ($languages !== []): ?>
 <div class="row"><label for="site_language"><?= e(t('Language version')) ?></label><div><select id="site_language" name="language"><option value=""><?= e(t('the main language')) ?></option>
-<?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
+<?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Talea\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
 <?php endif ?>
 <div class="row"><span></span><div>
 	<label><input type="checkbox" name="images" value="1" checked> <?= e(t('Download the images into Media')) ?></label><br>
@@ -89,7 +89,7 @@ $phase = [
 <form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">
 <?= $csrf ?>
 <div class="row"><label for="file"><?= e(t('WordPress export')) ?></label><div><input type="file" id="file" name="file" accept=".xml,text/xml,application/xml" required>
-	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
+	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
 </form>
 <?php endif ?>
@@ -102,7 +102,7 @@ $phase = [
 <?php foreach ($files as $s): $state = $s['status']; ?>
 <tr>
 	<td><?= e($s['file']) ?></td>
-	<td class="number"><?= e(Kaleta\Core\Files::size($s['size'])) ?></td>
+	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
 	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
 	<td><?= $state === null ? '–' : e(t($phase[$state['phase']] ?? '–')) . ($state['phase'] === 'import' ? ' (' . (int) $state['position'] . ' / ' . (int) $state['total'] . ')' : '') ?></td>
 	<td class="actions">
@@ -135,7 +135,7 @@ $phase = [
 <?php endforeach ?>
 </select><span class="help"><?php foreach (array_diff_key($sources, $remoteSources) as $class): ?><?= e($class::name() . ': ' . t($class::hint())) ?> <?php endforeach ?></span></div></div>
 <div class="row"><label for="file-system"><?= e(t('Export file')) ?></label><div><input type="file" id="file-system" name="file" accept=".xml,.json,.csv,text/xml,application/xml,application/json,text/csv" required>
-	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/sources/ folder, named system-name.extension (for example ghost-blog.json) – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
+	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/sources/ folder, named system-name.extension (for example ghost-blog.json) – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
 </form>
 <?php foreach ($remoteSources as $key => $class): ?>
@@ -168,7 +168,7 @@ $phase = [
 <tr>
 	<td><?= e($s['file']) ?></td>
 	<td><?= e($sources[$s['source']]::name()) ?></td>
-	<td class="number"><?= e(Kaleta\Core\Files::size($s['size'])) ?></td>
+	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
 	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
 	<td><?= $state === null ? '–' : e(t($phase[$state['phase']] ?? '–')) . ($state['phase'] === 'import' ? ' (' . (int) $state['position'] . ' / ' . (int) $state['total'] . ')' : '') ?></td>
 	<td class="actions">
@@ -187,38 +187,38 @@ $phase = [
 <?php endif ?>
 </details>
 
-<details class="panel-collapsed"<?= $kaletaFiles !== [] ? ' open' : '' ?>>
-<summary><h2><?= e(t('Import from Kaleta')) ?></h2></summary>
-<p><?= e(t('Moving a site from another Kaleta installation: upload its export (the .zip archive from Export of the whole site). Everything is imported – pages, news, collections, components, menus, the look and the media – into a new, empty site; user accounts and secrets are never part of an export.')) ?></p>
+<details class="panel-collapsed"<?= $taleaFiles !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('Import from Talea')) ?></h2></summary>
+<p><?= e(t('Moving a site from another Talea installation: upload its export (the .zip archive from Export of the whole site). Everything is imported – pages, news, collections, components, menus, the look and the media – into a new, empty site; user accounts and secrets are never part of an export.')) ?></p>
 <?php if (!$siteContent['empty']): ?>
-<p class="notice"><?= e(t('This site already has its own content, so an export cannot be imported here. Install Kaleta again and choose “Start from an export”.')) ?></p>
+<p class="notice"><?= e(t('This site already has its own content, so an export cannot be imported here. Install Talea again and choose “Start from an export”.')) ?></p>
 <?php else: ?>
 <form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">
 <?= $csrf ?>
-<div class="row"><label for="file-kaleta"><?= e(t('Kaleta export')) ?></label><div><input type="file" id="file-kaleta" name="file" accept=".zip,.json,application/zip,application/json" required>
-	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
+<div class="row"><label for="file-talea"><?= e(t('Talea export')) ?></label><div><input type="file" id="file-talea" name="file" accept=".zip,.json,application/zip,application/json" required>
+	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
 </form>
 <?php endif ?>
-<?php if ($kaletaFiles !== []): ?>
+<?php if ($taleaFiles !== []): ?>
 <div class="tab-wrap">
 <table class="listing">
 <thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($kaletaFiles as $s): $state = $s['status']; ?>
+<?php foreach ($taleaFiles as $s): $state = $s['status']; ?>
 <tr>
 	<td><?= e($s['file']) ?></td>
-	<td class="number"><?= e(Kaleta\Core\Files::size($s['size'])) ?></td>
+	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
 	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
 	<td><?= $state === null ? '–' : e(t(['preparing' => 'being read', 'preview' => 'ready to import', 'data' => 'import in progress', 'media' => 'import in progress', 'done' => 'imported'][$state['phase']] ?? '–')) ?></td>
 	<td class="actions">
 <?php if ($state !== null && $state['phase'] !== 'preparing'): ?>
-		<a href="<?= e($module->url('kaleta', ['file' => $s['file']])) ?>"><?= e(t($state['phase'] === 'done' ? 'Result' : 'Continue')) ?></a>
+		<a href="<?= e($module->url('talea', ['file' => $s['file']])) ?>"><?= e(t($state['phase'] === 'done' ? 'Result' : 'Continue')) ?></a>
 <?php endif ?>
 <?php if ($state === null || $state['phase'] === 'preview'): ?>
-		<form class="inline" method="post" action="<?= e($module->url('kaleta_select')) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
+		<form class="inline" method="post" action="<?= e($module->url('talea_select')) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
 <?php endif ?>
-		<form class="inline" method="post" action="<?= e($module->url('kaleta_delete')) ?>" data-confirm="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
+		<form class="inline" method="post" action="<?= e($module->url('talea_delete')) ?>" data-confirm="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -243,7 +243,7 @@ $phase = [
 <?php foreach ($exports as $x): ?>
 <tr>
 	<td><?= e($x['file']) ?></td>
-	<td class="number"><?= e(Kaleta\Core\Files::size($x['size'])) ?></td>
+	<td class="number"><?= e(Talea\Core\Files::size($x['size'])) ?></td>
 	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $x['time']), true)) ?></td>
 	<td class="actions"><a href="<?= e($module->url('download', ['file' => $x['file']])) ?>"><?= e(t('Download')) ?></a>
 		<form class="inline" method="post" action="<?= e($module->url('delete_export')) ?>" data-confirm="<?= e(t('Delete the export %s?', $x['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($x['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>

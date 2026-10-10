@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Kaleta on FrankenPHP. Build: docker build -t kaleta .   Run: see docker-compose.yaml and docker/README.md
+# Talea on FrankenPHP. Build: docker build -t talea .   Run: see docker-compose.yaml and docker/README.md
 # Development: docker-compose-dev.yaml builds the "dev" stage (code is mounted, Xdebug and Composer inside).
 # Layers run from the least to the most often changed, so a code change rebuilds only the last COPY.
 
@@ -12,9 +12,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
     && install-php-extensions pdo_mysql mbstring gd zip intl sodium opcache exif
 
-COPY docker/php.ini /usr/local/etc/php/conf.d/zz-kaleta.ini
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-talea.ini
 COPY docker/Caddyfile /etc/caddy/Caddyfile
-COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/kaleta-entrypoint
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/talea-entrypoint
 
 WORKDIR /app
 
@@ -28,11 +28,11 @@ RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --opti
 FROM base AS dev
 RUN install-php-extensions xdebug
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
-COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zz-kaleta-dev.ini
+COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zz-talea-dev.ini
 # the container runs as the host user (compose "user:"), so Caddy keeps its state in /tmp instead of /data and /config
 ENV XDG_DATA_HOME=/tmp/caddy-data XDG_CONFIG_HOME=/tmp/caddy-config
 EXPOSE 8080
-ENTRYPOINT ["kaleta-entrypoint"]
+ENTRYPOINT ["talea-entrypoint"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
 
 # ---- production (the default target: the last stage)
@@ -53,5 +53,5 @@ USER www-data
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD php -r 'exit(@fsockopen("127.0.0.1", 8080) ? 0 : 1);'
 
-ENTRYPOINT ["kaleta-entrypoint"]
+ENTRYPOINT ["talea-entrypoint"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

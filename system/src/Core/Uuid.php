@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /** UUID v4 (random) – the identifier of a row that leaves the server: admin URLs, MCP, previews, webhooks, exports. */
 final class Uuid

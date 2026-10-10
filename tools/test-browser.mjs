@@ -1,4 +1,4 @@
-// Kaleta – browser test (run by tests/Browser/BrowserWalkTest.php): walks the admin, the builder, the news editor, the menu
+// Talea – browser test (run by tests/Browser/BrowserWalkTest.php): walks the admin, the builder, the news editor, the menu
 // editor and the public site in Chrome and fails on any uncaught script error or console error.
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
 // for screenshots of new screens, to look at them).
@@ -10,7 +10,7 @@ const { BASE, PASSWORD, CHROME, SHOTS } = process.env;
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
-await context.addInitScript(() => { try { localStorage.setItem('ka-bd-tour', '1'); } catch (e) { /* ignore */ } });
+await context.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
 const page = await context.newPage();
 const errors = [];
 let where = '';
@@ -138,7 +138,7 @@ await step('builder: dialogs, classes, library and clipboard', async () => {
   await page.waitForTimeout(800);
   await page.locator('[title="Back to element"]').click();
   await page.locator('button[aria-label="More actions"]').first().click();
-  await page.locator('.bd-more button', { hasText: 'Copy for another Kaleta site' }).first().click();
+  await page.locator('.bd-more button', { hasText: 'Copy for another Talea site' }).first().click();
   await page.waitForTimeout(800);
   await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
   await page.keyboard.press('Control+z');
@@ -214,7 +214,7 @@ await step('public site: home, phone menu, cookies', async () => {
   if (await accept.count()) { await accept.click().catch(() => {}); }
   await page.setViewportSize({ width: 390, height: 844 });
   await visit('/');
-  const toggle = page.locator('.ka-nav-switch, button[popovertarget]').first();
+  const toggle = page.locator('.tl-nav-switch, button[popovertarget]').first();
   if (await toggle.count()) { await toggle.click().catch(() => {}); await page.waitForTimeout(300); }
   await page.setViewportSize({ width: 1440, height: 900 });
 });
@@ -226,14 +226,14 @@ for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
 await step('booking: pick a day, the month stays drawn and the free times load', async () => {
   // until 3.2.1 the month and the times shared one request counter: after a day click the month stayed on "Loading…"
   await visit('/booking-test');
-  if (await page.locator('.ka-booking [data-no-script]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
-  const free = page.locator('.ka-booking-days button:not(:disabled)').first();
+  if (await page.locator('.tl-booking [data-no-script]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
+  const free = page.locator('.tl-booking-days button:not(:disabled)').first();
   await free.waitFor({ timeout: 5000 });
   await free.click();
-  await page.locator('.ka-booking-times button').first().waitFor({ timeout: 5000 });
+  await page.locator('.tl-booking-times button').first().waitFor({ timeout: 5000 });
   await page.waitForTimeout(500);
-  if (!(await page.locator('.ka-booking-days button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
-  await page.locator('.ka-booking-times button').first().click();
+  if (!(await page.locator('.tl-booking-days button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
+  await page.locator('.tl-booking-times button').first().click();
   if (!(await page.locator('[data-selected]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
 });
 

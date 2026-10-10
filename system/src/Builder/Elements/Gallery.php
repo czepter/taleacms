@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Core\Images;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Core\Images;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Photo gallery: a grid of thumbnails, a tap opens the photo full screen (the viewer from image/web.js, arrows and swipe).
@@ -35,9 +35,9 @@ final class Gallery extends Element
     public static function baseCss(): string
     {
         // the grid adapts to the width by itself; Styl → Sloupce (Style → Columns) overrides it (the elements layer comes after the builder layer)
-        return '.ka-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 45%), 1fr)); gap: var(--ka-space-s); margin: 0; }
-.ka-gallery img { display: block; width: 100%; height: auto; object-fit: cover; border-radius: var(--ka-radius-s); cursor: zoom-in; }
-.ka-gallery figcaption { grid-column: 1 / -1; color: var(--ka-color-muted); font-size: var(--ka-step--1); }';
+        return '.tl-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 45%), 1fr)); gap: var(--tl-space-s); margin: 0; }
+.tl-gallery img { display: block; width: 100%; height: auto; object-fit: cover; border-radius: var(--tl-radius-s); cursor: zoom-in; }
+.tl-gallery figcaption { grid-column: 1 / -1; color: var(--tl-color-muted); font-size: var(--tl-step--1); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -55,12 +55,12 @@ final class Gallery extends Element
                 . ' alt="' . e($f['alt']) . '" loading="lazy" style="aspect-ratio:' . e($o['ratio']) . '">';
         }
         if ($html === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Add photos in the Content panel.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">' . e(t('Add photos in the Content panel.')) . '</div>' : '';
         }
         if ($o['caption'] !== '') {
             $html .= $p['tag'] === 'figure' ? '<figcaption>' . e($o['caption']) . '</figcaption>' : '<p>' . e($o['caption']) . '</p>';
         }
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-gallery') . '>' . $html . '</' . $p['tag'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'tl-gallery') . '>' . $html . '</' . $p['tag'] . '>';
     }
 }

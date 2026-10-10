@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Document library (2.11, preset documents): price lists, terms, manuals and forms are collection items with a file.
  *
  *  - Versions: when the file of a document changes (the admin form, save_collection_item, a restored item version), the
- *    previous file and its version number are kept in ka_document_versions for good – the item history keeps only the
+ *    previous file and its version number are kept in tl_document_versions for good – the item history keeps only the
  *    last few saves, a library needs every edition. {{versions}} lists them on the item page.
  *  - A stable address: /<collection>/<document>/latest redirects to the current file ({{latest}} in buttons and links), so
  *    a link printed in a brochure or sent by e-mail stays valid when the file is replaced. A hidden, expired or deleted
  *    document answers 404 – or the collection's redirect of hidden items, like its page.
- *  - Download counts: one row per document and day (ka_document_downloads) and nothing about the visitor; bots and
+ *  - Download counts: one row per document and day (tl_document_downloads) and nothing about the visitor; bots and
  *    signed-in users are not counted, one address counts once an hour per document (Core\Antispam).
  *  - Gated downloads: a Form element may e-mail a file from Media to the visitor after sending (Front\Forms). The link
  *    /download/<token> is signed with the site's secret and expires after TOKEN_DAYS. A file in Media stays reachable by
@@ -106,7 +106,7 @@ final class Documents
         if ($versions === []) {
             return '';
         }
-        $html = '<h2>' . e(t('Previous versions')) . '</h2><ul class="ka-document-version">';
+        $html = '<h2>' . e(t('Previous versions')) . '</h2><ul class="tl-document-version">';
         foreach ($versions as $v) {
             $label = self::fileName((string) $v['file']) . ((string) $v['version'] !== '' ? ' · ' . t('Version %s', (string) $v['version']) : '');
             $html .= '<li><a href="' . e(self::filePath((string) $v['file'], $basePath)) . '">' . e($label) . '</a> (' . e(t('replaced on %s', format_date((string) $v['replaced_at']))) . ')</li>';
@@ -199,7 +199,7 @@ final class Documents
     {
         $r = $app->request;
         $userAgent = (string) ($r->serverValues()['HTTP_USER_AGENT'] ?? '');
-        if ($userAgent === '' || \Kaleta\Front\Stats::isBot($userAgent) || $app->auth()->user() !== null) {
+        if ($userAgent === '' || \Talea\Front\Stats::isBot($userAgent) || $app->auth()->user() !== null) {
             return;
         }
         $antispam = new Antispam($app->db(), $app->settings());

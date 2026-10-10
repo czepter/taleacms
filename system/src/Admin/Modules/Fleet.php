@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\ChangeLog;
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
-use Kaleta\Fleet\Console;
-use Kaleta\Fleet\Kit;
+use Talea\Admin\ChangeLog;
+use Talea\Admin\Module;
+use Talea\Core\Response;
+use Talea\Fleet\Console;
+use Talea\Fleet\Kit;
 
 /**
  * The fleet console (2.9, extension "fleet", Fleet\Console): every paired site on one screen, the ones that need attention
@@ -119,8 +119,8 @@ final class Fleet extends Module
         $s = $this->app->settings();
 
         return $this->view('kit', 'Shared kit', [
-            'designSystem' => \Kaleta\Builder\DesignSystem::load($s), 'classes' => \Kaleta\Core\Look::classes($this->db, $s, false),
-            'components' => \Kaleta\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT section_id, public_id, name FROM {sections} ORDER BY name'),
+            'designSystem' => \Talea\Builder\DesignSystem::load($s), 'classes' => \Talea\Core\Look::classes($this->db, $s, false),
+            'components' => \Talea\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT section_id, public_id, name FROM {sections} ORDER BY name'),
             'kits' => Kit::history($this->db), 'sites' => Console::sites($this->db), 'applied' => Kit::appliedVersions($this->db),
         ]);
     }

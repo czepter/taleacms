@@ -2,7 +2,7 @@
 /**
  * The full news item. The page frame is the system's own, it cannot be overridden.
  *
- * @var array<string, mixed> $newsItem  columns of ka_news + category_name, category_slug, author_name, stitky (nazev, seo_link),
+ * @var array<string, mixed> $newsItem  columns of tl_news + category_name, category_slug, author_name, stitky (nazev, seo_link),
  *                                     image_srcset, image_alt, image_caption_html, faq_html - ready-made HTML, just output it
  * @var callable(string): string $url
  * @var list<array<string, mixed>> $souvisejici

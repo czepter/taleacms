@@ -1,4 +1,4 @@
-/* Kaleta – menu editor ("Vzhled → Menu", Appearance → Menu). Items: page, custom link, news, group; one submenu level under an item,
+/* Talea – menu editor ("Vzhled → Menu", Appearance → Menu). Items: page, custom link, news, group; one submenu level under an item,
  * and inside a submenu a group may have items of its own (a column of the mega menu). Each item can have an icon and a short description.
  * Order by dragging or with arrows (keyboard too); the right arrow moves an item into the submenu of the item above it (inside a submenu
  * only into a group above it).

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Breadcrumbs: Home › News › Category › News item. The site assembles the path from the displayed page (Context::$breadcrumbs),
@@ -21,10 +21,10 @@ final class Breadcrumbs extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-breadcrumbs ol { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0; padding: 0; list-style: none; color: var(--ka-color-muted); font-size: var(--ka-step--1); }
-.ka-breadcrumbs li + li::before { content: "›"; margin-inline-end: 0.35em; }
-.ka-breadcrumbs a { color: inherit; }
-.ka-breadcrumbs [aria-current] { color: var(--ka-color-text); }';
+        return '.tl-breadcrumbs ol { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0; padding: 0; list-style: none; color: var(--tl-color-muted); font-size: var(--tl-step--1); }
+.tl-breadcrumbs li + li::before { content: "›"; margin-inline-end: 0.35em; }
+.tl-breadcrumbs a { color: inherit; }
+.tl-breadcrumbs [aria-current] { color: var(--tl-color-text); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -43,6 +43,6 @@ final class Breadcrumbs extends Element
             };
         }
 
-        return '<nav' . Text::withClass($a, 'ka-breadcrumbs') . ' aria-label="' . e(t('Breadcrumbs')) . '"><ol>' . $html . '</ol></nav>';
+        return '<nav' . Text::withClass($a, 'tl-breadcrumbs') . ' aria-label="' . e(t('Breadcrumbs')) . '"><ol>' . $html . '</ol></nav>';
     }
 }

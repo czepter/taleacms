@@ -2,8 +2,8 @@
 /**
  * Statistics and leads (Core\Report, 2.3).
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Stats $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Stats $module
  * @var array<string, mixed> $report
  */
 $days = (int) $report['period_days'];
@@ -45,7 +45,7 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 };
 ?>
 <nav class="tabs" aria-label="<?= e(t('Period')) ?>">
-<?php foreach (Kaleta\Core\Report::PERIODS as $d): ?>
+<?php foreach (Talea\Core\Report::PERIODS as $d): ?>
 	<a href="<?= e($module->url('', ['days' => $d])) ?>"<?= $days === $d ? ' class="active" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
 <?php endforeach ?>
 </nav>
@@ -54,7 +54,7 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 	<div class="tiles-item"><strong><?= format_count((int) $totals['views']) ?></strong><span><?= e(t('Page views')) ?></span></div>
 	<div class="tiles-item"><strong><?= format_count((int) $totals['enquiries'] + (int) $totals['signups']) ?></strong><span><?= e(t('Leads (enquiries and sign-ups)')) ?></span></div>
 	<div class="tiles-item"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
-	<div class="tiles-item"><strong><?= format_count(Kaleta\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
+	<div class="tiles-item"><strong><?= format_count(Talea\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
 </div>
 <h2><?= e(t('Page views and visits by day')) ?></h2>
 <div class="chart" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">

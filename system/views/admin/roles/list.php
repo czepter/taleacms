@@ -1,7 +1,7 @@
 <?php
 /**
- * @var Kaleta\Admin\Modules\Roles $module
- * @var Kaleta\Core\App $app
+ * @var Talea\Admin\Modules\Roles $module
+ * @var Talea\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $role
  * @var array<string, string> $names  section ident => name
@@ -9,8 +9,8 @@
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=users')) ?>"><?= e(t('Back to users')) ?></a> <a class="btn" href="<?= e($module->url('new')) ?>"><?= e(t('New role')) ?></a></p>
 <p class="small-text"><?= e(t('Start from a ready-made role:')) ?>
-<?php foreach (Kaleta\Admin\Modules\Roles::PRESETS as $key => [$presetName, $presetHelp]): ?>
-	<a href="<?= e($module->url('new', ['preset' => $key])) ?>" title="<?= e(t($presetHelp)) ?>"><?= e(t($presetName)) ?></a><?= $key !== array_key_last(Kaleta\Admin\Modules\Roles::PRESETS) ? ' ·' : '' ?>
+<?php foreach (Talea\Admin\Modules\Roles::PRESETS as $key => [$presetName, $presetHelp]): ?>
+	<a href="<?= e($module->url('new', ['preset' => $key])) ?>" title="<?= e(t($presetHelp)) ?>"><?= e(t($presetName)) ?></a><?= $key !== array_key_last(Talea\Admin\Modules\Roles::PRESETS) ? ' ·' : '' ?>
 <?php endforeach ?>
 </p>
 <p class="small-text"><?= e(t('The built-in roles News author, Editor and Administrator are enough for most websites. A custom role is useful when someone should see only part of the administration – for example a salesperson only Enquiries.')) ?></p>

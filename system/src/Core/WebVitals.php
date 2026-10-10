@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Front\Stats;
+use Talea\Front\Stats;
 
 /**
  * Real-user speed (2.8): Core Web Vitals – LCP, CLS and INP – measured by image/vitals.js in visitors' browsers and sent
@@ -12,7 +12,7 @@ use Kaleta\Front\Stats;
  * (Front\Stats): nothing about the visitor is stored, only aggregated numbers per page path per day.
  *
  * Percentiles need the distribution, not an average, so each metric is kept as a small histogram with fixed buckets
- * (BUCKETS = the upper edge of every bucket, the last one is open): one row of ka_web_vitals per day, path, metric and
+ * (BUCKETS = the upper edge of every bucket, the last one is open): one row of tl_web_vitals per day, path, metric and
  * bucket, with the number of samples in it. The 75th percentile (the number Google rates a page by) is the upper edge of
  * the bucket the 75th sample falls into – an upper estimate, never flattering. Google's thresholds are bucket edges, so the
  * rating is exact. Rows older than 400 days are deleted like the rest of the statistics.

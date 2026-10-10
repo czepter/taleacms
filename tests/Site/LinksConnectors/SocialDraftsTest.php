@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\LinksConnectors;
+namespace Talea\Tests\Site\LinksConnectors;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -25,7 +25,7 @@ final class SocialDraftsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_news', ['title' => 'New hall for production', 'intro' => '<p>We opened a new production hall &amp; warehouse.</p>', 'category' => $this->newsCategory(),
             'tags' => 'new hall F14, production F14, CNC machines F14, fourth F14', 'image' => 'media/photo.jpg', 'publish' => true]);
-        $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'New hall for production'");
+        $news = (int) $site->value("SELECT news_id FROM tl_news WHERE title = 'New hall for production'");
         $this->assertGreaterThan(0, $news);
 
         $result = $site->mcpResult('get_social_drafts', ['id' => $site->publicId('news', $news)]);
@@ -47,37 +47,37 @@ final class SocialDraftsTest extends SiteTestCase
 
         // a user agent not seen today = a new visitor
         $site->client('social')->get($result['drafts'][0]['link'], [], 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social');
-        $this->assertSame('1', (string) $site->value("SELECT COALESCE(SUM(visits), 0) > 0 FROM ka_stats_campaigns WHERE campaign LIKE 'facebook / social / new-hall-for-production%'"), 'social drafts: a visit through the tracked link counts in the campaign statistics');
+        $this->assertSame('1', (string) $site->value("SELECT COALESCE(SUM(visits), 0) > 0 FROM tl_stats_campaigns WHERE campaign LIKE 'facebook / social / new-hall-for-production%'"), 'social drafts: a visit through the tracked link counts in the campaign statistics');
     }
 
     #[Depends('testAnArticlePublishedThroughClaudeGetsDraftsForFacebookAndLinkedIn')]
     public function testTheEditorPanelLetsAPersonEditCopyAndMarkAsPosted(): void
     {
         $site = $this->site();
-        $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'New hall for production'");
+        $news = (int) $site->value("SELECT news_id FROM tl_news WHERE title = 'New hall for production'");
         $editor = $site->admin()->get('/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $news))->body;
         $this->assertStringContainsString('id="social-posts"', $editor, 'social drafts: the editor shows the panel');
         $this->assertSame(2, preg_match_all('/data-copy="#social-text-[0-9]*"/', $editor), 'social drafts: a Copy button per draft');
         $this->assertStringContainsString('action=social_posted', $editor, 'social drafts: Mark as posted');
         $this->assertStringNotContainsString('action=social_suggest', $editor, 'social drafts: no assistant button while the assistant is off');
 
-        $facebook = (int) $site->value("SELECT id FROM ka_social_drafts WHERE news_id = ? AND network = 'facebook'", [$news]);
+        $facebook = (int) $site->value("SELECT id FROM tl_social_drafts WHERE news_id = ? AND network = 'facebook'", [$news]);
         $editPage = '/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $news);
         $this->adminPost('/admin.php?module=news&action=social_save', ['id' => (string) $facebook,
             'text' => 'Edited text <b>without HTML</b> ' . $site->base . '/news/new-hall-for-production?utm_source=facebook&utm_medium=social&utm_campaign=new-hall-for-production'], $editPage);
-        $this->assertSame('1', (string) $site->value('SELECT text LIKE ? FROM ka_social_drafts WHERE id = ?', ['Edited text without HTML http%', $facebook]), 'social drafts: a draft edited in the admin before copying (HTML stripped)');
+        $this->assertSame('1', (string) $site->value('SELECT text LIKE ? FROM tl_social_drafts WHERE id = ?', ['Edited text without HTML http%', $facebook]), 'social drafts: a draft edited in the admin before copying (HTML stripped)');
 
         $this->adminPost('/admin.php?module=news&action=social_posted', ['id' => (string) $facebook, 'posted' => '1'], $editPage);
-        $this->assertSame('1', (string) $site->value('SELECT copied_at IS NOT NULL FROM ka_social_drafts WHERE id = ?', [$facebook]), 'social drafts: marked as posted');
+        $this->assertSame('1', (string) $site->value('SELECT copied_at IS NOT NULL FROM tl_social_drafts WHERE id = ?', [$facebook]), 'social drafts: marked as posted');
 
         $list = $site->admin()->get('/admin.php?module=news');
         $this->assertSame(200, $list->status);
         $this->assertMatchesRegularExpression('~id=' . $site->publicId('news', (int) $news) . '#social-posts"[^>]*>[^<]* \(1\)</a>~', $list->body, 'social drafts: the news list links the drafts still waiting to be posted');
 
-        $linkedin = (int) $site->value("SELECT id FROM ka_social_drafts WHERE news_id = ? AND network = 'linkedin'", [$news]);
+        $linkedin = (int) $site->value("SELECT id FROM tl_social_drafts WHERE news_id = ? AND network = 'linkedin'", [$news]);
         $result = $site->mcpResult('update_social_draft', ['id' => $linkedin, 'text' => 'Text from Claude']);
         $this->assertSame('Text from Claude', $result['draft']['text'], 'social drafts: Claude polishes a draft with update_social_draft (answer)');
-        $this->assertSame('Text from Claude', $site->value('SELECT text FROM ka_social_drafts WHERE id = ?', [$linkedin]), 'social drafts: Claude polishes a draft with update_social_draft (stored)');
+        $this->assertSame('Text from Claude', $site->value('SELECT text FROM tl_social_drafts WHERE id = ?', [$linkedin]), 'social drafts: Claude polishes a draft with update_social_draft (stored)');
     }
 
     #[Depends('testTheEditorPanelLetsAPersonEditCopyAndMarkAsPosted')]
@@ -85,26 +85,26 @@ final class SocialDraftsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->mcp('create_news', ['title' => 'Draft without posts', 'category' => $this->newsCategory()]);
-        $id = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Draft without posts'");
+        $id = (int) $site->value("SELECT news_id FROM tl_news WHERE title = 'Draft without posts'");
         $result = $site->mcpResult('get_social_drafts', ['id' => $site->publicId('news', $id)]);
         $this->assertEmpty($result['published'] ?? null, 'social drafts: an unpublished news item is not published');
         $this->assertSame([], $result['drafts'], 'social drafts: an unpublished news item has none (answer)');
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_social_drafts WHERE news_id = ?', [$id]), 'social drafts: an unpublished news item has none (stored)');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_social_drafts WHERE news_id = ?', [$id]), 'social drafts: an unpublished news item has none (stored)');
     }
 
     #[Depends('testADraftNewsItemHasNoDrafts')]
     public function testPublishingInTheAdminPreparesDraftsForTheChosenNetworksWithTheirLimits(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO ka_settings VALUES ('social_networks', 'facebook,linkedin,x,instagram') ON DUPLICATE KEY UPDATE value = VALUES(value)");
+        $site->exec("INSERT INTO tl_settings VALUES ('social_networks', 'facebook,linkedin,x,instagram') ON DUPLICATE KEY UPDATE value = VALUES(value)");
         $lead = '<p>' . str_repeat('We opened a new production hall with modern machines. ', 12) . '</p>';
         $this->adminPost('/admin.php?module=news&action=save', [
-            'news_id' => '0', 'title' => 'Long news item for X', 'category_id' => (string) $site->value("SELECT public_id FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1"),
-            'author_id' => (string) $site->value("SELECT public_id FROM ka_users WHERE username = 'admin'"), 'status' => 'published', 'intro' => $lead, 'tags' => 'hall F14, machines F14',
+            'news_id' => '0', 'title' => 'Long news item for X', 'category_id' => (string) $site->value("SELECT public_id FROM tl_categories WHERE language = '' ORDER BY category_id LIMIT 1"),
+            'author_id' => (string) $site->value("SELECT public_id FROM tl_users WHERE username = 'admin'"), 'status' => 'published', 'intro' => $lead, 'tags' => 'hall F14, machines F14',
         ], '/admin.php?module=news&action=new');
-        $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Long news item for X'");
+        $news = (int) $site->value("SELECT news_id FROM tl_news WHERE title = 'Long news item for X'");
         $this->assertGreaterThan(0, $news, 'the news item was saved');
-        $this->assertSame('facebook,instagram,linkedin,x', $site->value('SELECT GROUP_CONCAT(network ORDER BY network) FROM ka_social_drafts WHERE news_id = ?', [$news]), 'social drafts: publishing in the admin prepares a draft for each of the four chosen networks');
+        $this->assertSame('facebook,instagram,linkedin,x', $site->value('SELECT GROUP_CONCAT(network ORDER BY network) FROM tl_social_drafts WHERE news_id = ?', [$news]), 'social drafts: publishing in the admin prepares a draft for each of the four chosen networks');
 
         $drafts = $site->mcpResult('get_social_drafts', ['id' => $site->publicId('news', $news)])['drafts'];
         $x = $drafts[2]['text'];
@@ -122,12 +122,12 @@ final class SocialDraftsTest extends SiteTestCase
 
         $this->assertMatchesRegularExpression('~^' . preg_quote($site->base, '~') . '/og/[a-f0-9]+\.png$~', $drafts[0]['image'], 'social drafts: a news item without an image gets the picture the site draws (2.12)');
 
-        $xId = (int) $site->value("SELECT id FROM ka_social_drafts WHERE news_id = ? AND network = 'x'", [$news]);
+        $xId = (int) $site->value("SELECT id FROM tl_social_drafts WHERE news_id = ? AND network = 'x'", [$news]);
         $answer = json_encode($site->mcp('update_social_draft', ['id' => $xId, 'text' => str_repeat('a', 281)]), JSON_UNESCAPED_UNICODE);
         $this->assertStringContainsString('X allows 280', $answer, 'social drafts: Claude cannot make an X draft longer than 280');
 
         $tools = json_encode($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'));
         $this->assertStringContainsString('"name":"update_social_draft"', $tools, 'social drafts: the tools are listed');
-        $site->exec("DELETE FROM ka_settings WHERE name = 'social_networks'");
+        $site->exec("DELETE FROM tl_settings WHERE name = 'social_networks'");
     }
 }

@@ -4,8 +4,8 @@
  * The checkboxes of unused files and duplicate copies all belong to one delete form under the lists (form="cleanup"),
  * so the tables can keep their own small forms (make smaller).
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Media $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Media $module
  * @var string $csrf
  * @var list<array<string, mixed>> $unused
  * @var list<array<string, mixed>> $oversized
@@ -16,8 +16,8 @@
  * @var bool $canShrink
  * @var callable $canEdit  fn (array $row): bool
  */
-use Kaleta\Core\Files;
-use Kaleta\Core\MediaHygiene;
+use Talea\Core\Files;
+use Talea\Core\MediaHygiene;
 
 $thumbnail = fn (array $o): string => $o['thumb_path'] === ''
     ? '<span class="gallery-file cleanup-file">' . e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) . '</span>'
@@ -86,7 +86,7 @@ $deletable = 0;
 <?php if ($oversized === []): ?>
 <p class="help"><?= e(t('No image is larger than %s or wider than %d px.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH)) ?></p>
 <?php else: ?>
-<p class="help"><?= e(t('Images over %s or wider than %d px slow pages down. “Make smaller” re-encodes the image to %d px in place – its address and every page that shows it stay.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH, Kaleta\Core\Images::MAX_SIDE)) ?></p>
+<p class="help"><?= e(t('Images over %s or wider than %d px slow pages down. “Make smaller” re-encodes the image to %d px in place – its address and every page that shows it stay.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH, Talea\Core\Images::MAX_SIDE)) ?></p>
 <div class="tab-wrap">
 <table class="listing cleanup">
 <thead><tr><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Used')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Core\Db;
+use Talea\Builder\Collections;
+use Talea\Core\Db;
 
 /**
- * What an enquiry was about (2.12, ka_enquiries.tema): the collection and item of a service, product or event page, the
+ * What an enquiry was about (2.12, tl_enquiries.tema): the collection and item of a service, product or event page, the
  * title of an ordinary page, the name of a pop-up – so whoever reads the enquiry knows without the visitor typing it.
  * It is looked up on the server from the form's source and the address the form came back to; nothing posted is trusted.
  */
 final class EnquiryTopic
 {
-    /** Length of ka_enquiries.tema. */
+    /** Length of tl_enquiries.tema. */
     private const int MAX = 255;
 
     /** Looks the topic up for a submission; '' for a site part (header, footer) or when the source is unknown. */

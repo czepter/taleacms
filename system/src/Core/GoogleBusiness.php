@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Connectors\Google;
+use Talea\Connectors\Google;
 
 /**
  * Google Business Profile (2.13, on the Google connection of Core\Connectors): what the site already knows goes to the
@@ -14,7 +14,7 @@ use Kaleta\Connectors\Google;
  *    changed hours, the next 12 months) as specialHours of the chosen location – whenever the hours change and once a day
  *    by the scheduler job 'gbp'; a published news item as a STANDARD post with a LEARN_MORE button (opt-in). Both go
  *    through the delivery queue (action prefix 'gbp'), so a Google outage is retried, never lost.
- *  - Pull: once a day the latest reviews into ka_google_reviews (name, stars, text, time, the owner's reply – what Google
+ *  - Pull: once a day the latest reviews into tl_google_reviews (name, stars, text, time, the owner's reply – what Google
  *    shows publicly, nothing more) and the profile's average rating and review count into the settings google_rating /
  *    google_reviews ({{fact.google_rating}}, {{fact.google_reviews}}). Reviews that disappeared from Google disappear here;
  *    disconnecting Google deletes them all (Google::disconnected).
@@ -312,7 +312,7 @@ final class GoogleBusiness
         $s->set('google_rating', is_numeric($rating) ? (string) round((float) $rating, 1) : '');
         $s->set('google_reviews', (string) max(0, (int) ($answer['json']['totalReviewCount'] ?? count($kept))));
         $s->set('google_reviews_synced', $now);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return null;
     }
@@ -393,6 +393,6 @@ final class GoogleBusiness
         foreach (['google_rating', 'google_reviews', 'google_reviews_synced', 'google_locations'] as $key) {
             $s->set($key, '');
         }
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
     }
 }

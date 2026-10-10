@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Language;
-use Kaleta\Core\Mailing;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Language;
+use Talea\Core\Mailing;
+use Talea\Core\Response;
 
 /**
  * Newsletters (Newsletter extension): the latest news to confirmed subscribers, in one template styled by the design
@@ -150,7 +150,7 @@ final class Newsletters extends Module
         }
         $ok = Mailing::sendTest($this->app, $n, $email);
 
-        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', \Kaleta\Core\Mail::$error), 'edit', ['id' => $this->publicId($id)], $ok ? 'ok' : 'error');
+        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', \Talea\Core\Mail::$error), 'edit', ['id' => $this->publicId($id)], $ok ? 'ok' : 'error');
     }
 
     /** @param array<string, mixed> $n */
@@ -158,11 +158,11 @@ final class Newsletters extends Module
     {
         $s = $this->app->settings();
         $languages = Language::additional($s) === [] ? [] : [Language::defaults($s), ...Language::additional($s)];
-        $news = \Kaleta\Core\Extensions::isEnabled($s, 'news')
+        $news = \Talea\Core\Extensions::isEnabled($s, 'news')
             ? $this->db->all('SELECT news_id, public_id, title, published_at, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC, news_id DESC LIMIT 40') : [];
 
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
-            'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'news'),
+            'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Talea\Core\Extensions::isEnabled($s, 'news'),
             'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app), 'canPublish' => $this->app->auth()->canPublish(),
             'email' => (string) ($this->app->auth()->user()['email'] ?? ''),
         ]);

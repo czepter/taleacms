@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * System health (health check): a set of quick checks of the server, database, security and operation.
@@ -31,7 +31,7 @@ final class Health
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'warning', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
         }
         $add(t('Server'), t('Upload size limit'), self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'warning', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
-        $freeSpace = @disk_free_space(KALETA_ROOT);
+        $freeSpace = @disk_free_space(TALEA_ROOT);
         if ($freeSpace !== false) {
             $add(t('Server'), t('Free disk space'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'warning', self::size((int) $freeSpace));
         }
@@ -45,16 +45,16 @@ final class Health
 
         // --- files and security
         foreach (['media' => t('uploaded images'), 'storage/log' => t('error log'), 'storage/cache' => t('temporary data')] as $folder => $purpose) {
-            $ok = is_dir(KALETA_ROOT . '/' . $folder) ? is_writable(KALETA_ROOT . '/' . $folder) : is_writable(KALETA_ROOT);
+            $ok = is_dir(TALEA_ROOT . '/' . $folder) ? is_writable(TALEA_ROOT . '/' . $folder) : is_writable(TALEA_ROOT);
             $add(t('Files'), t('Write access to %s/', $folder), $ok, $ok ? $purpose : t('%s - set write permissions', $purpose));
         }
-        $add(t('Security'), t('Installer'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
-        if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
+        if (is_file(TALEA_ROOT . '/.htaccess.talea-nova')) {
             // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
-            $add(t('Security'), '.htaccess', 'warning', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
+            $add(t('Security'), '.htaccess', 'warning', t('An update left a newer .htaccess.talea-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
         $core = Integrity::check();
         $add(t('Security'), t('Core files'), $core['status'], $core['info']);
@@ -91,7 +91,7 @@ final class Health
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
 
         // --- operation
-        $log = KALETA_ROOT . '/storage/log/errors.log';
+        $log = TALEA_ROOT . '/storage/log/errors.log';
         $errorCount = 0;
         if (is_file($log)) {
             $from = date('c', time() - 86400);
@@ -105,8 +105,8 @@ final class Health
         $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $media = 0;
-        if (is_dir(KALETA_ROOT . '/media')) {
-            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $file) {
+        if (is_dir(TALEA_ROOT . '/media')) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $file) {
                 $media += $file->getSize();
             }
         }
@@ -126,7 +126,7 @@ final class Health
             : ($before <= 30 ? t('last run %d min ago', $before) : ($before < 120 ? t('last run %d min ago', $before) : t('last run %d h ago', (int) round($before / 60)))
                 . ' – ' . t('on a low-traffic site set up cron; you will find the address further down this page')));
         // themeless since 1.6: a custom PHP layout left in layout/ is no longer used
-        $leftover = array_map('basename', array_map('dirname', glob(KALETA_ROOT . '/layout/*/base.php') ?: []));
+        $leftover = array_map('basename', array_map('dirname', glob(TALEA_ROOT . '/layout/*/base.php') ?: []));
         if ($leftover !== []) {
             $add(t('Operation'), t('Custom layout'), 'warning', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
         }
@@ -155,7 +155,7 @@ final class Health
                 !$update['configured'] => t('no update source is set'),
                 $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
                 $update['available'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['available']['version']),
-                default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['checked'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['checked']), true)) : ''),
+                default => t('the system is up to date (%s)', TALEA_VERSION) . ($update['checked'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['checked']), true)) : ''),
             });
         }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)

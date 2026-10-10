@@ -21,7 +21,7 @@ foreach (['', 'admin-', 'install-'] as $set) {
     }
 }
 $scripts = [];
-if (preg_match('/window\.KALETA_TRANSLATIONS = (\{.*\});/s', (string) @file_get_contents($root . "/image/languages/admin-{$code}.js"), $m) === 1) {
+if (preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) @file_get_contents($root . "/image/languages/admin-{$code}.js"), $m) === 1) {
     $scripts = (array) json_decode((string) preg_replace('/,\s*\}$/', '}', $m[1]), true);
 }
 

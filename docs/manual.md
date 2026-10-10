@@ -1,4 +1,4 @@
-# Kaleta guide
+# Talea guide
 
 For whoever runs the site: from installation through the page builder to connecting AI.
 
@@ -50,10 +50,10 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   that class across the site – ideal for a repeated look.
 - **Shortcuts:** Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (even between pages),
   Delete removes, Esc selects the parent element, **?** opens help – where you can also start the **editor tour**.
-- **Copy between Kaleta sites:** Ctrl+C puts the element into the system clipboard as text together with its classes and
-  components; Ctrl+V in the builder of another Kaleta site inserts it (missing classes and components are created by an
+- **Copy between Talea sites:** Ctrl+C puts the element into the system clipboard as text together with its classes and
+  components; Ctrl+V in the builder of another Talea site inserts it (missing classes and components are created by an
   administrator, existing ones stay). Images still load from the source site over https – replace them from this site's Media.
-  Without clipboard access use **More actions → Copy / Paste from another Kaleta site (as text)**.
+  Without clipboard access use **More actions → Copy / Paste from another Talea site (as text)**.
 - **Preview:** next to the device switch choose a **wide monitor (1920 px)** or zoom 50–100 %.
 - **Display conditions** (Advanced): show an element only between two dates (a promo banner), only to visitors or signed-in users,
   only in chosen language versions, or only when the address has a URL parameter (`?utm_campaign=jaro`, `?variant=b`).
@@ -77,7 +77,7 @@ sharing). A deleted page goes to the **trash** and can be restored for 30 days; 
 
 **Appearance → Site appearance** changes the whole site at once. Two words, used the same way everywhere: a **starter
 site** is sample content plus a style (you choose it at installation), and a **style** is a ready set of colours, fonts,
-sizes and corner radius. Kaleta has no PHP themes since 1.6 – the look comes only from Site appearance, shared classes and
+sizes and corner radius. Talea has no PHP themes since 1.6 – the look comes only from Site appearance, shared classes and
 the builder.
 
 The page has tabs:
@@ -193,17 +193,17 @@ If spam still gets through, **Settings → Privacy and cookies → Spam check fo
 Cloudflare Turnstile on top (2.6): the provider's script loads only on pages with a form, the answer is checked on the
 server, the secret key never leaves the admin, and a single form can opt out in its settings.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
-tracking gets a `kaleta:form_sent` event (and a `dataLayer` entry).
+tracking gets a `talea:form_sent` event (and a `dataLayer` entry).
 
 **Google Tag Manager** (Settings → Analytics, 2.6): enter the container ID (`GTM-…`). Consent mode is built in – with the
-built-in cookie bar the container starts only after the visitor allows analytics or marketing. Kaleta sends conversion
+built-in cookie bar the container starts only after the visitor allows analytics or marketing. Talea sends conversion
 events to the data layer: `generate_lead` (a form was sent), `sign_up` (newsletter), `popup_conversion`, `click_phone`,
 `click_email` and `file_download`. The tab offers a container template with these triggers and GA4 and Google Ads tags
 to import into Tag Manager.
 
 **Settings → Webhooks** holds both webhook addresses (a new enquiry, a published news item). The call goes out right after
-the page is sent, so a slow receiver never delays a visitor, and every call is signed: the headers `X-Kaleta-Timestamp`
-and `X-Kaleta-Signature` (`sha256=` HMAC-SHA256 of `timestamp.body` with the signing secret shown on the tab) let the
+the page is sent, so a slow receiver never delays a visitor, and every call is signed: the headers `X-Talea-Timestamp`
+and `X-Talea-Signature` (`sha256=` HMAC-SHA256 of `timestamp.body` with the signing secret shown on the tab) let the
 receiver check that the call came from your site. The **delivery log** shows every call; a failed one is retried after 1,
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
@@ -308,7 +308,7 @@ The **Claude connection (MCP)** is switched on in new installations (under Featu
   **My account** and add `--header "Authorization: Bearer <token>"`.
 
 ```bash
-claude mcp add --transport http kaleta https://your-site.com/mcp
+claude mcp add --transport http talea https://your-site.com/mcp
 ```
 
 Claude then builds the whole site with your account permissions: it sets the look (colours, fonts, shared classes),
@@ -343,10 +343,10 @@ item, and a weekly review of the site.
 **Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
 
-## 11. Moving from WordPress or another Kaleta site
+## 11. Moving from WordPress or another Talea site
 
 **Administration → Import and export → Import from a website** (2.6): enter the address of a site on any platform – Wix,
-Webnode, Jimdo, Squarespace, Joomla, Drupal or WordPress without an export. Kaleta reads its sitemap (or follows its links),
+Webnode, Jimdo, Squarespace, Joomla, Drupal or WordPress without an export. Talea reads its sitemap (or follows its links),
 shows what it found, and on confirmation turns each page into a hidden builder page with its images in Media; blog posts
 become news, and old addresses redirect to the new ones. The header, footer, menus, cookie bars and forms of the old site
 are left out and the look comes from your design system. Claude does the same with `import_website` and can then match
@@ -356,9 +356,9 @@ the look and tidy the texts.
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects
 from old addresses. You can run the import again – whatever it already converted is skipped.
 
-**Moving a Kaleta site** to another host or starting a new site from an agency's starter kit: on the old site create
-**Import and export → Export of the whole site**, then install Kaleta on the new host and choose **Start from an export**
-in the installer. Sign in, open **Import and export → Import from Kaleta** and upload the `.zip` (a larger one over FTP
+**Moving a Talea site** to another host or starting a new site from an agency's starter kit: on the old site create
+**Import and export → Export of the whole site**, then install Talea on the new host and choose **Start from an export**
+in the installer. Sign in, open **Import and export → Import from Talea** and upload the `.zip` (a larger one over FTP
 into `storage/import/`). The preview shows what the export holds; after you confirm, a database backup is made and the
 import runs in batches on its own – pages, news, collections, components, shared classes, site parts, menus, pop-ups,
 redirects, the media library and its files, the site name, company details, languages and the look. Every row has a public
@@ -392,7 +392,7 @@ what it finds.
 target) or **Ignore** (nothing replaces it, or it is a bot); **Ignore all** dismisses the warning until a new address
 appears. Probes of bots looking for other systems are not recorded, and an address that works again drops out by itself.
 
-**Kaleta 2.0** is one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
+**Talea 2.0** is one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
 became a site pop-up during the update – same content, trigger and frequency, shown only where it was, and its button
 opens it (Appearance → Pop-ups). Old admin addresses of 1.3 lead to the start screen, old class names and helpers of
 1.3 no longer exist, and the settings answer only to their current names – the Claude connection still accepts the old
@@ -405,12 +405,12 @@ site, otherwise once a week; the last 10 are kept. **Off-site copies** upload ea
 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) and copy the `media/` folder to the same place – only new and changed
 files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
 
-To **restore a site after losing the hosting**: install Kaleta on the new hosting with the same table prefix, upload the
+To **restore a site after losing the hosting**: install Talea on the new hosting with the same table prefix, upload the
 latest database backup over FTP into `storage/backups/`, copy the `media/` folder back from the FTPS or S3 copy, then click
 **Restore** at that backup in Settings → Backups and updates and sign in with the accounts from the backup.
 
 **Import and export → Export of the whole site** creates an open package with the content and media – for moving (see
-above) or keeping your content outside Kaleta. Enquiries, subscribers and accounts are not exported.
+above) or keeping your content outside Talea. Enquiries, subscribers and accounts are not exported.
 
 The public read-only API of 1.x (`/api/news`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
 Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.

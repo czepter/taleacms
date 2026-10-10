@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
 /**
  * Features – the built-in extensions – as a separate item of the main menu (formerly a Settings tab; "Features" since 3.2,

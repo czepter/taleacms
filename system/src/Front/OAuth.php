@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
+namespace Talea\Front;
 
-use Kaleta\Core\Antispam;
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Response;
+use Talea\Core\Antispam;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Response;
 
 /**
  * OAuth 2.1 for the Claude connector (and other MCP clients) according to the MCP authorization specification:
@@ -19,7 +19,7 @@ use Kaleta\Core\Response;
  *
  * The application gets the permissions of the user who allowed it – all of them, or (chosen on the consent screen, 2.2)
  * only drafts or only reading. The access token is valid for an hour, the
- * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokens (hashes
+ * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in tl_api_tokens (hashes
  * only) – disconnecting the application in "My account" deletes them.
  * At the domain root the metadata are at /.well-known/. A site in a subfolder serves them at /folder/.well-known/
  * (openid-configuration included), where MCP clients that follow the current specification look; for others, sign-in with
@@ -44,7 +44,7 @@ final class OAuth
         if (!$isOAuth) {
             return null;
         }
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude')) {
+        if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude')) {
             return Response::json(['error' => 'not_found', 'error_description' => 'The connection to Claude is turned off on this site.'], 404);
         }
         $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
@@ -93,7 +93,7 @@ final class OAuth
             'issuer' => $v, 'authorization_endpoint' => $v . '/oauth/authorize', 'token_endpoint' => $v . '/oauth/token', 'registration_endpoint' => $v . '/oauth/register',
             'response_types_supported' => ['code'], 'grant_types_supported' => ['authorization_code', 'refresh_token'], 'code_challenge_methods_supported' => ['S256'],
             'token_endpoint_auth_methods_supported' => ['none', 'client_secret_post', 'client_secret_basic'], 'scopes_supported' => ['mcp'],
-            'service_documentation' => 'https://kaletacms.com',
+            'service_documentation' => 'https://taleacms.com',
         ];
     }
 
@@ -224,8 +224,8 @@ final class OAuth
         if ($user === null) {
             return $this->error('invalid_grant', 'The account that allowed the application no longer has access.');
         }
-        $access = 'kaleta_oa_' . bin2hex(random_bytes(24));
-        $refresh = 'kaleta_or_' . bin2hex(random_bytes(24));
+        $access = 'talea_oa_' . bin2hex(random_bytes(24));
+        $refresh = 'talea_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'access', self::ACCESS_LIFETIME], [$refresh, 'refresh', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
                 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
@@ -259,7 +259,7 @@ final class OAuth
     /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
     public static function access(string $access): string
     {
-        return isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';
+        return isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';
     }
 
     public static function isValidRedirectUri(string $url): bool

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Reading a WordPress export (WXR file: Tools → Export → All content). It writes nothing, only reads.
@@ -15,7 +15,7 @@ namespace Kaleta\Core;
  */
 final class WpFile
 {
-    public const string FOLDER = KALETA_ROOT . '/storage/import';
+    public const string FOLDER = TALEA_ROOT . '/storage/import';
 
     /** Upper limit of the file size: a larger export is better split (WordPress can do it by date or author). */
     public const int MAX_BYTES = 1024 * 1024 * 1024;

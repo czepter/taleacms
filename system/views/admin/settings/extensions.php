@@ -1,8 +1,8 @@
 <?php
 /** The "Features" tab. */
-use Kaleta\Core\Extensions;
+use Talea\Core\Extensions;
 ?>
-<p class="notice"><?= e(t('Features are optional parts of Kaleta. All of them are part of the system and maintained by the Kaleta team – nothing is downloaded or installed. A switched-off feature disappears from the menu and the site; its data stays and returns when you switch it on again.')) ?></p>
+<p class="notice"><?= e(t('Features are optional parts of Talea. All of them are part of the system and maintained by the Talea team – nothing is downloaded or installed. A switched-off feature disappears from the menu and the site; its data stays and returns when you switch it on again.')) ?></p>
 <?php
 // where an enabled extension is configured – each lives elsewhere in the admin, so the card leads straight to that place
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
@@ -38,12 +38,12 @@ $extensionSettings = [
 <div class="row">
 	<label for="ai_provider"><?= e(t('Provider')) ?></label>
 	<div><select id="ai_provider" name="ai_provider">
-<?php foreach (Kaleta\Core\Assistant::PROVIDERS as $key => [$name, , $console]): ?>
+<?php foreach (Talea\Core\Assistant::PROVIDERS as $key => [$name, , $console]): ?>
 		<option value="<?= e($key) ?>"<?= $values['ai_provider'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select>
 	<span class="help"><?= e(t('Create a key with the provider:')) ?>
-<?php foreach (Kaleta\Core\Assistant::PROVIDERS as [$name, , $console]): ?>
+<?php foreach (Talea\Core\Assistant::PROVIDERS as [$name, , $console]): ?>
 		<a href="<?= e($console) ?>" target="_blank" rel="noopener"><?= e(t($name)) ?></a>
 <?php endforeach ?>
 		· <?= e(t('You pay only for actual use; one suggestion costs a fraction of a cent. The key is stored only on your site.')) ?></span></div>
@@ -60,7 +60,7 @@ $extensionSettings = [
 	<label for="ai_model"><?= e(t('Model')) ?></label>
 	<div><input class="textfield" id="ai_model" name="ai_model" value="<?= e($values['ai_model']) ?>" list="ai_modely" maxlength="80" spellcheck="false">
 	<datalist id="ai_models">
-<?php foreach (Kaleta\Core\Assistant::MODELS as $key => $name): ?>
+<?php foreach (Talea\Core\Assistant::MODELS as $key => $name): ?>
 		<option value="<?= e($key) ?>"><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</datalist>
@@ -75,7 +75,7 @@ $extensionSettings = [
 	<label for="newsletter_service"><?= e(t('Service')) ?></label>
 	<div><select id="newsletter_service" name="newsletter_service">
 		<option value=""><?= e(t('none – you export subscribers to CSV')) ?></option>
-<?php foreach (Kaleta\Core\Newsletter::SERVICES as $key => [$name]): ?>
+<?php foreach (Talea\Core\Newsletter::SERVICES as $key => [$name]): ?>
 		<option value="<?= e($key) ?>"<?= $values['newsletter_service'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></div>

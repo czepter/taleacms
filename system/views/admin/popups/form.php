@@ -2,15 +2,15 @@
 /**
  * Popup settings: type, trigger, frequency and display rules.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Popups $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Popups $module
  * @var string $csrf
  * @var array<string, mixed> $p
  * @var list<array<string, mixed>> $pages
  * @var list<array<string, mixed>> $collection
  * @var array<string, string> $languages
  */
-use Kaleta\Builder\Popups;
+use Talea\Builder\Popups;
 
 $rules = $p['rules'];
 $selection = function (string $displayName, array $options, string $value, bool $toTranslate = true): string {

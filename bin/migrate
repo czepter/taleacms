@@ -17,27 +17,27 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/system/bootstrap.php';
 
-use Kaleta\Core\Config;
-use Kaleta\Core\Migrator;
+use Talea\Core\Config;
+use Talea\Core\Migrator;
 
 $onlyIfInstalled = in_array('--if-installed', $argv, true);
-$config = Config::fromEnv() ? Config::fromEnvironment() : (is_file(KALETA_ROOT . '/config.php') ? require KALETA_ROOT . '/config.php' : null);
+$config = Config::fromEnv() ? Config::fromEnvironment() : (is_file(TALEA_ROOT . '/config.php') ? require TALEA_ROOT . '/config.php' : null);
 if ($onlyIfInstalled && (!is_array($config) || !isset($config['db']) || (Config::fromEnv() && !Config::installed()))) {
     echo "Not installed yet - nothing to migrate.\n";
     exit(0);
 }
 if (!is_array($config) || !isset($config['db'])) {
-    fwrite(STDERR, "No database configuration: set KALETA_DB_NAME (and the other KALETA_DB_*) or create config.php.\n");
+    fwrite(STDERR, "No database configuration: set TALEA_DB_NAME (and the other TALEA_DB_*) or create config.php.\n");
     exit(1);
 }
 
 try {
     if (in_array('--backup', $argv, true)) {
-        $db = \Kaleta\Core\Db::fromConfig($config['db']);
+        $db = \Talea\Core\Db::fromConfig($config['db']);
         $pending = Migrator::pending($db);
         if ($pending !== [] && $db->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", [$db->prefix . 'settings']) > 0) {
             echo 'Backing up the database before applying ' . count($pending) . " migration(s)...\n";
-            echo \Kaleta\Core\Backup::create($db, 'before-update') . "\n";
+            echo \Talea\Core\Backup::create($db, 'before-update') . "\n";
         }
     }
     $applied = Migrator::migrate($config['db']);

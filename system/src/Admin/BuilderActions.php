@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
+namespace Talea\Admin;
 
-use Kaleta\Core\Language;
-use Kaleta\Core\Preview;
-use Kaleta\Core\Response;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\ElementClipboard;
-use Kaleta\Builder\Style;
+use Talea\Core\Language;
+use Talea\Core\Preview;
+use Talea\Core\Response;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\ElementClipboard;
+use Talea\Builder\Style;
 
 /**
  * Builder actions shared by pages (Modules\Pages) and site parts (Modules\SiteParts): editor, autosaving the draft,
@@ -52,9 +52,9 @@ trait BuilderActions
         $app = $this->app;
         $e = $this->describeTarget($target);
         $collections = array_map(fn (array $k): array => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
-        $extensions = \Kaleta\Core\Extensions::enabled($app->settings());
+        $extensions = \Talea\Core\Extensions::enabled($app->settings());
         $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
-        $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
+        $components = \Talea\Admin\Modules\Components::listForEditor($this->db);
         foreach ($schema['elements'] as &$element) {
             if ($element['type'] === 'component') {
                 $element['properties']['component'] = ['type' => 'choice', 'label' => 'Component', 'default' => '',
@@ -79,7 +79,7 @@ trait BuilderActions
             'schema' => $schema,
             'collections' => $collections,
             'components' => $components,
-            'ai' => (new \Kaleta\Core\Assistant($app->settings()))->isReady(),
+            'ai' => (new \Talea\Core\Assistant($app->settings()))->isReady(),
             'detail_collection' => $e['collection'] ?? null,
             'library' => Library::listAll($extensions),
             'library_categories' => array_map(fn (string $k): string => t($k), Library::CATEGORIES),
@@ -91,7 +91,7 @@ trait BuilderActions
             'colors' => DesignSystem::load($app->settings())['colors'],
             // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
             'links' => [...array_map(fn (array $s): array => ['/' . ($s['language'] !== '' ? $s['language'] . '/' : '') . ((int) $s['page_id'] === $app->settings()->int('home_page') ? '' : $s['slug']), $s['title'] . ($s['visible'] ? '' : ' (' . t('hidden') . ')')],
-                $this->db->all('SELECT page_id, title, slug, language, visible FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('news', $this->db), t('News')]],
+                $this->db->all('SELECT page_id, title, slug, language, visible FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 300')), ['/' . \Talea\Core\Routes::publicPath('news', $this->db), t('News')]],
             'preview' => $e['preview'],
             'comments' => $this->commentsForEditor((string) ($e['signature'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
             'settings_text' => $e['settings_text'] ?? null, // label of the link to the target's settings (otherwise "Page settings")
@@ -103,7 +103,7 @@ trait BuilderActions
             ]) + ['delete_section' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['params']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
                 'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'section_preview' => $app->url('_section/'),
-                'guide' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())],
+                'guide' => \Talea\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Talea\Core\Language::code())],
         ];
 
         return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['title']]));
@@ -164,7 +164,7 @@ trait BuilderActions
         $e = $this->describeTarget($target);
         $days = max(1, min(7, $this->request->postInt('days', 7)));
         // "Allow comments" (2.15, Core\DraftComments): the flag is signed into the key; comments exist for page drafts
-        $comments = $this->request->post('comments') === '1' && \Kaleta\Core\DraftComments::parseTarget((string) ($e['signature'] ?? '')) !== null;
+        $comments = $this->request->post('comments') === '1' && \Talea\Core\DraftComments::parseTarget((string) ($e['signature'] ?? '')) !== null;
         $key = Preview::key($this->db, $this->app->settings(), $e['signature'], $days * 24 * 60, $comments);
         $url = str_replace('&editor=1', '', $e['preview']);
         ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['title'], 0, 80) . ' (' . $days . ' d' . ($comments ? ', comments' : '') . ')');
@@ -183,11 +183,11 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t('Page does not exist.')], 404);
         }
         $signature = (string) ($this->describeTarget($target)['signature'] ?? '');
-        $comment = \Kaleta\Core\DraftComments::find($this->db, $this->request->postInt('id'));
+        $comment = \Talea\Core\DraftComments::find($this->db, $this->request->postInt('id'));
         if ($comment === null || $comment['target'] !== $signature) {
             return Response::json(['ok' => false, 'error' => t('The comment does not exist.')], 404);
         }
-        if (\Kaleta\Core\DraftComments::resolve($this->app, $comment['id'])) {
+        if (\Talea\Core\DraftComments::resolve($this->app, $comment['id'])) {
             ChangeLog::write($this->app, static::IDENT, 'comment resolved', mb_substr($target['title'], 0, 80));
         }
 
@@ -202,17 +202,17 @@ trait BuilderActions
      */
     private function commentsForEditor(string $signature): ?array
     {
-        if (\Kaleta\Core\DraftComments::parseTarget($signature) === null) {
+        if (\Talea\Core\DraftComments::parseTarget($signature) === null) {
             return null;
         }
 
         return array_map(fn (array $c): array => ['id' => $c['id'], 'element' => $c['element'], 'quote' => $c['quote'], 'name' => $c['name'], 'text' => $c['text'],
-            'when' => format_date($c['created_at'], true), 'resolved' => $c['resolved_at'] !== null], \Kaleta\Core\DraftComments::list($this->db, $signature, false, 200));
+            'when' => format_date($c['created_at'], true), 'resolved' => $c['resolved_at'] !== null], \Talea\Core\DraftComments::list($this->db, $signature, false, 200));
     }
 
     /**
      * The selected elements packed for the system clipboard (JSON): with the shared classes and the components they use, so
-     * that the builder of another Kaleta site can paste them (Builder\ElementClipboard). Changes nothing.
+     * that the builder of another Talea site can paste them (Builder\ElementClipboard). Changes nothing.
      */
     protected function actionBuildPackage(): Response
     {
@@ -225,7 +225,7 @@ trait BuilderActions
     }
 
     /**
-     * Elements pasted from the clipboard of another Kaleta site (JSON): the envelope is checked, missing classes and
+     * Elements pasted from the clipboard of another Talea site (JSON): the envelope is checked, missing classes and
      * components are created like on a page import (an administrator only, existing classes stay), the elements go through
      * the validator and come back with new ids – the editor inserts them at the selected position and saves the draft as
      * usual. Media of the other site are relinked or left out; the editor shows how many.
@@ -239,7 +239,7 @@ trait BuilderActions
         $raw = (string) ($_POST['clipboard'] ?? '');
         $package = strlen($raw) <= ElementClipboard::MAX_LENGTH ? ElementClipboard::parse(json_decode($raw, true)) : null;
         if ($package === null) {
-            return Response::json(['ok' => false, 'error' => t('The clipboard does not contain Kaleta elements.')], 400);
+            return Response::json(['ok' => false, 'error' => t('The clipboard does not contain Talea elements.')], 400);
         }
         $admin = $this->app->auth()->isAdmin();
         [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
@@ -260,7 +260,7 @@ trait BuilderActions
         }
 
         return Response::json(['ok' => true, 'elements' => $build['children'], 'notes' => $messages, 'classes' => $this->loadBuilderClasses(),
-            'components' => \Kaleta\Admin\Modules\Components::listForEditor($this->db)]);
+            'components' => \Talea\Admin\Modules\Components::listForEditor($this->db)]);
     }
 
     /** Discards the work-in-progress changes: the editor returns to the published build. */
@@ -289,7 +289,7 @@ trait BuilderActions
     }
 
     /** @return list<array{id:string, name:string, element:array<string, mixed>}> the site's custom sections (panel Add → My sections) */
-    public static function listMySections(\Kaleta\Core\Db $db): array
+    public static function listMySections(\Talea\Core\Db $db): array
     {
         return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['element'], true)) ? ['id' => $r['public_id'], 'name' => $r['name'], 'element' => $p] : null,
             $db->all('SELECT section_id, public_id, name, element FROM {sections} ORDER BY name LIMIT 200'))));
@@ -347,7 +347,7 @@ trait BuilderActions
                 return Response::json(['ok' => false, 'error' => t('The new name must be unused and written in lowercase without accents (e.g. card-large).')], 400);
             }
             $this->db->update('classes', ['name' => $new, 'updated_at' => date('Y-m-d H:i:s')], ['name' => $name]);
-            \Kaleta\Core\Look::renameClass($this->app->settings(), $name, $new);
+            \Talea\Core\Look::renameClass($this->app->settings(), $name, $new);
             foreach (self::BUILD_SOURCES as $table => [$key, $columns]) {
                 foreach ($this->db->all('SELECT ' . $key . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} WHERE ' . implode(' OR ', array_map(fn (string $s): string => $s . ' LIKE ?', $columns)), array_fill(0, count($columns), '%"' . $name . '"%')) as $r) {
                     $change = [];
@@ -359,19 +359,19 @@ trait BuilderActions
                     $this->db->update($table, $change, [$key => $r[$key]]);
                 }
             }
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
 
             return Response::json(['ok' => true, 'classes' => $this->loadBuilderClasses(), 'name' => $new]);
         }
         // the class goes to the draft look (Core\Look): the builder shows it, visitors see it once the look is published
         if ($this->request->post('delete') === '1') {
-            \Kaleta\Core\Look::setClass($this->app->settings(), $name, null);
+            \Talea\Core\Look::setClass($this->app->settings(), $name, null);
         } else {
             $errors = [];
             $discarded = [];
             $style = Style::sanitize(json_decode((string) ($_POST['style'] ?? ''), true), $name, $errors);
             $css = Style::customCss($this->request->post('css'), $discarded);
-            \Kaleta\Core\Look::setClass($this->app->settings(), $name, ['style' => $style, 'css' => $css]);
+            \Talea\Core\Look::setClass($this->app->settings(), $name, ['style' => $style, 'css' => $css]);
             if ($errors !== [] || $discarded !== []) {
                 return Response::json(['ok' => true, 'draft' => true, 'classes' => $this->loadBuilderClasses(), 'errors' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
             }
@@ -506,16 +506,16 @@ trait BuilderActions
     protected function actionBuildAiSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
-        $assistant = new \Kaleta\Core\Assistant($this->app->settings());
+        $assistant = new \Talea\Core\Assistant($this->app->settings());
         if ($target === null || !$assistant->isReady()) {
             return Response::json(['ok' => false, 'error' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
-            $html = \Kaleta\Core\Language::runWith($target['language'], fn (): string => $assistant->suggestSection($this->request->post('prompt'), $target['language'], $target['title']));
+            $html = \Talea\Core\Language::runWith($target['language'], fn (): string => $assistant->suggestSection($this->request->post('prompt'), $target['language'], $target['title']));
         } catch (\RuntimeException $e) {
             return Response::json(['ok' => false, 'error' => t($e->getMessage())], 502);
         }
-        ['build' => $build, 'notes' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
+        ['build' => $build, 'notes' => $messages] = \Talea\Builder\HtmlConverter::saveToSite($this->db, $html, false);
         [$clean] = Build::sanitize($build, $this->app->auth()->isAdmin());
         if ($clean['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('The assistant did not return a usable section. Try refining the description.')], 502);
@@ -527,7 +527,7 @@ trait BuilderActions
     /** AI assistant: rewrite of an element's text (shorter, longer, more formal…). Saves nothing – the editor inserts the text as a regular change. */
     protected function actionBuildAiText(): Response
     {
-        $assistant = new \Kaleta\Core\Assistant($this->app->settings());
+        $assistant = new \Talea\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
             return Response::json(['ok' => false, 'error' => t('The writing assistant is not enabled (Features).')], 400);
         }
@@ -544,7 +544,7 @@ trait BuilderActions
     protected function loadBuilderClasses(): array
     {
         // with the draft look: the builder works on what will be published
-        return array_map(fn (array $c): array => ['style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']], \Kaleta\Core\Look::classes($this->db, $this->app->settings(), true));
+        return array_map(fn (array $c): array => ['style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']], \Talea\Core\Look::classes($this->db, $this->app->settings(), true));
     }
 
     protected function contentLanguage(string $column): string

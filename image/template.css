@@ -1,4 +1,4 @@
-/* Kaleta – the built-in page frame (the former layout "zakladni"; Kaleta is themeless since 1.6). Colours, fonts and scales come from the design system (tokens --ka-*, Builder\DesignSystem).
+/* Talea – the built-in page frame (the former layout "zakladni"; Talea is themeless since 1.6). Colours, fonts and scales come from the design system (tokens --tl-*, Builder\DesignSystem).
  * The whole template is in the layer "template": builder elements, classes and their style (later layers) override it regardless of specificity.
  * Navigation on a phone via the Popover API, smooth transitions between pages (View Transitions) – no JavaScript. */
 
@@ -11,24 +11,24 @@
 	:root {
 		color-scheme: light;
 		/* short names for the template; values from the design system */
-		--accent: var(--ka-color-primary, #2b5be3);
-		--accent-soft: var(--ka-color-primary-soft, #eef2fd);
-		--text: var(--ka-color-text, #16181d);
-		--text-muted: var(--ka-color-muted, #5b5f68);
-		--base: var(--ka-color-background, #ffffff);
-		--surface: var(--ka-color-surface, #f5f6f8);
-		--line: var(--ka-color-line, #dfe1e5);
-		--font: var(--ka-font-body, system-ui, sans-serif);
-		--font-heading: var(--ka-font-heading, var(--font));
-		--width: var(--ka-width, 72rem);
-		--text-width: var(--ka-text-width, 44rem);
-		--space: var(--ka-space-l, 1.5rem);
-		--space-large: var(--ka-space-2xl, 4rem);
-		--radius: var(--ka-radius, 0.75rem);
-		--step-0: var(--ka-step-0, 1rem);
-		--step-1: var(--ka-step-1, 1.25rem);
-		--step-2: var(--ka-step-2, 1.5rem);
-		--step-3: var(--ka-step-3, 2rem);
+		--accent: var(--tl-color-primary, #2b5be3);
+		--accent-soft: var(--tl-color-primary-soft, #eef2fd);
+		--text: var(--tl-color-text, #16181d);
+		--text-muted: var(--tl-color-muted, #5b5f68);
+		--base: var(--tl-color-background, #ffffff);
+		--surface: var(--tl-color-surface, #f5f6f8);
+		--line: var(--tl-color-line, #dfe1e5);
+		--font: var(--tl-font-body, system-ui, sans-serif);
+		--font-heading: var(--tl-font-heading, var(--font));
+		--width: var(--tl-width, 72rem);
+		--text-width: var(--tl-text-width, 44rem);
+		--space: var(--tl-space-l, 1.5rem);
+		--space-large: var(--tl-space-2xl, 4rem);
+		--radius: var(--tl-radius, 0.75rem);
+		--step-0: var(--tl-step-0, 1rem);
+		--step-1: var(--tl-step-1, 1.25rem);
+		--step-2: var(--tl-step-2, 1.5rem);
+		--step-3: var(--tl-step-3, 2rem);
 	}
 	:root[data-dark] { color-scheme: light dark; }
 	:root[data-dark][data-theme="dark"] { color-scheme: dark; }
@@ -52,8 +52,8 @@
 	.skip { position: absolute; left: -999px; }
 	.skip:focus { left: var(--space); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--base); }
 	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
-	.ka-notice-hours { background: var(--accent-soft); color: var(--text); border-bottom: 1px solid var(--line); font-size: 0.9375rem; text-align: center; }
-	.ka-notice-hours p { margin: 0 auto; padding: 0.5rem var(--space); max-width: var(--width); }
+	.tl-notice-hours { background: var(--accent-soft); color: var(--text); border-bottom: 1px solid var(--line); font-size: 0.9375rem; text-align: center; }
+	.tl-notice-hours p { margin: 0 auto; padding: 0.5rem var(--space); max-width: var(--width); }
 
 	.header { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--base) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
 	.header-wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space); min-height: 4.25rem; }

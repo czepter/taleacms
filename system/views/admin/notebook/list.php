@@ -2,15 +2,15 @@
 /**
  * Agent notebook (2.15): the notes by topic with a search, pinned first.
  *
- * @var Kaleta\Core\App $app
- * @var Kaleta\Admin\Modules\Notebook $module
+ * @var Talea\Core\App $app
+ * @var Talea\Admin\Modules\Notebook $module
  * @var string $csrf
  * @var list<array<string, mixed>> $notes
  * @var string $topic the chosen topic ('' = all)
  * @var string $search
  * @var array<string, int|string> $counts notes per topic
  */
-use Kaleta\Core\Notebook;
+use Talea\Core\Notebook;
 ?>
 <p class="notice"><?= e(t('Notes for whoever works on the site next – Claude in a new conversation, or a colleague: decisions, wording rules, photo credits, the history of the site, what the client is sensitive about. Claude reads them with read_notebook before larger changes and writes decisions down with write_notebook – a drafts-only connection too. Nothing here is shown on the site.')) ?></p>
 <nav class="tabs" aria-label="<?= e(t('Topic')) ?>">

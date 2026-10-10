@@ -1,6 +1,6 @@
 <?php
 /**
- * Kaleta – a fake SMTP server for tests: accepts every message and writes it to <dir>/<n>.eml (the envelope recipient on the
+ * Talea – a fake SMTP server for tests: accepts every message and writes it to <dir>/<n>.eml (the envelope recipient on the
  * first line as "X-Rcpt-To:"). A recipient whose address contains "odmitnout" is refused (550), to test failed deliveries.
  * No TLS and no login – set smtp_encryption to "none" and leave smtp_user empty.
  *   php tools/fake-smtp.php <port> <dir>
@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-[$port, $dir] = [(int) ($argv[1] ?? 2525), $argv[2] ?? sys_get_temp_dir() . '/kaleta-smtp'];
+[$port, $dir] = [(int) ($argv[1] ?? 2525), $argv[2] ?? sys_get_temp_dir() . '/talea-smtp'];
 @mkdir($dir, 0777, true);
 $server = stream_socket_server('tcp://127.0.0.1:' . $port, $errno, $error) ?: exit("fake-smtp: $error\n");
 $count = count(glob($dir . '/*.eml') ?: []);

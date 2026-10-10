@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Core\Language;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
+use Talea\Core\Language;
+use Talea\Builder\Collections;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
 
 /**
  * Collection list: the inside of the element is the pattern of one item and repeats for each collection item (references, team, products…).
@@ -45,11 +45,11 @@ final class CollectionList extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-collection-filters, .ka-collection-pages { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); margin: 0 0 var(--ka-space-m); padding: 0; list-style: none; }
-.ka-collection-pages { justify-content: center; margin: var(--ka-space-l) 0 0; }
-.ka-collection-filters a, .ka-collection-pages a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-full); color: inherit; text-decoration: none; }
-.ka-collection-filters a:hover, .ka-collection-pages a:hover { border-color: var(--ka-color-primary); }
-.ka-collection-filters a[aria-current], .ka-collection-pages a[aria-current] { background: var(--ka-color-primary); border-color: var(--ka-color-primary); color: var(--ka-color-on-primary); }';
+        return '.tl-collection-filters, .tl-collection-pages { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); margin: 0 0 var(--tl-space-m); padding: 0; list-style: none; }
+.tl-collection-pages { justify-content: center; margin: var(--tl-space-l) 0 0; }
+.tl-collection-filters a, .tl-collection-pages a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius-full); color: inherit; text-decoration: none; }
+.tl-collection-filters a:hover, .tl-collection-pages a:hover { border-color: var(--tl-color-primary); }
+.tl-collection-filters a[aria-current], .tl-collection-pages a[aria-current] { background: var(--tl-color-primary); border-color: var(--tl-color-primary); color: var(--tl-color-on-primary); }';
     }
 
     public static function defaultStyle(): array
@@ -60,9 +60,9 @@ final class CollectionList extends Element
     public static function defaultChildren(): array
     {
         // the class card from the section library (the editor creates it on insert if the site does not have it yet)
-        return [['classes' => ['card']] + \Kaleta\Builder\Build::fresh('container', [], [
-            ['tag' => 'h3'] + \Kaleta\Builder\Build::fresh('heading', ['text' => '{{name}}']),
-            \Kaleta\Builder\Build::fresh('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
+        return [['classes' => ['card']] + \Talea\Builder\Build::fresh('container', [], [
+            ['tag' => 'h3'] + \Talea\Builder\Build::fresh('heading', ['text' => '{{name}}']),
+            \Talea\Builder\Build::fresh('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
         ])];
     }
 
@@ -102,7 +102,7 @@ final class CollectionList extends Element
         [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['count'] + ($withoutCurrent ? 1 : 0), (string) $o['sort'], $filter, $pageNumber, (string) $o['sort_field'], $period);
         $k->surroundings[$p['id']] = ['before' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'after' => $o['pagination'] ? self::pagination($total, (int) $o['count'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
-        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);
+        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Talea\Core\Documents::values($k->app, $collection, $item, false), $items);
         if ($withoutCurrent) {
             $values = array_slice(array_values(array_filter($values, fn (array $h): bool => $h['url'][0] !== $custom['url'][0])), 0, (int) $o['count']);
         }
@@ -134,7 +134,7 @@ final class CollectionList extends Element
         $link = fn (string $value, string $text): string => '<li><a href="' . e($k->path . ($value !== '' ? '?' . http_build_query([$parameter => $value]) : '')) . '"'
             . ($value === $selected ? ' aria-current="true"' : '') . '>' . e($text) . '</a></li>';
 
-        return '<ul class="ka-collection-filters" aria-label="' . e(t('Filter')) . '">' . $link('', t('All')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
+        return '<ul class="tl-collection-filters" aria-label="' . e(t('Filter')) . '">' . $link('', t('All')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
     }
 
     /** @param array<string, string> $keep other url parameters (the selected filter) */
@@ -150,7 +150,7 @@ final class CollectionList extends Element
             $html .= '<li><a href="' . e($k->path . ($query !== '' ? '?' . $query : '')) . '"' . ($i === $pageNumber ? ' aria-current="page"' : '') . '>' . $i . '</a></li>';
         }
 
-        return '<ul class="ka-collection-pages" aria-label="' . e(t('List pages')) . '">' . $html . '</ul>';
+        return '<ul class="tl-collection-pages" aria-label="' . e(t('List pages')) . '">' . $html . '</ul>';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -161,6 +161,6 @@ final class CollectionList extends Element
 
         // filters and pagination are around the grid (not in it, otherwise they would look like another card)
         return $surroundings['before'] === '' && $surroundings['after'] === '' ? $listing
-            : '<div class="ka-collection" data-collection="' . e((string) $p['id']) . '">' . $surroundings['before'] . $listing . $surroundings['after'] . '</div>'; // web.js swaps it without a reload (2.10)
+            : '<div class="tl-collection" data-collection="' . e((string) $p['id']) . '">' . $surroundings['before'] . $listing . $surroundings['after'] . '</div>'; // web.js swaps it without a reload (2.10)
     }
 }

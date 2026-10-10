@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsHygiene;
+namespace Talea\Tests\Site\FormsHygiene;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Pricing table, before and after, hotspots, timeline (was: section 73,). */
@@ -55,7 +55,7 @@ final class NewElementsTest extends SiteTestCase
     {
         $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].type')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].content.plans[1].highlighted')) AS b,
             JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].content.plans[1].link')) AS c, JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[3].content.points[0].x')) AS d,
-            JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[4].content.milestones[1].date')) AS e FROM ka_pages WHERE page_id = ?", [self::$page])[0];
+            JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[4].content.milestones[1].date')) AS e FROM tl_pages WHERE page_id = ?", [self::$page])[0];
 
         $this->assertSame(['pricing_table', 'true', '', '20', '2024'], array_values($row), '2.12: the build is stored in English keys, the item fields too');
     }
@@ -63,26 +63,26 @@ final class NewElementsTest extends SiteTestCase
     public function testThePageRendersTheFourElements(): void
     {
         $this->site()->clearPageCache();
-        $response = $this->assertPage('/elements-2-12', 200, 'ka-pricing-plan--highlighted', message: '2.12: the page renders the four elements');
+        $response = $this->assertPage('/elements-2-12', 200, 'tl-pricing-plan--highlighted', message: '2.12: the page renders the four elements');
 
-        $this->assertTrue($response->contains('<p class="ka-pricing-badge">Most popular</p>'), 'the highlighted plan has its label');
-        $this->assertTrue($response->contains('<li class="ka-pricing-no"><span class="ka-pricing-sr">Not included: </span>Two</li>'), 'an excluded feature has a text for screen readers');
-        $this->assertTrue($response->contains('<a class="ka-button ka-button--primary" href="#">Choose</a>'), 'the rejected link leaves the button without a target');
-        $this->assertTrue($response->contains('<input type="range" class="ka-before-after-handle" min="0" max="100" value="40" aria-label="Compare before and after">'), 'the range control');
+        $this->assertTrue($response->contains('<p class="tl-pricing-badge">Most popular</p>'), 'the highlighted plan has its label');
+        $this->assertTrue($response->contains('<li class="tl-pricing-no"><span class="tl-pricing-sr">Not included: </span>Two</li>'), 'an excluded feature has a text for screen readers');
+        $this->assertTrue($response->contains('<a class="tl-button tl-button--primary" href="#">Choose</a>'), 'the rejected link leaves the button without a target');
+        $this->assertTrue($response->contains('<input type="range" class="tl-before-after-handle" min="0" max="100" value="40" aria-label="Compare before and after">'), 'the range control');
         $this->assertTrue($response->contains('<figcaption>Before</figcaption>'), 'before/after caption');
-        $this->assertTrue($response->matches('#<details class="ka-hotspots-point ka-hotspots-point--left ka-hotspots-point--up" name="hs-[a-z0-9]*" style="--x:80%;--y:70%"><summary><span aria-hidden="true">2</span><span class="ka-hotspots-sr">Workshop</span></summary>#'), 'hotspot popovers');
-        $this->assertTrue($response->contains('<ol class="ka-hotspots-list"><li><strong>Entrance</strong> – Main door</li>'), 'the hotspot list');
-        $this->assertTrue($response->contains('<ol class="ka-timeline"><li class="ka-timeline-item"><div class="ka-timeline-card"><span class="ka-timeline-date">2020</span><h3>Founded</h3><p>Start</p>'), 'the timeline list');
+        $this->assertTrue($response->matches('#<details class="tl-hotspots-point tl-hotspots-point--left tl-hotspots-point--up" name="hs-[a-z0-9]*" style="--x:80%;--y:70%"><summary><span aria-hidden="true">2</span><span class="tl-hotspots-sr">Workshop</span></summary>#'), 'hotspot popovers');
+        $this->assertTrue($response->contains('<ol class="tl-hotspots-list"><li><strong>Entrance</strong> – Main door</li>'), 'the hotspot list');
+        $this->assertTrue($response->contains('<ol class="tl-timeline"><li class="tl-timeline-item"><div class="tl-timeline-card"><span class="tl-timeline-date">2020</span><h3>Founded</h3><p>Start</p>'), 'the timeline list');
 
         $this->assertTrue($response->contains('image/web.js'), 'web.js stays on the page for the slider');
-        $this->assertTrue($response->contains('.ka-before-after[data-enabled] .ka-before-after-after { clip-path'), 'the element CSS of the slider is there');
-        $this->assertTrue($response->contains('.ka-button--primary {'), 'the button CSS of the plans is there');
+        $this->assertTrue($response->contains('.tl-before-after[data-enabled] .tl-before-after-after { clip-path'), 'the element CSS of the slider is there');
+        $this->assertTrue($response->contains('.tl-button--primary {'), 'the button CSS of the plans is there');
         $this->assertTrue($response->contains('prefers-reduced-motion: no-preference) {'), 'the hotspot pulse respects reduced motion');
     }
 
     public function testThePublishedTextHasThePlansPointsAndMilestonesForSearch(): void
     {
-        $this->assertSame('1111', (string) $this->site()->value("SELECT CONCAT(text LIKE '%<h3>Pro</h3><p>29</p><ul><li>One</li><li>Two</li></ul>%', text LIKE '%<li>Two (not included)</li>%', text LIKE '%<li>Entrance – Main door</li>%', text LIKE '%<h3>2024 – New hall</h3><p>Growth</p>%') FROM ka_pages WHERE page_id = ?", [self::$page]),
+        $this->assertSame('1111', (string) $this->site()->value("SELECT CONCAT(text LIKE '%<h3>Pro</h3><p>29</p><ul><li>One</li><li>Two</li></ul>%', text LIKE '%<li>Two (not included)</li>%', text LIKE '%<li>Entrance – Main door</li>%', text LIKE '%<h3>2024 – New hall</h3><p>Growth</p>%') FROM tl_pages WHERE page_id = ?", [self::$page]),
             '2.12: the published text has the plans, points and milestones for search');
     }
 

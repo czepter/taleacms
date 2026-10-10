@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Db;
-use Kaleta\Core\Language;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
+use Talea\Admin\Module;
+use Talea\Core\Db;
+use Talea\Core\Language;
+use Talea\Core\Response;
+use Talea\Core\Settings;
 
 /**
- * News categories (table ka_categories). A flat list – a company blog does not need a category tree.
+ * News categories (table tl_categories). A flat list – a company blog does not need a category tree.
  * The category also determines the language version of a news item.
  */
 final class Categories extends Module
@@ -89,16 +89,16 @@ final class Categories extends Module
         $data = [
             'name' => $r->post('name'),
             'slug' => slugify($r->post('slug') !== '' ? $r->post('slug') : $r->post('name'), 110),
-            'description' => \Kaleta\Core\Html::forUser($r->post('description'), $this->app->auth()),
+            'description' => \Talea\Core\Html::forUser($r->post('description'), $this->app->auth()),
             'weight' => max(0, min(65535, $r->postInt('weight', 100))),
-            'language' => \Kaleta\Core\Language::column($this->app->settings(), $r->post('language')),
+            'language' => \Talea\Core\Language::column($this->app->settings(), $r->post('language')),
         ];
         $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT category_id FROM {categories} WHERE category_id = ? AND language = '' AND category_id <> ?", [$this->idParam('translation_of'), $id]) ?: null);
         if ($data['name'] === '') {
             return $this->form(['category_id' => $id] + $data, ['name' => 'Fill in the category name.']);
         }
 
-        $data['slug'] = \Kaleta\Core\Slug::makeUnique($data['slug'], fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$a, $id]) !== null, 120);
+        $data['slug'] = \Talea\Core\Slug::makeUnique($data['slug'], fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$a, $id]) !== null, 120);
 
         if ($id > 0) {
             $previous = $this->db->value('SELECT slug FROM {categories} WHERE category_id = ?', [$id]);

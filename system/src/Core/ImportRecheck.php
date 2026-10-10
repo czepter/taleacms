@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Build;
+use Talea\Builder\Build;
 
 /**
  * Imported content checked again with today's sanitizers (3.3.3, N63). Before 3.3.2 (N23) the importers could turn the
  * text of an attribute into markup, and what they stored then is still on the site. Migration 0074 starts this check, the
  * background job "import_recheck" finishes it on a large site; the state is the setting imported_recheck (JSON).
  *
- * Only what the import map (ka_import_map) lists is looked at – imported news, pages and collection items – and only
+ * Only what the import map (tl_import_map) lists is looked at – imported news, pages and collection items – and only
  * what is risky changes, so everything an editor wrote since stays as it is:
  *  - HTML that can run a script (a <script>, an on… attribute, a javascript: address, an <object>…) goes through the
  *    sanitizer the import used: Html::safe for an import of a website (source web:…), WpContent::safeHtml for the others;
@@ -138,7 +138,7 @@ final class ImportRecheck
             return $changed;
         }
         $r = $db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [$id]);
-        $collection = $r === null ? null : \Kaleta\Builder\Collections::byId($db, (int) $r['collection_id']);
+        $collection = $r === null ? null : \Talea\Builder\Collections::byId($db, (int) $r['collection_id']);
         $data = $r === null ? null : json_decode((string) $r['data'], true);
         if ($collection === null || !is_array($data)) {
             return false;
@@ -153,7 +153,7 @@ final class ImportRecheck
             return false;
         }
         $db->insert('build_revisions', ['part' => 'item:' . $id, 'created_at' => $now, 'user_id' => null,
-            'build' => (string) json_encode(array_intersect_key($r, array_flip(\Kaleta\Builder\Collections::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+            'build' => (string) json_encode(array_intersect_key($r, array_flip(\Talea\Builder\Collections::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
         $db->update('collection_items', ['data' => (string) json_encode($new, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)], ['item_id' => $id]);
 
         return true;

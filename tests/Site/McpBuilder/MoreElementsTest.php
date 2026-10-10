@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\McpBuilder;
+namespace Talea\Tests\Site\McpBuilder;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Counter, progress, rating, countdown, social links, search, to-top, newsletter, display conditions (was: section 32). */
@@ -31,7 +31,7 @@ final class MoreElementsTest extends SiteTestCase
         $site->clearPageCache();
 
         $body = $this->visit('/z-html');
-        foreach (['data-counter="1200">1', '<meter min="0" max="100"', 'aria-label="Rated 4.5 out of 5', 'data-countdown="2099-01-01T09:00', 'class="ka-social"', 'aria-label="Instagram"', 'role="search"', 'class="ka-back-to-top"', 'class="ka-newsletter"', 'name="as_signature"', 'class="ka-video-background"', 'poster="/media/2026/01/poster.jpg"', 'image/web.js'] as $pattern) {
+        foreach (['data-counter="1200">1', '<meter min="0" max="100"', 'aria-label="Rated 4.5 out of 5', 'data-countdown="2099-01-01T09:00', 'class="tl-social"', 'aria-label="Instagram"', 'role="search"', 'class="tl-back-to-top"', 'class="tl-newsletter"', 'name="as_signature"', 'class="tl-video-background"', 'poster="/media/2026/01/poster.jpg"', 'image/web.js'] as $pattern) {
             $this->assertStringContainsString($pattern, $body, "further element on the site: $pattern");
         }
         $this->assertStringNotContainsString('Editors only', $body, 'a login condition hides the element from a visitor');
@@ -46,7 +46,7 @@ final class MoreElementsTest extends SiteTestCase
     {
         $site = $this->site();
         $page = preg_replace('/\s+/', ' ', $this->visit('/z-html'));
-        preg_match('/class="ka-newsletter".*/', $page, $form);
+        preg_match('/class="tl-newsletter".*/', $page, $form);
         $form = preg_replace('#</form>.*#', '', $form[0] ?? '');
         preg_match('/name="as_signature" value="([^"]*)"/', $form, $signature);
         preg_match('/name="as_time" value="([^"]*)"/', $form, $time);
@@ -56,20 +56,20 @@ final class MoreElementsTest extends SiteTestCase
         $this->assertSame(303, $answer->status, 'signing up for the newsletter redirects');
         $this->assertStringEndsWith('/z-html?subscription=ok#x', $answer->redirect, 'signing up for the newsletter');
 
-        $token = (string) $site->value("SELECT token FROM ka_subscribers WHERE email = 'subscriber@example.com' AND status = 0");
+        $token = (string) $site->value("SELECT token FROM tl_subscribers WHERE email = 'subscriber@example.com' AND status = 0");
         $this->assertPage('/subscribe?confirm=' . $token, 200, 'Confirm subscription', message: 'the link from the e-mail only offers the confirmation');
-        $this->assertSame('0', (string) $site->value("SELECT status FROM ka_subscribers WHERE email = 'subscriber@example.com'"), 'opening the link (a mail scanner) does not confirm the subscription');
+        $this->assertSame('0', (string) $site->value("SELECT status FROM tl_subscribers WHERE email = 'subscriber@example.com'"), 'opening the link (a mail scanner) does not confirm the subscription');
         $this->assertStringContainsString('Subscription confirmed', $this->visitor()->post('/subscribe?confirm=' . $token)->body, 'confirming with the button');
-        $this->assertSame('1', (string) $site->value("SELECT status FROM ka_subscribers WHERE email = 'subscriber@example.com'"), 'the subscriber is confirmed');
+        $this->assertSame('1', (string) $site->value("SELECT status FROM tl_subscribers WHERE email = 'subscriber@example.com'"), 'the subscriber is confirmed');
 
         $this->assertPage('/admin.php?module=subscribers', 200, 'subscriber@example.com', message: 'subscribers in the administration');
         $csv = $site->admin()->get('/admin.php?module=subscribers&action=csv')->body;
         $this->assertMatchesRegularExpression('/subscriber@example\.com;.*subscribe\?unsubscribe=' . $token . '/', $csv, 'subscriber export with the unsubscribe link');
 
-        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'newsletter_signup,', '') WHERE name = 'extensions'");
+        $site->exec("UPDATE tl_settings SET value = REPLACE(value, 'newsletter_signup,', '') WHERE name = 'extensions'");
         $this->assertPage('/subscribe?unsubscribe=' . $token, 200, 'Unsubscribe', message: 'unsubscribing works with the Newsletter feature off');
         $this->assertStringContainsString('Unsubscribed', $this->visitor()->post('/subscribe?unsubscribe=' . $token)->body, 'unsubscribing with the button');
-        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'enquiries,', 'enquiries,newsletter_signup,') WHERE name = 'extensions'");
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_subscribers'), 'the unsubscribed person is deleted');
+        $site->exec("UPDATE tl_settings SET value = REPLACE(value, 'enquiries,', 'enquiries,newsletter_signup,') WHERE name = 'extensions'");
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_subscribers'), 'the unsubscribed person is deleted');
     }
 }

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\AgentSchedules;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\AgentSchedules;
+use Talea\Core\Response;
 
 /**
  * Scheduled runs (2.17, Core\AgentSchedules): the schedules the site keeps for a routine in Claude – what, how often, when –
@@ -26,7 +26,7 @@ final class Schedules extends Module
     protected function actionList(): Response
     {
         return $this->view('list', 'Scheduled runs', ['schedules' => AgentSchedules::all($this->db), 'prompt' => AgentSchedules::routinePrompt($this->app),
-            'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
+            'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
             'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokens} WHERE access = 'drafts' AND kind IN ('token', 'refresh')")]);
     }
 
@@ -90,6 +90,6 @@ final class Schedules extends Module
         }
 
         return $this->view('history', (string) $schedule['name'], ['s' => $schedule, 'runs' => AgentSchedules::runs($this->db, (int) $schedule['id'], 100),
-            'instructions' => \Kaleta\Core\Language::runWith('en', fn (): string => AgentSchedules::instructions($schedule))]); // what Claude gets, word for word
+            'instructions' => \Talea\Core\Language::runWith('en', fn (): string => AgentSchedules::instructions($schedule))]); // what Claude gets, word for word
     }
 }

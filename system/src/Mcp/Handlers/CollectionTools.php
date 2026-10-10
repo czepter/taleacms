@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Core\Notices;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Core\Notices;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: collections (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -47,7 +47,7 @@ trait CollectionTools
         return array_map(fn (array $k): array => ['collection' => $k['slug'], 'name' => $k['name'], 'item_pages' => (bool) $k['detail'], 'redirect_hidden_to' => (string) ($k['hidden_redirect'] ?? ''), 'fields' => self::fieldTypes($k['fields'], false),
             'preset' => (string) ($k['preset'] ?? ''),
             'items' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['collection_id']])]
-            + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['fields'], 'currency' => $sd['currency']]] : []), Collections::all($db));
+            + (($sd = \Talea\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['fields'], 'currency' => $sd['currency']]] : []), Collections::all($db));
     }
 
     /** list_collection_presets (2.11) */
@@ -55,7 +55,7 @@ trait CollectionTools
     {
         $existing = $this->app->db()->pairs("SELECT preset, slug FROM {collections} WHERE preset <> '' ORDER BY collection_id DESC");
 
-        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], \Kaleta\Builder\Presets::describe()),
+        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], \Talea\Builder\Presets::describe()),
             'next' => 'create_collection {"preset":"<key>","name":"…"} creates one; then add items with save_collection_item and put a Collection list on a page.'];
     }
 
@@ -73,12 +73,12 @@ trait CollectionTools
         $adminOnly();
         if (($a['preset'] ?? '') !== '') {
             // a ready-made collection (2.10 people, 2.11 Builder\Presets)
-            [$id, $pageId, $extraPages] = \Kaleta\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['name'] ?? '')) ?? [null, null, []];
+            [$id, $pageId, $extraPages] = \Talea\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['name'] ?? '')) ?? [null, null, []];
             if ($id === null) {
-                throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Kaleta\Builder\Presets::all())) . ' (list_collection_presets).');
+                throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Talea\Builder\Presets::all())) . ' (list_collection_presets).');
             }
             $created = (array) Collections::byId($db, $id);
-            $preset = (array) \Kaleta\Builder\Presets::get((string) $a['preset']);
+            $preset = (array) \Talea\Builder\Presets::get((string) $a['preset']);
 
             return ['collection' => $created['slug'], 'name' => $created['name'], 'fields' => self::fieldTypes($created['fields'], false), 'redirect_hidden_to' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
                 'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['slug'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null]
@@ -136,7 +136,7 @@ trait CollectionTools
             $changes['schema_org'] = self::collectionSchema($a['structured_data'], json_decode($changes['fields'] ?? '', true) ?: $collection['fields']);
         }
         $db->update('collections', $changes, ['collection_id' => $collection['collection_id']]);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
         $newVersion = (array) $db->one('SELECT * FROM {collections} WHERE collection_id = ?', [$collection['collection_id']]);
 
         return ['collection' => $newVersion['slug'], 'name' => $newVersion['name'], 'item_pages' => (bool) $newVersion['detail'], 'redirect_hidden_to' => (string) $newVersion['hidden_redirect'], 'fields' => self::fieldTypes(json_decode((string) $newVersion['fields'], true) ?: [], false)];
@@ -153,7 +153,7 @@ trait CollectionTools
             }
         };
         $collection = function () use ($a, $db): array {
-            return \Kaleta\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+            return \Talea\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         };
 
         $need($auth->isAdmin(), 'Collections can be deleted only by an administrator.');
@@ -161,7 +161,7 @@ trait CollectionTools
         $notices = Notices::count($db, $k); // an official notice board keeps its notices for good (2.11)
         $need($notices === 0, sprintf(Notices::REFUSAL_COLLECTION, $notices));
         $db->delete('collections', ['collection_id' => $k['collection_id']]); // items and templates go with it (foreign keys)
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return ['deleted' => $k['slug']];
     }
@@ -195,20 +195,20 @@ trait CollectionTools
         }
         $pageNumber = max(1, (int) ($a['page'] ?? 1));
         // an events calendar (2.11): how many registered for the next occurrence and whether registration is open – counts only
-        $calendar = \Kaleta\Core\Calendar::fields($collection) !== null && $auth->hasModule('enquiries');
+        $calendar = \Talea\Core\Calendar::fields($collection) !== null && $auth->hasModule('enquiries');
         $registration = function (array $r) use ($calendar, $collection, $db): array {
             if (!$calendar) {
                 return [];
             }
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
-            $v = \Kaleta\Core\Calendar::values($db, $collection, $r, fn (string $p): string => $p, date('Y-m-d H:i'));
+            $v = \Talea\Core\Calendar::values($db, $collection, $r, fn (string $p): string => $p, date('Y-m-d H:i'));
 
-            return ['registration' => ['state' => $v['_registration'][0], 'registered' => \Kaleta\Core\Calendar::registered($db, $collection, $r, (array) \Kaleta\Core\Calendar::fields($collection)),
+            return ['registration' => ['state' => $v['_registration'][0], 'registered' => \Talea\Core\Calendar::registered($db, $collection, $r, (array) \Talea\Core\Calendar::fields($collection)),
                 'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]];
         };
 
         // a document library (2.11): how often each document was downloaded, and the stable address of its file
-        $downloads = \Kaleta\Core\Documents::fileField($collection) !== null ? \Kaleta\Core\Documents::counts($db, (int) $collection['collection_id']) : null;
+        $downloads = \Talea\Core\Documents::fileField($collection) !== null ? \Talea\Core\Documents::counts($db, (int) $collection['collection_id']) : null;
         $documentOutput = fn (array $r): array => $downloads === null ? [] : ['downloads' => ['last_30_days' => $downloads[(int) $r['item_id']][0] ?? 0, 'total' => $downloads[(int) $r['item_id']][1] ?? 0]]
             + ($collection['detail'] ? ['latest_url' => $this->app->request->origin() . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . $collection['slug'] . '/' . $r['slug'] . '/latest')] : []);
 
@@ -269,7 +269,7 @@ trait CollectionTools
         // the slug is unique within a language: an item's translation should have the same one (the language
         // switcher and hreflang find it by the slug)
         $itemLanguage = array_key_exists('language', $a) ? Language::column($siteSettings, (string) $a['language']) : (string) ($previous['language'] ?? '');
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$collection['collection_id'], $itemLanguage, $a, (int) ($previous['item_id'] ?? 0)]) !== null);
+        $seo = \Talea\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$collection['collection_id'], $itemLanguage, $a, (int) ($previous['item_id'] ?? 0)]) !== null);
         $row = ['name' => $itemName, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')]
             + (array_key_exists('language', $a) ? ['language' => $itemLanguage] : [])
             + (array_key_exists('order', $a) ? ['sort_order' => max(-9999, min(9999, (int) $a['order']))] : [])
@@ -304,7 +304,7 @@ trait CollectionTools
             $itemId = $db->insert('collection_items', $row);
         }
         Notices::recordSave($this->app, $collection, $previous, $row, $itemId); // the audit trail of a notice board (2.11)
-        \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
+        \Talea\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, "name" in values instead of the parameter) would otherwise be silently dropped
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['values'] ?? null) ? $a['values'] : []), array_column($collection['fields'], 'key')));
@@ -313,7 +313,7 @@ trait CollectionTools
             + ($draftsOnly ? ['visible' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
             'url' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo) : null]
             // a document (2.11): the stable address of its current file, for links and buttons
-            + ($collection['detail'] && \Kaleta\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo . '/latest')] : []);
+            + ($collection['detail'] && \Talea\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo . '/latest')] : []);
     }
 
     /** delete_collection_item */
@@ -328,14 +328,14 @@ trait CollectionTools
             }
         };
         $collection = function () use ($a, $db): array {
-            return \Kaleta\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+            return \Talea\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         };
 
         $need($auth->hasModule('collections'), 'Collection items can be deleted only by users with the Collections section.');
         $k = $collection();
         // the permanent archive of an official notice board (2.11, Core\Notices)
         $need(!Notices::isNotices($k), Notices::REFUSAL_DELETE . ' (save_collection_item with values {"taken_down": "YYYY-MM-DD"}; the notice then moves to the archive.)');
-        if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $k['collection_id'])) {
+        if (!\Talea\Admin\Modules\Collections::trashItem($db, $id, (int) $k['collection_id'])) {
             throw new \InvalidArgumentException('The item is not in this collection (or it is already in the trash). Use list_collection_items.');
         }
 
@@ -354,7 +354,7 @@ trait CollectionTools
             }
         };
         $collection = function () use ($a, $db): array {
-            return \Kaleta\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+            return \Talea\Builder\Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         };
 
         $need($auth->hasModule('collections'), 'Collection items can be changed only by an editor or an administrator.');
@@ -362,16 +362,16 @@ trait CollectionTools
         $item = $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$id, $k['collection_id']]) ?? throw new \InvalidArgumentException('The item is not in the collection. Use list_collection_items.');
         if ($name === 'list_item_versions') {
             return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['revision_id'], 'saved' => substr((string) $v['created_at'], 0, 16), 'by' => (string) ($v['user_name'] ?? '')],
-                \Kaleta\Builder\Publisher::listAll($db, ['part' => 'item:' . $id]))];
+                \Talea\Builder\Publisher::listAll($db, ['part' => 'item:' . $id]))];
         }
-        $version = \Kaleta\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
+        $version = \Talea\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
         if ($db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $item['language'], $version['slug'] ?? '', $id]) !== null) {
             unset($version['slug']); // the address is taken by another item meanwhile
         }
-        \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
+        \Talea\Builder\Collections::saveVersion($this->app, $item, $version);
         $db->update('collection_items', $version + ['updated_at' => date('Y-m-d H:i:s')], ['item_id' => $id]);
         Notices::recordSave($this->app, $k, $item, $version, $id);
-        \Kaleta\Front\Cache::clear();
+        \Talea\Front\Cache::clear();
 
         return ['restored' => $id, 'name' => $version['name'] ?? $item['name']];
     }
@@ -413,8 +413,8 @@ trait CollectionTools
         }
         $item['data'] = json_decode((string) $item['data'], true) ?: [];
 
-        return ['name' => $item['name'], 'people_collection' => \Kaleta\Builder\EmailSignature::isPeople($k), 'fields' => array_filter(\Kaleta\Builder\EmailSignature::fields($k))]
-            + \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $item);
+        return ['name' => $item['name'], 'people_collection' => \Talea\Builder\EmailSignature::isPeople($k), 'fields' => array_filter(\Talea\Builder\EmailSignature::fields($k))]
+            + \Talea\Builder\EmailSignature::forItem($this->app, $k, $item);
     }
 
     /** restore_item_version: the same as list_item_versions */

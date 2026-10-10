@@ -33,7 +33,7 @@ return [
     'list' => ['sort' => 'order', 'filter_field' => 'offer', 'filters' => true, 'pagination' => true],
     'card' => ['offer', 'status', 'price', 'location', 'floor_area'],
     'template' => function (array $fields): array {
-        $n = \Kaleta\Builder\Build::fresh(...);
+        $n = \Talea\Builder\Build::fresh(...);
         $label = array_column($fields, 'label', 'key');
 
         return [

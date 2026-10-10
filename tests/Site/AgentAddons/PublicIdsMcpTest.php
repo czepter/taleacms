@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\AgentAddons;
+namespace Talea\Tests\Site\AgentAddons;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** HF-16: MCP names every row by its public id (UUID v4) – arguments refuse numbers, results carry no numbers, the contract declares strings. */
@@ -42,7 +42,7 @@ final class PublicIdsMcpTest extends SiteTestCase
     public function testANumberIsNotAnId(): void
     {
         $site = $this->site();
-        $page = (int) $site->value('SELECT page_id FROM ka_pages ORDER BY page_id LIMIT 1');
+        $page = (int) $site->value('SELECT page_id FROM tl_pages ORDER BY page_id LIMIT 1');
         $this->assertGreaterThan(0, $page);
 
         foreach ([$page, (string) $page, '3f1c2b4a-0000-4000-8000-000000000000'] as $id) {
@@ -53,7 +53,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         $this->assertStringContainsString('is not valid', $site->mcpText('update_page', ['id' => $page, 'title' => 'Changed by number']), 'update_page');
         $this->assertStringContainsString('is not valid', $site->mcpText('get_build', ['id' => $page]), 'get_build');
         $this->assertStringContainsString('is not valid', $site->mcpText('create_page', ['title' => 'Child by number', 'parent' => $page]), 'a parent given as a number is not silently dropped');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE title IN ('Changed by number', 'Child by number')"), 'nothing was written');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_pages WHERE title IN ('Changed by number', 'Child by number')"), 'nothing was written');
         $this->assertStringContainsString('is not valid', $site->mcpText('get_news', ['id' => 1]), 'get_news');
         $this->assertStringContainsString('is not valid', $site->mcpText('save_collection_item', ['collection' => 'team', 'id' => 1, 'name' => 'x']), 'save_collection_item');
 
@@ -79,7 +79,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         $this->assertMatchesRegularExpression(self::UUID, $page['id'], 'get_page: id');
         $this->assertSame($created['id'], $page['parent'], 'get_page: parent is the public id');
         $this->assertNoNumbers($page, 'get_page');
-        $this->assertSame((int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'public-ids'"), $site->internalId('pages', $created['id']));
+        $this->assertSame((int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'public-ids'"), $site->internalId('pages', $created['id']));
 
         $category = $this->answer('create_category', ['name' => 'Ids']);
         $this->assertMatchesRegularExpression(self::UUID, $category['id'], 'create_category: id');
@@ -124,7 +124,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         $this->assertStringContainsString('"component":"' . $component['id'] . '"', $component['use'], 'the hint shows the public id');
         $this->answer('save_build', ['component' => $component['id'], 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => '{{title}}']]]]]], 'publish' => true]);
         $this->answer('save_build', ['id' => $page['id'], 'build' => ['v' => 1, 'children' => [['type' => 'component', 'content' => ['component' => $component['id']]]]]]);
-        $this->assertSame((string) $site->internalId('components', $component['id']), (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].content.component')) FROM ka_pages WHERE slug = 'ids-everywhere'"), 'the page build stores the number the renderer needs');
+        $this->assertSame((string) $site->internalId('components', $component['id']), (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].content.component')) FROM tl_pages WHERE slug = 'ids-everywhere'"), 'the page build stores the number the renderer needs');
         $build = $this->answer('get_build', ['id' => $page['id']]);
         $this->assertSame($component['id'], $build['build']['children'][0]['content']['component'], 'get_build: the component of an element is its public id');
         $this->assertSame($page['id'], $build['id'], 'get_build: the target is named by its public id');
@@ -161,7 +161,7 @@ final class PublicIdsMcpTest extends SiteTestCase
     public function testReadToolsLeakNoRowNumbers(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO ka_events (created_at, type, severity, message, data) VALUES (NOW(), 'booking.confirmed', 'info', 'Scan', '{\"booking\":1,\"page\":1,\"site\":1}')");
+        $site->exec("INSERT INTO tl_events (created_at, type, severity, message, data) VALUES (NOW(), 'booking.confirmed', 'info', 'Scan', '{\"booking\":1,\"page\":1,\"site\":1}')");
         $tools = ['list_pages', 'list_news', 'list_categories', 'list_media', 'list_popups', 'list_components', 'list_collections', 'list_enquiries', 'list_newsletters',
             'list_redirects', 'list_bookings', 'list_requests', 'list_trash', 'list_site_parts', 'list_classes', 'list_changes', 'list_events', 'list_agent_sessions',
             'list_pending_review', 'list_broken_links', 'list_facts', 'list_connectors', 'get_site', 'get_health', 'get_menu'];
@@ -203,7 +203,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         $this->assertSame([], $integers, 'parameters that name a row are declared as strings (public ids)');
 
         // what the server translates is what the definitions declare: every tool of the translation tables exists, its top-level id parameters are strings
-        $reflection = new \ReflectionClass(\Kaleta\Mcp\PublicIds::class);
+        $reflection = new \ReflectionClass(\Talea\Mcp\PublicIds::class);
         foreach (['IN', 'OUT'] as $table) {
             foreach ((array) $reflection->getConstant($table) as $tool => $paths) {
                 $this->assertArrayHasKey($tool, $contract, "$table names the tool $tool");
@@ -218,7 +218,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         }
 
         // lists of ids: the items are strings too
-        foreach (\Kaleta\Mcp\Tools::definitions() as $tool) {
+        foreach (\Talea\Mcp\Tools::definitions() as $tool) {
             foreach ((array) $tool['inputSchema']['properties'] as $name => $property) {
                 if (($property['type'] ?? '') === 'array' && preg_match('/(^|_)ids$|^(pages|staff|services)$/', (string) $name)) {
                     $this->assertSame('string', $property['items']['type'] ?? null, $tool['name'] . '.' . $name . ' lists public ids');

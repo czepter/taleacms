@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Kaleta – output budget: installs each starter site and runs Lighthouse (mobile) on its pages. Fails when a page drops
+# Talea – output budget: installs each starter site and runs Lighthouse (mobile) on its pages. Fails when a page drops
 # below the budget: performance MIN_PERF (default 90 – the PHP built-in server compresses nothing, a real host scores
 # higher), accessibility, best practices and SEO MIN_OTHER (default 100).
 # Needs PHP, MySQL, Node and Google Chrome (or CHROME=/path/to/chrome).
-#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (kaleta_test_lighthouse) DB_USER (root) DB_PASS () PORT (8099) SITES (all)
+#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (talea_test_lighthouse) DB_USER (root) DB_PASS () PORT (8099) SITES (all)
 # The database DB_NAME is DROPPED and recreated for every starter site.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test_lighthouse}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
+DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-talea_test_lighthouse}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 MIN_PERF="${MIN_PERF:-90}"; MIN_OTHER="${MIN_OTHER:-100}"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
-SITES="${SITES:-$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo implode(" ", array_keys(Kaleta\Builder\Library::SITES));')}"
+SITES="${SITES:-$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo implode(" ", array_keys(Talea\Builder\Library::SITES));')}"
 WORK="$(mktemp -d)"; ERRORS=0
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
 stop_server() { [ -z "${SERVER_PID:-}" ] || { pkill -P "$SERVER_PID" 2>/dev/null || true; kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; }; }
@@ -31,7 +31,7 @@ for SITE in $SITES; do
   for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
   PASSWORD="Lighthouse-$(openssl rand -hex 8)"
   curl -s -o "$WORK/response" -X POST "$B/install.php" -d language=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
-    --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "site_name=Lighthouse Test Ltd" -d "starter=$SITE" -d username=admin -d "name=Tester" -d email= \
+    --data-urlencode "db_password=$DB_PASS" -d db_prefix=tl_ --data-urlencode "site_name=Lighthouse Test Ltd" -d "starter=$SITE" -d username=admin -d "name=Tester" -d email= \
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
     -d 'extensions[]=news' -d 'extensions[]=enquiries' -d 'extensions[]=stats' -d 'extensions[]=redirects'
   [ ! -f "$WORK/web/install.php" ] || { echo "  FAIL   install of $SITE failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }

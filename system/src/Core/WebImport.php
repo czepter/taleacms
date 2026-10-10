@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Admin\Modules\Redirects;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Pages;
+use Talea\Admin\Modules\Redirects;
 
 /**
  * Import from any website by its address (2.6): Wix, Webnode, Jimdo, Squarespace, Joomla, Drupal, a WordPress site
@@ -22,7 +22,7 @@ use Kaleta\Admin\Modules\Redirects;
  *    publication date in the page) become news items when the News extension is on.
  *  - Pages are created hidden and outside the menu, so nothing changes for visitors until the administrator looks at
  *    them; old addresses redirect to the new ones.
- *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and ka_import_map
+ *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and tl_import_map
  *    remembers what was imported, so running it again skips finished pages.
  * The design is not copied: the pages take the site's design system; Claude can match the look afterwards.
  */
@@ -295,17 +295,17 @@ final class WebImport
     private function build(string $title, string $html): ?string
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
-        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
-        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
+        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
+        $build = \Talea\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
             if ($section['type'] === 'section' && !isset($section['anchor'])) {
                 $section['content']['width'] = 'narrow';
             }
         }
         unset($section);
-        [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
+        [$clean] = \Talea\Builder\Build::sanitize($build, false);
 
-        return $clean['children'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
+        return $clean['children'] === [] ? null : \Talea\Builder\Build::toJson($clean);
     }
 
     /**
@@ -331,7 +331,7 @@ final class WebImport
 
     /**
      * Safe HTML without the old site's classes, ids and responsive image sets (they mean nothing here and could collide with
-     * Kaleta's). Done on the DOM, never with a regular expression over the sanitized markup.
+     * Talea's). Done on the DOM, never with a regular expression over the sanitized markup.
      */
     public static function safeContent(string $html): string
     {
@@ -353,7 +353,7 @@ final class WebImport
 
     /**
      * @param array<string, mixed> $state
-     * @return array<string, mixed>|null a ka_media row
+     * @return array<string, mixed>|null a tl_media row
      */
     private function image(string $url, string $alt, array &$state): ?array
     {

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin\Modules;
+namespace Talea\Admin\Modules;
 
-use Kaleta\Admin\Module;
-use Kaleta\Core\Response;
+use Talea\Admin\Module;
+use Talea\Core\Response;
 
 /**
  * News subscribers (the Newsletter extension): who subscribed with the Newsletter subscription element and whether they
@@ -32,7 +32,7 @@ final class Subscribers extends Module
             'subscribers' => $this->db->all('SELECT * FROM {subscribers}' . $whereParts . ' ORDER BY subscriber_id DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers}' . $whereParts, $params),
             'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'),
-            'service' => \Kaleta\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
+            'service' => \Talea\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
             'queue' => $this->db->one('SELECT SUM(next_attempt_at IS NOT NULL) AS pending, SUM(next_attempt_at IS NULL) AS failed FROM {subscription_queue}') ?? ['pending' => 0, 'failed' => 0],
             'search' => $search, 'pageNumber' => $pageNumber,
         ]);
@@ -44,7 +44,7 @@ final class Subscribers extends Module
         if ($o !== null) {
             $this->db->delete('subscribers', ['subscriber_id' => $this->idParam('subscriber_id')]);
             if ((int) $o['status'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
+                \Talea\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
             }
         }
 
@@ -57,8 +57,8 @@ final class Subscribers extends Module
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return $this->back();
         }
-        $count = \Kaleta\Core\Newsletter::enqueueAll($this->app);
-        \Kaleta\Core\Newsletter::processQueue($this->app, 20);
+        $count = \Talea\Core\Newsletter::enqueueAll($this->app);
+        \Talea\Core\Newsletter::processQueue($this->app, 20);
 
         return $this->back(t('%d subscribers are going to the mailing service; the site sends the rest gradually in the background.', $count));
     }
@@ -69,8 +69,8 @@ final class Subscribers extends Module
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return $this->back();
         }
-        \Kaleta\Core\Newsletter::retry($this->app);
-        \Kaleta\Core\Newsletter::processQueue($this->app, 20);
+        \Talea\Core\Newsletter::retry($this->app);
+        \Talea\Core\Newsletter::processQueue($this->app, 20);
 
         return $this->back('The failed transfers were tried again – see the result in the Service column.');
     }
@@ -83,13 +83,13 @@ final class Subscribers extends Module
         fputcsv($f, [t('Email'), t('Subscribed'), t('Confirmed'), t('Unsubscribe link')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {subscribers} WHERE status = 1 ORDER BY subscriber_id') as $o) {
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $o['email'], (string) $o['created_at'], (string) $o['confirmed_at'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);
+                [(string) $o['email'], (string) $o['created_at'], (string) $o['confirmed_at'], \Talea\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'subscribers', 'export CSV', '');
+        \Talea\Admin\ChangeLog::write($this->app, 'subscribers', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="subscribers-' . date('Y-m-d') . '.csv"']);
     }

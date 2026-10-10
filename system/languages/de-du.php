@@ -1,5 +1,5 @@
 <?php
-/** Kaleta – German, informal form of address (du): overlay of the site texts for visitors texts. Only the strings with a form of address; the rest comes from de.php (formal, Sie). */
+/** Talea – German, informal form of address (du): overlay of the site texts for visitors texts. Only the strings with a form of address; the rest comes from de.php (formal, Sie). */
 
 return [
     'Enter at least 3 characters.' => 'Gib mindestens 3 Zeichen ein.',

@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Mcp\Handlers;
+namespace Talea\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
+use Talea\Admin\Modules\Media;
+use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Pages;
+use Talea\Core\App;
+use Talea\Core\Language;
+use Talea\Front\SiteIdentity;
+use Talea\Builder\SiteParts;
+use Talea\Builder\DesignSystem;
+use Talea\Builder\Library;
+use Talea\Builder\Collections;
+use Talea\Builder\Publisher;
+use Talea\Builder\Build;
+use Talea\Builder\HtmlConverter;
 
 /**
  * MCP tools: settings, redirects and audit (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -47,18 +47,18 @@ trait SettingsTools
                 // lists (2.2): extensions switched on, further language versions of the site
                 $list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value))));
                 if ($key === 'extensions') {
-                    $unknown = array_diff($list, array_keys(\Kaleta\Core\Extensions::CATALOG));
+                    $unknown = array_diff($list, array_keys(\Talea\Core\Extensions::CATALOG));
                     if ($unknown !== [] || !in_array('claude', $list, true)) {
-                        $errors[$key] = $unknown !== [] ? 'Unknown extensions: ' . implode(', ', $unknown) . '. Known: ' . implode(', ', array_keys(\Kaleta\Core\Extensions::CATALOG)) . '.'
+                        $errors[$key] = $unknown !== [] ? 'Unknown extensions: ' . implode(', ', $unknown) . '. Known: ' . implode(', ', array_keys(\Talea\Core\Extensions::CATALOG)) . '.'
                             : 'The Claude connection cannot switch itself off – keep "claude" in the list (the user can switch it off in the admin).';
                         continue;
                     }
-                    \Kaleta\Core\Extensions::save($siteSettings, $list);
-                    $stored[$key] = \Kaleta\Core\Extensions::enabled($siteSettings);
+                    \Talea\Core\Extensions::save($siteSettings, $list);
+                    $stored[$key] = \Talea\Core\Extensions::enabled($siteSettings);
                 } else {
-                    $codes = explode('|', \Kaleta\Core\Language::CODES);
+                    $codes = explode('|', \Talea\Core\Language::CODES);
                     $unknown = array_diff($list, $codes);
-                    if ($unknown !== [] || in_array(\Kaleta\Core\Language::defaults($siteSettings), $list, true)) {
+                    if ($unknown !== [] || in_array(\Talea\Core\Language::defaults($siteSettings), $list, true)) {
                         $errors[$key] = $unknown !== [] ? 'Unknown language codes: ' . implode(', ', $unknown) . '.' : 'The default language of the site is not a further language version.';
                         continue;
                     }
@@ -83,13 +83,13 @@ trait SettingsTools
             if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
                 // logo and icon: a file from Media (upload_file) or from the system (image/…); empty = no logo / icon
                 $path = ltrim(trim((string) $value), '/');
-                $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
+                $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(TALEA_ROOT . '/' . $path));
                 if ($ok && $key === 'favicon' && $path !== '') {
                     // icons for phones and for installing the site (media/icon-<n>.png) are prepared right away,
                     // as in Appearance
-                    $ok = \Kaleta\Core\Images::icons(KALETA_ROOT . '/' . $path);
+                    $ok = \Talea\Core\Images::icons(TALEA_ROOT . '/' . $path);
                 } elseif ($key === 'favicon') {
-                    array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/icon-' . $n . '.png'), \Kaleta\Core\Images::ICON_SIZES);
+                    array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/media/icon-' . $n . '.png'), \Talea\Core\Images::ICON_SIZES);
                 }
                 if (!$ok) {
                     $errors[$key] = 'A path to a file from Media (media/…) or from the system (image/…); an icon must be convertible to PNG.';
@@ -102,18 +102,18 @@ trait SettingsTools
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
                 $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes'], true);
-                $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['stats']));
-                \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'stats'] : $list);
+                $list = array_values(array_diff(\Talea\Core\Extensions::enabled($siteSettings), ['stats']));
+                \Talea\Core\Extensions::save($siteSettings, $on ? [...$list, 'stats'] : $list);
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
-            $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
+            $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Talea\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = 1 AND deleted_at IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Only a visible page can be the home page.';
                 continue;
             }
-            if ($clean !== null && $key === 'news_slug' && ($slugError = \Kaleta\Core\Routes::slugError($clean, $db)) !== null) {
+            if ($clean !== null && $key === 'news_slug' && ($slugError = \Talea\Core\Routes::slugError($clean, $db)) !== null) {
                 $errors[$key] = $slugError;
                 continue;
             }
@@ -134,13 +134,13 @@ trait SettingsTools
             $stored[$key] = $clean;
         }
         if ($stored !== []) {
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
         if (isset($stored['company_hours'])) {
-            \Kaleta\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
+            \Talea\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
         }
         if (($stored['screen_mode'] ?? '') === '1') {
-            \Kaleta\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
+            \Talea\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
         }
         $current = [];
         foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'news_slug', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
@@ -148,10 +148,10 @@ trait SettingsTools
             'indexing', 'schema_org', 'llms_txt', 'markdown_news', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact'] as $key) {
             $current[$key] = $siteSettings->get($key);
         }
-        $current['stats'] = \Kaleta\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
-        $current += ['extensions' => \Kaleta\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Kaleta\Core\Language::additional($siteSettings),
+        $current['stats'] = \Talea\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
+        $current += ['extensions' => \Talea\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Talea\Core\Language::additional($siteSettings),
             'claude_instructions' => $siteSettings->get('claude_instructions'),
-            'screen' => \Kaleta\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
+            'screen' => \Talea\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
         return ['saved' => $stored ?: new \stdClass(), 'errors' => $errors ?: new \stdClass(), 'settings' => $current];
     }
@@ -168,7 +168,7 @@ trait SettingsTools
             }
         };
 
-        if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'redirects')) {
+        if (!\Talea\Core\Extensions::isEnabled($siteSettings, 'redirects')) {
             throw new \DomainException('The Redirects extension is off (Extensions in the admin).');
         }
         if (!$auth->hasModule('redirects')) {
@@ -188,21 +188,21 @@ trait SettingsTools
                     throw new \InvalidArgumentException('The new address must be a path (/new) or an https://… address.');
                 }
                 $to = preg_match('#^https?://#i', $to) ? $to : trim($to, '/');
-                \Kaleta\Admin\Modules\Redirects::add($db, $from, $to);
+                \Talea\Admin\Modules\Redirects::add($db, $from, $to);
                 $db->run('UPDATE {redirects} SET type = ? WHERE from_path = ?', [(int) ($a['code'] ?? 301) === 302 ? 302 : 301, $from]);
                 $db->delete('not_found', ['path' => $from]);
             }
-            \Kaleta\Front\Cache::clear();
+            \Talea\Front\Cache::clear();
         }
 
         // every missing address carries the page the visitor most likely meant (2.14, Core\RedirectMatcher)
-        $pending = \Kaleta\Core\NotFound::pending($this->app, 60, 30);
-        $suggestions = \Kaleta\Core\RedirectMatcher::suggestions($this->app, $pending);
+        $pending = \Talea\Core\NotFound::pending($this->app, 60, 30);
+        $suggestions = \Talea\Core\RedirectMatcher::suggestions($this->app, $pending);
 
         return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
                 $db->all('SELECT from_path, to_path, type, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
             'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
-            'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Kaleta\Core\RedirectMatcher::threshold($siteSettings)]];
+            'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Talea\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 
     /** save_redirect: the same as list_redirects */
@@ -225,8 +225,8 @@ trait SettingsTools
         $paths = is_array($a['paths'] ?? null) ? array_values(array_filter($a['paths'], 'is_string')) : [];
         $need($paths !== [] || !empty($a['all']), 'Send paths, or all: true.');
 
-        return ['ignored' => \Kaleta\Core\NotFound::ignore($this->app, !empty($a['all']) ? null : $paths),
-            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']], \Kaleta\Core\NotFound::pending($this->app, 60, 30))];
+        return ['ignored' => \Talea\Core\NotFound::ignore($this->app, !empty($a['all']) ? null : $paths),
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']], \Talea\Core\NotFound::pending($this->app, 60, 30))];
     }
 
     /** site_audit */
@@ -240,7 +240,7 @@ trait SettingsTools
         };
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
-        $findings = (new \Kaleta\Core\Audit($this->app))->run();
+        $findings = (new \Talea\Core\Audit($this->app))->run();
         if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
             $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
         }
@@ -257,7 +257,7 @@ trait SettingsTools
             throw new \DomainException('Statistics are for administrators and users with access to Statistics.');
         }
 
-        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings())];
+        return \Talea\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
     }
 
     /** list_changes (2.2): the change log, people and Claude told apart */
@@ -291,7 +291,7 @@ trait SettingsTools
 
         return ['sessions' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'connection' => $r['connection'], 'started' => substr((string) $r['started_at'], 0, 16),
             'last' => substr((string) $r['last_at'], 0, 16), 'rows_changed' => (int) $r['rows_changed'], 'untracked_writes' => (int) $r['rows_untracked'], 'tools' => (string) ($r['tools'] ?? ''),
-            'undone' => $r['undone_at'] !== null ? substr((string) $r['undone_at'], 0, 16) : null], \Kaleta\Core\AgentJournal::sessions($this->app->db(), max(1, min(100, (int) ($a['limit'] ?? 20)))))];
+            'undone' => $r['undone_at'] !== null ? substr((string) $r['undone_at'], 0, 16) : null], \Talea\Core\AgentJournal::sessions($this->app->db(), max(1, min(100, (int) ($a['limit'] ?? 20)))))];
     }
 
     /** undo_agent_session (2.17) */
@@ -304,7 +304,7 @@ trait SettingsTools
             throw new \InvalidArgumentException('Undoing needs confirm=true – only when the user asked for it.');
         }
 
-        return \Kaleta\Core\AgentJournal::undo($this->app, (int) ($a['id'] ?? 0), ($a['force'] ?? false) === true)
+        return \Talea\Core\AgentJournal::undo($this->app, (int) ($a['id'] ?? 0), ($a['force'] ?? false) === true)
             + ['note' => 'Tell the user what was put back, and list any rows left because they changed since (conflicts) and writes undo could not follow (untracked).'];
     }
 
@@ -314,16 +314,16 @@ trait SettingsTools
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The record of processing is for administrators – it describes the whole site.');
         }
-        $sections = \Kaleta\Core\Privacy::processingRecord($this->app);
+        $sections = \Talea\Core\Privacy::processingRecord($this->app);
 
-        return ['markdown' => \Kaleta\Core\Privacy::markdown($sections, t('Record of processing')), 'sections' => count($sections),
+        return ['markdown' => \Talea\Core\Privacy::markdown($sections, t('Record of processing')), 'sections' => count($sections),
             'note' => 'A template assembled from the configuration, not legal advice: the owner reviews it, adds what the site does not know (paper files, other systems) and keeps it with their documentation. Printable in Settings → Privacy and cookies → Record of processing.'];
     }
 
     /** accessibility_statement (2.14, Core\Privacy) */
     private function toolAccessibilityStatement(string $name, array $a): mixed
     {
-        $statement = \Kaleta\Core\Privacy::accessibilityStatement($this->app);
+        $statement = \Talea\Core\Privacy::accessibilityStatement($this->app);
         $pageId = $this->app->settings()->int('accessibility_statement_page');
         $page = $pageId > 0 ? $this->app->db()->one('SELECT page_id, slug, visible FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$pageId]) : null;
 

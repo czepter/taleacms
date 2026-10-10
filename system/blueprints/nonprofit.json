@@ -1,5 +1,5 @@
 {
-    "kaleta_blueprint": 1,
+    "talea_blueprint": 1,
     "key": "nonprofit",
     "group": "public",
     "name": "Non-profit, association or club",
@@ -24,7 +24,7 @@
         {"fact": "area_of_activity", "question": "Where does the organisation work?",
             "help": "For example \"the town and the surrounding villages\" or \"across the country\"."},
         {"fact": "donation_url", "question": "Can people donate online? Give the address of the donation page.",
-            "help": "Your own payment page or a donation platform; the Donate buttons lead here. Kaleta itself takes no payments. Leave it empty if you do not collect donations online."},
+            "help": "Your own payment page or a donation platform; the Donate buttons lead here. Talea itself takes no payments. Leave it empty if you do not collect donations online."},
         {"fact": "donation_account", "question": "Which bank account should donations go to?",
             "help": "The organisation's public account for donations, exactly as on your documents, with the reference donors should use if any. Leave it empty if you do not publish one."},
         {"fact": "membership_fee", "question": "Is there a membership fee? How much, and how is it paid?",
@@ -39,5 +39,5 @@
         {"check": "fact", "fact": "registration_number", "message": "State where the organisation is registered – donors and partners check who they are dealing with."},
         {"check": "setting", "setting": "company_email", "message": "Add a contact e-mail in Business details – people who want to join or help need a way to reach you."}
     ],
-    "claude": "Members, volunteers, donors and partners come to see what the organisation does, who runs it, how to join, help or give, and whether it can be trusted – put the mission in plain words, the next events and clear ways to join, volunteer and donate on the home page. Statutes, annual reports and minutes are the documents collection, the board and contacts the team, activities the events. Never invent impact figures, members, beneficiaries, partners, grants, awards, testimonials or how donations are spent – ask the owner and cite the annual report. Do not say donations are tax-deductible or that the organisation has a charitable or public-benefit status unless the owner confirms it, and say such rules should be checked. Donate buttons lead to {{fact.donation_url}}; Kaleta takes no payments. Photos of people, children above all, only with consent."
+    "claude": "Members, volunteers, donors and partners come to see what the organisation does, who runs it, how to join, help or give, and whether it can be trusted – put the mission in plain words, the next events and clear ways to join, volunteer and donate on the home page. Statutes, annual reports and minutes are the documents collection, the board and contacts the team, activities the events. Never invent impact figures, members, beneficiaries, partners, grants, awards, testimonials or how donations are spent – ask the owner and cite the annual report. Do not say donations are tax-deductible or that the organisation has a charitable or public-benefit status unless the owner confirms it, and say such rules should be checked. Donate buttons lead to {{fact.donation_url}}; Talea takes no payments. Photos of people, children above all, only with consent."
 }

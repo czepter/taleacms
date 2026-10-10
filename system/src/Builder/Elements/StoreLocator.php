@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
-use Kaleta\Core\Language;
+use Talea\Builder\Collections;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
+use Talea\Core\Language;
 
 /**
  * Store locator (2.11): the visible branches of a collection – by default the first one made from the Branches preset – as a
@@ -42,26 +42,26 @@ final class StoreLocator extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-locator { display: grid; gap: var(--ka-space-m); }
-.ka-locator [hidden] { display: none; } /* the display of the controls and the cards below would otherwise beat the hidden attribute */
-.ka-locator-controls { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); align-items: center; }
-.ka-locator-controls label { flex: 1 1 12rem; display: grid; gap: 0.25em; min-width: 0; }
-.ka-locator-controls input { width: 100%; min-width: 0; padding: 0.55em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-s); background: var(--ka-color-background); color: inherit; font: inherit; }
-.ka-locator-controls button { padding: 0.55em 1em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-full); background: var(--ka-color-surface); color: inherit; font: inherit; cursor: pointer; }
-.ka-locator-controls button:hover { border-color: var(--ka-color-primary); }
-.ka-locator-controls button[disabled] { opacity: 0.6; cursor: wait; }
-.ka-locator-controls small { flex-basis: 100%; color: var(--ka-color-muted); font-size: var(--ka-step--1); }
-.ka-locator-message { margin: 0; color: var(--ka-color-muted); }
-.ka-locator-message:empty { display: none; }
-.ka-locator-map { height: clamp(16rem, 50vh, 28rem); border-radius: var(--ka-radius-m); overflow: hidden; background: var(--ka-color-surface); }
-.ka-locator-map a { color: inherit; }
-.ka-locator-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--ka-space-m); margin: 0; padding: 0; list-style: none; }
-.ka-locator-list li { display: grid; gap: var(--ka-space-xs); align-content: start; padding: var(--ka-space-m); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-m); background: var(--ka-color-surface); overflow-wrap: anywhere; }
-.ka-locator-list p { margin: 0; }
-.ka-locator-name { font-size: var(--ka-step-1); }
-.ka-locator-name a { color: inherit; }
-.ka-locator-distance { color: var(--ka-color-muted); font-size: var(--ka-step--1); }
-.ka-locator-distance:empty { display: none; }';
+        return '.tl-locator { display: grid; gap: var(--tl-space-m); }
+.tl-locator [hidden] { display: none; } /* the display of the controls and the cards below would otherwise beat the hidden attribute */
+.tl-locator-controls { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); align-items: center; }
+.tl-locator-controls label { flex: 1 1 12rem; display: grid; gap: 0.25em; min-width: 0; }
+.tl-locator-controls input { width: 100%; min-width: 0; padding: 0.55em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius-s); background: var(--tl-color-background); color: inherit; font: inherit; }
+.tl-locator-controls button { padding: 0.55em 1em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius-full); background: var(--tl-color-surface); color: inherit; font: inherit; cursor: pointer; }
+.tl-locator-controls button:hover { border-color: var(--tl-color-primary); }
+.tl-locator-controls button[disabled] { opacity: 0.6; cursor: wait; }
+.tl-locator-controls small { flex-basis: 100%; color: var(--tl-color-muted); font-size: var(--tl-step--1); }
+.tl-locator-message { margin: 0; color: var(--tl-color-muted); }
+.tl-locator-message:empty { display: none; }
+.tl-locator-map { height: clamp(16rem, 50vh, 28rem); border-radius: var(--tl-radius-m); overflow: hidden; background: var(--tl-color-surface); }
+.tl-locator-map a { color: inherit; }
+.tl-locator-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--tl-space-m); margin: 0; padding: 0; list-style: none; }
+.tl-locator-list li { display: grid; gap: var(--tl-space-xs); align-content: start; padding: var(--tl-space-m); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius-m); background: var(--tl-color-surface); overflow-wrap: anywhere; }
+.tl-locator-list p { margin: 0; }
+.tl-locator-name { font-size: var(--tl-step-1); }
+.tl-locator-name a { color: inherit; }
+.tl-locator-distance { color: var(--tl-color-muted); font-size: var(--tl-step--1); }
+.tl-locator-distance:empty { display: none; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -70,7 +70,7 @@ final class StoreLocator extends Element
         $db = $k->app->db();
         $collection = $o['collection'] !== '' ? Collections::bySlug($db, (string) $o['collection']) : self::defaultCollection($db);
         if ($collection === null) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">'
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">'
                 . e(t('Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.')) . '</div>' : '';
         }
         $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['fields'], fn (array $f): bool => $f['key'] === $key && in_array($f['type'], $types, true)))[0]['key'] ?? null;
@@ -80,7 +80,7 @@ final class StoreLocator extends Element
         $keys = ['address' => $field('address', ['text', 'lines']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
         [$items] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), 100);
         if ($items === []) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('The collection has no visible items yet.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">' . e(t('The collection has no visible items yet.')) . '</div>' : '';
         }
         $rows = '';
         foreach ($items as $item) {
@@ -98,25 +98,25 @@ final class StoreLocator extends Element
         if ($o['show_map']) {
             $mapId = 'locator-map-' . e((string) $p['id']);
             $controls .= '<button type="button" data-map aria-controls="' . $mapId . '">' . e(t('Show map')) . '</button><small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
-            $map = '<div class="ka-locator-map" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '" hidden></div>';
+            $map = '<div class="tl-locator-map" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '" hidden></div>';
         }
         // the controls work only with the script, so they appear once it runs; the list is the content and is always there
-        $html = ($controls !== '' ? '<div class="ka-locator-controls" hidden>' . $controls . '</div>' : '')
-            . '<p class="ka-locator-message" role="status" aria-live="polite" data-message></p>'
+        $html = ($controls !== '' ? '<div class="tl-locator-controls" hidden>' . $controls . '</div>' : '')
+            . '<p class="tl-locator-message" role="status" aria-live="polite" data-message></p>'
             . $map
-            . '<ul class="ka-locator-list" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
-            . '<p class="ka-locator-message" data-empty hidden>' . e(t('No branch matches your search.')) . '</p>';
+            . '<ul class="tl-locator-list" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
+            . '<p class="tl-locator-message" data-empty hidden>' . e(t('No branch matches your search.')) . '</p>';
         $data = ' data-locator data-leaflet="' . e($k->url(self::LEAFLET_PATH)) . '"'
             . ' data-attribution="' . e('© OpenStreetMap contributors') . '"' // plain text: image/web.js puts it in a link to the OSM copyright page
             . ' data-text-sorted="' . e(t('Sorted by distance from you.')) . '"'
             . ' data-text-declined="' . e(t('Location access was refused – the list stays in its usual order.')) . '"'
             . ' data-text-error="' . e(t('Your location could not be determined.')) . '"';
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-locator') . $data . '>' . $html . '</' . $p['tag'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'tl-locator') . $data . '>' . $html . '</' . $p['tag'] . '>';
     }
 
     /** The first collection made from the Branches preset (what the element shows when no collection is chosen). */
-    public static function defaultCollection(\Kaleta\Core\Db $db): ?array
+    public static function defaultCollection(\Talea\Core\Db $db): ?array
     {
         $slug = $db->value('SELECT slug FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', ['branches']);
 
@@ -136,22 +136,22 @@ final class StoreLocator extends Element
         [$name, $url] = [$values['name'][0], $values['url'][0]];
         [$address, $phone, $email] = [$text($keys['address']), $text($keys['phone']), $text($keys['email'])];
         $coordinates = $locationKey === null ? null : self::coordinates($values[$locationKey][0] ?? '');
-        $html = '<strong class="ka-locator-name">' . ($url !== '' ? '<a href="' . e($url) . '">' . e($name) . '</a>' : e($name)) . '</strong>';
+        $html = '<strong class="tl-locator-name">' . ($url !== '' ? '<a href="' . e($url) . '">' . e($name) . '</a>' : e($name)) . '</strong>';
         if ($address !== '') {
-            $html .= '<p class="ka-locator-address">' . nl2br(e($address), false) . '</p>';
+            $html .= '<p class="tl-locator-address">' . nl2br(e($address), false) . '</p>';
         }
         $contacts = array_filter([
             self::telHref($phone) !== '' ? '<a href="' . e(self::telHref($phone)) . '">' . e($phone) . '</a>' : e($phone),
             $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) ? '<a href="mailto:' . e($email) . '">' . e($email) . '</a>' : e($email),
         ]);
         if ($contacts !== []) {
-            $html .= '<p class="ka-locator-contact">' . implode(' · ', $contacts) . '</p>';
+            $html .= '<p class="tl-locator-contact">' . implode(' · ', $contacts) . '</p>';
         }
         $directions = self::directionsUrl($address, $coordinates);
         if ($directions !== '') {
             $html .= '<p><a href="' . e($directions) . '" target="_blank" rel="noopener">' . e(t('Directions')) . '</a></p>';
         }
-        $html .= '<span class="ka-locator-distance" data-distance></span>';
+        $html .= '<span class="tl-locator-distance" data-distance></span>';
         $position = $coordinates === null ? '' : ' data-lat="' . $coordinates[0] . '" data-lng="' . $coordinates[1] . '"';
 
         return '<li' . $position . ' data-text="' . e(mb_strtolower(trim($name . ' ' . $address))) . '">' . $html . '</li>';

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Unit;
+namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 

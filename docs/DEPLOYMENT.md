@@ -10,8 +10,8 @@ cp docker-compose.yaml compose.yaml        # or use docker-compose.coolify.yaml 
 docker compose up -d                       # builds the image from source, or set `image:` to a published tag
 ```
 
-Open the site and walk through the installer. Configuration is environment variables (`KALETA_*`, every one also as
-`KALETA_<NAME>_FILE` for Docker secrets); nothing inside the image needs editing. The full list is in `docker/README.md`.
+Open the site and walk through the installer. Configuration is environment variables (`TALEA_*`, every one also as
+`TALEA_<NAME>_FILE` for Docker secrets); nothing inside the image needs editing. The full list is in `docker/README.md`.
 
 ## Update
 
@@ -24,19 +24,19 @@ Open the site and walk through the installer. Configuration is environment varia
 
 On start the entrypoint
 
-1. writes a database backup to `storage/backups/` **when migrations are pending** (`KALETA_BACKUP_BEFORE_MIGRATE=0` skips it),
+1. writes a database backup to `storage/backups/` **when migrations are pending** (`TALEA_BACKUP_BEFORE_MIGRATE=0` skips it),
 2. runs `bin/migrate --if-installed`: pending migrations are applied before the container serves traffic; `GET_LOCK` serialises
    several replicas, so two containers never apply the same migration,
-3. starts the background-job loop (`KALETA_CRON=0` switches it off, see Replicas), then the web server.
+3. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
 
 Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release.
 
 ## The "new version" notice
 
-Once a day the site reads the signed release feed (`update.json`, the address in `KALETA_UPDATE_FEED`) and shows a notice to
+Once a day the site reads the signed release feed (`update.json`, the address in `TALEA_UPDATE_FEED`) and shows a notice to
 administrators. No identifier and no query string are sent; the feed is verified against `system/update.pub` and ignored when the
-signature does not match. Nothing is ever installed by the site. Switch the check off with `KALETA_UPDATE_CHECK=0` or in
-Settings → Backups and updates. Without `KALETA_UPDATE_FEED` nothing is requested at all.
+signature does not match. Nothing is ever installed by the site. Switch the check off with `TALEA_UPDATE_CHECK=0` or in
+Settings → Backups and updates. Without `TALEA_UPDATE_FEED` nothing is requested at all.
 
 ## Health
 
@@ -57,7 +57,7 @@ release). To go back:
 ## Replicas
 
 Any number of web containers can share the `storage`, `media` and `extensions` volumes. Exactly one of them should run the
-background loop: set `KALETA_CRON=0` on all but one. Migrations are safe to start everywhere at once.
+background loop: set `TALEA_CRON=0` on all but one. Migrations are safe to start everywhere at once.
 
 ## Add-ons
 

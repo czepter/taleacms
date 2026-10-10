@@ -3,7 +3,7 @@
  * Record of processing (2.14, Core\Privacy): assembled from the configuration, printable from the browser, with a Markdown
  * copy to paste into the owner's documentation. A template to review – not legal advice.
  *
- * @var Kaleta\Admin\Modules\Settings $module
+ * @var Talea\Admin\Modules\Settings $module
  * @var list<array{heading: string, lines: list<string>}> $sections
  */
 ?>
@@ -21,5 +21,5 @@
 </div>
 <details class="advanced">
 <summary><?= e(t('As Markdown (to copy)')) ?></summary>
-<textarea class="textbox code" rows="20" readonly><?= e(Kaleta\Core\Privacy::markdown($sections, t('Record of processing'))) ?></textarea>
+<textarea class="textbox code" rows="20" readonly><?= e(Talea\Core\Privacy::markdown($sections, t('Record of processing'))) ?></textarea>
 </details>

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Integration;
+namespace Talea\Tests\Integration;
 
-use Kaleta\Core\Db;
-use Kaleta\Core\Uuid;
-use Kaleta\Tests\Support\DatabaseTestCase;
+use Talea\Core\Db;
+use Talea\Core\Uuid;
+use Talea\Tests\Support\DatabaseTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /** HF-16: rows that are addressed from outside carry a unique UUID v4, filled by Db::insert and by the column default. */

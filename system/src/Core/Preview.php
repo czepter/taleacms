@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Signed link to a draft preview (page or site part) without login – for Claude over MCP and for sharing with a colleague.

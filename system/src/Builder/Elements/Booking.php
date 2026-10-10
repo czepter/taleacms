@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder\Elements;
+namespace Talea\Builder\Elements;
 
-use Kaleta\Builder\Context;
-use Kaleta\Builder\Element;
-use Kaleta\Core\Antispam;
-use Kaleta\Core\Booking as Bookings;
+use Talea\Builder\Context;
+use Talea\Builder\Element;
+use Talea\Core\Antispam;
+use Talea\Core\Booking as Bookings;
 
 /**
  * Online booking of an appointment (3.0, Core\Booking): the visitor picks a service, a person (or anyone), a day and a
@@ -44,38 +44,38 @@ final class Booking extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-booking { display: grid; gap: var(--ka-space-m); }
-.ka-booking, .ka-booking-done { scroll-margin-top: 6rem; }
-.ka-booking fieldset { display: grid; gap: var(--ka-space-2xs); margin: 0; padding: 0; border: 0; }
-.ka-booking legend { margin-block-end: var(--ka-space-2xs); padding: 0; font-weight: 600; }
-.ka-booking-options { display: grid; gap: var(--ka-space-2xs); }
-.ka-booking-options label { display: flex; gap: var(--ka-space-xs); align-items: flex-start; padding: 0.6em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); cursor: pointer; }
-.ka-booking-options label:has(:checked) { border-color: var(--ka-color-primary); background: var(--ka-color-primary-soft); }
-.ka-booking-options input { margin-block-start: 0.3em; accent-color: var(--ka-color-primary); }
-.ka-booking-options small { display: block; color: var(--ka-color-muted); }
-.ka-booking-calendar { display: grid; gap: var(--ka-space-xs); }
-.ka-booking-month { display: flex; align-items: center; justify-content: space-between; gap: var(--ka-space-xs); font-weight: 600; }
-.ka-booking-month button { padding: 0.3em 0.7em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: inherit; font: inherit; cursor: pointer; }
-.ka-booking-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.ka-booking-days span, .ka-booking-days button { display: grid; place-items: center; min-height: 2.4em; border: 0; border-radius: var(--ka-radius); background: none; color: inherit; font: inherit; }
-.ka-booking-days span { color: var(--ka-color-muted); font-size: var(--ka-step--1); }
-.ka-booking-days button { background: var(--ka-color-surface); cursor: pointer; }
-.ka-booking-days button:disabled { background: none; color: var(--ka-color-muted); cursor: default; text-decoration: line-through; }
-.ka-booking-days button[aria-pressed="true"], .ka-booking-times button[aria-pressed="true"] { background: var(--ka-color-primary); color: var(--ka-color-on-primary); }
-.ka-booking-times { display: flex; flex-wrap: wrap; gap: var(--ka-space-2xs); }
-.ka-booking-times button { padding: 0.5em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: inherit; font: inherit; cursor: pointer; }
-.ka-booking-selected { margin: 0; font-weight: 600; }
-.ka-booking .ka-field { display: grid; gap: var(--ka-space-2xs); margin: 0; }
-.ka-booking .ka-field > label { font-weight: 600; }
-.ka-booking .ka-field input:not([type="checkbox"]):not([type="radio"]), .ka-booking .ka-field select, .ka-booking .ka-field textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: var(--ka-color-text); font: inherit; }
-.ka-booking .ka-field-consent label { display: flex; gap: var(--ka-space-xs); align-items: flex-start; font-weight: 400; }
-.ka-booking .ka-field-consent input { margin-block-start: 0.3em; accent-color: var(--ka-color-primary); }
-.ka-booking .ka-required { color: var(--ka-color-primary); }
-.ka-booking-error, .ka-booking-done { margin: 0; padding: var(--ka-space-m); border-radius: var(--ka-radius); }
-.ka-booking-done { background: var(--ka-color-primary-soft); color: var(--ka-color-text); }
-.ka-booking-error { background: color-mix(in oklch, #c4281c 12%, var(--ka-color-background)); color: color-mix(in oklch, #c4281c 80%, var(--ka-color-text)); }
-.ka-booking-empty { margin: 0; color: var(--ka-color-muted); }
-.ka-booking [hidden] { display: none !important; }'; // the display of the calendar, the times and the fallback field would otherwise beat the hidden attribute
+        return '.tl-booking { display: grid; gap: var(--tl-space-m); }
+.tl-booking, .tl-booking-done { scroll-margin-top: 6rem; }
+.tl-booking fieldset { display: grid; gap: var(--tl-space-2xs); margin: 0; padding: 0; border: 0; }
+.tl-booking legend { margin-block-end: var(--tl-space-2xs); padding: 0; font-weight: 600; }
+.tl-booking-options { display: grid; gap: var(--tl-space-2xs); }
+.tl-booking-options label { display: flex; gap: var(--tl-space-xs); align-items: flex-start; padding: 0.6em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); cursor: pointer; }
+.tl-booking-options label:has(:checked) { border-color: var(--tl-color-primary); background: var(--tl-color-primary-soft); }
+.tl-booking-options input { margin-block-start: 0.3em; accent-color: var(--tl-color-primary); }
+.tl-booking-options small { display: block; color: var(--tl-color-muted); }
+.tl-booking-calendar { display: grid; gap: var(--tl-space-xs); }
+.tl-booking-month { display: flex; align-items: center; justify-content: space-between; gap: var(--tl-space-xs); font-weight: 600; }
+.tl-booking-month button { padding: 0.3em 0.7em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: inherit; font: inherit; cursor: pointer; }
+.tl-booking-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.tl-booking-days span, .tl-booking-days button { display: grid; place-items: center; min-height: 2.4em; border: 0; border-radius: var(--tl-radius); background: none; color: inherit; font: inherit; }
+.tl-booking-days span { color: var(--tl-color-muted); font-size: var(--tl-step--1); }
+.tl-booking-days button { background: var(--tl-color-surface); cursor: pointer; }
+.tl-booking-days button:disabled { background: none; color: var(--tl-color-muted); cursor: default; text-decoration: line-through; }
+.tl-booking-days button[aria-pressed="true"], .tl-booking-times button[aria-pressed="true"] { background: var(--tl-color-primary); color: var(--tl-color-on-primary); }
+.tl-booking-times { display: flex; flex-wrap: wrap; gap: var(--tl-space-2xs); }
+.tl-booking-times button { padding: 0.5em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: inherit; font: inherit; cursor: pointer; }
+.tl-booking-selected { margin: 0; font-weight: 600; }
+.tl-booking .tl-field { display: grid; gap: var(--tl-space-2xs); margin: 0; }
+.tl-booking .tl-field > label { font-weight: 600; }
+.tl-booking .tl-field input:not([type="checkbox"]):not([type="radio"]), .tl-booking .tl-field select, .tl-booking .tl-field textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: var(--tl-color-text); font: inherit; }
+.tl-booking .tl-field-consent label { display: flex; gap: var(--tl-space-xs); align-items: flex-start; font-weight: 400; }
+.tl-booking .tl-field-consent input { margin-block-start: 0.3em; accent-color: var(--tl-color-primary); }
+.tl-booking .tl-required { color: var(--tl-color-primary); }
+.tl-booking-error, .tl-booking-done { margin: 0; padding: var(--tl-space-m); border-radius: var(--tl-radius); }
+.tl-booking-done { background: var(--tl-color-primary-soft); color: var(--tl-color-text); }
+.tl-booking-error { background: color-mix(in oklch, #c4281c 12%, var(--tl-color-background)); color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); }
+.tl-booking-empty { margin: 0; color: var(--tl-color-muted); }
+.tl-booking [hidden] { display: none !important; }'; // the display of the calendar, the times and the fallback field would otherwise beat the hidden attribute
     }
 
     /** The anchor the page returns to after sending: the same as the id the form gets when rendered. */
@@ -110,10 +110,10 @@ final class Booking extends Element
         $result = $r->get('booking') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         if ($result === 'pending') { // a service that needs the provider's confirmation: a request, not a booking (3.3)
-            return '<div' . Text::withClass($a, 'ka-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e(Bookings::pendingThanks($k->app->settings())) . '</p></div>';
+            return '<div' . Text::withClass($a, 'tl-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e(Bookings::pendingThanks($k->app->settings())) . '</p></div>';
         }
         if ($result === 'ok') {
-            return '<div' . Text::withClass($a, 'ka-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e($o['thank_you']) . '</p></div>';
+            return '<div' . Text::withClass($a, 'tl-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e($o['thank_you']) . '</p></div>';
         }
         $services = Bookings::services($db);
         $staff = Bookings::staff($db);
@@ -123,7 +123,7 @@ final class Booking extends Element
         }
         $services = array_values(array_filter($services, fn (array $s): bool => Bookings::staffFor($db, $s['id']) !== []));
         if ($services === []) {
-            return $k->editor ? '<div' . Text::withClass($a, 'ka-booking-empty') . '><p>' . e(t('Add a service and a person who offers it in Administration → Bookings; the form appears here.')) . '</p></div>' : '';
+            return $k->editor ? '<div' . Text::withClass($a, 'tl-booking-empty') . '><p>' . e(t('Add a service and a person who offers it in Administration → Bookings; the form appears here.')) . '</p></div>' : '';
         }
         // the plain form (no script) shows the next free times of one service: the only one, the fixed one, or the one asked for
         $asked = $r->get('booking') === $p['id'] ? $db->internalId('booking_services', $r->get('service')) : 0;
@@ -140,11 +140,11 @@ final class Booking extends Element
         if (!$k->editor) {
             $k->withoutCache = true; // the free times change with every booking
         }
-        $html = $result !== '' ? '<p class="ka-booking-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
+        $html = $result !== '' ? '<p class="tl-booking-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $name = 'r-' . $p['id'];
 
         // 1. the service
-        $html .= '<fieldset class="ka-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend><div class="ka-booking-options">';
+        $html .= '<fieldset class="tl-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend><div class="tl-booking-options">';
         foreach ($services as $i => $s) {
             $meta = implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']]));
             $html .= '<label><input type="radio" name="service" value="' . $serviceKey($s['id']) . '" required data-duration="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
@@ -157,7 +157,7 @@ final class Booking extends Element
         if ($fixedStaff !== null) {
             $html .= '<input type="hidden" name="staff" value="' . $staffKey($fixedStaff['id']) . '">';
         } elseif (count($offering) > 1) {
-            $html .= '<fieldset class="ka-booking-step" data-step="person"><legend>' . e(t('Who')) . '</legend><div class="ka-booking-options">'
+            $html .= '<fieldset class="tl-booking-step" data-step="person"><legend>' . e(t('Who')) . '</legend><div class="tl-booking-options">'
                 . '<label><input type="radio" name="staff" value="0" checked><span>' . e(t('Anyone available')) . '</span></label>';
             foreach ($offering as $m) {
                 $html .= '<label data-services="' . e(implode(',', array_map($serviceKey, $m['services']))) . '"><input type="radio" name="staff" value="' . $staffKey($m['id']) . '"><span>' . e($m['name']) . '</span></label>';
@@ -168,33 +168,33 @@ final class Booking extends Element
         }
 
         // 3. the day and the time: the calendar (script) and the plain select
-        $html .= '<fieldset class="ka-booking-step" data-step="time"><legend>' . e(t('Day and time')) . '</legend>'
-            . '<div class="ka-booking-calendar" data-calendar hidden></div>'
-            . '<div class="ka-booking-times" data-times hidden></div>'
-            . '<p class="ka-booking-selected" data-selected hidden></p>'
-            . '<div class="ka-field" data-no-script>';
+        $html .= '<fieldset class="tl-booking-step" data-step="time"><legend>' . e(t('Day and time')) . '</legend>'
+            . '<div class="tl-booking-calendar" data-calendar hidden></div>'
+            . '<div class="tl-booking-times" data-times hidden></div>'
+            . '<p class="tl-booking-selected" data-selected hidden></p>'
+            . '<div class="tl-field" data-no-script>';
         if ($chosenService !== null) {
             $options = '';
             $staffId = $fixedStaff !== null ? $fixedStaff['id'] : 0;
             foreach (self::nextSlots($k->app, $chosenService, $staffId) as $slot) {
                 $options .= '<option value="' . e($slot) . '">' . e(format_date($slot, true)) . '</option>';
             }
-            $html .= '<label for="' . $name . '-slot">' . e(t('Free times')) . ' <span class="ka-required" aria-hidden="true">*</span></label>'
-                . ($options === '' ? '<p class="ka-booking-empty">' . e(t('There are no free times at the moment. Please contact us.')) . '</p><select id="' . $name . '-slot" name="slot" hidden></select>'
+            $html .= '<label for="' . $name . '-slot">' . e(t('Free times')) . ' <span class="tl-required" aria-hidden="true">*</span></label>'
+                . ($options === '' ? '<p class="tl-booking-empty">' . e(t('There are no free times at the moment. Please contact us.')) . '</p><select id="' . $name . '-slot" name="slot" hidden></select>'
                     : '<select id="' . $name . '-slot" name="slot" required><option value="">' . e(t('— choose —')) . '</option>' . $options . '</select>');
         } else {
-            $html .= '<select name="slot" hidden></select><button class="ka-button" type="submit" formmethod="get" formaction="' . e($k->app->url($r->path())) . '" name="booking" value="' . e($p['id']) . '">' . e(t('Show free times')) . '</button>';
+            $html .= '<select name="slot" hidden></select><button class="tl-button" type="submit" formmethod="get" formaction="' . e($k->app->url($r->path())) . '" name="booking" value="' . e($p['id']) . '">' . e(t('Show free times')) . '</button>';
         }
         $html .= '</div></fieldset>';
 
         // 4. the contact
-        $html .= '<fieldset class="ka-booking-step" data-step="contact"><legend>' . e(t('Your details')) . '</legend>'
-            . '<p class="ka-field"><label for="' . $name . '-name">' . e(t('Your name')) . ' <span class="ka-required" aria-hidden="true">*</span></label><input id="' . $name . '-name" name="name" type="text" autocomplete="name" maxlength="150" required></p>'
-            . '<p class="ka-field"><label for="' . $name . '-email">' . e(t('Your e-mail')) . ' <span class="ka-required" aria-hidden="true">*</span></label><input id="' . $name . '-email" name="email" type="email" autocomplete="email" maxlength="190" required></p>'
-            . '<p class="ka-field"><label for="' . $name . '-phone">' . e(t('Phone')) . '</label><input id="' . $name . '-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" pattern="' . Form::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"></p>'
-            . '<p class="ka-field"><label for="' . $name . '-note">' . e(t('Note')) . '</label><textarea id="' . $name . '-note" name="note" rows="3" maxlength="1000"></textarea></p>'
-            . '<p class="ka-field ka-field-consent"><label><input type="checkbox" name="consent" value="1" required> <span>' . e($o['consent']) . ' <span class="ka-required" aria-hidden="true">*</span></span></label>'
-            . (($policy = \Kaleta\Core\Privacy::policyUrl($k->app->settings())) !== '' ? ' <a class="ka-field-policy" href="' . e($policy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
+        $html .= '<fieldset class="tl-booking-step" data-step="contact"><legend>' . e(t('Your details')) . '</legend>'
+            . '<p class="tl-field"><label for="' . $name . '-name">' . e(t('Your name')) . ' <span class="tl-required" aria-hidden="true">*</span></label><input id="' . $name . '-name" name="name" type="text" autocomplete="name" maxlength="150" required></p>'
+            . '<p class="tl-field"><label for="' . $name . '-email">' . e(t('Your e-mail')) . ' <span class="tl-required" aria-hidden="true">*</span></label><input id="' . $name . '-email" name="email" type="email" autocomplete="email" maxlength="190" required></p>'
+            . '<p class="tl-field"><label for="' . $name . '-phone">' . e(t('Phone')) . '</label><input id="' . $name . '-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" pattern="' . Form::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"></p>'
+            . '<p class="tl-field"><label for="' . $name . '-note">' . e(t('Note')) . '</label><textarea id="' . $name . '-note" name="note" rows="3" maxlength="1000"></textarea></p>'
+            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent" value="1" required> <span>' . e($o['consent']) . ' <span class="tl-required" aria-hidden="true">*</span></span></label>'
+            . (($policy = \Talea\Core\Privacy::policyUrl($k->app->settings())) !== '' ? ' <a class="tl-field-policy" href="' . e($policy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
             . '</fieldset>';
 
         // a service that needs confirmation is requested, not booked: the default button says so (the script follows the chosen service)
@@ -208,13 +208,13 @@ final class Booking extends Element
         $antispam = new Antispam($db, $k->app->settings());
         $k->types['button'] = true; // the button looks like the Button element
 
-        return '<form' . Text::withClass($a, 'ka-booking') . $id . ' method="post" action="' . e($k->url('_booking')) . '" data-booking="' . e($p['id']) . '" data-days-url="' . e($k->url('_booking/days')) . '" data-slots="' . e($k->url('_booking/slots')) . '">'
+        return '<form' . Text::withClass($a, 'tl-booking') . $id . ' method="post" action="' . e($k->url('_booking')) . '" data-booking="' . e($p['id']) . '" data-days-url="' . e($k->url('_booking/days')) . '" data-slots="' . e($k->url('_booking/slots')) . '">'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">'
             . $antispam->fields('booking|' . $k->source . '|' . $p['id'])
             . $html
             . Form::captcha($k)
-            . '<p class="ka-field"><button class="ka-button ka-button--primary" type="submit"' . $buttonData . '>' . e($buttonText) . '</button></p></form>';
+            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit"' . $buttonData . '>' . e($buttonText) . '</button></p></form>';
     }
 
     /**
@@ -223,7 +223,7 @@ final class Booking extends Element
      * @param array<string, mixed> $service
      * @return list<string> "YYYY-MM-DD HH:MM"
      */
-    private static function nextSlots(\Kaleta\Core\App $app, array $service, int $staffId): array
+    private static function nextSlots(\Talea\Core\App $app, array $service, int $staffId): array
     {
         $out = [];
         $now = new \DateTimeImmutable();

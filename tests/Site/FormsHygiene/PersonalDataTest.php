@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Tests\Site\FormsHygiene;
+namespace Talea\Tests\Site\FormsHygiene;
 
-use Kaleta\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Personal data requests: find, export, erase (was: section 76,). */
@@ -18,9 +18,9 @@ final class PersonalDataTest extends SiteTestCase
 
     public function testClaudeFindsTheEnquiriesAndTheSubscriptionAsCountsOnly(): void
     {
-        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, email, data) VALUES (NOW(), 'PD', 'pd.person@example.com', ?), (NOW(), 'PD', 'other@example.com', ?), (NOW(), 'PD', 'keep@example.com', ?)",
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, email, data) VALUES (NOW(), 'PD', 'pd.person@example.com', ?), (NOW(), 'PD', 'other@example.com', ?), (NOW(), 'PD', 'keep@example.com', ?)",
             ['[["Name","PD Person"]]', '[["Colleague","PD.Person@example.com"]]', '[["Name","Keep"]]']);
-        $this->site()->exec("INSERT INTO ka_subscribers (email, status, token, created_at) VALUES ('pd.person@example.com', 1, '0123456789abcdef0123456789abcdef', NOW())");
+        $this->site()->exec("INSERT INTO tl_subscribers (email, status, token, created_at) VALUES ('pd.person@example.com', 1, '0123456789abcdef0123456789abcdef', NOW())");
 
         $text = $this->mcpText('find_personal_data', ['email' => ' PD.Person@Example.com ']);
 
@@ -45,24 +45,24 @@ final class PersonalDataTest extends SiteTestCase
     {
         $this->mcpText('erase_personal_data', ['email' => 'pd.person@example.com']);
 
-        $this->assertSame('3', (string) $this->site()->value("SELECT COUNT(*) FROM ka_enquiries WHERE form = 'PD'"), 'personal data: erasing needs an explicit confirmation');
+        $this->assertSame('3', (string) $this->site()->value("SELECT COUNT(*) FROM tl_enquiries WHERE form = 'PD'"), 'personal data: erasing needs an explicit confirmation');
     }
 
     public function testErasingRemovesThePersonAndLeavesNoCopyInTheUndoJournal(): void
     {
         // 3.3.2 (N29): an enquiry a Claude session of an older release journaled, and a change of it now – which is no longer journaled
-        self::$enquiry = (int) $this->site()->value("SELECT enquiry_id FROM ka_enquiries WHERE email = 'pd.person@example.com'");
-        $this->site()->exec("INSERT INTO ka_agent_sessions (connection, started_at, last_at, calls) VALUES ('pd-old', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 3 HOUR, 1)");
+        self::$enquiry = (int) $this->site()->value("SELECT enquiry_id FROM tl_enquiries WHERE email = 'pd.person@example.com'");
+        $this->site()->exec("INSERT INTO tl_agent_sessions (connection, started_at, last_at, calls) VALUES ('pd-old', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 3 HOUR, 1)");
         self::$oldSession = (int) $this->site()->pdo->lastInsertId();
-        $this->site()->exec("INSERT INTO ka_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT ?, 1, 'delete_enquiry', 'enquiries', CONCAT('{\"enquiry_id\":', enquiry_id, '}'),
-            JSON_OBJECT('enquiry_id', enquiry_id, 'created_at', created_at, 'form', form, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM ka_enquiries WHERE enquiry_id = ?", [self::$oldSession, self::$enquiry]);
+        $this->site()->exec("INSERT INTO tl_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT ?, 1, 'delete_enquiry', 'enquiries', CONCAT('{\"enquiry_id\":', enquiry_id, '}'),
+            JSON_OBJECT('enquiry_id', enquiry_id, 'created_at', created_at, 'form', form, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM tl_enquiries WHERE enquiry_id = ?", [self::$oldSession, self::$enquiry]);
 
         $this->mcpText('update_enquiry', ['id' => $this->site()->publicId('enquiries', self::$enquiry), 'status' => 'read']);
         $this->mcpText('erase_personal_data', ['email' => 'pd.person@example.com', 'confirm' => true]);
 
-        $this->assertSame('1|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE form = 'PD'), '|', (SELECT COUNT(*) FROM ka_subscribers WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))"),
+        $this->assertSame('1|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_enquiries WHERE form = 'PD'), '|', (SELECT COUNT(*) FROM tl_subscribers WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))"),
             'personal data: erased – both enquiries and the subscriber; other people\'s enquiry stays; the log has no address');
-        $this->assertSame('0|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_journal WHERE LOWER(CONCAT_WS('|', before_row, after_row)) LIKE '%pd.person@example.com%'), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE tbl = 'enquiries' AND untracked IS NULL), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE session_id = ? AND untracked = 'personal data erased on request'))", [self::$oldSession]),
+        $this->assertSame('0|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_agent_journal WHERE LOWER(CONCAT_WS('|', before_row, after_row)) LIKE '%pd.person@example.com%'), '|', (SELECT COUNT(*) FROM tl_agent_journal WHERE tbl = 'enquiries' AND untracked IS NULL), '|', (SELECT COUNT(*) FROM tl_agent_journal WHERE session_id = ? AND untracked = 'personal data erased on request'))", [self::$oldSession]),
             '3.3.2 personal data: the undo journal holds no copy of the erased address – enquiries are not journaled and an older entry is redacted');
     }
 
@@ -70,9 +70,9 @@ final class PersonalDataTest extends SiteTestCase
     {
         $text = $this->mcpText('undo_agent_session', ['id' => self::$oldSession, 'confirm' => true]);
 
-        $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_enquiries WHERE enquiry_id = ?', [self::$enquiry]), '3.3.2 personal data: undoing the older session does not bring the erased enquiry back');
+        $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = ?', [self::$enquiry]), '3.3.2 personal data: undoing the older session does not bring the erased enquiry back');
         $this->assertSame(1, preg_match_all('/^.*personal data erased on request.*$/m', $text), '3.3.2 personal data: the undo names the redacted write');
 
-        $this->site()->exec("DELETE FROM ka_enquiries WHERE form = 'PD'");
+        $this->site()->exec("DELETE FROM tl_enquiries WHERE form = 'PD'");
     }
 }

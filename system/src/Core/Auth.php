@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
 /**
  * Sign-in to the administration and permissions.
@@ -158,7 +158,7 @@ final class Auth
      */
     public static function passwordHash(string $hash): string
     {
-        return substr(hash('sha256', 'kaleta-session|' . $hash), 0, 24);
+        return substr(hash('sha256', 'talea-session|' . $hash), 0, 24);
     }
 
     /** After changing one's own password: this sign-in stays valid, the others do not. */
@@ -308,7 +308,7 @@ final class Auth
     {
         if ($this->user === false) {
             // without a session cookie there is nobody who could be signed in - and no session is started for the check (the site stays cacheable)
-            if (!isset($_COOKIE['kaleta'])) {
+            if (!isset($_COOKIE['talea'])) {
                 return $this->user = null;
             }
             $id = $this->session->get('user_id');
@@ -363,7 +363,7 @@ final class Auth
      */
     public function useConnection(string $name, string $access): void
     {
-        $this->connection = ['name' => $name, 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read'];
+        $this->connection = ['name' => $name, 'access' => isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read'];
     }
 
     /** @return array{name: string, access: string}|null */
@@ -419,7 +419,7 @@ final class Auth
         return $this->isAdmin() && ($this->connection['access'] ?? 'full') === 'full';
     }
 
-    /** Does the signed-in user have access to the module? Admin always; others according to ka_user_permissions. */
+    /** Does the signed-in user have access to the module? Admin always; others according to tl_user_permissions. */
     public function hasModule(string $ident, bool $forEveryone = false): bool
     {
         if ($this->user() === null) {
@@ -440,7 +440,7 @@ final class Auth
      * Can the signed-in user edit this news item? The same rules as in the administration: the News module, an author only their own,
      * and a published news item only someone who can publish.
      *
-     * @param array<string, mixed> $newsItem row of ka_news
+     * @param array<string, mixed> $newsItem row of tl_news
      */
     public function canEditArticle(array $newsItem): bool
     {

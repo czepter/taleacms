@@ -1,6 +1,6 @@
-# Kaleta on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify.yaml.
+# Talea on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify.yaml.
 # Coolify fills the SERVICE_* magic variables: the domain (set it on the web service, port 8080) and the database password.
-# Optional: add KALETA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab.
+# Optional: add TALEA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab.
 
 services:
   web:
@@ -9,12 +9,12 @@ services:
     expose: ["8080"]
     environment:
       - SERVICE_FQDN_WEB_8080
-      - KALETA_SITE_URL=${SERVICE_URL_WEB}
-      - KALETA_DB_HOST=db
-      - KALETA_DB_NAME=kaleta
-      - KALETA_DB_USER=${SERVICE_USER_DB}
-      - KALETA_DB_PASSWORD=${SERVICE_PASSWORD_DB}
-      - KALETA_AI_URL=${KALETA_AI_URL:-}
+      - TALEA_SITE_URL=${SERVICE_URL_WEB}
+      - TALEA_DB_HOST=db
+      - TALEA_DB_NAME=talea
+      - TALEA_DB_USER=${SERVICE_USER_DB}
+      - TALEA_DB_PASSWORD=${SERVICE_PASSWORD_DB}
+      - TALEA_AI_URL=${TALEA_AI_URL:-}
     volumes:
       - storage:/app/storage
       - media:/app/media
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     environment:
-      - MYSQL_DATABASE=kaleta
+      - MYSQL_DATABASE=talea
       - MYSQL_USER=${SERVICE_USER_DB}
       - MYSQL_PASSWORD=${SERVICE_PASSWORD_DB}
       - MYSQL_RANDOM_ROOT_PASSWORD=1

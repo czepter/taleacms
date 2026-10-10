@@ -73,7 +73,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
   page (`image/builder-handles.js`, `builder-compose.js`), sharing a small explicit interface exposed by `builder.js`
   (`applyChange`, `find`, `state`, `previewDoc`). Native `<script>` files, no bundler.
 - **Overlay layer:** handles, guides and the marquee live in one overlay element inside the canvas iframe (like
-  `#ka-bd-grip` and `#ka-bd-place` today), `pointer-events` only on the handles. It is never part of the saved page and
+  `#tl-bd-grip` and `#tl-bd-place` today), `pointer-events` only on the handles. It is never part of the saved page and
   never rendered on the public site (the canvas is `?build=draft&editor=1`).
 - **Writes:** during a gesture the iframe is updated live by setting inline custom properties / styles on the node; on
   release one `applyChange(fn, key)` writes the real `Style` and removes the temporary inline values. One gesture = one
@@ -83,7 +83,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
   Section element's `layout` field (`stack` | `compose`).
 - **Tokens:** spacing and column snapping read the design system's resolved scale from the canvas document (computed
   custom properties), so a changed design system changes the snap points. No duplicated token maths in JS (CLAUDE.md rule).
-- **Locked elements** (`data-ka-lock`), elements inside shared components and PARTS_ONLY elements keep their current
+- **Locked elements** (`data-tl-lock`), elements inside shared components and PARTS_ONLY elements keep their current
   rules: no handles on locked content.
 - **Performance:** one `requestAnimationFrame` loop per gesture, rect reads batched; no layout thrash on pages with 500
   elements.

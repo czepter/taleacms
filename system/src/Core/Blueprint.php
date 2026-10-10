@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Core;
+namespace Talea\Core;
 
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Presets;
+use Talea\Builder\Collections;
+use Talea\Builder\Presets;
 
 /**
  * Industry blueprints (2.11): what a kind of business needs from its site, as a package – a clinic, a manufacturer, a
@@ -19,7 +19,7 @@ use Kaleta\Builder\Presets;
  *  - audit – checks the site audit runs, from a closed set of declarative rules (RULES), never code;
  *  - claude – how to work on such a site, added to the instructions of every Claude connection.
  *
- * Shipped blueprints are system/blueprints/<key>.json; a site keeps the ones applied in ka_blueprints, they travel with
+ * Shipped blueprints are system/blueprints/<key>.json; a site keeps the ones applied in tl_blueprints, they travel with
  * the site export, and export() writes the current site as a manifest (presets in use, facts without values, its rules).
  */
 final class Blueprint
@@ -60,8 +60,8 @@ final class Blueprint
     public static function sanitize(mixed $input): array
     {
         $errors = [];
-        if (!is_array($input) || (int) ($input['kaleta_blueprint'] ?? 0) !== self::FORMAT) {
-            return [null, ['Not a Kaleta blueprint (format ' . self::FORMAT . ').']];
+        if (!is_array($input) || (int) ($input['talea_blueprint'] ?? 0) !== self::FORMAT) {
+            return [null, ['Not a Talea blueprint (format ' . self::FORMAT . ').']];
         }
         $key = is_string($input['key'] ?? null) ? $input['key'] : '';
         if (preg_match(self::KEY_PATTERN, $key) !== 1) {
@@ -148,7 +148,7 @@ final class Blueprint
 
         $group = is_string($input['group'] ?? null) && isset(self::GROUPS[$input['group']]) ? $input['group'] : 'other';
 
-        return $errors !== [] ? [null, $errors] : [['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'description' => $text($input['description'] ?? null, 500) ?? '',
+        return $errors !== [] ? [null, $errors] : [['talea_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'description' => $text($input['description'] ?? null, 500) ?? '',
             'presets' => array_values(array_unique($presets)), 'facts' => array_values($facts), 'questions' => $questions, 'audit' => $audit, 'claude' => $claude], []];
     }
 
@@ -167,7 +167,7 @@ final class Blueprint
     public static function available(): array
     {
         $out = [];
-        foreach (glob(KALETA_SYSTEM . '/blueprints/*.json') ?: [] as $file) {
+        foreach (glob(TALEA_SYSTEM . '/blueprints/*.json') ?: [] as $file) {
             [$manifest] = self::sanitize(json_decode((string) file_get_contents($file), true));
             if ($manifest !== null && $manifest['key'] === basename($file, '.json')) {
                 $out[$manifest['key']] = $manifest;
@@ -221,7 +221,7 @@ final class Blueprint
         } else {
             $db->insert('blueprints', ['bkey' => $manifest['key'], 'name' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
+        \Talea\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
 
         return $created;
     }
@@ -231,7 +231,7 @@ final class Blueprint
     {
         $done = $app->db()->delete('blueprints', ['bkey' => $key]) > 0;
         if ($done) {
-            \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
+            \Talea\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
         }
 
         return $done;
@@ -323,7 +323,7 @@ final class Blueprint
                 $facts[] = ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type']] + ($f['schema'] !== '' ? ['schema' => $f['schema']] : []);
             }
         }
-        $manifest = ['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => (string) (array_values($applied)[0]['group'] ?? 'other'), 'description' => '',
+        $manifest = ['talea_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => (string) (array_values($applied)[0]['group'] ?? 'other'), 'description' => '',
             'presets' => array_values(array_filter(array_map('strval', array_column($db->all("SELECT DISTINCT preset FROM {collections} WHERE preset <> '' ORDER BY preset"), 'preset')), fn (string $p): bool => Presets::get($p) !== null)),
             'facts' => $facts,
             'questions' => array_merge(...array_values(array_map(fn (array $m): array => $m['questions'], $applied)) ?: [[]]),

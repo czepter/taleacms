@@ -1,9 +1,9 @@
-# Kaleta (becoming Talea)
+# Talea
 
 A self-hosted website builder for small businesses and freelancers: pages, news/blog, a visual page
 builder, collections, forms, bookings and a connection to language models (MCP). Plain PHP 8.4+ with its own PSR-4 autoloader
 (`system/bootstrap.php`), MySQL 8 through PDO, server-rendered HTML and a little vanilla JS. Composer is used for infrastructure only
-(Phinx migrations, PHPUnit); application code stays framework-free. GPL v2 or later; this is a hard fork of the Czech project Kaleta
+(Phinx migrations, PHPUnit); application code stays framework-free. GPL v2 or later; this is a hard fork of the Czech project Talea
 (see `NOTICE` and `docs/DECISIONS.md`): no upstream merges, no installed base, no compatibility layers.
 
 ## Principles
@@ -31,7 +31,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 
 ## Data model and database
 
-- Tables are English with the prefix `ka_` (written `{pages}` in code, never with the prefix); columns are English; every row that is
+- Tables are English with the prefix `tl_` (written `{pages}` in code, never with the prefix); columns are English; every row that is
   addressed from outside carries a UUID v4 `public_id` (`Db::PUBLIC_ID_TABLES`, filled by `Db::insert`, looked up by
   `Db::byPublicId`); the integer key stays inside the database layer. Admin URLs, MCP arguments and results, previews, webhooks and
   exports use the public id, never a row number.
@@ -42,7 +42,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Extensions (`Core\Extensions::CATALOG`) are built-in features that an administrator switches on and off; `Module::EXTENSION` and
   `Element::EXTENSION` tie modules and builder elements to them (off: the module disappears, the element is not offered or rendered, the
   routes answer 404). **Add-ons** by other developers live in `extensions/<slug>/` and talk to the core only through
-  `Kaleta\Extension\Api` (`docs/EXTENSIONS.md`, contract `tools/contracts/extension-api.json`); code is never uploaded from the admin
+  `Talea\Extension\Api` (`docs/EXTENSIONS.md`, contract `tools/contracts/extension-api.json`); code is never uploaded from the admin
   or downloaded from the internet.
 - Roles: administrator (2), editor (1: all content, publishes), news author (0: own news, cannot publish) – `Auth::canPublish()`,
   `Auth::managedAuthors()`, `Auth::articleScope()`; per-section permissions in `user_permissions`; custom roles (`Roles` module).
@@ -55,7 +55,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **Themeless:** the page frame is `system/views/front/base.php` + `image/template.css`; the views cannot be overridden and PHP layouts
   are not used. The look comes from the design system, shared classes, components and site parts. `base.php` prints the head and foot
   blocks (SEO, structured data, measurement, cookie bar: `Front\Seo`). Take colours, fonts, scale and sizes from the design-system
-  tokens (`--ka-color-*`, `--ka-step-*`, `--ka-space-*`, `--ka-width` …) with a default value of your own. Cascade layers of the
+  tokens (`--tl-color-*`, `--tl-step-*`, `--tl-space-*`, `--tl-width` …) with a default value of your own. Cascade layers of the
   site: `@layer tokens, shared, template, builder, classes, elements;` (`DesignSystem::LAYERS`): write into `template`, never unlayered,
   never `!important`.
 - Dark mode: `<html data-dark>` by the setting `dark_mode`; CSS `@media (prefers-color-scheme: dark) { :root[data-dark] { … } }`.
@@ -85,7 +85,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `Style::customCss()` (no `url()`, blocks or `@`).
 - **Publishing** (`Builder\Publisher`, also from MCP): the previous version goes to `build_revisions` (20 per page or part), the content
   without layout (`Build::asText`) is stored in `text` for search, llms.txt, the API and the return to text. The draft preview is
-  `?build=draft` (needs the Pages right), `&editor=1` adds `data-ka-id`. A signed preview link (`Core\Preview`, HMAC, one target,
+  `?build=draft` (needs the Pages right), `&editor=1` adds `data-tl-id`. A signed preview link (`Core\Preview`, HMAC, one target,
   limited time) is returned by every write.
 - **Editor** `image/builder.js` + `builder.css`: the canvas is the real page in an iframe, autosave of the draft, the section library
   `Builder\Library`, versions. Site parts (`Builder\SiteParts`: header, footer, wrappers), pop-ups (`Builder\Popups`), components
@@ -104,7 +104,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   translation. A changed address of a published item, page or category writes a redirect (`Redirects::add`). Search through
   `news.search_text` (`Core\Search`; whoever saves news elsewhere calls `Search::index()`).
 - Release announcements (webhook, IndexNow) only through `Core\Notifications::process()`. Webhooks (`Core\Webhook`) are queued in
-  `webhook_deliveries` and sent after the response; signature `X-Kaleta-Signature: sha256=HMAC(timestamp.body, webhook_secret)`.
+  `webhook_deliveries` and sent after the response; signature `X-Talea-Signature: sha256=HMAC(timestamp.body, webhook_secret)`.
 - Mail always through `Core\Mail::send()` (queue). Newsletters (`Core\Mailing`): one template `views/email/newsletter.php`, SMTP and cron
   only, frozen at start, per-recipient unsubscribe with `List-Unsubscribe-Post`. Mailing services: `Core\Newsletter`.
 - Stats without cookies (`Front\Stats`, `Core\Report`); web vitals histogram (`Core\WebVitals`, `image/vitals.js`).
@@ -132,7 +132,7 @@ and size/time limits, never SVG.
   see `docker/README.md`), or `php -S 127.0.0.1:8095 system/dev-router.php` with a local MySQL; `config.php` is not in git.
 - **Tests: `composer test`** (PHPUnit with ParaTest): unit tests, integration tests against MySQL 8, and the site tests that install a whole
   site per test class (`tests/Site/Support/Site`) and drive it over HTTP; `composer test:browser` walks the admin and the builder in Chrome
-  (needs Node and Chrome). `php tools/unit-tests.php` is the older check-harness. Needs a MySQL (`KALETA_TEST_DB_*`; the dev stack's
+  (needs Node and Chrome). `php tools/unit-tests.php` is the older check-harness. Needs a MySQL (`TALEA_TEST_DB_*`; the dev stack's
   `db-test` service); every class creates and drops its own database.
 - `php tools/check-english.php` (English everywhere), `php tools/contracts.php` (MCP, design tokens and element contracts),
   `tools/screenshots.sh` (screenshots for docs after admin changes), Lighthouse `tools/test-lighthouse.sh`.

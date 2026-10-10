@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Fleet;
+namespace Talea\Fleet;
 
-use Kaleta\Core\App;
-use Kaleta\Core\Db;
-use Kaleta\Core\Events;
-use Kaleta\Core\Response;
-use Kaleta\Core\Settings;
-use Kaleta\Core\Updater;
+use Talea\Core\App;
+use Talea\Core\Db;
+use Talea\Core\Events;
+use Talea\Core\Response;
+use Talea\Core\Settings;
+use Talea\Core\Updater;
 
 /**
- * The console's side (2.9): a Kaleta install with the extension "fleet" keeps the sites paired with it.
+ * The console's side (2.9): a Talea install with the extension "fleet" keeps the sites paired with it.
  *
  *  - Pairing: the console makes a one-time code (24 hours); the site sends it with its public key, signed by that key.
  *  - Heartbeat: each site reports every hour, signed; an older or repeated heartbeat is refused. The console stores the
@@ -181,7 +181,7 @@ final class Console
     {
         $s = $app->settings();
         $new = (new Updater($s))->state()['available'];
-        $version = $new !== null ? (string) $new['version'] : KALETA_VERSION;
+        $version = $new !== null ? (string) $new['version'] : TALEA_VERSION;
         $seen = json_decode($s->get('fleet_versions'), true);
         $seen = is_array($seen) ? $seen : [];
         if (!isset($seen[$version])) {
@@ -222,7 +222,7 @@ final class Console
     /**
      * Why a site needs attention, by weight (REASONS). Pure.
      *
-     * @param array<string, mixed> $site a row of ka_fleet_sites
+     * @param array<string, mixed> $site a row of tl_fleet_sites
      * @return array{score: int, reasons: list<string>}
      */
     public static function attention(array $site, int $now): array
@@ -273,7 +273,7 @@ final class Console
     /**
      * All sites, the ones that need attention first.
      *
-     * @return list<array<string, mixed>> rows of ka_fleet_sites with attention, reasons and the decoded heartbeat (beat)
+     * @return list<array<string, mixed>> rows of tl_fleet_sites with attention, reasons and the decoded heartbeat (beat)
      */
     public static function overview(Db $db, int $now): array
     {

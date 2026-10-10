@@ -1,4 +1,4 @@
-// Kaleta - passkeys (WebAuthn): registration in "My account" and the second sign-in step.
+// Talea - passkeys (WebAuthn): registration in "My account" and the second sign-in step.
 // A form with the data-passkey attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
 (function () {
 	'use strict';

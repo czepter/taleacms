@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Builder;
+namespace Talea\Builder;
 
 /**
  * Partial edits of a build by element id – so that the language model (MCP) does not have to send the whole page to fix one link.

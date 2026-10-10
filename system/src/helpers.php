@@ -14,7 +14,7 @@ function e(string|int|float|null $value): string
 /** Translation of a template text into the site language: t('Read more'), t('Page %s of %s', 2, 5). See Core\Language. */
 function t(string $text, string|int ...$values): string
 {
-    return Kaleta\Core\Language::t($text, ...$values);
+    return Talea\Core\Language::t($text, ...$values);
 }
 
 /** Text without diacritics (for URLs and search): "Müller Straße" -> "Muller Strasse". */
@@ -44,13 +44,13 @@ function slugify(string $text, int $maxLength = 120): string
 /** Decimal number in the site language: 4,5 in Czech, Slovak and German, 4.5 in English. */
 function format_number(float|int $number, int $decimals = 1): string
 {
-    return number_format((float) $number, $decimals, Kaleta\Core\Language::code() === 'en' ? '.' : ',', '');
+    return number_format((float) $number, $decimals, Talea\Core\Language::code() === 'en' ? '.' : ',', '');
 }
 
 /** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English, 12.345 in German. */
 function format_count(float|int $number, int $decimals = 0): string
 {
-    [$decimalSeparator, $thousandsSeparator] = match (Kaleta\Core\Language::code()) {
+    [$decimalSeparator, $thousandsSeparator] = match (Talea\Core\Language::code()) {
         'en' => ['.', ','],
         'de' => [',', '.'],
         default => [',', "\u{00A0}"],
@@ -81,7 +81,7 @@ function format_date_long(string|\DateTimeInterface|null $value = null): string
     $months = [1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value ?? 'now');
     // a language without its own dictionary: date in words by locale from the intl extension ("Freitag, 25. September 2026")
-    if (($locale = \Kaleta\Core\Language::intlLocale()) !== null) {
+    if (($locale = \Talea\Core\Language::intlLocale()) !== null) {
         $text = (new \IntlDateFormatter($locale, \IntlDateFormatter::FULL, \IntlDateFormatter::NONE, $dt->getTimezone()))->format($dt);
         if (is_string($text) && $text !== '') {
             return $text;
@@ -93,7 +93,7 @@ function format_date_long(string|\DateTimeInterface|null $value = null): string
         return preg_replace_callback('/[A-Za-zÀ-ž]{3,}/u', fn (array $m): string => t($m[0]), $dt->format($format)) ?? $dt->format($format); // check-english: allow
     }
 
-    if (\Kaleta\Core\Language::code() === 'cs') {
+    if (\Talea\Core\Language::code() === 'cs') {
         // Czech needs the genitive of the month ("7. října" check-english: allow), which the dictionary of nominative month names does not have
         $csDays = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota']; // check-english: allow
         $csMonths = [1 => 'ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince']; // check-english: allow
