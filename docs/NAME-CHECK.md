@@ -12,7 +12,7 @@ searched from here and must be searched by hand before the first public release 
 | Packagist | `talea/cms` free; `talea` as vendor has no package. |
 | Docker Hub | User `talea` exists; `taleacms` is **free** → image `taleacms/taleacms`. |
 | Domains | `taleacms.com`, `.io`, `.dev`, `.org` all unregistered in DNS (no A/NS records). `talea.com`, `talea.io`, `talea.org` are taken; `talea.dev` is free in DNS. |
-| EUIPO / USPTO, classes 9 and 42 | **Not searched** (the registers are interactive, not reachable from the build environment). Search "Talea" by hand: [EUIPO TMview](https://www.tmdn.org/tmview/), [USPTO Trademark Search](https://tmsearch.uspto.gov/). A hit in class 9 or 42 for software would turn this into a NO-GO. |
+| EUIPO / USPTO, classes 9 and 42 | Searched on 2026-10-10 in [TMView](https://www.tmdn.org/tmview/) (EUIPO + USPTO, "talea", 2,855 hits, active and lapsed). **Live identical word mark in class 42:** US 5874971 "TALEA", The Bancorp Inc., registered 2019, classes 36 and 42 – SaaS for loan origination and securities-backed lines of credit (goods are narrow and financial). Older identical marks are dead: EU "TALEA" filed 2014 (classes 9, 35, 41, 42) is expired; US "TALEA" 2014 (35, 41, 42) is ended. No live EU "TALEA" in class 9 or 42. Similar marks: EU "KALEA" pending (2025, classes 9, 35, 36, 42, 45), US "TALIA" pending (2026, class 42). Not a legal opinion. |
 
 ## Decision
 
@@ -24,3 +24,10 @@ GO under these conditions, to be confirmed before the first public release:
    `cairncms.io` and `cairncms.dev` are already taken, `acrecms.*` is free) and run HF-10 again; the rename is one scripted pass.
 
 Out of scope: registering the name, a domain or a trademark; legal advice.
+
+## Trademark search result (2026-10-10)
+
+Risk summary for the maintainer's go/no-go: no live EU mark "TALEA" in classes 9/42; one live US mark "TALEA" in class 42 whose registered
+services (loan-origination SaaS) are far from a website builder, so confusion is unlikely but not excluded; two similar pending marks
+(KALEA in the EU, TALIA in the US) worth watching. Recommendation: GO, with a short check by a trademark attorney before any filing or a
+paid launch in the US. The decision itself is the maintainer's and is not recorded here.
