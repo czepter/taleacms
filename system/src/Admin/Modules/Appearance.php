@@ -60,8 +60,8 @@ final class Appearance extends Module
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
         // older Identity keys: they are not read once the design system is saved, so they do not confuse the export or other tools
         $siteSettings->set('brand_accent', '');
-        $siteSettings->set('brand_heading_font', 'vychozi');
-        $siteSettings->set('brand_text_font', 'vychozi');
+        $siteSettings->set('brand_heading_font', 'default');
+        $siteSettings->set('brand_text_font', 'default');
         \Kaleta\Front\Cache::clear();
 
         return $this->back($inDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
@@ -138,7 +138,7 @@ final class Appearance extends Module
     {
         $json = (string) json_encode(DesignSystem::toDtcg(DesignSystem::load($this->app->settings())), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokeny-' . date('Y-m-d') . '.tokens.json"']);
+        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokens-' . date('Y-m-d') . '.tokens.json"']);
     }
 
     /** Import of DTCG tokens: the whole appearance from a Kaleta export, the colors from another tool. */

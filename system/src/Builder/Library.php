@@ -404,14 +404,14 @@ final class Library
      * A page without sections stays a text page. The “page-title” section gets the page title.
      */
     public const array SITES = [
-        'business' => ['name' => 'Business website', 'description' => 'A versatile services website: benefits, numbers, testimonials, news.', 'preset' => 'firemni', 'pages' => [
+        'business' => ['name' => 'Business website', 'description' => 'A versatile services website: benefits, numbers, testimonials, news.', 'preset' => 'business', 'pages' => [
             ['hero', 'benefits', 'numbers', 'testimonials', 'news', 'call-to-action'], [], ['page-title', 'services', 'faq', 'call-to-action'], ['page-title', 'contact', 'enquiry'],
         ]],
-        'crafts' => ['name' => 'Crafts and services', 'description' => 'Warm colours, how you work, projects and guarantees.', 'preset' => 'remeslo', 'pages' => [
+        'crafts' => ['name' => 'Crafts and services', 'description' => 'Warm colours, how you work, projects and guarantees.', 'preset' => 'crafts', 'pages' => [
             ['hero-image', 'guarantees', 'process', 'portfolio', 'testimonials', 'call-to-action'], ['page-title', 'story', 'values', 'team'],
             ['page-title', 'alternating', 'services-list', 'faq', 'cta-bar'], ['page-title', 'contact-form'],
         ]],
-        'consulting' => ['name' => 'Consulting and agency', 'description' => 'An elegant look, clients, service packages and the team.', 'preset' => 'elegantni', 'pages' => [
+        'consulting' => ['name' => 'Consulting and agency', 'description' => 'An elegant look, clients, service packages and the team.', 'preset' => 'elegant', 'pages' => [
             ['hero-centered', 'logos', 'benefits-list', 'numbers-light', 'quote', 'call-to-action'], ['page-title', 'story', 'team', 'history', 'careers'],
             ['page-title', 'services', 'pricing', 'faq-columns'], ['page-title', 'contact-form', 'branches'],
         ]],
@@ -631,7 +631,7 @@ final class Library
      *
      * @return array{prvek: array<string, mixed>, tridy: list<string>}|null
      */
-    public static function section(string $key, string $language = 'cs'): ?array
+    public static function section(string $key, string $language = 'en'): ?array
     {
         return \Kaleta\Core\Language::runWith($language, fn (): ?array => self::create($key));
     }

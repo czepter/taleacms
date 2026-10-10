@@ -107,7 +107,7 @@ final class JobOpeningsTest extends SiteTestCase
             "the application is an enquiry from the job's page with the job name as plain text and the CV outside the web root");
         self::$cvPath = $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '\$[3][2]')) FROM ka_enquiries WHERE enquiry_id = " . self::$applicationId);
         $this->assertNotSame('', self::$cvPath);
-        $this->assertFileExists($this->site()->path('storage/prilohy/' . self::$cvPath), 'the CV is stored in storage/prilohy');
+        $this->assertFileExists($this->site()->path('storage/attachments/' . self::$cvPath), 'the CV is stored in storage/attachments');
 
         // the daily clean-up deletes applications past their retention (3 months) with the CV and records it; an ordinary enquiry of the same age stays (24 months)
         $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, source, page, email, data) VALUES (NOW(), 'Contact', 'page:1', '/contact', 'ordinary@example.cz', '[]')");
@@ -116,6 +116,6 @@ final class JobOpeningsTest extends SiteTestCase
         $this->site()->runTasks();
         $this->assertSame('0|1|1|1', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE enquiry_id = " . self::$applicationId . "), '|', (SELECT COUNT(*) FROM ka_enquiries WHERE enquiry_id = $ordinary), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'applications.purged' AND data LIKE '%\"count\":1,\"months\":3%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'enquiries' AND action = 'purge_applications'))"),
             'the clean-up deleted the application after its retention and recorded it; the ordinary enquiry of the same age stays');
-        $this->assertFileDoesNotExist($this->site()->path('storage/prilohy/' . self::$cvPath), 'the CV was deleted with the application');
+        $this->assertFileDoesNotExist($this->site()->path('storage/attachments/' . self::$cvPath), 'the CV was deleted with the application');
     }
 }

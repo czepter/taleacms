@@ -8,8 +8,8 @@
  * @var array<string, array{0:string, 1:string}> $types
  * @var list<string> $languages  '' = default language of the site
  * @var array<string, string> $languageNames
- * @var array<string, array<string, mixed>> $rows  "typ:jazyk" => status of the part
- * @var array<string, list<array<string, mixed>>> $variants  "typ:jazyk" => variants (header, footer)
+ * @var array<string, array<string, mixed>> $rows  "type:language" => status of the part
+ * @var array<string, list<array<string, mixed>>> $variants  "type:language" => variants (header, footer)
  * @var array<int, string> $pageNames
  */
 ?>

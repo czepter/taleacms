@@ -7,7 +7,7 @@ namespace Kaleta\Builder;
 use Kaleta\Core\Db;
 
 /**
- * Site parts from the builder (table ka_casti): header and footer on all pages and wrappers around the content that the
+ * Site parts from the builder (table ka_site_parts): header and footer on all pages and wrappers around the content that the
  * system assembles (news item page, news list, 404 page). A part without a published build = the part from the layout.
  */
 final class SiteParts

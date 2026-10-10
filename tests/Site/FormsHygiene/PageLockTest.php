@@ -71,7 +71,7 @@ final class PageLockTest extends SiteTestCase
 
     public function testALockedPageIsNeverInTheCacheTheSitemapOrTheSearch(): void
     {
-        foreach (glob($this->site()->path('storage/cache/stranky/*')) ?: [] as $file) {
+        foreach (glob($this->site()->path('storage/cache/pages/*')) ?: [] as $file) {
             $this->assertStringNotContainsString('Secret partner price', (string) file_get_contents($file), 'page lock: not in the page cache (' . basename($file) . ')');
         }
         $visitor = $this->site()->client();

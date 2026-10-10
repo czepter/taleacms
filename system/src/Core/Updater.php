@@ -200,11 +200,11 @@ final class Updater
         }
 
         // lock: an automatic update from background tasks and an administrator's click (or two visits at once) must not overwrite files simultaneously
-        $lock = fopen(KALETA_ROOT . '/storage/cache/aktualizace.zamek', 'c');
+        $lock = fopen(KALETA_ROOT . '/storage/cache/update.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             throw new \RuntimeException(t('An update is already running. Try again in a moment.'));
         }
-        $workDir = KALETA_ROOT . '/storage/cache/aktualizace-' . bin2hex(random_bytes(4));
+        $workDir = KALETA_ROOT . '/storage/cache/update-' . bin2hex(random_bytes(4));
         $zip = $workDir . '.zip';
         try {
             $this->download((string) $m['url'], $zip);
@@ -219,7 +219,7 @@ final class Updater
             $files = $this->extract($zip, $workDir);
             $previous = $this->releaseFiles();
             $releaseHashes = $this->releaseHashes();
-            touch(KALETA_ROOT . '/storage/udrzba.lock');
+            touch(KALETA_ROOT . '/storage/maintenance.lock');
             // every file being overwritten is set aside first: if writing fails halfway, the site returns to its original state (not a mix of versions)
             $setAside = $workDir . '-puvodni';
             $written = [];
@@ -254,7 +254,7 @@ final class Updater
             }
             // 2.8: does the site work on the new version? Maintenance ends, the site is asked; when it answers with an error,
             // the previous files come back (the database changes are additive, the old version keeps working on them)
-            @unlink(KALETA_ROOT . '/storage/udrzba.lock');
+            @unlink(KALETA_ROOT . '/storage/maintenance.lock');
             $answers = [];
             $problem = $db !== null ? $this->probe((string) $m['version'], $answers) : null;
             if ($problem !== null) {
@@ -270,7 +270,7 @@ final class Updater
             self::deleteFolder($setAside);
             self::cleanUpObsolete($this->root, $previous, $files);
         } finally {
-            @unlink(KALETA_ROOT . '/storage/udrzba.lock');
+            @unlink(KALETA_ROOT . '/storage/maintenance.lock');
             @unlink($zip);
             self::deleteFolder($workDir);
             flock($lock, LOCK_UN);

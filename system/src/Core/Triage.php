@@ -32,7 +32,7 @@ final class Triage
      * A triage result from Claude, the assistant or a form, cleaned: an unknown kind or priority is null (= unchanged), the
      * reply plain text up to 5 000 characters.
      *
-     * @return array{kategorie: ?string, priorita: ?int, navrh_odpovedi: ?string}
+     * @return array{category: ?string, priority: ?int, suggested_reply: ?string}
      */
     public static function clean(mixed $category, mixed $priority, mixed $reply): array
     {

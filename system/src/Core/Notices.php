@@ -21,7 +21,7 @@ use Kaleta\Builder\Presets;
  *    the day comes. Nothing edits or deletes its rows: no UI, no MCP. The admin item form shows it; the administrator
  *    downloads the whole log as CSV; Claude reads it with list_notice_log.
  *
- * The selection and the status are pure helpers (unit-tested); the preset key is remembered in ka_kolekce.preset, so a
+ * The selection and the status are pure helpers (unit-tested); the preset key is remembered in ka_collections.preset, so a
  * board is recognised even after the administrator renames the collection – and only while it still has the posting
  * date field (Presets::field).
  */

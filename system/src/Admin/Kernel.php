@@ -71,7 +71,7 @@ final class Kernel
         $language = (string) ($app->auth()->user()['language'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
         \Kaleta\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Kaleta\Core\Language::setSiteRegister($app->settings()->get('german_register'));
-        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
+        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'en', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Invalid request', $app->view->render('admin/error', [
                 'text' => 'The form has expired. Go back, reload the page and submit it again.',
@@ -163,7 +163,7 @@ final class Kernel
         }
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
-        if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
+        if ($request->isPost() && $response->status === 302) {
             // every change made in the admin goes to the change log
             $description = $request->post('title') ?: ($request->post('name') ?: ($request->post('username') ?: $request->post('tab')));
             ChangeLog::write($app, $ident, $action, $description);
@@ -229,7 +229,7 @@ final class Kernel
             $missing = count(\Kaleta\Core\NotFound::pending($this->app));
             if ($missing > 0) {
                 $warnings[] = [t('Addresses on your site that repeatedly ended with “page not found” this week: %d. Visitors came from an old link or a typo – send each one to the right page with a redirect, or ignore it.', $missing),
-                    $this->app->url('admin.php?module=redirects#nenalezeno'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
+                    $this->app->url('admin.php?module=redirects#not-found'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
             }
         }
         if ($this->app->auth()->isAdmin()) {
@@ -339,7 +339,7 @@ final class Kernel
         $error = null;
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
         $address = \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings());
-        // second step with a passkey (fingerprint, Face ID): the script image/klice.js asks for a challenge and sends the device signature
+        // second step with a passkey (fingerprint, Face ID): the script image/passkeys.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('step'), ['passkey_options', 'key'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
             if ($app->request->post('step') === 'passkey_options') {

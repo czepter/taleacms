@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Database backups to storage/zalohy/ (not accessible from the web). Without mysqldump - works on shared hosting too.
+ * Database backups to storage/backups/ (not accessible from the web). Without mysqldump - works on shared hosting too.
  */
 final class Backup
 {
-    public const string FOLDER = KALETA_ROOT . '/storage/zalohy';
+    public const string FOLDER = KALETA_ROOT . '/storage/backups';
     private const int KEEP = 10;
 
     /**
@@ -28,7 +28,7 @@ final class Backup
             throw new \RuntimeException(Demo::refusal());
         }
         if (!is_dir(self::FOLDER) && !mkdir(self::FOLDER, 0775, true)) {
-            throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
+            throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         $gz = function_exists('gzopen');
         $file = 'kaleta-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');

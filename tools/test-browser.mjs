@@ -33,7 +33,7 @@ async function step(name, fn) {
     errors.push(`${name}: ${e.message.split('\n')[0]}`);
   }
   steps++;
-  console.log(`  ${errors.length === before ? 'ok   ' : 'CHYBA'}  ${name}`);
+  console.log(`  ${errors.length === before ? 'ok   ' : 'FAIL '}  ${name}`);
 }
 const visit = (url) => page.goto(BASE + url, { waitUntil: 'networkidle' });
 
@@ -184,8 +184,8 @@ await step('site parts: every header and footer template renders', async () => {
   for (const [part, templates] of [['header', ['classic', 'centered', 'with-bar', 'minimal']], ['footer', ['columns', 'compact', 'imprint', 'cta']]]) {
     for (const template of templates) {
       await visit(`/admin.php?module=parts&action=templates&type=${part}`);
-      await Promise.all([page.waitForNavigation(), page.locator(`input[name="sablona"][value="${template}"] ~ button`).click()]);
-      await visit(`/?part=${part}&build=koncept`);
+      await Promise.all([page.waitForNavigation(), page.locator(`input[name="template"][value="${template}"] ~ button`).click()]);
+      await visit(`/?part=${part}&build=draft`);
       if (SHOTS) {
         const box = page.locator(part === 'header' ? 'header' : 'footer').last();
         await box.screenshot({ path: `${SHOTS}/part-${part}-${template}.png` });
@@ -197,13 +197,13 @@ await step('site parts: every header and footer template renders', async () => {
 
 await step('menu editor', async () => {
   await visit('/admin.php?module=menu');
-  const add = page.getByRole('button', { name: /Add|Přidat/ }).first();
+  const add = page.getByRole('button', { name: /Add/ }).first();
   if (await add.count()) { await add.click().catch(() => {}); }
 });
 
 await step('public site: home, phone menu, cookies', async () => {
   await visit('/');
-  const accept = page.getByRole('button', { name: /Accept|Allow|Přijmout/ }).first();
+  const accept = page.getByRole('button', { name: /Accept|Allow/ }).first();
   if (await accept.count()) { await accept.click().catch(() => {}); }
   await page.setViewportSize({ width: 390, height: 844 });
   await visit('/');

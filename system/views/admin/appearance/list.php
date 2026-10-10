@@ -109,7 +109,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <div class="row">
 	<label for="ds-font-heading"><?= e(t('Headings')) ?></label>
 	<select id="ds-font-heading" name="ds[font_heading]">
-<?php foreach (SiteIdentity::TITLE_FONTS as $key => [$name, $description]): if ($key === 'vychozi') { continue; } ?>
+<?php foreach (SiteIdentity::TITLE_FONTS as $key => [$name, $description]): if ($key === 'default') { continue; } ?>
 		<option value="<?= e($key) ?>"<?= $ds['font_heading'] === $key ? ' selected' : '' ?>><?= e(t($name) . ' – ' . t($description)) ?></option>
 <?php endforeach ?>
 <?php foreach ($ds['custom_fonts'] as $i => $vp): ?>
@@ -120,7 +120,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <div class="row">
 	<label for="ds-font-body"><?= e(t('Text')) ?></label>
 	<div><select id="ds-font-body" name="ds[font_body]">
-<?php foreach (SiteIdentity::TEXT_FONTS as $key => [$name, $description]): if ($key === 'vychozi') { continue; } ?>
+<?php foreach (SiteIdentity::TEXT_FONTS as $key => [$name, $description]): if ($key === 'default') { continue; } ?>
 		<option value="<?= e($key) ?>"<?= $ds['font_body'] === $key ? ' selected' : '' ?>><?= e(t($name) . ' – ' . t($description)) ?></option>
 <?php endforeach ?>
 <?php foreach ($ds['custom_fonts'] as $i => $vp): ?>
@@ -137,7 +137,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 	<span class="caption"><?= e(t('Font %d', $i + 1)) ?></span>
 	<div class="field-beside">
 		<input class="textfield" type="text" name="ds[custom_fonts][<?= $i ?>][name]" value="<?= e($vp['name']) ?>" maxlength="40" placeholder="<?= e(t('name, e.g. Bricolage Grotesque')) ?>" aria-label="<?= e(t('Name of font %d', $i + 1)) ?>">
-		<input class="textfield" type="text" name="ds[custom_fonts][<?= $i ?>][soubor]" value="<?= e($vp['file']) ?>" placeholder="media/…/pismo.woff2" aria-label="<?= e(t('File of font %d', $i + 1)) ?>">
+		<input class="textfield" type="text" name="ds[custom_fonts][<?= $i ?>][file]" value="<?= e($vp['file']) ?>" placeholder="media/…/font.woff2" aria-label="<?= e(t('File of font %d', $i + 1)) ?>">
 		<input class="textfield" type="text" name="ds[custom_fonts][<?= $i ?>][bold]" value="<?= e($vp['bold']) ?>" placeholder="<?= e(t('bold weight (optional)')) ?>" aria-label="<?= e(t('Bold weight of font %d', $i + 1)) ?>">
 	</div>
 </div>
@@ -158,7 +158,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <?php endforeach ?>
 	</select></label>
 <?php endforeach ?>
-	<label><span><?= e(t('Content width')) ?></span><span class="appearance-unit"><input type="number" name="ds[sirka]" value="<?= e($px($ds['width'])) ?>" min="640" max="1920" step="16"> px</span></label>
+	<label><span><?= e(t('Content width')) ?></span><span class="appearance-unit"><input type="number" name="ds[width]" value="<?= e($px($ds['width'])) ?>" min="640" max="1920" step="16"> px</span></label>
 	<label><span><?= e(t('Text width (news and text pages)')) ?></span><span class="appearance-unit"><input type="number" name="ds[text_width]" value="<?= e($px($ds['text_width'])) ?>" min="448" max="960" step="16"> px</span></label>
 </div>
 </fieldset>
@@ -172,7 +172,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <?php foreach (DesignSystem::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]): $custom = $ds['typography'][$key] ?? []; ?>
 <tr>
 	<th scope="row"><span style="font: var(--ka-type-<?= e($key) ?>, inherit)<?= $key === 'eyebrow' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($name)) ?></span></th>
-	<td><select name="ds[typography][<?= e($key) ?>][krok]" aria-label="<?= e(t('Size: %s', t($name))) ?>">
+	<td><select name="ds[typography][<?= e($key) ?>][step]" aria-label="<?= e(t('Size: %s', t($name))) ?>">
 <?php foreach (DesignSystem::STEPS as $k): ?>
 		<option value="<?= e($k) ?>"<?= ($custom['step'] ?? $step) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – base font') : $k) ?></option>
 <?php endforeach ?>
@@ -194,7 +194,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <legend><?= e(t('Corner radius')) ?></legend>
 <div class="appearance-radius">
 <?php foreach (['0' => 'sharp', 's' => 'subtle', 'm' => 'medium', 'l' => 'large', 'full' => 'round'] as $key => $name): ?>
-	<label><input type="radio" name="ds[zaobleni]" value="<?= e($key) ?>"<?= $ds['radius'] === $key ? ' checked' : '' ?>><i style="border-radius:<?= e($key === 'full' ? '999px' : DesignSystem::RADII[$key]) ?>"></i><?= e(t($name)) ?></label>
+	<label><input type="radio" name="ds[radius]" value="<?= e($key) ?>"<?= $ds['radius'] === $key ? ' checked' : '' ?>><i style="border-radius:<?= e($key === 'full' ? '999px' : DesignSystem::RADII[$key]) ?>"></i><?= e(t($name)) ?></label>
 <?php endforeach ?>
 </div>
 <p class="help"><?= e(t('Buttons, cards, images and form fields across the site get this radius.')) ?></p>

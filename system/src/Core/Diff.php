@@ -10,7 +10,7 @@ namespace Kaleta\Core;
  */
 final class Diff
 {
-    /** @return array{html:string, pridano:int, smazano:int} */
+    /** @return array{html:string, added:int, deleted:int} */
     public static function html(string $oldVersion, string $newItems): array
     {
         $a = self::paragraphs($oldVersion);

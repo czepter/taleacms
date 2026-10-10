@@ -6,7 +6,7 @@ namespace Kaleta\Core;
 
 /**
  * System health (health check): a set of quick checks of the server, database, security and operation.
- * The result is shown in Settings and is also available as JSON for monitoring (/stav.json?token=...).
+ * The result is shown in Settings and is also available as JSON for monitoring (/status.json?token=...).
  */
 final class Health
 {
@@ -74,7 +74,7 @@ final class Health
             in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) => t('%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
             default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
         }, array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . ' (' . t('last activity %s', format_date((string) $a['last'])) . ')'), $unusedAccounts));
-        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['username'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#napojeni')];
+        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['username'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#connections')];
         $unusedConnections = $hygiene['unused_connections'];
         $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'warning', match (true) {
             $unusedConnections === [] => t('every connection has been used in the last %d days', SecurityHygiene::CONNECTION_DAYS),
@@ -91,7 +91,7 @@ final class Health
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
 
         // --- operation
-        $log = KALETA_ROOT . '/storage/log/chyby.log';
+        $log = KALETA_ROOT . '/storage/log/errors.log';
         $errorCount = 0;
         if (is_file($log)) {
             $from = date('c', time() - 86400);
@@ -99,7 +99,7 @@ final class Health
                 $errorCount += (int) (substr($row, 1, 25) >= $from);
             }
         }
-        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/chyby.log', $errorCount));
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
         $last = Backup::listAll()[0]['time'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
         $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));

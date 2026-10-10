@@ -56,7 +56,7 @@ final class Mail
     private static bool $pending = false;
 
     /**
-     * Puts the message into the queue (ka_posta) and sends it right after the response (afterResponse in admin.php; the
+     * Puts the message into the queue (ka_mail) and sends it right after the response (afterResponse in admin.php; the
      * background jobs retry it like any queued message). The answer to the request then takes as long whether a message
      * was sent or not – the password reset does not reveal by its timing which accounts exist (3.3.3, N59).
      */

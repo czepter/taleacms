@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Addresses visitors could not find (table ka_nenalezeno): what the administrator should redirect.
+ * Addresses visitors could not find (table ka_not_found): what the administrator should redirect.
  *
  * The log keeps itself useful (1.9): probes of bots looking for other systems are never recorded, an address that works
  * again (the page was published, a translation added) or has a redirect drops out, and an address the administrator

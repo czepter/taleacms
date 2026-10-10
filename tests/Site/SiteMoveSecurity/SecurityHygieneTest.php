@@ -41,7 +41,7 @@ final class SecurityHygieneTest extends SiteTestCase
         $this->assertSame('{"blocked":[],"revoked":[]}', $this->runHygiene(), 'run() does nothing while the automatic suspension is off');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_users WHERE blocked = 1 AND username LIKE 'old-%'"), 'nobody is blocked while the suspension is off');
 
-        $site->setting('auto_suspend', 'ucty,napojeni');
+        $site->setting('auto_suspend', 'accounts,connections');
         $this->assertSame('{"blocked":["Old Admin","old-editor"],"revoked":["old token (old-editor)","unused token (Tester)"]}', $this->runHygiene(), 'run() blocks the unused accounts and revokes the unused connections');
         $this->assertSame('01|old-admin:1:1,old-editor:1:1|live token', (string) $site->value("SELECT CONCAT((SELECT CONCAT(blocked, auto_blocked_at IS NULL) FROM ka_users WHERE username = 'admin'), '|', (SELECT GROUP_CONCAT(CONCAT(username, ':', blocked, ':', auto_blocked_at IS NOT NULL) ORDER BY username) FROM ka_users WHERE username LIKE 'old-%'), '|', (SELECT GROUP_CONCAT(name ORDER BY name) FROM ka_api_tokens WHERE name LIKE '%token'))"),
             'the admin in use stays, the old accounts are blocked with the reason, the live token stays');
@@ -61,7 +61,7 @@ final class SecurityHygieneTest extends SiteTestCase
 
         $admin = (int) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'");
         $live = (int) $site->value("SELECT token_id FROM ka_api_tokens WHERE name = 'live token'");
-        $this->assertPage("/admin.php?module=users&action=edit&id=$admin", 200, 'id="napojeni"', message: 'the administrator sees the connections of an account');
+        $this->assertPage("/admin.php?module=users&action=edit&id=$admin", 200, 'id="connections"', message: 'the administrator sees the connections of an account');
         $this->adminPost('/admin.php?module=users&action=revoke_connection', ['user_id' => $admin, 'token_id' => $live, 'username' => 'admin'], '/admin.php?module=users');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_api_tokens WHERE name = 'live token'"), 'the administrator revokes a connection from the user form');
         $site->exec("UPDATE ka_settings SET value = '' WHERE name = 'auto_suspend'");

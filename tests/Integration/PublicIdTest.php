@@ -61,4 +61,18 @@ final class PublicIdTest extends DatabaseTestCase
         }
         $this->assertFalse(Uuid::valid('00000000-0000-1000-8000-000000000000'), 'v1 is not v4');
     }
+
+    public function testInternalAndPublicIdsMapBothWays(): void
+    {
+        $id = $this->db()->insert('tags', ['name' => 'Map', 'slug' => 'map', 'description' => '']);
+        $uuid = $this->db()->publicId('tags', $id);
+
+        $this->assertTrue(Uuid::valid($uuid));
+        $this->assertSame($id, $this->db()->internalId('tags', $uuid));
+        $this->assertSame(0, $this->db()->internalId('tags', (string) $id), 'an integer id from outside is refused');
+        $this->assertSame(0, $this->db()->internalId('tags', 'not-a-uuid'));
+        $this->assertSame(0, $this->db()->internalId('nope', $uuid));
+        $this->assertSame('', $this->db()->publicId('tags', 0));
+        $this->assertSame([], array_diff(Db::PUBLIC_ID_TABLES, array_keys(Db::PRIMARY_KEYS)), 'every table has its primary key listed');
+    }
 }

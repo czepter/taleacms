@@ -33,14 +33,14 @@ for SITE in business crafts consulting; do
   (cd "$WORK/web" && exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
   for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
   PASSWORD="Screens-$(openssl rand -hex 8)"
-  curl -s -o "$WORK/response" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
-    --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=$NAME" -d "web=$SITE" -d user=admin -d "jmeno=Alex Morgan" -d email=alex@example.com \
+  curl -s -o "$WORK/response" -X POST "$B/install.php" -d language=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
+    --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "site_name=$NAME" -d "starter=$SITE" -d username=admin -d "name=Alex Morgan" -d email=alex@example.com \
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
-    -d 'rozsireni[]=news' -d 'rozsireni[]=enquiries' -d 'rozsireni[]=newsletter_signup' -d 'rozsireni[]=stats' -d 'rozsireni[]=redirects' -d 'rozsireni[]=claude'
+    -d 'extensions[]=news' -d 'extensions[]=enquiries' -d 'extensions[]=newsletter_signup' -d 'extensions[]=stats' -d 'extensions[]=redirects' -d 'extensions[]=claude'
   [ ! -f "$WORK/web/install.php" ] || { echo "install failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
   # sample data the empty install lacks: enquiries in the inbox and a few visits for the dashboard
   "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "
-    INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES
+    INSERT INTO ka_enquiries (created_at, form, page, email, data, status) VALUES
       (NOW() - INTERVAL 3 DAY, 'Enquiry', '/contact', 'priya@example.com', '[[\"Name\",\"Priya Shah\"],[\"Email\",\"priya@example.com\"],[\"How can we help you?\",\"Thanks for the call yesterday. Sending the floor plan as promised.\"]]', 2),
       (NOW() - INTERVAL 1 DAY, 'Enquiry', '/services', 'daniel@example.com', '[[\"Name\",\"Daniel Novak\"],[\"Email\",\"daniel@example.com\"],[\"How can we help you?\",\"Do you also maintain existing installations, or only new ones?\"]]', 1),
       (NOW() - INTERVAL 2 HOUR, 'Enquiry', '/contact', 'hannah@example.com', '[[\"Name\",\"Hannah Clarke\"],[\"Email\",\"hannah@example.com\"],[\"Phone\",\"+44 20 7946 0958\"],[\"How can we help you?\",\"Could you quote for a new staircase and two oak doors? We are in Leeds and flexible on dates.\"]]', 0);"

@@ -11,7 +11,7 @@ use Kaleta\Core\Response;
 use Kaleta\Core\Settings;
 
 /**
- * News categories (table ka_kategorie). A flat list – a company blog does not need a category tree.
+ * News categories (table ka_categories). A flat list – a company blog does not need a category tree.
  * The category also determines the language version of a news item.
  */
 final class Categories extends Module

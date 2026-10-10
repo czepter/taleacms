@@ -33,9 +33,8 @@ final class Company
         'EducationalOrganization' => 'school and courses',
     ];
 
-    /** Days of the week: abbreviations (Czech and English) → schema.org. */
+    /** Days of the week: the first two letters of the English name → schema.org. */
     private const array DAYS = [
-        'po' => 'Monday', 'ut' => 'Tuesday', 'st' => 'Wednesday', 'ct' => 'Thursday', 'pa' => 'Friday', 'so' => 'Saturday', 'ne' => 'Sunday',
         'mo' => 'Monday', 'tu' => 'Tuesday', 'we' => 'Wednesday', 'th' => 'Thursday', 'fr' => 'Friday', 'sa' => 'Saturday', 'su' => 'Sunday',
     ];
 
@@ -69,7 +68,7 @@ final class Company
                 return null;
             }
             $days = self::dayRange($m[1], $m[2]);
-            if (preg_match('/^(closed|zavreno|-)$/', trim($m[3]))) {
+            if (preg_match('/^(closed|-)$/', trim($m[3]))) {
                 continue;
             }
             foreach (preg_split('/\s*[,;]\s*/', trim($m[3])) ?: [] as $segment) {

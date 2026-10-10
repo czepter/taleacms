@@ -65,11 +65,11 @@
 <?php else: ?>
 <div class="tab-wrap">
 <table class="listing">
-<thead><tr><th scope="col"><input type="checkbox" data-select-all="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><input type="checkbox" data-select-all="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr<?= $p['visible'] ? '' : ' class="unpublished"' ?>>
-	<td><input type="checkbox" name="selected[]" value="<?= (int) $p['item_id'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $p['name'])) ?>"></td>
+	<td><input type="checkbox" name="selected[]" value="<?= (int) $p['item_id'] ?>" form="bulk" aria-label="<?= e(t('Select %s', $p['name'])) ?>"></td>
 	<td><a href="<?= e($module->url('item', ['id' => $k['collection_id'], 'item' => $p['item_id']])) ?>"><?= e($p['name']) ?></a><?= $p['language'] !== '' ? ' <span class="badge">' . e(strtoupper($p['language'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['sort_order'] ?></td>
 <?php if ($downloads !== null): ?>

@@ -11,7 +11,7 @@ use Kaleta\Admin\ChangeLog;
  *
  *  - administrators who sign in without two-step sign-in or a passkey;
  *  - accounts nobody has used for ACCOUNT_DAYS – the last completed sign-in, the last use of a Claude connection of the
- *    account, or the moment an administrator created or confirmed the account (ka_uzivatele.potvrzeno), whichever is latest;
+ *    account, or the moment an administrator created or confirmed the account (ka_users.potvrzeno), whichever is latest;
  *  - Claude connections (personal tokens from My account and applications connected via OAuth) nobody has used for
  *    CONNECTION_DAYS, and personal tokens that never expire.
  *
@@ -30,8 +30,8 @@ final class SecurityHygiene
     public const int CONNECTION_DAYS = 60;
 
     /** Values of the setting auto_suspend (a comma-separated list). */
-    public const string SUSPEND_ACCOUNTS = 'ucty';
-    public const string SUSPEND_CONNECTIONS = 'napojeni';
+    public const string SUSPEND_ACCOUNTS = 'accounts';
+    public const string SUSPEND_CONNECTIONS = 'connections';
 
     /** @return list<string> the choices of the automatic suspension that are switched on */
     public static function autoSuspend(Settings $settings): array
@@ -105,7 +105,7 @@ final class SecurityHygiene
      * connections, or the creation / confirmation by an administrator. Null = nothing is known (an account from before
      * the record existed) – such an account is never treated as unused.
      *
-     * @param array<string, mixed> $account row of ka_uzivatele with pouzit = MAX(ka_api_tokeny.pouzit) of the account
+     * @param array<string, mixed> $account row of ka_users with pouzit = MAX(ka_api_tokens.pouzit) of the account
      */
     public static function lastActivity(array $account): ?string
     {

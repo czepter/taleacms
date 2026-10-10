@@ -10,7 +10,7 @@
  * @var int $pagesCount
  * @var callable(int): string $pageUrl
  * @var string|null $searched  the searched text; null = not a search
- * @var list<array{titulek:string, seo_link:string, snippet?:string}> $foundPages  pages and collection items matching the search
+ * @var list<array{title:string, slug:string, snippet?:string}> $foundPages  pages and collection items matching the search
  * @var callable(string): string $url
  */
 ?>

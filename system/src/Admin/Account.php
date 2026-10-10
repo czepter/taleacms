@@ -144,7 +144,7 @@ final class Account
     }
 
     /**
-     * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/klice.js.
+     * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/passkeys.js.
      * A key can be added only to an account with two-factor sign-in enabled: it is a more convenient replacement of the
      * code from the app, the code and the backup codes remain as a fallback in case the device is lost.
      * The challenge is issued only to whoever types the current password (3.3.3, N56): a stolen session alone must not add
@@ -168,7 +168,7 @@ final class Account
 
             return Response::json(Passkey::registrationOptions(
                 $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
-                Passkey::b64(substr(hash('sha256', 'kaleta-klic|' . $url . '|' . $user['user_id'], true), 0, 16)),
+                Passkey::b64(substr(hash('sha256', 'kaleta-passkey|' . $url . '|' . $user['user_id'], true), 0, 16)),
                 (string) $user['username'], (string) $user['name'],
                 array_map(static fn (array $k): string => (string) $k['credential_id'], $app->auth()->accountKeys((int) $user['user_id'])),
             ));

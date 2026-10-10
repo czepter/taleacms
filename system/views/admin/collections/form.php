@@ -25,8 +25,8 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <form class="form" method="post" action="<?= e($module->url('save')) ?>" data-switch="schema[type]">
 <?= $csrf ?>
 <input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
-<div class="row"><label for="nazev"><?= e(t('Collection name')) ?></label><div><input class="textfield wide" id="nazev" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Testimonials, Team, Products')) ?>"></div></div>
-<div class="row"><label for="seo_link"><?= e(t('URL')) ?></label><div><input class="textfield" id="seo_link" name="slug" value="<?= e($k['slug']) ?>" maxlength="110"><span class="help"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
+<div class="row"><label for="name"><?= e(t('Collection name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Testimonials, Team, Products')) ?>"></div></div>
+<div class="row"><label for="slug"><?= e(t('URL')) ?></label><div><input class="textfield" id="slug" name="slug" value="<?= e($k['slug']) ?>" maxlength="110"><span class="help"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Item pages')) ?></span><div class="options"><label><input type="checkbox" name="detail" value="1"<?= $k['detail'] ? ' checked' : '' ?>> <?= e(t('each item has its own page (detail)')) ?></label>
 <span class="help"><?= e(t('Design the detail page in the builder (Detail template). Without a detail page, items are just cards in the list.')) ?></span></div></div>
 <div class="row"><label for="hidden_redirect"><?= e(t('Hidden items redirect to')) ?></label><div><input class="textfield" id="hidden_redirect" name="hidden_redirect" value="<?= e((string) ($k['hidden_redirect'] ?? '')) ?>" maxlength="255" placeholder="/<?= e($k['slug'] !== '' ? $k['slug'] : 'team') ?>">

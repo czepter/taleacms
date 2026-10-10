@@ -121,7 +121,7 @@ final class PasswordReset
                 // whoever resets the password may have lost the account: connection tokens (MCP) stop being valid
                 $app->db()->delete('api_tokens', ['user_id' => $user['user_id']]);
                 ChangeLog::write($app, 'signed_in', 'password_reset', 'password changed, connection tokens revoked, account: ' . $user['username']);
-                return Response::redirect($app->url('admin.php?password=zmeneno'));
+                return Response::redirect($app->url('admin.php?password=changed'));
             }
         }
 

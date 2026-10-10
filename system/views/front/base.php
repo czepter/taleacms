@@ -16,7 +16,7 @@
  * @var string $language  language code of the displayed version of the site (cs, en…) for <html lang>
  * @var string $languages_html  ready-made language version switcher; empty if the site has a single language
  * @var bool $with_news  the News extension is enabled (links to RSS)
- * @var list<array{titulek:string, seo_link:string, uvod:bool}> $pages  pages "in the menu" (the home page has an empty slug) – only for older templates
+ * @var list<array{title:string, slug:string, intro:bool}> $pages  pages "in the menu" (the home page has an empty slug) – only for older templates
  * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  main menu (Vzhled → Menu), items may have a submenu
  * @var list<array<string, mixed>> $menu_footer  footer menu (empty until the administrator builds it)
  * @var callable(list<array<string, mixed>>, string, string): string $menu_html  menu items as <li> (Core\Menu::html: items, page path, home page url)
@@ -29,7 +29,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 ?>
 <!doctype html>
 <?php $dark = in_array($web->get('dark_mode'), ['auto', 'dark'], true); ?>
-<html lang="<?= e($language ?? 'cs') ?>"<?= $dark ? ' data-dark' : '' ?><?= $web->get('dark_mode') === 'dark' ? ' data-theme="dark"' : '' ?>>
+<html lang="<?= e($language ?? 'en') ?>"<?= $dark ? ' data-dark' : '' ?><?= $web->get('dark_mode') === 'dark' ? ' data-theme="dark"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <?php if ($dark && $web->get('theme_switcher') === '1'): ?>
@@ -101,8 +101,8 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 			<ul>
 <?php $surface = []; foreach ($menu_footer as $p) { $surface[] = ['children' => []] + $p; array_push($surface, ...$p['children']); } // no expanding in the footer ?>
 				<?= $menu_html($surface, $path, $url('')) ?>
-<?php foreach ($site as $nazevSite => $adresa): ?>
-				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
+<?php foreach ($site as $networkName => $networkUrl): ?>
+				<li><a href="<?= e($networkUrl) ?>" rel="me noopener" target="_blank"><?= e($networkName) ?></a></li>
 <?php endforeach ?>
 			</ul>
 		</nav>

@@ -9,7 +9,7 @@ namespace Kaleta\Core;
  * club – behind one password the administrator gives to the people who should read it. Not an account system: whoever
  * knows the password reads the page.
  *
- *  - Only a password_hash() is stored (ka_stranky.heslo_hash). The visitor who enters the password gets a cookie for
+ *  - Only a password_hash() is stored (ka_pages.heslo_hash). The visitor who enters the password gets a cookie for
  *    30 days bound to the page and to the hash, so a new password locks everyone out again.
  *  - A protected page is never in the page cache, the sitemap, llms.txt or the site search, and it is noindex; users who
  *    can edit pages see it without the password.

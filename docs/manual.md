@@ -403,7 +403,7 @@ site, otherwise once a week; the last 10 are kept. **Off-site copies** upload ea
 files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
 
 To **restore a site after losing the hosting**: install Kaleta on the new hosting with the same table prefix, upload the
-latest database backup over FTP into `storage/zalohy/`, copy the `media/` folder back from the FTPS or S3 copy, then click
+latest database backup over FTP into `storage/backups/`, copy the `media/` folder back from the FTPS or S3 copy, then click
 **Restore** at that backup in Settings → Backups and updates and sign in with the accounts from the backup.
 
 **Import and export → Export of the whole site** creates an open package with the content and media – for moving (see

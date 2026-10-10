@@ -48,7 +48,7 @@ final class ContentHygieneTest extends SiteTestCase
     {
         $id = $this->upload('unused-f16.png');
         $this->assertGreaterThan(0, $id, 'the upload exists');
-        $this->assertPage('/admin.php?module=media&action=cleanup', 200, "name=\"selected[]\" value=\"$id\" form=\"smazani\"", message: 'clean-up: the unused upload is listed with a checkbox of the delete form');
+        $this->assertPage('/admin.php?module=media&action=cleanup', 200, "name=\"selected[]\" value=\"$id\" form=\"cleanup\"", message: 'clean-up: the unused upload is listed with a checkbox of the delete form');
 
         $this->adminPost('/admin.php?module=media&action=bulk', ['bulk' => 'delete', 'back' => 'cleanup', 'selected' => [$id]], formPage: '/admin.php?module=media&action=cleanup');
 
@@ -110,7 +110,7 @@ final class ContentHygieneTest extends SiteTestCase
         self::$bulkB = $this->pageIdBySlug('bulk-b');
         $list = '/admin.php?module=pages';
 
-        $this->assertPage($list, 200, 'name="selected[]" value="' . self::$bulkA . '" form="hromadne"', message: 'pages list: row checkboxes belong to the bulk form'); // check-english: allow
+        $this->assertPage($list, 200, 'name="selected[]" value="' . self::$bulkA . '" form="bulk"', message: 'pages list: row checkboxes belong to the bulk form'); // check-english: allow
 
         $this->adminPost($list . '&action=bulk', ['bulk' => 'hide', 'selected' => [self::$bulkA, self::$bulkB]], formPage: $list);
         $this->assertSame('0,0|2', $this->site()->value('SELECT GROUP_CONCAT(visible ORDER BY page_id) FROM ka_pages WHERE page_id IN (?, ?)', [self::$bulkA, self::$bulkB]) . '|' . $this->site()->value("SELECT COUNT(*) FROM ka_change_log WHERE module = 'pages' AND action = 'bulk hidden'"),

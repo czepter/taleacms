@@ -37,7 +37,7 @@ final class App
         }
         // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored);
         // the dictionary is not loaded here yet, so the page is plain English
-        $lock = KALETA_ROOT . '/storage/udrzba.lock';
+        $lock = KALETA_ROOT . '/storage/maintenance.lock';
         if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
@@ -142,13 +142,13 @@ final class App
         });
         set_exception_handler(function (\Throwable $e): void {
             $line = sprintf("[%s] %s: %s in %s:%d\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-            @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', $line, FILE_APPEND | LOCK_EX);
+            @file_put_contents(KALETA_ROOT . '/storage/log/errors.log', $line, FILE_APPEND | LOCK_EX);
             if (!headers_sent()) {
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
             }
             // the site language may not be known here yet (an error even at start): plain English
-            [$title, $heading, $help] = ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
+            [$title, $heading, $help] = ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/errors.log.'];
             echo '<!doctype html><html lang="en"><meta charset="utf-8"><title>' . $title . '</title>'
                 . '<body style="font:14px Verdana,sans-serif;margin:3em">'
                 . '<h1 style="font-size:18px">' . $heading . '</h1>';

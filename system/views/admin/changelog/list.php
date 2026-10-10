@@ -16,20 +16,15 @@
 // names of the admin modules (including those added later) and a few places outside modules
 $names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
     + ['assistant' => 'Writing assistant (your own key)', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'signed_in' => 'Sign in', 'account' => 'My account'];
-$action = ['uloz' => 'save', 'smaz' => 'deletion', 'smaz_natrvalo' => 'deleted permanently', 'obnov' => 'restored from trash', 'duplikuj' => 'kopie',
-    'vydat' => 'publication', 'hromadne' => 'bulk action', 'nahraj' => 'upload', 'login' => 'sign-in', 'failed_attempt' => 'failed attempt',
-    'zalohuj' => 'backup', 'aktualizuj' => 'system update', 'slozka' => 'folder', 'automaticky' => 'automatic menu',
-    'uloz_variantu' => 'variant saved', 'sablona' => 'back to default design', 'status' => 'status change', 'import' => 'import', 'stavba_text' => 'back to text',
+$action = ['save' => 'save', 'delete' => 'deletion', 'delete_permanently' => 'deleted permanently', 'restore' => 'restored from trash', 'duplicate' => 'copy',
+    'publish' => 'publication', 'bulk' => 'bulk action', 'upload' => 'upload', 'login' => 'sign-in', 'failed_attempt' => 'failed attempt',
+    'backup' => 'backup', 'update' => 'system update', 'folder' => 'folder', 'automatic' => 'automatic menu',
+    'save_variant' => 'variant saved', 'template' => 'back to default design', 'status' => 'status change', 'import' => 'import', 'build_text' => 'back to text',
     'claude_token' => 'Claude token created', 'email_change' => 'e-mail changed', 'password_change' => 'password changed', 'disconnect_app' => 'application disconnected', 'two_step_on' => 'two-step sign-in on', 'two_step_off' => 'two-step sign-in off', 'passkey_added' => 'passkey added', 'passkey_removed' => 'passkey removed', 'connect_app' => 'application connected', 'password_reset' => 'password reset', 'auto_block' => 'blocked automatically', 'auto_revoke' => 'connection revoked automatically', 'reactivate' => 'account reactivated', 'revoke_connection' => 'connection revoked',
     // Claude's (MCP) writes by tool
     'restore_build_version' => 'version restored', 'discard_draft' => 'draft discarded', 'create_collection' => 'collection created', 'update_collection' => 'collection changed', 'save_collection_item' => 'collection item saved', 'save_popup' => 'pop-up saved', 'build_from_html' => 'build changed', 'save_build' => 'build changed',
     'edit_build' => 'build changed', 'insert_section' => 'build changed', 'save_classes' => 'shared classes changed', 'upload_file' => 'file uploaded', 'update_settings' => 'settings changed', 'save_redirect' => 'redirects changed', 'trash_page' => 'page moved to trash', 'publish_build' => 'published',
     'update_design_system' => 'design system changed', 'create_page' => 'page created', 'update_page' => 'page changed', 'create_news' => 'news item created', 'update_news' => 'news item changed', 'create_category' => 'category created', 'save_menu' => 'menu changed', 'save_part_variant' => 'variant saved'];
-// actions logged since 1.4 have English names (the Czech ones above are in older records)
-foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' => 'duplikuj', 'bulk' => 'hromadne', 'upload' => 'nahraj', 'restore' => 'obnov', 'template' => 'sablona',
-    'folder' => 'slozka', 'delete' => 'smaz', 'delete_permanently' => 'smaz_natrvalo', 'status' => 'status', 'build_text' => 'stavba_text', 'save' => 'uloz', 'save_variant' => 'uloz_variantu', 'backup' => 'zalohuj'] as $new => $old) {
-    $action[$new] ??= $action[$old];
-}
 ?>
 <p><a class="navigation" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text">

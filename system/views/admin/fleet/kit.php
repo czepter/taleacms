@@ -6,7 +6,7 @@
  * @var Kaleta\Admin\Modules\Fleet $module
  * @var array<string, mixed> $designSystem the console's published design system
  * @var array<string, array{styl: array<string, mixed>, css: string, draft: bool}> $classes published classes
- * @var list<array<string, mixed>> $components rows of ka_komponenty
+ * @var list<array<string, mixed>> $components rows of ka_components
  * @var list<array<string, mixed>> $sections section_id, name
  * @var list<array{version: int, created_at: string, summary: string, author: ?string}> $kits newest first
  * @var list<array<string, mixed>> $sites rows of ka_fleet_sites

@@ -20,7 +20,7 @@ use Kaleta\Builder\Build;
  */
 final class InternalLinks
 {
-    private const string CACHE = KALETA_ROOT . '/storage/cache/stranky/odkazy-sirotci.html';
+    private const string CACHE = KALETA_ROOT . '/storage/cache/pages/orphan-links.html';
 
     private const int CACHE_SECONDS = 3600;
 
@@ -193,7 +193,7 @@ final class InternalLinks
      */
     private static function paths(App $app, string $content): array
     {
-        preg_match_all('#"(?:odkaz|url|href)":"((?:[^"\\\\]|\\\\.)*)"|href=\\\\?"([^"\\\\]*)\\\\?"#', $content, $m, PREG_SET_ORDER);
+        preg_match_all('#"(?:link|url|href)":"((?:[^"\\\\]|\\\\.)*)"|href=\\\\?"([^"\\\\]*)\\\\?"#', $content, $m, PREG_SET_ORDER);
         $origin = strtolower($app->request->origin() . $app->request->basePath());
         $out = [];
         foreach ($m as $match) {

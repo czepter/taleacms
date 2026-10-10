@@ -37,7 +37,7 @@ final class PagesFlowTest extends SiteTestCase
 
     private function cachedPages(): int
     {
-        return count(glob($this->site()->path('storage/cache/stranky/*.html')) ?: []);
+        return count(glob($this->site()->path('storage/cache/pages/*.html')) ?: []);
     }
 
     /** POST pages&action=save as the administrator (the old save_page). @param array<string, mixed> $fields */

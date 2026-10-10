@@ -71,7 +71,7 @@ final class NoticeBoardTest extends SiteTestCase
         // as a visitor: the page must not land in the page cache
         $archived = $site->client()->get('/notice-board/budget-2026')->body;
         $this->assertStringContainsString('Taken down on ' . $this->day('-1 day', 'j M Y') . ' – archived', $archived, 'notices: an archived notice says when it was taken down');
-        foreach (glob($site->path('storage/cache/stranky/*.html')) ?: [] as $cached) {
+        foreach (glob($site->path('storage/cache/pages/*.html')) ?: [] as $cached) {
             $this->assertStringNotContainsString('Taken down on', (string) file_get_contents($cached), 'notices: the archived notice page is not cached');
         }
     }

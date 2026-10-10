@@ -14,7 +14,7 @@ $properties = array_merge($k['properties'], array_fill(0, 3, ['key' => '', 'labe
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="component_id" value="<?= (int) $k['component_id'] ?>">
-<div class="row"><label for="nazev"><?= e(t('Component name')) ?></label><div><input class="textfield wide" id="nazev" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Service card')) ?>"></div></div>
+<div class="row"><label for="name"><?= e(t('Component name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Service card')) ?>"></div></div>
 <fieldset>
 <legend><?= e(t('Properties')) ?></legend>
 <p class="help"><?= e(t('What can differ between uses of the component – heading, text, image, link. In the builder you insert them into the component with a {{key}} tag, then fill in a value for each use (empty = default).')) ?></p>

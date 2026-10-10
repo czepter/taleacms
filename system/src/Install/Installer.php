@@ -33,7 +33,7 @@ final class Installer
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
     private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin'];
 
-    private string $language = 'cs';
+    private string $language = 'en';
 
     /** Form of address of German (formal | informal): the installer's texts, the first account and the site texts for visitors. */
     private string $register = 'formal';
@@ -55,7 +55,7 @@ final class Installer
             }
         }
 
-        return 'cs';
+        return 'en';
     }
 
     /** Form of address: an explicit choice (?register=, hidden form field), only in German. */
@@ -258,7 +258,7 @@ final class Installer
                 'name' => $d['name'],
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
-                'language' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
+                'language' => $this->language === 'en' ? '' : $this->language, // the admin of the first account in the installation language
                 'register' => $this->register === 'informal' ? 'informal' : '',
                 'confirmed_at' => date('Y-m-d H:i:s'),
             ]);

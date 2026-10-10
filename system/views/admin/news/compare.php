@@ -5,9 +5,9 @@
  * @var Kaleta\Admin\Modules\News $module
  * @var array<string, mixed> $newsItem
  * @var array<string, mixed> $versions
- * @var array{html:string, pridano:int, smazano:int} $title
- * @var array{html:string, pridano:int, smazano:int} $home
- * @var array{html:string, pridano:int, smazano:int} $text
+ * @var array{html:string, added:int, deleted:int} $title
+ * @var array{html:string, added:int, deleted:int} $home
+ * @var array{html:string, added:int, deleted:int} $text
  */
 $added = $title['added'] + $home['added'] + $text['added'];
 $deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];

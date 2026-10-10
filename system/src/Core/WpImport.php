@@ -16,7 +16,7 @@ use Kaleta\Admin\Modules\Pages;
  *  - The file is read as a stream (Core\WpFile) and the work is done IN BATCHES – at most BATCH posts or SECONDS seconds per request,
  *    so that the import survives the time limits of shared hosting. Where it stopped (which <item>) is kept in the state file
  *    storage/import/state-<hash>.json; the next request continues from there.
- *  - The table ka_import_mapa remembers which foreign record became which of ours. So the same file can be run again without
+ *  - The table ka_import_map remembers which foreign record became which of ours. So the same file can be run again without
  *    duplicates (an already converted news item is skipped and later edits are not overwritten) and images are not downloaded twice.
  *  - There are three passes: preview (only counts, does not touch the database), content import and – only on explicit request –
  *    downloading images.
@@ -37,7 +37,7 @@ final class WpImport
 
     private string $source = 'wp';
 
-    /** @var array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>} */
+    /** @var array{name:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{name:string, predek:string}>, stitky:array<string,string>} */
     private array $header = ['name' => '', 'url' => '', 'authors' => [], 'categories' => [], 'tags' => []];
 
     /** @var array<string, int> categories converted in this request (category slug in WordPress => our idt) */
@@ -247,7 +247,7 @@ final class WpImport
         return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $url);
     }
 
-    /** Source label in ka_import_mapa: two different old sites have the same post numbers, which is why it contains the domain. */
+    /** Source label in ka_import_map: two different old sites have the same post numbers, which is why it contains the domain. */
     public static function source(string $siteUrl): string
     {
         $domain = ImageDownloader::domainFromUrl($siteUrl);
@@ -833,7 +833,7 @@ final class WpImport
             return false;
         }
         $this->downloadsLeft--;
-        $temporary = WpFile::folder() . '/obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
+        $temporary = WpFile::folder() . '/image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             try {
                 $data = $downloader->download($original);

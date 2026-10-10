@@ -22,6 +22,6 @@ final class LegacySuiteTest extends TestCase
         $exit = proc_close($process);
 
         $this->assertSame(0, $exit, "tools/unit-tests.php failed:\n" . mb_substr($output, -3000));
-        $this->assertStringContainsString('jednotkové testy', $output);
+        $this->assertStringContainsString('unit tests', $output);
     }
 }

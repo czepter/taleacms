@@ -126,7 +126,7 @@ final class Form extends Element
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
     public static function anchor(array $p): string
     {
-        return $p['anchor'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
+        return $p['anchor'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'form-' . $p['id']);
     }
 
     /** The CAPTCHA widget when the site has one (2.6); in the editor only a note, the provider's script does not load there. */
@@ -163,7 +163,7 @@ final class Form extends Element
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         $hasBasket = in_array('basket', array_column($o['fields'], 'type'), true);
         if ($result === 'ok') {
-            // data-sent: image/web.js reports the conversion (the kaleta:odeslano event and dataLayer, when the site has it);
+            // data-sent: image/web.js reports the conversion (the kaleta:form_sent event and dataLayer, when the site has it);
             // data-basket-sent: the enquiry basket was sent – the script empties it
             // after the thank-you text the next steps, the reply deadline and who replies (2.12, Front\NextSteps) when the form has them
             return '<div' . Text::withClass($a, 'ka-form-done') . $id . ' role="status" data-sent="' . e($o['name']) . '"' . ($hasBasket ? ' data-basket-sent' : '') . '><p>' . e($o['thank_you']) . '</p>'

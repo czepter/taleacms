@@ -36,8 +36,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 </div>
 <?php if (!$page['page_id']): ?>
 <div class="row">
-	<label for="sablona"><?= e(t('Start from a template')) ?></label>
-	<div><select id="sablona" name="template">
+	<label for="template"><?= e(t('Start from a template')) ?></label>
+	<div><select id="template" name="template">
 		<option value=""><?= e(t('blank page (text)')) ?></option>
 <?php foreach (Kaleta\Builder\Library::PAGE_TEMPLATES as $key => [$name]): ?>
 		<option value="<?= e($key) ?>"><?= e(t($name)) ?></option>
@@ -60,8 +60,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 </div>
 <?php endif ?>
 <div class="row">
-	<label for="nadrazena"><?= e(t('Parent page')) ?></label>
-	<div><select id="nadrazena" name="parent_id">
+	<label for="parent_id"><?= e(t('Parent page')) ?></label>
+	<div><select id="parent_id" name="parent_id">
 		<option value="0"><?= e(t('— none (top level) —')) ?></option>
 <?php foreach ($parents as $r): ?>
 		<option value="<?= (int) $r['page_id'] ?>"<?= (int) $r['page_id'] === (int) ($page['parent_id'] ?? 0) ? ' selected' : '' ?>><?= e(str_repeat('– ', substr_count($r['slug'], '/')) . $r['title']) ?></option>
@@ -69,8 +69,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	</select><span class="help"><?= e(t('A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.')) ?></span></div>
 </div>
 <div class="row">
-	<label for="seo_link"><?= e(t('URL')) ?></label>
-	<div><span class="help-inline">/<?= e($prefix) ?></span><input class="textfield" type="text" id="seo_link" name="slug" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('slug') ?></div>
+	<label for="slug"><?= e(t('URL')) ?></label>
+	<div><span class="help-inline">/<?= e($prefix) ?></span><input class="textfield" type="text" id="slug" name="slug" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('slug') ?></div>
 </div>
 <details class="advanced"<?= $page['description'] !== '' || $page['seo_title'] !== '' || $page['image'] !== '' || $page['noindex'] || !empty($page['password_hash']) || isset($errors['page_password']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
@@ -79,13 +79,13 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<input class="textfield wide" type="text" id="seo_title" name="seo_title" value="<?= e($page['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = page name')) ?>">
 </div>
 <div class="row">
-	<label for="popis"><?= e(t('Search engine description')) ?></label>
-	<div><input class="textfield wide" type="text" id="popis" name="description" value="<?= e($page['description']) ?>" maxlength="300">
+	<label for="description"><?= e(t('Search engine description')) ?></label>
+	<div><input class="textfield wide" type="text" id="description" name="description" value="<?= e($page['description']) ?>" maxlength="300">
 	<span class="help"><?= e(t('One or two sentences on what visitors will find on the page (up to 160 characters).')) ?></span></div>
 </div>
 <div class="row">
-	<label for="obrazek"><?= e(t('Sharing image')) ?></label>
-	<div><input class="textfield wide" type="text" id="obrazek" name="image" value="<?= e($page['image']) ?>" maxlength="255" placeholder="<?= e(t('empty = default image from Settings')) ?>" data-image>
+	<label for="image"><?= e(t('Sharing image')) ?></label>
+	<div><input class="textfield wide" type="text" id="image" name="image" value="<?= e($page['image']) ?>" maxlength="255" placeholder="<?= e(t('empty = default image from Settings')) ?>" data-image>
 	<span class="help"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div>
 </div>
 <div class="row">
@@ -93,16 +93,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<div class="options"><label><input type="checkbox" name="noindex" value="1"<?= $page['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>
 </div>
 <div class="row">
-	<label for="heslo_stranky"><?= e(t('Page password')) ?></label>
-	<div><input class="textfield" type="password" id="heslo_stranky" name="page_password" autocomplete="new-password" minlength="<?= Kaleta\Core\PageLock::MIN_LENGTH ?>" placeholder="<?= e(!empty($page['password_hash']) ? t('protected – type a new password to change it') : t('none – the page is public')) ?>">
+	<label for="page_password"><?= e(t('Page password')) ?></label>
+	<div><input class="textfield" type="password" id="page_password" name="page_password" autocomplete="new-password" minlength="<?= Kaleta\Core\PageLock::MIN_LENGTH ?>" placeholder="<?= e(!empty($page['password_hash']) ? t('protected – type a new password to change it') : t('none – the page is public')) ?>">
 	<?php if (!empty($page['password_hash'])): ?><label><input type="checkbox" name="remove_password" value="1"> <?= e(t('Remove the password')) ?></label><?php endif ?>
 	<?= $error('page_password') ?>
 	<span class="help"><?= e(t('Visitors see the page only after entering the password – e.g. a price list for partners. It is not an account: whoever knows the password reads the page. A protected page is never in search engines, the sitemap or the site search.')) ?></span></div>
 </div>
 <?php if ($app->auth()->isAdmin()): ?>
 <div class="row">
-	<label for="kod_hlavicky"><?= e(t('Code in the head of this page')) ?></label>
-	<div><textarea class="textfield wide code" id="kod_hlavicky" name="head_code" rows="4" spellcheck="false" placeholder="&lt;script&gt;…&lt;/script&gt;"><?= e((string) ($page['head_code'] ?? '')) ?></textarea>
+	<label for="head_code"><?= e(t('Code in the head of this page')) ?></label>
+	<div><textarea class="textfield wide code" id="head_code" name="head_code" rows="4" spellcheck="false" placeholder="&lt;script&gt;…&lt;/script&gt;"><?= e((string) ($page['head_code'] ?? '')) ?></textarea>
 	<span class="help"><?= e(t('Only for this page, after the code for the whole site (Settings → Analytics) – e.g. the conversion tag of a landing page. Mind the cookie consent: code that tracks visitors belongs in the marketing code.')) ?></span></div>
 </div>
 <?php endif ?>
@@ -115,7 +115,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<span class="caption"><?= e(t('Display')) ?></span>
 	<div class="options">
 		<label><input type="checkbox" name="visible" value="1"<?= $page['visible'] ? ' checked' : '' ?>> <?= e(t('Publish page')) ?></label><?= $home ? ' <span class="badge">' . e(t('site home page')) . '</span>' : '' ?><?= $error('visible') ?><br>
-		<span class="help" data-active-when="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden page automatically at:')) ?></label> <input class="textfield" type="datetime-local" id="zverejnit_od" name="publish_at" value="<?= e(($page['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($page['publish_at'])) : '') ?>"></span><br>
+		<span class="help" data-active-when="visible="><label for="publish_at"><?= e(t('Publish the hidden page automatically at:')) ?></label> <input class="textfield" type="datetime-local" id="publish_at" name="publish_at" value="<?= e(($page['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($page['publish_at'])) : '') ?>"></span><br>
 		<label><input type="checkbox" name="in_menu" value="1"<?= ($inMenu ?? (bool) $page['in_menu']) ? ' checked' : '' ?>> <?= e(t('Show in the site\'s main navigation')) ?></label>
 <?php if ($customMenu): ?>
 		<span class="help"><?= e(t('The site has a custom menu – the page is added to its end. Change the order and submenus in Appearance → Menu.')) ?></span>
@@ -133,8 +133,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<span class="help"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
 </div>
 <div class="row">
-	<label for="poradi"><?= e(t('Order in navigation')) ?></label>
-	<div><input class="textfield" type="number" id="poradi" name="sort_order" value="<?= (int) $page['sort_order'] ?>" min="0" max="65535">
+	<label for="sort_order"><?= e(t('Order in navigation')) ?></label>
+	<div><input class="textfield" type="number" id="sort_order" name="sort_order" value="<?= (int) $page['sort_order'] ?>" min="0" max="65535">
 	<span class="help"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
 <p class="buttons"><button class="btn" type="submit"><?= e(t('Save')) ?></button><?php if (($page['build'] ?? null) === null): ?> <button class="navigation" type="submit" name="after_save" value="builder"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>

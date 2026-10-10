@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Site settings from the table ka_nastaveni (promenna => hodnota).
+ * Site settings from the table ka_settings (promenna => hodnota).
  */
 final class Settings
 {
@@ -41,8 +41,8 @@ final class Settings
         'brand_accent' => '',         // legacy: the site's main color, read only until design_system is saved
         'dark_mode' => 'off',      // dark appearance of the site: off | auto (by the visitor's device) | dark (always dark)
         'theme_switcher' => '0',      // light / dark / by device switcher for visitors (in the header next to the languages)
-        'brand_heading_font' => 'vychozi', // key from Front\SiteIdentity::TITLE_FONTS
-        'brand_text_font' => 'vychozi',            // image instead of the text name in the header
+        'brand_heading_font' => 'default', // key from Front\SiteIdentity::TITLE_FONTS
+        'brand_text_font' => 'default',            // image instead of the text name in the header
         'footer_text' => '',
         'social_facebook' => '',
         'social_instagram' => '',
@@ -50,10 +50,10 @@ final class Settings
         'social_youtube' => '',
         'social_linkedin' => '',
         'time_zone' => 'Europe/Prague', // the site's time zone: news dates, scheduled publishing, statistics (App::applyTimezone)
-        'site_language' => 'cs',         // site language: template texts, <html lang>, structured data (Core\Language)
+        'site_language' => 'en',         // site language: template texts, <html lang>, structured data (Core\Language)
         'german_register' => 'formal',        // form of address in the German texts for visitors: formal (Sie) | informal (du); the administration has its own choice per user
         'additional_languages' => '',         // further language versions at /en/, /de/… (Language versions extension), comma-separated codes
-        'home_page' => '0',     // page (ka_stranky.ids) as the site's home page; 0 = news listing
+        'home_page' => '0',     // page (ka_pages.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page
         'maintenance' => '0',              // maintenance mode: visitors see a notice, logged-in administrators see the site
         'maintenance_text' => 'We are working on the site right now. Please try again in a moment.',
@@ -68,7 +68,7 @@ final class Settings
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Kaleta-Signature), shown only to administrators
         'require_2fa' => '',          // '' | admins (administrators) | everyone (everyone) – mandatory two-factor login
-        'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: ucty = block accounts unused for 90 days, napojeni = revoke Claude connections unused for 60 days
+        'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: accounts = block accounts unused for 90 days, connections = revoke Claude connections unused for 60 days
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (5 minutes)
         'link_check' => '1',     // look for broken links in news, page builds and collection items in the background
         'link_check_time' => '0',

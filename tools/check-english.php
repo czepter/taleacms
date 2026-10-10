@@ -143,7 +143,7 @@ if (($argv[1] ?? '') === '--js') {
     // English source texts (in admin-cs.js) need no English entry
     $dictionary = jsDictionary($root) + jsDictionary($root, 'cs');
     $findings = [];
-    foreach (['admin', 'editor', 'menu', 'helper', 'builder', 'klice', 'theme'] as $file) {
+    foreach (['admin', 'editor', 'menu', 'helper', 'builder', 'passkeys', 'theme'] as $file) {
         foreach (jsStrings((string) file_get_contents($root . '/image/' . $file . '.js')) as [$line, $text, $inT]) {
             // single-word strings without diacritics are keys and names in the code (stranka, sekce), not texts for people
             $czech = hasDiacritics($text) || preg_match('/\s/u', trim($text)) && czechWords($text) !== [];

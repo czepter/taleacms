@@ -1,7 +1,7 @@
 <?php
 /**
  * Media clean-up (2.14): unused files, oversized images, duplicates and images without a description.
- * The checkboxes of unused files and duplicate copies all belong to one delete form under the lists (form="smazani"),
+ * The checkboxes of unused files and duplicate copies all belong to one delete form under the lists (form="cleanup"),
  * so the tables can keep their own small forms (make smaller).
  *
  * @var Kaleta\Core\App $app
@@ -36,11 +36,11 @@ $deletable = 0;
 <p class="help"><?= e(t('Nothing on the site points at these files: no page, build, news item, collection item, component, pop-up, newsletter or setting. Media has no trash – deleted files cannot be restored.')) ?></p>
 <div class="tab-wrap">
 <table class="listing cleanup">
-<thead><tr><th scope="col"><input type="checkbox" data-select-all="smazani" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Name (alternative text)')) ?></th></tr></thead>
+<thead><tr><th scope="col"><input type="checkbox" data-select-all="cleanup" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Name (alternative text)')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($unused as $o): $editable = $canEdit($o); $deletable += $editable ? 1 : 0; ?>
 <tr>
-	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="cleanup" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></td>
@@ -62,7 +62,7 @@ $deletable = 0;
 <tbody>
 <?php foreach ($duplicates as $i => $group): foreach ($group as $j => $o): $editable = $canEdit($o) && $o['used_at'] === 0; $deletable += $editable ? 1 : 0; ?>
 <tr<?= $j === 0 && $i > 0 ? ' class="cleanup-group"' : '' ?>>
-	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="cleanup" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= $o['used_at'] > 0 ? e(t('used %s×', (int) $o['used_at'])) . ($o['used_in'] !== [] ? '<br><small>' . e(implode(', ', $o['used_in'])) . '</small>' : '') : e(t('unused')) ?></td>
@@ -74,7 +74,7 @@ $deletable = 0;
 <?php endif ?>
 
 <?php if ($deletable > 0): ?>
-<form id="smazani" class="media-bulk" method="post" action="<?= e($module->url('bulk')) ?>" data-confirm="<?= e(t('Delete the selected files for good? Media has no trash. Files the site still uses are skipped.')) ?>">
+<form id="cleanup" class="media-bulk" method="post" action="<?= e($module->url('bulk')) ?>" data-confirm="<?= e(t('Delete the selected files for good? Media has no trash. Files the site still uses are skipped.')) ?>">
 	<?= $csrf ?>
 	<input type="hidden" name="bulk" value="smaz">
 	<input type="hidden" name="back" value="cleanup">

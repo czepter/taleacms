@@ -98,7 +98,7 @@ final class ContentCheck
     }
 
     /**
-     * The check of a page row (ka_stranky): a build page is judged by the content of its draft (otherwise the published
+     * The check of a page row (ka_pages): a build page is judged by the content of its draft (otherwise the published
      * build), a text page by its text with the title as the H1 the site prints above it.
      *
      * @param array<string, mixed> $page
@@ -117,7 +117,7 @@ final class ContentCheck
     }
 
     /**
-     * The check of a news item (ka_novinky): the title is the H1, the lead and the text are the content; without its own
+     * The check of a news item (ka_news): the title is the H1, the lead and the text are the content; without its own
      * description the site uses the beginning of the lead.
      *
      * @param array<string, mixed> $newsItem

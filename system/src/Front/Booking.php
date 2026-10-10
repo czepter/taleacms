@@ -87,7 +87,7 @@ final class Booking
         if (!Captcha::accepted($this->app->settings(), Captcha::verify($this->app->settings(), $r))) {
             return $redirect('captcha');
         }
-        if ($r->post('souhlas') !== '1') {
+        if ($r->post('consent') !== '1') {
             return $redirect('consent');
         }
         $o = $element['content'];

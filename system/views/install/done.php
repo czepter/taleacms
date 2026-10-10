@@ -9,7 +9,7 @@
  */
 ?>
 <!doctype html>
-<html lang="<?= e($language ?? 'cs') ?>">
+<html lang="<?= e($language ?? 'en') ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

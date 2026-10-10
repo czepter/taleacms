@@ -21,7 +21,7 @@ final class SocialDrafts
     /** network key => name */
     public const array NETWORKS = ['facebook' => 'Facebook', 'linkedin' => 'LinkedIn', 'x' => 'X', 'instagram' => 'Instagram'];
 
-    /** For the settings field type (seznam:…). */
+    /** For the settings field type (list:…). */
     public const string NETWORK_KEYS = 'facebook|linkedin|x|instagram';
 
     public const string DEFAULT_NETWORKS = 'facebook,linkedin';
@@ -54,7 +54,7 @@ final class SocialDrafts
         return array_values(array_filter(array_keys(self::NETWORKS), fn (string $k): bool => in_array($k, $wanted, true)));
     }
 
-    /** The news URL with the campaign parameters the statistics already count (Front\Stats, ka_stat_kampane). */
+    /** The news URL with the campaign parameters the statistics already count (Front\Stats, ka_stats_campaigns). */
     public static function trackedLink(string $url, string $network, string $slug): string
     {
         return $url . (str_contains($url, '?') ? '&' : '?') . 'utm_source=' . rawurlencode($network) . '&utm_medium=social&utm_campaign=' . rawurlencode($slug);

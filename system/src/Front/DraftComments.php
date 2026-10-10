@@ -47,7 +47,7 @@ final class DraftComments
     /** The widget for a page draft shown through a key that allows comments (appended to the page by Front\Kernel). */
     public function widget(string $target, string $key, string $path): string
     {
-        return $this->app->view->render('front/komentare', [
+        return $this->app->view->render('front/comments', [
             'target' => $target, 'key' => $key,
             'back' => $this->app->url($path) . '?build=draft&preview_key=' . rawurlencode($key),
             'action' => $this->app->url('_comment'),

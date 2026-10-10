@@ -17,9 +17,14 @@ use PDOStatement;
 final class Db
 {
     /** Tables whose rows are addressed from outside by a public UUID v4 (column public_id); insert() fills it. The integer key never leaves the database layer. */
+    /** table => primary key column of the same tables (the integer key that never leaves the database layer). */
+    public const array PRIMARY_KEYS = ['users' => 'user_id', 'categories' => 'category_id', 'news' => 'news_id', 'tags' => 'tag_id', 'media' => 'media_id', 'media_folders' => 'folder_id', 'pages' => 'page_id', 'collections' => 'collection_id', 'collection_items' => 'item_id', 'popups' => 'popup_id', 'components' => 'component_id', 'sections' => 'section_id', 'enquiries' => 'enquiry_id', 'subscribers' => 'subscriber_id', 'newsletters' => 'id', 'redirects' => 'redirect_id', 'api_tokens' => 'token_id', 'user_passkeys' => 'passkey_id', 'bookings' => 'id', 'booking_services' => 'id', 'booking_staff' => 'id', 'requests' => 'id', 'fleet_sites' => 'id'];
+
     public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites'];
 
     private ?PDO $pdo = null;
+    /** @var array<string, array<int, string>> memo of publicId() */
+    private array $publicIds = [];
 
     public int $queryCount = 0;
 
@@ -155,6 +160,28 @@ final class Db
         }
 
         return $this->one('SELECT * FROM {' . $table . '} WHERE public_id = ?', [$uuid]);
+    }
+
+    /** The integer key of the row with this public id (UUID v4), or 0: unknown table, malformed or unknown id. Integer ids from outside are never accepted. */
+    public function internalId(string $table, mixed $uuid): int
+    {
+        $pk = self::PRIMARY_KEYS[$table] ?? null;
+        if ($pk === null || !Uuid::valid($uuid)) {
+            return 0;
+        }
+
+        return (int) $this->value('SELECT `' . $pk . '` FROM {' . $table . '} WHERE public_id = ?', [$uuid]);
+    }
+
+    /** The public id (UUID v4) of the row with this integer key, '' when there is none: what a link, a result or a payload carries instead of the number. */
+    public function publicId(string $table, int $id): string
+    {
+        $pk = self::PRIMARY_KEYS[$table] ?? null;
+        if ($pk === null || $id <= 0) {
+            return '';
+        }
+
+        return (string) ($this->publicIds[$table][$id] ??= (string) $this->value('SELECT public_id FROM {' . $table . '} WHERE `' . $pk . '` = ?', [$id]));
     }
 
     /**

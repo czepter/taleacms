@@ -4,7 +4,7 @@
 /**
  * Applies the pending database migrations: `php bin/migrate`. Used by the Docker entrypoint, deployments and tests.
  * --if-installed: do nothing (exit 0) while the site is not installed yet - the installer creates the tables itself.
- * --backup: when migrations are pending, write a database backup first (storage/zalohy/, reason "before-update"): the rollback is
+ * --backup: when migrations are pending, write a database backup first (storage/backups/, reason "before-update"): the rollback is
  *   "restore this dump and start the previous image" (docs/DEPLOYMENT.md). Nothing is written when there is nothing to apply.
  * Exit code 0 = up to date or migrated, 1 = failed. More (status, rollback, create) with `php vendor/bin/phinx` and phinx.php.
  */

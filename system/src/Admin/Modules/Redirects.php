@@ -112,7 +112,7 @@ final class Redirects extends Module
             \Kaleta\Core\NotFound::ignore($this->app, [$this->request->post('path')]);
         }
 
-        return Response::redirect($this->url() . '#nenalezeno');
+        return Response::redirect($this->url() . '#not-found');
     }
 
     /** All addresses waiting now – the warning on the start screen goes away until a new address appears. */
@@ -121,7 +121,7 @@ final class Redirects extends Module
         $count = $this->request->isPost() ? \Kaleta\Core\NotFound::ignore($this->app) : 0;
         $this->app->session->flash('ok', t('%d addresses ignored. A new address that visitors cannot find will show up again.', $count));
 
-        return Response::redirect($this->request->post('back') === 'prehled' ? $this->app->url('admin.php') : $this->url() . '#nenalezeno');
+        return Response::redirect($this->request->post('back') === 'overview' ? $this->app->url('admin.php') : $this->url() . '#not-found');
     }
 
     /** Empties the overview of not-found URLs. */

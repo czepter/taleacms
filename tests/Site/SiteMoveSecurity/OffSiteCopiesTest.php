@@ -42,7 +42,7 @@ final class OffSiteCopiesTest extends SiteTestCase
 
     private function autoBackups(): int
     {
-        return count(array_filter(glob($this->site()->path('storage/zalohy/*')) ?: [], static fn (string $f): bool => str_contains($f, '-auto-')));
+        return count(array_filter(glob($this->site()->path('storage/backups/*')) ?: [], static fn (string $f): bool => str_contains($f, '-auto-')));
     }
 
     public function testFakeS3IsConfigured(): void
@@ -61,11 +61,11 @@ final class OffSiteCopiesTest extends SiteTestCase
             PHP);
         $port = $site->startPhp($dir, 'router.php');
         $this->clearPuts();
-        foreach (['remote_backup' => 's3', 'backup_host' => 's3.example.com', 'backup_user' => 'AKIDTEST', 'backup_password' => 'tajne-s3', 'backup_folder' => 'kaleta-zalohy',
+        foreach (['remote_backup' => 's3', 'backup_host' => 's3.example.com', 'backup_user' => 'AKIDTEST', 'backup_password' => 'tajne-s3', 'backup_folder' => 'kaleta-backups',
             'backup_region' => 'eu-central-1', 'backup_test_url' => 'http://127.0.0.1:' . $port, 'backup_media' => '1', 'remote_media_status' => ''] as $key => $value) {
             $site->setting($key, $value);
         }
-        @unlink($site->path('storage/zalohy/media-kopie.json'));
+        @unlink($site->path('storage/backups/media-copy.json'));
 
         $this->assertSame('s3', $site->settingValue('remote_backup'), 'the fake S3 is configured');
     }
@@ -82,8 +82,8 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertGreaterThan(0, $mediaFiles, 'the site has media files');
         $this->backupNow();
 
-        $this->assertSame(1, $this->putCount('#^PUT /kaleta-zalohy/kaleta-.*\.sql#m'), 'the backup is uploaded once');
-        $this->assertSame($mediaFiles, $this->putCount('#^PUT /kaleta-zalohy/media/#m'), 'every media file is uploaded');
+        $this->assertSame(1, $this->putCount('#^PUT /kaleta-backups/kaleta-.*\.sql#m'), 'the backup is uploaded once');
+        $this->assertSame($mediaFiles, $this->putCount('#^PUT /kaleta-backups/media/#m'), 'every media file is uploaded');
         $this->assertSame(0, $this->putCount('/unsigned/'), 'every request is signed');
         $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(value, '|', -2) FROM ka_settings WHERE name = 'remote_media_status'"), 'media status: complete');
         $this->assertPage('/admin.php?module=settings&tab=backups', 200, 'Media: the copy is complete', message: 'Backups show the media copy');
@@ -95,7 +95,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site = $this->site();
         $this->clearPuts();
         $this->backupNow();
-        $this->assertSame(0, $this->putCount('#^PUT /kaleta-zalohy/media/#m'), 'the next backup uploads no unchanged media');
+        $this->assertSame(0, $this->putCount('#^PUT /kaleta-backups/media/#m'), 'the next backup uploads no unchanged media');
 
         mkdir($site->path('media/2026/09'), 0775, true);
         file_put_contents($site->path('media/2026/09/novy-soubor.txt'), "novy\n");
@@ -103,7 +103,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site->setting('media_sync_check', '0');
         $site->runTasks();
 
-        $this->assertSame('PUT /kaleta-zalohy/media/2026/09/novy-soubor.txt 5 signed', trim($this->puts()), 'cron copies only the new file');
+        $this->assertSame('PUT /kaleta-backups/media/2026/09/novy-soubor.txt 5 signed', trim($this->puts()), 'cron copies only the new file');
     }
 
     #[Depends('testOnlyNewMediaIsCopiedAgain')]
@@ -114,7 +114,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site->setting('remote_backup', 'off');
         $site->exec("INSERT INTO ka_change_log (created_at, module, action) VALUES (NOW(), 'test', 'change')");
         $age = static function () use ($site): void {
-            foreach (glob($site->path('storage/zalohy/kaleta-*')) ?: [] as $file) {
+            foreach (glob($site->path('storage/backups/kaleta-*')) ?: [] as $file) {
                 touch($file, time() - 2 * 86400);
             }
         };

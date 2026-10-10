@@ -9,7 +9,7 @@ use Kaleta\Builder\Build;
 /**
  * Check of broken links in published news items, published page builds and visible collection items (2.14: before, news
  * only). Runs in the background in small batches: one record per five minutes – the one checked longest ago, never
- * checked first – each record once per 30 days. Only links that do not work are stored (ka_odkazy_vadne with the kind of
+ * checked first – each record once per 30 days. Only links that do not work are stored (ka_broken_links with the kind of
  * record, its id and, in a build, the element id); the site-wide list is News → Broken links, the site audit and the
  * MCP tool list_broken_links.
  *

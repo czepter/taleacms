@@ -24,7 +24,7 @@ Open the site and walk through the installer. Configuration is environment varia
 
 On start the entrypoint
 
-1. writes a database backup to `storage/zalohy/` **when migrations are pending** (`KALETA_BACKUP_BEFORE_MIGRATE=0` skips it),
+1. writes a database backup to `storage/backups/` **when migrations are pending** (`KALETA_BACKUP_BEFORE_MIGRATE=0` skips it),
 2. runs `bin/migrate --if-installed`: pending migrations are applied before the container serves traffic; `GET_LOCK` serialises
    several replicas, so two containers never apply the same migration,
 3. starts the background-job loop (`KALETA_CRON=0` switches it off, see Replicas), then the web server.
@@ -50,7 +50,7 @@ Migrations only move forward, and a release never drops what the previous releas
 release). To go back:
 
 1. stop the containers,
-2. restore the dump from `storage/zalohy/` taken before the update (Settings → Backups and updates → restore, or the SQL file with
+2. restore the dump from `storage/backups/` taken before the update (Settings → Backups and updates → restore, or the SQL file with
    your MySQL client),
 3. start the previous image tag.
 

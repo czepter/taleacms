@@ -10,7 +10,7 @@
 /dist/
 /tools/keys/
 /tools/keys
-/storage/zalohy/
+/storage/backups/
 /storage/import/*
 !/storage/import/.htaccess
 !/storage/import/.gitkeep

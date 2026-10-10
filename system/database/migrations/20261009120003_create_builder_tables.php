@@ -88,7 +88,7 @@ final class CreateBuilderTables extends AbstractMigration
             ->addColumn('detail', 'boolean', ['null' => false, 'default' => 0])
             ->addColumn('hidden_redirect', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'where the page of a hidden or deleted item redirects (2.10); empty = 404'])
             ->addColumn('preset', 'string', ['limit' => 30, 'null' => false, 'default' => '', 'comment' => 'the ready-made collection it was created from (2.11, Builder\\Presets); empty = its own'])
-            ->addColumn('schema_org', 'text', ['null' => true, 'comment' => 'structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)'])
+            ->addColumn('schema_org', 'text', ['null' => true, 'comment' => 'structured data of item pages: {"type": "Service|Person|Product|Event|FAQPage", "fields": {property: field key}} (1.9)'])
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('updated_at', 'datetime', ['null' => true])

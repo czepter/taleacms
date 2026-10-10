@@ -81,7 +81,7 @@ final class Booking extends Element
     /** The anchor the page returns to after sending: the same as the id the form gets when rendered. */
     public static function anchor(array $p): string
     {
-        return $p['anchor'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'rezervace-' . $p['id']);
+        return $p['anchor'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'booking-' . $p['id']);
     }
 
     /** The message after sending by the code in the url (?booking=<id>&result=<code>) – the text never comes from the url. */
@@ -141,7 +141,7 @@ final class Booking extends Element
         $name = 'r-' . $p['id'];
 
         // 1. the service
-        $html .= '<fieldset class="ka-booking-step" data-step="sluzba"><legend>' . e(t('Service')) . '</legend><div class="ka-booking-options">';
+        $html .= '<fieldset class="ka-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend><div class="ka-booking-options">';
         foreach ($services as $i => $s) {
             $meta = implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']]));
             $html .= '<label><input type="radio" name="service" value="' . $s['id'] . '" required data-duration="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
@@ -154,7 +154,7 @@ final class Booking extends Element
         if ($fixedStaff !== null) {
             $html .= '<input type="hidden" name="staff" value="' . $fixedStaff['id'] . '">';
         } elseif (count($offering) > 1) {
-            $html .= '<fieldset class="ka-booking-step" data-step="osoba"><legend>' . e(t('Who')) . '</legend><div class="ka-booking-options">'
+            $html .= '<fieldset class="ka-booking-step" data-step="person"><legend>' . e(t('Who')) . '</legend><div class="ka-booking-options">'
                 . '<label><input type="radio" name="staff" value="0" checked><span>' . e(t('Anyone available')) . '</span></label>';
             foreach ($offering as $m) {
                 $html .= '<label data-services="' . e(implode(',', $m['services'])) . '"><input type="radio" name="staff" value="' . $m['id'] . '"><span>' . e($m['name']) . '</span></label>';
@@ -165,7 +165,7 @@ final class Booking extends Element
         }
 
         // 3. the day and the time: the calendar (script) and the plain select
-        $html .= '<fieldset class="ka-booking-step" data-step="cas"><legend>' . e(t('Day and time')) . '</legend>'
+        $html .= '<fieldset class="ka-booking-step" data-step="time"><legend>' . e(t('Day and time')) . '</legend>'
             . '<div class="ka-booking-calendar" data-calendar hidden></div>'
             . '<div class="ka-booking-times" data-times hidden></div>'
             . '<p class="ka-booking-selected" data-selected hidden></p>'
@@ -185,12 +185,12 @@ final class Booking extends Element
         $html .= '</div></fieldset>';
 
         // 4. the contact
-        $html .= '<fieldset class="ka-booking-step" data-step="kontakt"><legend>' . e(t('Your details')) . '</legend>'
-            . '<p class="ka-field"><label for="' . $name . '-jmeno">' . e(t('Your name')) . ' <span class="ka-required" aria-hidden="true">*</span></label><input id="' . $name . '-jmeno" name="name" type="text" autocomplete="name" maxlength="150" required></p>'
+        $html .= '<fieldset class="ka-booking-step" data-step="contact"><legend>' . e(t('Your details')) . '</legend>'
+            . '<p class="ka-field"><label for="' . $name . '-name">' . e(t('Your name')) . ' <span class="ka-required" aria-hidden="true">*</span></label><input id="' . $name . '-name" name="name" type="text" autocomplete="name" maxlength="150" required></p>'
             . '<p class="ka-field"><label for="' . $name . '-email">' . e(t('Your e-mail')) . ' <span class="ka-required" aria-hidden="true">*</span></label><input id="' . $name . '-email" name="email" type="email" autocomplete="email" maxlength="190" required></p>'
-            . '<p class="ka-field"><label for="' . $name . '-telefon">' . e(t('Phone')) . '</label><input id="' . $name . '-telefon" name="telefon" type="tel" autocomplete="tel" maxlength="30" pattern="' . Form::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"></p>'
-            . '<p class="ka-field"><label for="' . $name . '-poznamka">' . e(t('Note')) . '</label><textarea id="' . $name . '-poznamka" name="poznamka" rows="3" maxlength="1000"></textarea></p>'
-            . '<p class="ka-field ka-field-consent"><label><input type="checkbox" name="souhlas" value="1" required> <span>' . e($o['consent']) . ' <span class="ka-required" aria-hidden="true">*</span></span></label>'
+            . '<p class="ka-field"><label for="' . $name . '-phone">' . e(t('Phone')) . '</label><input id="' . $name . '-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" pattern="' . Form::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"></p>'
+            . '<p class="ka-field"><label for="' . $name . '-note">' . e(t('Note')) . '</label><textarea id="' . $name . '-note" name="note" rows="3" maxlength="1000"></textarea></p>'
+            . '<p class="ka-field ka-field-consent"><label><input type="checkbox" name="consent" value="1" required> <span>' . e($o['consent']) . ' <span class="ka-required" aria-hidden="true">*</span></span></label>'
             . (($policy = \Kaleta\Core\Privacy::policyUrl($k->app->settings())) !== '' ? ' <a class="ka-field-policy" href="' . e($policy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
             . '</fieldset>';
 

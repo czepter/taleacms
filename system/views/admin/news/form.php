@@ -53,8 +53,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <fieldset>
 <legend><?= e(t('Publishing')) ?></legend>
 <div class="row">
-	<label for="stav"><?= e(t('Status')) ?></label>
-	<div><select id="stav" name="status">
+	<label for="status"><?= e(t('Status')) ?></label>
+	<div><select id="status" name="status">
 		<option value="draft"<?= !$newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Draft')) ?></option>
 <?php if ($canPublish): ?>
 		<option value="published"<?= $newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Published')) ?></option>
@@ -66,8 +66,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	</div>
 </div>
 <div class="row">
-	<label for="datum"><?= e(t('Publish date')) ?></label>
-	<div><input class="textfield" type="datetime-local" id="datum" name="published_at" value="<?= e($dt($newsItem['published_at'])) ?>" required>
+	<label for="published_at"><?= e(t('Publish date')) ?></label>
+	<div><input class="textfield" type="datetime-local" id="published_at" name="published_at" value="<?= e($dt($newsItem['published_at'])) ?>" required>
 	<span class="help"><?= e(t('A future date = the news item is published automatically at that time.')) ?></span></div>
 </div>
 <div class="row">
@@ -102,8 +102,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <input type="hidden" name="category_id" value="<?= (int) ($category[0]['category_id'] ?? $newsItem['category_id']) ?>">
 <?php else: ?>
 <div class="row">
-	<label for="tema"><?= e(t('Categories')) ?></label>
-	<div><select id="tema" name="category_id" required>
+	<label for="category"><?= e(t('Categories')) ?></label>
+	<div><select id="category" name="category_id" required>
 <?php foreach ($category as $k): ?>
 		<option value="<?= (int) $k['category_id'] ?>"<?= (int) $newsItem['category_id'] === (int) $k['category_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
 <?php endforeach ?>
@@ -114,8 +114,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <input type="hidden" name="author_id" value="<?= (int) (array_key_first($authors) ?? $newsItem['author_id']) ?>">
 <?php else: ?>
 <div class="row">
-	<label for="autor"><?= e(t('Author')) ?></label>
-	<div><select id="autor" name="author_id">
+	<label for="author_id"><?= e(t('Author')) ?></label>
+	<div><select id="author_id" name="author_id">
 <?php foreach ($authors as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= (int) $newsItem['author_id'] === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
@@ -133,16 +133,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <fieldset>
 <legend><?= e(t('Featured image')) ?></legend>
 <div class="row span-all">
-	<input class="textfield wide" type="text" id="obrazek" name="image" value="<?= e($newsItem['image']) ?>" maxlength="255" placeholder="<?= e(t('choose from media or paste a URL')) ?>" aria-label="<?= e(t('Featured image')) ?>" data-image>
+	<input class="textfield wide" type="text" id="image" name="image" value="<?= e($newsItem['image']) ?>" maxlength="255" placeholder="<?= e(t('choose from media or paste a URL')) ?>" aria-label="<?= e(t('Featured image')) ?>" data-image>
 	<span class="help"><?= e(t('Used in listings and when shared on social networks.')) ?></span>
 </div>
 <div class="row span-all">
-	<label for="obrazek_popis"><?= e(t('Image caption')) ?></label>
-	<input class="textfield wide" type="text" id="obrazek_popis" name="image_caption" value="<?= e($newsItem['image_caption']) ?>" maxlength="300">
+	<label for="image_caption"><?= e(t('Image caption')) ?></label>
+	<input class="textfield wide" type="text" id="image_caption" name="image_caption" value="<?= e($newsItem['image_caption']) ?>" maxlength="300">
 </div>
 <div class="row span-all">
-	<label for="obrazek_autor"><?= e(t('Image credit')) ?></label>
-	<div><input class="textfield wide" type="text" id="obrazek_autor" name="image_author" value="<?= e($newsItem['image_author']) ?>" maxlength="120">
+	<label for="image_author"><?= e(t('Image credit')) ?></label>
+	<div><input class="textfield wide" type="text" id="image_author" name="image_author" value="<?= e($newsItem['image_author']) ?>" maxlength="120">
 	<span class="help"><?= e(t('Empty field = caption and credit from the Media library.')) ?></span></div>
 </div>
 </fieldset>
@@ -167,8 +167,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 </div>
 <?php endif ?>
 <div class="row span-all">
-	<label for="preklad_z"><?= e(t('Original in the default language')) ?></label>
-	<input class="textfield wide" type="text" id="preklad_z" name="translation_of" value="<?= e($original) ?>" maxlength="255" placeholder="<?= e(t('address or number of the original news item')) ?>">
+	<label for="translation_of"><?= e(t('Original in the default language')) ?></label>
+	<input class="textfield wide" type="text" id="translation_of" name="translation_of" value="<?= e($original) ?>" maxlength="255" placeholder="<?= e(t('address or number of the original news item')) ?>">
 	<span class="help"><?= e(t('Fill in only for a news item in another language version (the category sets the language).')) ?></span>
 </div>
 </details>
@@ -185,8 +185,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <details class="advanced"<?= $newsItem['seo_title'] !== '' || $newsItem['seo_description'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('SEO and more settings')) ?></summary>
 <div class="row">
-	<label for="seo_link"><?= e(t('URL')) ?></label>
-	<div><input class="textfield wide" type="text" id="seo_link" name="slug" value="<?= e($newsItem['slug']) ?>" maxlength="150" placeholder="<?= e(t('created from the headline')) ?>">
+	<label for="slug"><?= e(t('URL')) ?></label>
+	<div><input class="textfield wide" type="text" id="slug" name="slug" value="<?= e($newsItem['slug']) ?>" maxlength="150" placeholder="<?= e(t('created from the headline')) ?>">
 	<span class="help"><?= e(t('The part of the address after %s. If you change it after publishing, the old address redirects automatically.', substr($app->url('news/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <div class="row">
@@ -198,8 +198,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<div><input class="textfield wide" type="text" id="seo_description" name="seo_description" value="<?= e($newsItem['seo_description']) ?>" maxlength="320" placeholder="<?= e(t('empty = beginning of the lead')) ?>"></div>
 </div>
 <div class="row">
-	<label for="t_slova"><?= e(t('Keywords')) ?></label>
-	<div><input class="textfield wide" type="text" id="t_slova" name="keywords" value="<?= e($newsItem['keywords']) ?>" maxlength="500">
+	<label for="keywords"><?= e(t('Keywords')) ?></label>
+	<div><input class="textfield wide" type="text" id="keywords" name="keywords" value="<?= e($newsItem['keywords']) ?>" maxlength="500">
 	<span class="help"><?= e(t('Comma-separated; they help the site search.')) ?></span></div>
 </div>
 <div class="row">

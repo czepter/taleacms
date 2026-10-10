@@ -301,7 +301,7 @@
 		dependent.forEach(function (block) {
 			var condition = block.getAttribute('data-active-when').split('=');
 			var field = block.closest('form') && block.closest('form').elements[condition[0]];
-			// checkbox: a value only when it is checked („zobrazit=“ = unchecked)
+			// checkbox: a value only when it is checked ("visible=" = unchecked)
 			var value = field && field.type === 'checkbox' ? (field.checked ? field.value : '') : (field ? field.value : '');
 			var isEnabled = !field || value === condition[1];
 			block.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !isEnabled; });

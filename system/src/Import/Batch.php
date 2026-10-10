@@ -28,7 +28,7 @@ use Kaleta\Core\WpImport;
  *  - three passes: analyze (the preview, writes nothing), import (each record one transaction) and – on explicit request –
  *    images through Core\ImageDownloader with its SSRF rules (the old site's domain, or any public host when the source says
  *    its images live on a CDN);
- *  - ka_import_mapa with the source label <key>:<domain> remembers what became what: the same file can be run again and
+ *  - ka_import_map with the source label <key>:<domain> remembers what became what: the same file can be run again and
  *    nothing is duplicated, failed images are not retried for every post;
  *  - HTML from the file is never trusted: it goes through Core\WpContent::sanitize like WordPress content;
  *  - no accounts are created (the mapping assigns authors to existing users), imported news is not announced, pages are
@@ -191,7 +191,7 @@ final class Batch
         return date('Y-m-d H:i:s', $time !== false && $time > 0 ? $time : ($now ?? time()));
     }
 
-    /** Source label in ka_import_mapa: <key>:<domain of the old site>, so two old sites never share post numbers. */
+    /** Source label in ka_import_map: <key>:<domain of the old site>, so two old sites never share post numbers. */
     public static function label(string $key, string $siteUrl): string
     {
         $domain = ImageDownloader::domainFromUrl($siteUrl);
@@ -606,7 +606,7 @@ final class Batch
             return false;
         }
         $this->downloadsLeft--;
-        $temporary = self::folder() . '/obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
+        $temporary = self::folder() . '/image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             try {
                 $data = $downloader->download($original);
@@ -635,7 +635,7 @@ final class Batch
         }
     }
 
-    /* ---------- map of foreign and our records (ka_import_mapa) ---------- */
+    /* ---------- map of foreign and our records (ka_import_map) ---------- */
 
     /** The id of our record the foreign one was already converted into – only if it still exists (a deleted one is imported again). */
     private function convertedId(string $type, string $foreignId, string $table, string $key): ?int

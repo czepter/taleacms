@@ -69,12 +69,12 @@ what stays are in [docs/glossary.md](glossary.md).
 
 Done in 1.4.0:
 
-1. Preparation: the glossary, `tools/rename.php` (renames by PHP tokens, refuses name collisions), old class names as
+1. Preparation: the glossary, a rename tool (by PHP tokens, refusing name collisions), old class names as
    aliases, an update test (dropped in the hard fork) and a browser test.
 2. Tools and tests.
 3. PHP classes, functions, constants and variables (`Kaleta\Builder`, `Admin\Modules`…); release packages carry the
    previous release's class files for the update request.
-4. Admin and installer templates, admin and site scripts (`tools/rename-js.mjs`).
+4. Admin and installer templates, admin and site scripts.
 5. Admin URLs `admin.php?module=pages&action=edit`, old URLs redirected, permissions migrated.
 
 Done in 1.4.1:

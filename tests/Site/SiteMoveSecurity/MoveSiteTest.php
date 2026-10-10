@@ -200,7 +200,7 @@ final class MoveSiteTest extends SiteTestCase
         $this->assertStringContainsString('kaleta', $redirect, 'a site with content refuses another import: it sends away');
         $this->assertStringNotContainsString('name="confirmation"', $admin->get('/admin.php?module=transfer&action=kaleta&file=' . $file)->body, 'a site with content offers no confirmation');
 
-        $log = $new->path('storage/log/chyby.log');
+        $log = $new->path('storage/log/errors.log');
         $this->assertTrue(!is_file($log) || filesize($log) === 0, 'no errors on the new site: ' . (is_file($log) ? (string) file_get_contents($log) : ''));
     }
 }

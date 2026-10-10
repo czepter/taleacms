@@ -18,15 +18,15 @@ $languages = Language::additional($app->settings());
 <?= $csrf ?>
 <input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
 <input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>">
-<div class="row"><label for="nazev"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
-<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'pole-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
+<div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
+<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'field-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
 <div class="row<?= $field['type'] === 'html' ? ' span-all' : '' ?>">
 	<label for="<?= e($id) ?>"><?= e($field['label']) ?></label>
 	<div><?= match ($field['type']) {
         'lines' => '<textarea class="textbox low" id="' . e($id) . '" name="' . e($displayName) . '" rows="4">' . e($h) . '</textarea>',
         'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor>' . e($h) . '</textarea>',
         'image' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-image>',
-        'link' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . ' /stranka">',
+        'link' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . '/page">',
         'number' => '<input class="textfield" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
         'date' => '<input class="textfield" type="date" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '">',
         // a whole day is stored without a time; the input shows it at midnight, which saves back as the whole day (Collections::cleanDateTime)
@@ -45,9 +45,9 @@ $languages = Language::additional($app->settings());
 <details class="advanced"<?= $p['description'] !== '' || $p['seo_title'] !== '' || $p['image'] !== '' || $p['noindex'] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="row"><label for="seo_title"><?= e(t('Search engine title')) ?></label><div><input class="textfield wide" id="seo_title" name="seo_title" value="<?= e($p['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = the item name')) ?>"></div></div>
-<div class="row"><label for="popis"><?= e(t('Search engine description')) ?></label><div><input class="textfield wide" id="popis" name="description" value="<?= e($p['description']) ?>" maxlength="300">
+<div class="row"><label for="description"><?= e(t('Search engine description')) ?></label><div><input class="textfield wide" id="description" name="description" value="<?= e($p['description']) ?>" maxlength="300">
 	<span class="help"><?= e(t('One or two sentences for search results (up to 160 characters). Empty = the beginning of the first longer text field.')) ?></span></div></div>
-<div class="row"><label for="obrazek"><?= e(t('Sharing image')) ?></label><div><input class="textfield wide" id="obrazek" name="image" value="<?= e($p['image']) ?>" maxlength="255" placeholder="<?= e(t('empty = the first image field')) ?>" data-image>
+<div class="row"><label for="image"><?= e(t('Sharing image')) ?></label><div><input class="textfield wide" id="image" name="image" value="<?= e($p['image']) ?>" maxlength="255" placeholder="<?= e(t('empty = the first image field')) ?>" data-image>
 	<span class="help"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Options')) ?></span><div class="options"><label><input type="checkbox" name="noindex" value="1"<?= $p['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label>
 	<span class="help"><?= e(t('The item page stays reachable, but it is left out of search engines, the sitemap, llms.txt and site search.')) ?></span></div></div>
@@ -56,13 +56,13 @@ $languages = Language::additional($app->settings());
 <details class="advanced"<?= ($p['publish_at'] ?? null) !== null || ($p['valid_until'] ?? null) !== null || ($p['review_by'] ?? null) !== null ? ' open' : '' ?>>
 <summary><?= e(t('Address, order and visibility')) ?></summary>
 <?php if ($k['detail']): ?>
-<div class="row"><label for="seo_link"><?= e(t('URL')) ?></label><div><input class="textfield" id="seo_link" name="slug" value="<?= e($p['slug']) ?>" maxlength="150"><span class="help">/<?= e($k['slug']) ?>/…</span></div></div>
+<div class="row"><label for="slug"><?= e(t('URL')) ?></label><div><input class="textfield" id="slug" name="slug" value="<?= e($p['slug']) ?>" maxlength="150"><span class="help">/<?= e($k['slug']) ?>/…</span></div></div>
 <?php else: ?>
 <input type="hidden" name="slug" value="<?= e($p['slug']) ?>">
 <?php endif ?>
-<div class="row"><label for="poradi"><?= e(t('Order')) ?></label><div><input class="textfield" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>" min="-9999" max="9999"><span class="help"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
+<div class="row"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textfield" type="number" id="sort_order" name="sort_order" value="<?= (int) $p['sort_order'] ?>" min="-9999" max="9999"><span class="help"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Display')) ?></span><div class="options"><label><input type="checkbox" name="visible" value="1"<?= $p['visible'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
-	<span class="help" data-active-when="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textfield" type="datetime-local" id="zverejnit_od" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"></span></div></div>
+	<span class="help" data-active-when="visible="><label for="publish_at"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textfield" type="datetime-local" id="publish_at" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"></span></div></div>
 <div class="row">
 	<label for="valid_until"><?= e(t('True until')) ?></label>
 	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
@@ -74,7 +74,7 @@ $languages = Language::additional($app->settings());
 	<span class="help"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
 </div>
 <?php if ($languages !== []): ?>
-<div class="row"><label for="jazyk"><?= e(t('Language')) ?></label><div><select id="jazyk" name="language">
+<div class="row"><label for="language"><?= e(t('Language')) ?></label><div><select id="language" name="language">
 	<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?></option>
 <?php foreach ($languages as $j): ?>
 	<option value="<?= e($j) ?>"<?= $p['language'] === $j ? ' selected' : '' ?>><?= e(Language::AVAILABLE[$j][0]) ?></option>

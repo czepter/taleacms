@@ -11,7 +11,7 @@ use Kaleta\Builder\Build;
  * text of an attribute into markup, and what they stored then is still on the site. Migration 0074 starts this check, the
  * background job "import_recheck" finishes it on a large site; the state is the setting imported_recheck (JSON).
  *
- * Only what the import map (ka_import_mapa) lists is looked at – imported news, pages and collection items – and only
+ * Only what the import map (ka_import_map) lists is looked at – imported news, pages and collection items – and only
  * what is risky changes, so everything an editor wrote since stays as it is:
  *  - HTML that can run a script (a <script>, an on… attribute, a javascript: address, an <object>…) goes through the
  *    sanitizer the import used: Html::safe for an import of a website (source web:…), WpContent::safeHtml for the others;

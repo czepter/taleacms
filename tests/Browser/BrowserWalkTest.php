@@ -63,7 +63,7 @@ final class BrowserWalkTest extends TestCase
             $exit = proc_close($process);
 
             $this->assertSame(0, $exit, $output);
-            $log = $site->path('storage/log/chyby.log');
+            $log = $site->path('storage/log/errors.log');
             $this->assertSame('', is_file($log) ? (string) file_get_contents($log) : '', 'application error log');
         } finally {
             $site->close();

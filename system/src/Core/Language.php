@@ -64,10 +64,10 @@ final class Language
         'zh' => ['中文', 'zh_CN', 'Y-m-d'],
     ];
 
-    /** Codes from AVAILABLE for Settings field types (vyber:… / seznam:…). */
+    /** Codes from AVAILABLE for Settings field types (choice:… / list:…). */
     public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
 
-    private static string $code = 'cs';
+    private static string $code = 'en';
 
     private static bool $loaded = false;
     private static string $column = '';
@@ -103,7 +103,7 @@ final class Language
      */
     public static function set(string $code, string $dictionarySet = '', ?string $register = null): void
     {
-        self::$code = isset(self::AVAILABLE[$code]) ? $code : 'cs';
+        self::$code = isset(self::AVAILABLE[$code]) ? $code : 'en';
         self::$register = in_array($register, self::REGISTERS, true) ? $register : ($dictionarySet === '' ? self::$siteRegister : self::$adminRegister);
         self::$loaded = true;
         self::$dictionary = [];
@@ -142,7 +142,7 @@ final class Language
     }
 
     /**
-     * Language of the currently shown version of the site; also remembers the value of the "jazyk" column for queries.
+     * Language of the currently shown version of the site; also remembers the value of the "language" column for queries.
      */
     public static function setSite(Settings $s, string $code): void
     {
@@ -170,7 +170,7 @@ final class Language
         }
     }
 
-    /** Value of the "jazyk" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
+    /** Value of the "language" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
     public static function siteColumn(): string
     {
         return self::$column;
@@ -227,7 +227,7 @@ final class Language
     /** Default language of the site. */
     public static function defaults(Settings $s): string
     {
-        return isset(self::AVAILABLE[$s->get('site_language')]) ? $s->get('site_language') : 'cs';
+        return isset(self::AVAILABLE[$s->get('site_language')]) ? $s->get('site_language') : 'en';
     }
 
     /**
@@ -262,13 +262,13 @@ final class Language
         return array_values(array_intersect($additional, $done));
     }
 
-    /** Language of content by the "jazyk" column (page, category, news item): empty = the site's default language. */
+    /** Language of content by the "language" column (page, category, news item): empty = the site's default language. */
     public static function ofContent(Settings $s, string $column): string
     {
         return isset(self::AVAILABLE[$column]) ? $column : self::defaults($s);
     }
 
-    /** Value of the "jazyk" column for the given language: the site's default language is stored as an empty string. */
+    /** Value of the "language" column for the given language: the site's default language is stored as an empty string. */
     public static function column(Settings $s, string $code): string
     {
         return $code === self::defaults($s) || !in_array($code, self::additional($s), true) ? '' : $code;

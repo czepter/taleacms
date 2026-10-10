@@ -21,8 +21,8 @@ final class SomethingTest extends SiteTestCase
 
     public function testThePageWorks(): void
     {
-        $this->assertPage('/sluzby', 200, 'Služby');          // old: check "…" 200 /sluzby "Služby"
-        $this->site()->exec("UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'x'");
+        $this->assertPage('/services', 200, 'Services');
+        $this->site()->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'x'");
         $this->site()->clearPageCache();
     }
 }
@@ -41,7 +41,7 @@ final class SomethingTest extends SiteTestCase
 | Need | Use |
 |---|---|
 | the site | `$this->site()`: `->base` (URL), `->root`, `->path('x')`, `->workDir('n')`, `->password`, `->mcpToken`, `->port('name')`, `->freePort()` |
-| browser as the signed-in administrator | `$this->site()->admin()` (`Http`: `->get($path)`, `->post($path, $fields)`, `->upload($path, $fields, ['soubor' => $file])`) |
+| browser as the signed-in administrator | `$this->site()->admin()` (`Http`: `->get($path)`, `->post($path, $fields)`, `->upload($path, $fields, ['file' => $file])`) |
 | a visitor / another person | `$this->site()->client('name')` (own cookie jar), `->signIn($client, $user, $password)` |
 | response | `Response`: `->status`, `->body`, `->redirect`, `->headers['name']`, `->contains()`, `->matches()`, `->json()`, `->text()`, `->csrf()`, `->field('name')` |
 | old `check "x" 200 /path "text"` | `$this->assertPage('/path', 200, 'text' or [..], as: $client, message: 'x')` (default browser = signed-in admin, like the old script after login) |
@@ -49,8 +49,8 @@ final class SomethingTest extends SiteTestCase
 | `csrf` / `$TOKEN` | `$this->site()->csrf($client, '/page')` |
 | `mcp tool '{json}'` | `$this->site()->mcp('tool', [..])` (decoded JSON-RPC), `->mcpResult('tool', [..])` (the tool's text, decoded when JSON), `->mcp('tool', $args, token: $other)` |
 | `sq "SELECT …"` (mysql client) | `->value($sql, $params)` (first column), `->rows($sql, $params)`, `->exec($sql, $params)` |
-| `REPLACE INTO ka_nastaveni …` | `->setting('name', 'value')`, `->settingValue('name')` |
-| `rm -f $WORK/web/storage/cache/stranky/*.html` | `->clearPageCache()` |
+| `REPLACE INTO ka_settings …` | `->setting('name', 'value')`, `->settingValue('name')` |
+| `rm -f $WORK/web/storage/cache/pages/*.html` | `->clearPageCache()` |
 | `curl "$B/ulohy?token=testtoken123"` | `->runTasks()` (background jobs, web-cron way) |
 | `php -r 'require system/bootstrap.php; …'` in the site | `->php('code')` (cwd = the site, bootstrap loaded; returns the output) |
 | `php -S` fake servers (SMTP, S3, channel, service …) | `->startPhp($dir, $router, ['ENV' => 'v'], $port)` (waits until it answers; stopped after the class). The repo's fakes are in `dirname(__DIR__, 3) . '/tools'` (`fake-smtp.php`, `fake-services.php`, …) |

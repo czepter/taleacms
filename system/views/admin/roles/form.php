@@ -15,12 +15,12 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?= $csrf ?>
 <input type="hidden" name="role_id" value="<?= (int) $role['role_id'] ?>">
 <div class="row">
-	<label for="nazev"><?= e(t('Role name')) ?></label>
-	<div><input class="textfield" type="text" id="nazev" name="name" value="<?= e($role['name']) ?>" maxlength="60" required placeholder="<?= e(t('e.g. Salesperson')) ?>"><?= $error('name') ?></div>
+	<label for="name"><?= e(t('Role name')) ?></label>
+	<div><input class="textfield" type="text" id="name" name="name" value="<?= e($role['name']) ?>" maxlength="60" required placeholder="<?= e(t('e.g. Salesperson')) ?>"><?= $error('name') ?></div>
 </div>
 <div class="row">
-	<label for="popis"><?= e(t('Description')) ?></label>
-	<input class="textfield wide" type="text" id="popis" name="description" value="<?= e($role['description']) ?>" maxlength="200">
+	<label for="description"><?= e(t('Description')) ?></label>
+	<input class="textfield wide" type="text" id="description" name="description" value="<?= e($role['description']) ?>" maxlength="200">
 </div>
 <fieldset>
 <legend><?= e(t('News')) ?></legend>

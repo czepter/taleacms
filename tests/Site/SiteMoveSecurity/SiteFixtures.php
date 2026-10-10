@@ -41,7 +41,7 @@ trait SiteFixtures
     /** The newest backup file of the site (not the pre-restore ones). */
     protected function newestBackup(Site $site): string
     {
-        $files = array_filter(glob($site->path('storage/zalohy/*')) ?: [], static fn (string $f): bool => is_file($f) && !str_contains($f, 'before_restore'));
+        $files = array_filter(glob($site->path('storage/backups/*')) ?: [], static fn (string $f): bool => is_file($f) && !str_contains($f, 'before_restore'));
         usort($files, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
 
         return $files === [] ? '' : basename($files[0]);

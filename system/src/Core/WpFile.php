@@ -110,7 +110,7 @@ final class WpFile
     /**
      * Data from the start of the file (before the first post): old site, authors, categories, tags.
      *
-     * @return array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>}
+     * @return array{name:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{name:string, predek:string}>, stitky:array<string,string>}
      */
     public function header(): array
     {

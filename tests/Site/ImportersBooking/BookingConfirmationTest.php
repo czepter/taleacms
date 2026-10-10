@@ -33,13 +33,13 @@ final class BookingConfirmationTest extends SiteTestCase
         $this->bookingText('save_booking_service', ['id' => self::$service, 'requires_confirmation' => true]);
         $this->assertSame('1', $this->q('SELECT requires_confirmation FROM ka_booking_services WHERE id = ' . self::$service), '3.3 booking: the service needs confirmation');
         $this->site()->setting('booking_pending_mail', 'Hi {name}, we got your message.');
-        $this->assertStringContainsString('result=pending', $this->book(['slot' => "$day 15:00", 'name' => 'Pavla Request', 'email' => 'pavla-bk@example.cz', 'souhlas' => '1']), "3.3 booking: a visitor's request comes back as pending");
+        $this->assertStringContainsString('result=pending', $this->book(['slot' => "$day 15:00", 'name' => 'Pavla Request', 'email' => 'pavla-bk@example.cz', 'consent' => '1']), "3.3 booking: a visitor's request comes back as pending");
         $this->assertSame('pending|1', $this->q("SELECT CONCAT(status, '|', hold_until IS NOT NULL) FROM ka_bookings WHERE email = 'pavla-bk@example.cz'"), '3.3 booking: saved as pending with a hold');
         $this->assertSame('1|1|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM ka_mail WHERE recipient = 'pavla-bk@example.cz' AND subject LIKE 'We received your request for%' AND body LIKE '%Hi Pavla Request, we got your message.%'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Request waiting for your answer%'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'pavla-bk@example.cz'))"), "3.3 booking: the customer got the acknowledgement in the site's own words, the person the notification, nobody a confirmation");
         $slots = $this->slots()->body;
         $this->assertStringNotContainsString('"15:00"', $slots, '3.3 booking: a pending request holds its time');
         $this->assertStringContainsString('"16:00"', $slots, '3.3 booking: the time after the held one is free');
-        $this->assertStringContainsString('result=taken', $this->book(['slot' => "$day 15:00", 'name' => 'Druha', 'email' => 'druha-bk@example.cz', 'souhlas' => '1']), '3.3 booking: nobody else can take the held time');
+        $this->assertStringContainsString('result=taken', $this->book(['slot' => "$day 15:00", 'name' => 'Druha', 'email' => 'druha-bk@example.cz', 'consent' => '1']), '3.3 booking: nobody else can take the held time');
     }
 
     public function testAcceptAndDecline(): void
@@ -54,7 +54,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $this->adminPost('/admin.php?module=bookings&action=confirm', ['id' => self::$accepted], $detail);
         $this->assertSame('confirmed|1|1', $this->q("SELECT CONCAT(status, '|', hold_until IS NULL, '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'pavla-bk@example.cz' AND body LIKE '%_booking%cancel%')) FROM ka_bookings WHERE id = " . self::$accepted), '3.3 booking: accepted - confirmed, hold released, the customer got the confirmation with a cancel link');
 
-        $this->book(['slot' => "$day 16:00", 'name' => 'Dana Declined', 'email' => 'dana-bk@example.cz', 'souhlas' => '1']);
+        $this->book(['slot' => "$day 16:00", 'name' => 'Dana Declined', 'email' => 'dana-bk@example.cz', 'consent' => '1']);
         self::$declined = $this->booking('dana-bk@example.cz');
         $this->adminPost('/admin.php?module=bookings&action=decline', ['id' => self::$declined, 'message' => 'Sadly I am not in on Thursday.'], '/admin.php?module=bookings&action=detail&id=' . self::$declined);
         $this->assertSame('declined|admin|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'dana-bk@example.cz' AND body LIKE '%Sadly I am not in on Thursday.%')) FROM ka_bookings WHERE id = " . self::$declined), '3.3 booking: declined - the customer is told with the personal message');
@@ -66,7 +66,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $this->bookingFixture();
         $day = self::$day;
         $site = $this->site();
-        $this->book(['slot' => "$day 16:00", 'name' => 'Eva Proposal', 'email' => 'eva-bk@example.cz', 'souhlas' => '1']);
+        $this->book(['slot' => "$day 16:00", 'name' => 'Eva Proposal', 'email' => 'eva-bk@example.cz', 'consent' => '1']);
         self::$proposed = $this->booking('eva-bk@example.cz');
         $this->assertStringContainsString('confirm', $this->bookingRaw('propose_booking_times', ['id' => self::$proposed, 'times' => ["$day 12:30"]]), '3.3 booking: propose_booking_times needs an explicit confirmation');
         $this->assertStringContainsString('not free', $this->bookingRaw('propose_booking_times', ['id' => self::$proposed, 'times' => ["$day 15:00"], 'confirm' => true]), '3.3 booking: a time that is not free cannot be proposed');
@@ -89,7 +89,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $day = self::$day;
         $site = $this->site();
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'booking'"); // the limit of five bookings an hour from one address
-        $this->book(['slot' => "$day 16:00", 'name' => 'Hana Waiting', 'email' => 'hana-bk@example.cz', 'souhlas' => '1']);
+        $this->book(['slot' => "$day 16:00", 'name' => 'Hana Waiting', 'email' => 'hana-bk@example.cz', 'consent' => '1']);
         $site->exec("UPDATE ka_bookings SET hold_until = NOW() - INTERVAL 1 HOUR WHERE email = 'hana-bk@example.cz'");
         $site->exec("UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'");
         $site->runTasks();
@@ -97,7 +97,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $site->exec("UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'");
         $site->runTasks();
         $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Still waiting for your answer%'"), '3.3 booking: the reminder goes out once');
-        $this->assertStringContainsString('result=pending', $this->book(['slot' => "$day 16:00", 'name' => 'Iva', 'email' => 'iva-bk@example.cz', 'souhlas' => '1']), '3.3 booking: after the hold the time can be requested by someone else');
+        $this->assertStringContainsString('result=pending', $this->book(['slot' => "$day 16:00", 'name' => 'Iva', 'email' => 'iva-bk@example.cz', 'consent' => '1']), '3.3 booking: after the hold the time can be requested by someone else');
         $site->mcp('confirm_booking', ['id' => $this->booking('iva-bk@example.cz'), 'confirm' => true]);
         $this->assertSame('confirmed', $this->q("SELECT status FROM ka_bookings WHERE email = 'iva-bk@example.cz'"), '3.3 booking: Claude accepts the request that holds the time now');
         $this->assertStringContainsString('taken', $this->bookingRaw('confirm_booking', ['id' => $this->booking('hana-bk@example.cz'), 'confirm' => true]), '3.3 booking: a request whose held time ran out and was taken cannot be accepted');

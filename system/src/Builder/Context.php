@@ -30,7 +30,7 @@ final class Context
     /** @var list<array{type: string, fields: array<string, mixed>}> cleaned nodes of Structured data elements – for the page's JSON-LD graph */
     public array $structured = [];
 
-    /** @var list<array{titulek:string, seo_link:string}> pages of the main navigation (supplied by the site) */
+    /** @var list<array{title:string, slug:string}> pages of the main navigation (supplied by the site) */
     public array $menu = [];
 
     /** Path of the displayed page (for aria-current in the navigation). */
@@ -39,7 +39,7 @@ final class Context
     /** Finished switcher of the site's language versions (empty on a single-language site). */
     public string $languages = '';
 
-    /** @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> language versions for the Language switcher element */
+    /** @var array<string, array{name:string, url:string, active:bool, translated:bool}> language versions for the Language switcher element */
     public array $languageList = [];
 
     /** Light and dark color scheme switcher for visitors (empty when disabled); the Navigation element adds it after the menu. */

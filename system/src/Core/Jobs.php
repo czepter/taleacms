@@ -12,7 +12,7 @@ use Kaleta\Admin\Modules\Enquiries;
  *
  * The jobs themselves close by their "true until" (Core\Validity) and are described for search engines as JobPosting
  * (Builder\CollectionSchema); the site audit lists a job without a closing date (Core\Audit). This class takes care of the
- * applications: they are enquiries sent from a job's item page, so their source (ka_poptavky.zdroj = collection:<idk>) names a
+ * applications: they are enquiries sent from a job's item page, so their source (ka_enquiries.zdroj = collection:<idk>) names a
  * collection made from the jobs preset. That is more robust than the form name – the administrator may rename the form or
  * translate it, a copy of the form on an ordinary page is not an application, and nothing new is stored on the enquiry.
  *

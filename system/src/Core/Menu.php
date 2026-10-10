@@ -11,7 +11,7 @@ use Kaleta\Builder\Icons;
  * Items: page (with custom text or the page title), custom link, news, group (text only) – each with an optional icon
  * (Builder\Icons) and a short description (shown in a mega menu) – and under each of them one level of submenu. A group inside
  * a submenu may have its own items: in a mega menu (Navigation element) it is a column with the group text as its heading.
- * Until someone saves the main menu, it builds itself from pages "in menu" (v_menu).
+ * Until someone saves the main menu, it builds itself from pages "in menu" (in_menu).
  */
 final class Menu
 {
@@ -153,7 +153,7 @@ final class Menu
 
     /**
      * List of <li> (without the wrapping <ul>) for the template and the Navigation element. An item with a submenu has the
-     * class "submenu" and a nested <ul>; the active link gets aria-current, its parent item the class "aktivni". An icon is an
+     * class "submenu" and a nested <ul>; the active link gets aria-current, its parent item the class "active". An icon is an
      * inline SVG (class menu-icon) before the label. A group inside a submenu with items of its own is a column (class
      * menu-column): a heading (menu-heading) and its list.
      *

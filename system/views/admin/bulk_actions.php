@@ -1,6 +1,6 @@
 <?php
 /**
- * Bulk actions under a list (2.14): the checkboxes in the table carry form="hromadne", so the rows keep their own small
+ * Bulk actions under a list (2.14): the checkboxes in the table carry form="bulk", so the rows keep their own small
  * forms. With site languages the action "language version" appears with a choice; $categories adds "category" (news).
  *
  * @var string $csrf
@@ -12,7 +12,7 @@
  */
 use Kaleta\Core\Language;
 ?>
-<form id="hromadne" class="bulk" method="post" action="<?= e($action) ?>" data-confirm="<?= e(t('Apply the action to the selected items?')) ?>">
+<form id="bulk" class="bulk" method="post" action="<?= e($action) ?>" data-confirm="<?= e(t('Apply the action to the selected items?')) ?>">
 	<?= $csrf ?>
 <?php foreach ($hidden ?? [] as $name => $value): ?>
 	<input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>">
@@ -23,10 +23,10 @@ use Kaleta\Core\Language;
 		<option value="<?= e($value) ?>"><?= e($label) ?></option>
 <?php endforeach ?>
 <?php if (($categories ?? []) !== []): ?>
-		<option value="kategorie"><?= e(t('Category…')) ?></option>
+		<option value="category"><?= e(t('Category…')) ?></option>
 <?php endif ?>
 <?php if ($siteLanguages !== []): ?>
-		<option value="jazyk"><?= e(t('Language version…')) ?></option>
+		<option value="language"><?= e(t('Language version…')) ?></option>
 <?php endif ?>
 	</select></label>
 <?php if (($categories ?? []) !== []): ?>

@@ -25,8 +25,8 @@ final class BackupRestoreTest extends SiteTestCase
         $this->assertNotSame('Po zaloze', $site->settingValue('site_name'), 'the restore brings back the state from the backup');
 
         $gz = str_ends_with($backup, '.gz');
-        $broken = $site->path('storage/zalohy/' . ($gz ? 'kaleta-poskozena.sql.gz' : 'kaleta-poskozena.sql'));
-        $sql = $gz ? (string) gzdecode((string) file_get_contents($site->path('storage/zalohy/' . $backup))) : (string) file_get_contents($site->path('storage/zalohy/' . $backup));
+        $broken = $site->path('storage/backups/' . ($gz ? 'kaleta-poskozena.sql.gz' : 'kaleta-poskozena.sql'));
+        $sql = $gz ? (string) gzdecode((string) file_get_contents($site->path('storage/backups/' . $backup))) : (string) file_get_contents($site->path('storage/backups/' . $backup));
         file_put_contents($broken, $gz ? gzencode(substr($sql, 0, 4000)) : substr($sql, 0, 4000));
         $site->setting('site_name', 'Pred poskozenou');
         $this->adminPost('/admin.php?module=settings&action=restore_backup', ['file' => basename($broken)], '/admin.php?module=settings&tab=backups');

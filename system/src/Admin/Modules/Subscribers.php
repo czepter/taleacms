@@ -90,6 +90,6 @@ final class Subscribers extends Module
         fclose($f);
         \Kaleta\Admin\ChangeLog::write($this->app, 'subscribers', 'export CSV', '');
 
-        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="odberatele-' . date('Y-m-d') . '.csv"']);
+        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="subscribers-' . date('Y-m-d') . '.csv"']);
     }
 }

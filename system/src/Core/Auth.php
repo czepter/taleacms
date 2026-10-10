@@ -419,7 +419,7 @@ final class Auth
         return $this->isAdmin() && ($this->connection['access'] ?? 'full') === 'full';
     }
 
-    /** Does the signed-in user have access to the module? Admin always; others according to ka_uzivatele_prava. */
+    /** Does the signed-in user have access to the module? Admin always; others according to ka_user_permissions. */
     public function hasModule(string $ident, bool $forEveryone = false): bool
     {
         if ($this->user() === null) {
@@ -440,7 +440,7 @@ final class Auth
      * Can the signed-in user edit this news item? The same rules as in the administration: the News module, an author only their own,
      * and a published news item only someone who can publish.
      *
-     * @param array<string, mixed> $newsItem row of ka_novinky
+     * @param array<string, mixed> $newsItem row of ka_news
      */
     public function canEditArticle(array $newsItem): bool
     {

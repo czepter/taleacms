@@ -14,20 +14,20 @@
 <form class="form" method="post" action="<?= e($module->url('create')) ?>">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Appointment')) ?></legend>
-<div class="row"><label for="sluzba"><?= e(t('Service')) ?></label><div><select id="sluzba" name="service" required><option value=""><?= e(t('— choose —')) ?></option>
+<div class="row"><label for="service"><?= e(t('Service')) ?></label><div><select id="service" name="service" required><option value=""><?= e(t('— choose —')) ?></option>
 <?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= (int) ($old['service'] ?? 0) === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?> (<?= e(t('%d min', $s['duration_min'])) ?>)</option><?php endforeach ?>
 </select></div></div>
-<div class="row"><label for="osoba"><?= e(t('Person')) ?></label><div><select id="osoba" name="staff_member"><option value="0"><?= e(t('Anyone available')) ?></option>
+<div class="row"><label for="staff_member"><?= e(t('Person')) ?></label><div><select id="staff_member" name="staff_member"><option value="0"><?= e(t('Anyone available')) ?></option>
 <?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= (int) ($old['staff_member'] ?? 0) === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?>
 </select></div></div>
-<div class="row"><label for="den"><?= e(t('Day and time')) ?></label><div><input class="textfield" type="date" id="den" name="day" required value="<?= e((string) ($old['day'] ?? date('Y-m-d'))) ?>"> <input class="textfield short" type="time" name="time" required step="300" value="<?= e((string) ($old['time'] ?? '')) ?>" aria-label="<?= e(t('Time')) ?>">
+<div class="row"><label for="day"><?= e(t('Day and time')) ?></label><div><input class="textfield" type="date" id="day" name="day" required value="<?= e((string) ($old['day'] ?? date('Y-m-d'))) ?>"> <input class="textfield short" type="time" name="time" required step="300" value="<?= e((string) ($old['time'] ?? '')) ?>" aria-label="<?= e(t('Time')) ?>">
 <span class="help"><?= e(t('The time must be free for the person within their hours; the lead time for visitors does not apply here.')) ?></span></div></div>
 </fieldset>
 <fieldset><legend><?= e(t('Customer')) ?></legend>
-<div class="row"><label for="jmeno"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="jmeno" name="name" required maxlength="150" value="<?= e((string) ($old['name'] ?? '')) ?>"></div></div>
+<div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" required maxlength="150" value="<?= e((string) ($old['name'] ?? '')) ?>"></div></div>
 <div class="row"><label for="email"><?= e(t('Email')) ?></label><div><input class="textfield wide" type="email" id="email" name="email" maxlength="190" value="<?= e((string) ($old['email'] ?? '')) ?>"><span class="help"><?= e(t('With an e-mail the customer gets the confirmation, the cancel link and the reminder.')) ?></span></div></div>
-<div class="row"><label for="telefon"><?= e(t('Phone')) ?></label><div><input class="textfield" type="tel" id="telefon" name="phone" maxlength="30" value="<?= e((string) ($old['phone'] ?? '')) ?>"></div></div>
-<div class="row"><label for="poznamka"><?= e(t('Note')) ?></label><div><textarea class="textbox low" id="poznamka" name="note" rows="3" maxlength="1000"><?= e((string) ($old['note'] ?? '')) ?></textarea></div></div>
+<div class="row"><label for="phone"><?= e(t('Phone')) ?></label><div><input class="textfield" type="tel" id="phone" name="phone" maxlength="30" value="<?= e((string) ($old['phone'] ?? '')) ?>"></div></div>
+<div class="row"><label for="note"><?= e(t('Note')) ?></label><div><textarea class="textbox low" id="note" name="note" rows="3" maxlength="1000"><?= e((string) ($old['note'] ?? '')) ?></textarea></div></div>
 </fieldset>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save booking')) ?>"></p>
 </form>

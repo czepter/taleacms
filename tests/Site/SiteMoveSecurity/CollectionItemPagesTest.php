@@ -142,7 +142,7 @@ final class CollectionItemPagesTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_not_found WHERE path IN ('wp/v2/users', '_next')"), '404 log: bot probes are not recorded');
 
         $start = $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 2.', message: 'the start screen explains the 404 warning and offers to review it');
-        $this->assertStringContainsString('module=redirects#nenalezeno', $start->body, 'the warning links to the list');
+        $this->assertStringContainsString('module=redirects#not-found', $start->body, 'the warning links to the list');
         $this->assertStringContainsString('action=ignore_all', $start->body, 'the warning can be dismissed');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_not_found WHERE path = 'about-us'"), 'an address that works again drops out of the log');
         $this->assertPage('/admin.php?module=redirects', 200, 'Ignore – nothing replaces it', message: 'the 404 list says what to do');
@@ -182,7 +182,7 @@ final class CollectionItemPagesTest extends SiteTestCase
         $this->assertNotSame('', $last, 'a backup exists');
 
         $download = $admin->get('/admin.php?module=settings&action=download_backup&file=' . $last);
-        $this->assertSame(filesize($site->path('storage/zalohy/' . $last)), strlen($download->body), 'a backup downloads whole (streamed)');
+        $this->assertSame(filesize($site->path('storage/backups/' . $last)), strlen($download->body), 'a backup downloads whole (streamed)');
         $this->assertSame('text/html; charset=utf-8', strtolower($admin->get('/admin.php?module=settings&action=media_backup')->headers['content-type'] ?? ''), 'the media ZIP is not built by a GET');
 
         $zipResponse = $admin->post('/admin.php?module=settings&action=media_backup', ['_csrf' => $site->csrf($admin, '/admin.php?module=settings&tab=backups')]);

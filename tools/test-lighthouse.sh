@@ -30,18 +30,18 @@ for SITE in $SITES; do
   (cd "$WORK/web" && PHP_CLI_SERVER_WORKERS=4 exec php -S "127.0.0.1:$SITE_PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
   for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
   PASSWORD="Lighthouse-$(openssl rand -hex 8)"
-  curl -s -o "$WORK/response" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
-    --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Lighthouse Test Ltd" -d "web=$SITE" -d user=admin -d "jmeno=Tester" -d email= \
+  curl -s -o "$WORK/response" -X POST "$B/install.php" -d language=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
+    --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "site_name=Lighthouse Test Ltd" -d "starter=$SITE" -d username=admin -d "name=Tester" -d email= \
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
-    -d 'rozsireni[]=news' -d 'rozsireni[]=enquiries' -d 'rozsireni[]=stats' -d 'rozsireni[]=redirects'
-  [ ! -f "$WORK/web/install.php" ] || { echo "  CHYBA  install of $SITE failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
+    -d 'extensions[]=news' -d 'extensions[]=enquiries' -d 'extensions[]=stats' -d 'extensions[]=redirects'
+  [ ! -f "$WORK/web/install.php" ] || { echo "  FAIL   install of $SITE failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
   # the home page and the pages of the starter site from the sitemap
   curl -s "$B/sitemap.xml" > "$WORK/sitemap.xml"
   PAGES=$(grep -o '<loc>[^<]*</loc>' "$WORK/sitemap.xml" | sed 's#<loc>[^/]*//[^/]*##;s#</loc>##' | head -5)
   for P in ${PAGES:-/}; do
     curl -s -o /dev/null "$B$P" # a warm page cache, as for a real visitor
     CHROME_PATH="$CHROME" "$WORK/lh/node_modules/.bin/lighthouse" "$B$P" --quiet --chrome-flags="--headless=new --no-sandbox" --output=json --output-path="$WORK/lh.json" \
-      --only-categories=performance,accessibility,best-practices,seo > /dev/null 2>&1 || { echo "  CHYBA  Lighthouse failed on $P"; ERRORS=$((ERRORS+1)); continue; }
+      --only-categories=performance,accessibility,best-practices,seo > /dev/null 2>&1 || { echo "  FAIL   Lighthouse failed on $P"; ERRORS=$((ERRORS+1)); continue; }
     RESULT=$(node -e '
       const r = require(process.argv[1]), c = r.categories, perf = +process.argv[2], other = +process.argv[3];
       const s = k => Math.round(c[k].score * 100), low = [];
@@ -51,9 +51,9 @@ for SITE in $SITES; do
       for (const [id, a] of Object.entries(r.audits)) if (a.score !== null && a.score < 1 && ["binary", "numeric"].includes(a.scoreDisplayMode) && r.categories.accessibility.auditRefs.concat(r.categories["best-practices"].auditRefs, r.categories.seo.auditRefs).some(x => x.id === id && x.weight > 0)) failed.push(id);
       console.log((low.length ? "LOW " : "OK ") + Object.keys(c).map(k => k + " " + s(k)).join(", ") + " · LCP " + r.audits["largest-contentful-paint"].displayValue + ", CLS " + r.audits["cumulative-layout-shift"].displayValue + (failed.length ? " · failing: " + failed.join(", ") : ""));
     ' "$WORK/lh.json" "$MIN_PERF" "$MIN_OTHER")
-    if [ "${RESULT%% *}" = OK ]; then echo "  ok     $P: ${RESULT#OK }"; else echo "  CHYBA  $P: ${RESULT#LOW }"; ERRORS=$((ERRORS+1)); fi
+    if [ "${RESULT%% *}" = OK ]; then echo "  ok     $P: ${RESULT#OK }"; else echo "  FAIL   $P: ${RESULT#LOW }"; ERRORS=$((ERRORS+1)); fi
   done
-  if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "  CHYBA  application error log:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
+  if [ -s "$WORK/web/storage/log/errors.log" ]; then echo "  FAIL   application error log:"; cat "$WORK/web/storage/log/errors.log"; ERRORS=$((ERRORS+1)); fi
 done
 
 echo

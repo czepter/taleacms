@@ -8,7 +8,7 @@ use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
 /**
- * News and the company blog (in the database table ka_novinky, categories = ka_kategorie).
+ * News and the company blog (in the database table ka_news, categories = ka_categories).
  *
  * Rules:
  *  - an author sees and edits only their own news items and cannot publish,
@@ -305,7 +305,7 @@ final class News extends Module
     }
 
     /**
-     * Saving from editing "directly on the site" (views/front/upravit.php): only the title, intro and text. The same rules
+     * Saving from editing "directly on the site" (views/front/edit.php): only the title, intro and text. The same rules
      * apply as for a regular save - permissions via load(), a published news item only with the permission to publish,
      * versions, search, image usage.
      */
@@ -320,7 +320,7 @@ final class News extends Module
         // an unpublished news item is visible on the site only in the preview
         $preview = $newsItem['visible'] && strtotime((string) $newsItem['published_at']) <= time() ? '' : 'preview=1';
         if ($data['title'] === '') {
-            return $this->redirectToSite($r->post('back'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&error=1');
+            return $this->redirectToSite($r->post('back'), '?' . ($preview !== '' ? $preview . '&' : '') . 'edit=text&error=1');
         }
         if ([$newsItem['title'], $newsItem['intro'], $newsItem['text']] !== array_values($data)) {
             self::version($this->db, $newsItem, $this->app->auth()->id());

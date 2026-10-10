@@ -29,7 +29,7 @@
 <?php foreach ($warnings as $w): [$text, $url] = $w; ?>
 <div class="notice notice-warning notice-actions"><p><?= e($text) ?></p>
 	<p class="navigation-row"><a class="navigation" href="<?= e($url) ?>"><?= e($w[2] ?? t('Fix')) ?></a><?php if (isset($w[3])): ?>
-		<form class="inline" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="back" value="prehled"><button class="navigation" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
+		<form class="inline" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="back" value="overview"><button class="navigation" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
 </div>
 <?php endforeach ?>
 <?php if ($ask !== null): ?>

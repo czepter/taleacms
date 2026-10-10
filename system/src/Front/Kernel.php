@@ -347,13 +347,13 @@ final class Kernel
             // screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret, otherwise 404
             return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
         }
-        if ($path === '/stav.json') {
+        if ($path === '/status.json') {
             $token = $this->app->settings()->get('health_token');
             if ($token === '' || !hash_equals($token, $request->get('token'))) {
                 return Response::json(['error' => 'Invalid token.'], 403);
             }
-            // monitoring always gets the texts in Czech - they must not change with the language of the shown site version
-            $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app));
+            // monitoring always gets the texts in English - they must not change with the language of the shown site version
+            $checks = Language::runWith('en', fn (): array => \Kaleta\Core\Health::checks($this->app));
 
             return Response::json(['status' => \Kaleta\Core\Health::summary($checks), 'version' => KALETA_VERSION, 'time' => date('c'), 'checks' => $checks]);
         }
@@ -805,7 +805,7 @@ final class Kernel
             $this->breadcrumbs([t('News'), '']);
         }
 
-        return $this->page($home ? '' : t('News'), $this->view->render('vypis', ['heading' => t('News'), 'description' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'news')), [
+        return $this->page($home ? '' : t('News'), $this->view->render('list', ['heading' => t('News'), 'description' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'news')), [
             'main' => $home,
             // without a site description: the list's own summary (the site name and the latest headlines)
             'description' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
@@ -827,7 +827,7 @@ final class Kernel
 
         return $this->page(
             $category['name'],
-            $this->view->render('vypis', ['heading' => $category['name'], 'description' => self::authored(\Kaleta\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
+            $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Kaleta\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
             ['description' => strip_tags($category['description']), 'part' => 'list'],
         );
     }
@@ -843,7 +843,7 @@ final class Kernel
         // a tag with a description is a topic page: intro and its own description for search engines
         $colorScheme = trim((string) $tag['description']) !== '';
 
-        return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('vypis', [
+        return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('list', [
             'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
             'description' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
@@ -881,7 +881,7 @@ final class Kernel
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['tags'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);
 
-        $content = $this->view->render('novinka', [
+        $content = $this->view->render('news-item', [
             // what the editor wrote; the item itself stays as it is for the description and structured data
             'newsItem' => array_map(self::authored(...), array_filter(array_intersect_key($newsItem, ['intro' => 1, 'text' => 1, 'faq_html' => 1, 'image_caption_html' => 1]), is_string(...))) + $newsItem,
             'url' => $this->app->url(...),
@@ -932,7 +932,7 @@ final class Kernel
 
         return $this->page(
             t('Search'),
-            $this->view->render('vypis', ['heading' => t('Search'), 'description' => '', 'searched' => $q, 'foundPages' => $pages] + $this->listVariables($news, $total, $pageNumber, 'search', ['q' => $q])),
+            $this->view->render('list', ['heading' => t('Search'), 'description' => '', 'searched' => $q, 'foundPages' => $pages] + $this->listVariables($news, $total, $pageNumber, 'search', ['q' => $q])),
             ['noindex' => true],
         );
     }
@@ -991,7 +991,7 @@ final class Kernel
             }
         }
 
-        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'pages' => $this->menuPages(), 'news' => Extensions::isEnabled($this->app->settings(), 'news')]), ['noindex' => true, 'part' => 'not_found'], 404);
+        return $this->page(t('Page not found'), $this->view->render('not-found', ['url' => $this->app->url(...), 'pages' => $this->menuPages(), 'news' => Extensions::isEnabled($this->app->settings(), 'news')]), ['noindex' => true, 'part' => 'not_found'], 404);
     }
 
     /**
@@ -1021,7 +1021,7 @@ final class Kernel
      * An empty array = the site has a single language.
      *
      * @param array<string, mixed>|null $newsItem
-     * @return array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}>
+     * @return array<string, array{name:string, url:string, active:bool, translated:bool}>
      */
     private function languages(?array $newsItem): array
     {
@@ -1068,7 +1068,7 @@ final class Kernel
      * "Edit here" link, and with ?edit=text it returns a form with the editor instead of the content.
      * The administration saves it (action save_text).
      *
-     * @param array<string, mixed> $record row of ka_stranky or ka_novinky
+     * @param array<string, mixed> $record row of ka_pages or ka_news
      */
     private function editInPlace(string $type, array $record, string $path): ?string
     {
@@ -1084,7 +1084,7 @@ final class Kernel
             return null;
         }
 
-        return $this->view->render('upravit', [
+        return $this->view->render('edit', [
             'app' => $this->app, 'type' => $type, 'record' => $record,
             'back' => $url . ($this->app->request->get('preview') === '1' ? '?preview=1' : ''),
             'action' => $this->app->url('admin.php?module=' . ($type === 'news' ? 'news' : 'pages') . '&action=save_text'),
@@ -1092,7 +1092,7 @@ final class Kernel
         ]);
     }
 
-    /** @var list<array{titulek:string, seo_link:string, uvod:bool}>|null */
+    /** @var list<array{title:string, slug:string, intro:bool}>|null */
     private ?array $menuPages = null;
 
     /** Pages for the template's main navigation (the home page leads to the site root). */
@@ -1376,10 +1376,10 @@ final class Kernel
         }
         $meta['breadcrumbs'] ??= $this->context()->breadcrumbs;
         $languages = $this->languages($newsItem);
-        $languageSwitcher = $languages === [] ? '' : $this->view->render('jazyky', ['languages' => $languages]);
+        $languageSwitcher = $languages === [] ? '' : $this->view->render('language-switcher', ['languages' => $languages]);
         // light / dark color scheme switcher for visitors – next to the languages (template, Navigation element)
         $colorScheme = in_array($this->app->settings()->get('dark_mode'), ['auto', 'dark'], true) && $this->app->settings()->bool('theme_switcher')
-            ? $this->view->render('tema', ['selected' => $this->app->settings()->get('dark_mode') === 'dark' ? 'dark' : 'auto']) : '';
+            ? $this->view->render('color-scheme', ['selected' => $this->app->settings()->get('dark_mode') === 'dark' ? 'dark' : 'auto']) : '';
         $languagesHtml = $languageSwitcher . $colorScheme;
         // builder elements: Navigation adds the language switcher (optionally) and the color scheme switcher, Language
         // switcher builds from this list
@@ -1403,7 +1403,7 @@ final class Kernel
             // add-ons (3.0) may add to <head> and the end of <body>
             'head' => $seo->head($title, $meta + ['languages' => $languages], $newsItem) . \Kaleta\Extension\Registry::applyFilter('head', ''),
             // the accessibility toolbar for visitors (2.14) is off by default and tracks nothing
-            'foot' => $seo->foot() . $popups . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '')
+            'foot' => $seo->foot() . $popups . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('accessibility') : '')
                 . ($this->editHereUrl !== '' ? '<a class="ka-edit-here" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
                 . $commentWidget . \Kaleta\Extension\Registry::applyFilter('footer', ''),
             'pages' => $this->menuPages(),

@@ -444,7 +444,7 @@ final class Audit
         }
         foreach ($hygiene['unused_connections'] as $c) {
             $this->add('handover', $site, t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['username'], SecurityHygiene::daysAgo((string) $c['last'])),
-                'admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#napojeni', null, ['handover' => 'unused_connection', 'username' => (int) $c['user_id'], 'connection' => (string) $c['name']]);
+                'admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#connections', null, ['handover' => 'unused_connection', 'username' => (int) $c['user_id'], 'connection' => (string) $c['name']]);
         }
         $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
         $check((int) $db->value('SELECT COUNT(*) FROM {users} WHERE admin < 2 AND blocked = 0') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
@@ -463,7 +463,7 @@ final class Audit
         foreach (NotFound::pending($this->app, 30, 25) as $n) {
             $path = trim($n['path'], '/');
             $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['count']),
-                'admin.php?module=redirects&from=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
+                'admin.php?module=redirects&from=' . rawurlencode('/' . $path) . '#edit', null, ['redirect_from' => '/' . $path]);
         }
     }
 
@@ -509,7 +509,7 @@ final class Audit
     /** Every link in a build (JSON) or HTML; internal ones must lead somewhere. */
     private function links(string $content, string $where, string $edit, ?string $url, array $target): void
     {
-        preg_match_all('#"(?:odkaz|url|href)":"((?:[^"\\\\]|\\\\.)*)"|href=\\\\?"([^"\\\\]*)\\\\?"#', $content, $m, PREG_SET_ORDER);
+        preg_match_all('#"(?:link|url|href)":"((?:[^"\\\\]|\\\\.)*)"|href=\\\\?"([^"\\\\]*)\\\\?"#', $content, $m, PREG_SET_ORDER);
         $seen = [];
         foreach ($m as $match) {
             $link = stripslashes($match[1] !== '' ? $match[1] : ($match[2] ?? ''));

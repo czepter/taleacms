@@ -71,7 +71,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $app = self::$app ?? throw new \LogicException('No signed-in author.');
         $page = $app->get('/admin.php?action=account');
         $csrf = $page->csrf();
-        $this->assertStringContainsString('id="klic-heslo"', $page->body, '3.3.3: My account asks for the password next to the passkey');
+        $this->assertStringContainsString('id="passkey-password"', $page->body, '3.3.3: My account asks for the password next to the passkey');
         $this->assertStringContainsString('id="email-password"', $page->body, '3.3.3: My account asks for the password next to the e-mail');
 
         $post = static fn (array $fields) => $app->post('/admin.php?action=account', ['_csrf' => $csrf] + $fields);

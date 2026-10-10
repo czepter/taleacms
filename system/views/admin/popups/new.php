@@ -11,7 +11,7 @@ use Kaleta\Builder\Popups;
 ?>
 <form class="form" method="post" action="<?= e($module->url('create')) ?>">
 <?= $csrf ?>
-<div class="row"><label for="nazev"><?= e(t('Pop-up name')) ?></label><div><input class="textfield wide" id="nazev" name="name" maxlength="100" placeholder="<?= e(t('e.g. Newsletter on the blog')) ?>"><span class="help"><?= e(t('Only for you in the admin and for screen readers. The address #popup-… is made from the name.')) ?></span></div></div>
+<div class="row"><label for="name"><?= e(t('Pop-up name')) ?></label><div><input class="textfield wide" id="name" name="name" maxlength="100" placeholder="<?= e(t('e.g. Newsletter on the blog')) ?>"><span class="help"><?= e(t('Only for you in the admin and for screen readers. The address #popup-… is made from the name.')) ?></span></div></div>
 <fieldset>
 <legend><?= e(t('Start from')) ?></legend>
 <div class="options">

@@ -38,6 +38,6 @@ final class LanguageSwitcher extends Element
                 . e(t('Language switcher – it shows when the site has more language versions')) . '</span>' : '';
         }
 
-        return $k->app->view->render('front/jazyky', ['languages' => $k->languageList, 'style' => $p['content']['style'] ?? 'dropdown', 'direction' => $p['content']['direction'] ?? 'up', 'attributes' => Text::withClass($a, 'ka-languages-element')]);
+        return $k->app->view->render('front/language-switcher', ['languages' => $k->languageList, 'style' => $p['content']['style'] ?? 'dropdown', 'direction' => $p['content']['direction'] ?? 'up', 'attributes' => Text::withClass($a, 'ka-languages-element')]);
     }
 }

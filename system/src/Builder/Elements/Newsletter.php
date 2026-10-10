@@ -67,7 +67,7 @@ final class Newsletter extends Element
             . '<button type="submit">' . e($o['button_text']) . '</button></div>'
             . Form::captcha($k)
             . ($o['consent'] !== '' ? '<small>' . e($o['consent']) . '</small>' : '')
-            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
+            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="anchor" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('subscribe') . '</form>';
     }
 }

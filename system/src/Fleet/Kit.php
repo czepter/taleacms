@@ -42,7 +42,7 @@ final class Kit
 
     /**
      * A manifest from the console's rows: the published design system, published classes (name => [styl, css]), rows of
-     * ka_komponenty (the published build, or the draft of a component that was never published) and rows of ka_sekce.
+     * ka_components (the published build, or the draft of a component that was never published) and rows of ka_sekce.
      * Sanitized like everything that comes from outside, so the kit is clean before it is signed.
      *
      * @param array<string, mixed>|null $designSystem

@@ -193,7 +193,7 @@ final class Collections
             $key = (string) ($p['key'] ?? '');
             $key = preg_match('/^[a-z][a-z0-9_]{0,30}$/', $key) ? $key : substr(str_replace('-', '_', slugify($labelText, 30)), 0, 30);
             if (!preg_match('/^[a-z]/', $key)) {
-                $key = 'pole_' . $key;
+                $key = 'field_' . $key;
             }
             while (in_array($key, self::BUILT_IN, true) || isset($keys[$key])) {
                 $key .= '_2';
@@ -533,7 +533,7 @@ final class Collections
 
     /* ---------- items as full pages (1.9) ---------- */
 
-    /** Columns of an item that make up one version in the history (ka_stavba_revize, cast item:<idp>). */
+    /** Columns of an item that make up one version in the history (ka_build_revisions, cast item:<idp>). */
     public const array VERSIONED = ['name', 'slug', 'data', 'seo_title', 'description', 'image', 'noindex'];
 
     /**

@@ -28,8 +28,8 @@ $role = [
 <?= $csrf ?>
 <input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>">
 <div class="row">
-	<label for="jmeno"><?= e(t('First and last name')) ?></label>
-	<div><input class="textfield wide" type="text" id="jmeno" name="name" value="<?= e($author['name']) ?>" maxlength="100"><span class="help"><?= e(t('Shown with news items.')) ?></span></div>
+	<label for="name"><?= e(t('First and last name')) ?></label>
+	<div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($author['name']) ?>" maxlength="100"><span class="help"><?= e(t('Shown with news items.')) ?></span></div>
 </div>
 <div class="row">
 	<label for="user"><?= e(t('User name')) ?></label>
@@ -110,7 +110,7 @@ $role = [
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t($author['user_id'] ? 'Save' : 'Add user')) ?>"></p>
 </form>
 <?php if ($author['user_id'] && ($connections ?? []) !== []): ?>
-<fieldset id="napojeni">
+<fieldset id="connections">
 <legend><?= e(t('Claude connections')) ?></legend>
 <p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
 <?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>

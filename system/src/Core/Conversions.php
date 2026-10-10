@@ -11,12 +11,12 @@ use Kaleta\Front\Stats;
  * so image/web.js reports it with navigator.sendBeacon to POST /conversion – the way image/vitals.js reports speed (Core\WebVitals).
  * The same cookie-free rules as the built-in statistics (Front\Stats): only while they are on, never for bots or signed-in
  * users (Front\Seo::head() hands the endpoint to the script only then, and the endpoint checks again), and nothing about
- * the visitor is stored – one row of ka_stat_konverze per day, page path and type with the count.
+ * the visitor is stored – one row of ka_stats_conversions per day, page path and type with the count.
  *
  * A visitor who clicks the same number on the same page three times is one lead: a click counts once per type, page,
  * visitor and day. The visitor is told apart by the statistics' daily fingerprint (IP, browser and a salt that changes
  * every day), here hashed together with the page and the type; the mark lives among the visitor hashes in
- * ka_stat_navstevnici, is never stored with the counted row and is deleted with the hashes the next day.
+ * ka_stats_visitors, is never stored with the counted row and is deleted with the hashes the next day.
  */
 final class Conversions
 {
@@ -41,7 +41,7 @@ final class Conversions
     }
 
     /**
-     * The page path of a beacon as the statistics store it (Front\Stats, ka_stat_stranky.cesta): an absolute path without
+     * The page path of a beacon as the statistics store it (Front\Stats, ka_stats_pages.cesta): an absolute path without
      * the query string and the fragment, at most 255 characters. Null for anything else – the script sends location.pathname,
      * so a relative address, whitespace or a control character means a forged request.
      */

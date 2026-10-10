@@ -168,7 +168,7 @@ final class Pages extends Module
         return $page === null ? $this->error('Page does not exist.', 404) : $this->form($page);
     }
 
-    /** Saving from editing "directly on the site" (views/front/upravit.php): only the page's name and text. */
+    /** Saving from editing "directly on the site" (views/front/edit.php): only the page's name and text. */
     protected function actionSaveText(): Response
     {
         $r = $this->request;

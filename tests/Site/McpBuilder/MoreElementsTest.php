@@ -38,7 +38,7 @@ final class MoreElementsTest extends SiteTestCase
         $this->assertStringNotContainsString('Old event', $body, 'a date condition hides the element after the date');
 
         $this->visit('/z-html');
-        $this->assertSame([], glob($site->path('storage/cache/stranky/*.html')) ?: [], 'a page with a display condition is not cached');
+        $this->assertSame([], glob($site->path('storage/cache/pages/*.html')) ?: [], 'a page with a display condition is not cached');
         $this->assertStringContainsString('Editors only', $site->admin()->get('/z-html')->body, 'the signed-in person sees the editors-only element');
     }
 

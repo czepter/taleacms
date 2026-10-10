@@ -180,7 +180,7 @@ final class Popups
     ];
 
     /** Build of a ready-made popup in the content language. */
-    public static function libraryBuild(string $key, string $language = 'cs'): array
+    public static function libraryBuild(string $key, string $language = 'en'): array
     {
         return \Kaleta\Core\Language::runWith($language, function () use ($key): array {
             $n = Build::fresh(...);

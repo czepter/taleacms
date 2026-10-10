@@ -22,18 +22,18 @@ final class BookingFlowTest extends SiteTestCase
     {
         $this->bookingFixture();
         $day = self::$day;
-        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 10:00", 'name' => 'Peter Booker', 'email' => 'petr-bk@example.cz', 'phone' => '+420777000111', 'note' => 'Test', 'souhlas' => '1']), 'booking: a visitor books a time');
+        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 10:00", 'name' => 'Peter Booker', 'email' => 'petr-bk@example.cz', 'phone' => '+420777000111', 'note' => 'Test', 'consent' => '1']), 'booking: a visitor books a time');
         $staff = self::$staff;
         $this->assertSame("1|$staff|10:30:00", $this->q("SELECT CONCAT(COUNT(*), '|', MAX(staff_id), '|', MAX(TIME(ends_at))) FROM ka_bookings WHERE email = 'petr-bk@example.cz' AND status = 'confirmed'"), 'booking: saved as confirmed for the person, with the end time by the duration');
         $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM ka_mail WHERE recipient = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'New booking%'))"), 'booking: the confirmation went to the customer and the notification to the person');
-        $this->assertStringContainsString('result=taken', $this->book(['slot' => "$day 10:00", 'name' => 'Druhy', 'email' => 'druhy-bk@example.cz', 'souhlas' => '1']), 'booking: the same time cannot be booked twice');
+        $this->assertStringContainsString('result=taken', $this->book(['slot' => "$day 10:00", 'name' => 'Druhy', 'email' => 'druhy-bk@example.cz', 'consent' => '1']), 'booking: the same time cannot be booked twice');
         $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_bookings WHERE starts_at = '$day 10:00:00'"), 'booking: the second attempt saved nothing');
         $slots = $this->slots()->body;
         $this->assertStringNotContainsString('"10:00"', $slots, 'booking: the booked time is gone from the free times');
         $this->assertStringNotContainsString('"09:30"', $slots, 'booking: the buffer before the booking is gone');
         $this->assertStringNotContainsString('"10:30"', $slots, 'booking: the buffer after the booking is gone');
         $this->assertStringContainsString('"11:00"', $slots, 'booking: the time after the buffer is free');
-        $this->assertStringContainsString('result=consent', $this->book(['slot' => "$day 11:00", 'name' => 'Petr', 'email' => 'petr-bk@example.cz', 'souhlas' => '']), 'booking: without the consent nothing is saved');
+        $this->assertStringContainsString('result=consent', $this->book(['slot' => "$day 11:00", 'name' => 'Petr', 'email' => 'petr-bk@example.cz', 'consent' => '']), 'booking: without the consent nothing is saved');
     }
 
     public function testConfirmationTokenAndCancel(): void
@@ -56,7 +56,7 @@ final class BookingFlowTest extends SiteTestCase
         $this->bookingFixture();
         $day = self::$day;
         $site = $this->site();
-        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 11:00", 'name' => 'Peter Booker', 'email' => 'petr-bk@example.cz', 'souhlas' => '1']), 'booking: a second appointment');
+        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 11:00", 'name' => 'Peter Booker', 'email' => 'petr-bk@example.cz', 'consent' => '1']), 'booking: a second appointment');
         $second = $this->cancelToken('DESC');
         $site->setting('booking_cancel_hours', '200');
         $answer = $this->cancelBooking($second);

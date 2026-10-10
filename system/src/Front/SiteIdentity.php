@@ -17,7 +17,7 @@ final class SiteIdentity
 {
     /** key => [name, description, CSS font-family] */
     public const array TITLE_FONTS = [
-        'vychozi' => ['Default font', 'the font of the default site design', ''],
+        'default' => ['Default font', 'the font of the default site design', ''],
         'elegant' => ['Elegant serif', 'Bodoni, Didot – elegance and fashion', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
         'classic' => ['Classic serif', 'Georgia – serious and easy to read', 'Georgia, "Times New Roman", Times, serif'],
         'book' => ['Book', 'Charter, Cambria – calm and literary', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
@@ -28,7 +28,7 @@ final class SiteIdentity
     ];
 
     public const array TEXT_FONTS = [
-        'vychozi' => ['Default font', '', ''],
+        'default' => ['Default font', '', ''],
         'serif' => ['Serif', 'Georgia – comfortable for long reads', 'Georgia, "Times New Roman", Times, serif'],
         'book' => ['Book', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
         'modern' => ['Sans-serif', 'the device\'s system font', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],

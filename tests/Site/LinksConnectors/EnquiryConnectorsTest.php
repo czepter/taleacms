@@ -192,7 +192,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $this->assertSame('1|crm.lead|1|1', $site->value("SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(action), '|', SUM(delivered_at IS NOT NULL), '|', (SELECT connected_at IS NOT NULL FROM ka_connectors WHERE service = 'raynet')) FROM ka_connector_queue WHERE id > ?", [$first]), 'enquiries: with the tick only that destination gets the application; the key saved before stays');
         $crm = $this->fakeLogContents('crm.log');
         $this->assertLogHas($crm, '"crm":"raynet"§petra@example.cz§cv.pdf', 'enquiries: the application reached Raynet with the CV\'s name');
-        $this->assertDoesNotMatchRegularExpression('~storage/prilohy|[0-9]{4}/[0-9]{2}/[a-f0-9]{24}\.pdf~', $crm, 'enquiries: never the file or its path');
+        $this->assertDoesNotMatchRegularExpression('~storage/attachments|[0-9]{4}/[0-9]{2}/[a-f0-9]{24}\.pdf~', $crm, 'enquiries: never the file or its path');
     }
 
     #[Depends('testJobApplicationsGoOnlyWhereTheAdministratorTickedThemAndWithoutTheCv')]

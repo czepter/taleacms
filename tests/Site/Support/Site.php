@@ -22,7 +22,7 @@ final class Site
     public readonly string $mcpToken;
     public readonly PDO $pdo;
     public readonly int $port;
-    /** The installer's answer ("Hotovo, web běží …" with the cron line, or the export hand-over). */
+    /** The installer's answer ("Done, the site is running …" with the cron line, or the export hand-over). */
     public readonly Response $installerResponse;
 
     /** @var list<resource> */
@@ -295,7 +295,7 @@ final class Site
     /** The cached pages of anonymous visitors go (the old tests did this before every page check that follows a change). */
     public function clearPageCache(): void
     {
-        foreach (glob($this->root . '/storage/cache/stranky/*.html') ?: [] as $file) {
+        foreach (glob($this->root . '/storage/cache/pages/*.html') ?: [] as $file) {
             unlink($file);
         }
     }
@@ -393,8 +393,8 @@ final class Site
         $this->closed = true;
         // KALETA_TEST_ERRLOG=<file>: the application error logs of all test sites are collected there (to see the causes of a failed run at once)
         $collect = getenv('KALETA_TEST_ERRLOG');
-        if ($collect !== false && $collect !== '' && isset($this->root) && is_file($this->root . '/storage/log/chyby.log')) {
-            file_put_contents($collect, (string) file_get_contents($this->root . '/storage/log/chyby.log'), FILE_APPEND | LOCK_EX);
+        if ($collect !== false && $collect !== '' && isset($this->root) && is_file($this->root . '/storage/log/errors.log')) {
+            file_put_contents($collect, (string) file_get_contents($this->root . '/storage/log/errors.log'), FILE_APPEND | LOCK_EX);
         }
         foreach ($this->processes as $process) {
             $status = proc_get_status($process);

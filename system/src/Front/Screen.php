@@ -112,7 +112,7 @@ final class Screen
      * date or the card fields – the preset's card fields, or the first three short fields of a collection without a preset.
      * A number is shown with its label, a date and time as the date, a longer text shortened.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, array{0: string, 1: string}> $values
      * @return array{kind: string, label: string, title: string, date: string, text: string, lines: list<string>, image: string}
      */

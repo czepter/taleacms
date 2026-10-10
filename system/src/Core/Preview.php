@@ -48,6 +48,6 @@ final class Preview
 
     private static function signature(Db $db, Settings $settings, string $target, int $to, bool $comments): string
     {
-        return hash_hmac('sha256', 'nahled|' . $target . '|' . $to . ($comments ? '|komentare' : ''), (new Antispam($db, $settings))->key());
+        return hash_hmac('sha256', 'preview|' . $target . '|' . $to . ($comments ? '|comments' : ''), (new Antispam($db, $settings))->key());
     }
 }

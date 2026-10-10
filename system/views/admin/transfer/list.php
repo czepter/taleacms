@@ -35,10 +35,10 @@ $phase = [
 <?php else: ?>
 <form class="form" method="post" action="<?= e($module->url('web_start')) ?>">
 <?= $csrf ?>
-<div class="row"><label for="adresa"><?= e(t('Address of the site')) ?></label><div><input class="textfield wide" type="url" id="adresa" name="url" placeholder="https://www.example.com" required maxlength="300">
+<div class="row"><label for="url"><?= e(t('Address of the site')) ?></label><div><input class="textfield wide" type="url" id="url" name="url" placeholder="https://www.example.com" required maxlength="300">
 	<span class="help"><?= e(t('Kaleta reads the sitemap, or follows the site’s links when there is none – at most %s pages.', Kaleta\Core\WebImport::MAX_PAGES)) ?></span></div></div>
 <?php if ($languages !== []): ?>
-<div class="row"><label for="web_jazyk"><?= e(t('Language version')) ?></label><div><select id="web_jazyk" name="language"><option value=""><?= e(t('the main language')) ?></option>
+<div class="row"><label for="site_language"><?= e(t('Language version')) ?></label><div><select id="site_language" name="language"><option value=""><?= e(t('the main language')) ?></option>
 <?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
 <?php endif ?>
 <div class="row"><span></span><div>
@@ -65,7 +65,7 @@ $phase = [
 <?php if ($canDownload): ?>
 <form class="form" method="post" action="<?= e($module->url('report_start')) ?>">
 <?= $csrf ?>
-<div class="row"><label for="stary_web"><?= e(t('Address of the old site')) ?></label><div><input class="textfield wide" type="url" id="stary_web" name="url" placeholder="https://www.example.com" required maxlength="300"></div></div>
+<div class="row"><label for="old_site"><?= e(t('Address of the old site')) ?></label><div><input class="textfield wide" type="url" id="old_site" name="url" placeholder="https://www.example.com" required maxlength="300"></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Check the move')) ?>"></p>
 </form>
 <?php endif ?>
@@ -88,7 +88,7 @@ $phase = [
 <?php else: ?>
 <form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">
 <?= $csrf ?>
-<div class="row"><label for="soubor"><?= e(t('WordPress export')) ?></label><div><input type="file" id="soubor" name="file" accept=".xml,text/xml,application/xml" required>
+<div class="row"><label for="file"><?= e(t('WordPress export')) ?></label><div><input type="file" id="file" name="file" accept=".xml,text/xml,application/xml" required>
 	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
 </form>

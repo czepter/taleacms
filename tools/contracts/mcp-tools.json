@@ -132,6 +132,7 @@
             "fields": "array",
             "item_pages": "boolean",
             "name": "string",
+            "redirect_hidden_to": "string",
             "slug": "string",
             "structured_data": "object"
         },
@@ -1680,6 +1681,7 @@
             "fields": "array",
             "item_pages": "boolean",
             "name": "string",
+            "redirect_hidden_to": "string",
             "slug": "string",
             "structured_data": "object"
         },

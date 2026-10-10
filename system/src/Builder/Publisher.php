@@ -9,7 +9,7 @@ use Kaleta\Core\Db;
 
 /**
  * Publishing a build draft (page, site part, collection, component or popup) – from the editor and from MCP. The previous published version goes to the history
- * (ka_stavba_revize, the last 20 for each target), the site cache is cleared.
+ * (ka_build_revisions, the last 20 for each target), the site cache is cleared.
  */
 final class Publisher
 {

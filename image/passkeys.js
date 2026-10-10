@@ -1,5 +1,5 @@
 // Kaleta - passkeys (WebAuthn): registration in "My account" and the second sign-in step.
-// A form with the data-klice attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
+// A form with the data-passkey attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
 (function () {
 	'use strict';
 
@@ -17,15 +17,15 @@
 		return btoa(chars).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 	}
 
-	document.querySelectorAll('form[data-klice]').forEach(function (formEl) {
-		var address = formEl.getAttribute('data-klice');
-		var error = formEl.querySelector('[data-klic-chyba]');
-		var button = formEl.querySelector('[data-klic-pridat], [data-klic-prihlasit]');
+	document.querySelectorAll('form[data-passkey]').forEach(function (formEl) {
+		var address = formEl.getAttribute('data-passkey');
+		var error = formEl.querySelector('[data-passkey-error]');
+		var button = formEl.querySelector('[data-passkey-add], [data-passkey-signin]');
 		if (!button) { return; }
 
 		if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
 			button.disabled = true;
-			var unsupported = formEl.querySelector('[data-klic-nepodporuje]');
+			var unsupported = formEl.querySelector('[data-passkey-unsupported]');
 			if (unsupported) { unsupported.hidden = false; }
 			return;
 		}
@@ -45,14 +45,14 @@
 		}
 
 		button.addEventListener('click', function () {
-			var register = button.hasAttribute('data-klic-pridat');
+			var register = button.hasAttribute('data-passkey-add');
 			button.disabled = true;
 			showError('');
 			button.disabled = true;
 
 			// adding a passkey needs the current password (3.3.3): the server issues the challenge only with it
-			var password = formEl.querySelector('[data-klic-heslo]');
-			deliver(register ? { co: 'klic_moznosti', soucasne: password ? password.value : '' } : { step: 'klic_moznosti' }).then(function (m) {
+			var password = formEl.querySelector('[data-passkey-password]');
+			deliver(register ? { op: 'passkey_options', current_password: password ? password.value : '' } : { step: 'passkey_options' }).then(function (m) {
 				m.challenge = toBytes(m.challenge);
 				if (register) {
 					m.user.id = toBytes(m.user.id);
@@ -64,17 +64,17 @@
 			}).then(function (k) {
 				var o = k.response, response = { id: toText(k.rawId), clientDataJSON: toText(o.clientDataJSON) };
 				if (register) {
-					if (!o.getPublicKey || !o.getAuthenticatorData) { throw new Error(formEl.querySelector('[data-klic-nepodporuje]').textContent); }
+					if (!o.getPublicKey || !o.getAuthenticatorData) { throw new Error(formEl.querySelector('[data-passkey-unsupported]').textContent); }
 					response.authenticatorData = toText(o.getAuthenticatorData());
 					response.publicKey = toText(o.getPublicKey());
 					response.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
-					return deliver({ co: 'klic_uloz', answer: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]').value });
+					return deliver({ op: 'passkey_save', answer: JSON.stringify(response), name: formEl.querySelector('[name="name"]').value });
 				}
 				response.authenticatorData = toText(o.authenticatorData);
 				response.signature = toText(o.signature);
 				return deliver({ step: 'key', answer: JSON.stringify(response) });
 			}).then(function (j) {
-				window.location.href = (j && j.kam) || window.location.href.split('#')[0];
+				window.location.href = (j && j.redirect) || window.location.href.split('#')[0];
 			}).catch(function (e) {
 				// the user cancelling the dialog is not an error worth reporting
 				showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');

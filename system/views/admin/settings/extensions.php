@@ -59,7 +59,7 @@ $extensionSettings = [
 <div class="row">
 	<label for="ai_model"><?= e(t('Model')) ?></label>
 	<div><input class="textfield" id="ai_model" name="ai_model" value="<?= e($values['ai_model']) ?>" list="ai_modely" maxlength="80" spellcheck="false">
-	<datalist id="ai_modely">
+	<datalist id="ai_models">
 <?php foreach (Kaleta\Core\Assistant::MODELS as $key => $name): ?>
 		<option value="<?= e($key) ?>"><?= e(t($name)) ?></option>
 <?php endforeach ?>

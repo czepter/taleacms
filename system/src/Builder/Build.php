@@ -498,7 +498,7 @@ final class Build
         if (isset($conditions['from']) && $today < $conditions['from'] || isset($conditions['to']) && $today > $conditions['to']) {
             return false;
         }
-        // the language version being displayed, as the "jazyk" column has it: '' = the site's default language
+        // the language version being displayed, as the "language" column has it: '' = the site's default language
         if (isset($conditions['languages']) && !in_array($k->app->languagePrefix, $conditions['languages'], true)) {
             return false;
         }
@@ -626,7 +626,7 @@ final class Build
         return $content;
     }
 
-    /** Page CSS: the base of the used types, the used classes (from ka_tridy) and the style of individual elements – each in its own layer. */
+    /** Page CSS: the base of the used types, the used classes (from ka_classes) and the style of individual elements – each in its own layer. */
     public static function css(Db $db, Context $k): string
     {
         // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
@@ -738,7 +738,7 @@ final class Build
      * @return array<string, mixed>
      */
     /** @param list<string>|null $extensions enabled extensions (null = all) – elements of disabled ones are not offered */
-    public static function schema(bool $admin = true, string $language = 'cs', bool $parts = false, ?array $extensions = null): array
+    public static function schema(bool $admin = true, string $language = 'en', bool $parts = false, ?array $extensions = null): array
     {
         // the default content of new elements is in the page language, the editor translates field labels into the admin language
         return \Kaleta\Core\Language::runWith($language, fn (): array => self::buildSchema($admin, $parts, $extensions));

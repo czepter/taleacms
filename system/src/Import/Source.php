@@ -23,7 +23,7 @@ namespace Kaleta\Import;
  *    their HTML anyway), each keyed from zero in a stable order, so the batch runner can skip $skip records and continue
  *    where the previous request stopped. Authors, categories and tags must come BEFORE the first post that refers to them
  *    (yield them up front, or on first sight). A record's key is the identifier in the source (post number, tag id…) and
- *    must be stable between runs – ka_import_mapa uses it to skip what was imported earlier;
+ *    must be stable between runs – ka_import_map uses it to skip what was imported earlier;
  *  - Post::$html is the raw HTML of the source; the runner cleans it (Core\WpContent::sanitize – allowed tags only,
  *    no scripts, frames, styles or event handlers). URLs stay as they are in the export; images are downloaded only from
  *    the old site's domain (imagesFromAnyHost() = false) or from any public host (true – for systems that keep images on
@@ -33,7 +33,7 @@ namespace Kaleta\Import;
  */
 interface Source
 {
-    /** Identifier used in file names (<key>-<name>.<ext>), ka_import_mapa (<key>:<domain>) and the admin form. */
+    /** Identifier used in file names (<key>-<name>.<ext>), ka_import_map (<key>:<domain>) and the admin form. */
     public static function key(): string;
 
     /** The system's name as shown to the administrator (not translated). */

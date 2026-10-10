@@ -17,11 +17,11 @@
 $u = $edit;
 $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $a;
 ?>
-<form class="form" method="post" action="<?= e($module->url('save')) ?>" id="upravit">
+<form class="form" method="post" action="<?= e($module->url('save')) ?>" id="edit">
 <?= $csrf ?>
 <input type="hidden" name="redirect_id" value="<?= (int) ($u['redirect_id'] ?? 0) ?>">
-<div class="row"><label for="z_adresy"><?= e(t('Old address')) ?></label><div><input class="textfield wide" type="text" id="z_adresy" name="from_path" value="<?= e($u !== null ? '/' . $u['from_path'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="help"><?= e(t('A path on this site that no longer exists.')) ?></span></div></div>
-<div class="row"><label for="na_adresu"><?= e(t('Redirect to')) ?></label><div><input class="textfield wide" type="text" id="na_adresu" name="to_path" value="<?= e($u !== null ? $path($u['to_path']) : '') ?>" maxlength="255" required placeholder="<?= e(t('/new-address or https://…')) ?>"></div></div>
+<div class="row"><label for="from_path"><?= e(t('Old address')) ?></label><div><input class="textfield wide" type="text" id="from_path" name="from_path" value="<?= e($u !== null ? '/' . $u['from_path'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="help"><?= e(t('A path on this site that no longer exists.')) ?></span></div></div>
+<div class="row"><label for="to_path"><?= e(t('Redirect to')) ?></label><div><input class="textfield wide" type="text" id="to_path" name="to_path" value="<?= e($u !== null ? $path($u['to_path']) : '') ?>" maxlength="255" required placeholder="<?= e(t('/new-address or https://…')) ?>"></div></div>
 <div class="row"><label for="typ"><?= e(t('Type')) ?></label><select id="typ" name="type">
 	<option value="301"><?= e(t('permanent (301) – the page has moved')) ?></option>
 	<option value="302"<?= (int) ($u['type'] ?? 301) === 302 ? ' selected' : '' ?>><?= e(t('temporary (302) – a promotion or seasonal offer')) ?></option>
@@ -45,7 +45,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 	<td><?= e($path($z['to_path'])) ?><?= (int) ($z['type'] ?? 301) === 302 ? ' <span class="badge">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="badge" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
 	<td class="number"><?= (int) $z['hits'] ?>×</td>
 	<td class="number"><?= e(format_date($z['created_at'])) ?></td>
-	<td class="actions"><a href="<?= e($module->url('', ['edit' => (int) $z['redirect_id']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
+	<td class="actions"><a href="<?= e($module->url('', ['edit' => (int) $z['redirect_id']])) ?>#edit"><?= e(t('Edit')) ?></a> ·
 		<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= $csrf ?><input type="hidden" name="redirect_id" value="<?= (int) $z['redirect_id'] ?>"><input type="hidden" name="title" value="<?= e('/' . $z['from_path']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
@@ -60,8 +60,8 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 </p>
 <?php endif ?>
 <?php endif ?>
-<h2 id="nenalezeno"><?= e(t('Addresses visitors could not find (404)')) ?></h2>
-<form class="form" method="post" action="<?= e($module->url('settings')) ?>" id="automaticky">
+<h2 id="not-found"><?= e(t('Addresses visitors could not find (404)')) ?></h2>
+<form class="form" method="post" action="<?= e($module->url('settings')) ?>" id="automatic">
 <?= $csrf ?>
 <div class="row"><label for="redirect_auto"><?= e(t('By themselves')) ?></label><div><label><input type="checkbox" id="redirect_auto" name="redirect_auto" value="1"<?= $autoOn ? ' checked' : '' ?>> <?= e(t('Create redirects for missing addresses by themselves')) ?></label>
 	<span class="help"><?= e(t('Once a day the site redirects an address visitors could not find to the page it is sure they meant (the same address written differently, moved to another section or language). Such a redirect is marked automatic; deleting it undoes it. Less certain candidates stay below as suggestions.')) ?></span></div></div>
@@ -83,7 +83,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <?php foreach ($notFound as $n): $tip = $suggestions[$n['path']] ?? null; ?>
 <tr><td>/<?= e($n['path']) ?></td><td class="number"><?= (int) $n['count'] ?>×</td><td class="number"><?= e(format_date($n['last_seen_at'])) ?></td>
 	<td><?php if ($tip !== null): ?>/<?= e($tip['to']) ?> <span class="badge"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="small-text"><?= e(t('no similar page')) ?></span><?php endif ?></td>
-	<td class="actions"><?php if ($tip !== null): ?><form class="inline" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="from_path" value="<?= e('/' . $n['path']) ?>"><input type="hidden" name="to_path" value="<?= e('/' . $tip['to']) ?>"><input type="hidden" name="type" value="301"><button class="navigation" type="submit"><?= e(t('Create redirect')) ?></button></form> · <?php endif ?><a href="<?= e($module->url('', ['z' => $n['path']])) ?>#upravit"><?= e(t('Redirect')) ?></a> ·
+	<td class="actions"><?php if ($tip !== null): ?><form class="inline" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="from_path" value="<?= e('/' . $n['path']) ?>"><input type="hidden" name="to_path" value="<?= e('/' . $tip['to']) ?>"><input type="hidden" name="type" value="301"><button class="navigation" type="submit"><?= e(t('Create redirect')) ?></button></form> · <?php endif ?><a href="<?= e($module->url('', ['z' => $n['path']])) ?>#edit"><?= e(t('Redirect')) ?></a> ·
 		<form class="inline" method="post" action="<?= e($module->url('ignore')) ?>"><?= $csrf ?><input type="hidden" name="path" value="<?= e($n['path']) ?>"><button class="navigation" type="submit"><?= e(t('Ignore')) ?></button></form></td></tr>
 <?php endforeach ?>
 </tbody></table></div>

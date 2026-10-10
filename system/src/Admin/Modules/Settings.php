@@ -12,7 +12,7 @@ use Kaleta\Core\Health;
 use Kaleta\Core\Backup;
 
 /**
- * Site settings (table ka_nastaveni) split into tabs.
+ * Site settings (table ka_settings) split into tabs.
  * Each tab has a template views/admin/settings/<tab>.php and a list of fields with a type - the values are cleaned by it.
  */
 class Settings extends Module
@@ -31,26 +31,26 @@ class Settings extends Module
         'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
-    /** Company types for the field company_type (vyber:…). */
+    /** Company types for the field company_type (choice:…). */
     private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
 
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
     /**
-     * Fields of the individual tabs: key in ka_nastaveni => type.
-     * text | tajne (secret key: not printed back, empty field = no change; tajne:/regex/ also checks the format) | radky (multi-line text) | kod (HTML/JS - entered only by the administrator) | url | email | emaily (up to 10 addresses, comma or line separated) | ano (yes/no) | cislo:min:max (number) | vyber:a|b (choice) | seznam:a|b (checkboxes, saved as "a,b") | vzor:/regex/ (pattern)
+     * Fields of the individual tabs: key in ka_settings => type.
+     * text | secret (secret key: not printed back, empty field = no change; secret:/regex/ also checks the format) | lines (multi-line text) | code (HTML/JS - entered only by the administrator) | url | email | emails (up to 10 addresses, comma or line separated) | flag (yes/no) | number:min:max | choice:a|b | list:a|b (checkboxes, saved as "a,b") | pattern:/regex/
      */
     private const array FIELDS = [
         'general' => [
             'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone',
+            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'flag', 'screen_seconds' => 'number:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'flag', 'screen_hours' => 'flag', 'screen_clock' => 'flag',
-            'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
+            'auto_suspend' => 'list:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'pattern:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
-            'time_zone' => 'timezone', 'site_language' => 'choice:' . \Kaleta\Core\Language::CODES, 'german_register' => 'choice:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
+            'time_zone' => 'timezone', 'site_language' => 'choice:' . \Kaleta\Core\Language::CODES, 'german_register' => 'choice:formal|informal', 'additional_languages' => 'list:' . \Kaleta\Core\Language::CODES,
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'choice:off|auto|dark', 'theme_switcher' => 'flag'],
@@ -102,7 +102,7 @@ class Settings extends Module
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
                 $field += ['site_name_' . $language => 'text', 'site_description_' . $language => 'lines'];
             }
-            $field['screen_collections'] = 'seznam:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
+            $field['screen_collections'] = 'list:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
 
         return $field;
@@ -162,7 +162,7 @@ class Settings extends Module
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
+            'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/errors.log', 40) : [],
             'domainWatch' => $tab === 'health' ? \Kaleta\Core\DomainWatch::cached($settings) : null,
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
@@ -216,13 +216,13 @@ class Settings extends Module
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
             // a missing checkbox or list still means "off" / "none"
-            if ($type !== 'flag' && !str_starts_with($type, 'seznam:') && !array_key_exists($key, $_POST)) {
+            if ($type !== 'flag' && !str_starts_with($type, 'list:') && !array_key_exists($key, $_POST)) {
                 continue;
             }
-            // "kod" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
+            // "code" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
             $value = $type === 'code' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
-            if (str_starts_with($type, 'seznam:')) {
-                $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 7)))));
+            if (str_starts_with($type, 'list:')) {
+                $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 5)))));
                 continue;
             }
             if (str_starts_with($type, 'secret')) {
@@ -456,8 +456,8 @@ class Settings extends Module
 
     protected function actionDeleteLog(): Response
     {
-        if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/chyby.log')) {
-            file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', '');
+        if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/errors.log')) {
+            file_put_contents(KALETA_ROOT . '/storage/log/errors.log', '');
         }
 
         return $this->back('The error log is empty.', '', ['tab' => 'health']);

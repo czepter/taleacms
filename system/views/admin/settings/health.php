@@ -38,14 +38,14 @@ $group = '';
 <p><?= e(t('No errors – the log is empty.')) ?></p>
 <?php else: ?>
 <pre class="log-errors"><?php foreach (array_reverse($errorLog) as $row): ?><?= e(mb_strimwidth(str_replace(KALETA_ROOT, '', $row), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
-<p><button class="navigation danger" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-confirm="<?= e(t('Clear the error log?')) ?>"><?= e(t('Clear the log')) ?></button> <span class="small-text"><?= e(t('Newest first, the last 40 entries from storage/log/chyby.log.')) ?></span></p>
+<p><button class="navigation danger" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-confirm="<?= e(t('Clear the error log?')) ?>"><?= e(t('Clear the log')) ?></button> <span class="small-text"><?= e(t('Newest first, the last 40 entries from storage/log/errors.log.')) ?></span></p>
 <?php endif ?>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Background jobs (cron)')) ?></legend>
 <p><?= e(t('Scheduled news, notifications and outgoing mail run on site visits. A low-traffic site makes them more precise by calling this address every 5 minutes from your hosting\'s cron:')) ?></p>
 <?php if ($tasksToken !== ''): ?>
-<p><code>*/5 * * * * curl -s "<?= e($siteUrl) ?>ulohy?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
+<p><code>*/5 * * * * curl -s "<?= e($siteUrl) ?>tasks?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
 <?php endif ?>
 <div class="tab-wrap"><table class="listing">
 <thead><tr><th scope="col"><?= e(t('Job')) ?></th><th scope="col"><?= e(t('Runs')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><?= e(t('Result')) ?></th></tr></thead>
@@ -70,7 +70,7 @@ $field('alerts_email', 'Send them to', 'email', 'Empty = the site e-mail (Settin
 <fieldset>
 <legend><?= e(t('Monitoring')) ?></legend>
 <?php if ($values['health_token'] !== ''): ?>
-<p><?= e(t('Status in JSON format for monitoring tools (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>stav.json?token=<?= e($values['health_token']) ?></code></p>
+<p><?= e(t('Status in JSON format for monitoring tools (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>status.json?token=<?= e($values['health_token']) ?></code></p>
 <?php else: ?>
 <p><?= e(t('A monitoring tool can read the status as JSON. Create an access token first.')) ?></p>
 <?php endif ?>

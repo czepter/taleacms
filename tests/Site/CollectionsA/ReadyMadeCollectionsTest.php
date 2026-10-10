@@ -51,7 +51,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $idk = $this->sq("SELECT collection_id FROM ka_collections WHERE slug = 'field-types'");
         $idp = $this->sq("SELECT item_id FROM ka_collection_items WHERE slug = 'open-day'");
         $form = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$idp", 200, message: 'the item form');
-        $this->assertMatchesRegularExpression('/type="datetime-local" id="pole-start" name="data\[start\]" value="2026-11-02T17:00"/', $form->body, 'the item form has a date-time input');
+        $this->assertMatchesRegularExpression('/type="datetime-local" id="field-start" name="data\[start\]" value="2026-11-02T17:00"/', $form->body, 'the item form has a date-time input');
         $this->assertStringContainsString('data-file', $form->body, 'the file field opens Media');
     }
 

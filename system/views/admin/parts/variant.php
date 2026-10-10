@@ -17,7 +17,7 @@
 <?= $csrf ?>
 <input type="hidden" name="variant" value="<?= e($variant) ?>">
 <p class="help"><?= e(t('A variant applies only to the selected pages; elsewhere the default stays. For example a landing page with a simpler header. If you leave the variant empty in the builder, the page will have no header (footer).')) ?></p>
-<div class="row"><label for="nazev"><?= e(t('Variant name')) ?></label><div><input class="textfield wide" id="nazev" name="name" value="<?= e($name) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Landing page')) ?>"></div></div>
+<div class="row"><label for="name"><?= e(t('Variant name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($name) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Landing page')) ?>"></div></div>
 <div class="row"><span class="caption"><?= e(t('Pages')) ?></span><div class="options">
 <?php foreach ($pages as $s): ?>
 	<label><input type="checkbox" name="pages[]" value="<?= (int) $s['page_id'] ?>"<?= in_array((int) $s['page_id'], $selected, true) ? ' checked' : '' ?>> <?= e($s['title']) ?></label><br>

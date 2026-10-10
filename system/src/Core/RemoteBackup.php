@@ -13,7 +13,7 @@ namespace Kaleta\Core;
 final class RemoteBackup
 {
     /** Which media files are already copied (path => "size:mtime") and to which target. */
-    public const string MEDIA_MANIFEST = Backup::FOLDER . '/media-kopie.json';
+    public const string MEDIA_MANIFEST = Backup::FOLDER . '/media-copy.json';
 
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;

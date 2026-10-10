@@ -66,7 +66,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <fieldset>
 <legend><?= e(t('Import options')) ?></legend>
 <?php if (count($languages) > 1): ?>
-<div class="row"><label for="jazyk"><?= e(t('Language version')) ?></label><div><select id="jazyk" name="language">
+<div class="row"><label for="language"><?= e(t('Language version')) ?></label><div><select id="language" name="language">
 <?php foreach ($languages as $i => $code): ?>
 	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['language'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
 <?php endforeach ?>
@@ -84,7 +84,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php if (!$redirectsEnabled): ?>
 <p class="help"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects feature.')) ?></p>
 <?php endif ?>
-<div class="row"><label for="rubrika"><?= e(t('Put posts without a category into')) ?></label><div><select id="rubrika" name="category">
+<div class="row"><label for="category"><?= e(t('Put posts without a category into')) ?></label><div><select id="category" name="category">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
 	<option value="<?= (int) $r['category_id'] ?>"<?= (int) $r['category_id'] === (int) $options['category'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>

@@ -282,7 +282,7 @@ CREATE TABLE ka_site_parts (
     PRIMARY KEY (type, language, variant)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Published build versions: of pages (ids) and of site parts (cast = "typ:jazyk").
+-- Published build versions: of pages (ids) and of site parts (part = "type:language").
 CREATE TABLE ka_build_revisions (
     revision_id    INT UNSIGNED NOT NULL AUTO_INCREMENT,
     page_id    INT UNSIGNED NULL,
@@ -588,7 +588,7 @@ CREATE TABLE ka_collections (
     detail         TINYINT(1) NOT NULL DEFAULT 0,
     hidden_redirect VARCHAR(255) NOT NULL DEFAULT '',    -- where the page of a hidden or deleted item redirects (2.10); empty = 404
     preset         VARCHAR(30) NOT NULL DEFAULT '',     -- the ready-made collection it was created from (2.11, Builder\Presets); empty = its own
-    schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)
+    schema_org     TEXT NULL,                           -- structured data of item pages: {"type": "Service|Person|Product|Event|FAQPage", "fields": {property: field key}} (1.9)
     build         MEDIUMTEXT NULL,
     build_draft MEDIUMTEXT NULL,
     updated_at        DATETIME NULL,

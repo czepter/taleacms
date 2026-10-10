@@ -57,8 +57,8 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <form class="upload" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>" data-upload>
 	<?= $csrf ?>
 	<input type="hidden" name="folder_id" value="<?= (int) ($activeFolder['folder_id'] ?? 0) ?>">
-	<label for="soubory"><strong><?= e(t('Upload images and attachments')) ?><?= $activeFolder !== null ? ' – ' . e($activeFolder['name']) : '' ?></strong> <?= e(t('– select files, or drag them here')) ?></label>
-	<input type="file" id="soubory" name="files[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Kaleta\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
+	<label for="files"><strong><?= e(t('Upload images and attachments')) ?><?= $activeFolder !== null ? ' – ' . e($activeFolder['name']) : '' ?></strong> <?= e(t('– select files, or drag them here')) ?></label>
+	<input type="file" id="files" name="files[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Kaleta\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
 	<input class="btn" type="submit" value="<?= e(t('Upload')) ?>">
 	<span class="help"><?= e(t('JPG, PNG, WebP and GIF images as well as downloadable attachments (PDF, documents, spreadsheets, ZIP, audio, video), up to %s per file. Large photos are scaled down to %s px and location data is removed.', $limit, Kaleta\Core\Images::MAX_SIDE)) ?></span>
 </form>
@@ -95,7 +95,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php if ($o['thumb_path'] !== ''): ?>
 			<input class="gallery-description" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Description for blind users (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['name'])) ?>" data-description-media="<?= (int) $o['media_id'] ?>" data-address="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
-			<span><label><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>"> <?= e(t('select')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['media_id'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
+			<span><label><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>"> <?= e(t('select')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['media_id'], 'page' => $pageNumber])) ?>#edit"><?= e(t('description')) ?></a></span>
 		</figcaption>
 	</figure>
 <?php endforeach ?>
@@ -114,12 +114,12 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 </form>
 
 <?php foreach ($images as $o): if ((int) $o['media_id'] !== $app->request->getInt('edit')) { continue; } ?>
-<form class="form" id="uprav" method="post" action="<?= e($module->url('save')) ?>">
+<form class="form" id="edit" method="post" action="<?= e($module->url('save')) ?>">
 	<?= $csrf ?>
 	<input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>">
-	<div class="row"><label for="nazev"><?= e(t('Name (alternative text)')) ?></label><div><input class="textfield wide" type="text" id="nazev" name="name" value="<?= e($o['name']) ?>" maxlength="150"><span class="help"><?= e(t('Describe what is in the image - screen readers and search engines read it.')) ?></span></div></div>
-	<div class="row"><label for="popis"><?= e(t('Caption below the image')) ?></label><input class="textfield wide" type="text" id="popis" name="description" value="<?= e($o['description']) ?>" maxlength="500"></div>
-	<div class="row"><label for="autor"><?= e(t('Image credit')) ?></label><div><input class="textfield wide" type="text" id="autor" name="author" value="<?= e($o['author'] ?? '') ?>" maxlength="120"><span class="help"><?= e(t('Shown under a news item\'s main photo unless it has its own photo credit.')) ?></span></div></div>
+	<div class="row"><label for="name"><?= e(t('Name (alternative text)')) ?></label><div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($o['name']) ?>" maxlength="150"><span class="help"><?= e(t('Describe what is in the image - screen readers and search engines read it.')) ?></span></div></div>
+	<div class="row"><label for="description"><?= e(t('Caption below the image')) ?></label><input class="textfield wide" type="text" id="description" name="description" value="<?= e($o['description']) ?>" maxlength="500"></div>
+	<div class="row"><label for="author"><?= e(t('Image credit')) ?></label><div><input class="textfield wide" type="text" id="author" name="author" value="<?= e($o['author'] ?? '') ?>" maxlength="120"><span class="help"><?= e(t('Shown under a news item\'s main photo unless it has its own photo credit.')) ?></span></div></div>
 <?php if ($o['thumb_path'] !== '' && !str_ends_with($o['image_path'], '.svg')): [$ox, $oy] = array_map('intval', explode(' ', str_replace('%', '', $o['focal_point'] ?: '50% 50%'))) + [1 => 50]; ?>
 	<div class="row"><span class="caption"><?= e(t('Crop focal point')) ?></span><div>
 		<div class="focal" data-focal><img src="<?= e($app->url($o['thumb_path'])) ?>" alt=""><span class="focal-point" style="left:<?= $ox ?>%;top:<?= $oy ?>%"></span></div>

@@ -22,7 +22,7 @@ use Kaleta\Admin\Modules\Redirects;
  *    publication date in the page) become news items when the News extension is on.
  *  - Pages are created hidden and outside the menu, so nothing changes for visitors until the administrator looks at
  *    them; old addresses redirect to the new ones.
- *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and ka_import_mapa
+ *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and ka_import_map
  *    remembers what was imported, so running it again skips finished pages.
  * The design is not copied: the pages take the site's design system; Claude can match the look afterwards.
  */
@@ -363,7 +363,7 @@ final class WebImport
         if ($mediaId !== null) {
             return (int) $mediaId === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $mediaId]);
         }
-        $temporary = WpFile::folder() . '/web-obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
+        $temporary = WpFile::folder() . '/web-image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, $this->downloader->download($url));
             $saved = Images::saveFile($temporary, basename((string) parse_url($url, PHP_URL_PATH)) ?: 'image.jpg');

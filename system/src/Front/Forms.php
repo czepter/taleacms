@@ -15,7 +15,7 @@ use Kaleta\Builder\Build;
 
 /**
  * Submission of a builder form (POST /form). Fields and recipient are taken from the PUBLISHED build by source and
- * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
+ * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_enquiries, an e-mail
  * notification and a return to the page with a result code (?form=<id>&result=ok|field|limit|too_fast|verification).
  */
 final class Forms
@@ -176,7 +176,7 @@ final class Forms
         // them in Enquiries
         foreach ($attachments as $index => [$tmp, $extension]) {
             $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
-            $target = KALETA_ROOT . '/storage/prilohy/' . $path;
+            $target = KALETA_ROOT . '/storage/attachments/' . $path;
             if ((is_dir(dirname($target)) || mkdir(dirname($target), 0775, true)) && move_uploaded_file($tmp, $target)) {
                 $data[$index][2] = $path;
             }
@@ -214,10 +214,10 @@ final class Forms
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
         if ($thankYouUrl !== '' && !str_contains($thankYouUrl, '\\') && (str_starts_with($thankYouUrl, '/') && !str_starts_with($thankYouUrl, '//') || preg_match('#^https://#', $thankYouUrl))) {
             // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
-            // ?odeslano=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
+            // ?sent=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
             // in-place thank-you
             $thankYouUrl = (str_starts_with($thankYouUrl, '/') ? $r->basePath() . $thankYouUrl : $thankYouUrl);
-            $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'odeslano=' . rawurlencode((string) $element['content']['name']);
+            $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'sent=' . rawurlencode((string) $element['content']['name']);
 
             return Response::redirect($thankYouUrl, 303);
         }

@@ -267,7 +267,7 @@ final class Server
         $db = $this->app->db();
         // the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
         $ip = \Kaleta\Core\Antispam::hash(\Kaleta\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
-        // a personal token from "Můj účet" (kaleta_…) or the access token of an application connected via OAuth
+        // a personal token from "My account" (kaleta_…) or the access token of an application connected via OAuth
         // (kaleta_oa_…, valid for an hour)
         if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;

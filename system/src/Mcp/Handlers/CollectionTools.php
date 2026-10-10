@@ -99,7 +99,7 @@ trait CollectionTools
         $db->insert('collections', ['name' => $collectionName, 'slug' => $seo, 'detail' => empty($a['item_pages']) ? 0 : 1, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s'),
             'schema_org' => self::collectionSchema($a['structured_data'] ?? null, $field)]);
 
-        return ['collection' => $seo, 'fields' => self::fieldTypes($field, false)];
+        return ['collection' => $seo, 'fields' => self::fieldTypes($field, false)] + ($redirect !== '' ? ['redirect_hidden_to' => $redirect] : []);
     }
 
     /** update_collection */

@@ -7,7 +7,7 @@ namespace Kaleta\Core;
 /**
  * Export of the whole site into one archive – so that the content never stays locked in Kaleta.
  *
- * The archive storage/zalohy/export-YYYYMMDD-HHMMSS.zip contains content.json (pages, categories, tags, news, redirects,
+ * The archive storage/backups/export-YYYYMMDD-HHMMSS.zip contains content.json (pages, categories, tags, news, redirects,
  * the media library and public settings), README.txt describing the format and the folder media/.
  *
  * What is NEVER in the export: passwords, API keys, tokens, SMTP and FTP details, admin user accounts.
@@ -40,7 +40,7 @@ final class SiteExport
     public static function create(Db $db, Settings $settings): array
     {
         if (!is_dir(Backup::FOLDER) && !mkdir(Backup::FOLDER, 0775, true)) {
-            throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
+            throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         @set_time_limit(300);
         $base = Backup::FOLDER . '/export-' . date('Ymd-His');
@@ -62,7 +62,7 @@ final class SiteExport
         };
         $zip = new \ZipArchive();
         if ($zip->open($base . '.zip', \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            throw new \RuntimeException('The archive could not be created – check write permissions for storage/zalohy.');
+            throw new \RuntimeException('The archive could not be created – check write permissions for storage/backups.');
         }
         $zip->addFile($json, 'content.json');
         $zip->addFromString('README.txt', self::readme($reason === ''));
@@ -110,7 +110,7 @@ final class SiteExport
     {
         $f = fopen($path, 'wb');
         if ($f === false) {
-            throw new \RuntimeException('Cannot write to storage/zalohy – check write permissions.');
+            throw new \RuntimeException('Cannot write to storage/backups – check write permissions.');
         }
         fwrite($f, '{"format":"kaleta-export","format_version":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"settings":' . self::json(self::settings($db)));
 

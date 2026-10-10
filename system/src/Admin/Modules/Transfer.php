@@ -95,7 +95,7 @@ final class Transfer extends Module
             return $this->back('The import does not exist any more.', type: 'error');
         }
         if ($this->request->isPost() && in_array($state['phase'], ['finding', 'import'], true)) {
-            $lock = fopen(WpFile::folder() . '/web-import.zamek', 'c');
+            $lock = fopen(WpFile::folder() . '/web-import.lock', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
                 try {
                     @set_time_limit(60);
@@ -309,7 +309,7 @@ final class Transfer extends Module
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['phase'], ['analysis', 'import', 'images'], true)) {
-            $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
+            $lock = fopen(WpFile::folder() . '/import.lock', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
                 try {
                     @set_time_limit(60);
@@ -538,7 +538,7 @@ final class Transfer extends Module
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['phase'], ['download', 'analysis', 'import', 'images'], true)) {
-            $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
+            $lock = fopen(WpFile::folder() . '/import.lock', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
                 $tokenKey = Fetch::sessionKey((string) $state['file']);
                 try {
@@ -652,7 +652,7 @@ final class Transfer extends Module
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['phase'], ['data', 'media'], true)) {
-            $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
+            $lock = fopen(WpFile::folder() . '/import.lock', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
                 try {
                     @set_time_limit(60);

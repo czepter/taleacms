@@ -52,7 +52,7 @@ final class Files
 
     /**
      * @param array<string, mixed> $file item from $_FILES
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
     public static function save(array $file): array
@@ -70,7 +70,7 @@ final class Files
     /**
      * An attachment from a file already on disk (MCP, import) – the source stays, a copy is saved.
      *
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
      */
     public static function saveFile(string $path, string $displayName): array
     {
@@ -81,7 +81,7 @@ final class Files
         return self::process($path, $displayName, false);
     }
 
-    /** @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string} */
+    /** @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string} */
     private static function process(string $tmp, string $displayName, bool $uploaded): array
     {
         $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));

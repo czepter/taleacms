@@ -29,41 +29,41 @@ function check(string $label, mixed $actual, mixed $expected): void
         return;
     }
     $errors++;
-    echo "  CHYBA  {$label}\n         čekal jsem: " . var_export($expected, true) . "\n         dostal jsem: " . var_export($actual, true) . "\n";
+    echo "  FAIL   {$label}\n         expected: " . var_export($expected, true) . "\n         actual:   " . var_export($actual, true) . "\n";
 }
 
 /* ---------- text conversions ---------- */
-check('slugify: diakritika a mezery', slugify('Příliš žluťoučký kůň!'), 'prilis-zlutoucky-kun');
-check('slugify: prázdný vstup', slugify('***'), 'n-a');
-check('slugify: délka', strlen(slugify(str_repeat('abc ', 100), 20)) <= 20, true);
-check('bez_diakritiky', remove_diacritics('Ďábelské ÓDY – Straße'), 'Dabelske ODY – Strasse');
-check('e(): uvozovky a značky', e('<a href="x">\'</a>'), '&lt;a href=&quot;x&quot;&gt;&#039;&lt;/a&gt;');
-check('datum', format_date('2026-09-05 07:03:00', true), '5. 9. 2026 07:03');
+check('slugify: diacritics and spaces', slugify('Příliš žluťoučký kůň!'), 'prilis-zlutoucky-kun'); // check-english: allow
+check('slugify: empty input', slugify('***'), 'n-a');
+check('slugify: length', strlen(slugify(str_repeat('abc ', 100), 20)) <= 20, true);
+check('remove_diacritics', remove_diacritics('Ďábelské ÓDY – Straße'), 'Dabelske ODY – Strasse'); // check-english: allow
+check('e(): quotes and tags', e('<a href="x">\'</a>'), '&lt;a href=&quot;x&quot;&gt;&#039;&lt;/a&gt;');
+check('date: Czech format', Kaleta\Core\Language::runWith('cs', fn () => format_date('2026-09-05 07:03:00', true)), '5. 9. 2026 07:03');
 
 /* ---------- search ---------- */
-check('Hledani::normalizuj', Search::normalize('<p>Nábřeží&nbsp;<b>Vltavy</b></p><h2>Proměna!</h2>'), 'nabrezi vltavy promena');
-check('Hledani::dotaz: krátká slova vypadnou', Search::query('co je na Nábřeží'), '+nabrezi*');
-check('Hledani::dotaz: operátory fulltextu se neprosadí', Search::query('+tajne -verejne "fraze" (x) ~y*'), '+tajne* +verejne* +fraze*');
-check('Hledani::dotaz: nejvýš 8 slov', substr_count(Search::query('aaa bbb ccc ddd eee fff ggg hhh iii jjj'), '+'), 8);
+check('Search::normalize', Search::normalize('<p>Nábřeží&nbsp;<b>Vltavy</b></p><h2>Proměna!</h2>'), 'nabrezi vltavy promena'); // check-english: allow
+check('Search::query: short words drop out', Search::query('co je na Nábřeží'), '+nabrezi*'); // check-english: allow
+check('Search::query: fulltext operators do not take effect', Search::query('+tajne -verejne "fraze" (x) ~y*'), '+tajne* +verejne* +fraze*');
+check('Search::query: at most 8 words', substr_count(Search::query('aaa bbb ccc ddd eee fff ggg hhh iii jjj'), '+'), 8);
 
 /* ---------- TOTP (RFC 6238, secret "12345678901234567890") ---------- */
 $totpSeed = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 check('TOTP: vektor T=59', Totp::code($totpSeed, intdiv(59, 30)), '287082');
 check('TOTP: vektor T=1111111109', Totp::code($totpSeed, intdiv(1111111109, 30)), '081804');
 check('TOTP: vektor T=2000000000', Totp::code($totpSeed, intdiv(2000000000, 30)), '279037');
-check('TOTP: platný kód projde', Totp::verify($totpSeed, '287082', 59), true);
-check('TOTP: sousední okno projde', Totp::verify($totpSeed, '287082', 59 + 30), true);
-check('TOTP: starý kód neprojde', Totp::verify($totpSeed, '287082', 59 + 300), false);
+check('TOTP: a valid code passes', Totp::verify($totpSeed, '287082', 59), true);
+check('TOTP: the neighbouring window passes', Totp::verify($totpSeed, '287082', 59 + 30), true);
+check('TOTP: an old code fails', Totp::verify($totpSeed, '287082', 59 + 300), false);
 check('TOTP: nesmysl neprojde', Totp::verify($totpSeed, 'abcdef', 59), false);
-check('TOTP: nové tajemství má 160 bitů', strlen(Totp::newSecret()), 32);
+check('TOTP: a new secret has 160 bits', strlen(Totp::newSecret()), 32);
 
 /* ---------- migrations: splitting SQL into statements ---------- */
-$sql = "-- komentář\nALTER TABLE ka_news ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE ka_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n";
+$sql = "-- komentář\nALTER TABLE ka_news ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE ka_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n"; // check-english: allow
 $statements = SqlScript::statements($sql, 'web_');
-check('Migrace::prikazy: počet', count($statements), 3);
-check('Migrace::prikazy: předpona tabulek', str_contains($statements[1], 'CREATE TABLE web_nova'), true);
-check('Migrace::prikazy: středník v hodnotě příkaz nerozdělí', str_contains($statements[1], "DEFAULT ';'"), true);
-check('Migrace::prikazy: předpona omezení', str_contains($statements[2], 'CONSTRAINT web_fk_a') && str_contains($statements[2], 'REFERENCES web_b'), true);
+check('Migrations::statements: count', count($statements), 3);
+check('Migrations::statements: table prefix', str_contains($statements[1], 'CREATE TABLE web_nova'), true);
+check('Migrations::statements: a semicolon inside a value does not split the statement', str_contains($statements[1], "DEFAULT ';'"), true);
+check('Migrations::statements: constraint prefix', str_contains($statements[2], 'CONSTRAINT web_fk_a') && str_contains($statements[2], 'REFERENCES web_b'), true);
 // Phinx migrations: timestamped files, one class each, no charset or collation anywhere (it is set once on the database)
 $migrationFiles = glob(KALETA_SYSTEM . '/database/migrations/*.php') ?: [];
 $migrationSource = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), $migrationFiles));
@@ -77,22 +77,22 @@ check('Migrations: Phinx configuration uses the one charset and collation', [Mig
     Migrator::phinxConfig(['name' => 'x', 'username' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default_migration_table']], ['utf8mb4_0900_ai_ci', 'web_migrations']);
 
 /* ---------- attachments ---------- */
-check('Soubory: PDF je příloha', Files::isAttachment('Zpráva.PDF'), true);
-check('Soubory: PHP není příloha', Files::isAttachment('shell.php'), false);
-check('Soubory: dvojitá přípona', Files::isAttachment('shell.pdf.php'), false);
+check('Files: a PDF is an attachment', Files::isAttachment('Zpráva.PDF'), true); // check-english: allow
+check('Files: PHP is not an attachment', Files::isAttachment('shell.php'), false);
+check('Files: a double extension', Files::isAttachment('shell.pdf.php'), false);
 check('Soubory: SVG a HTML ne', Files::isAttachment('x.svg') || Files::isAttachment('x.html'), false);
 check('Soubory: velikost', Files::size(1536), '2 kB');
-check('Soubory: velikost v MB', Files::size(5 * 1048576), '5,0 MB');
+check('Files::size: MB, Czech decimal comma', Kaleta\Core\Language::runWith('cs', fn () => Files::size(5 * 1048576)), '5,0 MB');
 
 /* ---------- player and embedded URLs ---------- */
 check('prehravac: YouTube bez cookies', str_contains(NewsText::player('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '', 'T'), 'youtube-nocookie.com/embed/dQw4w9WgXcQ'), true);
 check('prehravac: youtu.be', str_contains(NewsText::player('https://youtu.be/dQw4w9WgXcQ', '', 'T'), 'embed/dQw4w9WgXcQ'), true);
 check('prehravac: MP3 je <audio>', str_contains(NewsText::player('media/2026/09/epizoda.mp3', '/magazin', 'T'), '<audio controls preload="none" src="/magazin/media/2026/09/epizoda.mp3">'), true);
-check('prehravac: neznámá adresa v režimu jenZname', NewsText::player('https://example.com/video', '', 'T', true), '');
-check('prehravac: titulek se escapuje', str_contains(NewsText::player('https://vimeo.com/123', '', '"><script>'), '<script>'), false);
+check('player: unknown address in knownOnly mode', NewsText::player('https://example.com/video', '', 'T', true), '');
+check('player: the title is escaped', str_contains(NewsText::player('https://vimeo.com/123', '', '"><script>'), '<script>'), false);
 $types = (new ReflectionClass(NewsText::class))->newInstanceWithoutConstructor();
-$html = $types->embedVideoUrls('<p>Úvod</p><p>https://youtu.be/dQw4w9WgXcQ</p><p>Viz https://youtu.be/dQw4w9WgXcQ v textu.</p>');
-check('vlozeneAdresy: jen samostatný řádek', [substr_count($html, 'data-insert'), substr_count($html, 'Viz https://youtu.be')], [1, 1]);
+$html = $types->embedVideoUrls('<p>Úvod</p><p>https://youtu.be/dQw4w9WgXcQ</p><p>Viz https://youtu.be/dQw4w9WgXcQ v textu.</p>'); // check-english: allow
+check('embeddedUrls: only a standalone line', [substr_count($html, 'data-insert'), substr_count($html, 'Viz https://youtu.be')], [1, 1]);
 
 /* ---------- themeless (1.6) ---------- */
 check('Themeless: the page frame is the system’s own, no layout folder and no layout setting', [is_file(KALETA_ROOT . '/system/views/front/base.php'), is_dir(KALETA_ROOT . '/layout'), isset(\Kaleta\Core\Settings::DEFAULTS['layout'])], [true, false, false]);
@@ -107,7 +107,7 @@ $missingTranslation = static function (string $dictionary, array $patterns): arr
             preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)+)'/u", (string) file_get_contents($file), $m);
             foreach ($m[1] as $k) {
                 $k = stripslashes($k);
-                if (!isset($translations[$k]) && preg_match('/[áčďéěíňóřšťúůýž]/iu', $k)) {
+                if (!isset($translations[$k]) && preg_match('/[áčďéěíňóřšťúůýž]/iu', $k)) { // check-english: allow
                     $missing[] = basename($file) . ': ' . $k;
                 }
             }
@@ -116,19 +116,19 @@ $missingTranslation = static function (string $dictionary, array $patterns): arr
 
     return array_values(array_unique($missing));
 };
-check('Zdrojové texty webu jsou anglické (t() bez české diakritiky)', $missingTranslation('en.php', ['system/views/front/*.php', 'system/src/Front/*.php', 'system/src/Builder/*.php', 'system/src/Builder/Elements/*.php']), []);
+check('Front-end source texts are English (t() without Czech diacritics)', $missingTranslation('en.php', ['system/views/front/*.php', 'system/src/Front/*.php', 'system/src/Builder/*.php', 'system/src/Builder/Elements/*.php']), []);
 check('English dictionaries carry only the data-driven keys (English is the source language)', array_map(fn (string $f): array => array_values(array_diff(array_keys(require dirname(__DIR__) . '/system/languages/' . $f), ['datum_format', 'date_in_words'])), ['en.php', 'admin-en.php', 'install-en.php']), [[], [], []]);
 
-check('Stavba::kod: vnořený skript se nesloží znovu', [str_contains(Kaleta\Builder\Build::code('<scr<script>x</script>ipt>alert(1)</scr<script>y</script>ipt>'), '<script'), Kaleta\Builder\Build::code('<iframe src="https://mapy.cz/x"></iframe>')], [false, '<iframe src="https://mapy.cz/x"></iframe>']);
-check('Stavba::kod: obsluhy událostí a javascript: zmizí', Kaleta\Builder\Build::code('<a href="javascript:alert(1)" onclick="x()">A</a><iframe srcdoc="data:text/html,x"></iframe>'), '<a>A</a><iframe></iframe>');
+check('Build::code: a nested script does not reassemble', [str_contains(Kaleta\Builder\Build::code('<scr<script>x</script>ipt>alert(1)</scr<script>y</script>ipt>'), '<script'), Kaleta\Builder\Build::code('<iframe src="https://mapy.cz/x"></iframe>')], [false, '<iframe src="https://mapy.cz/x"></iframe>']);
+check('Build::code: event handlers and javascript: disappear', Kaleta\Builder\Build::code('<a href="javascript:alert(1)" onclick="x()">A</a><iframe srcdoc="data:text/html,x"></iframe>'), '<a>A</a><iframe></iframe>');
 // 2.5.1: a DOM filter instead of regular expressions – the bypasses of the old filter stay closed
 $codeBypasses = ['<img/onerror=alert(1) src=x>', '<svg/onload=alert(1)>', '<a href=javascript:alert(1)>x</a>', '<a href="&#106;avascript:alert(1)">x</a>',
     '<a href="java&#x09;script:alert(1)">x</a>', '<a href="javascript:alert(\'1\')">x</a>', '<iframe srcdoc="&lt;svg/onload=alert(1)&gt;"></iframe>',
     '<object data="javascript:alert(1)"></object>', '<form action=javascript:alert(1)><button>x</button></form>', '<svg><animate attributeName=href values=javascript:alert(1) /></svg>',
     '<base href="https://evil.example/">', '<meta http-equiv=refresh content="0;url=https://evil.example">', '<div style="background:url(javascript:alert(1))">x</div>',
     '<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>', '<math><mtext><table><mglyph><style><img src=x onerror=alert(1)>'];
-check('Stavba::kod: obejití starého filtru neprojde', array_filter($codeBypasses, fn (string $h): bool => (bool) preg_match('/\son[a-z]+=|javascript:|srcdoc|<base|<meta|<object|<animate|evil\.example/i', Kaleta\Builder\Build::code($h))), []);
-check('Stavba::kod: mapa, formulář služby a zástupné hodnoty zůstanou', Kaleta\Builder\Build::code('<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>'),
+check('Build::code: bypassing the old filter fails', array_filter($codeBypasses, fn (string $h): bool => (bool) preg_match('/\son[a-z]+=|javascript:|srcdoc|<base|<meta|<object|<animate|evil\.example/i', Kaleta\Builder\Build::code($h))), []);
+check('Build::code: map, service form and placeholder values stay', Kaleta\Builder\Build::code('<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>'),
     '<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen=""></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>');
 /* ---------- admin and site scripts without system dialogs (they cannot be styled or translated, and browsers suppress them) ---------- */
 $nativeDialogs = [];
@@ -142,7 +142,7 @@ check('Skripty bez window.alert/prompt/confirm', $nativeDialogs, []);
 
 /* ---------- QR code (two-factor sign-in): own encoder without a library ---------- */
 // Reed–Solomon: the known vector „HELLO WORLD“ version 1-M from the standard's tutorial (thonky.com, QR Code Tutorial)
-check('Qr: opravné kódy Reed–Solomon (známý vektor)', Kaleta\Core\Qr::correctionCodes([32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236, 17, 236, 17], 10), [196, 35, 39, 119, 235, 215, 231, 226, 93, 23]);
+check('Qr: Reed–Solomon correction codes (known vector)', Kaleta\Core\Qr::correctionCodes([32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236, 17, 236, 17], 10), [196, 35, 39, 119, 235, 215, 231, 226, 93, 23]);
 $qrRows = fn (array $m): array => array_map(fn (array $r): string => implode('', array_map(fn (bool $b): string => $b ? '#' : '.', $r)), $m);
 $qr = $qrRows(Kaleta\Core\Qr::matrix('Kaleta', 2));
 // format bits read from the matrix (column 8 and row 8 at the top left corner) = the standard's table for level M, mask 2: 101111001111100
@@ -150,18 +150,18 @@ $qrFormat = '';
 foreach ([[0, 8], [1, 8], [2, 8], [3, 8], [4, 8], [5, 8], [7, 8], [8, 8], [8, 7], [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0]] as [$y, $x]) {
     $qrFormat = ($qr[$y][$x] === '#' ? '1' : '0') . $qrFormat;
 }
-check('Qr: formátové bity M/maska 2 podle tabulky normy', $qrFormat, '101111001111100');
-check('Qr: verze 1 = 21 × 21 s hledacím vzorem', [count($qr), $qr[0], $qr[6]], [21, '#######..##.#.#######', '#######.#.#.#.#######']);
+check('Qr: format bits M/mask 2 per the standard\'s table', $qrFormat, '101111001111100');
+check('Qr: version 1 = 21 × 21 with the finder pattern', [count($qr), $qr[0], $qr[6]], [21, '#######..##.#.#######', '#######.#.#.#.#######']);
 // matrices verified by an independent reader (Chrome BarcodeDetector) – guards that the encoder does not break
 $qrHash = fn (string $text): string => sha1(implode("\n", array_map(fn (array $r): string => implode('', array_map('intval', $r)), Kaleta\Core\Qr::matrix($text))));
-check('Qr: adresa otpauth (verze 6) odpovídá ověřené matici', $qrHash('otpauth://totp/Acme%3Aadmin?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Acme&digits=6&period=30'), '21b4e92a0dd7dfcfe3d26161ea6baf9459312669');
-check('Qr: verze 12 (verzní bity, víc bloků) odpovídá ověřené matici', $qrHash(str_repeat('Kaleta QR 0123456789 ', 12)), '12f9c4c80e2de66f316614d576e6dde5464482c8');
-$qrSvg = Kaleta\Core\Qr::svg('otpauth://totp/x?secret=AB', 'QR <kód>');
-check('Qr: SVG s popisem, bez skriptu', str_contains($qrSvg, 'role="img" aria-label="QR &lt;kód&gt;"') && !str_contains($qrSvg, '<script'), true);
+check('Qr: otpauth address (version 6) matches the verified matrix', $qrHash('otpauth://totp/Acme%3Aadmin?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Acme&digits=6&period=30'), '21b4e92a0dd7dfcfe3d26161ea6baf9459312669');
+check('Qr: version 12 (version bits, more blocks) matches the verified matrix', $qrHash(str_repeat('Kaleta QR 0123456789 ', 12)), '12f9c4c80e2de66f316614d576e6dde5464482c8');
+$qrSvg = Kaleta\Core\Qr::svg('otpauth://totp/x?secret=AB', 'QR <kód>'); // check-english: allow
+check('Qr: SVG with a caption, without a script', str_contains($qrSvg, 'role="img" aria-label="QR &lt;kód&gt;"') && !str_contains($qrSvg, '<script'), true); // check-english: allow
 
 /* ---------- image sizes: tall screenshots are measured by width, srcset carries the real widths ---------- */
-check('Obrazky::pomer: fotka na šířku i na výšku podle delší strany', [Kaleta\Core\Images::ratio(4000, 3000, 2000), Kaleta\Core\Images::ratio(3000, 4000, 2000)], [0.5, 0.5]);
-check('Obrazky::pomer: celostránkový snímek podle šířky, výška nejvýš trojnásobek', [Kaleta\Core\Images::ratio(1440, 5000, 2000), round(Kaleta\Core\Images::ratio(1440, 5000, 1200), 3), Kaleta\Core\Images::ratio(1000, 9000, 2000)], [1.0, 0.72, 6000 / 9000]);
+check('Images::ratio: a landscape and a portrait photo by the longer side', [Kaleta\Core\Images::ratio(4000, 3000, 2000), Kaleta\Core\Images::ratio(3000, 4000, 2000)], [0.5, 0.5]);
+check('Images::ratio: a full-page screenshot by width, height at most three times', [Kaleta\Core\Images::ratio(1440, 5000, 2000), round(Kaleta\Core\Images::ratio(1440, 5000, 1200), 3), Kaleta\Core\Images::ratio(1000, 9000, 2000)], [1.0, 0.72, 6000 / 9000]);
 $imageFolder = dirname(__DIR__) . '/media/' . date('Y/m');
 @mkdir($imageFolder, 0775, true);
 $imageTmp = tempnam(sys_get_temp_dir(), 'obr');
@@ -169,26 +169,26 @@ $imagePng = imagecreatetruecolor(1440, 5000);
 imagepng($imagePng, $imageTmp);
 $imageSaved = Kaleta\Core\Images::saveFile($imageTmp, 'celostrankovy-snimek.png');
 $imageSrcset = Kaleta\Core\Images::srcset($imageSaved['image_path'], '');
-check('Obrazky: vysoký snímek si nechá šířku, srcset má skutečné šířky variant', [$imageSaved['image_width'], $imageSaved['image_height'], (bool) preg_match('/-nahled\.png 553w, .*-1200\.png 1037w, .*\.png 1440w$/', $imageSrcset)], [1440, 5000, true]);
+check('Images: a tall image keeps its width, srcset has the real variant widths', [$imageSaved['image_width'], $imageSaved['image_height'], (bool) preg_match('/-nahled\.png 553w, .*-1200\.png 1037w, .*\.png 1440w$/', $imageSrcset)], [1440, 5000, true]);
 Kaleta\Core\Images::delete($imageSaved['image_path'], $imageSaved['thumb_path']);
 @unlink($imageTmp);
 
-check('Styl::zCss: barva rámečku (i pro stav hover)', Kaleta\Builder\Style::fromCss('border-color', '#F6F4EE'), ['border_color' => '#F6F4EE']);
+check('Style::fromCss: border colour (also for the hover state)', Kaleta\Builder\Style::fromCss('border-color', '#F6F4EE'), ['border_color' => '#F6F4EE']);
 check('Styl::zCss: zkratka background jen s barvou', Kaleta\Builder\Style::fromCss('background', '#EFECE5'), Kaleta\Builder\Style::fromCss('background-color', '#EFECE5'));
-check('Styl::zCss: background s obrázkem zůstane mimo', Kaleta\Builder\Style::fromCss('background', 'url(a.png) no-repeat'), null);
+check('Style::fromCss: a background with an image stays out', Kaleta\Builder\Style::fromCss('background', 'url(a.png) no-repeat'), null);
 $buildCheck = Kaleta\Builder\Check::builds(['v' => 1, 'children' => [['id' => 's', 'type' => 'section', 'children' => [
-    ['id' => 'a', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Služby']],
+    ['id' => 'a', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Služby']], // check-english: allow
     ['id' => 'b', 'type' => 'heading', 'tag' => 'h4', 'content' => ['text' => 'Detail']],
     ['id' => 'c', 'type' => 'button', 'content' => ['text' => 'Poptat', 'link' => '#']],
     ['id' => 'd', 'type' => 'image', 'content' => ['src' => 'media/a.jpg', 'alt' => '']],
     ['id' => 'e', 'type' => 'image', 'content' => ['src' => '{{photo}}', 'alt' => '']],
     ['id' => 'f', 'type' => 'heading', 'tag' => 'p', 'content' => ['text' => '01']],
 ]]]], true);
-check('Kontrola stavby: tlačítko bez odkazu, obrázek bez popisu, chybějící h1 a přeskočená úroveň', array_column($buildCheck, 'id'), ['c', 'd', 'a', 'b']);
-check('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Builder\Check::builds(['v' => 1, 'children' => [['id' => 'a', 'type' => 'heading', 'tag' => 'h3', 'content' => ['text' => 'Kontakt']]]], false), []);
-check('Poptávka: kampaň z utm_* adresy stránky s formulářem', Kaleta\Front\Forms::campaign('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
-check('Poptávka: kampaň jen z vlastního webu', Kaleta\Front\Forms::campaign('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
-check('Poptávka: kampaň pro člověka', Kaleta\Front\Forms::campaignText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
+check('Build check: button without a link, image without alt, missing h1 and a skipped level', array_column($buildCheck, 'id'), ['c', 'd', 'a', 'b']);
+check('Build check: site parts do not check the heading outline', Kaleta\Builder\Check::builds(['v' => 1, 'children' => [['id' => 'a', 'type' => 'heading', 'tag' => 'h3', 'content' => ['text' => 'Kontakt']]]], false), []); // check-english: allow
+check('Enquiry: campaign from the utm_* address of the page with the form', Kaleta\Front\Forms::campaign('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
+check('Enquiry: campaign only from the own site', Kaleta\Front\Forms::campaign('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
+check('Enquiry: campaign for a human', Kaleta\Front\Forms::campaignText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
 // Parity guard: every admin action is a read, has an MCP tool, or is admin only on purpose (with the reason). A new action
 // that is none of these fails the test – decide whether Claude can do it too (MCP is the main way to work with a site).
 $readOnly = 'read';
@@ -390,24 +390,24 @@ check('2.9: MonthlyReport::previousMonth – January goes to December of the pre
     MonthlyReport::previousMonth(new DateTimeImmutable('2026-03-31 23:59:59'))->format('Y-m-d')], ['2026-12-01 00:00', '2026-02-01']);
 $reportSettings = static function (array $values): Kaleta\Core\Settings {
     $s = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
-    (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($s, $values + ['site_name' => 'Testovací firma', 'site_language' => 'en']);
+    (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($s, $values + ['site_name' => 'Testovací firma', 'site_language' => 'en']); // check-english: allow
 
     return $s;
 };
 $reportData = ['month' => '2026-09',
     'stats' => ['visits' => 120, 'views' => 300, 'previous_visits' => 100, 'previous_views' => 0, 'pages' => [['path' => '/sluzby', 'n' => 80]], 'sources' => [['site' => 'google.com', 'n' => 40]], 'campaigns' => []],
-    'enquiries' => ['total' => 3, 'forms' => [['form' => 'Kontakt jan.novak@visitor.example', 'n' => 3]], 'pages' => [['path' => '/kontakt', 'n' => 3]], 'unanswered' => 2], 'signups' => 1,
+    'enquiries' => ['total' => 3, 'forms' => [['form' => 'Kontakt jan.novak@visitor.example', 'n' => 3]], 'pages' => [['path' => '/kontakt', 'n' => 3]], 'unanswered' => 2], 'signups' => 1, // check-english: allow
     'updates' => [['type' => 'update.applied', 'date' => '2026-09-10 10:00:00', 'message' => 'Version 2.8.0 was installed (from 2.7.0).']],
     'backups' => ['created' => 20, 'failed' => 0, 'last' => '2026-09-30 03:00:00'], 'changes' => ['people' => 12, 'claude' => 7],
     'problems' => [['group' => 'Operation', 'name' => 'Cron', 'state' => 'warning', 'info' => 'not set up – ask admin@visitor.example']], 'decisions' => ['enquiries' => 2, 'errors' => 0]];
 $withAgency = MonthlyReport::render($reportData, $reportSettings(['agency_name' => 'Studio Kaleta', 'agency_email' => 'help@studio.example', 'agency_logo' => 'media/logo.svg']), 'https://example.com/');
 $withoutAgency = MonthlyReport::render($reportData, $reportSettings([]), 'https://example.com');
 check('2.9: the report carries the agency when it is set, otherwise the site', [str_contains($withAgency['html'], 'Studio Kaleta'), str_contains($withAgency['html'], 'https://example.com/media/logo.svg'), str_contains($withAgency['text'], 'help@studio.example'),
-    str_contains($withoutAgency['html'], 'Studio Kaleta'), str_contains($withoutAgency['html'], 'Testovací firma'), str_contains($withoutAgency['html'], '120 (+20 %)')], [true, true, true, false, true, true]);
-check('2.9: no e-mail address from the data gets into the report', [str_contains($withAgency['html'] . $withAgency['text'] . $withAgency['subject'], 'visitor.example'), str_contains($withoutAgency['html'], '/sluzby'), str_contains($withoutAgency['text'], 'Kontakt ')], [false, true, true]);
+    str_contains($withoutAgency['html'], 'Studio Kaleta'), str_contains($withoutAgency['html'], 'Testovací firma'), str_contains($withoutAgency['html'], '120 (+20 %)')], [true, true, true, false, true, true]); // check-english: allow
+check('2.9: no e-mail address from the data gets into the report', [str_contains($withAgency['html'] . $withAgency['text'] . $withAgency['subject'], 'visitor.example'), str_contains($withoutAgency['html'], '/sluzby'), str_contains($withoutAgency['text'], 'Kontakt ')], [false, true, true]); // check-english: allow
 check('2.9: the subject names the month in the site language', [$withoutAgency['subject'], MonthlyReport::render($reportData, $reportSettings(['site_language' => 'cs']), 'https://example.com')['subject'],
     MonthlyReport::render(['month' => '2027-01'], $reportSettings(['site_language' => 'de']), 'https://example.com')['subject']],
-    ['Website report – September 2026 – Testovací firma', 'Zpráva o webu – září 2026 – Testovací firma', 'Website-Bericht – Januar 2027 – Testovací firma']);
+    ['Website report – September 2026 – Testovací firma', 'Zpráva o webu – září 2026 – Testovací firma', 'Website-Bericht – Januar 2027 – Testovací firma']); // check-english: allow
 $ok = [200, 'KALETA-PROBE 9.9.9'];
 check('2.8: Updater::probeVerdict', [
     Kaleta\Core\Updater::probeVerdict(['probe' => $ok, 'home' => [200, 'x'], 'admin' => [200, 'x']], '9.9.9'),
@@ -516,7 +516,7 @@ foreach (Kaleta\Mcp\Tools::definitions() as $mcpTool) {
     foreach ((array) $mcpTool['inputSchema']['properties'] as $mcpParam => $mcpDefinition) {
         $mcpText .= ' ' . $mcpParam . ' ' . ($mcpDefinition['description'] ?? '');
     }
-    if (preg_match('/[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u', $mcpText) === 1 || preg_match('/\b(nazev|adresa|stranka|stranky|polozka|polozky|kolekce|poradi|publikovat|hledat|stitky|kategorie|datum|vydat|operace|sekce|uplne|prvky|zobrazit|smazat|nahradit|komentare|potvrdit|presmerovani|novinky|vzor|predvolba)\b/u', $mcpText) === 1) {
+    if (preg_match('/[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u', $mcpText) === 1 || preg_match('/\b(nazev|adresa|stranka|stranky|polozka|polozky|kolekce|poradi|publikovat|hledat|stitky|kategorie|datum|vydat|operace|sekce|uplne|prvky|zobrazit|smazat|nahradit|komentare|potvrdit|presmerovani|novinky|vzor|predvolba)\b/u', $mcpText) === 1) { // check-english: allow
         $mcpCzech[] = $mcpTool['name'];
     }
 }
@@ -524,46 +524,46 @@ check('MCP: every tool of the contract is implemented under its English name; no
     [array_values(array_diff(array_keys($mcpContract), array_keys($mcpDefined))), array_values(array_diff(array_keys($mcpDefined), array_keys($mcpContract), array_keys(Kaleta\Mcp\Catalog::TOOLS))), $mcpCzech, class_exists('Kaleta\\Mcp\\Translator', false)], [[], [], [], false]);
 $mcpCzechMessages = [];
 foreach ([...glob(KALETA_ROOT . '/system/src/Mcp/*.php'), ...glob(KALETA_ROOT . '/system/src/Mcp/Handlers/*.php')] as $mcpFile) {
-    if (preg_match("/Exception\\('[^']*[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u", (string) file_get_contents($mcpFile)) === 1) {
+    if (preg_match("/Exception\\('[^']*[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u", (string) file_get_contents($mcpFile)) === 1) { // check-english: allow
         $mcpCzechMessages[] = basename($mcpFile);
     }
 }
 check('MCP: the fixed messages of the tools are English (no Czech diacritics in the exceptions of Mcp\\)', $mcpCzechMessages, []);
 $mcpList = [['name' => 'save_collection_item', 'inputSchema' => ['properties' => ['data' => ['type' => 'object'], 'name' => ['type' => 'string'], 'fields' => ['type' => 'array']]]]];
-check('MCP: objekt a pole poslané jako text JSON se rozbalí podle schématu, text zůstane textem', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{"a":"b"}', 'name' => '{"x":1}', 'fields' => '[1,2]']),
+check('MCP: an object and an array sent as JSON text are unpacked by the schema, text stays text', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{"a":"b"}', 'name' => '{"x":1}', 'fields' => '[1,2]']),
     ['data' => ['a' => 'b'], 'name' => '{"x":1}', 'fields' => [1, 2]]);
-check('MCP: neplatný JSON nebo pole místo objektu se nerozbalí', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{nic', 'fields' => '{"a":1}']), ['data' => '{nic', 'fields' => '{"a":1}']);
-check('MCP: logická hodnota poslaná jako text („false“ nezveřejní skrytou stránku)', Kaleta\Mcp\Server::extractJson([['name' => 'create_page', 'inputSchema' => ['properties' => ['visible' => ['type' => 'boolean'], 'title' => ['type' => 'string']]]]], 'create_page', ['visible' => 'false', 'title' => 'false']), ['visible' => false, 'title' => 'false']);
-check('MCP: logická hodnota „true“ a „1“ jako text', array_values(array_map(fn (string $h): mixed => Kaleta\Mcp\Server::extractJson([['name' => 't', 'inputSchema' => ['properties' => ['v' => ['type' => 'boolean']]]]], 't', ['v' => $h])['v'], ['true', '1', '0', 'ano'])), [true, true, false, 'ano']);
-check('MCP: text JSON u parametru typu [array, null] se rozbalí', Kaleta\Mcp\Server::extractJson([['name' => 'save_menu', 'inputSchema' => ['properties' => ['items' => ['type' => ['array', 'null']]]]]], 'save_menu', ['items' => '[{"type":"page"}]']), ['items' => [['type' => 'page']]]);
-check('MCP: neznámé parametry se vyjmenují', Kaleta\Mcp\Server::unknownParams($mcpList, 'save_collection_item', ['data' => '{}', 'classes' => [], 'name' => 'x']), ['classes']);
+check('MCP: invalid JSON or an array instead of an object is not unpacked', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{nic', 'fields' => '{"a":1}']), ['data' => '{nic', 'fields' => '{"a":1}']);
+check('MCP: a boolean sent as text ("false" does not publish a hidden page)', Kaleta\Mcp\Server::extractJson([['name' => 'create_page', 'inputSchema' => ['properties' => ['visible' => ['type' => 'boolean'], 'title' => ['type' => 'string']]]]], 'create_page', ['visible' => 'false', 'title' => 'false']), ['visible' => false, 'title' => 'false']);
+check('MCP: boolean "true" and "1" as text', array_values(array_map(fn (string $h): mixed => Kaleta\Mcp\Server::extractJson([['name' => 't', 'inputSchema' => ['properties' => ['v' => ['type' => 'boolean']]]]], 't', ['v' => $h])['v'], ['true', '1', '0', 'ano'])), [true, true, false, 'ano']);
+check('MCP: JSON text for a parameter of type [array, null] is unpacked', Kaleta\Mcp\Server::extractJson([['name' => 'save_menu', 'inputSchema' => ['properties' => ['items' => ['type' => ['array', 'null']]]]]], 'save_menu', ['items' => '[{"type":"page"}]']), ['items' => [['type' => 'page']]]);
+check('MCP: unknown parameters are listed', Kaleta\Mcp\Server::unknownParams($mcpList, 'save_collection_item', ['data' => '{}', 'classes' => [], 'name' => 'x']), ['classes']);
 // popups: server rules (places, language, period) and English MCP parameters
 $popupWhere = fn (array $x): array => $x + ['page_id' => null, 'collection' => null, 'news' => false, 'language' => 'cs', 'today' => '2026-09-25'];
 $popupSelected = Kaleta\Builder\Popups::sanitizeRules(['where' => 'selected', 'pages' => ['4', 'x', 4], 'collections' => ['tym', 'Ne platna'], 'news' => 1, 'from' => '2026-02-30', 'campaign' => 'jaro<b>']);
-check('Pop-up: vyčištěná pravidla', [$popupSelected['pages'], $popupSelected['collections'], $popupSelected['news'], $popupSelected['from'], $popupSelected['campaign'], $popupSelected['device']], [[4], ['tym'], true, '', 'jarob', 'all']);
-check('Pop-up: vybraná místa – stránka, kolekce, novinky, jinde ne', [
+check('Pop-up: sanitized rules', [$popupSelected['pages'], $popupSelected['collections'], $popupSelected['news'], $popupSelected['from'], $popupSelected['campaign'], $popupSelected['device']], [[4], ['tym'], true, '', 'jarob', 'all']);
+check('Pop-up: selected places – page, collection, news, nowhere else', [
     Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['page_id' => 4])), Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['collection' => 'tym'])),
     Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['news' => true])), Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['page_id' => 5])),
 ], [true, true, true, false]);
 $popupPeriod = Kaleta\Builder\Popups::sanitizeRules(['from' => '2026-10-01', 'to' => '2026-10-31', 'language' => 'en']);
-check('Pop-up: období a jazyk platí i pro celý web', [
+check('Pop-up: period and language apply to the whole site too', [
     Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'en'])), Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'en', 'today' => '2026-10-15'])),
     Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'cs', 'today' => '2026-10-15'])), Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'en', 'today' => '2026-11-01'])),
 ], [false, true, false, false]);
 $navCss = Kaleta\Builder\Elements\Navigation::baseCss();
-check('Kolekce: hodnota v Vlastním HTML je escapovaná, formátovaný text vyčištěný', [
+check('Collection: a value in Custom HTML is escaped, formatted text is sanitized', [
     Kaleta\Builder\Collections::fill('<div title="{{name}}">{{name}}</div>', 'code', ['name' => ['<img src=x onerror=alert(1)>"', 'text']]),
     Kaleta\Builder\Collections::fill('<div>{{body}}</div>', 'code', ['body' => ['<p>Ahoj</p><img src=x onerror=alert(1)>', 'html']]),
 ], ['<div title="&lt;img src=x onerror=alert(1)&gt;&quot;">&lt;img src=x onerror=alert(1)&gt;&quot;</div>', '<div><p>Ahoj</p><img src="x"></div>']);
-check('Navigace: menu na telefonu se dá posouvat (dlouhé menu se skupinami)', (bool) preg_match('/@media \\(max-width: 767px\\).*?\\.ka-nav-menu\\[popover\\] \\{[^}]*max-height:[^}]*overflow-y: auto/s', $navCss), true);
-check('Pop-up: každý vzor z knihovny se sestaví', array_map(fn (string $k): bool => count(Kaleta\Builder\Popups::libraryBuild($k, 'en')['children']) === 1, array_keys(Kaleta\Builder\Popups::LIBRARY)), array_fill(0, count(Kaleta\Builder\Popups::LIBRARY), true));
+check('Navigation: the phone menu can scroll (a long menu with groups)', (bool) preg_match('/@media \\(max-width: 767px\\).*?\\.ka-nav-menu\\[popover\\] \\{[^}]*max-height:[^}]*overflow-y: auto/s', $navCss), true);
+check('Pop-up: every library pattern builds', array_map(fn (string $k): bool => count(Kaleta\Builder\Popups::libraryBuild($k, 'en')['children']) === 1, array_keys(Kaleta\Builder\Popups::LIBRARY)), array_fill(0, count(Kaleta\Builder\Popups::LIBRARY), true));
 use Kaleta\Core\Routes;
 check('Routes: system addresses are the same in every language', [Routes::publicPath('news/category/akce', null), Routes::publicPath('news/tag/x', null), Routes::publicPath('search?q=a', null),
     Routes::publicPath('news/category/akce', null), Routes::publicPath('news-akce', null), Routes::publicPath('news', null)],
     ['news/category/akce', 'news/tag/x', 'search?q=a', 'news/category/akce', 'news-akce', 'news']);
 check('Routes: request path to the internal and canonical form', [Routes::internalPath('/news/tag/x', null), Routes::internalPath('/news/x', null), Routes::internalPath('/news', null), Routes::internalPath('/about-us', null)],
     [['/news/tag/x', '/news/tag/x'], ['/news/x', '/news/x'], ['/news', '/news'], ['/about-us', '/about-us']]);
-check('Cesty: tvar adres podle nastavení url_slash', [Routes::slashRedirect('/o-nas', '/o-nas/?a=1', 'none'), Routes::slashRedirect('/o-nas', '/o-nas', 'none'), Routes::slashRedirect('/o-nas', '/o-nas?a=1', 'slash'), Routes::slashRedirect('/o-nas', '/en/o-nas/', 'slash'),
+check('Routes: address shape by the url_slash setting', [Routes::slashRedirect('/o-nas', '/o-nas/?a=1', 'none'), Routes::slashRedirect('/o-nas', '/o-nas', 'none'), Routes::slashRedirect('/o-nas', '/o-nas?a=1', 'slash'), Routes::slashRedirect('/o-nas', '/en/o-nas/', 'slash'),
     Routes::slashRedirect('/o-nas', '/o-nas', 'html'), Routes::slashRedirect('/o-nas', '/o-nas/', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'none'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'slash'),
     Routes::slashRedirect('/', '/', 'slash'), Routes::slashRedirect('/rss.xml', '/rss.xml', 'slash'), Routes::slashRedirect('/api/x', '/api/x', 'slash'), Routes::slashRedirect('/mcp', '/mcp', 'slash'), Routes::slashRedirect('/form', '/form', 'slash')],
     ['/o-nas?a=1', null, '/o-nas/?a=1', null, '/o-nas.html', '/o-nas.html', null, '/o-nas', '/o-nas/', null, null, null, null, null]);
@@ -573,8 +573,8 @@ check('Routes: the custom news address applies in every language', [Routes::publ
     ['blog', 'blog/category/akce', 'blog/category/akce', 'blog/x.md', 'search', 'about-us']);
 check('Routes: the custom news address – request and redirect from the plain form', [Routes::internalPath('/blog/x', null), Routes::internalPath('/blog/category/x', null), Routes::internalPath('/news/x', null), Routes::internalPath('/news', null), Routes::internalPath('/blogger', null)],
     [['/news/x', '/blog/x'], ['/news/category/x', '/blog/category/x'], ['/news/x', '/blog/x'], ['/news', '/blog'], ['/blogger', '/blogger']]);
-check('Cesty: vlastní adresa novinek koliduje se stránkou', [Routes::isNewsSlug('blog', null), Routes::isNewsSlug('o-nas', null), Routes::isNewsSlug('', null)], [true, false, false]);
-check('Cesty: adresa novinek nesmí být systémová cesta ani mít špatný tvar', [Routes::systemSlugError('mcp'), Routes::systemSlugError('en'), Routes::systemSlugError('Blog'), Routes::systemSlugError('a/b'), Routes::systemSlugError('blog'), Routes::systemSlugError('news'), Routes::systemSlugError('')],
+check('Routes: a custom news address collides with a page', [Routes::isNewsSlug('blog', null), Routes::isNewsSlug('o-nas', null), Routes::isNewsSlug('', null)], [true, false, false]);
+check('Routes: the news address must not be a system path or have a bad shape', [Routes::systemSlugError('mcp'), Routes::systemSlugError('en'), Routes::systemSlugError('Blog'), Routes::systemSlugError('a/b'), Routes::systemSlugError('blog'), Routes::systemSlugError('news'), Routes::systemSlugError('')],
     ['This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', null, null, null]);
 Routes::setNewsSlug(null);
 // dictionaries of the site languages: same keys as the Czech one (English source texts), the same %s and tags in the values
@@ -601,99 +601,99 @@ foreach (glob(KALETA_ROOT . '/system/languages/[a-z][a-z].php') ?: [] as $file) 
 check('Site language dictionaries: keys from cs.php, same %s and HTML', $brokenDictionaries, []);
 
 /* ---------- version comparison ---------- */
-$r = Kaleta\Core\Diff::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
-check('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);
-check('Rozdil: nezměněný odstavec bez značek', str_contains($r['html'], '<p>Druhý odstavec.</p>'), true);
-check('Rozdil: nový odstavec', str_contains($r['html'], '<p><ins>Třetí.</ins></p>'), true);
+$r = Kaleta\Core\Diff::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>'); // check-english: allow
+check('Diff: words in a changed paragraph', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true); // check-english: allow
+check('Diff: an unchanged paragraph has no marks', str_contains($r['html'], '<p>Druhý odstavec.</p>'), true); // check-english: allow
+check('Diff: a new paragraph', str_contains($r['html'], '<p><ins>Třetí.</ins></p>'), true); // check-english: allow
 check('Rozdil: HTML ve vstupu se escapuje', str_contains(Kaleta\Core\Diff::html('', '<p>a &lt;script&gt; b</p>')['html'], '<script>'), false);
-check('Rozdil: shodné texty', Kaleta\Core\Diff::html('<p>Stejné</p>', '<p>Stejné</p>')['added'], 0);
+check('Diff: identical texts', Kaleta\Core\Diff::html('<p>Stejné</p>', '<p>Stejné</p>')['added'], 0); // check-english: allow
 
 /* ---------- FAQ ---------- */
-check('Seo::faq', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNic."), [['Kdy to začne?', 'V pondělí.'], ['Kolik to stojí?', 'Nic.']]);
-check('Seo::faq: prázdný vstup', Seo::faq(null), []);
+check('Seo::faq: question and answer pairs', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNic."), [['Kdy to začne?', 'V pondělí.'], ['Kolik to stojí?', 'Nic.']]); // check-english: allow
+check('Seo::faq: empty input', Seo::faq(null), []);
 
 /* ---------- backups to S3: AWS Signature V4 signing (the value verified by an independent computation) ---------- */
-check('404: sondy robotů se nezapisují, skutečné adresy ano', array_map(Kaleta\Core\NotFound::isBot(...), ['wp/v2/users', 'sellers.json', 'api/session/properties', '_next', 'api/news/x', 'about-us', 'en', 'cenik-2019']),
+check('404: robot probes are not logged, real addresses are', array_map(Kaleta\Core\NotFound::isBot(...), ['wp/v2/users', 'sellers.json', 'api/session/properties', '_next', 'api/news/x', 'about-us', 'en', 'cenik-2019']),
     [true, true, true, true, true, false, false, false]);
 // 1.9: structured data of collection item pages – only mapped fields, an offer needs a price and a currency
-$sdFields = [['key' => 'cena', 'label' => 'Cena', 'type' => 'text'], ['key' => 'kind', 'label' => 'Druh', 'type' => 'text'], ['key' => 'zacatek', 'label' => 'Začátek', 'type' => 'date']];
-check('Strukturovaná data kolekce: neznámé pole a typ se zahodí', [Kaleta\Builder\CollectionSchema::sanitize(['type' => 'Service', 'fields' => ['price' => 'cena', 'serviceType' => 'neni', 'hack' => 'kind'], 'currency' => 'eur'], $sdFields),
+$sdFields = [['key' => 'cena', 'label' => 'Cena', 'type' => 'text'], ['key' => 'kind', 'label' => 'Druh', 'type' => 'text'], ['key' => 'zacatek', 'label' => 'Začátek', 'type' => 'date']]; // check-english: allow
+check('Collection structured data: an unknown field and type are dropped', [Kaleta\Builder\CollectionSchema::sanitize(['type' => 'Service', 'fields' => ['price' => 'cena', 'serviceType' => 'neni', 'hack' => 'kind'], 'currency' => 'eur'], $sdFields),
     Kaleta\Builder\CollectionSchema::sanitize(['type' => 'Recipe'], $sdFields)], [['type' => 'Service', 'fields' => ['price' => 'cena'], 'currency' => 'EUR'], null]);
 $sdCollection = ['fields' => $sdFields, 'schema_org' => '{"type":"Service","fields":{"price":"cena","serviceType":"kind"},"currency":"EUR"}'];
-check('Strukturovaná data kolekce: služba s nabídkou', Kaleta\Builder\CollectionSchema::forItem($sdCollection, ['name' => 'Revize', 'data' => ['cena' => '1 200,50', 'kind' => '<b>Elektro</b>']], 'https://x.test/sluzby/revize', 'Popis', '', 'https://x.test/#firma'),
-    ['@type' => 'Service', 'name' => 'Revize', 'url' => 'https://x.test/sluzby/revize', 'description' => 'Popis', 'serviceType' => 'Elektro', 'provider' => ['@id' => 'https://x.test/#firma'],
+check('Collection structured data: a service with an offer', Kaleta\Builder\CollectionSchema::forItem($sdCollection, ['name' => 'Revize', 'data' => ['cena' => '1 200,50', 'kind' => '<b>Elektro</b>']], 'https://x.test/sluzby/revize', 'Popis', '', 'https://x.test/#firma'), // check-english: allow
+    ['@type' => 'Service', 'name' => 'Revize', 'url' => 'https://x.test/sluzby/revize', 'description' => 'Popis', 'serviceType' => 'Elektro', 'provider' => ['@id' => 'https://x.test/#firma'], // check-english: allow
         'offers' => ['@type' => 'Offer', 'price' => '1200.50', 'priceCurrency' => 'EUR', 'url' => 'https://x.test/sluzby/revize']]);
-check('Strukturovaná data kolekce: událost bez začátku ne, bez typu nic', [Kaleta\Builder\CollectionSchema::forItem(['fields' => $sdFields, 'schema_org' => '{"type":"Event","fields":{"startDate":"zacatek"}}'], ['name' => 'A', 'data' => []], 'u', '', '', 'i'),
+check('Collection structured data: an event without a start does not pass, without a type nothing', [Kaleta\Builder\CollectionSchema::forItem(['fields' => $sdFields, 'schema_org' => '{"type":"Event","fields":{"startDate":"zacatek"}}'], ['name' => 'A', 'data' => []], 'u', '', '', 'i'),
     Kaleta\Builder\CollectionSchema::forItem(['fields' => $sdFields], ['name' => 'A', 'data' => []], 'u', '', '', 'i')], [null, null]);
 /* ---------- 2.10: e-mail signatures from people records ---------- */
 $signatureClass = Kaleta\Builder\EmailSignature::class;
 $peopleFields = [['key' => 'fotka', 'label' => 'Fotka', 'type' => 'image'], ['key' => 'role', 'label' => 'Role', 'type' => 'text'], ['key' => 'jazyky', 'label' => 'Jazyky', 'type' => 'text'],
-    ['key' => 'telefon', 'label' => 'Telefon', 'type' => 'text'], ['key' => 'e_mail', 'label' => 'E-mail', 'type' => 'text'], ['key' => 'nepritomnost', 'label' => 'Nepřítomnost', 'type' => 'text'], ['key' => 'o_mne', 'label' => 'O mně', 'type' => 'html']];
-$peopleCollection = ['collection_id' => 5, 'name' => 'Tým', 'slug' => 'tym', 'detail' => 1, 'fields' => $peopleFields, 'schema_org' => '{"type":"Person","fields":{},"currency":""}'];
+    ['key' => 'telefon', 'label' => 'Telefon', 'type' => 'text'], ['key' => 'e_mail', 'label' => 'E-mail', 'type' => 'text'], ['key' => 'nepritomnost', 'label' => 'Nepřítomnost', 'type' => 'text'], ['key' => 'o_mne', 'label' => 'O mně', 'type' => 'html']]; // check-english: allow
+$peopleCollection = ['collection_id' => 5, 'name' => 'Tým', 'slug' => 'tym', 'detail' => 1, 'fields' => $peopleFields, 'schema_org' => '{"type":"Person","fields":{},"currency":""}']; // check-english: allow
 check('2.10: EmailSignature::fields – the Czech preset by the keys and labels', $signatureClass::fields($peopleCollection), ['photo' => 'fotka', 'role' => 'role', 'phone' => 'telefon', 'email' => 'e_mail']);
 $germanCollection = ['fields' => [['key' => 'portrait', 'label' => 'Porträt', 'type' => 'image'], ['key' => 'funktion', 'label' => 'Funktion', 'type' => 'text'], ['key' => 'handy', 'label' => 'Handy', 'type' => 'text'],
     ['key' => 'e_mail_adresse', 'label' => 'E-Mail-Adresse', 'type' => 'text'], ['key' => 'abwesend', 'label' => 'Abwesend', 'type' => 'text']]];
 check('2.10: EmailSignature::fields – a user-made collection in another language, a label with diacritics', [$signatureClass::fields($germanCollection),
-    $signatureClass::fields(['fields' => [['key' => 'pole_1', 'label' => 'Telefonní číslo', 'type' => 'text'], ['key' => 'pole_2', 'label' => 'Pozice ve firmě', 'type' => 'text'], ['key' => 'pole_3', 'label' => 'Mobil', 'type' => 'number']]])],
-    [['photo' => 'portrait', 'role' => 'funktion', 'phone' => 'handy', 'email' => 'e_mail_adresse'], ['photo' => null, 'role' => 'pole_2', 'phone' => 'pole_1', 'email' => null]]);
-check('2.10: EmailSignature::fields – the schema.org Person mapping wins over the names', $signatureClass::fields(['fields' => [['key' => 'kontakt', 'label' => 'Kontakt', 'type' => 'text'], ['key' => 'cim_jsem', 'label' => 'Čím jsem', 'type' => 'text'],
-    ['key' => 'telefon', 'label' => 'Telefon', 'type' => 'text'], ['key' => 'role', 'label' => 'Role v týmu', 'type' => 'text']], 'schema_org' => '{"type":"Person","fields":{"jobTitle":"cim_jsem","email":"kontakt"}}']),
-    ['photo' => null, 'role' => 'cim_jsem', 'phone' => 'telefon', 'email' => 'kontakt']);
+    $signatureClass::fields(['fields' => [['key' => 'field_1', 'label' => 'Telefonní číslo', 'type' => 'text'], ['key' => 'field_2', 'label' => 'Pozice ve firmě', 'type' => 'text'], ['key' => 'pole_3', 'label' => 'Mobil', 'type' => 'number']]])], // check-english: allow
+    [['photo' => 'portrait', 'role' => 'funktion', 'phone' => 'handy', 'email' => 'e_mail_adresse'], ['photo' => null, 'role' => 'field_2', 'phone' => 'field_1', 'email' => null]]);
+check('2.10: EmailSignature::fields – the schema.org Person mapping wins over the names', $signatureClass::fields(['fields' => [['key' => 'kontakt', 'label' => 'Kontakt', 'type' => 'text'], ['key' => 'cim_jsem', 'label' => 'Čím jsem', 'type' => 'text'], // check-english: allow
+    ['key' => 'telefon', 'label' => 'Telefon', 'type' => 'text'], ['key' => 'role', 'label' => 'Role v týmu', 'type' => 'text']], 'schema_org' => '{"type":"Person","fields":{"jobTitle":"cim_jsem","email":"kontakt"}}']), // check-english: allow
+    ['photo' => null, 'role' => 'cim_jsem', 'phone' => 'telefon', 'email' => 'kontakt']); // check-english: allow
 check('2.10: EmailSignature::isPeople – Person, a photo with a contact; references and a bare phone are not people', [$signatureClass::isPeople($peopleCollection), $signatureClass::isPeople($germanCollection),
-    $signatureClass::isPeople(['fields' => [['key' => 'logo', 'label' => 'Logo', 'type' => 'image'], ['key' => 'citat', 'label' => 'Citát', 'type' => 'lines']]]),
+    $signatureClass::isPeople(['fields' => [['key' => 'logo', 'label' => 'Logo', 'type' => 'image'], ['key' => 'citat', 'label' => 'Citát', 'type' => 'lines']]]), // check-english: allow
     $signatureClass::isPeople(['fields' => [['key' => 'telefon', 'label' => 'Telefon', 'type' => 'text']]])], [true, true, false, false]);
-$signatureSite = ['name' => 'Firma & spol.', 'url' => 'https://example.com/', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => 'Dlouhá 1, 110 00 Praha', 'color' => '#0f766e',
+$signatureSite = ['name' => 'Firma & spol.', 'url' => 'https://example.com/', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => 'Dlouhá 1, 110 00 Praha', 'color' => '#0f766e', // check-english: allow
     'text_font' => 'Georgia, serif', 'heading_font' => '"Helvetica Neue", Arial, sans-serif', 'logo' => 'https://example.com/media/logo.png'];
-$signaturePerson = ['name' => 'Jana <Nová>', 'data' => ['fotka' => 'media/2026/10/jana.jpg', 'role' => 'Obchodní ředitelka', 'jazyky' => 'CZ, EN', 'telefon' => '+420 777 123 456', 'e_mail' => 'jana@example.com',
-    'nepritomnost' => 'Dovolená do pátku', 'o_mne' => '<p>Deset let v oboru.</p>']];
+$signaturePerson = ['name' => 'Jana <Nová>', 'data' => ['fotka' => 'media/2026/10/jana.jpg', 'role' => 'Obchodní ředitelka', 'jazyky' => 'CZ, EN', 'telefon' => '+420 777 123 456', 'e_mail' => 'jana@example.com', // check-english: allow
+    'nepritomnost' => 'Dovolená do pátku', 'o_mne' => '<p>Deset let v oboru.</p>']]; // check-english: allow
 $signature = $signatureClass::render($peopleCollection, $signaturePerson, $signatureSite);
 check('2.10: the signature is one table with inline styles only, at most 600 px wide', [preg_match('/<style|<script|class=|\son[a-z]+=/i', $signature['html']), str_starts_with($signature['html'], '<table role="presentation"'), str_contains($signature['html'], 'max-width:600px')], [0, true, true]);
-check('2.10: the signature has the escaped name, the role, the phone with a tel: link, the brand colour and font, absolute photo and logo', [str_contains($signature['html'], 'Jana &lt;Nová&gt;'), str_contains($signature['html'], 'Obchodní ředitelka'),
+check('2.10: the signature has the escaped name, the role, the phone with a tel: link, the brand colour and font, absolute photo and logo', [str_contains($signature['html'], 'Jana &lt;Nová&gt;'), str_contains($signature['html'], 'Obchodní ředitelka'), // check-english: allow
     str_contains($signature['html'], 'href="tel:+420777123456"'), str_contains($signature['html'], 'href="mailto:jana@example.com"'), str_contains($signature['html'], 'src="https://example.com/media/2026/10/jana.jpg" width="72" height="72"'),
-    str_contains($signature['html'], 'src="https://example.com/media/logo.png"'), str_contains($signature['html'], 'border-left:3px solid #0f766e'), str_contains($signature['html'], 'Georgia, serif'), str_contains($signature['html'], 'Firma &amp; spol.')],
+    str_contains($signature['html'], 'src="https://example.com/media/logo.png"'), str_contains($signature['html'], 'border-left:3px solid #0f766e'), str_contains($signature['html'], 'Georgia, serif'), str_contains($signature['html'], 'Firma &amp; spol.')], // check-english: allow
     [true, true, true, true, true, true, true, true, true]);
 check('2.10: the signature never carries the absence, the about text or the languages', [str_contains($signature['html'] . $signature['text'], 'Dovolen'), str_contains($signature['html'] . $signature['text'], 'Deset let'), str_contains($signature['html'] . $signature['text'], 'CZ, EN')], [false, false, false]);
-check('2.10: the plain-text version', $signature['text'], "Jana <Nová>\nObchodní ředitelka\n+420 777 123 456 · jana@example.com\nFirma & spol. · example.com\nDlouhá 1, 110 00 Praha");
+check('2.10: the plain-text version', $signature['text'], "Jana <Nová>\nObchodní ředitelka\n+420 777 123 456 · jana@example.com\nFirma & spol. · example.com\nDlouhá 1, 110 00 Praha"); // check-english: allow
 $bareSignature = $signatureClass::render(['fields' => $peopleFields], ['name' => 'Petr', 'data' => ['e_mail' => 'not an address', 'fotka' => '']],
     ['name' => 'Web', 'url' => '', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => '', 'color' => 'red', 'text_font' => '', 'heading_font' => '', 'logo' => '']);
 check('2.10: a person without a photo and with an invalid e-mail: no image, the company phone, a safe colour and font', [str_contains($bareSignature['html'], '<img'), str_contains($bareSignature['html'], 'not an address'),
     str_contains($bareSignature['html'], 'border-left:3px solid #121212'), str_contains($bareSignature['html'], 'system-ui'), $bareSignature['text']], [false, false, true, true, "Petr\n+420 222 000 111\nWeb"]);
-check('Položky jako stránky: SEO pole a plán zveřejnění', [Kaleta\Builder\Collections::pageFields(['image' => 'javascript:alert(1)', 'noindex' => '1', 'publish_at' => '2099-01-01T08:00', 'description' => str_repeat('a', 400)], false),
+check('Items as pages: SEO fields and publishing schedule', [Kaleta\Builder\Collections::pageFields(['image' => 'javascript:alert(1)', 'noindex' => '1', 'publish_at' => '2099-01-01T08:00', 'description' => str_repeat('a', 400)], false),
     Kaleta\Builder\Collections::pageFields(['publish_at' => '2001-01-01 08:00'], false)['visible']],
     [['seo_title' => '', 'description' => str_repeat('a', 300), 'image' => '', 'noindex' => 1, 'publish_at' => '2099-01-01 08:00:00', 'visible' => 0], 1]);
 $privacy = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\Library::privacyPolicyText());
-check('Zásady ochrany údajů: šablona s upozorněním, bez nastavení jen poptávky', [str_contains($privacy, 'not legal advice'), str_contains($privacy, 'enquiry form'), str_contains($privacy, 'newsletter'),
-    str_contains(Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Library::privacyPolicyText()), 'nikoli právní rada')], [true, true, false, true]);
+check('Privacy policy: a template with a notice, without settings only enquiries', [str_contains($privacy, 'not legal advice'), str_contains($privacy, 'enquiry form'), str_contains($privacy, 'newsletter'),
+    str_contains(Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Library::privacyPolicyText()), 'nikoli právní rada')], [true, true, false, true]); // check-english: allow
 // import of a Kaleta export (1.8): which files from the archive may go into media/, which names are exports
-check('Import Kalety: soubory do media/', array_map(Kaleta\Core\SiteImport::mediaTarget(...), ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', 'media/x.php', 'media/../config.php',
+check('Import Kalety: soubory do media/', array_map(Kaleta\Core\SiteImport::mediaTarget(...), ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', 'media/x.php', 'media/../config.php', // check-english: allow
     'media/.htaccess', 'content.json', 'media/2026/09/dokument.pdf', 'media/a/b.phtml', 'media/2026/09/logo.svg']),
     ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', null, null, null, null, 'media/2026/09/dokument.pdf', null, 'media/2026/09/logo.svg']);
-check('Import Kalety: názvy souborů', array_map(Kaleta\Core\SiteImport::isValidName(...), ['export-20260928-101010.zip', 'web.json', 'state-0123456789abcdef.json',
+check('Kaleta import: file names', array_map(Kaleta\Core\SiteImport::isValidName(...), ['export-20260928-101010.zip', 'web.json', 'state-0123456789abcdef.json',
     'kaleta-state-0123456789abcdef.json', '../web.zip', 'web.xml', '.web.zip']), [true, true, false, false, false, false, false]);
 // webhook signature (1.8): HMAC-SHA256 of "timestamp.body" – the receiver recomputes it with the shared secret
-check('Webhook: podpis HMAC časové značky a těla', Kaleta\Core\Webhook::signature('whsec_test', '{"event":"test"}', 1789900000),
+check('Webhook: HMAC signature of the timestamp and body', Kaleta\Core\Webhook::signature('whsec_test', '{"event":"test"}', 1789900000),
     ['1789900000', 'sha256=' . hash_hmac('sha256', '1789900000.{"event":"test"}', 'whsec_test')]);
-check('Webhook: jiné tělo = jiný podpis', Kaleta\Core\Webhook::signature('whsec_test', '{"event":"test2"}', 1789900000)[1] !== Kaleta\Core\Webhook::signature('whsec_test', '{"event":"test"}', 1789900000)[1], true);
+check('Webhook: another body = another signature', Kaleta\Core\Webhook::signature('whsec_test', '{"event":"test2"}', 1789900000)[1] !== Kaleta\Core\Webhook::signature('whsec_test', '{"event":"test"}', 1789900000)[1], true);
 $h = Kaleta\Core\RemoteBackup::signS3('PUT', 's3.eu-central-1.amazonaws.com', '/muj-bucket/kaleta-zaloha.sql.gz', hash('sha256', 'content'), 'eu-central-1', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', 1789900000);
-check('S3: rozsah a podepsané hlavičky', str_contains($h['Authorization'], 'Credential=AKIDEXAMPLE/20260920/eu-central-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature='), true);
-check('S3: podpis má 64 šestnáctkových znaků', (bool) preg_match('/Signature=[0-9a-f]{64}$/', $h['Authorization']), true);
+check('S3: scope and signed headers', str_contains($h['Authorization'], 'Credential=AKIDEXAMPLE/20260920/eu-central-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature='), true);
+check('S3: the signature has 64 hexadecimal characters', (bool) preg_match('/Signature=[0-9a-f]{64}$/', $h['Authorization']), true);
 
 /* ---------- link check: only public URLs (protection against probing the internal network) ---------- */
-check('Odkazy: výběr odkazů z HTML', Kaleta\Core\Links::links('<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="#kotva">k</a> <a class="x" href="/clanek/muj">c</a> <a href="https://example.com/a?x=1&amp;y=2">znovu</a></p>'), ['https://example.com/a?x=1&y=2', '/clanek/muj']);
+check('Links: picking links from HTML', Kaleta\Core\Links::links('<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="#kotva">k</a> <a class="x" href="/clanek/muj">c</a> <a href="https://example.com/a?x=1&amp;y=2">znovu</a></p>'), ['https://example.com/a?x=1&y=2', '/clanek/muj']);
 foreach (['http://127.0.0.1/', 'http://localhost/', 'http://10.0.0.5/admin', 'http://192.168.1.1/', 'http://169.254.169.254/latest/meta-data/', 'http://[::1]/', 'ftp://example.com/', 'https://example.com:8443/', 'file:///etc/passwd', 'gopher://x/'] as $internal) {
     check('Odkazy: nekontroluje se ' . $internal, Kaleta\Core\Links::isPublic($internal), false);
 }
-check('Odkazy: veřejná adresa se kontroluje', Kaleta\Core\Links::isPublic('https://93.184.216.34/stranka'), true);
+check('Links: a public address is checked', Kaleta\Core\Links::isPublic('https://93.184.216.34/stranka'), true);
 
 /* ---------- assistant: article translation (HTML skeleton from the original, texts from the model) ---------- */
-$articleHtml = '<h2>Nadpis oddílu</h2><p>První <strong>tučný</strong> a <a href="/x?a=1&amp;b=2">odkaz</a>.</p><figure><img src="a.jpg" alt="x"><figcaption>Popisek fotky</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>';
+$articleHtml = '<h2>Nadpis oddílu</h2><p>První <strong>tučný</strong> a <a href="/x?a=1&amp;b=2">odkaz</a>.</p><figure><img src="a.jpg" alt="x"><figcaption>Popisek fotky</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>'; // check-english: allow
 $r = Kaleta\Core\Assistant::decompose($articleHtml);
-check('Asistent::rozloz: úseky k překladu', $r['segments'], ['Nadpis oddílu', 'První [[0]]tučný[[1]] a [[2]]odkaz[[3]].', 'Popisek fotky']);
-check('Asistent::sloz: beze změny textu vrátí původní HTML', Kaleta\Core\Assistant::compose($r['skeleton'], $r['segments']), $articleHtml);
-check('Asistent::sloz: HTML od modelu se vypíše jako text', str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['<script>alert(1)</script>', 'x', '<img src=x onerror=alert(1)>']), '<script>alert(1)') || str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['a', 'b', '<img src=x onerror=alert(1)>']), '<img src=x'), false);
-check('Asistent::sloz: chybějící symbol = úsek bez formátování', Kaleta\Core\Assistant::compose($r['skeleton'], ['N', 'First [[0]]bold[[1]] and link.', 'P']), '<h2>N</h2><p>First bold and link.</p><figure><img src="a.jpg" alt="x"><figcaption>P</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>');
-check('Asistent::sloz: špatně vnořené symboly = úsek bez formátování', str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['N', '[[1]]bold[[0]] [[2]]link[[3]]', 'P']), '<strong>'), false);
-check('Asistent::sloz: přeházené pořadí slov formátování zachová', str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['N', 'A [[2]]link[[3]] and [[0]]bold[[1]] first.', 'P']), '<p>A <a href="/x?a=1&amp;b=2">link</a> and <strong>bold</strong> first.</p>'), true);
+check('Assistant::decompose: segments to translate', $r['segments'], ['Nadpis oddílu', 'První [[0]]tučný[[1]] a [[2]]odkaz[[3]].', 'Popisek fotky']); // check-english: allow
+check('Assistant::compose: unchanged text returns the original HTML', Kaleta\Core\Assistant::compose($r['skeleton'], $r['segments']), $articleHtml);
+check('Assistant::compose: HTML from the model is printed as text', str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['<script>alert(1)</script>', 'x', '<img src=x onerror=alert(1)>']), '<script>alert(1)') || str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['a', 'b', '<img src=x onerror=alert(1)>']), '<img src=x'), false);
+check('Assistant::compose: a missing symbol = a segment without formatting', Kaleta\Core\Assistant::compose($r['skeleton'], ['N', 'First [[0]]bold[[1]] and link.', 'P']), '<h2>N</h2><p>First bold and link.</p><figure><img src="a.jpg" alt="x"><figcaption>P</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>'); // check-english: allow
+check('Assistant::compose: wrongly nested symbols = a segment without formatting', str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['N', '[[1]]bold[[0]] [[2]]link[[3]]', 'P']), '<strong>'), false);
+check('Assistant::compose: a shuffled word order keeps the formatting', str_contains(Kaleta\Core\Assistant::compose($r['skeleton'], ['N', 'A [[2]]link[[3]] and [[0]]bold[[1]] first.', 'P']), '<p>A <a href="/x?a=1&amp;b=2">link</a> and <strong>bold</strong> first.</p>'), true);
 
 $settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
 (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($settings, ['site_name' => 'Test', 'ai_key' => 'x']);
@@ -708,29 +708,29 @@ $fake = new class($settings) extends Kaleta\Core\Assistant {
         return ['content' => [['type' => 'text', 'text' => json_encode(['translations' => array_map(mb_strtoupper(...), json_decode($m[1], true))], JSON_UNESCAPED_UNICODE)]]];
     }
 };
-$translated = $fake->translate(['title' => 'Tom & Jerry „znovu“ ve městě, tentokrát úplně jinak než kdy dřív', 'text' => '<p>Krátký <em>text</em> článku, který má aspoň pár desítek znaků.</p>', 'seo_description' => ''], 'en', ['title', 'seo_description']);
-check('Asistent::preloz: prostý text se neescapuje dvakrát', $translated['title'], 'TOM & JERRY „ZNOVU“ VE MĚSTĚ, TENTOKRÁT ÚPLNĚ JINAK NEŽ KDY DŘÍV');
-check('Asistent::preloz: HTML pole drží kostru', $translated['text'], '<p>KRÁTKÝ <em>TEXT</em> ČLÁNKU, KTERÝ MÁ ASPOŇ PÁR DESÍTEK ZNAKŮ.</p>');
-check('Asistent::preloz: prázdné pole zůstane prázdné', $translated['seo_description'], '');
+$translated = $fake->translate(['title' => 'Tom & Jerry „znovu“ ve městě, tentokrát úplně jinak než kdy dřív', 'text' => '<p>Krátký <em>text</em> článku, který má aspoň pár desítek znaků.</p>', 'seo_description' => ''], 'en', ['title', 'seo_description']); // check-english: allow
+check('Assistant::translate: plain text is not escaped twice', $translated['title'], 'TOM & JERRY „ZNOVU“ VE MĚSTĚ, TENTOKRÁT ÚPLNĚ JINAK NEŽ KDY DŘÍV'); // check-english: allow
+check('Assistant::translate: an HTML field keeps the skeleton', $translated['text'], '<p>KRÁTKÝ <em>TEXT</em> ČLÁNKU, KTERÝ MÁ ASPOŇ PÁR DESÍTEK ZNAKŮ.</p>'); // check-english: allow
+check('Assistant::translate: an empty field stays empty', $translated['seo_description'], '');
 $fake->calls = 0;
-$long = $fake->translate(['text' => str_repeat('<p>' . str_repeat('Věta o něčem. ', 100) . '</p>', 9)], 'en');
-check('Asistent::preloz: dlouhý článek jde po dávkách', [$fake->calls > 1, substr_count($long['text'], '<p>')], [true, 9]);
+$long = $fake->translate(['text' => str_repeat('<p>' . str_repeat('Věta o něčem. ', 100) . '</p>', 9)], 'en'); // check-english: allow
+check('Assistant::translate: a long article goes in batches', [$fake->calls > 1, substr_count($long['text'], '<p>')], [true, 9]);
 try {
     $fake->translate(['text' => '<p>nic</p>'], 'xx');
-    check('Asistent::preloz: neznámý jazyk odmítne', 'prošlo', 'výjimka');
+    check('Assistant::translate: an unknown language is rejected', 'prošlo', 'výjimka'); // check-english: allow
 } catch (RuntimeException) {
-    check('Asistent::preloz: neznámý jazyk odmítne', 'výjimka', 'výjimka');
+    check('Assistant::translate: an unknown language is rejected', 'výjimka', 'výjimka'); // check-english: allow
 }
 
 /* ---------- temporary language switch (e-mails in the recipient's language) ---------- */
 Kaleta\Core\Language::set('cs');
 check('Language::runWith: the other language applies inside', Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Language::code() . '|' . t('Read article →')), 'en|Read article →');
-check('Language::runWith: the language is restored afterwards', Kaleta\Core\Language::code() . '|' . t('Read article →'), 'cs|Číst článek →');
+check('Language::runWith: the language is restored afterwards', Kaleta\Core\Language::code() . '|' . t('Read article →'), 'cs|Číst článek →'); // check-english: allow
 try {
     Kaleta\Core\Language::runWith('en', function (): never { throw new RuntimeException('x'); });
 } catch (RuntimeException) {
 }
-check('Jazyk::docasne: jazyk se vrátí i po výjimce', Kaleta\Core\Language::code(), 'cs');
+check('Language::runWith: the language is restored even after an exception', Kaleta\Core\Language::code(), 'cs');
 
 /* ---------- dominant image color ---------- */
 if (function_exists('imagecreatetruecolor')) {
@@ -738,9 +738,9 @@ if (function_exists('imagecreatetruecolor')) {
     $canvas = imagecreatetruecolor(40, 20);
     imagefill($canvas, 0, 0, imagecolorallocate($canvas, 200, 30, 60));
     imagepng($canvas, $temporary);
-    check('Obrazky::barva: jednobarevný obrázek', Kaleta\Core\Images::color($temporary), '#c81e3c');
+    check('Images::color: a single-colour image', Kaleta\Core\Images::color($temporary), '#c81e3c');
     unlink($temporary);
-    check('Obrazky::barva: chybějící soubor', Kaleta\Core\Images::color($temporary), null);
+    check('Images::color: a missing file', Kaleta\Core\Images::color($temporary), null);
 }
 
 /* ---------- scripts: must not look for an element (data attribute) that is never created – that is how the Media dialog broke ---------- */
@@ -766,7 +766,7 @@ foreach ($whereCreated as $script => $folders) {
             $missing[] = $attribute;
         }
     }
-    check($script . ': každý hledaný data-attribute někde vzniká', $missing, []);
+    check($script . ': every searched data-attribute is rendered somewhere', $missing, []);
 }
 
 /* ---------- the admin has a Content-Security-Policy without 'unsafe-inline': no inline scripts or event handlers ---------- */
@@ -777,7 +777,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_ROO
         $inline[] = substr($file->getPathname(), strlen(KALETA_ROOT) + 1);
     }
 }
-check('šablony administrace neobsahují inline skripty (CSP)', $inline, []);
+check('admin templates contain no inline scripts (CSP)', $inline, []);
 
 /* ---------- publisher signatures: several keys, key rotation and revocation ---------- */
 if (function_exists('sodium_crypto_sign_keypair')) {
@@ -823,7 +823,7 @@ foreach (['en', 'de'] as $code) {
     $dictionary = (require KALETA_ROOT . '/system/languages/install-' . $code . '.php') + ($code === 'en' ? require KALETA_ROOT . '/system/languages/install-cs.php' : []);
     // international words are not translated (the dictionary tool does not write identical entries)
     $missing = array_values(array_diff(array_keys($keys), array_keys($dictionary), ['Server', 'Port', 'E-mail', 'Newsletter']));
-    check('instalátor: úplný slovník ' . $code, $missing, []);
+    check('installer: complete dictionary ' . $code, $missing, []);
 }
 
 /* ---------- 2.6: import from a website ---------- */
@@ -925,14 +925,14 @@ check('Deutsch du: the text copied for Claude names the form of address of the v
 ], [true, true, false, true, true]);
 
 /* ---------- numbers by language ---------- */
-check('count: česky mezera jako oddělovač tisíců', Kaleta\Core\Language::runWith('cs', fn () => format_count(1234567)), "1\u{00A0}234\u{00A0}567");
-check('count: anglicky čárka a desetinná tečka', Kaleta\Core\Language::runWith('en', fn () => format_count(12345.678, 2)), '12,345.68');
-check('Soubory::velikost: anglicky desetinná tečka', Kaleta\Core\Language::runWith('en', fn () => Kaleta\Core\Files::size(3 * 1048576 + 524288)), '3.5 MB');
+check('count: Czech uses a space as the thousands separator', Kaleta\Core\Language::runWith('cs', fn () => format_count(1234567)), "1\u{00A0}234\u{00A0}567");
+check('count: English uses a comma and a decimal point', Kaleta\Core\Language::runWith('en', fn () => format_count(12345.678, 2)), '12,345.68');
+check('Files::size: English decimal point', Kaleta\Core\Language::runWith('en', fn () => Kaleta\Core\Files::size(3 * 1048576 + 524288)), '3.5 MB');
 
 /* ---------- marketing codes and consent ---------- */
-check('Seo::cekaNaSouhlas: bez lišty beze změny', Kaleta\Front\Seo::deferUntilConsent('<script src="x.js"></script>', 'none'), '<script src="x.js"></script>');
-check('Seo::cekaNaSouhlas: vestavěná lišta balí do <template>', Kaleta\Front\Seo::deferUntilConsent('<ins></ins><script>a()</script>', 'builtin'), '<template data-consent="marketing"><ins></ins><script>a()</script></template>');
-check('Seo::cekaNaSouhlas: externí služba dostane značené skripty', Kaleta\Front\Seo::deferUntilConsent('<ins></ins><SCRIPT async src="x.js"></script><script type="application/json">{}</script>', 'external'),
+check('Seo::deferUntilConsent: without a bar unchanged', Kaleta\Front\Seo::deferUntilConsent('<script src="x.js"></script>', 'none'), '<script src="x.js"></script>');
+check('Seo::deferUntilConsent: the built-in bar wraps in <template>', Kaleta\Front\Seo::deferUntilConsent('<ins></ins><script>a()</script>', 'builtin'), '<template data-consent="marketing"><ins></ins><script>a()</script></template>');
+check('Seo::deferUntilConsent: an external service gets marked scripts', Kaleta\Front\Seo::deferUntilConsent('<ins></ins><SCRIPT async src="x.js"></script><script type="application/json">{}</script>', 'external'),
     '<ins></ins><script type="text/plain" data-cookieconsent="marketing" async src="x.js"></script><script type="application/json">{}</script>');
 
 /* ---------- update: cleaning up files the new release no longer contains ---------- */
@@ -943,9 +943,9 @@ foreach (['index.php', 'system/stare/zrusene.php', 'system/zustava.php', 'media/
     file_put_contents($cleanup . '/' . $f, 'x');
 }
 $deleted = Kaleta\Core\Updater::cleanUpObsolete($cleanup, ['index.php', 'system/stare/zrusene.php', 'system/zustava.php', 'media/foto.jpg', 'config.php', '../mimo.php'], ['index.php', 'system/zustava.php']);
-check('Aktualizace: smaže jen soubor zrušený novým vydáním', $deleted, 1);
-check('Aktualizace: zrušený soubor i jeho prázdná složka jsou pryč', is_dir($cleanup . '/system/stare'), false);
-check('Aktualizace: chráněné cesty a vlastní soubory zůstávají', [is_file($cleanup . '/media/foto.jpg'), is_file($cleanup . '/config.php'), is_file($cleanup . '/vlastni.php'), is_file($cleanup . '/system/zustava.php')], [true, true, true, true]);
+check('Update: deletes only the file removed by the new release', $deleted, 1);
+check('Update: the removed file and its empty folder are gone', is_dir($cleanup . '/system/stare'), false);
+check('Update: protected paths and own files stay', [is_file($cleanup . '/media/foto.jpg'), is_file($cleanup . '/config.php'), is_file($cleanup . '/vlastni.php'), is_file($cleanup . '/system/zustava.php')], [true, true, true, true]);
 // files that ride along only for the update (old classes, the alias file of 1.4–2.0) go after it – unless edited; nothing else
 mkdir($cleanup . '/system/src/Old', 0775, true);
 file_put_contents($cleanup . '/system/class-aliases.php', "<?php\nreturn [];\n");
@@ -969,15 +969,15 @@ $pkRegData = static fn (string $rp, int $flags = 0x45): string => hash('sha256',
 $pkChallenge = Kaleta\Core\Passkey::challenge();
 $pkReg = ['clientDataJSON' => $pkClient('webauthn.create', $pkChallenge, $pkOrigin), 'authenticatorData' => Kaleta\Core\Passkey::b64($pkRegData($pkRp)), 'publicKey' => Kaleta\Core\Passkey::b64($pkDer), 'publicKeyAlgorithm' => -7];
 $pkSaved = Kaleta\Core\Passkey::verifyRegistration($pkReg, $pkChallenge, $pkOrigin, $pkRp);
-check('Passkey: registrace vrátí id klíče', $pkSaved['id'], Kaleta\Core\Passkey::b64($pkId));
-check('Passkey: registrace vrátí veřejný klíč v PEM', str_contains($pkSaved['key'], 'BEGIN PUBLIC KEY'), true);
+check('Passkey: registration returns the key id', $pkSaved['id'], Kaleta\Core\Passkey::b64($pkId));
+check('Passkey: registration returns the public key in PEM', str_contains($pkSaved['key'], 'BEGIN PUBLIC KEY'), true);
 $pkRejects = static function (callable $f): bool { try { $f(); return false; } catch (RuntimeException) { return true; } };
-check('Passkey: registrace s cizí výzvou neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration($pkReg, Kaleta\Core\Passkey::challenge(), $pkOrigin, $pkRp)), true);
-check('Passkey: registrace z jiného původu neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration($pkReg, $pkChallenge, 'https://podvrh.example', $pkRp)), true);
-check('Passkey: registrace pro jinou doménu neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration($pkReg, $pkChallenge, $pkOrigin, 'jina.example')), true);
+check('Passkey: registration with a foreign challenge fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration($pkReg, Kaleta\Core\Passkey::challenge(), $pkOrigin, $pkRp)), true);
+check('Passkey: registration from another origin fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration($pkReg, $pkChallenge, 'https://podvrh.example', $pkRp)), true);
+check('Passkey: registration for another domain fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration($pkReg, $pkChallenge, $pkOrigin, 'jina.example')), true);
 $pkForeign = openssl_pkey_get_details(openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']));
-check('Passkey: podstrčený veřejný klíč neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration(['publicKey' => Kaleta\Core\Passkey::b64(base64_decode(preg_replace('/-----[^-]+-----|\s/', '', $pkForeign['key'])))] + $pkReg, $pkChallenge, $pkOrigin, $pkRp)), true);
-check('Passkey: odpověď z přihlášení nejde použít k registraci', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration(['clientDataJSON' => $pkClient('webauthn.get', $pkChallenge, $pkOrigin)] + $pkReg, $pkChallenge, $pkOrigin, $pkRp)), true);
+check('Passkey: a planted public key fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration(['publicKey' => Kaleta\Core\Passkey::b64(base64_decode(preg_replace('/-----[^-]+-----|\s/', '', $pkForeign['key'])))] + $pkReg, $pkChallenge, $pkOrigin, $pkRp)), true);
+check('Passkey: a sign-in response cannot be used for registration', $pkRejects(fn () => Kaleta\Core\Passkey::verifyRegistration(['clientDataJSON' => $pkClient('webauthn.get', $pkChallenge, $pkOrigin)] + $pkReg, $pkChallenge, $pkOrigin, $pkRp)), true);
 $pkSignIn = static function (string $challenge, int $counter, string $rp = 'redakce.example', string $origin = 'https://redakce.example', int $flags = 0x05) use ($pkKey, $pkClient): array {
     $data = hash('sha256', $rp, true) . chr($flags) . pack('N', $counter);
     $client = $pkClient('webauthn.get', $challenge, $origin);
@@ -986,38 +986,38 @@ $pkSignIn = static function (string $challenge, int $counter, string $rp = 'reda
     return ['clientDataJSON' => $client, 'authenticatorData' => Kaleta\Core\Passkey::b64($data), 'signature' => Kaleta\Core\Passkey::b64($signature)];
 };
 $pkV2 = Kaleta\Core\Passkey::challenge();
-check('Passkey: platné přihlášení vrátí nové počitadlo', Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 5), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 4), 5);
-check('Passkey: synchronizovaný klíč s nulovým počitadlem projde', Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 0), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 0), 0);
-check('Passkey: přehraná odpověď (jiná výzva) neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6), Kaleta\Core\Passkey::challenge(), $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
-check('Passkey: počitadlo, které neroste, neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 5), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
-check('Passkey: podpis jiným klíčem neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6), $pkV2, $pkOrigin, $pkRp, $pkForeign['key'], 5)), true);
-check('Passkey: odpověď z podvržené domény neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'redakce.example', 'https://redakce.example.podvrh.cz'), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
-check('Passkey: klíč jiné domény neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'jina.example'), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
-check('Passkey: bez potvrzení přítomnosti uživatele neprojde', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'redakce.example', 'https://redakce.example', 0x00), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
+check('Passkey: a valid sign-in returns the new counter', Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 5), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 4), 5);
+check('Passkey: a synced key with a zero counter passes', Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 0), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 0), 0);
+check('Passkey: a replayed response (another challenge) fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6), Kaleta\Core\Passkey::challenge(), $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
+check('Passkey: a counter that does not grow fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 5), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
+check('Passkey: a signature by another key fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6), $pkV2, $pkOrigin, $pkRp, $pkForeign['key'], 5)), true);
+check('Passkey: a response from a forged domain fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'redakce.example', 'https://redakce.example.podvrh.cz'), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
+check('Passkey: a key of another domain fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'jina.example'), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
+check('Passkey: without user presence it fails', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'redakce.example', 'https://redakce.example', 0x00), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
 $pkChanged = $pkSignIn($pkV2, 6); $pkChanged['authenticatorData'] = Kaleta\Core\Passkey::b64(Kaleta\Core\Passkey::fromB64($pkChanged['authenticatorData']) . 'x');
-check('Passkey: pozměněná data zařízení neprojdou', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkChanged, $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
-check('Passkey: původ a doména z adresy webu', [Kaleta\Core\Passkey::origin('https://WWW.Web.cz/'), Kaleta\Core\Passkey::origin('http://localhost:8080'), Kaleta\Core\Passkey::rpId('https://www.web.cz:8443/x')], ['https://www.web.cz', 'http://localhost:8080', 'www.web.cz']);
+check('Passkey: altered authenticator data fail', $pkRejects(fn () => Kaleta\Core\Passkey::verifySignIn($pkChanged, $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), true);
+check('Passkey: origin and domain from the site address', [Kaleta\Core\Passkey::origin('https://WWW.Web.cz/'), Kaleta\Core\Passkey::origin('http://localhost:8080'), Kaleta\Core\Passkey::rpId('https://www.web.cz:8443/x')], ['https://www.web.cz', 'http://localhost:8080', 'www.web.cz']);
 
 /* ---------- .htaccess: rewrite targets are URLs, not relative paths ---------- */
 // A relative target (RewriteRule ^ index.php) ends in a loop and error 500 on hosts that map subdomains into a folder outside the web root.
 $htaccess = (string) file_get_contents(KALETA_ROOT . '/.htaccess');
 preg_match_all('/^\s*RewriteRule\s+\S+\s+(\S+)/m', $htaccess, $targets);
-check('.htaccess: žádný přepis nemá relativní cíl', array_values(array_filter($targets[1], static fn (string $c): bool => $c !== '-' && !str_starts_with($c, '%{ENV:BASE}/'))), []);
-check('.htaccess: složka webu se počítá z adresy požadavku', str_contains($htaccess, 'E=BASE:%1'), true);
+check('.htaccess: no rewrite has a relative target', array_values(array_filter($targets[1], static fn (string $c): bool => $c !== '-' && !str_starts_with($c, '%{ENV:BASE}/'))), []);
+check('.htaccess: the site folder is computed from the request address', str_contains($htaccess, 'E=BASE:%1'), true);
 
-/* ---------- menu paths as links (messages, "Stav systému" (System status), help) ---------- */
+/* ---------- menu paths as links (messages, System status, help) ---------- */
 Kaleta\Core\Language::set('cs', 'admin-');
-$routesHtml = Kaleta\Admin\MenuPaths::links('/admin.php', 'Je k dispozici nová verze 3.0.1 – nainstalujete ji v Nastavení → Zálohy a aktualizace. <b>', ['settings']);
-check('Cesty: známá cesta je odkaz', str_contains($routesHtml, '<a href="/admin.php?module=settings&amp;tab=backups">Nastavení → Zálohy a aktualizace</a>'), true);
-check('Cesty: zbytek textu zůstává escapovaný', str_contains($routesHtml, '&lt;b&gt;'), true);
-check('Cesty: delší cesta má přednost a odkaz se nevnořuje', substr_count($routesHtml, '<a '), 1);
-check('Cesty: bez práva k modulu žádný odkaz', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', 'Nastavení → Pošta', []), '<a '), false);
+$routesHtml = Kaleta\Admin\MenuPaths::links('/admin.php', 'Je k dispozici nová verze 3.0.1 – nainstalujete ji v Nastavení → Zálohy a aktualizace. <b>', ['settings']); // check-english: allow
+check('Paths: a known path is a link', str_contains($routesHtml, '<a href="/admin.php?module=settings&amp;tab=backups">Nastavení → Zálohy a aktualizace</a>'), true); // check-english: allow
+check('Paths: the rest of the text stays escaped', str_contains($routesHtml, '&lt;b&gt;'), true);
+check('Paths: a longer path wins and the link does not nest', substr_count($routesHtml, '<a '), 1);
+check('Paths: without the right to the module no link', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', 'Nastavení → Pošta', []), '<a '), false); // check-english: allow
 Kaleta\Core\Language::set('en', 'admin-');
 check('Menu paths: in English the translated path is linked', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', t('A new version %s is available – install it in Settings → Backups and updates.', '3.0.1'), ['settings']), '>Settings → Backups and updates</a>'), true);
 Kaleta\Core\Language::set('cs', 'admin-');
 
 /* ---------- date in words in the administration (3.2.1: the English and German admin showed Czech months) ---------- */
-check('Date in words: Czech admin', format_date_long('2026-10-07'), 'středa 7. října 2026');
+check('Date in words: Czech admin', format_date_long('2026-10-07'), 'středa 7. října 2026'); // check-english: allow
 Kaleta\Core\Language::set('en', 'admin-');
 check('Date in words: English admin', format_date_long('2026-10-07'), 'Wednesday 7 October 2026');
 Kaleta\Core\Language::set('de', 'admin-');
@@ -1025,58 +1025,58 @@ check('Date in words: German admin', format_date_long('2026-10-07'), 'Mittwoch, 
 Kaleta\Core\Language::set('cs', 'admin-');
 
 /* ---------- spam protection: IP hash ---------- */
-check('Antispam::otisk: není to IP adresa', str_contains(Kaleta\Core\Antispam::hash('203.0.113.7'), '203'), false);
-check('Antispam::otisk: stejná adresa = stejný otisk', Kaleta\Core\Antispam::hash('203.0.113.7'), Kaleta\Core\Antispam::hash('203.0.113.7'));
+check('Antispam::hash: it is not the IP address', str_contains(Kaleta\Core\Antispam::hash('203.0.113.7'), '203'), false);
+check('Antispam::hash: the same address = the same hash', Kaleta\Core\Antispam::hash('203.0.113.7'), Kaleta\Core\Antispam::hash('203.0.113.7'));
 
 /* ---------- import from WordPress: reading the export (tools/fixtures/wordpress-sample.xml), preview, safe XML ---------- */
 $wpPath = KALETA_ROOT . '/tools/fixtures/wordpress-sample.xml';
 $wpRejects = static function (callable $f): bool { try { $f(); return false; } catch (RuntimeException) { return true; } };
 $wp = new Kaleta\Core\WpFile($wpPath);
-check('WpSoubor: ukázkový export projde ověřením', $wpRejects(fn () => $wp->verify()), false);
+check('WpFile: the sample export passes validation', $wpRejects(fn () => $wp->verify()), false);
 $wpHeader = $wp->header();
-check('WpSoubor: starý web z <channel><link>', [$wpHeader['name'], $wpHeader['url']], ['Podhorský zpravodaj', 'https://www.podhorsky-zpravodaj.example']);
-check('WpSoubor: autoři jako přihlašovací jméno => zobrazované jméno', $wpHeader['authors'], ['redakce' => 'Redakce Zpravodaje', 'bhorakova' => 'Běla Horáková']);
-check('WpSoubor: rubriky s hierarchií', $wpHeader['categories'], ['zpravy' => ['name' => 'Zprávy', 'parent' => ''], 'z-radnice' => ['name' => 'Z radnice', 'parent' => 'zpravy']]);
-check('WpSoubor: tři štítky', array_keys($wpHeader['tags']), ['most', 'doprava', 'slavnosti']);
+check('WpFile: the old site from <channel><link>', [$wpHeader['name'], $wpHeader['url']], ['Podhorský zpravodaj', 'https://www.podhorsky-zpravodaj.example']); // check-english: allow
+check('WpFile: authors as login => display name', $wpHeader['authors'], ['redakce' => 'Redakce Zpravodaje', 'bhorakova' => 'Běla Horáková']); // check-english: allow
+check('WpFile: categories with a hierarchy', $wpHeader['categories'], ['zpravy' => ['name' => 'Zprávy', 'parent' => ''], 'z-radnice' => ['name' => 'Z radnice', 'parent' => 'zpravy']]); // check-english: allow
+check('WpFile: three tags', array_keys($wpHeader['tags']), ['most', 'doprava', 'slavnosti']);
 $wpItems = iterator_to_array($wp->items());
-check('WpSoubor: devět položek, typy v pořadí souboru', array_column($wpItems, 'type'), ['post', 'post', 'post', 'post', 'page', 'nav_menu_item', 'attachment', 'attachment', 'attachment']);
-check('WpSoubor: přeskočení už zpracovaných položek drží pořadí', array_keys(iterator_to_array($wp->items(7))), [7, 8]);
-check('WpSoubor: první příspěvek', [$wpItems[0]['id'], $wpItems[0]['status'], $wpItems[0]['sticky'], $wpItems[0]['preview'], $wpItems[0]['categories'], array_keys($wpItems[0]['tags'])], [101, 'publish', true, 201, ['z-radnice' => 'Z radnice'], ['most', 'doprava']]);
-check('WpSoubor: komentáře se nečtou', array_key_exists('komentare', $wpItems[0]), false);
+check('WpFile: nine items, types in file order', array_column($wpItems, 'type'), ['post', 'post', 'post', 'post', 'page', 'nav_menu_item', 'attachment', 'attachment', 'attachment']);
+check('WpFile: skipping already processed items keeps the order', array_keys(iterator_to_array($wp->items(7))), [7, 8]);
+check('WpFile: the first post', [$wpItems[0]['id'], $wpItems[0]['status'], $wpItems[0]['sticky'], $wpItems[0]['preview'], $wpItems[0]['categories'], array_keys($wpItems[0]['tags'])], [101, 'publish', true, 201, ['z-radnice' => 'Z radnice'], ['most', 'doprava']]);
+check('WpFile: comments are not read', array_key_exists('komentare', $wpItems[0]), false);
 check('WpSoubor: e-mail ani IP se z exportu nikam nedostanou', (bool) preg_match('/posta\.example|198\.51\.100|203\.0\.113/', (string) json_encode($wpItems)), false);
 $wpState = Kaleta\Core\WpImport::newState('wordpress-sample.xml');
 Kaleta\Core\WpImport::analyze($wpState, 30, $wpPath);
-check('WpImport náhled: fáze a počet položek', [$wpState['phase'], $wpState['total'], $wpState['position']], ['preview', 9, 0]);
-check('WpImport náhled: příspěvky podle stavu a stránky', [$wpState['overview']['articles'], $wpState['overview']['pages']], [['publish' => 3, 'draft' => 1], ['publish' => 1]]);
-check('WpImport náhled: kategorie, štítky, autoři, přílohy', [$wpState['overview']['categories'], $wpState['overview']['tags'], $wpState['overview']['authors'], $wpState['overview']['attachments']], [2, 3, 2, 3]);
-check('WpImport náhled: upozorní na cizí typ obsahu a zkratku doplňku', [$wpState['overview']['other'], $wpState['overview']['shortcodes']], [['nav_menu_item' => 1], ['kontaktni-formular' => 1]]);
-check('WpImport náhled: adresy příloh pro galerie a hlavní obrázky', $wpState['attachments'][202] ?? '', 'https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg');
+check('WpImport preview: phase and item count', [$wpState['phase'], $wpState['total'], $wpState['position']], ['preview', 9, 0]);
+check('WpImport preview: posts by status and pages', [$wpState['overview']['articles'], $wpState['overview']['pages']], [['publish' => 3, 'draft' => 1], ['publish' => 1]]);
+check('WpImport preview: categories, tags, authors, attachments', [$wpState['overview']['categories'], $wpState['overview']['tags'], $wpState['overview']['authors'], $wpState['overview']['attachments']], [2, 3, 2, 3]);
+check('WpImport preview: warns about a foreign content type and a plugin shortcode', [$wpState['overview']['other'], $wpState['overview']['shortcodes']], [['nav_menu_item' => 1], ['kontaktni-formular' => 1]]);
+check('WpImport preview: attachment addresses for galleries and featured images', $wpState['attachments'][202] ?? '', 'https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg');
 
 /* ---------- import from WordPress: SEO plugin data (SmartCrawl, Yoast SEO, Rank Math) ---------- */
-check('WpSoubor: čte jen meta klíče SEO pluginů', [array_keys($wpItems[0]['meta']), $wpItems[3]['meta']], [['_wds_title', '_wds_metadesc', '_wds_meta-robots-noindex'], []]);
-check('WpImport náhled: SEO data po pluginech (výchozí vzor Yoastu se nepočítá)', $wpState['overview']['seo'], [
+check('WpFile: reads only the SEO plugins\' meta keys', [array_keys($wpItems[0]['meta']), $wpItems[3]['meta']], [['_wds_title', '_wds_metadesc', '_wds_meta-robots-noindex'], []]);
+check('WpImport preview: SEO data by plugin (the default Yoast pattern is not counted)', $wpState['overview']['seo'], [
     'SmartCrawl' => ['title' => 2, 'description' => 2, 'noindex' => 0, 'canonical' => 1],
     'Yoast SEO' => ['title' => 0, 'description' => 1, 'noindex' => 1, 'canonical' => 0],
     'Rank Math' => ['title' => 1, 'description' => 1, 'noindex' => 1, 'canonical' => 1],
 ]);
-$wpSeoContext = ['title' => 'Lávka přes Bystřinu', 'sitename' => 'Podhorský zpravodaj', 'sitedesc' => 'Zprávy z údolí', 'excerpt' => 'Po roce oprav.', 'category' => 'Z radnice'];
-check('WpSeo::raw: první plugin s vyplněnou hodnotou; Yoast 2 = indexovat', Kaleta\Core\WpSeo::raw(['_yoast_wpseo_meta-robots-noindex' => '2', '_yoast_wpseo_title' => ' T ']), ['plugin' => 'Yoast SEO', 'title' => 'T', 'description' => '', 'noindex' => false, 'canonical' => '']);
+$wpSeoContext = ['title' => 'Lávka přes Bystřinu', 'sitename' => 'Podhorský zpravodaj', 'sitedesc' => 'Zprávy z údolí', 'excerpt' => 'Po roce oprav.', 'category' => 'Z radnice']; // check-english: allow
+check('WpSeo::raw: the first plugin with a filled value; Yoast 2 = index', Kaleta\Core\WpSeo::raw(['_yoast_wpseo_meta-robots-noindex' => '2', '_yoast_wpseo_title' => ' T ']), ['plugin' => 'Yoast SEO', 'title' => 'T', 'description' => '', 'noindex' => false, 'canonical' => '']);
 check('WpSeo::raw: bez SEO meta', Kaleta\Core\WpSeo::raw(['_thumbnail_id' => '5'])['plugin'], '');
-check('WpSeo::robotsNoindex: serializované pole Rank Math jen jako text', array_map(Kaleta\Core\WpSeo::robotsNoindex(...), ['a:2:{i:0;s:7:"noindex";i:1;s:8:"nofollow";}', 'a:1:{i:0;s:5:"index";}', 'a:1:{i:0;s:12:"noimageindex";}', 'noindex,nofollow', 'O:8:"stdClass":0:{}', '']), [true, false, false, true, false, false]);
-check('WpSeo::isDefaultPattern: jen proměnné a oddělovače = výchozí vzor pluginu', array_map(Kaleta\Core\WpSeo::isDefaultPattern(...), ['%%title%% %%sep%% %%sitename%%', '%%title%% %%page%% %%sep%% %%sitename%%', '%title% %sep% %sitename%', '%%title%% | %%sitename%%', '%%title%%', '', 'Blog – %%sitename%%', 'Nabídka %%title%%']), [true, true, true, true, true, true, false, false]);
-check('WpSeo::title: proměnné Yoastu a SmartCrawlu se doplní, oddělovač je pomlčka', Kaleta\Core\WpSeo::title('Lávka znovu otevřena %%sep%% %%sitename%%', $wpSeoContext), 'Lávka znovu otevřena – Podhorský zpravodaj');
-check('WpSeo::title: proměnné Rank Math', Kaleta\Core\WpSeo::title('%title% – fotografie %sep% %sitename%', $wpSeoContext), 'Lávka přes Bystřinu – fotografie – Podhorský zpravodaj');
-check('WpSeo::title: výchozí vzor se neimportuje', [Kaleta\Core\WpSeo::title('%%title%% %%sep%% %%sitename%%', $wpSeoContext), Kaleta\Core\WpSeo::title('%title% %page% %sep% %sitename%', $wpSeoContext)], ['', '']);
-check('WpSeo::title: stránkování a datum zmizí i s oddělovačem navíc', Kaleta\Core\WpSeo::title('%%title%% %%page%% – %%currentyear%% – Blog', $wpSeoContext), 'Lávka přes Bystřinu – ' . date('Y') . ' – Blog');
-check('WpSeo::title: odstraněná proměnná nenechá dvojitý oddělovač', Kaleta\Core\WpSeo::title('%%title%% %%sep%% %%page%% %%sep%% Blog', $wpSeoContext), 'Lávka přes Bystřinu – Blog');
-check('WpSeo::title: neznámá proměnná = titulek se zahodí, ne rozbitý', [Kaleta\Core\WpSeo::title('%%title%% %%sep%% %%neznama_promenna%%', $wpSeoContext), Kaleta\Core\WpSeo::resolve('%%title%% %%neznama%%', $wpSeoContext)], ['', null]);
-check('WpSeo::title: vlastní pole (cf_) a termy (ct_) se jen odstraní', Kaleta\Core\WpSeo::title('Nabídka %%title%% %%cf_moje_pole%% %%ct_oblast%%', $wpSeoContext), 'Nabídka Lávka přes Bystřinu');
-check('WpSeo::title: shodný s titulkem příspěvku se neukládá', Kaleta\Core\WpSeo::title('%%title%%%%cf_x%%', $wpSeoContext), '');
-check('WpSeo::title: délka podle sloupce', mb_strlen(Kaleta\Core\WpSeo::title(str_repeat('ž', 300), $wpSeoContext, 200)), 200);
-check('WpSeo::description: výtah a hlavní kategorie', Kaleta\Core\WpSeo::description('%%excerpt%% Více v rubrice %%primary_category%%.', $wpSeoContext), 'Po roce oprav. Více v rubrice Z radnice.');
-check('WpSeo::description: jen %%excerpt%% je výchozí vzor – web si popis sestaví sám', Kaleta\Core\WpSeo::description('%%excerpt%%', $wpSeoContext), '');
-check('WpSeo::description: značky a entity pryč', Kaleta\Core\WpSeo::description('Sýr &amp; <b>víno</b> v %sitename%', $wpSeoContext), 'Sýr & víno v Podhorský zpravodaj');
-check('WpSeo::keys: jeden seznam klíčů ze všech pluginů', [count(Kaleta\Core\WpSeo::keys()), in_array('rank_math_robots', Kaleta\Core\WpSeo::keys(), true)], [12, true]);
+check('WpSeo::robotsNoindex: a serialized Rank Math array only as text', array_map(Kaleta\Core\WpSeo::robotsNoindex(...), ['a:2:{i:0;s:7:"noindex";i:1;s:8:"nofollow";}', 'a:1:{i:0;s:5:"index";}', 'a:1:{i:0;s:12:"noimageindex";}', 'noindex,nofollow', 'O:8:"stdClass":0:{}', '']), [true, false, false, true, false, false]);
+check('WpSeo::isDefaultPattern: only variables and separators = the plugin\'s default pattern', array_map(Kaleta\Core\WpSeo::isDefaultPattern(...), ['%%title%% %%sep%% %%sitename%%', '%%title%% %%page%% %%sep%% %%sitename%%', '%title% %sep% %sitename%', '%%title%% | %%sitename%%', '%%title%%', '', 'Blog – %%sitename%%', 'Nabídka %%title%%']), [true, true, true, true, true, true, false, false]); // check-english: allow
+check('WpSeo::title: Yoast and SmartCrawl variables are filled in, the separator is a dash', Kaleta\Core\WpSeo::title('Lávka znovu otevřena %%sep%% %%sitename%%', $wpSeoContext), 'Lávka znovu otevřena – Podhorský zpravodaj'); // check-english: allow
+check('WpSeo::title: Rank Math variables', Kaleta\Core\WpSeo::title('%title% – fotografie %sep% %sitename%', $wpSeoContext), 'Lávka přes Bystřinu – fotografie – Podhorský zpravodaj'); // check-english: allow
+check('WpSeo::title: the default pattern is not imported', [Kaleta\Core\WpSeo::title('%%title%% %%sep%% %%sitename%%', $wpSeoContext), Kaleta\Core\WpSeo::title('%title% %page% %sep% %sitename%', $wpSeoContext)], ['', '']);
+check('WpSeo::title: pagination and date vanish along with an extra separator', Kaleta\Core\WpSeo::title('%%title%% %%page%% – %%currentyear%% – Blog', $wpSeoContext), 'Lávka přes Bystřinu – ' . date('Y') . ' – Blog'); // check-english: allow
+check('WpSeo::title: a removed variable leaves no double separator', Kaleta\Core\WpSeo::title('%%title%% %%sep%% %%page%% %%sep%% Blog', $wpSeoContext), 'Lávka přes Bystřinu – Blog'); // check-english: allow
+check('WpSeo::title: an unknown variable = the title is dropped, not broken', [Kaleta\Core\WpSeo::title('%%title%% %%sep%% %%neznama_promenna%%', $wpSeoContext), Kaleta\Core\WpSeo::resolve('%%title%% %%neznama%%', $wpSeoContext)], ['', null]);
+check('WpSeo::title: custom fields (cf_) and terms (ct_) are only removed', Kaleta\Core\WpSeo::title('Nabídka %%title%% %%cf_moje_pole%% %%ct_oblast%%', $wpSeoContext), 'Nabídka Lávka přes Bystřinu'); // check-english: allow
+check('WpSeo::title: identical to the post title is not stored', Kaleta\Core\WpSeo::title('%%title%%%%cf_x%%', $wpSeoContext), '');
+check('WpSeo::title: length by column', mb_strlen(Kaleta\Core\WpSeo::title(str_repeat('ž', 300), $wpSeoContext, 200)), 200); // check-english: allow
+check('WpSeo::description: excerpt and main category', Kaleta\Core\WpSeo::description('%%excerpt%% Více v rubrice %%primary_category%%.', $wpSeoContext), 'Po roce oprav. Více v rubrice Z radnice.'); // check-english: allow
+check('WpSeo::description: only %%excerpt%% is the default pattern – the site builds the description itself', Kaleta\Core\WpSeo::description('%%excerpt%%', $wpSeoContext), '');
+check('WpSeo::description: tags and entities gone', Kaleta\Core\WpSeo::description('Sýr &amp; <b>víno</b> v %sitename%', $wpSeoContext), 'Sýr & víno v Podhorský zpravodaj'); // check-english: allow
+check('WpSeo::keys: one key list from all plugins', [count(Kaleta\Core\WpSeo::keys()), in_array('rank_math_robots', Kaleta\Core\WpSeo::keys(), true)], [12, true]);
 
 /* ---------- import from WordPress: custom post types and fields as collections (2.7, tools/fixtures/wordpress-cpt.xml) ---------- */
 check('WpTypes::isCustomType: own types yes, WordPress and plugin internals no', array_map(Kaleta\Core\WpTypes::isCustomType(...), ['reference', 'team_member', 'product', 'page', 'nav_menu_item', 'wp_block', 'acf-field', 'breakdance_template', 'shop_order', 'wpcf7_contact_form', 'Bad Type!']),
@@ -1085,7 +1085,7 @@ check('WpTypes::fields: ACF fields always, plugin and underscore meta never', Ka
     ['client_id' => 'A', 'cena' => '100']);
 check('WpTypes::guessType', array_map(fn (array $c): ?string => Kaleta\Core\WpTypes::guessType($c[0], $c[1], [301 => 'https://x/a.jpg']), [
     ['fotka', '301'], ['logo_firmy', '77'], ['count', '77'], ['x', 'https://old.example/a/b.png?v=2'], ['date', '20240315'], ['date', '20241345'], ['web', 'https://novakovi.example'],
-    ['cena', '1 200'], ['cena', '1200,50'], ['description', '<p>Hi</p>'], ['url', "Ulice 1\nMěsto"], ['name', 'Jana'], ['galerie', 'a:2:{i:0;s:3:"301";}'], ['x', '']]),
+    ['cena', '1 200'], ['cena', '1200,50'], ['description', '<p>Hi</p>'], ['url', "Ulice 1\nMěsto"], ['name', 'Jana'], ['galerie', 'a:2:{i:0;s:3:"301";}'], ['x', '']]), // check-english: allow
     ['image', 'image', 'number', 'image', 'date', 'number', 'link', 'text', 'number', 'html', 'lines', 'text', null, 'text']);
 check('WpTypes::fieldType, date, label, prefix', [Kaleta\Core\WpTypes::fieldType(['text' => 3, 'lines' => 1]), Kaleta\Core\WpTypes::fieldType(['image' => 1, 'text' => 0]), Kaleta\Core\WpTypes::fieldType([]),
     Kaleta\Core\WpTypes::date('20240315'), Kaleta\Core\WpTypes::date('2024-02-30'), Kaleta\Core\WpTypes::label('team_member-role'), Kaleta\Core\WpTypes::prefix('https://a.cz/reference/kuchyne/'), Kaleta\Core\WpTypes::prefix('https://a.cz/?p=4')],
@@ -1093,25 +1093,25 @@ check('WpTypes::fieldType, date, label, prefix', [Kaleta\Core\WpTypes::fieldType
 $cptPath = KALETA_ROOT . '/tools/fixtures/wordpress-cpt.xml';
 $cptItems = iterator_to_array((new Kaleta\Core\WpFile($cptPath))->items());
 check('WpSoubor: fields of a custom post type are read, of other types not', [array_keys($cptItems[1]['fields']), $cptItems[0]['fields']],
-    [['klient', '_klient', 'rok_dokonceni', '_rok_dokonceni', 'datum_predani', '_datum_predani', 'web_klienta', '_web_klienta', 'fotka', '_fotka', 'galerie', '_galerie', 'rank_math_seo_score', 'ekit_post_views_count'], []]);
+    [['klient', '_klient', 'rok_dokonceni', '_rok_dokonceni', 'datum_predani', '_datum_predani', 'web_klienta', '_web_klienta', 'fotka', '_fotka', 'galerie', '_galerie', 'rank_math_seo_score', 'ekit_post_views_count'], []]); // check-english: allow
 $cptState = Kaleta\Core\WpImport::newState('wordpress-cpt.xml');
 Kaleta\Core\WpImport::analyze($cptState, 30, $cptPath);
-check('WpImport náhled: a custom post type with its fields, address and what is left out', [$cptState['overview']['types'], $cptState['overview']['other']], [['reference' => [
+check('WpImport preview: a custom post type with its fields, address and what is left out', [$cptState['overview']['types'], $cptState['overview']['other']], [['reference' => [
     'count' => 2, 'prefixes' => ['reference' => 2], 'fields' => ['klient' => ['text' => 2], 'rok_dokonceni' => ['number' => 2], 'datum_predani' => ['date' => 2], 'web_klienta' => ['link' => 1], 'fotka' => ['image' => 1, 'text' => 0]],
-    'left_out' => ['galerie' => true], 'content' => true, 'excerpt' => false]], []]);
+    'left_out' => ['galerie' => true], 'content' => true, 'excerpt' => false]], []]); // check-english: allow
 
 $wpTmp = sys_get_temp_dir() . '/kaleta-wp-' . bin2hex(random_bytes(4));
 mkdir($wpTmp);
 $wpHead = '<rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>T</title><link>https://stary.example</link>';
 file_put_contents($wpTmp . '/tajne.txt', 'TAJNY-OBSAH-SERVERU');
 $wpMalicious = [
-    'vnější entita (XXE)' => '<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY xxe SYSTEM "file://' . $wpTmp . '/tajne.txt">]>' . $wpHead . '<item><title>&xxe;</title><content:encoded>&xxe;</content:encoded></item></channel></rss>',
-    'miliarda smíchů' => '<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY a "haha"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;">]>' . $wpHead . '<item><title>&c;</title></item></channel></rss>',
-    'vnější DTD' => '<?xml version="1.0"?><!DOCTYPE rss SYSTEM "http://127.0.0.1:1/zly.dtd">' . $wpHead . '</channel></rss>',
-    'nedefinovaná entita' => '<?xml version="1.0"?>' . $wpHead . '<item><title>&neexistuje;</title></item></channel></rss>',
-    'jiné XML než export WordPressu' => '<?xml version="1.0"?><rss version="2.0"><channel><title>Obyčejné RSS</title><item><title>x</title></item></channel></rss>',
-    'poškozené XML' => '<?xml version="1.0"?>' . $wpHead . '<item><title>neuzavřeno</item>',
-    'HTML místo XML' => '<html><body>xmlns:wp="http://wordpress.org/export/1.2/"</body></html>',
+    'vnější entita (XXE)' => '<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY xxe SYSTEM "file://' . $wpTmp . '/tajne.txt">]>' . $wpHead . '<item><title>&xxe;</title><content:encoded>&xxe;</content:encoded></item></channel></rss>', // check-english: allow
+    'miliarda smíchů' => '<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY a "haha"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;">]>' . $wpHead . '<item><title>&c;</title></item></channel></rss>', // check-english: allow
+    'vnější DTD' => '<?xml version="1.0"?><!DOCTYPE rss SYSTEM "http://127.0.0.1:1/zly.dtd">' . $wpHead . '</channel></rss>', // check-english: allow
+    'nedefinovaná entita' => '<?xml version="1.0"?>' . $wpHead . '<item><title>&neexistuje;</title></item></channel></rss>', // check-english: allow
+    'jiné XML než export WordPressu' => '<?xml version="1.0"?><rss version="2.0"><channel><title>Obyčejné RSS</title><item><title>x</title></item></channel></rss>', // check-english: allow
+    'poškozené XML' => '<?xml version="1.0"?>' . $wpHead . '<item><title>neuzavřeno</item>', // check-english: allow
+    'HTML místo XML' => '<html><body>xmlns:wp="http://wordpress.org/export/1.2/"</body></html>', // check-english: allow
 ];
 foreach ($wpMalicious as $label => $xml) {
     file_put_contents($wpTmp . '/zly.xml', $xml);
@@ -1121,40 +1121,40 @@ foreach ($wpMalicious as $label => $xml) {
         $bad->verify();
         $read = (string) json_encode([$bad->header(), iterator_to_array($bad->items())]);
     });
-    check('WpSoubor odmítne: ' . $label, [$rejected, str_contains($read, 'TAJNY-OBSAH') || str_contains($read, 'hahahaha')], [true, false]);
+    check('WpFile rejects: ' . $label, [$rejected, str_contains($read, 'TAJNY-OBSAH') || str_contains($read, 'hahahaha')], [true, false]);
 }
 file_put_contents($wpTmp . '/dobry.xml', '<?xml version="1.0"?>' . $wpHead . '<item><title>A &amp; B</title></item></channel></rss>');
-check('WpSoubor: běžné entity (&amp;) jsou v pořádku', iterator_to_array((new Kaleta\Core\WpFile($wpTmp . '/dobry.xml'))->items())[0]['title'], 'A & B');
+check('WpFile: common entities (&amp;) are fine', iterator_to_array((new Kaleta\Core\WpFile($wpTmp . '/dobry.xml'))->items())[0]['title'], 'A & B');
 exec('rm -rf ' . escapeshellarg($wpTmp));
-foreach (['export.xml' => true, 'Můj web.WordPress.2026-09-21.XML' => true, '../config.xml' => false, 'slozka/export.xml' => false, '.skryty.xml' => false, 'export.php' => false, 'export.xml.php' => false, "export\0.xml" => false, '' => false] as $name => $expectedResult) {
+foreach (['export.xml' => true, 'Můj web.WordPress.2026-09-21.XML' => true, '../config.xml' => false, 'slozka/export.xml' => false, '.skryty.xml' => false, 'export.php' => false, 'export.xml.php' => false, "export\0.xml" => false, '' => false] as $name => $expectedResult) { // check-english: allow
     check('WpSoubor::platnyNazev ' . json_encode((string) $name), Kaleta\Core\WpFile::isValidName((string) $name), $expectedResult);
 }
-check('WpSoubor: název nahraného souboru bez diakritiky a vždy .xml', Kaleta\Core\WpFile::uploadName('Můj web.WordPress.2026-09-21.xml'), 'muj-web-wordpress-2026-09-21.xml');
+check('WpFile: the uploaded file name without diacritics and always .xml', Kaleta\Core\WpFile::uploadName('Můj web.WordPress.2026-09-21.xml'), 'muj-web-wordpress-2026-09-21.xml'); // check-english: allow
 
 /* ---------- import from WordPress: content cleanup ---------- */
 $wpClean = Kaleta\Core\WpContent::sanitize(...);
-check('WpObsah: klasický editor – odstavce z prázdných řádků, <br> z konců řádků', $wpClean("První řádek\ndruhý řádek\n\nDruhý odstavec"), "<p>První řádek<br>\ndruhý řádek</p>\n<p>Druhý odstavec</p>");
-check('WpObsah: blokové značky se do <p> nebalí', $wpClean("Úvod\n\n<h2>Titulek</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>"), "<p>Úvod</p>\n<h2>Titulek</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>");
-check('WpObsah: komentáře Gutenbergu mizí, odstavce zůstávají', $wpClean("<!-- wp:paragraph -->\n<p>Text</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {\"level\":1} -->\n<h1 class=\"wp-block-heading\">Nadpis</h1>\n<!-- /wp:heading -->"), "<p>Text</p>\n<h2>Nadpis</h2>");
-check('WpObsah: [caption] → figure s popiskem, odkaz na velký obrázek mizí', $wpClean('[caption id="attachment_5" align="alignnone" width="300"]<a href="https://stary.example/wp-content/uploads/most.jpg"><img class="size-medium" src="https://stary.example/wp-content/uploads/most-300x200.jpg" alt="Most" width="300" height="200" /></a> Most přes řeku[/caption]'), '<figure><img src="https://stary.example/wp-content/uploads/most-300x200.jpg" alt="Most" width="300" height="200" loading="lazy"><figcaption>Most přes řeku</figcaption></figure>');
-check('WpObsah: [gallery ids] → naše galerie jen ze známých obrázků', $wpClean('[gallery ids="5,6,7,99" columns="2"]', [5 => 'https://stary.example/a.jpg', 6 => 'https://stary.example/b.png', 7 => 'https://stary.example/dokument.pdf']), '<figure class="gallery"><img src="https://stary.example/a.jpg" alt="" loading="lazy"><img src="https://stary.example/b.png" alt="" loading="lazy"></figure>');
-check('WpObsah: blok galerie Gutenbergu → naše galerie', $wpClean('<!-- wp:gallery {"linkTo":"none"} --><figure class="wp-block-gallery"><!-- wp:image {"id":5} --><figure class="wp-block-image"><img src="https://stary.example/a.jpg" alt="A" class="wp-image-5"/></figure><!-- /wp:image --></figure><!-- /wp:gallery -->'), '<figure class="gallery"><img src="https://stary.example/a.jpg" alt="A" loading="lazy"></figure>');
-check('WpObsah: adresa YouTube na samostatném řádku je vlastní odstavec', $wpClean("Text před\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nText po"), "<p>Text před</p>\n<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>\n<p>Text po</p>");
-check('WpObsah: takový odstavec web promění v přehrávač', str_contains((new ReflectionClass(NewsText::class))->newInstanceWithoutConstructor()->embedVideoUrls($wpClean("https://www.youtube.com/watch?v=dQw4w9WgXcQ")), 'youtube-nocookie.com/embed/dQw4w9WgXcQ'), true);
-check('WpObsah: blok embed → adresa v odstavci', $wpClean('<!-- wp:embed {"url":"https://vimeo.com/76979871","type":"video"} --><figure class="wp-block-embed"><div class="wp-block-embed__wrapper">https://vimeo.com/76979871</div></figure><!-- /wp:embed -->'), '<p>https://vimeo.com/76979871</p>');
-check('WpObsah: iframe YouTube → adresa, cizí iframe pryč', $wpClean('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="560"></iframe><iframe src="https://zly.example/"></iframe>'), '<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>');
-check('WpObsah: zkratky doplňků mizí, jejich text a [sic] zůstávají', $wpClean('[vc_row][vc_column width="1/2"]Text uvnitř[/vc_column][/vc_row] [contact-form-7 id="1"] citace [sic] a [[ukázka]]'), '<p>Text uvnitř  citace [sic] a [[ukázka]]</p>');
-check('WpObsah: v ukázce kódu se závorky nemění', $wpClean("<pre>pole[muj_klic] = 1;\n\nkonec</pre>"), "<pre>pole[muj_klic] = 1;\n\nkonec</pre>");
+check('WpContent: classic editor – paragraphs from empty lines, <br> from line ends', $wpClean("První řádek\ndruhý řádek\n\nDruhý odstavec"), "<p>První řádek<br>\ndruhý řádek</p>\n<p>Druhý odstavec</p>"); // check-english: allow
+check('WpContent: block tags are not wrapped in <p>', $wpClean("Úvod\n\n<h2>Titulek</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>"), "<p>Úvod</p>\n<h2>Titulek</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>"); // check-english: allow
+check('WpContent: Gutenberg comments vanish, paragraphs stay', $wpClean("<!-- wp:paragraph -->\n<p>Text</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {\"level\":1} -->\n<h1 class=\"wp-block-heading\">Nadpis</h1>\n<!-- /wp:heading -->"), "<p>Text</p>\n<h2>Nadpis</h2>");
+check('WpContent: [caption] → figure with a caption, the link to the large image vanishes', $wpClean('[caption id="attachment_5" align="alignnone" width="300"]<a href="https://stary.example/wp-content/uploads/most.jpg"><img class="size-medium" src="https://stary.example/wp-content/uploads/most-300x200.jpg" alt="Most" width="300" height="200" /></a> Most přes řeku[/caption]'), '<figure><img src="https://stary.example/wp-content/uploads/most-300x200.jpg" alt="Most" width="300" height="200" loading="lazy"><figcaption>Most přes řeku</figcaption></figure>'); // check-english: allow
+check('WpContent: [gallery ids] → our gallery only from known images', $wpClean('[gallery ids="5,6,7,99" columns="2"]', [5 => 'https://stary.example/a.jpg', 6 => 'https://stary.example/b.png', 7 => 'https://stary.example/dokument.pdf']), '<figure class="gallery"><img src="https://stary.example/a.jpg" alt="" loading="lazy"><img src="https://stary.example/b.png" alt="" loading="lazy"></figure>');
+check('WpContent: Gutenberg gallery block → our gallery', $wpClean('<!-- wp:gallery {"linkTo":"none"} --><figure class="wp-block-gallery"><!-- wp:image {"id":5} --><figure class="wp-block-image"><img src="https://stary.example/a.jpg" alt="A" class="wp-image-5"/></figure><!-- /wp:image --></figure><!-- /wp:gallery -->'), '<figure class="gallery"><img src="https://stary.example/a.jpg" alt="A" loading="lazy"></figure>');
+check('WpContent: a YouTube address on its own line is its own paragraph', $wpClean("Text před\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nText po"), "<p>Text před</p>\n<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>\n<p>Text po</p>"); // check-english: allow
+check('WpContent: the site turns such a paragraph into a player', str_contains((new ReflectionClass(NewsText::class))->newInstanceWithoutConstructor()->embedVideoUrls($wpClean("https://www.youtube.com/watch?v=dQw4w9WgXcQ")), 'youtube-nocookie.com/embed/dQw4w9WgXcQ'), true);
+check('WpContent: embed block → address in a paragraph', $wpClean('<!-- wp:embed {"url":"https://vimeo.com/76979871","type":"video"} --><figure class="wp-block-embed"><div class="wp-block-embed__wrapper">https://vimeo.com/76979871</div></figure><!-- /wp:embed -->'), '<p>https://vimeo.com/76979871</p>');
+check('WpContent: YouTube iframe → address, a foreign iframe gone', $wpClean('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="560"></iframe><iframe src="https://zly.example/"></iframe>'), '<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>');
+check('WpContent: plugin shortcodes vanish, their text and [sic] stay', $wpClean('[vc_row][vc_column width="1/2"]Text uvnitř[/vc_column][/vc_row] [contact-form-7 id="1"] citace [sic] a [[ukázka]]'), '<p>Text uvnitř  citace [sic] a [[ukázka]]</p>'); // check-english: allow
+check('WpContent: brackets in a code sample do not change', $wpClean("<pre>pole[muj_klic] = 1;\n\nkonec</pre>"), "<pre>pole[muj_klic] = 1;\n\nkonec</pre>");
 $wpUnsafe = $wpClean('<p onclick="x()" style="color:red">Klik <a href="java&#9;script:alert(1)" onmouseover="x()">odkaz</a> <a href="https://dobry.example/" target="_blank">ven</a></p><script>alert(1)</script><style>p{}</style><img src="data:image/svg+xml;base64,AAAA"><img src="https://stary.example/a.jpg" onerror="alert(1)" srcset="x 2x"><svg onload="alert(1)"><circle/></svg><form action="/x"><input name="a"></form><object data="x"></object><div class="wrap"><span>Text v divu</span></div>');
-check('WpObsah: skripty, styly, obsluhy událostí, javascript: a data: adresy neprojdou', $wpUnsafe, "<p>Klik odkaz <a href=\"https://dobry.example/\" target=\"_blank\" rel=\"noopener\">ven</a></p>\n<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"></figure>\n<p>Text v divu</p>");
-check('WpObsah: po čištění nezbyde nic nebezpečného', (bool) preg_match('/<script|<style|<svg|<form|<iframe|<object|\son[a-z]+=|javascript:|data:|style=|srcset=/i', $wpUnsafe), false);
+check('WpContent: scripts, styles, event handlers, javascript: and data: addresses do not pass', $wpUnsafe, "<p>Klik odkaz <a href=\"https://dobry.example/\" target=\"_blank\" rel=\"noopener\">ven</a></p>\n<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"></figure>\n<p>Text v divu</p>"); // check-english: allow
+check('WpContent: nothing dangerous is left after cleaning', (bool) preg_match('/<script|<style|<svg|<form|<iframe|<object|\son[a-z]+=|javascript:|data:|style=|srcset=/i', $wpUnsafe), false);
 check('WpObsah::bezpecnaAdresa', array_map(Kaleta\Core\WpContent::isSafeUrl(...), ['https://a.cz/', '/clanek/x', '#kotva', 'mailto:a@b.cz', "java\nscript:alert(1)", ' JAVASCRIPT:alert(1)', 'data:text/html,x', 'vbscript:x', '']), [true, true, true, true, false, false, false, false, false]);
-check('WpObsah: perex z výtahu WordPressu, text celý', Kaleta\Core\WpContent::introAndText('Ruční <b>výtah</b> &amp; spol.', "Odstavec jedna\n\nOdstavec dva"), ['<p>Ruční výtah &amp; spol.</p>', "<p>Odstavec jedna</p>\n<p>Odstavec dva</p>"]);
-check('WpObsah: bez výtahu je perexem první odstavec a v textu se neopakuje', Kaleta\Core\WpContent::introAndText('', "[caption]<img src=\"https://stary.example/a.jpg\" alt=\"\"> Popisek[/caption]\n\nOdstavec jedna\n\nOdstavec dva"), ['<p>Odstavec jedna</p>', "<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"><figcaption>Popisek</figcaption></figure>\n<p>Odstavec dva</p>"]);
-check('WpObsah: značka „Číst dál“ dělí perex a text', Kaleta\Core\WpContent::introAndText('', "Před značkou\n<!--more-->\nZa značkou"), ['<p>Před značkou</p>', '<p>Za značkou</p>']);
-check('WpObsah: cizí zkratky pro varování v náhledu', Kaleta\Core\WpContent::unknownShortcodes('[gallery ids="1"] [caption]x[/caption] [et_pb_section]a[/et_pb_section] [sic] <code>[muj_klic]</code>'), ['et_pb_section']);
+check('WpContent: the perex from the WordPress excerpt, the full text', Kaleta\Core\WpContent::introAndText('Ruční <b>výtah</b> &amp; spol.', "Odstavec jedna\n\nOdstavec dva"), ['<p>Ruční výtah &amp; spol.</p>', "<p>Odstavec jedna</p>\n<p>Odstavec dva</p>"]); // check-english: allow
+check('WpContent: without an excerpt the first paragraph is the perex and is not repeated in the text', Kaleta\Core\WpContent::introAndText('', "[caption]<img src=\"https://stary.example/a.jpg\" alt=\"\"> Popisek[/caption]\n\nOdstavec jedna\n\nOdstavec dva"), ['<p>Odstavec jedna</p>', "<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"><figcaption>Popisek</figcaption></figure>\n<p>Odstavec dva</p>"]); // check-english: allow
+check('WpContent: the "Read more" marker splits perex and text', Kaleta\Core\WpContent::introAndText('', "Před značkou\n<!--more-->\nZa značkou"), ['<p>Před značkou</p>', '<p>Za značkou</p>']); // check-english: allow
+check('WpContent: foreign shortcodes warned about in the preview', Kaleta\Core\WpContent::unknownShortcodes('[gallery ids="1"] [caption]x[/caption] [et_pb_section]a[/et_pb_section] [sic] <code>[muj_klic]</code>'), ['et_pb_section']);
 [$wpIntro, $wpText] = Kaleta\Core\WpContent::introAndText($wpItems[0]['excerpt'], $wpItems[0]['content'], $wpState['attachments']);
-check('WpObsah: ukázkový příspěvek – perex, obrázek s popiskem, video, galerie, bez skriptu a zkratky', [str_starts_with($wpIntro, '<p>Po dvanácti měsících'), substr_count($wpText, '<figcaption>'), str_contains($wpText, '<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>'), substr_count($wpText, 'class="gallery"'), (bool) preg_match('/script|onclick|kontaktni-formular|javascript/i', $wpText)], [true, 1, true, 1, false]);
+check('WpContent: the sample post – perex, image with a caption, video, gallery, no script and shortcode', [str_starts_with($wpIntro, '<p>Po dvanácti měsících'), substr_count($wpText, '<figcaption>'), str_contains($wpText, '<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>'), substr_count($wpText, 'class="gallery"'), (bool) preg_match('/script|onclick|kontaktni-formular|javascript/i', $wpText)], [true, 1, true, 1, false]); // check-english: allow
 
 /* ---------- 3.3.2: attribute text never becomes markup – sanitized HTML is changed on the DOM only (N23, N30, N6) ---------- */
 // what a browser would run: a script-capable element or an on… attribute anywhere in the parsed HTML
@@ -1214,23 +1214,23 @@ check('3.3.2 N6: Kaleta export – page and news HTML sanitized like a save with
 $wpStatuses = [];
 foreach (['publish', 'future', 'draft', 'pending', 'private', 'trash', 'auto-draft', 'inherit', 'nesmysl'] as $wpS) {
     $wpM = Kaleta\Core\WpImport::articleStatus($wpS);
-    $wpStatuses[$wpS] = $wpM === null ? 'vynechat' : ($wpM['visible'] ? 'vydany' : 'koncept');
+    $wpStatuses[$wpS] = $wpM === null ? 'vynechat' : ($wpM['visible'] ? 'vydany' : 'koncept'); // check-english: allow
 }
-check('WpImport::stavClanku', $wpStatuses, ['publish' => 'vydany', 'future' => 'vydany', 'draft' => 'koncept', 'pending' => 'koncept', 'private' => 'vynechat', 'trash' => 'vynechat', 'auto-draft' => 'vynechat', 'inherit' => 'vynechat', 'nesmysl' => 'vynechat']);
-check('WpImport::stavClanku: příspěvek chráněný heslem se nezveřejní', Kaleta\Core\WpImport::articleStatus('publish', true), ['visible' => 0]);
-check('WpImport::datum: místní čas starého webu', Kaleta\Core\WpImport::date(['date' => '2026-05-12 09:30:00', 'date_gmt' => '2026-05-12 07:30:00']), '2026-05-12 09:30:00');
-check('WpImport::datum: koncept s nulovým datem dostane dnešek', Kaleta\Core\WpImport::date(['date' => '0000-00-00 00:00:00', 'date_gmt' => '0000-00-00 00:00:00', 'pub_date' => ''], 1789000000), date('Y-m-d H:i:s', 1789000000));
+check('WpImport::articleStatus', $wpStatuses, ['publish' => 'vydany', 'future' => 'vydany', 'draft' => 'koncept', 'pending' => 'koncept', 'private' => 'vynechat', 'trash' => 'vynechat', 'auto-draft' => 'vynechat', 'inherit' => 'vynechat', 'nesmysl' => 'vynechat']); // check-english: allow
+check('WpImport::articleStatus: a password-protected post is not published', Kaleta\Core\WpImport::articleStatus('publish', true), ['visible' => 0]);
+check('WpImport::date: local time of the old site', Kaleta\Core\WpImport::date(['date' => '2026-05-12 09:30:00', 'date_gmt' => '2026-05-12 07:30:00']), '2026-05-12 09:30:00');
+check('WpImport::date: a draft with a zero date gets today', Kaleta\Core\WpImport::date(['date' => '0000-00-00 00:00:00', 'date_gmt' => '0000-00-00 00:00:00', 'pub_date' => ''], 1789000000), date('Y-m-d H:i:s', 1789000000));
 $wpTaken = ['lavka', 'lavka-2'];
-check('WpImport::volnaAdresa: obsazená adresa dostane číslo', Kaleta\Core\WpImport::availableSlug('lavka', fn (string $a): bool => in_array($a, $wpTaken, true)), 'lavka-3');
-check('WpImport::volnaAdresa: volná zůstává', Kaleta\Core\WpImport::availableSlug('most', fn (string $a): bool => in_array($a, $wpTaken, true)), 'most');
-check('WpImport::staraCesta', array_map(Kaleta\Core\WpImport::oldPath(...), ['https://stary.example/2026/05/lavka/', 'https://stary.example/?p=104', 'https://stary.example/blog/p%C5%99%C3%ADklad/', 'https://stary.example/' . str_repeat('x', 300)]), ['2026/05/lavka', '', 'blog/příklad', '']);
+check('WpImport::freeAddress: a taken address gets a number', Kaleta\Core\WpImport::availableSlug('lavka', fn (string $a): bool => in_array($a, $wpTaken, true)), 'lavka-3');
+check('WpImport::freeAddress: a free one stays', Kaleta\Core\WpImport::availableSlug('most', fn (string $a): bool => in_array($a, $wpTaken, true)), 'most');
+check('WpImport::oldPath', array_map(Kaleta\Core\WpImport::oldPath(...), ['https://stary.example/2026/05/lavka/', 'https://stary.example/?p=104', 'https://stary.example/blog/p%C5%99%C3%ADklad/', 'https://stary.example/' . str_repeat('x', 300)]), ['2026/05/lavka', '', 'blog/příklad', '']); // check-english: allow
 check('WpImport::bezRozmeru', array_map(Kaleta\Core\WpImport::withoutSize(...), ['https://s.example/u/foto-300x200.jpg', 'https://s.example/u/foto-1024x683.JPG?ver=2', 'https://s.example/u/foto.png', 'https://s.example/u/plan-2x4.pdf']), ['https://s.example/u/foto.jpg', 'https://s.example/u/foto.JPG', 'https://s.example/u/foto.png', 'https://s.example/u/plan-2x4.pdf']);
-check('WpImport::zdroj: doména starého webu, nejvýš 40 znaků', [Kaleta\Core\WpImport::source('https://WWW.Stary.example/blog'), Kaleta\Core\WpImport::source(''), strlen(Kaleta\Core\WpImport::source('https://' . str_repeat('a', 60) . '.example'))], ['wp:stary.example', 'wp', 40]);
-check('ExportWebu::cesta: jen názvy exportů, nic mimo složku', [Kaleta\Core\SiteExport::path('../config.php'), Kaleta\Core\SiteExport::path('export-20260921-101500.zip/../../config.php'), Kaleta\Core\SiteExport::path('kaleta-20260918-130917-rucni-7d777965.sql.gz')], [null, null, null]);
+check('WpImport::source: the old site\'s domain, at most 40 characters', [Kaleta\Core\WpImport::source('https://WWW.Stary.example/blog'), Kaleta\Core\WpImport::source(''), strlen(Kaleta\Core\WpImport::source('https://' . str_repeat('a', 60) . '.example'))], ['wp:stary.example', 'wp', 40]);
+check('SiteExport::path: only export names, nothing outside the folder', [Kaleta\Core\SiteExport::path('../config.php'), Kaleta\Core\SiteExport::path('export-20260921-101500.zip/../../config.php'), Kaleta\Core\SiteExport::path('kaleta-20260918-130917-rucni-7d777965.sql.gz')], [null, null, null]);
 
 /* ---------- import from WordPress: downloading images only from the old site and only from public URLs (SSRF protection) ---------- */
 $wpDownload = new Kaleta\Core\ImageDownloader('https://www.stary-web.example/blog/');
-check('StahovaniObrazku: doména starého webu bez www', $wpDownload->domain(), 'stary-web.example');
+check('ImageDownloader: the old site\'s domain without www', $wpDownload->domain(), 'stary-web.example');
 foreach ([
     'https://www.stary-web.example/wp-content/uploads/a.jpg' => true,
     'http://stary-web.example/a.png' => true,
@@ -1255,7 +1255,7 @@ foreach ([
 ] as $wpUrl => $expectedResult) {
     check('StahovaniObrazku::povolenaAdresa ' . json_encode((string) $wpUrl), $wpDownload->isAllowedUrl((string) $wpUrl), $expectedResult);
 }
-check('StahovaniObrazku: bez adresy starého webu se nestahuje nic', (new Kaleta\Core\ImageDownloader(''))->isAllowedUrl('https://cokoli.example/a.png'), false);
+check('ImageDownloader: without the old site\'s address nothing is downloaded', (new Kaleta\Core\ImageDownloader(''))->isAllowedUrl('https://cokoli.example/a.png'), false);
 foreach ([
     '93.184.216.34' => true, '8.8.8.8' => true, '172.32.0.1' => true, '100.128.0.1' => true, '2606:4700:4700::1111' => true, '::ffff:93.184.216.34' => true,
     '10.0.0.5' => false, '172.16.0.1' => false, '172.31.255.255' => false, '192.168.1.1' => false, '127.0.0.1' => false, '127.255.255.254' => false,
@@ -1266,48 +1266,48 @@ foreach ([
 ] as $wpIp => $expectedResult) {
     check('StahovaniObrazku::verejnaIp ' . $wpIp, Kaleta\Core\ImageDownloader::isPublicIp((string) $wpIp), $expectedResult);
 }
-check('StahovaniObrazku: IP adresa místo domény se posuzuje stejně', [$wpDownload->verifiedIp('127.0.0.1'), $wpDownload->verifiedIp('[::1]'), $wpDownload->verifiedIp('93.184.216.34')], [null, null, '93.184.216.34']);
-check('StahovaniObrazku: přesměrování na jinou doménu neprojde dalším kolem kontroly', $wpDownload->isAllowedUrl(Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/a.png', 'https://utocnik.example/a.png')), false);
-check('StahovaniObrazku: přesměrování //jinam a do vnitřní sítě neprojde', [$wpDownload->isAllowedUrl(Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/a.png', '//utocnik.example/a.png')), $wpDownload->isAllowedUrl(Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/a.png', 'http://169.254.169.254/'))], [false, false]);
-check('StahovaniObrazku: relativní přesměrování zůstává na starém webu', [Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/u/a.png', '/jinde/b.png'), Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/u/a.png', 'b.png')], ['https://stary-web.example/jinde/b.png', 'https://stary-web.example/u/b.png']);
+check('ImageDownloader: an IP address instead of a domain is judged the same', [$wpDownload->verifiedIp('127.0.0.1'), $wpDownload->verifiedIp('[::1]'), $wpDownload->verifiedIp('93.184.216.34')], [null, null, '93.184.216.34']);
+check('ImageDownloader: a redirect to another domain does not pass the next check round', $wpDownload->isAllowedUrl(Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/a.png', 'https://utocnik.example/a.png')), false);
+check('ImageDownloader: a redirect to //elsewhere and to the internal network does not pass', [$wpDownload->isAllowedUrl(Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/a.png', '//utocnik.example/a.png')), $wpDownload->isAllowedUrl(Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/a.png', 'http://169.254.169.254/'))], [false, false]);
+check('ImageDownloader: a relative redirect stays on the old site', [Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/u/a.png', '/jinde/b.png'), Kaleta\Core\ImageDownloader::redirectTarget('https://stary-web.example/u/a.png', 'b.png')], ['https://stary-web.example/jinde/b.png', 'https://stary-web.example/u/b.png']);
 $wpPng = (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
 $wpSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><script>alert(1)</script></svg>';
-check('StahovaniObrazku::typObrazku: PNG podle hlavičky i obsahu', Kaleta\Core\ImageDownloader::imageType('image/png; charset=binary', $wpPng), 'image/png');
-check('StahovaniObrazku::typObrazku: hlavička tvrdí obrázek, obsah je HTML', Kaleta\Core\ImageDownloader::imageType('image/jpeg', '<html><body>přihlášení</body></html>'), null);
-check('StahovaniObrazku::typObrazku: obsah je obrázek, hlavička ne', Kaleta\Core\ImageDownloader::imageType('text/html', $wpPng), null);
-check('StahovaniObrazku::typObrazku: SVG se odmítá vždy', [Kaleta\Core\ImageDownloader::imageType('image/svg+xml', $wpSvg), Kaleta\Core\ImageDownloader::imageType('image/png', $wpSvg)], [null, null]);
-check('StahovaniObrazku::typObrazku: prázdná odpověď', Kaleta\Core\ImageDownloader::imageType('image/png', ''), null);
-check('StahovaniObrazku: limity podle zadání (15 MB, 3 přesměrování, 5 s spojení, 20 s celkem)', [Kaleta\Core\ImageDownloader::MAX_BYTES, Kaleta\Core\ImageDownloader::MAX_REDIRECTS, Kaleta\Core\ImageDownloader::CONNECT_TIMEOUT, Kaleta\Core\ImageDownloader::TOTAL_TIMEOUT], [15 * 1024 * 1024, 3, 5, 20]);
+check('ImageDownloader::imageType: PNG by header and content', Kaleta\Core\ImageDownloader::imageType('image/png; charset=binary', $wpPng), 'image/png');
+check('ImageDownloader::imageType: the header claims an image, the content is HTML', Kaleta\Core\ImageDownloader::imageType('image/jpeg', '<html><body>přihlášení</body></html>'), null); // check-english: allow
+check('ImageDownloader::imageType: the content is an image, the header is not', Kaleta\Core\ImageDownloader::imageType('text/html', $wpPng), null);
+check('ImageDownloader::imageType: SVG is always rejected', [Kaleta\Core\ImageDownloader::imageType('image/svg+xml', $wpSvg), Kaleta\Core\ImageDownloader::imageType('image/png', $wpSvg)], [null, null]);
+check('ImageDownloader::imageType: an empty response', Kaleta\Core\ImageDownloader::imageType('image/png', ''), null);
+check('ImageDownloader: limits as specified (15 MB, 3 redirects, 5 s connection, 20 s total)', [Kaleta\Core\ImageDownloader::MAX_BYTES, Kaleta\Core\ImageDownloader::MAX_REDIRECTS, Kaleta\Core\ImageDownloader::CONNECT_TIMEOUT, Kaleta\Core\ImageDownloader::TOTAL_TIMEOUT], [15 * 1024 * 1024, 3, 5, 20]);
 $wpSourceHtml = (string) file_get_contents(KALETA_ROOT . '/system/src/Core/ImageDownloader.php');
-check('StahovaniObrazku: přesměrování se nikdy nenásledují automaticky a nic se neposílá navíc', [substr_count($wpSourceHtml, 'CURLOPT_FOLLOWLOCATION => false'), str_contains($wpSourceHtml, "'follow_location' => 0"), (bool) preg_match('/CURLOPT_(COOKIE\w*|USERPWD|HTTPHEADER|HTTPAUTH)\b/', $wpSourceHtml), str_contains($wpSourceHtml, "'Kaleta-import'")], [1, true, false, true]);
+check('ImageDownloader: redirects are never followed automatically and nothing extra is sent', [substr_count($wpSourceHtml, 'CURLOPT_FOLLOWLOCATION => false'), str_contains($wpSourceHtml, "'follow_location' => 0"), (bool) preg_match('/CURLOPT_(COOKIE\w*|USERPWD|HTTPHEADER|HTTPAUTH)\b/', $wpSourceHtml), str_contains($wpSourceHtml, "'Kaleta-import'")], [1, true, false, true]);
 
 /* ---------- builder: validator, style, design system, library ---------- */
 [$buildS, $buildErrors] = Kaleta\Builder\Build::sanitize(['children' => [
-    ['type' => 'heading', 'id' => 'abc', 'content' => ['text' => '<script>x</script>Ahoj <b>světe</b>']],
+    ['type' => 'heading', 'id' => 'abc', 'content' => ['text' => '<script>x</script>Ahoj <b>světe</b>']], // check-english: allow
     ['type' => 'neznamy'],
     ['type' => 'custom_html', 'content' => ['code' => '<p>a</p>']],
     ['type' => 'button', 'content' => ['link' => 'javascript:alert(1)']],
     ['type' => 'heading', 'id' => 'abc', 'children' => [['type' => 'text']]],
 ]], false);
-check('Stavba::vycisti: skript z nadpisu pryč, tučné zůstane', $buildS['children'][0]['content']['text'], 'Ahoj <b>světe</b>');
-check('Stavba::vycisti: neznámý typ, cizí HTML a vnořené děti nadpisu vypadnou', array_map(fn (array $p): string => $p['type'], $buildS['children']), ['heading', 'button', 'heading']);
-check('Stavba::vycisti: javascript: odkaz se zahodí a nahlásí', [$buildS['children'][1]['content']['link'], isset($buildErrors['children[3].content.link'])], ['', true]);
-check('Stavba::vycisti: duplicitní id dostane nové', $buildS['children'][2]['id'] !== 'abc', true);
-check('Stavba::vycisti: chyby mají cestu', array_keys($buildErrors), ['children[1]', 'children[2]', 'children[3].content.link', 'children[4].children']);
+check('Build::sanitize: a script in a heading gone, bold stays', $buildS['children'][0]['content']['text'], 'Ahoj <b>světe</b>'); // check-english: allow
+check('Build::sanitize: an unknown type, foreign HTML and nested heading children drop out', array_map(fn (array $p): string => $p['type'], $buildS['children']), ['heading', 'button', 'heading']);
+check('Build::sanitize: a javascript: link is dropped and reported', [$buildS['children'][1]['content']['link'], isset($buildErrors['children[3].content.link'])], ['', true]);
+check('Build::sanitize: a duplicate id gets a new one', $buildS['children'][2]['id'] !== 'abc', true);
+check('Build::sanitize: errors have a path', array_keys($buildErrors), ['children[1]', 'children[2]', 'children[3].content.link', 'children[4].children']);
 $buildHtml = ['children' => [['type' => 'custom_html', 'id' => 'h1x', 'content' => ['code' => '<p onclick="x()">a</p><script>1</script><a href="javascript:x">b</a>']]]];
 [$buildAdmin] = Kaleta\Builder\Build::sanitize($buildHtml, true);
-check('Stavba::vycisti: vlastní HTML správce bez skriptů a obsluh', $buildAdmin['children'][0]['content']['code'], '<p>a</p><a>b</a>');
+check('Build::sanitize: the administrator\'s custom HTML without scripts and handlers', $buildAdmin['children'][0]['content']['code'], '<p>a</p><a>b</a>');
 [$buildEditor] = Kaleta\Builder\Build::sanitize(['children' => [['type' => 'custom_html', 'id' => 'h1x', 'content' => ['code' => '<p>podvrh</p>']]]], false, $buildAdmin);
-check('Stavba::vycisti: editor nezmění vlastní HTML správce, jen ho ponechá', $buildEditor['children'][0]['content']['code'], '<p>a</p><a>b</a>');
+check('Build::sanitize: the editor does not change the administrator\'s custom HTML, only keeps it', $buildEditor['children'][0]['content']['code'], '<p>a</p><a>b</a>');
 $buildDeep = ['type' => 'text'];
 for ($i = 0; $i < 20; $i++) {
     $buildDeep = ['type' => 'container', 'children' => [$buildDeep]];
 }
 [, $buildErrors] = Kaleta\Builder\Build::sanitize(['children' => [$buildDeep]]);
-check('Stavba::vycisti: hloubka je omezená', count($buildErrors), 1);
+check('Build::sanitize: depth is limited', count($buildErrors), 1);
 [$buildMany, $buildErrors] = Kaleta\Builder\Build::sanitize(['children' => array_fill(0, 900, ['type' => 'divider'])]);
-check('Stavba::vycisti: počet prvků je omezený', [count($buildMany['children']), count($buildErrors)], [Kaleta\Builder\Build::MAX_ELEMENTS, 1]);
-check('Stavba::vycisti: obrázek jen z Médií nebo https', Kaleta\Builder\Build::sanitize(['children' => [['type' => 'image', 'content' => ['src' => 'http://x.cz/a.jpg']], ['type' => 'image', 'content' => ['src' => 'media/2026/a.jpg']]]])[0]['children'][1]['content']['src'], 'media/2026/a.jpg');
+check('Build::sanitize: the number of elements is limited', [count($buildMany['children']), count($buildErrors)], [Kaleta\Builder\Build::MAX_ELEMENTS, 1]);
+check('Build::sanitize: an image only from Media or https', Kaleta\Builder\Build::sanitize(['children' => [['type' => 'image', 'content' => ['src' => 'http://x.cz/a.jpg']], ['type' => 'image', 'content' => ['src' => 'media/2026/a.jpg']]]])[0]['children'][1]['content']['src'], 'media/2026/a.jpg');
 
 /* ---------- 2.7: display conditions – language versions and a URL parameter ---------- */
 $conditionErrors = [];
@@ -1370,76 +1370,76 @@ $clipboardHttp = Kaleta\Builder\ElementClipboard::relinkMedia($clipboardElements
 check('2.7: media of an http site are left out and counted', [$clipboardImages, $clipboardHttp[0]['children'][0]['content']['src'], $clipboardHttp[0]['children'][1]['content']['html'], $clipboardHttp[0]['children'][1]['style']['base']['background_image']],
     [3, '', '<p><img src="" alt=""> <a href="https://jiny.cz/media/x.pdf">pdf</a></p>', '']);
 check('2.7: relinked media pass the build validator', Kaleta\Builder\Build::sanitize(['children' => $clipboardHttps])[0]['children'][0]['children'][0]['content']['src'], 'https://zdroj.example/media/2026/foto.jpg');
-check('Stavba::zTextu: nadpis h1 a text', array_map(fn (array $p): string => $p['tag'], Kaleta\Builder\Build::fromText('O nás', '<p>x</p>')['children'][0]['children']), ['h1', 'div']);
+check('Build::fromText: h1 heading and text', array_map(fn (array $p): string => $p['tag'], Kaleta\Builder\Build::fromText('O nás', '<p>x</p>')['children'][0]['children']), ['h1', 'div']); // check-english: allow
 $buildStyleErrors = [];
-check('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta\Builder\Style::sanitize(['base' => ['color' => 'red;}body{x:y', 'neznama' => '1', 'width' => '50%'], 'tisk' => []], 's', $buildStyleErrors), ['base' => ['width' => '50%']]);
+check('Style::sanitize: pasted CSS, an unknown property and state drop out', Kaleta\Builder\Style::sanitize(['base' => ['color' => 'red;}body{x:y', 'neznama' => '1', 'width' => '50%'], 'tisk' => []], 's', $buildStyleErrors), ['base' => ['width' => '50%']]);
 check('Styl::vycisti: chyby', array_keys($buildStyleErrors), ['s.base.color', 's.base.neznama', 's.tisk']);
 check('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Builder\Style::css('#s-a', ['base' => ['padding_y' => 'xl', 'color' => 'primary', 'columns' => '3'], 'mobile' => ['columns' => '1'], 'hover' => ['color' => '#ff0000']]),
     "#s-a { padding-block: var(--ka-space-xl); color: var(--ka-color-primary); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
-check('Html::bezpecne: bez skriptů, obsluh událostí a javascript:, se strukturou a třídami', Kaleta\Core\Html::safe('<p class="x" onclick="a()">A <a href="javascript:alert(1)">b</a><img src="x" onerror="alert(1)"><script>alert(1)</script></p><iframe src="https://x"></iframe><a href="/k" target="_blank" data-insert="javascript:x">k</a>'),
+check('Html::safe: without scripts, event handlers and javascript:, with structure and classes', Kaleta\Core\Html::safe('<p class="x" onclick="a()">A <a href="javascript:alert(1)">b</a><img src="x" onerror="alert(1)"><script>alert(1)</script></p><iframe src="https://x"></iframe><a href="/k" target="_blank" data-insert="javascript:x">k</a>'),
     '<p class="x">A <a>b</a><img src="x"></p><a href="/k" target="_blank" rel="noopener">k</a>');
-check('Stavba: háčky skriptů webu nejdou vložit jako vlastní atribut', [preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-insert'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-self'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-track')], [0, 0, 1]);
-check('Styl::css: najetí a stisk zvlášť pro tablet a mobil', Kaleta\Builder\Style::css('#x', ['mobile' => ['gap' => 's'], 'hover_mobile' => ['color' => 'primary'], 'active_tablet' => ['scale' => '0.95']]),
+check('Build: site script hooks cannot be inserted as a custom attribute', [preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-insert'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-self'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-track')], [0, 0, 1]);
+check('Style::css: hover and press separately for tablet and mobile', Kaleta\Builder\Style::css('#x', ['mobile' => ['gap' => 's'], 'hover_mobile' => ['color' => 'primary'], 'active_tablet' => ['scale' => '0.95']]),
     "@media (max-width: 1023px) { #x:active { scale: 0.95; } }\n@media (max-width: 767px) { #x { gap: var(--ka-space-s); } #x:is(:hover, :focus-visible) { color: var(--ka-color-primary); } }\n");
-check('Styl::css: typografický styl první, jednotlivé vlastnosti ho doladí', Kaleta\Builder\Style::css('#x', ['base' => ['font_size' => '3', 'text_style' => 'eyebrow']]),
+check('Style::css: the typography style first, single properties refine it', Kaleta\Builder\Style::css('#x', ['base' => ['font_size' => '3', 'text_style' => 'eyebrow']]),
     "#x { font: var(--ka-type-eyebrow); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--ka-step-3); }\n");
-check('Styl: vlastní stín a rámeček s tokeny barev', [Kaleta\Builder\Style::value('shadow', '0 8px 24px 0 primary'), Kaleta\Builder\Style::value('shadow', 'inset 0 1px 0 #ffffff33, 0 4px 12px rgb(0 0 0 / 0.1)'), Kaleta\Builder\Style::value('border', '2px dashed primary')],
+check('Style: a custom shadow and border with colour tokens', [Kaleta\Builder\Style::value('shadow', '0 8px 24px 0 primary'), Kaleta\Builder\Style::value('shadow', 'inset 0 1px 0 #ffffff33, 0 4px 12px rgb(0 0 0 / 0.1)'), Kaleta\Builder\Style::value('border', '2px dashed primary')],
     ['0 8px 24px 0 var(--ka-color-primary)', 'inset 0 1px 0 #ffffff33, 0 4px 12px rgb(0 0 0 / 0.1)', '2px dashed var(--ka-color-primary)']);
-check('Styl: stín a rámeček nepustí nic nebezpečného', [Kaleta\Builder\Style::value('shadow', '0 0 1px url(x)'), Kaleta\Builder\Style::value('shadow', '0 0 red; color: red'), Kaleta\Builder\Style::value('border', '1px solid red}')], [null, null, null]);
-check('Styl: mřížka – řádky, oblasti a oblast prvku', [Kaleta\Builder\Style::value('rows', '3'), Kaleta\Builder\Style::value('areas', 'hlava hlava / bok obsah'), Kaleta\Builder\Style::value('areas', 'a b / c'), Kaleta\Builder\Style::value('area', 'bok'), Kaleta\Builder\Style::value('area', 'x"y')],
-    ['repeat(3, auto)', '"hlava hlava" "bok obsah"', null, 'bok', null]);
-check('DesignSystem: typografické styly jako tokeny, úprava ve Vzhledu', [str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize([])), '--ka-type-lead: 400 var(--ka-step-1)/1.55 var(--ka-font-body);'),
+check('Style: shadow and border let nothing dangerous through', [Kaleta\Builder\Style::value('shadow', '0 0 1px url(x)'), Kaleta\Builder\Style::value('shadow', '0 0 red; color: red'), Kaleta\Builder\Style::value('border', '1px solid red}')], [null, null, null]);
+check('Style: grid – rows, areas and the element\'s area', [Kaleta\Builder\Style::value('rows', '3'), Kaleta\Builder\Style::value('areas', 'hlava hlava / bok obsah'), Kaleta\Builder\Style::value('areas', 'a b / c'), Kaleta\Builder\Style::value('area', 'bok'), Kaleta\Builder\Style::value('area', 'x"y')], // check-english: allow
+    ['repeat(3, auto)', '"hlava hlava" "bok obsah"', null, 'bok', null]); // check-english: allow
+check('DesignSystem: typography styles as tokens, edited in Appearance', [str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize([])), '--ka-type-lead: 400 var(--ka-step-1)/1.55 var(--ka-font-body);'),
     str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize(['typography' => ['lead' => ['step' => '2', 'weight' => '500'], 'title' => ['step' => '99']]])), '--ka-type-lead: 500 var(--ka-step-2)/1.55'),
     Kaleta\Builder\DesignSystem::sanitize(['typography' => ['title' => ['step' => '99']]])['typography']], [true, true, []]);
-check('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(Kaleta\Builder\Style::css('#s', ['base' => ['background_image' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
+check('Style::css: a background image from Media from the installation root', str_contains(Kaleta\Builder\Style::css('#s', ['base' => ['background_image' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
 $takenSlugs = ['o-nas' => 1, 'o-nas-2' => 1, str_repeat('a', 10) => 1];
-check('Volná adresa: číslo za obsazenou, s číslem se vejde do sloupce', [
+check('Free address: the number after a taken one, with a number it fits the column', [
     Kaleta\Core\Slug::makeUnique('o-nas', fn (string $a): bool => isset($takenSlugs[$a])),
     Kaleta\Core\Slug::makeUnique('sluzby', fn (string $a): bool => isset($takenSlugs[$a])),
     Kaleta\Core\Slug::makeUnique(str_repeat('a', 12), fn (string $a): bool => isset($takenSlugs[$a]), 10),
-], ['o-nas-3', 'sluzby', 'aaaaaaaa-2']);
-check('Kontejner jako odkaz: links uvnitř se změní na span', Kaleta\Builder\Elements\Container::render(['tag' => 'div', 'content' => ['link' => '/k']], '', '<p>x</p><a class="ka-button" href="/y" target="_blank">B</a><abbr>z</abbr>', new Kaleta\Builder\Context((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor())),
+], ['o-nas-3', 'sluzby', 'aaaaaaaa-2']); // check-english: allow
+check('Container as a link: links inside become a span', Kaleta\Builder\Elements\Container::render(['tag' => 'div', 'content' => ['link' => '/k']], '', '<p>x</p><a class="ka-button" href="/y" target="_blank">B</a><abbr>z</abbr>', new Kaleta\Builder\Context((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor())),
     '<a class="ka-card-link" href="/k"><p>x</p><span class="ka-button">B</span><abbr>z</abbr></a>');
-check('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypadnou', Kaleta\Core\Menu::sanitize([
+check('Menu::sanitize: an unknown type, a dangerous address and the third level drop out', Kaleta\Core\Menu::sanitize([
     ['type' => 'skript'], ['type' => 'link', 'text' => 'X', 'url' => 'javascript:alert(1)'],
-    ['type' => 'group', 'text' => 'Služby', 'children' => [['type' => 'page', 'page_id' => 3, 'children' => [['type' => 'news_list']]], ['type' => 'link', 'text' => 'Ceník', 'url' => '/cenik', 'new_window' => 1]]],
-]), [['type' => 'group', 'text' => 'Služby', 'children' => [['type' => 'page', 'text' => '', 'page_id' => 3], ['type' => 'link', 'text' => 'Ceník', 'url' => '/cenik', 'new_window' => true]]]]);
-check('Menu::html: submenu, aktivní položka a větev, úvod jen přesnou shodou', Kaleta\Core\Menu::html([
-    ['text' => 'Úvod', 'url' => '/', 'new_window' => false, 'children' => []],
-    ['text' => 'Služby', 'url' => '', 'new_window' => false, 'children' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'new_window' => false, 'children' => []]]],
-], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="submenu active"><button type="button" class="menu-group">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+    ['type' => 'group', 'text' => 'Služby', 'children' => [['type' => 'page', 'page_id' => 3, 'children' => [['type' => 'news_list']]], ['type' => 'link', 'text' => 'Ceník', 'url' => '/cenik', 'new_window' => 1]]], // check-english: allow
+]), [['type' => 'group', 'text' => 'Služby', 'children' => [['type' => 'page', 'text' => '', 'page_id' => 3], ['type' => 'link', 'text' => 'Ceník', 'url' => '/cenik', 'new_window' => true]]]]); // check-english: allow
+check('Menu::html: submenu, active item and branch, home only by exact match', Kaleta\Core\Menu::html([
+    ['text' => 'Úvod', 'url' => '/', 'new_window' => false, 'children' => []], // check-english: allow
+    ['text' => 'Služby', 'url' => '', 'new_window' => false, 'children' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'new_window' => false, 'children' => []]]], // check-english: allow
+], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="submenu active"><button type="button" class="menu-group">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>'); // check-english: allow
 // 2.7: icons and descriptions of menu items, a group inside a submenu with its own items (a column of the mega menu)
-check('Menu::sanitize: ikona jen ze sady, popis bez značek do 120 znaků, group v submenu smí mít položky, stránka v submenu ne', Kaleta\Core\Menu::sanitize([
-    ['type' => 'link', 'text' => 'Kontakt', 'url' => '/kontakt', 'icon' => 'phone', 'description' => ' <b>Zavolejte</b> nám ' . str_repeat('x', 130)],
+check('Menu::sanitize: icon only from the set, description without tags up to 120 characters, a group in a submenu may have items, a page in a submenu may not', Kaleta\Core\Menu::sanitize([
+    ['type' => 'link', 'text' => 'Kontakt', 'url' => '/kontakt', 'icon' => 'phone', 'description' => ' <b>Zavolejte</b> nám ' . str_repeat('x', 130)], // check-english: allow
     ['type' => 'news', 'icon' => 'neexistuje', 'description' => ['pole']],
-    ['type' => 'group', 'text' => 'Služby', 'children' => [
-        ['type' => 'group', 'text' => 'Kuchyně', 'icon' => 'home', 'children' => [['type' => 'page', 'page_id' => 3, 'children' => [['type' => 'news_list']]]]],
+    ['type' => 'group', 'text' => 'Služby', 'children' => [ // check-english: allow
+        ['type' => 'group', 'text' => 'Kuchyně', 'icon' => 'home', 'children' => [['type' => 'page', 'page_id' => 3, 'children' => [['type' => 'news_list']]]]], // check-english: allow
         ['type' => 'page', 'page_id' => 4, 'children' => [['type' => 'news_list']]],
     ]],
 ]), [
-    ['type' => 'link', 'text' => 'Kontakt', 'icon' => 'phone', 'description' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'new_window' => false],
+    ['type' => 'link', 'text' => 'Kontakt', 'icon' => 'phone', 'description' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'new_window' => false], // check-english: allow
     ['type' => 'news', 'text' => ''],
-    ['type' => 'group', 'text' => 'Služby', 'children' => [
-        ['type' => 'group', 'text' => 'Kuchyně', 'icon' => 'home', 'children' => [['type' => 'page', 'text' => '', 'page_id' => 3]]],
+    ['type' => 'group', 'text' => 'Služby', 'children' => [ // check-english: allow
+        ['type' => 'group', 'text' => 'Kuchyně', 'icon' => 'home', 'children' => [['type' => 'page', 'text' => '', 'page_id' => 3]]], // check-english: allow
         ['type' => 'page', 'text' => '', 'page_id' => 4],
     ]],
 ]);
 $menuWithColumns = [
-    ['text' => 'Kontakt', 'url' => '/kontakt', 'new_window' => false, 'children' => [], 'icon' => 'phone', 'description' => 'Nahoře se popis neukáže'],
-    ['text' => 'Služby', 'url' => '', 'new_window' => false, 'children' => [
-        ['text' => 'Kuchyně', 'url' => '', 'new_window' => false, 'children' => [['text' => 'Na míru', 'url' => '/na-miru', 'new_window' => false, 'children' => [], 'description' => 'Podle vašich <rozměrů>']], 'icon' => 'home'],
-        ['text' => 'Ceník', 'url' => '/cenik', 'new_window' => false, 'children' => [], 'description' => 'Orientační ceny'],
+    ['text' => 'Kontakt', 'url' => '/kontakt', 'new_window' => false, 'children' => [], 'icon' => 'phone', 'description' => 'Nahoře se popis neukáže'], // check-english: allow
+    ['text' => 'Služby', 'url' => '', 'new_window' => false, 'children' => [ // check-english: allow
+        ['text' => 'Kuchyně', 'url' => '', 'new_window' => false, 'children' => [['text' => 'Na míru', 'url' => '/na-miru', 'new_window' => false, 'children' => [], 'description' => 'Podle vašich <rozměrů>']], 'icon' => 'home'], // check-english: allow
+        ['text' => 'Ceník', 'url' => '/cenik', 'new_window' => false, 'children' => [], 'description' => 'Orientační ceny'], // check-english: allow
     ]],
 ];
 $menuSvg = fn (string $key): string => Kaleta\Builder\Icons::svg($key, 'menu-icon');
-check('Menu::html: ikona před textem, group v submenu jako sloupec s nadpisem, popis jen v mega menu pod položkami submenu', Kaleta\Core\Menu::html($menuWithColumns, '/na-miru', '/', true),
-    '<li><a href="/kontakt">' . $menuSvg('phone') . 'Kontakt</a></li><li class="submenu active"><button type="button" class="menu-group">Služby</button><ul>'
-    . '<li class="menu-column"><span class="menu-heading">' . $menuSvg('home') . 'Kuchyně</span><ul><li><a href="/na-miru" aria-current="page">Na míru<small class="menu-description">Podle vašich &lt;rozměrů&gt;</small></a></li></ul></li>'
-    . '<li><a href="/cenik">Ceník<small class="menu-description">Orientační ceny</small></a></li></ul></li>');
-check('Menu::html: bez mega menu zůstane sloupec, popisy se nevypisují', [str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), 'menu-description'), str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), '<li class="menu-column"><span class="menu-heading">')], [false, true]);
-check('Menu::flatten: všechny úrovně v pořadí', array_column(Kaleta\Core\Menu::flatten($menuWithColumns), 'text'), ['Kontakt', 'Služby', 'Kuchyně', 'Na míru', 'Ceník']);
+check('Menu::html: icon before the text, a group in a submenu as a column with a heading, description only in the mega menu under submenu items', Kaleta\Core\Menu::html($menuWithColumns, '/na-miru', '/', true),
+    '<li><a href="/kontakt">' . $menuSvg('phone') . 'Kontakt</a></li><li class="submenu active"><button type="button" class="menu-group">Služby</button><ul>' // check-english: allow
+    . '<li class="menu-column"><span class="menu-heading">' . $menuSvg('home') . 'Kuchyně</span><ul><li><a href="/na-miru" aria-current="page">Na míru<small class="menu-description">Podle vašich &lt;rozměrů&gt;</small></a></li></ul></li>' // check-english: allow
+    . '<li><a href="/cenik">Ceník<small class="menu-description">Orientační ceny</small></a></li></ul></li>'); // check-english: allow
+check('Menu::html: without a mega menu the column stays, descriptions are not printed', [str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), 'menu-description'), str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), '<li class="menu-column"><span class="menu-heading">')], [false, true]);
+check('Menu::flatten: all levels in order', array_column(Kaleta\Core\Menu::flatten($menuWithColumns), 'text'), ['Kontakt', 'Služby', 'Kuchyně', 'Na míru', 'Ceník']); // check-english: allow
 $navMegaCss = Kaleta\Builder\Elements\Navigation::baseCss();
-check('Navigace: styl ikony, sloupce a popisu menu; popis se na telefonu skryje', [str_contains($navMegaCss, '.ka-nav .menu-icon {'), str_contains($navMegaCss, '.ka-nav .menu-column > ul {'), str_contains($navMegaCss, '.ka-nav .menu-heading {'),
+check('Navigation: icon, column and description style of the menu; the description hides on a phone', [str_contains($navMegaCss, '.ka-nav .menu-icon {'), str_contains($navMegaCss, '.ka-nav .menu-column > ul {'), str_contains($navMegaCss, '.ka-nav .menu-heading {'),
     (bool) preg_match('/@media \(max-width: 767px\).*?\.ka-nav-menu\[popover\] \.menu-description \{ display: none; \}/s', $navMegaCss)], [true, true, true, true]);
 // 2.7: the header that is transparent at the top (and/or smaller after scrolling) – only in the header site part, CSS only when used
 $headerApp = new Kaleta\Core\App([]);
@@ -1449,52 +1449,52 @@ $headerContext = new Kaleta\Builder\Context($headerApp);
 $headerContext->source = 'part:header:';
 $headerHtml = Kaleta\Builder\Build::html($headerBuild, $headerContext);
 $headerCss = Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $headerContext);
-check('Sekce při rolování: třídy záhlaví, fixní pozice až za stylem (sticky), animace podle posuvu, světlý text nahoře', [
+check('Sections on scroll: header classes, fixed position after the style (sticky), scroll animation, light text on top', [
     (bool) preg_match('/<header id="s-hl1" class="ka-header-scroll ka-header-scroll--transparent">/', $headerHtml),
     (bool) preg_match('/#s-hl1 \{ [^}]*position: sticky;[^}]*background-color: var\(--ka-color-background\); position: fixed; top: 0; inset-inline: 0; animation: ka-header-light linear both, ka-header-smaller linear both; animation-timeline: scroll\(root\); animation-range: 0 120px; \}/', $headerContext->css),
     str_contains($headerCss, '@keyframes ka-header-light'), str_contains($headerCss, '@keyframes ka-header-smaller { to { padding-block:'), str_contains($headerCss, 'prefers-reduced-motion: reduce) { .ka-header-scroll { animation: none !important; } }'),
 ], [true, true, true, true, true]);
 $pageContext = new Kaleta\Builder\Context($headerApp);
 $pageContext->source = 'page:5';
-check('Sekce při rolování: mimo záhlaví se neprojeví a CSS se nevypíše', [str_contains(Kaleta\Builder\Build::html($headerBuild, $pageContext), 'ka-header'), str_contains($pageContext->css, 'animation'),
+check('Sections on scroll: outside the header nothing shows and no CSS is printed', [str_contains(Kaleta\Builder\Build::html($headerBuild, $pageContext), 'ka-header'), str_contains($pageContext->css, 'animation'),
     str_contains(Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $pageContext), 'ka-header')], [false, false, false]);
 $shrinkOnly = ['v' => 1, 'children' => [['id' => 'hl2', 'type' => 'section', 'content' => ['on_scroll' => 'shrink'], 'children' => []]]];
 $shrinkContext = new Kaleta\Builder\Context($headerApp);
 $shrinkContext->source = 'part:header:kampan';
-check('Sekce při rolování: jen zmenšení nechá záhlaví v toku (žádné position: fixed), prvek bez stylu přesto dostane id a pravidlo', [
+check('Sections on scroll: only shrinking keeps the header in the flow (no position: fixed), an element without style still gets an id and a rule', [
     str_contains(Kaleta\Builder\Build::html(Kaleta\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="ka-header-scroll">'),
     str_contains($shrinkContext->css, 'position: fixed'), str_contains($shrinkContext->css, '#s-hl2 { animation: ka-header-smaller linear both;'),
 ], [true, false, true]);
-check('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Search::find('search', [
+check('Search::find: a match in the title comes first', array_column(Kaleta\Core\Search::find('search', [
     ['title' => 'Menus', 'url' => 'menus', 'text' => 'Link to site search from the menu.'],
     ['title' => 'Site search', 'url' => 'site-search', 'text' => 'How search works.'],
     ['title' => 'SEO', 'url' => 'seo', 'text' => 'Search engines and search results; search console.'],
 ]), 'url'), ['site-search', 'seo', 'menus']);
-check('Hledani::najdi: bez diakritiky, všechna slova, úryvek', Kaleta\Core\Search::find('zkusenosti kuchyne', [
-    ['title' => 'O nás', 'url' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
-    ['title' => 'Kuchyně', 'url' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],
-]), [['title' => 'Kuchyně', 'url' => 'kuchyne', 'snippet' => 'Kuchyně na míru – bohaté zkušenosti.']]);
-check('Styl::css: bílé pozadí si nese tmavý text i v tmavém režimu', str_contains(Kaleta\Builder\Style::css('#s', ['base' => ['background' => 'white']]), '--ka-color-text: var(--ka-color-text-light); color: var(--ka-color-text-light)'), true);
-check('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(Kaleta\Builder\Style::css('#s', ['base' => ['background' => 'white', 'color' => 'primary']]), 'text-svetle'), false);
+check('Search::find: without diacritics, all words, excerpt', Kaleta\Core\Search::find('zkusenosti kuchyne', [
+    ['title' => 'O nás', 'url' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'], // check-english: allow
+    ['title' => 'Kuchyně', 'url' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'], // check-english: allow
+]), [['title' => 'Kuchyně', 'url' => 'kuchyne', 'snippet' => 'Kuchyně na míru – bohaté zkušenosti.']]); // check-english: allow
+check('Style::css: a white background carries dark text in dark mode too', str_contains(Kaleta\Builder\Style::css('#s', ['base' => ['background' => 'white']]), '--ka-color-text: var(--ka-color-text-light); color: var(--ka-color-text-light)'), true);
+check('Style::css: a custom text colour on white is not overridden', str_contains(Kaleta\Builder\Style::css('#s', ['base' => ['background' => 'white', 'color' => 'primary']]), 'text-svetle'), false);
 $buildDiscarded = [];
-check('Styl::vlastniCss: jen bezpečné deklarace', Kaleta\Builder\Style::customCss('color:red; background:url(javascript:x); --ka-x: 1; @import url(x); width: expression(1); a{b:c}', $buildDiscarded), 'color: red; --ka-x: 1;');
-check('Styl::vlastniCss: zahozené se hlásí', count($buildDiscarded), 4);
-check('DesignSystem::kontrast: černá na bílé', round(Kaleta\Builder\DesignSystem::contrast('#ffffff', '#000000'), 1), 21.0);
+check('Style::customCss: only safe declarations', Kaleta\Builder\Style::customCss('color:red; background:url(javascript:x); --ka-x: 1; @import url(x); width: expression(1); a{b:c}', $buildDiscarded), 'color: red; --ka-x: 1;');
+check('Style::customCss: dropped ones are reported', count($buildDiscarded), 4);
+check('DesignSystem::contrast: black on white', round(Kaleta\Builder\DesignSystem::contrast('#ffffff', '#000000'), 1), 21.0);
 // 2.1: the design system tokens are English custom properties – color, font, width, text-width, radius, step, space, shadow, type
 $dsCss = Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS);
 preg_match_all('/^\t(--ka-[a-z0-9-]+):/m', substr($dsCss, 0, (int) strpos($dsCss, '@media')), $dsStored);
 check('2.1: the design system tokens are English', [array_values(array_filter($dsStored[1], fn (string $name): bool => !preg_match('/^--ka-(color|font|radius|step|space|shadow|type)-|^--ka-(width|text-width|radius|accent)$/', $name))),
     str_contains($dsCss, '--ka-color-primary: #2b5be3;'), str_contains($dsCss, '@layer tokens {'), str_contains($dsCss, '--ka-type-lead: 400 var(--ka-step-1)/1.55 var(--ka-font-body);')], [[], true, true, true]);
 // 2.1: a page without its own description gets the start of its first longer paragraph
-check('2.1: description from the first longer paragraph', [Kaleta\Front\Kernel::descriptionFrom('<h1>Hi</h1><p>Short.</p><p class="x">We build <strong>kitchens</strong> &amp; bathrooms in Zlín   and around it since 1998.</p><p>Later text that is long enough to be picked but comes second.</p>'),
+check('2.1: description from the first longer paragraph', [Kaleta\Front\Kernel::descriptionFrom('<h1>Hi</h1><p>Short.</p><p class="x">We build <strong>kitchens</strong> &amp; bathrooms in Zlín   and around it since 1998.</p><p>Later text that is long enough to be picked but comes second.</p>'), // check-english: allow
     Kaleta\Front\Kernel::descriptionFrom('<p>tiny</p>'), mb_strlen(Kaleta\Front\Kernel::descriptionFrom('<p>' . str_repeat('word ', 80) . '</p>'))],
-    ['We build kitchens & bathrooms in Zlín and around it since 1998.', '', 160]);
+    ['We build kitchens & bathrooms in Zlín and around it since 1998.', '', 160]); // check-english: allow
 // 2.1: security.txt (RFC 9116) from the Security contact setting
 check('2.1: security.txt', [Kaleta\Front\Seo::securityTxt('security@example.com', 'https://example.com/', ['en', 'de'], 1790000000),
     Kaleta\Front\Seo::securityTxt('https://example.com/security', 'https://example.com/web', [], 1790000000)],
     ["Contact: mailto:security@example.com\nExpires: 2027-03-23T00:00:00Z\nPreferred-Languages: en, de\nCanonical: https://example.com/.well-known/security.txt\n",
     "Contact: https://example.com/security\nExpires: 2027-03-23T00:00:00Z\nCanonical: https://example.com/web/.well-known/security.txt\n"]);
-check('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS), Kaleta\Builder\DesignSystem::LAYERS), true);
+check('DesignSystem::css: layer order at the start', str_starts_with(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS), Kaleta\Builder\DesignSystem::LAYERS), true);
 check('DesignSystem::sanitize: nonsense is replaced by the default', Kaleta\Builder\DesignSystem::sanitize(['colors' => ['primary' => 'red;}']])['colors']['primary'], Kaleta\Builder\DesignSystem::DEFAULTS['colors']['primary']);
 $buildLibraryErrors = [];
 // raw builds (section() already cleans them, so an invalid value would disappear silently)
@@ -1503,27 +1503,27 @@ foreach ((new ReflectionMethod(Kaleta\Builder\Library::class, 'sections'))->invo
     [, $buildErrors] = Kaleta\Builder\Build::sanitize(['children' => [($buildSection['build'])()]]);
     $buildLibraryErrors += array_map(fn (string $c): string => $buildSection['key'] . ': ' . $c, $buildErrors);
 }
-check('Knihovna: všechny hotové sekce projdou validátorem', $buildLibraryErrors, []);
-check('Stavba::schema: bez vlastního HTML pro ne-správce', in_array('html', array_column(Kaleta\Builder\Build::schema(false)['elements'], 'type'), true), false);
+check('Library: all ready-made sections pass the validator', $buildLibraryErrors, []);
+check('Build::schema: without custom HTML for non-administrators', in_array('html', array_column(Kaleta\Builder\Build::schema(false)['elements'], 'type'), true), false);
 
 $fromHtml = Kaleta\Builder\HtmlConverter::convert('<style>.hero { padding: 2rem; background: url(x) } .hero h1 { color: red } @media (max-width: 9px) { .hero { padding: 0 } }</style>'
-    . '<header class="hero container-x"><div class="wrap"><h1>A <em>b</em></h1><p>Jedna.</p><p>Dvě.</p><a class="btn btn-outline" href="/k">K</a></div></header>'
-    . '<p>Volný text</p><details><summary>Otázka?</summary><p>Odpověď.</p></details><form></form><svg></svg><script>x</script>');
+    . '<header class="hero container-x"><div class="wrap"><h1>A <em>b</em></h1><p>Jedna.</p><p>Dvě.</p><a class="btn btn-outline" href="/k">K</a></div></header>' // check-english: allow
+    . '<p>Volný text</p><details><summary>Otázka?</summary><p>Odpověď.</p></details><form></form><svg></svg><script>x</script>'); // check-english: allow
 $fromHtmlTypes = fn (array $children): array => array_map(fn (array $p): string => $p['type'] . '<' . $p['tag'] . '>', $children);
-check('ZHtml: sekce z <header>, vnitřní obal bez stylu odpadne', $fromHtmlTypes($fromHtml['build']['children'][0]['children']), ['heading<h1>', 'text<div>', 'button<a>']);
-check('ZHtml: souvislé odstavce v jednom prvku Text', $fromHtml['build']['children'][0]['children'][1]['content']['html'], '<p>Jedna.</p><p>Dvě.</p>');
-check('ZHtml: tlačítko s variantou podle třídy', [$fromHtml['build']['children'][0]['children'][2]['content']['variant'], $fromHtml['build']['children'][0]['children'][2]['classes']], ['outline', ['btn', 'btn-outline']]);
-check('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ, form → Formulář', $fromHtmlTypes($fromHtml['build']['children'][1]['children']), ['text<div>', 'faq<div>', 'form<form>']);
-check('ZHtml: třída z <style> jen s bezpečnými deklaracemi', $fromHtml['classes'], ['hero' => 'padding: 2rem;']);
-check('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG a skriptu', count($fromHtml['notes']), 6);
+check('HtmlConverter: a section from <header>, an inner wrapper without style drops', $fromHtmlTypes($fromHtml['build']['children'][0]['children']), ['heading<h1>', 'text<div>', 'button<a>']);
+check('HtmlConverter: consecutive paragraphs in one Text element', $fromHtml['build']['children'][0]['children'][1]['content']['html'], '<p>Jedna.</p><p>Dvě.</p>'); // check-english: allow
+check('HtmlConverter: a button with a variant by class', [$fromHtml['build']['children'][0]['children'][2]['content']['variant'], $fromHtml['build']['children'][0]['children'][2]['classes']], ['outline', ['btn', 'btn-outline']]);
+check('HtmlConverter: loose elements at the end are wrapped in a section, details → FAQ, form → Form', $fromHtmlTypes($fromHtml['build']['children'][1]['children']), ['text<div>', 'faq<div>', 'form<form>']);
+check('HtmlConverter: a class from <style> only with safe declarations', $fromHtml['classes'], ['hero' => 'padding: 2rem;']);
+check('HtmlConverter: reports about @media, a complex selector, url(), a form, SVG and a script', count($fromHtml['notes']), 6);
 $fromHtml2 = Kaleta\Builder\HtmlConverter::convert('<style>.mriz { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-space-l) } .karta:hover { box-shadow: var(--ka-shadow-m); transform: translateY(-4px) }'
     . ' @media (max-width: 1023px) { .mriz { grid-template-columns: repeat(2, 1fr) } } @media (max-width: 767px) { .mriz { grid-template-columns: 1fr; gap: var(--ka-space-m) } .karta { padding: var(--ka-space-m) var(--ka-space-s) } }'
     . ' @media (min-width: 768px) { .mriz { gap: 0 } }</style><section><div class="mriz"><div class="card"><h3>A</h3></div><div>B</div></div></section>');
-check('ZHtml: @media (max-width) a :hover jako stavy třídy', $fromHtml2['class_styles'], ['mriz' => ['tablet' => ['columns' => '2'], 'mobile' => ['columns' => '1', 'gap' => 'm']],
+check('HtmlConverter: @media (max-width) and :hover as class states', $fromHtml2['class_styles'], ['mriz' => ['tablet' => ['columns' => '2'], 'mobile' => ['columns' => '1', 'gap' => 'm']],
     'karta' => ['mobile' => ['padding_y' => 'm', 'padding_x' => 's'], 'hover' => ['shadow' => 'm', 'translate' => '0 -4px']]]);
-check('ZHtml: prvek se stylovanou třídou nemá výchozí styl (přebil by třídu), bez třídy ho má', [$fromHtml2['build']['children'][0]['children'][0]['style'], $fromHtml2['build']['children'][0]['children'][0]['children'][1]['style']['base']['display'] ?? null], [[], 'flex']);
-check('ZHtml: mobile-first @media (min-width) se nahlásí', count(array_filter($fromHtml2['notes'], fn (string $h): bool => str_contains($h, 'min-width'))), 1);
-check('Styl::zCss: tokeny, zkratky a mřížka', [Kaleta\Builder\Style::fromCss('padding', 'var(--ka-space-l) 2rem'), Kaleta\Builder\Style::fromCss('margin', '0 auto'), Kaleta\Builder\Style::fromCss('grid-template-columns', 'repeat(auto-fit, minmax(16rem, 1fr))'),
+check('HtmlConverter: an element with a styled class has no default style (it would override the class), without a class it has', [$fromHtml2['build']['children'][0]['children'][0]['style'], $fromHtml2['build']['children'][0]['children'][0]['children'][1]['style']['base']['display'] ?? null], [[], 'flex']);
+check('HtmlConverter: mobile-first @media (min-width) is reported', count(array_filter($fromHtml2['notes'], fn (string $h): bool => str_contains($h, 'min-width'))), 1);
+check('Style::fromCss: tokens, shorthands and grid', [Kaleta\Builder\Style::fromCss('padding', 'var(--ka-space-l) 2rem'), Kaleta\Builder\Style::fromCss('margin', '0 auto'), Kaleta\Builder\Style::fromCss('grid-template-columns', 'repeat(auto-fit, minmax(16rem, 1fr))'),
     Kaleta\Builder\Style::fromCss('color', 'var(--ka-color-muted)'), Kaleta\Builder\Style::fromCss('font-size', 'var(--ka-step--1)'), Kaleta\Builder\Style::fromCss('color', 'expression(1)'), Kaleta\Builder\Style::fromCss('filter', 'blur(2px)')],
     [['padding_y' => 'l', 'padding_x' => '2rem'], ['margin_top' => '0', 'margin_bottom' => '0', 'center' => 'auto'], ['columns' => 'auto:16rem'], ['color' => 'muted'], ['font_size' => '-1'], null, null]);
 
@@ -1539,72 +1539,72 @@ $edit = Kaleta\Builder\Edits::apply($editBuild, [
     ['op' => 'move', 'id' => 'sek2', 'into' => 'txt1'],
     ['op' => 'kouzlo'],
 ], $editErrors);
-check('Upravy: úprava obsahu a stylu (null odebere), vložení, přesun, vložení na začátek', [array_column($edit['children'], 'id'), $edit['children'][1]['children'][0]['style'], $edit['children'][1]['children'][0]['classes'], array_column($edit['children'][2]['children'], 'id'), $edit['children'][2]['children'][1]['content']['link']],
+check('Edits: edit content and style (null removes), insert, move, insert at the start', [array_column($edit['children'], 'id'), $edit['children'][1]['children'][0]['style'], $edit['children'][1]['children'][0]['classes'], array_column($edit['children'][2]['children'], 'id'), $edit['children'][2]['children'][1]['content']['link']],
     [['sek0', 'sek1', 'sek2'], ['mobile' => ['text_align' => 'center']], ['nadpis-sekce'], ['txt1', 'tl1'], '/guide']);
-check('Upravy: chybné operace se nahlásí a přeskočí (i přesun do potomka)', array_keys($editErrors), ['op[5]', 'op[6]', 'op[7]']);
+check('Edits: wrong operations are reported and skipped (also a move into a descendant)', array_keys($editErrors), ['op[5]', 'op[6]', 'op[7]']);
 $editErrors2 = [];
-check('Upravy: přesun prvku do jeho potomka nejde', Kaleta\Builder\Edits::apply($editBuild, [['op' => 'move', 'id' => 'sek1', 'into' => 'nad1']], $editErrors2) === $editBuild && isset($editErrors2['op[0]']), true);
+check('Edits: moving an element into its descendant is not possible', Kaleta\Builder\Edits::apply($editBuild, [['op' => 'move', 'id' => 'sek1', 'into' => 'nad1']], $editErrors2) === $editBuild && isset($editErrors2['op[0]']), true);
 
 [$compactBuild] = Kaleta\Builder\Build::sanitize(['v' => 1, 'children' => [['type' => 'section', 'id' => 'abc', 'children' => [['type' => 'button', 'id' => 'def', 'content' => ['text' => 'Jdi']], ['type' => 'container', 'id' => 'ghi', 'style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]]]]]]);
 $compact = Kaleta\Builder\Build::compact($compactBuild);
-check('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $compact, ['v' => 1, 'children' => [['id' => 'abc', 'type' => 'section', 'children' => [['id' => 'def', 'type' => 'button', 'content' => ['text' => 'Jdi']], ['id' => 'ghi', 'type' => 'container', 'style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]]]]]]);
-check('Stavba: zvýraznění <mark> v nadpisu zůstane, třídy a styly ne', Kaleta\Builder\Build::sanitize(['v' => 1, 'children' => [['type' => 'heading', 'id' => 'mk1', 'content' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['children'][0]['content']['text'], 'Publish<mark>.</mark>');
+check('Build::compact: without default values, the style stays', $compact, ['v' => 1, 'children' => [['id' => 'abc', 'type' => 'section', 'children' => [['id' => 'def', 'type' => 'button', 'content' => ['text' => 'Jdi']], ['id' => 'ghi', 'type' => 'container', 'style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]]]]]]);
+check('Build: the <mark> highlight in a heading stays, classes and styles do not', Kaleta\Builder\Build::sanitize(['v' => 1, 'children' => [['type' => 'heading', 'id' => 'mk1', 'content' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['children'][0]['content']['text'], 'Publish<mark>.</mark>');
 $buttonContext = null;
 check('Styl::zCss: aliasy margin-top a flex-start', [Kaleta\Builder\Style::fromCss('margin-bottom', '24px'), Kaleta\Builder\Style::fromCss('align-items', 'flex-start')], [['margin_bottom' => '24px'], ['align_items' => 'start']]);
 check('Styl::zCss: text-align left/right', [Kaleta\Builder\Style::fromCss('text-align', 'left'), Kaleta\Builder\Style::fromCss('text-align', 'right')], [['text_align' => 'start'], ['text_align' => 'end']]);
-check('Ikony: GitHub v sadě', str_contains(Kaleta\Builder\Icons::svg('github'), 'M9 19c-4'), true);
-check('Tlačítko: ikona za textem a vlevo od textu', [
+check('Icons: GitHub is in the set', str_contains(Kaleta\Builder\Icons::svg('github'), 'M9 19c-4'), true);
+check('Button: icon after the text and to the left of the text', [
     (bool) preg_match('#>Start<svg#', Kaleta\Builder\Elements\Button::render(['content' => ['text' => 'Start', 'link' => '/x', 'variant' => 'primary', 'new_window' => false, 'icon' => 'arrow', 'icon_left' => false]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor())),
     (bool) preg_match('#</svg>GitHub</a>#', Kaleta\Builder\Elements\Button::render(['content' => ['text' => 'GitHub', 'link' => '/x', 'variant' => 'outline', 'new_window' => false, 'icon' => 'github', 'icon_left' => true]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor())),
     Kaleta\Builder\Elements\Button::render(['content' => ['text' => 'Bez', 'link' => '/x', 'variant' => 'primary', 'new_window' => false]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor()) === '<a class="ka-button ka-button--primary" href="/x">Bez</a>',
 ], [true, true, true]);
-check('Stavba::kompaktni: po vyčištění stejná stavba', Kaleta\Builder\Build::sanitize($compact)[0], $compactBuild);
+check('Build::compact: the same build after sanitizing', Kaleta\Builder\Build::sanitize($compact)[0], $compactBuild);
 $overview = Kaleta\Builder\Build::overview(Kaleta\Builder\Build::schema());
-check('Stavba::prehled: prvek na řádek, výchozí možnost s hvězdičkou, schéma výrazně menší', [str_contains($overview['elements']['button'], 'variant:choice(primary*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(Kaleta\Builder\Build::schema())) / 2],
+check('Build::overview: one element per line, the default option with an asterisk, a much smaller schema', [str_contains($overview['elements']['button'], 'variant:choice(primary*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(Kaleta\Builder\Build::schema())) / 2],
     [true, true]);
-check('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Builder\Build::sanitize($fromHtml['build'])[1], []);
-check('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Builder\Build::asText($fromHtml['build']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
+check('HtmlConverter: the result passes the validator without errors', Kaleta\Builder\Build::sanitize($fromHtml['build'])[1], []);
+check('Build::asText: semantic content without layout', Kaleta\Builder\Build::asText($fromHtml['build']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>"); // check-english: allow
 
 // disabled extensions: the builder offers neither their elements nor sections using them
 $schemaTypes = array_column(Kaleta\Builder\Build::schema(true, 'cs', false, ['stats'])['elements'], 'type');
-check('Rozšíření: bez novinek a poptávek schéma nemá jejich prvky', [in_array('news_list', $schemaTypes, true), in_array('form', $schemaTypes, true), in_array('heading', $schemaTypes, true)], [false, false, true]);
+check('Extensions: without news and enquiries the schema has no such elements', [in_array('news_list', $schemaTypes, true), in_array('form', $schemaTypes, true), in_array('heading', $schemaTypes, true)], [false, false, true]);
 $libraryKey = array_column(Kaleta\Builder\Library::listAll(['stats']), 'key');
-check('Rozšíření: knihovna bez sekcí s formulářem a novinkami', [in_array('contact-form', $libraryKey, true), in_array('news', $libraryKey, true), in_array('hero', $libraryKey, true)], [false, false, true]);
-check('Rozšíření: bez omezení je knihovna celá', count(Kaleta\Builder\Library::listAll()) > count($libraryKey), true);
+check('Extensions: the library without sections with a form and news', [in_array('contact-form', $libraryKey, true), in_array('news', $libraryKey, true), in_array('hero', $libraryKey, true)], [false, false, true]);
+check('Extensions: without a restriction the library is whole', count(Kaleta\Builder\Library::listAll()) > count($libraryKey), true);
 $libraryEn = Kaleta\Builder\Library::section('hero', 'en')['element'];
-check('Knihovna: sekce v angličtině včetně odkazů na stránky', [$libraryEn['children'][0]['content']['text'], $libraryEn['children'][2]['children'][0]['content']['link'], $libraryEn['children'][2]['children'][1]['content']['link']], ['We help businesses grow – quickly and hassle-free', '/contact', '/services']);
-check('Knihovna: česky se odkazuje na české adresy', Kaleta\Builder\Library::section('hero')['element']['children'][2]['children'][0]['content']['link'], '/kontakt');
-check('Knihovna: jazyk se po sestavení sekce vrátí', Kaleta\Core\Language::code(), 'cs');
+check('Library: sections in English including page links', [$libraryEn['children'][0]['content']['text'], $libraryEn['children'][2]['children'][0]['content']['link'], $libraryEn['children'][2]['children'][1]['content']['link']], ['We help businesses grow – quickly and hassle-free', '/contact', '/services']);
+check('Library: in Czech it links to Czech addresses', Kaleta\Core\Language::runWith('cs', fn () => Kaleta\Builder\Library::section('hero', 'cs')['element']['children'][2]['children'][0]['content']['link']), '/kontakt'); // check-english: allow
+check('Library: the language is restored after a section is built', Kaleta\Core\Language::code(), 'cs');
 $librarySchema = array_column(Kaleta\Builder\Build::schema(true, 'en')['elements'], 'properties', 'type');
-check('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$librarySchema['heading']['text']['default'], $librarySchema['button']['text']['default']], ['Heading', 'Contact us']);
+check('Build::schema: default element content in the page language', [$librarySchema['heading']['text']['default'], $librarySchema['button']['text']['default']], ['Heading', 'Contact us']);
 $libraryEnDictionary = (require KALETA_ROOT . '/system/languages/en.php') + (require KALETA_ROOT . '/system/languages/cs.php');
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(KALETA_ROOT . '/system/src/Builder/Library.php') . implode('', array_map('file_get_contents', glob(KALETA_ROOT . '/system/src/Builder/Elements/*.php'))), $libraryTexts);
-check('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $libraryTexts[1])), array_keys($libraryEnDictionary), ['Menu', 'Standard', 'Video'])), []);
+check('Library and elements: all sample texts have an English translation', array_values(array_diff(array_unique(array_map('stripslashes', $libraryTexts[1])), array_keys($libraryEnDictionary), ['Menu', 'Standard', 'Video'])), []);
 
-check('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', Kaleta\Front\Company::parseOpeningHours("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
+check('Company::hours: day range, several periods, closed', Kaleta\Front\Company::parseOpeningHours("Mo–Fr 8:00–17:00\nTu 8-12, 13-17\nSu closed"), [
     ['days' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'from' => '08:00', 'to' => '17:00'],
     ['days' => ['Tuesday'], 'from' => '08:00', 'to' => '12:00'], ['days' => ['Tuesday'], 'from' => '13:00', 'to' => '17:00'],
 ]);
-check('Firma::hodiny: nesrozumitelný řádek se odmítne', [Kaleta\Front\Company::parseOpeningHours('každý den 8-17'), Kaleta\Front\Company::parseOpeningHours('Po 8-25')], [null, null]);
-check('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'COMPANY_TYPES'))->getValue(), implode('|', array_keys(Kaleta\Front\Company::TYPES)));
+check('Company::hours: an unintelligible line is rejected', [Kaleta\Front\Company::parseOpeningHours('every day 8-17'), Kaleta\Front\Company::parseOpeningHours('Mo 8-25')], [null, null]);
+check('Company: the types in Settings match Company::TYPES', (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'COMPANY_TYPES'))->getValue(), implode('|', array_keys(Kaleta\Front\Company::TYPES)));
 
 /* ---------- collections ---------- */
-$collectionFields = Kaleta\Builder\Collections::sanitizeFields([['label' => 'Citát zákazníka', 'type' => 'lines'], ['label' => 'Name', 'type' => 'text'], ['label' => 'Logo', 'type' => 'nesmysl'], ['label' => '']]);
-check('Kolekce::vycistiPole: klíč z popisku, vestavěný název se nepřepíše, neznámý typ = text', array_map(fn (array $p): string => $p['key'] . ':' . $p['type'], $collectionFields), ['citat_zakaznika:lines', 'name_2:text', 'logo:text']);
+$collectionFields = Kaleta\Builder\Collections::sanitizeFields([['label' => 'Citát zákazníka', 'type' => 'lines'], ['label' => 'Name', 'type' => 'text'], ['label' => 'Logo', 'type' => 'nesmysl'], ['label' => '']]); // check-english: allow
+check('Collections::sanitizeFields: key from the label, a built-in name is not overwritten, an unknown type = text', array_map(fn (array $p): string => $p['key'] . ':' . $p['type'], $collectionFields), ['citat_zakaznika:lines', 'name_2:text', 'logo:text']);
 $collectionErrors = [];
 $collectionData = Kaleta\Builder\Collections::sanitizeData([['key' => 'web', 'label' => 'Web', 'type' => 'link'], ['key' => 'photo', 'label' => 'Foto', 'type' => 'image'], ['key' => 'cena', 'label' => 'Cena', 'type' => 'number'], ['key' => 'bio', 'label' => 'Bio', 'type' => 'html']],
     ['web' => 'javascript:alert(1)', 'photo' => 'media/2026/a.jpg', 'cena' => '1 200', 'bio' => '<p onclick="x">Ahoj</p><script>1</script>'], $collectionErrors);
-check('Kolekce::vycistiData: nebezpečný odkaz pryč, obrázek z médií, číslo bez mezer, HTML vyčištěné', [$collectionData['web'], $collectionData['photo'], $collectionData['cena'], $collectionData['bio'], array_keys($collectionErrors)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
-$collectionValues = ['name' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'note' => ["řádek 1\nřádek 2", 'lines'], 'url' => ['/tym/jan', 'link'], 'zly' => ['javascript:x', 'link']];
-check('Kolekce::dosad: značky v dosazené hodnotě se znovu nedosazují', Kaleta\Builder\Collections::fill('<p>{{text}}</p><p>{{name}}</p>', 'html', ['text' => ['<p>Napište {{name}} nebo {{url}}.</p>', 'html'], 'name' => ['Návod', 'text'], 'url' => ['/navod', 'text']]), '<p>Napište {{name}} nebo {{url}}.</p><p>Návod</p>');
-check('Kolekce::dosad: jeden průchod i v řádkovém textu', Kaleta\Builder\Collections::fill('{{description}} – {{name}}', 'inline_text', ['description' => ['Viz {{name}}', 'lines'], 'name' => ['X', 'text']]), 'Viz {{name}} – X');
-check('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole zůstane HTML', [
-    Kaleta\Builder\Collections::fill('{{name}}', 'text', $collectionValues), Kaleta\Builder\Collections::fill('Tým: {{name}}', 'inline_text', $collectionValues),
+check('Collections::sanitizeData: a dangerous link gone, an image from media, a number without spaces, HTML sanitized', [$collectionData['web'], $collectionData['photo'], $collectionData['cena'], $collectionData['bio'], array_keys($collectionErrors)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
+$collectionValues = ['name' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'note' => ["řádek 1\nřádek 2", 'lines'], 'url' => ['/tym/jan', 'link'], 'zly' => ['javascript:x', 'link']]; // check-english: allow
+check('Collections::fill: tags in a filled-in value are not filled in again', Kaleta\Builder\Collections::fill('<p>{{text}}</p><p>{{name}}</p>', 'html', ['text' => ['<p>Napište {{name}} nebo {{url}}.</p>', 'html'], 'name' => ['Návod', 'text'], 'url' => ['/navod', 'text']]), '<p>Napište {{name}} nebo {{url}}.</p><p>Návod</p>'); // check-english: allow
+check('Collections::fill: a single pass also in line text', Kaleta\Builder\Collections::fill('{{description}} – {{name}}', 'inline_text', ['description' => ['Viz {{name}}', 'lines'], 'name' => ['X', 'text']]), 'Viz {{name}} – X');
+check('Collections::fill: text is escaped only by the element, inline and html at once, an html field stays HTML', [
+    Kaleta\Builder\Collections::fill('{{name}}', 'text', $collectionValues), Kaleta\Builder\Collections::fill('Tým: {{name}}', 'inline_text', $collectionValues), // check-english: allow
     Kaleta\Builder\Collections::fill('{{bio}}', 'html', $collectionValues), Kaleta\Builder\Collections::fill('<p>{{note}}</p>', 'html', $collectionValues),
     Kaleta\Builder\Collections::fill('{{url}}', 'link', $collectionValues), Kaleta\Builder\Collections::fill('{{zly}}', 'link', $collectionValues), Kaleta\Builder\Collections::fill('{{neni}}', 'inline_text', $collectionValues),
-], ['Jan <b>Novák</b>', 'Tým: Jan &lt;b&gt;Novák&lt;/b&gt;', '<p>Truhlář</p>', '<p>řádek 1<br>' . "\n" . 'řádek 2</p>', '/tym/jan', '', '']);
+], ['Jan <b>Novák</b>', 'Tým: Jan &lt;b&gt;Novák&lt;/b&gt;', '<p>Truhlář</p>', '<p>řádek 1<br>' . "\n" . 'řádek 2</p>', '/tym/jan', '', '']); // check-english: allow
 [$collectionBuild, $collectionErrors] = Kaleta\Builder\Build::sanitize(['children' => [['type' => 'collection_list', 'content' => ['collection' => 'tym'], 'children' => [['type' => 'image', 'content' => ['src' => '{{photo}}']], ['type' => 'button', 'content' => ['link' => '{{url}}']]]]]]);
-check('Stavba::vycisti: značky {{fields}} v obrázku a odkazu projdou', [$collectionBuild['children'][0]['children'][0]['content']['src'], $collectionBuild['children'][0]['children'][1]['content']['link'], $collectionErrors], ['{{photo}}', '{{url}}', []]);
+check('Build::sanitize: {{fields}} tags in an image and a link pass', [$collectionBuild['children'][0]['children'][0]['content']['src'], $collectionBuild['children'][0]['children'][1]['content']['link'], $collectionErrors], ['{{photo}}', '{{url}}', []]);
 
 /* ---------- builder English: editor texts (JS) and schema labels (PHP) ---------- */
 preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(KALETA_ROOT . '/image/builder.js'), $enJs);
@@ -1612,7 +1612,7 @@ preg_match('/window\.KALETA_TRANSLATIONS = (\{.*\});/s', (string) file_get_conte
 $enJsKeys = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsDictionary[1] ?? '{}'), true));
 preg_match('/window\.KALETA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(KALETA_ROOT . '/image/languages/admin-cs.js'), $csJsDictionary);
 $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode($csJsDictionary[1] ?? '{}', true))];
-check('Builder: všechny texty editoru mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu'])), []);
+check('Builder: all editor texts have an English translation', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu'])), []);
 $enAdmin = (require KALETA_ROOT . '/system/languages/admin-en.php') + (require KALETA_ROOT . '/system/languages/admin-cs.php');
 $enSchema = Kaleta\Builder\Build::schema(true, 'cs', true);
 $enTexts = array_merge(array_column($enSchema['elements'], 'name'), array_column($enSchema['elements'], 'description'), array_column($enSchema['elements'], 'group'), array_values($enSchema['style_groups']));
@@ -1629,21 +1629,21 @@ foreach ($enSchema['elements'] as $p) {
     $enFields($p['properties']);
 }
 $enFields($enSchema['style']);
-check('Builder: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexts), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
+check('Builder: all schema labels have an English translation', array_values(array_filter(array_unique($enTexts), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
 
 $siteErrors = [];
 $siteSections = array_column(Kaleta\Builder\Library::listAll(), 'key');
 foreach (Kaleta\Builder\Library::SITES as $siteKey => $networks) {
     if (!isset(Kaleta\Builder\DesignSystem::PRESETS[$networks['preset']])) {
-        $siteErrors[] = $siteKey . ': předvolba ' . $networks['preset'];
+        $siteErrors[] = $siteKey . ': preset ' . $networks['preset'];
     }
     foreach ($networks['pages'] as $pageSections) {
         foreach (array_diff($pageSections, $siteSections) as $missing) {
-            $siteErrors[] = $siteKey . ': sekce ' . $missing;
+            $siteErrors[] = $siteKey . ': section ' . $missing;
         }
     }
 }
-check('Knihovna::WEBY: předvolby a sekce ukázkových webů existují', $siteErrors, []);
+check('Library::SITES: the presets and sections of the sample sites exist', $siteErrors, []);
 
 // pages of the sample sites pass the builder's pre-publish check (image/builder.js, check()): buttons with a link,
 // no empty image, a single h1 and an outline without a skipped level – in Czech and English, with all extensions and without them
@@ -1654,10 +1654,10 @@ $pageCheck = function (array $build): array {
         foreach ($children as $p) {
             $o = $p['content'] ?? [];
             if ($p['type'] === 'button' && in_array($o['link'] ?? '', ['', '#'], true)) {
-                $findings[] = 'tlačítko bez odkazu: ' . ($o['text'] ?? '');
+                $findings[] = 'button without a link: ' . ($o['text'] ?? '');
             }
             if ($p['type'] === 'image' && (($o['src'] ?? '') === '' || ($o['alt'] ?? '') === '')) {
-                $findings[] = 'obrázek bez souboru nebo popisu';
+                $findings[] = 'image without a file or description';
             }
             if ($p['type'] === 'heading' && preg_match('/^h([1-6])$/', $p['tag'] ?? 'h2', $m)) {
                 $headings[] = (int) $m[1];
@@ -1680,30 +1680,30 @@ $pageCheck = function (array $build): array {
 $sitesCheck = [];
 foreach (Kaleta\Builder\Library::SITES as $siteKey => $networks) {
     foreach (['cs', 'en'] as $language) {
-        foreach (['všechna rozšíření' => array_keys(Kaleta\Core\Extensions::CATALOG), 'bez rozšíření' => []] as $variant => $enabled) {
+        foreach (['all extensions' => array_keys(Kaleta\Core\Extensions::CATALOG), 'no extensions' => []] as $variant => $enabled) {
             foreach ($networks['pages'] as $i => $pageSections) {
                 if ($pageSections === []) {
                     continue; // text page: the layout provides the h1 heading
                 }
-                [$build] = Kaleta\Builder\Library::assemble($pageSections, 'Stránka', $language, Kaleta\Builder\Build::disabledTypes($enabled), true);
+                [$build] = Kaleta\Builder\Library::assemble($pageSections, 'Stránka', $language, Kaleta\Builder\Build::disabledTypes($enabled), true); // check-english: allow
                 foreach ($pageCheck($build) as $finding) {
-                    $sitesCheck[] = "$siteKey/$language/$variant/stránka $i: $finding";
+                    $sitesCheck[] = "$siteKey/$language/$variant/page $i: $finding";
                 }
             }
         }
     }
 }
-check('Knihovna::WEBY: stránky ukázkových webů projdou kontrolou před publikováním', array_values(array_unique($sitesCheck)), []);
-$contactWithoutForm = Kaleta\Builder\Library::assemble(Kaleta\Builder\Library::SITES['crafts']['pages'][3], 'Kontakt', 'cs', Kaleta\Builder\Build::disabledTypes([]), true)[0];
-check('Knihovna: kontakt bez rozšíření Formuláře má údaje firmy', str_contains((string) json_encode($contactWithoutForm), '"detail":"address"'), true);
+check('Library::SITES: the pages of the sample sites pass the pre-publish check', array_values(array_unique($sitesCheck)), []);
+$contactWithoutForm = Kaleta\Builder\Library::assemble(Kaleta\Builder\Library::SITES['crafts']['pages'][3], 'Kontakt', 'cs', Kaleta\Builder\Build::disabledTypes([]), true)[0]; // check-english: allow
+check('Library: a contact without the Forms extension has the company details', str_contains((string) json_encode($contactWithoutForm), '"detail":"address"'), true);
 
 /* ---------- AI assistant: providers and builder ---------- */
 $aiBody = ['model' => 'm1', 'max_tokens' => 50, 'system' => 'S', 'messages' => [['role' => 'username', 'content' => [['type' => 'image', 'source' => ['media_type' => 'image/png', 'data' => 'QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]]];
-check('Asistent::naOpenAi: systém, obrázek jako data URL, limit tokenů podle poskytovatele', [Assistant::toOpenAi($aiBody, 'openai'), array_keys(Assistant::toOpenAi($aiBody, 'mistral'))], [
+check('Assistant::toOpenAi: system, image as a data URL, token limit by provider', [Assistant::toOpenAi($aiBody, 'openai'), array_keys(Assistant::toOpenAi($aiBody, 'mistral'))], [
     ['model' => 'm1', 'messages' => [['role' => 'system', 'content' => 'S'], ['role' => 'username', 'content' => [['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]], 'max_completion_tokens' => 50],
     ['model', 'messages', 'max_tokens'],
 ]);
-check('Asistent::zOpenAi: odpověď do tvaru Claude API', Assistant::fromOpenAi(['choices' => [['message' => ['content' => 'Text'], 'finish_reason' => 'length']]]), ['content' => [['type' => 'text', 'text' => 'Text']], 'stop_reason' => 'max_tokens']);
+check('Assistant::fromOpenAi: the response in the Claude API shape', Assistant::fromOpenAi(['choices' => [['message' => ['content' => 'Text'], 'finish_reason' => 'length']]]), ['content' => [['type' => 'text', 'text' => 'Text']], 'stop_reason' => 'max_tokens']);
 $aiSettings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
 (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'anthropic', 'ai_model' => 'claude-sonnet-5']);
 $aiFake = new class($aiSettings) extends Assistant {
@@ -1717,15 +1717,15 @@ $aiFake = new class($aiSettings) extends Assistant {
         return ['content' => [['type' => 'text', 'text' => $this->answer]]];
     }
 };
-$aiFake->answer = "Tady je sekce:\n```html\n<section class=\"services-ai\"><h2>Služby</h2><p>Text <script>x</script></p><a class=\"btn\" href=\"javascript:alert(1)\">Klik</a></section><style>.sluzby-ai { padding: var(--ka-space-l); }</style>\n```";
-$aiHtml = $aiFake->suggestSection('Tři karty se službami a odkazem na kontakt.', 'cs', 'Služby');
+$aiFake->answer = "Tady je sekce:\n```html\n<section class=\"services-ai\"><h2>Služby</h2><p>Text <script>x</script></p><a class=\"btn\" href=\"javascript:alert(1)\">Klik</a></section><style>.sluzby-ai { padding: var(--ka-space-l); }</style>\n```"; // check-english: allow
+$aiHtml = $aiFake->suggestSection('Tři karty se službami a odkazem na kontakt.', 'cs', 'Služby'); // check-english: allow
 $aiConversion = Kaleta\Builder\HtmlConverter::convert($aiHtml);
 [$aiBuild] = Kaleta\Builder\Build::sanitize($aiConversion['build'], false);
-check('Asistent::navrhniSekci: HTML z bloku ```html, zadání uvnitř <zadani>, výsledek bez skriptu a javascript: odkazu', [
+check('Assistant::suggestSection: HTML from a ```html block, the brief inside <brief>, the result without a script and a javascript: link', [
     str_starts_with($aiHtml, '<section'), str_contains((string) $aiFake->last['messages'][0]['content'], '<brief>'), str_contains(json_encode($aiBuild), 'script'), str_contains(json_encode($aiBuild), 'javascript'), $aiConversion['classes'],
 ], [true, true, false, false, ['sluzby-ai' => 'padding: var(--ka-space-l);']]);
-$aiFake->answer = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>';
-check('Asistent::prepis: HTML odpověď vyčištěná, prostý text bez značek', [$aiFake->rewrite('<p>Dlouhý text k přepsání.</p>', 'shorter', true), $aiFake->rewrite('Nadpis', 'formal', false)], ['<p>Kratší <strong>text</strong> </p>', 'Kratší text']);
+$aiFake->answer = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>'; // check-english: allow
+check('Assistant::rewrite: an HTML answer sanitized, plain text without tags', [$aiFake->rewrite('<p>Dlouhý text k přepsání.</p>', 'shorter', true), $aiFake->rewrite('Nadpis', 'formal', false)], ['<p>Kratší <strong>text</strong> </p>', 'Kratší text']); // check-english: allow
 (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'openai', 'ai_model' => 'claude-sonnet-5']);
 try {
     $aiFake->rewrite('Text', 'shorter', false);
@@ -1733,14 +1733,12 @@ try {
 } catch (RuntimeException $e) {
     $aiError = $e->getMessage();
 }
-check('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho model', str_contains($aiError, 'Enter the model name'), true);
+check('Assistant: a provider other than Claude needs a model', str_contains($aiError, 'Enter the model name'), true);
 
-/* ---------- class renames (tools/rename.php) ---------- */
+/* ---------- old class names ---------- */
 // 2.0: the old (Czech) class names and helpers of 1.3 are gone; 2.0.1 dropped the empty alias file (it rides along in packages only)
 check('2.0: old class names and helpers no longer exist', [is_file(KALETA_SYSTEM . '/class-aliases.php'), class_exists('Kaleta\\Jadro\\Nastaveni'), function_exists('date_in_words'),
     class_exists('Kaleta\\Admin\\LegacyUrls'), class_exists('Kaleta\\Front\\Api'), class_exists('Kaleta\\Builder\\Elements\\Modal')], [false, false, false, false, false, false]);
-exec('php ' . escapeshellarg(__DIR__ . '/rename.php') . ' --self-test', $renameOutput, $renameCode);
-check('tools/rename.php self-test', $renameCode, 0);
 
 /* ---------- 2.4: guide links in the administration ---------- */
 // the articles of the guide on kaletacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
@@ -1782,7 +1780,7 @@ check('2.10: alert e-mails – errors and the warnings that need the owner, not 
     ['id' => 4, 'created_at' => '', 'type' => 'notfound.spike', 'severity' => 'warning', 'message' => '', 'data' => []]]), 'id'), [1, 3, 4]);
 /* ---------- 2.10: business facts – values by type, how they are shown, the token ---------- */
 check('2.10: Facts::clean – a value must fit its type', [Kaleta\Core\Facts::clean('number', '1 500'), Kaleta\Core\Facts::clean('number', 'many'), Kaleta\Core\Facts::clean('year', '2004'),
-    Kaleta\Core\Facts::clean('year', '04'), Kaleta\Core\Facts::clean('money', '1500 CZK'), Kaleta\Core\Facts::clean('money', '1500,- Kč'), Kaleta\Core\Facts::clean('date', '2026-10-02'),
+    Kaleta\Core\Facts::clean('year', '04'), Kaleta\Core\Facts::clean('money', '1500 CZK'), Kaleta\Core\Facts::clean('money', '1500,- Kč'), Kaleta\Core\Facts::clean('date', '2026-10-02'), // check-english: allow
     Kaleta\Core\Facts::clean('email', 'info@example.cz'), Kaleta\Core\Facts::clean('url', 'javascript:alert(1)'), Kaleta\Core\Facts::clean('text', '<b>20</b> let'), Kaleta\Core\Facts::clean('text', 'see {{fact.other}}')],
     ['1500', null, '2004', null, '1500 CZK', null, '2026-10-02', 'info@example.cz', null, '20 let', null]);
 check('2.10: Facts::display – numbers with the thousands separator of the language, amounts with the currency', Kaleta\Core\Language::runWith('cs', fn (): array => [
@@ -1800,17 +1798,17 @@ $factApp = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutCons
 check('2.10: computed() – years since a year as the site shows it, a bad argument is nothing (the audit reports it)', [Kaleta\Core\Facts::computed($factApp, 'years_since', '2004', new DateTimeImmutable('2026-06-01')), Kaleta\Core\Facts::computed($factApp, 'years_since', 'soon')], ['22', null]);
 preg_match_all(Kaleta\Core\Facts::COMPUTED_PATTERN, '{{years_since:2004}} {{ years_since:fact.founded }} {{count:reference-2}} {{count:news}} {{count:Velka}} {{unknown:x}} {{name}}', $computedTokens, PREG_SET_ORDER);
 check('2.10: the computed token – both forms with their arguments, nothing else', array_map(fn (array $c): string => $c[1] . ':' . $c[2], $computedTokens), ['years_since:2004', 'years_since:fact.founded', 'count:reference-2', 'count:news']);
-check('2.10: claims – a sentence with a computed or fact token is not a claim any more', [Kaleta\Core\Facts::isClaim('Na trhu jsme 22 let.'), Kaleta\Core\Facts::isClaim('Na trhu jsme {{years_since:2004}} let.'),
-    Kaleta\Core\Facts::isClaim('Máme {{fact.projects}} zakázek.'), Kaleta\Core\Facts::isClaim('Otevřeno od 8 hodin.')], [true, false, false, false]);
+check('2.10: claims – a sentence with a computed or fact token is not a claim any more', [Kaleta\Core\Facts::isClaim('Na trhu jsme 22 let.'), Kaleta\Core\Facts::isClaim('Na trhu jsme {{years_since:2004}} let.'), // check-english: allow
+    Kaleta\Core\Facts::isClaim('Máme {{fact.projects}} zakázek.'), Kaleta\Core\Facts::isClaim('Otevřeno od 8 hodin.')], [true, false, false, false]); // check-english: allow
 $proofBuild = ['v' => 1, 'children' => [['id' => 's1', 'type' => 'section', 'children' => [['id' => 'c1', 'type' => 'counter', 'content' => ['number' => 1500]], ['id' => 'c2', 'type' => 'counter', 'content' => ['number' => '{{fact.projects}}']],
     ['id' => 'c3', 'type' => 'counter', 'content' => ['number' => ' 22 ']], ['id' => 'c4', 'type' => 'counter', 'content' => ['number' => '{{count:reference}}']], ['id' => 'n1', 'type' => 'heading', 'tag' => 'p', 'content' => ['text' => '1500']]]]]];
 check('2.10: proof numbers typed in – counters with digits, not with tokens and not headings', Kaleta\Core\Facts::typedNumbers($proofBuild), [['id' => 'c1', 'number' => '1500'], ['id' => 'c3', 'number' => '22']]);
 [$counterBuild] = Kaleta\Builder\Build::sanitize(['children' => [['type' => 'counter', 'content' => ['number' => 1500]], ['type' => 'counter', 'content' => ['number' => '{{years_since:fact.founded}}']]]], false);
 check('2.10: the counter keeps a number and a token alike', array_column(array_column($counterBuild['children'], 'content'), 'number'), ['1500', '{{years_since:fact.founded}}']);
 check('2.10: the counter is content – its number or token and label are in the text of the build (usage, the audit, the old value)', Kaleta\Builder\Build::asText($counterBuild),
-    "<p>1500+ " . t('spokojených zákazníků') . "</p>\n<p>{{years_since:fact.founded}}+ " . t('spokojených zákazníků') . '</p>');
+    "<p>1500+ " . t('spokojených zákazníků') . "</p>\n<p>{{years_since:fact.founded}}+ " . t('spokojených zákazníků') . '</p>'); // check-english: allow
 $counterContext = new Kaleta\Builder\Context($factApp, true);
-$counterHtml = fn (string $number): string => Kaleta\Builder\Elements\Counter::render(['tag' => 'div', 'content' => ['number' => $number, 'prefix' => '', 'suffix' => '+', 'caption' => 'zakázek']], '', '', $counterContext);
+$counterHtml = fn (string $number): string => Kaleta\Builder\Elements\Counter::render(['tag' => 'div', 'content' => ['number' => $number, 'prefix' => '', 'suffix' => '+', 'caption' => 'zakázek']], '', '', $counterContext); // check-english: allow
 check('2.10: the counter – digits count up, the editor shows a token as it is (without the count-up)', Kaleta\Core\Language::runWith('cs', fn (): array => [str_contains($counterHtml('1500'), "data-counter=\"1500\">1\u{00A0}500<"),
     str_contains($counterHtml('{{fact.projects}}'), '>{{fact.projects}}<'), str_contains($counterHtml('{{fact.projects}}'), 'data-counter')]), [true, true, false]);
 check('2.10.1: tokens inside <code> and <pre> are examples – never filled, not reported', [
@@ -1835,12 +1833,12 @@ check('2.10: Hours – the notice bar a week ahead until the end, not with notic
     [0, 1, 0, 0, [['@type' => 'OpeningHoursSpecification', 'opens' => '00:00', 'closes' => '00:00', 'validFrom' => '2026-12-24', 'validThrough' => '2026-12-26'],
         ['@type' => 'OpeningHoursSpecification', 'opens' => '09:00', 'closes' => '12:00', 'validFrom' => '2026-12-31', 'validThrough' => '2026-12-31']]]);
 /* ---------- 2.10: links between collections, redirect of hidden items ---------- */
-$linkFields = Kaleta\Builder\Collections::sanitizeFields([['label' => 'Pobočka', 'type' => 'item', 'collection' => 'pobocky'], ['label' => 'Bez kolekce', 'type' => 'item'], ['label' => 'Role', 'type' => 'text', 'collection' => 'x']]);
+$linkFields = Kaleta\Builder\Collections::sanitizeFields([['label' => 'Pobočka', 'type' => 'item', 'collection' => 'pobocky'], ['label' => 'Bez kolekce', 'type' => 'item'], ['label' => 'Role', 'type' => 'text', 'collection' => 'x']]); // check-english: allow
 check('2.10: an item link remembers its collection; without one it is a short text', $linkFields,
-    [['key' => 'pobocka', 'label' => 'Pobočka', 'type' => 'item', 'collection' => 'pobocky'], ['key' => 'bez_kolekce', 'label' => 'Bez kolekce', 'type' => 'text'], ['key' => 'role', 'label' => 'Role', 'type' => 'text']]);
+    [['key' => 'pobocka', 'label' => 'Pobočka', 'type' => 'item', 'collection' => 'pobocky'], ['key' => 'bez_kolekce', 'label' => 'Bez kolekce', 'type' => 'text'], ['key' => 'role', 'label' => 'Role', 'type' => 'text']]); // check-english: allow
 $linkErrors = [];
 check('2.10: an item link stores the address of the item', [Kaleta\Builder\Collections::sanitizeData($linkFields, ['pobocka' => 'praha-centrum'], $linkErrors), Kaleta\Builder\Collections::sanitizeData($linkFields, ['pobocka' => 'Praha <b>'], $linkErrors), $linkErrors],
-    [['pobocka' => 'praha-centrum', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => '', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => 'Pobočka']]);
+    [['pobocka' => 'praha-centrum', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => '', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => 'Pobočka']]); // check-english: allow
 $linkValues = Kaleta\Builder\Collections::values(['slug' => 'lide', 'detail' => 1, 'fields' => $linkFields], ['name' => 'Jana', 'slug' => 'jana', 'created_at' => '2026-10-02 10:00:00', 'data' => ['pobocka' => 'praha-centrum']], fn (string $p): string => '/' . $p);
 check('2.10: {{field}}, {{field_url}} and {{field_seo}} of an item link (without a database only the address)', [$linkValues['pobocka'], $linkValues['pobocka_url'], $linkValues['pobocka_seo']],
     [['', 'text'], ['', 'link'], ['praha-centrum', 'text']]);
@@ -1978,7 +1976,7 @@ check('2.8: the beacon script looks for nothing but its own endpoint and sends w
 check('2.8: /vitals is a reserved address', in_array('vitals', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), true);
 
 /* ---------- 2.8: font preloading – only the site's own WOFF2 files that render text above the fold ---------- */
-$fontsDs = ['custom_fonts' => [['name' => 'Firma Sans', 'file' => 'media/pisma/firma-sans.woff2', 'bold' => 'media/pisma/firma-sans-bold.woff2'], ['name' => 'Firma Serif', 'file' => 'media/pisma/firma-serif.woff2', 'bold' => ''],
+$fontsDs = ['custom_fonts' => [['name' => 'Firma Sans', 'file' => 'media/pisma/firma-sans.woff2', 'bold' => 'media/pisma/firma-sans-bold.woff2'], ['name' => 'Firma Serif', 'file' => 'media/pisma/firma-serif.woff2', 'bold' => ''], // check-english: allow
     ['name' => 'Old', 'file' => 'media/pisma/old.woff', 'bold' => '']]];
 check('2.8: DesignSystem::fontPreloads – body = the regular file, headings = the bold file of the heading font', Kaleta\Builder\DesignSystem::fontPreloads(['font_body' => 'custom-1', 'font_heading' => 'custom-1'] + $fontsDs, '/web'),
     '<link rel="preload" href="/web/media/pisma/firma-sans.woff2" as="font" type="font/woff2" crossorigin>' . "\n" . '<link rel="preload" href="/web/media/pisma/firma-sans-bold.woff2" as="font" type="font/woff2" crossorigin>');
@@ -2083,10 +2081,10 @@ $fileErrors = [];
 check('2.11 sanitizeData: a file from Media or https, never a path out of it', [Kaleta\Builder\Collections::sanitizeData($fileFields, ['start' => '2026-11-02T17:00', 'sheet' => '/media/docs/list.pdf', 'place' => '49.19,16.61'], $fileErrors),
     Kaleta\Builder\Collections::sanitizeData($fileFields, ['sheet' => '/media/../config.php'], $fileErrors), Kaleta\Builder\Collections::sanitizeData($fileFields, ['sheet' => 'javascript:alert(1)'], $fileErrors)['sheet']],
     [['start' => '2026-11-02 17:00', 'sheet' => '/media/docs/list.pdf', 'place' => '49.19, 16.61'], ['start' => '', 'sheet' => '', 'place' => ''], '']);
-$fileValues = Kaleta\Builder\Collections::values(['slug' => 'action', 'detail' => 1, 'fields' => $fileFields], ['name' => 'Den otevřených dveří', 'slug' => 'day', 'created_at' => '2026-10-02 10:00:00',
+$fileValues = Kaleta\Builder\Collections::values(['slug' => 'action', 'detail' => 1, 'fields' => $fileFields], ['name' => 'Den otevřených dveří', 'slug' => 'day', 'created_at' => '2026-10-02 10:00:00', // check-english: allow
     'data' => ['start' => '2026-11-02 17:00', 'sheet' => '/media/docs/Cen%C3%ADk%202026.pdf', 'place' => '49.19, 16.61']], fn (string $p): string => '/' . $p);
 check('2.11 values: {{start}} for visitors and {{start_iso}}, {{sheet}} a link and {{sheet_name}}', [$fileValues['start'][0], $fileValues['start_iso'][0], $fileValues['sheet'], $fileValues['sheet_name'][0], $fileValues['place'][0]],
-    [format_date('2026-11-02 17:00', true), '2026-11-02 17:00', ['/media/docs/Cen%C3%ADk%202026.pdf', 'link'], 'Ceník 2026.pdf', '49.19, 16.61']);
+    [format_date('2026-11-02 17:00', true), '2026-11-02 17:00', ['/media/docs/Cen%C3%ADk%202026.pdf', 'link'], 'Ceník 2026.pdf', '49.19, 16.61']); // check-english: allow
 
 /* ---------- 2.11: events calendar (Core\Calendar) ---------- */
 use Kaleta\Core\Calendar;
@@ -2112,16 +2110,16 @@ check('2.11 Calendar::endsAt and registrationState: closed after the event or th
 check('2.11 Calendar::when – one day with times, several days, the start alone', [Calendar::when('2026-11-02 17:00', '2026-11-02 19:00'), Calendar::when('2026-11-02', '2026-11-04'), Calendar::when('2026-11-02 17:00', ''), Calendar::when('', '')],
     [format_date('2026-11-02 17:00', true) . '–19:00', format_date('2026-11-02') . ' – ' . format_date('2026-11-04'), format_date('2026-11-02 17:00', true), '']);
 check('2.11 Calendar::escape and fold – RFC 5545 text, lines of at most 75 octets, never inside a character', [Calendar::escape("a;b,c\\d\nnext"),
-    array_map('strlen', explode("\r\n", Calendar::fold('DESCRIPTION:' . str_repeat('č', 60)))), Calendar::fold('SUMMARY:short')],
+    array_map('strlen', explode("\r\n", Calendar::fold('DESCRIPTION:' . str_repeat('č', 60)))), Calendar::fold('SUMMARY:short')], // check-english: allow
     ['a\\;b\\,c\\\\d\\nnext', [74, 59], 'SUMMARY:short']);
 $icsCollection = ['collection_id' => 1, 'slug' => 'action', 'preset' => 'events', 'detail' => 1, 'fields' => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2], 'options' => $f[3]['options'] ?? []],
     (array) (Kaleta\Builder\Presets::get('events')['fields'] ?? [])))];
-$ics = Calendar::ics($icsCollection, [[['item_id' => 7, 'name' => 'Jóga, pro začátečníky', 'updated_at' => '2026-10-01 10:00:00', 'data' => ['start' => '2026-10-06 18:00', 'end' => '2026-10-06 19:30', 'venue' => 'Sál', 'address' => 'Hlavní 1, Brno', 'repeat' => 'weekly', 'repeat_until' => '2026-12-15', 'summary' => 'Přineste podložku.']], 'https://example.cz/akce/joga'],
-    [['item_id' => 8, 'name' => 'Den otevřených dveří', 'data' => ['start' => '2026-11-02']], ''], [['item_id' => 9, 'name' => 'Bez data', 'data' => []], '']], 'Web – Akce', 'example.cz');
+$ics = Calendar::ics($icsCollection, [[['item_id' => 7, 'name' => 'Jóga, pro začátečníky', 'updated_at' => '2026-10-01 10:00:00', 'data' => ['start' => '2026-10-06 18:00', 'end' => '2026-10-06 19:30', 'venue' => 'Sál', 'address' => 'Hlavní 1, Brno', 'repeat' => 'weekly', 'repeat_until' => '2026-12-15', 'summary' => 'Přineste podložku.']], 'https://example.cz/akce/joga'], // check-english: allow
+    [['item_id' => 8, 'name' => 'Den otevřených dveří', 'data' => ['start' => '2026-11-02']], ''], [['item_id' => 9, 'name' => 'Bez data', 'data' => []], '']], 'Web – Akce', 'example.cz'); // check-english: allow
 $utc = fn (string $local): string => (new DateTimeImmutable($local))->setTimezone(new DateTimeZone('UTC'))->format('Ymd\THis\Z');
 check('2.11 Calendar::ics – a timed series with RRULE in UTC, a whole day as DATE, an event without a date left out', [str_starts_with($ics, "BEGIN:VCALENDAR\r\n"), str_contains($ics, "UID:kaleta-7@example.cz\r\n"),
-    str_contains($ics, 'DTSTART:' . $utc('2026-10-06 18:00') . "\r\n"), str_contains($ics, 'RRULE:FREQ=WEEKLY;UNTIL=' . $utc('2026-12-15 23:59')), str_contains($ics, "SUMMARY:Jóga\\, pro začátečníky\r\n"),
-    str_contains($ics, 'LOCATION:Sál\\, Hlavní 1\\, Brno'), str_contains($ics, "DTSTART;VALUE=DATE:20261102\r\nDTEND;VALUE=DATE:20261103\r\n"), substr_count($ics, 'BEGIN:VEVENT'), str_ends_with($ics, "END:VCALENDAR\r\n")],
+    str_contains($ics, 'DTSTART:' . $utc('2026-10-06 18:00') . "\r\n"), str_contains($ics, 'RRULE:FREQ=WEEKLY;UNTIL=' . $utc('2026-12-15 23:59')), str_contains($ics, "SUMMARY:Jóga\\, pro začátečníky\r\n"), // check-english: allow
+    str_contains($ics, 'LOCATION:Sál\\, Hlavní 1\\, Brno'), str_contains($ics, "DTSTART;VALUE=DATE:20261102\r\nDTEND;VALUE=DATE:20261103\r\n"), substr_count($ics, 'BEGIN:VEVENT'), str_ends_with($ics, "END:VCALENDAR\r\n")], // check-english: allow
     [true, true, true, true, true, true, true, 2, true]);
 check('2.11 Calendar::fields – only a collection made from the events preset with its start field', [Calendar::fields($icsCollection)['repeat'] ?? null, Calendar::fields(['preset' => 'events', 'fields' => []]), Calendar::fields(['preset' => 'people', 'fields' => $icsCollection['fields']])],
     ['repeat', null, null]);
@@ -2131,8 +2129,8 @@ use Kaleta\Builder\Products;
 
 check('2.11 Products::cleanParameters – "Name: value" lines, tags gone; a line without a value is not valid', [Products::cleanParameters("Weight:12 kg\n\n <b>Width</b>: 60 cm "), Products::cleanParameters('Weight'), Products::cleanParameters('')],
     ["Weight: 12 kg\nWidth: 60 cm", null, '']);
-check('2.11 Products::cleanVariants – name | code | price, the empty end trimmed; too many parts or no name are not valid', [Products::cleanVariants("S | A-1 | 1 200 Kč\nM\nL | | from 900"), Products::cleanVariants('| X'), Products::cleanVariants('a | b | c | d')],
-    ["S | A-1 | 1 200 Kč\nM\nL |  | from 900", null, null]);
+check('2.11 Products::cleanVariants – name | code | price, the empty end trimmed; too many parts or no name are not valid', [Products::cleanVariants("S | A-1 | 1 200 Kč\nM\nL | | from 900"), Products::cleanVariants('| X'), Products::cleanVariants('a | b | c | d')], // check-english: allow
+    ["S | A-1 | 1 200 Kč\nM\nL |  | from 900", null, null]); // check-english: allow
 check('2.11 Products tables – escaped, a column only when some variant has it', [Products::parametersTable('Weight: 12 & "13" kg'), Products::variantsTable("S\nM"), Products::parametersTable('')],
     ['<table class="ka-parameters"><tbody><tr><th scope="row">Weight</th><td>12 &amp; &quot;13&quot; kg</td></tr></tbody></table>', '<table class="ka-variants"><thead><tr><th scope="col">' . t('Variant') . '</th></tr></thead><tbody><tr><td>S</td></tr><tr><td>M</td></tr></tbody></table>', '']);
 check('2.11 Products::comparison – every parameter name once in the order it first appears, values side by side', Products::comparison('p', [['data' => ['p' => "Weight: 12 kg\nWidth: 60 cm"]], ['data' => ['p' => "Width: 80 cm\nMotor: 2 kW"]]]),
@@ -2208,32 +2206,32 @@ check('3.3 Presets: pricing plans, a food and drink menu, rooms and property lis
 $jobsPreset = Kaleta\Builder\Presets::get('jobs');
 $jobFields = Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2]], $jobsPreset['fields']));
 $jobCollection = fn (string $currency): array => ['slug' => 'jobs', 'detail' => 1, 'fields' => $jobFields, 'schema_org' => json_encode(['currency' => $currency] + $jobsPreset['schema'])];
-$jobIssuer = ['@type' => 'LocalBusiness', '@id' => 'https://example.cz/#firma', 'name' => 'Web', 'legalName' => 'Truhlárna s.r.o.', 'url' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg',
+$jobIssuer = ['@type' => 'LocalBusiness', '@id' => 'https://example.cz/#firma', 'name' => 'Web', 'legalName' => 'Truhlárna s.r.o.', 'url' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg', // check-english: allow
     'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Brno', 'addressCountry' => 'CZ']];
-$jobItem = ['name' => 'Truhlář', 'slug' => 'truhlar', 'created_at' => '2026-10-02 10:00:00', 'valid_until' => '2026-11-30',
-    'data' => ['location' => 'Brno', 'employment_type' => 'plný úvazek', 'salary_min' => '35 000', 'salary_max' => '45000', 'salary_unit' => 'per month', 'description' => '<p>Výroba <b>nábytku</b>.</p>']];
+$jobItem = ['name' => 'Truhlář', 'slug' => 'truhlar', 'created_at' => '2026-10-02 10:00:00', 'valid_until' => '2026-11-30', // check-english: allow
+    'data' => ['location' => 'Brno', 'employment_type' => 'plný úvazek', 'salary_min' => '35 000', 'salary_max' => '45000', 'salary_unit' => 'per month', 'description' => '<p>Výroba <b>nábytku</b>.</p>']]; // check-english: allow
 $posting = Kaleta\Builder\CollectionSchema::forItem($jobCollection('CZK'), $jobItem, 'https://example.cz/jobs/truhlar', 'meta description', '', $jobIssuer['@id'], $jobIssuer);
 check('2.11 JobPosting: title, dates, the hiring organization from the company, the place with the company country, a salary range with the collection currency, recognised type and unit', $posting, [
-    '@type' => 'JobPosting', 'title' => 'Truhlář', 'url' => 'https://example.cz/jobs/truhlar', 'description' => 'Výroba nábytku.', 'datePosted' => date('c', strtotime('2026-10-02 10:00:00')), 'validThrough' => '2026-11-30',
-    'employmentType' => 'FULL_TIME', 'hiringOrganization' => ['@type' => 'Organization', 'name' => 'Truhlárna s.r.o.', 'sameAs' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg'],
+    '@type' => 'JobPosting', 'title' => 'Truhlář', 'url' => 'https://example.cz/jobs/truhlar', 'description' => 'Výroba nábytku.', 'datePosted' => date('c', strtotime('2026-10-02 10:00:00')), 'validThrough' => '2026-11-30', // check-english: allow
+    'employmentType' => 'FULL_TIME', 'hiringOrganization' => ['@type' => 'Organization', 'name' => 'Truhlárna s.r.o.', 'sameAs' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg'], // check-english: allow
     'jobLocation' => ['@type' => 'Place', 'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Brno', 'addressCountry' => 'CZ']],
     'baseSalary' => ['@type' => 'MonetaryAmount', 'currency' => 'CZK', 'value' => ['@type' => 'QuantitativeValue', 'minValue' => 35000.0, 'maxValue' => 45000.0, 'unitText' => 'MONTH']]]);
-$bareItem = ['name' => 'Svářeč', 'slug' => 'svarec', 'created_at' => '2026-10-02 10:00:00', 'valid_until' => null, 'data' => ['employment_type' => 'podle dohody', 'salary_min' => '', 'salary_max' => '']];
+$bareItem = ['name' => 'Svářeč', 'slug' => 'svarec', 'created_at' => '2026-10-02 10:00:00', 'valid_until' => null, 'data' => ['employment_type' => 'podle dohody', 'salary_min' => '', 'salary_max' => '']]; // check-english: allow
 $bare = Kaleta\Builder\CollectionSchema::forItem($jobCollection('CZK'), $bareItem, 'https://example.cz/jobs/svarec', 'meta description', '', $jobIssuer['@id'], []);
 check('2.11 JobPosting: what is missing is left out, never guessed – no validThrough, salary, place or organization; an unknown employment type stays the text; the meta description', $bare,
-    ['@type' => 'JobPosting', 'title' => 'Svářeč', 'url' => 'https://example.cz/jobs/svarec', 'description' => 'meta description', 'datePosted' => date('c', strtotime('2026-10-02 10:00:00')), 'employmentType' => 'podle dohody']);
+    ['@type' => 'JobPosting', 'title' => 'Svářeč', 'url' => 'https://example.cz/jobs/svarec', 'description' => 'meta description', 'datePosted' => date('c', strtotime('2026-10-02 10:00:00')), 'employmentType' => 'podle dohody']); // check-english: allow
 $oneFigure = ['data' => ['salary_min' => '250', 'salary_unit' => 'za hodinu', 'employment_type' => 'Teilzeit']] + $jobItem;
 check('2.11 JobPosting: a single salary figure is a value; without the collection currency no salary at all', [
     Kaleta\Builder\CollectionSchema::forItem($jobCollection('EUR'), $oneFigure, 'u', '', '', 'i', [])['baseSalary'], Kaleta\Builder\CollectionSchema::forItem($jobCollection('EUR'), $oneFigure, 'u', '', '', 'i', [])['employmentType'],
     isset(Kaleta\Builder\CollectionSchema::forItem($jobCollection(''), $jobItem, 'u', '', '', 'i', [])['baseSalary'])],
     [['@type' => 'MonetaryAmount', 'currency' => 'EUR', 'value' => ['@type' => 'QuantitativeValue', 'value' => 250.0, 'unitText' => 'HOUR']], 'PART_TIME', false]);
 check('2.11 CollectionSchema::employmentType and salaryUnit in several languages; unknown = the text, resp. nothing', [
-    array_map(Kaleta\Builder\CollectionSchema::employmentType(...), ['full-time', 'HPP', 'Vollzeit', 'pełny etat', 'part-time', 'zkrácený úvazek', 'niepełny etat', 'na IČO', 'freelance contract', 'brigáda', 'stáž', 'Internship', '', 'flexible']),
-    array_map(Kaleta\Builder\CollectionSchema::salaryUnit(...), ['per month', 'měsíčně', 'pro Monat', 'miesięcznie', 'per hour', 'za hodinu', 'pro Stunde', 'za rok', 'p. a.', 'týdně', 'per day', '', 'brutto'])],
+    array_map(Kaleta\Builder\CollectionSchema::employmentType(...), ['full-time', 'HPP', 'Vollzeit', 'pełny etat', 'part-time', 'zkrácený úvazek', 'niepełny etat', 'na IČO', 'freelance contract', 'brigáda', 'stáž', 'Internship', '', 'flexible']), // check-english: allow
+    array_map(Kaleta\Builder\CollectionSchema::salaryUnit(...), ['per month', 'měsíčně', 'pro Monat', 'miesięcznie', 'per hour', 'za hodinu', 'pro Stunde', 'za rok', 'p. a.', 'týdně', 'per day', '', 'brutto'])], // check-english: allow
     [['FULL_TIME', 'FULL_TIME', 'FULL_TIME', 'FULL_TIME', 'PART_TIME', 'PART_TIME', 'PART_TIME', 'CONTRACTOR', 'CONTRACTOR', 'TEMPORARY', 'INTERN', 'INTERN', '', 'flexible'],
         ['MONTH', 'MONTH', 'MONTH', 'MONTH', 'HOUR', 'HOUR', 'HOUR', 'YEAR', 'YEAR', 'WEEK', 'DAY', '', '']]);
 check('2.11 JobPosting: the other types are unchanged – a service still gets its offer', Kaleta\Builder\CollectionSchema::forItem(['slug' => 's', 'detail' => 1, 'fields' => [['key' => 'cena', 'label' => 'Cena', 'type' => 'number']],
-    'schema_org' => '{"type":"Service","fields":{"price":"cena"},"currency":"EUR"}'], ['name' => 'Montáž', 'data' => ['cena' => '1200']], 'u', 'd', '', 'https://example.cz/#firma')['offers'],
+    'schema_org' => '{"type":"Service","fields":{"price":"cena"},"currency":"EUR"}'], ['name' => 'Montáž', 'data' => ['cena' => '1200']], 'u', 'd', '', 'https://example.cz/#firma')['offers'], // check-english: allow
     ['@type' => 'Offer', 'price' => '1200', 'priceCurrency' => 'EUR', 'url' => 'u']);
 // the item template the preset brings: the job text and the Job application form with a CV and the hidden job name
 $findForm = function (array $nodes) use (&$findForm): ?array {
@@ -2302,7 +2300,7 @@ check('2.11 Documents::versionsHtml – a heading, a link to the file with the i
     [str_starts_with($versionsHtml, '<h2>'), str_contains($versionsHtml, 'href="/web/media/docs/cenik-v1.pdf"'), str_contains($versionsHtml, 'cenik-v1.pdf · '), str_contains($versionsHtml, '&lt;b&gt;'), str_contains($versionsHtml, '<b>'),
         str_contains($versionsHtml, format_date('2026-03-01 10:00:00')), Kaleta\Core\Documents::versionsHtml([], '/web')], [true, true, true, true, false, true, '']);
 check('2.11 Documents::filePath and fileName – an https address and an absolute path stay, a path in Media gets the installation folder', [Kaleta\Core\Documents::filePath('https://x.example/a.pdf', '/web'), Kaleta\Core\Documents::filePath('/media/a.pdf', '/web'),
-    Kaleta\Core\Documents::filePath('media/a.pdf', '/web'), Kaleta\Core\Documents::fileName('/media/docs/Cen%C3%ADk%202026.pdf')], ['https://x.example/a.pdf', '/media/a.pdf', '/web/media/a.pdf', 'Ceník 2026.pdf']);
+    Kaleta\Core\Documents::filePath('media/a.pdf', '/web'), Kaleta\Core\Documents::fileName('/media/docs/Cen%C3%ADk%202026.pdf')], ['https://x.example/a.pdf', '/media/a.pdf', '/web/media/a.pdf', 'Ceník 2026.pdf']); // check-english: allow
 check('2.11 Documents::gatedFile – a file from Media, never a path out of it', [Kaleta\Core\Documents::gatedFile(['send_file' => '/media/x.pdf']), Kaleta\Core\Documents::gatedFile(['send_file' => '/media/../config.php']), Kaleta\Core\Documents::gatedFile([])], ['/media/x.pdf', '', '']);
 $documentsTemplate = (string) json_encode(Kaleta\Builder\Presets::itemTemplate((array) Kaleta\Builder\Presets::get('documents'), Kaleta\Builder\Collections::sanitizeFields([['key' => 'file', 'label' => 'File', 'type' => 'file']])));
 check('2.11 documents preset: the item template downloads through the stable address and lists the previous versions; the kind, the address and the English option name are known',
@@ -2318,10 +2316,10 @@ $branchFields = [['key' => 'address', 'label' => 'Address', 'type' => 'text'], [
 $branchCollection = ['slug' => 'pobocky', 'detail' => 1, 'fields' => $branchFields,
     'schema_org' => json_encode(['type' => 'LocalBusiness', 'fields' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']])];
 $branch = fn (array $data): ?array => Kaleta\Builder\CollectionSchema::forItem($branchCollection, ['name' => 'Brno', 'data' => $data], 'https://example.com/pobocky/brno', 'Our Brno store', '', 'https://example.com#firma');
-$brnoNode = $branch(['address' => 'Náměstí Svobody 1, Brno', 'location' => '49.1951, 16.6068', 'phone' => '+420 123 456 789', 'email' => 'brno@example.com', 'hours' => 'Mo-Fr 9-17']);
+$brnoNode = $branch(['address' => 'Náměstí Svobody 1, Brno', 'location' => '49.1951, 16.6068', 'phone' => '+420 123 456 789', 'email' => 'brno@example.com', 'hours' => 'Mo-Fr 9-17']); // check-english: allow
 check('2.11 CollectionSchema: a branch is a LocalBusiness of the company with its address, contacts, geo and opening hours', [
     $brnoNode['@type'], $brnoNode['address'], $brnoNode['telephone'], $brnoNode['geo'], count($brnoNode['openingHoursSpecification']), $brnoNode['parentOrganization'], isset($brnoNode['provider'])],
-    ['LocalBusiness', 'Náměstí Svobody 1, Brno', '+420 123 456 789', ['@type' => 'GeoCoordinates', 'latitude' => 49.1951, 'longitude' => 16.6068], 1, ['@id' => 'https://example.com#firma'], false]);
+    ['LocalBusiness', 'Náměstí Svobody 1, Brno', '+420 123 456 789', ['@type' => 'GeoCoordinates', 'latitude' => 49.1951, 'longitude' => 16.6068], 1, ['@id' => 'https://example.com#firma'], false]); // check-english: allow
 $sparseNode = $branch(['address' => 'Somewhere 1', 'location' => 'in the centre', 'hours' => 'always open']);
 check('2.11 CollectionSchema: no geo from text that is not a location and no hours that do not parse – rather left out than guessed', [isset($sparseNode['geo']), isset($sparseNode['openingHoursSpecification']), $sparseNode['address']], [false, false, 'Somewhere 1']);
 check('2.11 CollectionSchema::geo', [Kaleta\Builder\CollectionSchema::geo('50.0875;14.4214'), Kaleta\Builder\CollectionSchema::geo(''), Kaleta\Builder\CollectionSchema::geo('Praha')],
@@ -2337,7 +2335,7 @@ check('2.11 StoreLocator::telHref – digits and one leading plus, nothing from 
     ['tel:+420123456789', 'tel:00493012345', '', '']);
 check('2.11 StoreLocator::coordinates and directionsUrl – the address first, then the coordinates, otherwise nothing', [
     Kaleta\Builder\Elements\StoreLocator::coordinates('49.1951, 16.6068'), Kaleta\Builder\Elements\StoreLocator::coordinates('nowhere'),
-    Kaleta\Builder\Elements\StoreLocator::directionsUrl('Náměstí Svobody 1, Brno', ['49.1951', '16.6068']), Kaleta\Builder\Elements\StoreLocator::directionsUrl('', ['49.1951', '16.6068']), Kaleta\Builder\Elements\StoreLocator::directionsUrl('', null)],
+    Kaleta\Builder\Elements\StoreLocator::directionsUrl('Náměstí Svobody 1, Brno', ['49.1951', '16.6068']), Kaleta\Builder\Elements\StoreLocator::directionsUrl('', ['49.1951', '16.6068']), Kaleta\Builder\Elements\StoreLocator::directionsUrl('', null)], // check-english: allow
     [['49.1951', '16.6068'], null, 'https://www.google.com/maps/search/?api=1&query=N%C3%A1m%C4%9Bst%C3%AD%20Svobody%201%2C%20Brno', 'https://www.google.com/maps/search/?api=1&query=49.1951%2C16.6068', '']);
 check('2.11 Store locator: a Dynamic element with an English name, its texts for the script in the site dictionaries, Leaflet vendored', [
     Kaleta\Builder\Elements\StoreLocator::GROUP, 'store_locator', 'location_field',
@@ -2355,7 +2353,7 @@ check('2.11 presets: the lists – a price list and FAQ filter by category, cour
     [['sort' => 'order', 'filter_field' => 'category', 'filters' => true], 'category', ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'field', 'sort_field' => 'start']]);
 check('2.11 presets: a reference links to the services preset, the schema maps price_from, sku and the event dates', [$f1Presets['references']['fields'][5][3]['preset'], $f1Presets['services']['schema']['fields'],
     $f1Presets['machines']['schema']['fields'], $f1Presets['courses']['schema']['fields']], ['services', ['price' => 'price_from'], ['sku' => 'model'], ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']]);
-$f1Fields = fn (string $k): array => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'sluzby'] : []), $f1Presets[$k]['fields']));
+$f1Fields = fn (string $k): array => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'sluzby'] : []), $f1Presets[$k]['fields'])); // check-english: allow
 $f1Template = fn (string $k): string => Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::itemTemplate($f1Presets[$k], $f1Fields($k)));
 check('2.11 presets: the item templates survive sanitizing and show the fields', [
     str_contains($f1Template('services'), '{{summary}}') && str_contains($f1Template('services'), '{{price_from}} {{price_note}}'),
@@ -2402,7 +2400,7 @@ check('2.11 Notices::statusText – the sentence for visitors with the site\'s d
     Kaleta\Core\Notices::statusText('2026-10-03', '2026-10-18', '2026-10-10'), Kaleta\Core\Notices::statusText('2026-10-03', '2026-10-18', '2026-10-19'), Kaleta\Core\Notices::statusText('2026-10-03', '2026-10-18', '2026-10-01'),
     Kaleta\Core\Notices::statusText('2026-10-03', '', '2026-10-10'), Kaleta\Core\Notices::statusText('', '', '2026-10-10')],
     [t('Posted from %s to %s', format_date('2026-10-03'), format_date('2026-10-18')), t('Taken down on %s – archived', format_date('2026-10-18')), t('To be posted on %s', format_date('2026-10-03')), t('Posted from %s', format_date('2026-10-03')), '']);
-$noticeItem = ['name' => 'Záměr', 'slug' => 'zamer', 'created_at' => '2026-10-02 10:00:00', 'data' => ['posted' => '2026-10-03', 'taken_down' => '2026-10-18', 'reference' => 'MU/1', 'document' => '/media/zamer.pdf']];
+$noticeItem = ['name' => 'Záměr', 'slug' => 'zamer', 'created_at' => '2026-10-02 10:00:00', 'data' => ['posted' => '2026-10-03', 'taken_down' => '2026-10-18', 'reference' => 'MU/1', 'document' => '/media/zamer.pdf']]; // check-english: allow
 check('2.11 {{notice_status}} only for a notice board – the people preset has none', [isset(Kaleta\Builder\Collections::values($board, $noticeItem, fn (string $p): string => '/' . $p)['notice_status']),
     isset(Kaleta\Builder\Collections::values(['preset' => 'people', 'slug' => 'lide', 'detail' => 1, 'fields' => $board['fields']], $noticeItem, fn (string $p): string => '/' . $p)['notice_status'])], [true, false]);
 check('2.11 Notices::canHide – only a notice still to be posted (or without a date) may be hidden', [Kaleta\Core\Notices::canHide('2026-10-03', '2026-10-02'), Kaleta\Core\Notices::canHide('2026-10-02', '2026-10-02'), Kaleta\Core\Notices::canHide('2026-09-01', '2026-10-02'), Kaleta\Core\Notices::canHide('', '2026-10-02')],
@@ -2419,13 +2417,13 @@ $noticeRows = [
 check('2.11 Notices::due – posted when the day comes (visible only), taken_down the day after, each once', Kaleta\Core\Notices::due($noticeRows, [6 => ['posted' => true, 'taken_down' => true], 7 => ['posted' => true]], '2026-10-02'),
     [[1, 'posted', '2026-10-01'], [2, 'posted', '2026-09-01'], [2, 'taken_down', '2026-10-01'], [3, 'posted', '2026-09-01'], [7, 'taken_down', '2026-09-20']]);
 check('2.11 Notices::due – a second run adds nothing', Kaleta\Core\Notices::due($noticeRows, [1 => ['posted' => true], 2 => ['posted' => true, 'taken_down' => true], 3 => ['posted' => true], 6 => ['posted' => true, 'taken_down' => true], 7 => ['posted' => true, 'taken_down' => true]], '2026-10-02'), []);
-$noticePrevious = ['item_id' => 5, 'name' => 'Rozpočet', 'slug' => 'rozpocet', 'visible' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12","issuer":"","category":"","document":"","summary":""}'];
+$noticePrevious = ['item_id' => 5, 'name' => 'Rozpočet', 'slug' => 'rozpocet', 'visible' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12","issuer":"","category":"","document":"","summary":""}']; // check-english: allow
 check('2.11 Notices::changes – a new notice lists its values, a change only what differs, no change nothing', [
-    Kaleta\Core\Notices::changes($board, null, ['name' => 'Rozpočet', 'slug' => 'rozpocet', 'visible' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12"}']),
-    Kaleta\Core\Notices::changes($board, $noticePrevious, ['name' => 'Rozpočet 2026', 'data' => '{"posted":"2026-10-01","taken_down":"2026-10-20","reference":"MU/12","issuer":"","category":"","document":"","summary":""}', 'updated_at' => 'x']),
-    Kaleta\Core\Notices::changes($board, $noticePrevious, ['name' => 'Rozpočet', 'slug' => 'rozpocet', 'data' => $noticePrevious['data']])],
-    [['name' => ['', 'Rozpočet'], 'slug' => ['', 'rozpocet'], 'visible' => ['', 'yes'], 'posted' => ['', '2026-10-01'], 'reference' => ['', 'MU/12']],
-        ['name' => ['Rozpočet', 'Rozpočet 2026'], 'taken_down' => ['', '2026-10-20']], []]);
+    Kaleta\Core\Notices::changes($board, null, ['name' => 'Rozpočet', 'slug' => 'rozpocet', 'visible' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12"}']), // check-english: allow
+    Kaleta\Core\Notices::changes($board, $noticePrevious, ['name' => 'Rozpočet 2026', 'data' => '{"posted":"2026-10-01","taken_down":"2026-10-20","reference":"MU/12","issuer":"","category":"","document":"","summary":""}', 'updated_at' => 'x']), // check-english: allow
+    Kaleta\Core\Notices::changes($board, $noticePrevious, ['name' => 'Rozpočet', 'slug' => 'rozpocet', 'data' => $noticePrevious['data']])], // check-english: allow
+    [['name' => ['', 'Rozpočet'], 'slug' => ['', 'rozpocet'], 'visible' => ['', 'yes'], 'posted' => ['', '2026-10-01'], 'reference' => ['', 'MU/12']], // check-english: allow
+        ['name' => ['Rozpočet', 'Rozpočet 2026'], 'taken_down' => ['', '2026-10-20']], []]); // check-english: allow
 check('2.11 Notices::changesText and the job are known', [Kaleta\Core\Notices::changesText(['posted' => ['', '2026-10-03'], 'name' => ['A', 'B'], 'taken_down' => '2026-10-18']),
     Kaleta\Core\Scheduler::JOBS['notices'][0], Kaleta\Core\Scheduler::JOBS['notices'][1], isset(Kaleta\Core\Scheduler::jobs()['notices'])], ['posted: → 2026-10-03; name: A → B; taken_down: 2026-10-18', 3600, 'any', true]);
 /* ---------- 2.12: calls and e-mail clicks counted as conversions (Core\Conversions) ---------- */
@@ -2448,61 +2446,61 @@ check('2.12 Conversions::total – every type together, missing keys are zero', 
 use Kaleta\Core\Triage;
 
 check('2.12 Triage::clean – a known kind and priority (number or word), a plain-text reply; anything else is left unchanged', [
-    Triage::clean('sales', 3, "Dobrý den,\r\n<b>děkujeme</b>."), Triage::clean('hack', 9, null), Triage::clean('spam', 'low', str_repeat('x', 6000))['suggested_reply'] !== null ? mb_strlen((string) Triage::clean('spam', 'low', str_repeat('x', 6000))['suggested_reply']) : 0,
+    Triage::clean('sales', 3, "Dobrý den,\r\n<b>děkujeme</b>."), Triage::clean('hack', 9, null), Triage::clean('spam', 'low', str_repeat('x', 6000))['suggested_reply'] !== null ? mb_strlen((string) Triage::clean('spam', 'low', str_repeat('x', 6000))['suggested_reply']) : 0, // check-english: allow
     Triage::clean(null, 'high', null)['priority']],
-    [['category' => 'sales', 'priority' => 3, 'suggested_reply' => "Dobrý den,\nděkujeme."], ['category' => null, 'priority' => null, 'suggested_reply' => null], 5000, 3]);
+    [['category' => 'sales', 'priority' => 3, 'suggested_reply' => "Dobrý den,\nděkujeme."], ['category' => null, 'priority' => null, 'suggested_reply' => null], 5000, 3]); // check-english: allow
 check('2.12 Triage::rule – an application from a job opening is a job; anything else is left to Claude or the assistant', [Triage::rule(['source' => 'collection:7'], ['collection:7']), Triage::rule(['source' => 'page:3'], ['collection:7'])],
     [['category' => 'job', 'priority' => 2, 'suggested_reply' => null], null]);
-check('2.12 Triage::text – the form, the page, what it was about and every field; never the attachment path', Triage::text(['form' => 'Kontakt', 'page' => '/kontakt', 'topic' => 'Služby – Koupelny',
-    'data' => json_encode([['Jméno', 'Eva'], ['Životopis', 'cv.pdf (20 kB)', '2026/10/abc.pdf']])]), "Form: Kontakt\nPage: /kontakt\nAbout: Služby – Koupelny\nJméno: Eva\nŽivotopis: cv.pdf (20 kB)");
+check('2.12 Triage::text – the form, the page, what it was about and every field; never the attachment path', Triage::text(['form' => 'Kontakt', 'page' => '/kontakt', 'topic' => 'Služby – Koupelny', // check-english: allow
+    'data' => json_encode([['Jméno', 'Eva'], ['Životopis', 'cv.pdf (20 kB)', '2026/10/abc.pdf']])]), "Form: Kontakt\nPage: /kontakt\nAbout: Služby – Koupelny\nJméno: Eva\nŽivotopis: cv.pdf (20 kB)"); // check-english: allow
 check('2.12 Triage: the background job is known and a machine never overwrites a person', [Kaleta\Core\Scheduler::JOBS['triage'][0], in_array('claude', Triage::MACHINES, true), in_array('Jana', Triage::MACHINES, true)], [300, true, false]);
 
 /* ---------- 2.12: multi-step forms, conditions and the price estimate (Builder\Elements\Form) ---------- */
 use Kaleta\Builder\Elements\Form as FormElement;
 
 $calcFields = [
-    ['label' => 'Typ', 'type' => 'radio', 'choices' => "Okna | 1200\nDveře | 9 900\nPoradenství"],
-    ['label' => 'Počet', 'type' => 'number', 'unit_price' => '1 500'],
-    ['label' => 'Doplňky', 'type' => 'checkboxes', 'checkbox_options' => "Montáž | 2000\nOdvoz | 500"],
-    ['label' => 'Barva dveří', 'type' => 'select', 'options' => "Bílá\nDub | 3000", 'show_when_field' => 'Typ', 'show_when_value' => 'Dveře'],
-    ['label' => 'Odstín', 'type' => 'text', 'show_when_field' => 'Barva dveří', 'show_when_value' => '*'],
+    ['label' => 'Typ', 'type' => 'radio', 'choices' => "Okna | 1200\nDveře | 9 900\nPoradenství"], // check-english: allow
+    ['label' => 'Počet', 'type' => 'number', 'unit_price' => '1 500'], // check-english: allow
+    ['label' => 'Doplňky', 'type' => 'checkboxes', 'checkbox_options' => "Montáž | 2000\nOdvoz | 500"], // check-english: allow
+    ['label' => 'Barva dveří', 'type' => 'select', 'options' => "Bílá\nDub | 3000", 'show_when_field' => 'Typ', 'show_when_value' => 'Dveře'], // check-english: allow
+    ['label' => 'Odstín', 'type' => 'text', 'show_when_field' => 'Barva dveří', 'show_when_value' => '*'], // check-english: allow
     ['label' => 'Krok 2', 'type' => 'step'],
-    ['label' => 'Odhad', 'type' => 'estimate', 'base_price' => '500', 'currency' => 'Kč'],
+    ['label' => 'Odhad', 'type' => 'estimate', 'base_price' => '500', 'currency' => 'Kč'], // check-english: allow
 ];
 check('2.12 Form::optionPrices – "Label | price" lines, the visitor sees and sends only the label', [FormElement::optionPrices($calcFields[0]), FormElement::options($calcFields[2])],
-    [['Okna' => 1200.0, 'Dveře' => 9900.0, 'Poradenství' => 0.0], ['Montáž', 'Odvoz']]);
-$calcAnswers = [0 => 'Okna', 1 => '4', 2 => ['Montáž'], 3 => 'Dub', 4 => 'tmavý'];
+    [['Okna' => 1200.0, 'Dveře' => 9900.0, 'Poradenství' => 0.0], ['Montáž', 'Odvoz']]); // check-english: allow
+$calcAnswers = [0 => 'Okna', 1 => '4', 2 => ['Montáž'], 3 => 'Dub', 4 => 'tmavý']; // check-english: allow
 $calcVisible = FormElement::visible($calcFields, $calcAnswers);
 check('2.12 Form::visible – a condition on another answer, a chain of conditions, a missing field hides it', [$calcVisible[3], $calcVisible[4], $calcVisible[0],
-    FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub'])[4], FormElement::visible([['label' => 'A', 'type' => 'text', 'show_when_field' => 'Nikde', 'show_when_value' => 'x']], [])[0]],
+    FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub'])[4], FormElement::visible([['label' => 'A', 'type' => 'text', 'show_when_field' => 'Nikde', 'show_when_value' => 'x']], [])[0]], // check-english: allow
     [false, false, true, true, false]);
 check('2.12 Form::estimate – the base, chosen and ticked options and number × unit price, only of shown fields', [FormElement::estimate($calcFields, $calcAnswers, $calcVisible, 500.0),
-    FormElement::estimate($calcFields, [0 => 'Dveře', 1 => '', 2 => [], 3 => 'Dub'], FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub']), 0.0)], [500.0 + 1200 + 4 * 1500 + 2000, 9900.0 + 3000]);
-check('2.12 Form::money – whole amounts without decimals, the currency after a no-break space', [FormElement::money(9700.0, 'Kč'), FormElement::money(12.5, ''), FormElement::price('1 200,50')],
-    [format_count(9700) . "\u{a0}Kč", format_count(12.5, 2), 1200.5]);
+    FormElement::estimate($calcFields, [0 => 'Dveře', 1 => '', 2 => [], 3 => 'Dub'], FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub']), 0.0)], [500.0 + 1200 + 4 * 1500 + 2000, 9900.0 + 3000]); // check-english: allow
+check('2.12 Form::money – whole amounts without decimals, the currency after a no-break space', [FormElement::money(9700.0, 'Kč'), FormElement::money(12.5, ''), FormElement::price('1 200,50')], // check-english: allow
+    [format_count(9700) . "\u{a0}Kč", format_count(12.5, 2), 1200.5]); // check-english: allow
 
 /* ---------- 2.12: testimonial requests with consent (Core\Testimonials) ---------- */
 use Kaleta\Core\Testimonials;
 
 check('2.12 Testimonials::clean – words, a name and the consent to publish them are required; tags never get through', [
-    Testimonials::clean(['text' => 'Skvělá spolupráce, <b>doporučuji</b>.', 'name' => ' Eva ', 'role' => "ředitelka\nACME", 'consent_words' => '1']),
-    Testimonials::clean(['text' => 'krátce', 'name' => 'Eva', 'consent_words' => '1']) === t('Please write a few words.'),
-    Testimonials::clean(['text' => 'Skvělá spolupráce s firmou.', 'name' => 'Eva']) === t('We can publish your words only with your consent.'),
-    Testimonials::clean(['text' => 'Skvělá spolupráce s firmou.', 'name' => '', 'consent_words' => '1']) === t('Please fill in your name.')],
-    [['text' => 'Skvělá spolupráce, doporučuji.', 'name' => 'Eva', 'role' => 'ředitelka ACME', 'words' => true, 'photo' => false], true, true, true]);
+    Testimonials::clean(['text' => 'Skvělá spolupráce, <b>doporučuji</b>.', 'name' => ' Eva ', 'role' => "ředitelka\nACME", 'consent_words' => '1']), // check-english: allow
+    Testimonials::clean(['text' => 'krátce', 'name' => 'Eva', 'consent_words' => '1']) === t('Please write a few words.'), // check-english: allow
+    Testimonials::clean(['text' => 'Skvělá spolupráce s firmou.', 'name' => 'Eva']) === t('We can publish your words only with your consent.'), // check-english: allow
+    Testimonials::clean(['text' => 'Skvělá spolupráce s firmou.', 'name' => '', 'consent_words' => '1']) === t('Please fill in your name.')], // check-english: allow
+    [['text' => 'Skvělá spolupráce, doporučuji.', 'name' => 'Eva', 'role' => 'ředitelka ACME', 'words' => true, 'photo' => false], true, true, true]); // check-english: allow
 check('2.12 Testimonials: the link is 32 hex characters and a valid-looking but unknown one finds nothing without the database', [Testimonials::DAYS, Testimonials::PRESET, (new ReflectionMethod(Testimonials::class, 'find'))->getNumberOfParameters()], [30, 'references', 2]);
 /* ---------- 2.12: share images drawn by the site (Front\ShareImage) ---------- */
 $ogChars = fn (string $s): int => mb_strlen($s) * 10; // a stand-in for GD: every character 10 px wide
 check('2.12 ShareImage::wrap – words fill the line, a word wider than the line is broken by characters, no text = one empty line', [
-    Kaleta\Front\ShareImage::wrap('Dřevěné schody na míru', $ogChars, 150), Kaleta\Front\ShareImage::wrap('Nejneobhospodařovávatelnějšími a', $ogChars, 100), Kaleta\Front\ShareImage::wrap('', $ogChars, 100)],
-    [['Dřevěné schody', 'na míru'], ['Nejneobhos', 'podařováva', 'telnějšími', 'a'], ['']]);
+    Kaleta\Front\ShareImage::wrap('Dřevěné schody na míru', $ogChars, 150), Kaleta\Front\ShareImage::wrap('Nejneobhospodařovávatelnějšími a', $ogChars, 100), Kaleta\Front\ShareImage::wrap('', $ogChars, 100)], // check-english: allow
+    [['Dřevěné schody', 'na míru'], ['Nejneobhos', 'podařováva', 'telnějšími', 'a'], ['']]); // check-english: allow
 $ogWidth = fn (string $s, int $size): int => (int) round(mb_strlen($s) * $size * 0.6); // 0.6 em per character
 check('2.12 ShareImage::fit – a short title at the largest size, a long one goes down until three lines hold it', [
     Kaleta\Front\ShareImage::fit("Kontakt \n", $ogWidth, 1040, 3, 60, 34), Kaleta\Front\ShareImage::fit(str_repeat('slovo ', 16), $ogWidth, 1040, 3, 60, 34)],
-    [[60, ['Kontakt']], [48, ['slovo slovo slovo slovo slovo slovo', 'slovo slovo slovo slovo slovo slovo', 'slovo slovo slovo slovo']]]);
+    [[60, ['Kontakt']], [48, ['slovo slovo slovo slovo slovo slovo', 'slovo slovo slovo slovo slovo slovo', 'slovo slovo slovo slovo']]]); // check-english: allow
 [$ogSize, $ogLines] = Kaleta\Front\ShareImage::fit(str_repeat('slovo ', 60), $ogWidth, 1040, 3, 60, 34);
 check('2.12 ShareImage::fit – what the smallest size cannot hold is cut, the last line ends with an ellipsis', [$ogSize, count($ogLines), str_ends_with($ogLines[2], 'slovo…'), $ogWidth($ogLines[2], 34) <= 1040], [34, 3, true, true]);
-$ogBrief = ['v' => 1, 'title' => 'Kontakt', 'site' => 'Firma', 'colors' => ['#2b5be3', '#ffffff', '#16181d'], 'logo' => '', 'logo_time' => 0];
+$ogBrief = ['v' => 1, 'title' => 'Kontakt', 'site' => 'Firma', 'colors' => ['#2b5be3', '#ffffff', '#16181d'], 'logo' => '', 'logo_time' => 0]; // check-english: allow
 $ogHash = Kaleta\Front\ShareImage::hash($ogBrief, 'key-a');
 check('2.12 ShareImage::hash – 32 hex characters; the same brief gives the same address, another title, colour or key a different one', [
     preg_match('/^[a-f0-9]{32}$/', $ogHash), $ogHash === Kaleta\Front\ShareImage::hash($ogBrief, 'key-a'), $ogHash === Kaleta\Front\ShareImage::hash(array_replace($ogBrief, ['title' => 'Kontakty']), 'key-a'),
@@ -2519,8 +2517,8 @@ check('2.12 EnquiryTopic::itemSlug – the item from the address of its page, wi
     Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/jine/koupelna'), Kaleta\Front\EnquiryTopic::itemSlug('', '/a/b'), Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/sluzby/Koupelna%20X')],
     ['koupelna', 'koupelna', null, null, null, null]);
 check('2.12 EnquiryTopic::compose – "collection – item", a page alone, trimmed and cut to the column', [
-    Kaleta\Front\EnquiryTopic::compose('Služby', 'Rekonstrukce koupelny'), Kaleta\Front\EnquiryTopic::compose(' Kontakt '), Kaleta\Front\EnquiryTopic::compose('', 'Okno'), mb_strlen(Kaleta\Front\EnquiryTopic::compose(str_repeat('a', 200), str_repeat('b', 200)))],
-    ['Služby – Rekonstrukce koupelny', 'Kontakt', 'Okno', 255]);
+    Kaleta\Front\EnquiryTopic::compose('Služby', 'Rekonstrukce koupelny'), Kaleta\Front\EnquiryTopic::compose(' Kontakt '), Kaleta\Front\EnquiryTopic::compose('', 'Okno'), mb_strlen(Kaleta\Front\EnquiryTopic::compose(str_repeat('a', 200), str_repeat('b', 200)))], // check-english: allow
+    ['Služby – Rekonstrukce koupelny', 'Kontakt', 'Okno', 255]); // check-english: allow
 $nsWeek = Kaleta\Front\NextSteps::DEFAULT_WEEK;
 $nsLunch = array_fill_keys(Kaleta\Core\Hours::DAYS, []);
 foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as $nsDay) { $nsLunch[$nsDay] = [['08:00', '12:00'], ['13:00', '17:00']]; }
@@ -2539,9 +2537,9 @@ check('2.12 NextSteps::deadlineText – today, tomorrow, a weekday within the we
     Kaleta\Front\NextSteps::deadlineText(new DateTimeImmutable('2026-10-05 16:00'), $nsNow), Kaleta\Front\NextSteps::deadlineText(new DateTimeImmutable('2026-10-06 08:30'), $nsNow),
     Kaleta\Front\NextSteps::deadlineText(new DateTimeImmutable('2026-10-08 11:00'), $nsNow), Kaleta\Front\NextSteps::deadlineText(new DateTimeImmutable('2026-10-19 11:00'), $nsNow)],
     [t('We will reply today by %s.', '16:00'), t('We will reply tomorrow by %s.', '8:30'), t('We will reply %s by %s.', t('on Thursday'), '11:00'), t('We will reply by %s.', format_date('2026-10-19 11:00', true))]);
-check('2.12 NextSteps::steps – one step per line, empty lines dropped; the content keys have English names', [Kaleta\Front\NextSteps::steps(['next_steps' => "Zavoláme vám\r\n\n  Přijedeme na zaměření \n"]), Kaleta\Front\NextSteps::steps([]),
+check('2.12 NextSteps::steps – one step per line, empty lines dropped; the content keys have English names', [Kaleta\Front\NextSteps::steps(['next_steps' => "Zavoláme vám\r\n\n  Přijedeme na zaměření \n"]), Kaleta\Front\NextSteps::steps([]), // check-english: allow
     'next_steps', 'reply_within_hours', 'who_replies'],
-    [['Zavoláme vám', 'Přijedeme na zaměření'], [], 'next_steps', 'reply_within_hours', 'who_replies']);
+    [['Zavoláme vám', 'Přijedeme na zaměření'], [], 'next_steps', 'reply_within_hours', 'who_replies']); // check-english: allow
 
 /* ---------- 2.12: pricing table, before and after, hotspots, timeline ---------- */
 $f9App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor();
@@ -2654,22 +2652,22 @@ check('2.14 MediaHygiene::isOversized – over 2 MB or wider than 2560 px, never
     ['image_path' => 'media/2026/01/e.pdf', 'thumb_path' => '', 'image_size' => 30_000_000, 'image_width' => 0]]), [true, true, false, false, false]);
 $f16Check = fn (array $input): array => array_column(Kaleta\Core\ContentCheck::run($input), 'ok', 'check');
 check('2.14 ContentCheck – a good text page: the title is the H1, H2 follows, the keyword from the title is in the description and the first paragraph, images described', $f16Check([
-    'title' => 'Kuchyně na míru pro rodinné domy v Brně', 'description' => 'Navrhujeme a vyrábíme kuchyně na míru pro rodinné domy v Brně a okolí – od zaměření po montáž, se zárukou pěti let.',
-    'html' => '<p>Kuchyně na míru stavíme už dvacet let.</p><h2>Jak pracujeme</h2><p>Text</p><h3>Zaměření</h3><img src="/media/a.jpg" alt="Kuchyň">', 'title_is_h1' => true]),
+    'title' => 'Kuchyně na míru pro rodinné domy v Brně', 'description' => 'Navrhujeme a vyrábíme kuchyně na míru pro rodinné domy v Brně a okolí – od zaměření po montáž, se zárukou pěti let.', // check-english: allow
+    'html' => '<p>Kuchyně na míru stavíme už dvacet let.</p><h2>Jak pracujeme</h2><p>Text</p><h3>Zaměření</h3><img src="/media/a.jpg" alt="Kuchyň">', 'title_is_h1' => true]), // check-english: allow
     ['title_length' => true, 'description_length' => true, 'single_h1' => true, 'heading_order' => true, 'keyword' => true, 'images_alt' => true]);
 check('2.14 ContentCheck – a short title, no description, two H1s, a skipped level, the keyword missing, an image without alt', [$f16Check([
-    'title' => 'Kuchyně', 'description' => '', 'html' => '<h1>Nabídka</h1><p>Vyrábíme nábytek.</p><h3>Skok</h3><img src="/media/a.jpg"><img src="/media/b.jpg" alt="">', 'title_is_h1' => true]),
-    array_column(Kaleta\Core\ContentCheck::run(['title' => 'Kuchyně', 'description' => '', 'html' => '<h1>Nabídka</h1><h3>Skok</h3>', 'title_is_h1' => true]), 'message', 'check')['heading_order']],
+    'title' => 'Kuchyně', 'description' => '', 'html' => '<h1>Nabídka</h1><p>Vyrábíme nábytek.</p><h3>Skok</h3><img src="/media/a.jpg"><img src="/media/b.jpg" alt="">', 'title_is_h1' => true]), // check-english: allow
+    array_column(Kaleta\Core\ContentCheck::run(['title' => 'Kuchyně', 'description' => '', 'html' => '<h1>Nabídka</h1><h3>Skok</h3>', 'title_is_h1' => true]), 'message', 'check')['heading_order']], // check-english: allow
     [['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => false, 'keyword' => false, 'images_alt' => false],
         t('Headings skip a level (%s) – screen readers and search engines read the outline.', 'H1 → H3')]);
 check('2.14 ContentCheck – a build page has its own H1 (none = a warning), a too long title and description are warnings, the keyword search ignores case and diacritics', $f16Check([
-    'title' => str_repeat('Dlouhý titulek ', 5), 'description' => str_repeat('Popis stránky pro vyhledávače. ', 6),
-    'html' => '<h2>DLOUHY titulek bez diakritiky</h2><p>dlouhy TITULEK v odstavci</p>', 'title_is_h1' => false]),
+    'title' => str_repeat('Dlouhý titulek ', 5), 'description' => str_repeat('Popis stránky pro vyhledávače. ', 6), // check-english: allow
+    'html' => '<h2>DLOUHY titulek bez diakritiky</h2><p>dlouhy TITULEK v odstavci</p>', 'title_is_h1' => false]), // check-english: allow
     ['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => true, 'keyword' => false, 'images_alt' => true]);
 check('2.14 ContentCheck::forPage – a text page is judged with its title as the H1, a build page by its draft', [
-    array_column(Kaleta\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'description' => '', 'text' => '<h2>Tým</h2>', 'build' => null, 'build_draft' => null]), 'ok', 'check')['single_h1'],
-    array_column(Kaleta\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'description' => '', 'text' => '', 'build' => null,
-        'build_draft' => Kaleta\Builder\Build::toJson(Kaleta\Builder\Build::fromText('Náš tým', '<p>Lidé.</p>'))]), 'ok', 'check')['single_h1']], [true, true]);
+    array_column(Kaleta\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'description' => '', 'text' => '<h2>Tým</h2>', 'build' => null, 'build_draft' => null]), 'ok', 'check')['single_h1'], // check-english: allow
+    array_column(Kaleta\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'description' => '', 'text' => '', 'build' => null, // check-english: allow
+        'build_draft' => Kaleta\Builder\Build::toJson(Kaleta\Builder\Build::fromText('Náš tým', '<p>Lidé.</p>'))]), 'ok', 'check')['single_h1']], [true, true]); // check-english: allow
 check('2.14 Translations::status – missing, present, outdated (the original changed after the translation was saved); a never-changed row counts by its date', [
     Kaleta\Core\Translations::status(null, '2026-01-10 10:00:00'), Kaleta\Core\Translations::status(['updated_at' => '2026-01-11 10:00:00'], '2026-01-10 10:00:00'),
     Kaleta\Core\Translations::status(['updated_at' => '2026-01-09 10:00:00'], '2026-01-10 10:00:00'), Kaleta\Core\Translations::status(['updated_at' => null, 'created_at' => '2026-01-09 10:00:00'], '2026-01-10 10:00:00'),
@@ -2691,8 +2689,8 @@ foreach (Kaleta\Core\Privacy::providersIn($f17Embeds, []) as $f17Key) {
 check('2.14 Privacy: the YouTube embed maps to its cookies with the marketing category; every known cookie has a known category', [$f17Rows,
     array_values(array_unique(array_filter(array_merge(...array_values(array_map(fn (array $p): array => array_column($p[2], 3), Kaleta\Core\Privacy::KNOWN))), fn (string $c): bool => !isset(Kaleta\Core\Privacy::CATEGORIES[$c]))))],
     [['VISITOR_INFO1_LIVE:marketing', 'YSC:marketing', 'PREF:marketing'], []]);
-check('2.14 Privacy::anonymiseData – labels stay, values go, the attachment entry is left out', Kaleta\Core\Privacy::anonymiseData([['Jméno', 'Jan Novák'], ['Email', 'jan@example.com'], ['Telefon', '+420 777 123 456'], ['Zpráva', 'Dobrý den, …'], ['CV', 'cv.pdf (120 kB)', '2026/10/abcdefabcdefabcdefabcdef.pdf']]),
-    [['Jméno', ''], ['Email', ''], ['Telefon', ''], ['Zpráva', '']]);
+check('2.14 Privacy::anonymiseData – labels stay, values go, the attachment entry is left out', Kaleta\Core\Privacy::anonymiseData([['Jméno', 'Jan Novák'], ['Email', 'jan@example.com'], ['Telefon', '+420 777 123 456'], ['Zpráva', 'Dobrý den, …'], ['CV', 'cv.pdf (120 kB)', '2026/10/abcdefabcdefabcdefabcdef.pdf']]), // check-english: allow
+    [['Jméno', ''], ['Email', ''], ['Telefon', ''], ['Zpráva', '']]); // check-english: allow
 $f17Md = Kaleta\Core\Privacy::markdown([['heading' => 'Forms', 'lines' => ['Form “Contact”: fields Name (text), Email (e-mail)']]], 'Record of processing');
 check('2.14 Privacy::markdown – a title, the template notice and the sections as lists; the scheduler job and the settings are known', [str_starts_with($f17Md, '# Record of processing'), str_contains($f17Md, "## Forms\n\n- Form “Contact”: fields Name (text), Email (e-mail)"), str_contains($f17Md, t('Generated on %s from the site’s configuration. A template to review and complete – not legal advice.', date('j. n. Y'))),
     Kaleta\Core\Scheduler::JOBS['cookie_scan'], isset(Kaleta\Core\Scheduler::jobs()['cookie_scan']), Kaleta\Core\Settings::DEFAULTS['enquiries_expiry'], Kaleta\Core\Settings::DEFAULTS['accessibility_toolbar'],
@@ -2700,11 +2698,11 @@ check('2.14 Privacy::markdown – a title, the template notice and the sections 
     [true, true, true, [86400, 'cron', 'What cookies the site sets'], true, 'delete', '0', ['read', ''], ['read', '']]);
 /* ---------- 2.14: links that look after themselves (Core\RedirectMatcher, Core\Links, Core\InternalLinks) ---------- */
 $f15Score = fn (string $missing, string $candidate): int => Kaleta\Core\RedirectMatcher::score($missing, $candidate, ['cs', 'en']);
-check('2.14 RedirectMatcher: the same address written differently scores 100', [$f15Score('/O-nas/', 'o-nas'), $f15Score('o-nas.html', 'o-nas'), $f15Score('/kontakt/index.php', 'kontakt')], [100, 100, 100]);
-check('2.14 RedirectMatcher: an old prefix or a moved language prefix scores 95', [$f15Score('novinky/moje-novinka', 'news/moje-novinka'), $f15Score('/blog/clanek-x', 'novinky/clanek-x'), $f15Score('en/kontakt', 'kontakt'), $f15Score('kontakt', 'en/kontakt')], [95, 95, 95, 95]);
-check('2.14 RedirectMatcher: the same last segment elsewhere scores 90, a similar slug below', [$f15Score('sluzby/weby', 'weby'), $f15Score('weby', 'sluzby/weby'), $f15Score('kontakty', 'kontakt') < 90 && $f15Score('kontakty', 'kontakt') >= Kaleta\Core\RedirectMatcher::MIN_SCORE,
+check('2.14 RedirectMatcher: the same address written differently scores 100', [$f15Score('/O-nas/', 'o-nas'), $f15Score('o-nas.html', 'o-nas'), $f15Score('/kontakt/index.php', 'kontakt')], [100, 100, 100]); // check-english: allow
+check('2.14 RedirectMatcher: an old prefix or a moved language prefix scores 95', [$f15Score('novinky/moje-novinka', 'news/moje-novinka'), $f15Score('/blog/clanek-x', 'novinky/clanek-x'), $f15Score('en/kontakt', 'kontakt'), $f15Score('kontakt', 'en/kontakt')], [95, 95, 95, 95]); // check-english: allow
+check('2.14 RedirectMatcher: the same last segment elsewhere scores 90, a similar slug below', [$f15Score('sluzby/weby', 'weby'), $f15Score('weby', 'sluzby/weby'), $f15Score('kontakty', 'kontakt') < 90 && $f15Score('kontakty', 'kontakt') >= Kaleta\Core\RedirectMatcher::MIN_SCORE, // check-english: allow
     $f15Score('cenik-2019', 'cenik') < 90 && $f15Score('cenik-2019', 'cenik') >= Kaleta\Core\RedirectMatcher::MIN_SCORE], [90, 90, true, true]);
-check('2.14 RedirectMatcher: random paths, bot probes and unrelated pages do not match', [$f15Score('asdkjh-qwe', 'kontakt'), $f15Score('wp-content/uploads/x.jpg', 'kontakt'), $f15Score('o-nas', 'o-firme'), $f15Score('xy', 'xyz'), $f15Score('', 'kontakt')], [0, 0, 0, 0, 0]);
+check('2.14 RedirectMatcher: random paths, bot probes and unrelated pages do not match', [$f15Score('asdkjh-qwe', 'kontakt'), $f15Score('wp-content/uploads/x.jpg', 'kontakt'), $f15Score('o-nas', 'o-firme'), $f15Score('xy', 'xyz'), $f15Score('', 'kontakt')], [0, 0, 0, 0, 0]); // check-english: allow
 $f15Build = ['v' => 1, 'children' => [['id' => 'e1', 'type' => 'section', 'children' => [['id' => 'e2', 'type' => 'button', 'content' => ['text' => 'Go', 'link' => 'http://127.0.0.1:1/dead']],
     ['id' => 'e3', 'type' => 'text', 'content' => ['html' => '<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="{{fact.web}}">f</a></p>']],
     ['id' => 'e4', 'type' => 'pricing_table', 'content' => ['plans' => [['name' => 'A', 'link' => '/kontakt'], ['name' => 'B', 'link' => '#']]]]]]]];
@@ -2715,7 +2713,7 @@ check('2.14 Links::collect: a text page and a collection item (link fields and l
     [[['https://example.com/', '']], [['https://example.org/firma', ''], ['https://example.com/b', '']]]);
 check('2.14 Links::hint: the archived copy only as a suggestion for outside addresses', [str_contains(Kaleta\Core\Links::hint('https://example.com/x', 404), 'https://web.archive.org/web/2020/https://example.com/x'), str_contains(Kaleta\Core\Links::hint('/news/stara', 404), 'no longer exists')], [true, true]);
 check('2.14 Links::isPublic: the test seam is off without the environment variable', Kaleta\Core\Links::isPublic('http://127.0.0.1:1/x'), false);
-check('2.14 InternalLinks::words: title words for the term overlap – lower case, no diacritics, four letters or more', Kaleta\Core\InternalLinks::words('Reference &amp; portfolio: Zateplení domů v Brně'), ['reference', 'portfolio', 'zatepleni', 'domu', 'brne']);
+check('2.14 InternalLinks::words: title words for the term overlap – lower case, no diacritics, four letters or more', Kaleta\Core\InternalLinks::words('Reference &amp; portfolio: Zateplení domů v Brně'), ['reference', 'portfolio', 'zatepleni', 'domu', 'brne']); // check-english: allow
 check('2.14: the redirects job runs daily, redirect.auto is a known event, orphan is an audit kind', [Kaleta\Core\Scheduler::JOBS['redirects'][0], isset(Kaleta\Core\Events::TYPES['redirect.auto']), isset(Kaleta\Core\Audit::KINDS['orphan'])], [86400, true, true]);
 $keyedSettings = static function (string $key): Kaleta\Core\Settings {
     $s = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
@@ -2752,26 +2750,26 @@ check('2.13 SearchData::bingRows – pages come as Query or Page, a bare list wo
 $sdLink = Kaleta\Core\SocialDrafts::trackedLink('https://example.com/novinky/nova-hala', 'facebook', 'nova-hala');
 check('2.13 SocialDrafts: the tracked link carries the network, the medium and the news slug; an existing query is kept', [$sdLink, Kaleta\Core\SocialDrafts::trackedLink('https://example.com/novinky/a?x=1', 'x', 'a')],
     ['https://example.com/novinky/nova-hala?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala', 'https://example.com/novinky/a?x=1&utm_source=x&utm_medium=social&utm_campaign=a']);
-check('2.13 SocialDrafts: hashtags from the tags – CamelCase without diacritics, at most three, no duplicates', [Kaleta\Core\SocialDrafts::hashtags(['Nová hala', 'výroba', 'nova hala', 'CNC stroje', 'čtvrtý']), Kaleta\Core\SocialDrafts::hashtags(['', '!!!'])],
+check('2.13 SocialDrafts: hashtags from the tags – CamelCase without diacritics, at most three, no duplicates', [Kaleta\Core\SocialDrafts::hashtags(['Nová hala', 'výroba', 'nova hala', 'CNC stroje', 'čtvrtý']), Kaleta\Core\SocialDrafts::hashtags(['', '!!!'])], // check-english: allow
     [['#NovaHala', '#Vyroba', '#CncStroje'], []]);
-$sdLead = trim(str_repeat('Otevřeli jsme novou výrobní halu s moderními stroji. ', 12)); // about 620 characters
+$sdLead = trim(str_repeat('Otevřeli jsme novou výrobní halu s moderními stroji. ', 12)); // about 620 characters // check-english: allow
 $sdTags = ['#NovaHala', '#Vyroba'];
-$sdFacebook = Kaleta\Core\SocialDrafts::text('facebook', 'Nová hala', $sdLead, $sdTags, $sdLink);
-$sdLinkedin = Kaleta\Core\SocialDrafts::text('linkedin', 'Nová hala', $sdLead, $sdTags, $sdLink);
-$sdX = Kaleta\Core\SocialDrafts::text('x', 'Nová hala', $sdLead, $sdTags, $sdLink);
-$sdInstagram = Kaleta\Core\SocialDrafts::text('instagram', 'Nová hala', $sdLead, $sdTags, $sdLink);
+$sdFacebook = Kaleta\Core\SocialDrafts::text('facebook', 'Nová hala', $sdLead, $sdTags, $sdLink); // check-english: allow
+$sdLinkedin = Kaleta\Core\SocialDrafts::text('linkedin', 'Nová hala', $sdLead, $sdTags, $sdLink); // check-english: allow
+$sdX = Kaleta\Core\SocialDrafts::text('x', 'Nová hala', $sdLead, $sdTags, $sdLink); // check-english: allow
+$sdInstagram = Kaleta\Core\SocialDrafts::text('instagram', 'Nová hala', $sdLead, $sdTags, $sdLink); // check-english: allow
 check('2.13 SocialDrafts: Facebook and LinkedIn start with the title and end with the hashtags and the link; Facebook shortens the lead, LinkedIn keeps more of it',
-    [str_starts_with($sdFacebook, "Nová hala\n\nOtevřeli"), str_ends_with($sdFacebook, "#NovaHala #Vyroba\n\n" . $sdLink), str_contains($sdFacebook, '…'), str_ends_with($sdLinkedin, $sdLink), mb_strlen($sdLinkedin) > mb_strlen($sdFacebook)],
+    [str_starts_with($sdFacebook, "Nová hala\n\nOtevřeli"), str_ends_with($sdFacebook, "#NovaHala #Vyroba\n\n" . $sdLink), str_contains($sdFacebook, '…'), str_ends_with($sdLinkedin, $sdLink), mb_strlen($sdLinkedin) > mb_strlen($sdFacebook)], // check-english: allow
     [true, true, true, true, true]);
 check('2.13 SocialDrafts: X fits 280 with the link counted as 23 – the hashtags and the link stay whole, the lead gives way', [Kaleta\Core\SocialDrafts::xLength($sdX) <= 280, Kaleta\Core\SocialDrafts::xLength($sdX) > 240, str_ends_with($sdX, "#NovaHala #Vyroba\n" . $sdLink),
     Kaleta\Core\SocialDrafts::xLength('abc https://example.com/a/very/long/path/that/goes/on'), Kaleta\Core\SocialDrafts::xLength(Kaleta\Core\SocialDrafts::text('x', str_repeat('T', 300), '', [], $sdLink))], [true, true, true, 27, 280]);
 check('2.13 SocialDrafts: Instagram has no link in the text, says link in bio and keeps the hashtags', [str_contains($sdInstagram, 'http'), str_ends_with($sdInstagram, "#NovaHala #Vyroba\n\n" . t('Link in bio'))], [false, true]);
 check('2.13 SocialDrafts: the chosen networks in a fixed order, unknown ones dropped; shorten() cuts at a word; plain() strips the editor HTML',
-    [Kaleta\Core\SocialDrafts::chosen('x, facebook,evil'), Kaleta\Core\SocialDrafts::chosen(Kaleta\Core\SocialDrafts::DEFAULT_NETWORKS), Kaleta\Core\SocialDrafts::shorten('Dlouhý text s mnoha slovy', 14), Kaleta\Core\SocialDrafts::shorten('krátký', 20), Kaleta\Core\SocialDrafts::plain('<p>A &amp; B</p><p>C</p>')],
-    [['facebook', 'x'], ['facebook', 'linkedin'], 'Dlouhý text…', 'krátký', 'A & B C']);
+    [Kaleta\Core\SocialDrafts::chosen('x, facebook,evil'), Kaleta\Core\SocialDrafts::chosen(Kaleta\Core\SocialDrafts::DEFAULT_NETWORKS), Kaleta\Core\SocialDrafts::shorten('Dlouhý text s mnoha slovy', 14), Kaleta\Core\SocialDrafts::shorten('krátký', 20), Kaleta\Core\SocialDrafts::plain('<p>A &amp; B</p><p>C</p>')], // check-english: allow
+    [['facebook', 'x'], ['facebook', 'linkedin'], 'Dlouhý text…', 'krátký', 'A & B C']); // check-english: allow
 check('2.13 SocialDrafts: finish() completes an assistant text – its own links out, the hashtags and the tracked link back, X within its limit, Instagram without a link',
-    [Kaleta\Core\SocialDrafts::finish('linkedin', 'Nový text https://evil.example/x od asistenta.', $sdTags, $sdLink), Kaleta\Core\SocialDrafts::xLength(Kaleta\Core\SocialDrafts::finish('x', $sdLead, $sdTags, $sdLink)) <= 280, str_contains(Kaleta\Core\SocialDrafts::finish('instagram', 'Text', [], $sdLink), 'http')],
-    ["Nový text od asistenta.\n\n#NovaHala #Vyroba\n\n" . $sdLink, true, false]);
+    [Kaleta\Core\SocialDrafts::finish('linkedin', 'Nový text https://evil.example/x od asistenta.', $sdTags, $sdLink), Kaleta\Core\SocialDrafts::xLength(Kaleta\Core\SocialDrafts::finish('x', $sdLead, $sdTags, $sdLink)) <= 280, str_contains(Kaleta\Core\SocialDrafts::finish('instagram', 'Text', [], $sdLink), 'http')], // check-english: allow
+    ["Nový text od asistenta.\n\n#NovaHala #Vyroba\n\n" . $sdLink, true, false]); // check-english: allow
 /* ---------- 2.13: Google Business Profile sync and reviews (Core\GoogleBusiness) ---------- */
 $gbpWeek = array_fill_keys(Kaleta\Core\Hours::DAYS, []);
 $gbpWeek['Monday'] = [['08:00', '12:00'], ['13:00', '17:30']];
@@ -2816,39 +2814,39 @@ check('2.13 GBP: the queue handler, the daily job, the element in the builder an
     isset(Kaleta\Core\Facts::BUILT_IN['google_rating']), isset(Kaleta\Core\Facts::BUILT_IN['google_reviews']), array_diff(Kaleta\Core\GoogleBusiness::CONFIG, array_keys(Kaleta\Connectors\Google::settings())) === []],
     [Kaleta\Core\GoogleBusiness::class, 86400, true, 'google_reviews', ['type' => 'google_reviews', 'content' => ['count' => 3, 'min_stars' => 4, 'summary' => true, 'link' => 'https://maps.google.com/?cid=1']], true, true, true]);
 /* ---------- 2.13: enquiries to a sheet and the CRM (Core\EnquiryDelivery, EnquirySheet, EnquiryCrm) ---------- */
-$f13Fields = Kaleta\Core\EnquiryDelivery::fields([['Firma', 'Acme s.r.o.'], ['Jméno a příjmení', 'Jan Novák'], ['E-mail', 'jan@example.cz'], ['Telefon', '+420 777 123 456'], ['Zpráva', "Chci kuchyň.\nDo léta."], ['Souhlas', 'ano'], ['CV', 'cv.pdf (12 kB)', '2026/09/abc.pdf']],
+$f13Fields = Kaleta\Core\EnquiryDelivery::fields([['Firma', 'Acme s.r.o.'], ['Jméno a příjmení', 'Jan Novák'], ['E-mail', 'jan@example.cz'], ['Telefon', '+420 777 123 456'], ['Zpráva', "Chci kuchyň.\nDo léta."], ['Souhlas', 'ano'], ['CV', 'cv.pdf (12 kB)', '2026/09/abc.pdf']], // check-english: allow
     ['text', 'text', 'email', 'tel', 'textarea', 'checkbox', 'file']);
 $f13Lead = Kaleta\Core\EnquiryDelivery::lead($f13Fields, 'jan@example.cz');
 check('2.13 EnquiryDelivery::lead – the e-mail, the phone, the name by its label, the company, the rest as text without the consent and never the attachment path',
-    [$f13Lead, $f13Fields[6]], [['name' => 'Jan Novák', 'email' => 'jan@example.cz', 'phone' => '+420 777 123 456', 'company' => 'Acme s.r.o.', 'text' => "Zpráva: Chci kuchyň.\nDo léta.\nCV: cv.pdf (12 kB)"], ['CV', 'cv.pdf (12 kB)', 'file']]);
+    [$f13Lead, $f13Fields[6]], [['name' => 'Jan Novák', 'email' => 'jan@example.cz', 'phone' => '+420 777 123 456', 'company' => 'Acme s.r.o.', 'text' => "Zpráva: Chci kuchyň.\nDo léta.\nCV: cv.pdf (12 kB)"], ['CV', 'cv.pdf (12 kB)', 'file']]); // check-english: allow
 check('2.13 EnquiryDelivery::lead – without a name label the first text field is the name; an empty e-mail field keeps the enquiry e-mail',
-    Kaleta\Core\EnquiryDelivery::lead([['Kdo', 'Eva', 'text'], ['Město', 'Brno', 'text'], ['Mail', '', 'email']], 'eva@example.cz'), ['name' => 'Eva', 'email' => 'eva@example.cz', 'phone' => '', 'company' => '', 'text' => 'Město: Brno']);
+    Kaleta\Core\EnquiryDelivery::lead([['Kdo', 'Eva', 'text'], ['Město', 'Brno', 'text'], ['Mail', '', 'email']], 'eva@example.cz'), ['name' => 'Eva', 'email' => 'eva@example.cz', 'phone' => '', 'company' => '', 'text' => 'Město: Brno']); // check-english: allow
 check('2.13 EnquiryDelivery: names split at the last space, the forms list is matched by name, case and spaces aside', [
-    Kaleta\Core\EnquiryDelivery::splitName('Jan Maria Novák'), Kaleta\Core\EnquiryDelivery::splitName('Novák'), Kaleta\Core\EnquiryDelivery::splitName(''),
-    Kaleta\Core\EnquiryDelivery::formWanted('', 'Poptávka'), Kaleta\Core\EnquiryDelivery::formWanted('Kontakt, poptávka ', 'Poptávka'), Kaleta\Core\EnquiryDelivery::formWanted('Kontakt', 'Poptávka'),
-    Kaleta\Core\EnquiryDelivery::title(['form' => 'Poptávka', 'topic' => 'Kuchyně']), Kaleta\Core\EnquiryDelivery::title(['form' => 'Poptávka', 'topic' => ''])],
-    [['Jan Maria', 'Novák'], ['', 'Novák'], ['', ''], true, true, false, 'Poptávka – Kuchyně', 'Poptávka']);
-$f13Payload = ['service' => 'google', 'enquiry' => 5, 'date' => '2026-10-03 10:00', 'form' => 'Poptávka', 'topic' => 'Kuchyně', 'email' => 'jan@example.cz', 'page' => 'https://example.cz/kontakt', 'fields' => $f13Fields];
+    Kaleta\Core\EnquiryDelivery::splitName('Jan Maria Novák'), Kaleta\Core\EnquiryDelivery::splitName('Novák'), Kaleta\Core\EnquiryDelivery::splitName(''), // check-english: allow
+    Kaleta\Core\EnquiryDelivery::formWanted('', 'Poptávka'), Kaleta\Core\EnquiryDelivery::formWanted('Kontakt, poptávka ', 'Poptávka'), Kaleta\Core\EnquiryDelivery::formWanted('Kontakt', 'Poptávka'), // check-english: allow
+    Kaleta\Core\EnquiryDelivery::title(['form' => 'Poptávka', 'topic' => 'Kuchyně']), Kaleta\Core\EnquiryDelivery::title(['form' => 'Poptávka', 'topic' => ''])], // check-english: allow
+    [['Jan Maria', 'Novák'], ['', 'Novák'], ['', ''], true, true, false, 'Poptávka – Kuchyně', 'Poptávka']); // check-english: allow
+$f13Payload = ['service' => 'google', 'enquiry' => 5, 'date' => '2026-10-03 10:00', 'form' => 'Poptávka', 'topic' => 'Kuchyně', 'email' => 'jan@example.cz', 'page' => 'https://example.cz/kontakt', 'fields' => $f13Fields]; // check-english: allow
 check('2.13 EnquirySheet: the create body carries the title and a bold frozen header, a row has the fixed columns then every other field in its own cell', [
     Kaleta\Core\EnquirySheet::createBody('Acme – enquiries', Kaleta\Core\EnquirySheet::COLUMNS)['properties'], Kaleta\Core\EnquirySheet::createBody('A', ['Date', 'Form'])['sheets'][0]['properties'],
     array_column(array_column(Kaleta\Core\EnquirySheet::createBody('A', ['Date', 'Form'])['sheets'][0]['data'][0]['rowData'][0]['values'], 'userEnteredValue'), 'stringValue'),
     Kaleta\Core\EnquirySheet::appendBody($f13Payload)],
     [['title' => 'Acme – enquiries'], ['title' => 'Form', 'gridProperties' => ['frozenRowCount' => 1]], ['Date', 'Form'],
-        ['values' => [['2026-10-03 10:00', 'Poptávka', 'Kuchyně', 'jan@example.cz', 'https://example.cz/kontakt', 'Jan Novák', '+420 777 123 456', 'Zpráva: Chci kuchyň.', 'Do léta.', 'CV: cv.pdf (12 kB)']]]]);
+        ['values' => [['2026-10-03 10:00', 'Poptávka', 'Kuchyně', 'jan@example.cz', 'https://example.cz/kontakt', 'Jan Novák', '+420 777 123 456', 'Zpráva: Chci kuchyň.', 'Do léta.', 'CV: cv.pdf (12 kB)']]]]); // check-english: allow
 check('2.13 HubSpot bodies: the search by e-mail, the contact with only the filled properties, the note associated to the contact', [
     Kaleta\Connectors\HubSpot::searchBody('jan@example.cz')['filterGroups'][0]['filters'][0], Kaleta\Connectors\HubSpot::contactBody($f13Lead), Kaleta\Connectors\HubSpot::contactBody(['name' => 'Eva', 'email' => '', 'phone' => '', 'company' => '']),
     Kaleta\Connectors\HubSpot::noteBody('777', 'Text', 1700000000)],
-    [['propertyName' => 'email', 'operator' => 'EQ', 'value' => 'jan@example.cz'], ['properties' => ['email' => 'jan@example.cz', 'firstname' => 'Jan', 'lastname' => 'Novák', 'phone' => '+420 777 123 456', 'company' => 'Acme s.r.o.']], ['properties' => ['lastname' => 'Eva']],
+    [['propertyName' => 'email', 'operator' => 'EQ', 'value' => 'jan@example.cz'], ['properties' => ['email' => 'jan@example.cz', 'firstname' => 'Jan', 'lastname' => 'Novák', 'phone' => '+420 777 123 456', 'company' => 'Acme s.r.o.']], ['properties' => ['lastname' => 'Eva']], // check-english: allow
         ['properties' => ['hs_timestamp' => '1700000000000', 'hs_note_body' => 'Text'], 'associations' => [['to' => ['id' => '777'], 'types' => [['associationCategory' => 'HUBSPOT_DEFINED', 'associationTypeId' => 202]]]]]]);
 check('2.13 Pipedrive: the API of the company domain (nothing else is an address), the person with primary e-mail and phone, the lead and its note', [
     Kaleta\Connectors\Pipedrive::api('Acme-1'), Kaleta\Connectors\Pipedrive::api('evil.example.com'), Kaleta\Connectors\Pipedrive::api(''), Kaleta\Connectors\Pipedrive::authHeaders('x', ''),
-    Kaleta\Connectors\Pipedrive::personBody($f13Lead), Kaleta\Connectors\Pipedrive::personBody(['name' => 'Eva', 'email' => '', 'phone' => '']), Kaleta\Connectors\Pipedrive::leadBody('Poptávka – Kuchyně', 42), Kaleta\Connectors\Pipedrive::noteBody('Text', 'lead-1', 42)],
-    ['https://acme-1.pipedrive.com/api/v1', null, null, [], ['name' => 'Jan Novák', 'email' => [['value' => 'jan@example.cz', 'primary' => true]], 'phone' => [['value' => '+420 777 123 456', 'primary' => true]]], ['name' => 'Eva'],
-        ['title' => 'Poptávka – Kuchyně', 'person_id' => 42], ['content' => 'Text', 'lead_id' => 'lead-1', 'person_id' => 42]]);
+    Kaleta\Connectors\Pipedrive::personBody($f13Lead), Kaleta\Connectors\Pipedrive::personBody(['name' => 'Eva', 'email' => '', 'phone' => '']), Kaleta\Connectors\Pipedrive::leadBody('Poptávka – Kuchyně', 42), Kaleta\Connectors\Pipedrive::noteBody('Text', 'lead-1', 42)], // check-english: allow
+    ['https://acme-1.pipedrive.com/api/v1', null, null, [], ['name' => 'Jan Novák', 'email' => [['value' => 'jan@example.cz', 'primary' => true]], 'phone' => [['value' => '+420 777 123 456', 'primary' => true]]], ['name' => 'Eva'], // check-english: allow
+        ['title' => 'Poptávka – Kuchyně', 'person_id' => 42], ['content' => 'Text', 'lead_id' => 'lead-1', 'person_id' => 42]]); // check-english: allow
 check('2.13 Raynet: HTTP Basic from the user and the key, the lead with the contact and the notice, empty parts left out', [
-    Kaleta\Connectors\Raynet::authHeaders('rn-key', 'user@example.cz'), Kaleta\Connectors\Raynet::leadBody('Poptávka – Kuchyně', $f13Lead, 'Text'), Kaleta\Connectors\Raynet::leadBody('Poptávka', ['name' => 'Eva', 'email' => '', 'phone' => '', 'company' => ''], '')],
-    [['Authorization' => 'Basic ' . base64_encode('user@example.cz:rn-key')], ['topic' => 'Poptávka – Kuchyně', 'firstName' => 'Jan', 'lastName' => 'Novák', 'companyName' => 'Acme s.r.o.', 'contactInfo' => ['email' => 'jan@example.cz', 'tel1' => '+420 777 123 456'], 'notice' => 'Text'],
-        ['topic' => 'Poptávka', 'lastName' => 'Eva']]);
+    Kaleta\Connectors\Raynet::authHeaders('rn-key', 'user@example.cz'), Kaleta\Connectors\Raynet::leadBody('Poptávka – Kuchyně', $f13Lead, 'Text'), Kaleta\Connectors\Raynet::leadBody('Poptávka', ['name' => 'Eva', 'email' => '', 'phone' => '', 'company' => ''], '')], // check-english: allow
+    [['Authorization' => 'Basic ' . base64_encode('user@example.cz:rn-key')], ['topic' => 'Poptávka – Kuchyně', 'firstName' => 'Jan', 'lastName' => 'Novák', 'companyName' => 'Acme s.r.o.', 'contactInfo' => ['email' => 'jan@example.cz', 'tel1' => '+420 777 123 456'], 'notice' => 'Text'], // check-english: allow
+        ['topic' => 'Poptávka', 'lastName' => 'Eva']]); // check-english: allow
 check('2.13 Connectors: the three CRMs are in the curated list with the enquiry switch in their settings; the queue prefixes sheets and crm have their handlers', [
     array_map(fn (string $c): string => $c::KEY, Kaleta\Core\Connectors::SERVICES), array_map(fn (string $c): bool => isset($c::settings()['enquiries']) && $c::settings()['enquiries'][2] === 'check', Kaleta\Core\Connectors::SERVICES),
     Kaleta\Core\Connectors::handler('sheets.append'), Kaleta\Core\Connectors::handler('crm.lead'), Kaleta\Core\Connectors::handler('other.x')],
@@ -3084,8 +3082,8 @@ check('3.0 Batch::analyze – counts, the first titles, the dictionary for later
     $ghostState['overview']['blocks'], isset($ghostState['overview']['warnings']['no_site_url']), $ghostState['dictionary']['tags']['t1']['name'], count($ghostState['overview']['notes'])],
     ['preview', 7, ['published' => 1, 'draft' => 1, 'scheduled' => 1], ['published' => 1], 2, ['About the workshop'], ['bookmark' => 1], true, 'Workshop', 3]);
 $preview = Kaleta\Import\Preview::empty();
-foreach ([new Kaleta\Import\Post('1', 'post', 'Lávka přes Bystřinu', 'lavka', '<p>a</p>'), new Kaleta\Import\Post('2', 'post', 'Lávka', 'lavka', '<p>b</p>'),
-    new Kaleta\Import\Post('3', 'page', 'Lávka', 'lavka', '<p>c</p>'), new Kaleta\Import\Post('4', 'post', 'Bez adresy', '', '<img src="/relative.png">', featureImageUrl: 'data:image/png;base64,x')] as $r) {
+foreach ([new Kaleta\Import\Post('1', 'post', 'Lávka přes Bystřinu', 'lavka', '<p>a</p>'), new Kaleta\Import\Post('2', 'post', 'Lávka', 'lavka', '<p>b</p>'), // check-english: allow
+    new Kaleta\Import\Post('3', 'page', 'Lávka', 'lavka', '<p>c</p>'), new Kaleta\Import\Post('4', 'post', 'Bez adresy', '', '<img src="/relative.png">', featureImageUrl: 'data:image/png;base64,x')] as $r) { // check-english: allow
     Kaleta\Import\Preview::tally($preview, $r);
 }
 Kaleta\Import\Preview::finish($preview, $blogger);
@@ -3098,7 +3096,7 @@ check('3.0 Batch: status, dates and the source label', [Kaleta\Import\Batch::sta
     [['visible' => 1], ['visible' => 0], null, date('Y-m-d H:i:s', strtotime('2024-03-10T09:00:00.000Z')), date('Y-m-d H:i:s', 1789000000), 'ghost:old.example', 'blogger']);
 check('3.0 Sources and file names: the key from the file name, only known systems and extensions, safe upload names', [
     array_keys(Kaleta\Import\Sources::all()), Kaleta\Import\Sources::keyOfFile('ghost-my-blog.json'), Kaleta\Import\Sources::keyOfFile('ghost-my-blog.xml'), Kaleta\Import\Sources::keyOfFile('export.json'),
-    Kaleta\Import\Batch::uploadName('blogger', 'Můj blog (2024).xml'), Kaleta\Import\Batch::uploadName('ghost', 'clay.notes.JSON'), Kaleta\Import\Batch::isValidName('../ghost-x.json'), Kaleta\Import\Batch::isValidName('blogger-x.xml')],
+    Kaleta\Import\Batch::uploadName('blogger', 'Můj blog (2024).xml'), Kaleta\Import\Batch::uploadName('ghost', 'clay.notes.JSON'), Kaleta\Import\Batch::isValidName('../ghost-x.json'), Kaleta\Import\Batch::isValidName('blogger-x.xml')], // check-english: allow
     [['ghost', 'blogger', 'joomla', 'drupal', 'webflow'], 'ghost', null, null, 'blogger-muj-blog-2024.xml', 'ghost-clay-notes.json', false, true]);
 
 
@@ -3412,7 +3410,7 @@ $n50Html = $n25Html($n50Build);
 check('3.3.3 N50: a builder Text element saved by an editor with both strings renders no javascript: link', [(bool) preg_match('/href="\s*javascript:/i', $n50Html), substr_count($n50Html, 'href="#"')], [false, 2]);
 check('3.3.3 N50: Facts::save refuses a text fact that starts with another scheme than http(s), mailto or tel; other text stays allowed', array_map(Kaleta\Core\Facts::startsWithScheme(...),
     ['javascript:alert(1)', ' JaVa' . "\t" . 'Script:alert(1)', "\x01javascript:x", 'javascript: alert(1)', 'data:text/html,x', 'vbscript:x', 'foo:bar', 'https://example.com/', 'mailto:a@b.cz', 'tel:+420',
-     'Note: open daily', 'Open 8:00–16:00', 'Po–Pá 8:00', 'Pozn.: viz níže', 'Price 100 CZK', '']),
+     'Note: open daily', 'Open 8:00–16:00', 'Po–Pá 8:00', 'Pozn.: viz níže', 'Price 100 CZK', '']), // check-english: allow
     [true, true, true, true, true, true, true, false, false, false, false, false, false, false, false, false]);
 $n26Cache->setValue(null, [Kaleta\Core\Language::siteColumn() => []]); // no facts – the N38 builds below are filled without a database
 
@@ -3492,7 +3490,7 @@ check('3.3.2 (N43): an API fetch that carries a token is not redirected from htt
 /* ---------- 3.3.3: security release, workstream A ---------- */
 // N52: one normalized host for the lookup, the pin and the request
 check('3.3.3 N52: Outbound::host – IDN to punycode, lowercase; a percent sign, other characters and numeric IPv4 spellings are refused', array_map(Kaleta\Core\Outbound::host(...),
-    ['%61.attacker.tld', '%70inme.localhost', 'čeština.example', 'WWW.Example.COM', 'ｅxample.com', 'a_b.example', 'a..b', '0x7f.1', '2130706433', '127.1', '[::1]', '[0:0::1]', '93.184.216.34', 'example.com.', 'ex ample.com', '[not-ip]', '']),
+    ['%61.attacker.tld', '%70inme.localhost', 'čeština.example', 'WWW.Example.COM', 'ｅxample.com', 'a_b.example', 'a..b', '0x7f.1', '2130706433', '127.1', '[::1]', '[0:0::1]', '93.184.216.34', 'example.com.', 'ex ample.com', '[not-ip]', '']), // check-english: allow
     [null, null, 'xn--etina-gya30d.example', 'www.example.com', 'example.com', null, null, null, null, null, '::1', '::1', '93.184.216.34', 'example.com.', null, null, null]);
 check('3.3.3 N52: Outbound::url writes the normalized host into the URL – the name checked, pinned and requested is one string', [
     Kaleta\Core\Outbound::url('https://Čeština.Example:8443/a/%C4%8D?x=%41#f'), Kaleta\Core\Outbound::url('http://[::1]/x'), Kaleta\Core\Outbound::url('https://%61.example/'),
@@ -3500,13 +3498,13 @@ check('3.3.3 N52: Outbound::url writes the normalized host into the URL – the 
     [['url' => 'https://xn--etina-gya30d.example:8443/a/%C4%8D?x=%41#f', 'host' => 'xn--etina-gya30d.example', 'port' => 8443, 'scheme' => 'https'],
      ['url' => 'http://[::1]/x', 'host' => '::1', 'port' => 80, 'scheme' => 'http'], null, null, null, null]);
 $n52Wp = new Kaleta\Core\ImageDownloader('https://stary-web.example');
-$n52Any = new Kaleta\Core\ImageDownloader('https://čeština.example', true);
+$n52Any = new Kaleta\Core\ImageDownloader('https://čeština.example', true); // check-english: allow
 check('3.3.3 N52: every checker refuses a %xx host and accepts an IDN host in its normalized form (images, fetch, fleet, links)', [
-    $n52Wp->isAllowedUrl('https://%73tary-web.example/a.png'), $n52Any->isAllowedUrl('https://%61.attacker.tld/x.jpg'), $n52Any->isAllowedUrl('https://čeština.example/a.png'), $n52Any->domain(),
-    (new Kaleta\Core\ImageDownloader('https://xn--etina-gya30d.example'))->isAllowedUrl('https://www.čeština.example/a.png'), $n52Wp->verifiedIp('%61.example'),
-    Kaleta\Import\Fetch::allowedUrl('https://%6fld.example/api', 'https://old.example'), Kaleta\Import\Fetch::allowedUrl('https://čeština.example/api', 'https://čeština.example'), Kaleta\Import\Fetch::allowedSite('https://%6fld.example'),
-    Kaleta\Fleet\Http::allowedUrl('https://%61.example/'), Kaleta\Fleet\Http::allowedUrl('https://čeština.example/'), Kaleta\Fleet\Http::pin('https://%61.example/'), Kaleta\Fleet\Http::statuses(['https://%61.example/']),
-    Kaleta\Core\Links::isPublic('https://%61.example/'), Kaleta\Core\Links::target('https://čeština.invalid/')],
+    $n52Wp->isAllowedUrl('https://%73tary-web.example/a.png'), $n52Any->isAllowedUrl('https://%61.attacker.tld/x.jpg'), $n52Any->isAllowedUrl('https://čeština.example/a.png'), $n52Any->domain(), // check-english: allow
+    (new Kaleta\Core\ImageDownloader('https://xn--etina-gya30d.example'))->isAllowedUrl('https://www.čeština.example/a.png'), $n52Wp->verifiedIp('%61.example'), // check-english: allow
+    Kaleta\Import\Fetch::allowedUrl('https://%6fld.example/api', 'https://old.example'), Kaleta\Import\Fetch::allowedUrl('https://čeština.example/api', 'https://čeština.example'), Kaleta\Import\Fetch::allowedSite('https://%6fld.example'), // check-english: allow
+    Kaleta\Fleet\Http::allowedUrl('https://%61.example/'), Kaleta\Fleet\Http::allowedUrl('https://čeština.example/'), Kaleta\Fleet\Http::pin('https://%61.example/'), Kaleta\Fleet\Http::statuses(['https://%61.example/']), // check-english: allow
+    Kaleta\Core\Links::isPublic('https://%61.example/'), Kaleta\Core\Links::target('https://čeština.invalid/')], // check-english: allow
     [false, false, true, 'xn--etina-gya30d.example', true, null, false, true, false, false, true, null, [0], false, false]);
 check('3.3.3 N9: the link check pins every resolved address – IPv6, CGNAT 100.64/10 and NAT64 are internal, a name that does not resolve is not requested', [
     Kaleta\Core\Links::isPublic('http://100.64.0.1/'), Kaleta\Core\Links::isPublic('http://[::1]/'), Kaleta\Core\Links::isPublic('http://[fd00::1]/'), Kaleta\Core\Links::isPublic('http://[64:ff9b::a9fe:a9fe]/'),
@@ -3598,7 +3596,7 @@ check('3.3.3 (N59): the reset link is queued and sent after the response; the qu
 $accountSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 check('3.3.3 (N56): a new e-mail and a new passkey need the current password; the old address hears about the change; the texts are translated', [
     substr_count($accountSource, "password_verify((string) (\$_POST['current_password'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
-    str_contains((string) file_get_contents(KALETA_ROOT . '/image/klice.js'), "soucasne: password ? password.value : ''"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/passkeys.js'), "current_password: password ? password.value : ''"),
     array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
         fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))],
     [4, true, true, []]);
@@ -3615,5 +3613,5 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__
 }
 check('query parameters: no Czech parameter name in the PHP code (the interface is English)', $czechFound, []);
 
-echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
+echo $errors === 0 ? "  ok     unit tests ({$total})\n" : "  ERRORS FOUND: {$errors} of {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -84,7 +84,7 @@ $preview = function (string $data): string {
 <?php if ($app->auth()->isAdmin()): ?>
 <form class="form" method="post" action="<?= e($module->url('settings')) ?>" data-confirm="<?= e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) ?>">
 <?= $csrf ?>
-<div class="row"><label for="mesice"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textfield" type="number" id="mesice" name="months" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
+<div class="row"><label for="months"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textfield" type="number" id="months" name="months" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
 <span class="help"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('After that period')) ?></span><div class="options">
 <?php foreach (['delete' => 'delete them including attachments', 'anonymise' => 'anonymise them – the row stays for statistics (date, form, page, topic, kind) without the name, e-mail, phone, message and attachments'] as $key => $labelText): ?>

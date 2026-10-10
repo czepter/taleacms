@@ -40,13 +40,13 @@ use Kaleta\Admin\Modules\Enquiries;
 <h2><?= e(t('Triage')) ?></h2>
 <form method="post" action="<?= e($module->url('triage')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['enquiry_id'] ?>">
-	<div class="row"><label for="kategorie"><?= e(t('Kind')) ?></label><div><select id="kategorie" name="category"><option value="">—</option>
+	<div class="row"><label for="category"><?= e(t('Kind')) ?></label><div><select id="category" name="category"><option value="">—</option>
 <?php foreach (Kaleta\Core\Triage::CATEGORIES as $key => $name): ?>
 		<option value="<?= e($key) ?>"<?= $p['category'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select>
 	<?php if ($p['triaged_by'] !== ''): ?><span class="help"><?= e(t('Sorted by %s', match ($p['triaged_by']) { 'claude' => 'Claude', 'assistant' => t('the writing assistant'), 'rule' => t('a rule'), default => $p['triaged_by'] })) ?></span><?php endif ?></div></div>
-	<div class="row"><label for="priorita"><?= e(t('Priority')) ?></label><div><select id="priorita" name="priority"><option value="0">—</option>
+	<div class="row"><label for="priority"><?= e(t('Priority')) ?></label><div><select id="priority" name="priority"><option value="0">—</option>
 <?php foreach ([3 => 'urgent', 2 => 'normal', 1 => 'can wait'] as $value => $name): ?>
 		<option value="<?= $value ?>"<?= (int) $p['priority'] === $value ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
@@ -57,12 +57,12 @@ use Kaleta\Admin\Modules\Enquiries;
 </form>
 <form method="post" action="<?= e($module->url('note')) ?>">
 	<?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>">
-	<div class="row"><label for="prirazeno"><?= e(t('Handled by')) ?></label><select id="prirazeno" name="assigned_to"><option value="0">—</option>
+	<div class="row"><label for="assigned_to"><?= e(t('Handled by')) ?></label><select id="assigned_to" name="assigned_to"><option value="0">—</option>
 <?php foreach ($users as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= (int) ($p['assigned_to'] ?? 0) === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></div>
-	<div class="row"><label for="poznamka"><?= e(t('Internal note')) ?></label><div><textarea class="textbox low" id="poznamka" name="note" rows="3"><?= e((string) ($p['note'] ?? '')) ?></textarea>
+	<div class="row"><label for="note"><?= e(t('Internal note')) ?></label><div><textarea class="textbox low" id="note" name="note" rows="3"><?= e((string) ($p['note'] ?? '')) ?></textarea>
 		<span class="help"><?= e(t('Only administration users see it – e.g. what you offered the customer.')) ?></span></div></div>
 	<p class="buttons"><button class="navigation" type="submit"><?= e(t('Save note')) ?></button></p>
 </form>

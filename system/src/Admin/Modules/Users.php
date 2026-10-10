@@ -196,7 +196,7 @@ final class Users extends Module
      * sections together.
      *
      * @param list<string> $modules identifiers of the modules they have access to
-     * @param string|null $autoBlocked when the automatic suspension blocked the account (ka_uzivatele.blokovano_automaticky)
+     * @param string|null $autoBlocked when the automatic suspension blocked the account (ka_users.blokovano_automaticky)
      */
     public static function summary(int $role, array $modules, bool $blocked = false, ?string $autoBlocked = null): string
     {

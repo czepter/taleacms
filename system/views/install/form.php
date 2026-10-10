@@ -87,7 +87,7 @@ $n = function () use (&$step): int {
 	<h2><span><?= $n() ?></span> <?= e(t('Site and administrator')) ?></h2>
 	<p><?= e(t('The account you will first sign in to the administration with.')) ?></p>
 	<div class="field">
-		<div class="full"><label for="nazev_webu"><?= e(t('Site name')) ?></label><input type="text" id="nazev_webu" name="site_name" value="<?= e($data['site_name']) ?>" required></div>
+		<div class="full"><label for="site_name"><?= e(t('Site name')) ?></label><input type="text" id="site_name" name="site_name" value="<?= e($data['site_name']) ?>" required></div>
 		<fieldset class="full sites">
 			<legend><?= e(t('Start with a website')) ?></legend>
 <?php foreach (Kaleta\Builder\Library::SITES as $key => $w): $colors = Kaleta\Builder\DesignSystem::PRESETS[$w['preset']][2]['colors']; ?>
@@ -101,16 +101,16 @@ $n = function () use (&$step): int {
 			<span class="help"><?= e(t('A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.')) ?></span>
 		</fieldset>
 		<div><label for="user"><?= e(t('User name')) ?></label><input type="text" id="user" name="username" value="<?= e($data['username']) ?>" required><?= $error('username') ?></div>
-		<div><label for="jmeno"><?= e(t('First and last name')) ?></label><input type="text" id="jmeno" name="name" value="<?= e($data['name']) ?>"><span class="help"><?= e(t('Shown with news items.')) ?></span></div>
+		<div><label for="name"><?= e(t('First and last name')) ?></label><input type="text" id="name" name="name" value="<?= e($data['name']) ?>"><span class="help"><?= e(t('Shown with news items.')) ?></span></div>
 		<div class="full"><label for="email"><?= e(t('Email')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $error('email') ?></div>
 		<div><label for="password"><?= e(t('Password')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $error('password') ?><span class="help"><?= e(t('At least 10 characters.')) ?></span></div>
 		<div><label for="password2"><?= e(t('Repeat password')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
-		<div class="full"><label for="jazyk_webu"><?= e(t('Site language')) ?></label><select id="jazyk_webu" name="site_language">
+		<div class="full"><label for="site_language"><?= e(t('Site language')) ?></label><select id="site_language" name="site_language">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
 			<option value="<?= e($code) ?>"<?= $data['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 		</select><span class="help"><?= e(t('The sample pages and the texts for visitors are created in this language. The administration stays in the language of the installation.')) ?></span></div>
-		<div class="full"><label for="casove_pasmo"><?= e(t('Time zone')) ?></label><select id="casove_pasmo" name="time_zone">
+		<div class="full"><label for="time_zone"><?= e(t('Time zone')) ?></label><select id="time_zone" name="time_zone">
 <?php foreach (DateTimeZone::listIdentifiers() as $timeZone): ?>
 			<option value="<?= e($timeZone) ?>"<?= $data['time_zone'] === $timeZone ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $timeZone)) ?></option>
 <?php endforeach ?>

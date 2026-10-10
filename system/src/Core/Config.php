@@ -43,7 +43,7 @@ final class Config
         }
         try {
             $db = Db::fromConfig(self::fromEnvironment()['db']);
-            if ((int) $db->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db->prefix . 'uzivatele']) === 0) {
+            if ((int) $db->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db->prefix . 'users']) === 0) {
                 return false;
             }
         } catch (\PDOException) {

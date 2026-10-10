@@ -39,7 +39,7 @@
 <?php if ($code): ?>
 <input type="hidden" name="step" value="code">
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
-<div class="login-field"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textfield" type="text" id="kod" name="code" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+<div class="login-field"><label for="code"><?= e(t('Verification code:')) ?></label> <input class="textfield" type="text" id="code" name="code" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
 <?php else: ?>
 <div class="login-field"><label for="user"><?= e(t('User name')) ?></label> <input class="textfield" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="40" autocomplete="username" required autofocus></div>
 <div class="login-field"><label for="password"><?= e(t('Password')) ?></label> <input class="textfield" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
@@ -47,14 +47,14 @@
 <p><input class="btn" type="submit" value="<?= e(t($code ? 'Verify code' : 'Sign in')) ?>"></p>
 </form>
 <?php if ($code && !empty($keys)): ?>
-<form method="post" action="<?= e($app->url('admin.php')) ?>" data-klice="<?= e($app->url('admin.php')) ?>">
+<form method="post" action="<?= e($app->url('admin.php')) ?>" data-passkey="<?= e($app->url('admin.php')) ?>">
 <?= $app->session->csrfField() ?>
 <p class="login-or"><?= e(t('or')) ?></p>
-<p><button class="btn" type="button" data-klic-prihlasit><?= e(t('Sign in with fingerprint or passkey')) ?></button></p>
-<p class="notice notice-error" data-klic-chyba hidden role="alert"></p>
-<p class="small-text" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
+<p><button class="btn" type="button" data-passkey-signin><?= e(t('Sign in with fingerprint or passkey')) ?></button></p>
+<p class="notice notice-error" data-passkey-error hidden role="alert"></p>
+<p class="small-text" data-passkey-unsupported hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </form>
-<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <?php endif ?>
 <?php if (!$code): ?>
 <p class="login-link"><a href="<?= e($app->url('admin.php?action=password')) ?>"><?= e(t('Forgotten your password?')) ?></a></p>

@@ -77,23 +77,23 @@ final class DesignSystem
      * key => [name, description, values]
      */
     public const array PRESETS = [
-        'firemni' => ['Business', 'Blue, sans-serif type, modest rounding', [
+        'business' => ['Business', 'Blue, sans-serif type, modest rounding', [
             'colors' => ['primary' => '#2b5be3', 'secondary' => '#0f766e', 'text' => '#16181d', 'background' => '#ffffff', 'surface' => '#f5f6f8'],
             'font_heading' => 'modern', 'font_body' => 'modern', 'ratio_min' => 1.2, 'ratio_max' => 1.25, 'radius' => 'm',
         ]],
-        'remeslo' => ['Craftsmanship', 'Warm earthy colours, serif headings', [
+        'crafts' => ['Craftsmanship', 'Warm earthy colours, serif headings', [
             'colors' => ['primary' => '#9a3412', 'secondary' => '#3f6212', 'text' => '#1c1917', 'background' => '#fffbf5', 'surface' => '#f5ede1'],
             'font_heading' => 'classic', 'font_body' => 'modern', 'ratio_min' => 1.2, 'ratio_max' => 1.333, 'radius' => 's',
         ]],
-        'pratelsky' => ['Friendly', 'Fresh green, rounded type and corners', [
+        'friendly' => ['Friendly', 'Fresh green, rounded type and corners', [
             'colors' => ['primary' => '#047857', 'secondary' => '#7c3aed', 'text' => '#132a22', 'background' => '#ffffff', 'surface' => '#effaf5'],
             'font_heading' => 'rounded', 'font_body' => 'modern', 'ratio_min' => 1.2, 'ratio_max' => 1.25, 'radius' => 'l',
         ]],
-        'elegantni' => ['Elegant', 'Dark tones, large serif headings, sharp edges', [
+        'elegant' => ['Elegant', 'Dark tones, large serif headings, sharp edges', [
             'colors' => ['primary' => '#1e293b', 'secondary' => '#a16207', 'text' => '#0f172a', 'background' => '#fcfcfa', 'surface' => '#f1f0ea'],
             'font_heading' => 'elegant', 'font_body' => 'book', 'ratio_min' => 1.25, 'ratio_max' => 1.414, 'radius' => '0',
         ]],
-        'technologie' => ['Technology', 'Purple, bold grotesque, high contrast', [
+        'tech' => ['Technology', 'Purple, bold grotesque, high contrast', [
             'colors' => ['primary' => '#6d28d9', 'secondary' => '#0e7490', 'text' => '#0b0b12', 'background' => '#ffffff', 'surface' => '#f4f3fb'],
             'font_heading' => 'grotesque', 'font_body' => 'modern', 'ratio_min' => 1.25, 'ratio_max' => 1.414, 'radius' => 'm',
         ]],
@@ -136,7 +136,7 @@ final class DesignSystem
             $ds['colors']['primary'] = strtolower($siteSettings->get('brand_accent'));
         }
         foreach (['font_heading' => 'brand_heading_font', 'font_body' => 'brand_text_font'] as $key => $old) {
-            if (!isset($stored[$key]) && $siteSettings->get($old) !== '' && $siteSettings->get($old) !== 'vychozi') {
+            if (!isset($stored[$key]) && $siteSettings->get($old) !== '' && $siteSettings->get($old) !== 'default') {
                 $ds[$key] = $siteSettings->get($old);
             }
         }
@@ -158,8 +158,8 @@ final class DesignSystem
         $clean = [
             'colors' => [], 'colors_dark' => [],
             'custom_fonts' => self::customFonts($ds['custom_fonts'] ?? []),
-            'font_heading' => isset(SiteIdentity::TITLE_FONTS[$ds['font_heading'] ?? '']) && $ds['font_heading'] !== 'vychozi' ? $ds['font_heading'] : $v['font_heading'],
-            'font_body' => isset(SiteIdentity::TEXT_FONTS[$ds['font_body'] ?? '']) && $ds['font_body'] !== 'vychozi' ? $ds['font_body'] : $v['font_body'],
+            'font_heading' => isset(SiteIdentity::TITLE_FONTS[$ds['font_heading'] ?? '']) && $ds['font_heading'] !== 'default' ? $ds['font_heading'] : $v['font_heading'],
+            'font_body' => isset(SiteIdentity::TEXT_FONTS[$ds['font_body'] ?? '']) && $ds['font_body'] !== 'default' ? $ds['font_body'] : $v['font_body'],
             'base_min' => $number($ds['base_min'] ?? null, 0.8, 1.5, $v['base_min']),
             'base_max' => $number($ds['base_max'] ?? null, 0.8, 1.6, $v['base_max']),
             'ratio_min' => $number($ds['ratio_min'] ?? null, 1.05, 1.5, $v['ratio_min']),

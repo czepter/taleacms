@@ -9,7 +9,7 @@
  * The Language switcher element (e.g. in the footer) chooses the style: "row" (row), or "dropdown" (menu) with the full language
  * name in the button, and the direction in which the menu opens (upwards in the footer).
  *
- * @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> $languages
+ * @var array<string, array{name:string, url:string, active:bool, translated:bool}> $languages
  * @var string|null $style auto (a row up to three languages, a menu for more) | row | dropdown
  * @var string|null $direction down | up
  * @var string|null $attributes attributes of the element from the builder (id, classes)

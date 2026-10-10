@@ -553,7 +553,7 @@
 		border.loading = 'lazy';
 		btn.replaceWith(border);
 	});
-	// color scheme switcher (views/front/tema.php): the choice is remembered in the browser, the template head applies it before rendering
+	// color scheme switcher (views/front/color-scheme.php): the choice is remembered in the browser, the template head applies it before rendering
 	(function () {
 		var options = document.querySelectorAll('[data-theme-option]');
 		if (!options.length) { return; }

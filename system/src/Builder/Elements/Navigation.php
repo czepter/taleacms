@@ -48,7 +48,7 @@ final class Navigation extends Element
 .ka-nav li { position: relative; }
 .ka-nav li > .menu-group { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: var(--ka-nav-padding, 0.5em 0.8em); font-weight: var(--ka-nav-weight, 600); cursor: default; }
 .ka-nav .submenu > a::after, .ka-nav .submenu > .menu-group::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
-.ka-nav .submenu.aktivni > a, .ka-nav .submenu.aktivni > .menu-group { color: var(--ka-color-primary); }
+.ka-nav .submenu.active > a, .ka-nav .submenu.active > .menu-group { color: var(--ka-color-primary); }
 .ka-nav .submenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-space-2xs); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: var(--ka-color-text); box-shadow: var(--ka-shadow-m); gap: 2px; }
 /* a submenu has its own spacing and padding – --ka-nav-space and --ka-nav-padding belong to the items of the main bar */
 .ka-nav .submenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-radius) / 1.5); font-weight: 500; }

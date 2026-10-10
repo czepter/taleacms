@@ -23,7 +23,7 @@ final class Images
 
     /**
      * @param array<string, mixed> $file item from $_FILES
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
     public static function save(array $file): array
@@ -42,7 +42,7 @@ final class Images
      * An image that already lies on the server (downloaded during an import from WordPress): it goes the same way as an uploaded one,
      * so it is indistinguishable from it - re-encoding through GD, shrinking, thumbnail, WebP. The source file stays in place.
      *
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
     public static function saveFile(string $path, string $name): array
@@ -56,7 +56,7 @@ final class Images
 
     /**
      * @param bool $uploaded the file came through a form (it is moved with move_uploaded_file); otherwise it is only copied
-     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, name:string}
      */
     private static function process(string $tmp, string $fileName, bool $uploaded): array
     {

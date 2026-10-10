@@ -19,7 +19,7 @@ use Kaleta\Core\Response;
  *
  * The application gets the permissions of the user who allowed it – all of them, or (chosen on the consent screen, 2.2)
  * only drafts or only reading. The access token is valid for an hour, the
- * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokeny (hashes
+ * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokens (hashes
  * only) – disconnecting the application in "My account" deletes them.
  * At the domain root the metadata are at /.well-known/. A site in a subfolder serves them at /folder/.well-known/
  * (openid-configuration included), where MCP clients that follow the current specification look; for others, sign-in with
