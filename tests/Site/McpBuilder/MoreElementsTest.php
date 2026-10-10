@@ -64,7 +64,7 @@ final class MoreElementsTest extends SiteTestCase
 
         $this->assertPage('/admin.php?module=subscribers', 200, 'odber@example.cz', message: 'subscribers in the administration');
         $csv = $site->admin()->get('/admin.php?module=subscribers&action=csv')->body;
-        $this->assertMatchesRegularExpression('/odber@example\.cz;.*odber\?unsubscribe=' . $token . '/', $csv, 'subscriber export with the unsubscribe link');
+        $this->assertMatchesRegularExpression('/odber@example\.cz;.*subscribe\?unsubscribe=' . $token . '/', $csv, 'subscriber export with the unsubscribe link');
 
         $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'newsletter_signup,', '') WHERE name = 'extensions'");
         $this->assertPage('/subscribe?unsubscribe=' . $token, 200, 'Odhlásit odběr', message: 'unsubscribing works with the Newsletter feature off');

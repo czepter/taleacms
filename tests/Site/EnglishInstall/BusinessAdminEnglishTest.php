@@ -51,7 +51,7 @@ final class BusinessAdminEnglishTest extends SiteTestCase
     public function testMessagesAfterSaving(): void
     {
         $this->assertMessageWithoutCzech($this->postAndFollow('/admin.php?module=settings&action=save', ['tab' => 'company', 'company_name' => 'Acme Ltd', 'company_country' => 'GB']), 'message after saving settings');
-        $this->assertMessageWithoutCzech($this->postAndFollow('/admin.php?module=menu&action=save&location=footer', ['items' => '[{"type":"novinky","text":""}]']), 'message after saving a menu');
+        $this->assertMessageWithoutCzech($this->postAndFollow('/admin.php?module=menu&action=save&location=footer', ['items' => '[{"type":"news","text":""}]']), 'message after saving a menu');
 
         $big = $this->site()->workDir('upload') . '/big.jpg';
         file_put_contents($big, str_repeat("\0", 3 * 1024 * 1024));

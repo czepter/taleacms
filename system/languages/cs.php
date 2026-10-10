@@ -3300,10 +3300,12 @@ Odkaz platí %d dní.
     'May' => 'května',
     'July' => 'července',
     'October' => 'října',
+    'Issued' => 'Vydáno',
     'Read article →' => 'Číst článek →',
     'Unknown API address.' => 'Neznámá adresa API.',
     'Most read' => 'Nejčtenější',
     'Mon–Fri 8:00–17:00' => 'Po–Pá 8:00–17:00',
     'Please check the required fields and the email address.' => 'Zkontrolujte prosím vyplnění povinných polí a e-mailové adresy.',
     'Always-on core: Pages, Collections, Media, Site appearance, Site parts, Menu, Components, Users and Settings.' => 'Vždy zapnuté jádro: Stránky, Kolekce, Média, Vzhled webu, Části webu, Menu, Komponenty, Uživatelé a Nastavení.',
+    'Confirm my subscription' => 'Potvrdit odběr',
 ];

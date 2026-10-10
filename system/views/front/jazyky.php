@@ -6,12 +6,12 @@
  *
  * The label "Language" is deliberately in English (even a visitor who does not understand the page language understands it), hence lang="en".
  *
- * The Language switcher element (e.g. in the footer) chooses the style: "rada" (row), or "nabidka" (menu) with the full language
+ * The Language switcher element (e.g. in the footer) chooses the style: "row" (row), or "dropdown" (menu) with the full language
  * name in the button, and the direction in which the menu opens (upwards in the footer).
  *
  * @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> $languages
- * @var string|null $style auto (a row up to three languages, a menu for more) | rada | nabidka
- * @var string|null $direction dolu | nahoru
+ * @var string|null $style auto (a row up to three languages, a menu for more) | row | dropdown
+ * @var string|null $direction down | up
  * @var string|null $attributes attributes of the element from the builder (id, classes)
  */
 $active = array_key_first(array_filter($languages, fn (array $j): bool => $j['active'])) ?? array_key_first($languages);
@@ -25,7 +25,7 @@ $attributes ??= '';
 <?php endforeach ?>
 </nav>
 <?php else: $id = 'ka-languages-' . bin2hex(random_bytes(3)); ?>
-<nav<?= Kaleta\Builder\Elements\Text::withClass($attributes, 'ka-languages-select' . (($direction ?? '') === 'nahoru' ? ' ka-languages-select--up' : '')) ?> lang="en" aria-label="Language">
+<nav<?= Kaleta\Builder\Elements\Text::withClass($attributes, 'ka-languages-select' . (($direction ?? '') === 'up' ? ' ka-languages-select--up' : '')) ?> lang="en" aria-label="Language">
 	<button type="button" class="ka-languages-btn" popovertarget="<?= $id ?>" style="anchor-name: --<?= $id ?>" aria-label="Language: <?= e($languages[$active]['name']) ?>">
 		<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
 		<span><?= e($style === 'dropdown' ? $languages[$active]['name'] : strtoupper((string) $active)) ?></span><?php if ($style === 'dropdown'): ?>

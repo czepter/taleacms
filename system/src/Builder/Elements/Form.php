@@ -59,7 +59,7 @@ final class Form extends Element
                 'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200],
                 'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200],
             ], 'default' => [
-                ['label' => t('Name'), 'type' => 'text', 'required' => true, 'options' => ''],
+                ['label' => t('Your name'), 'type' => 'text', 'required' => true, 'options' => ''],
                 ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
                 ['label' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
                 ['label' => t('How can we help you?'), 'type' => 'textarea', 'required' => true, 'options' => ''],

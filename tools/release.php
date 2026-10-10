@@ -22,10 +22,16 @@ if (PHP_SAPI !== 'cli') {
 }
 $root = dirname(__DIR__);
 $version = $argv[1] ?? '';
-$options = ['url' => '', 'changes' => [], 'security' => false, 'key' => 'operating'];
+$options = ['url' => '', 'changes' => [], 'security' => false, 'key' => 'operating', 'feed' => false, 'digest' => '', 'image' => ''];
 foreach (array_slice($argv, 2) as $arg) {
     if (str_starts_with($arg, '--url=')) {
         $options['url'] = substr($arg, 6);
+    } elseif ($arg === '--feed') {
+        $options['feed'] = true;
+    } elseif (str_starts_with($arg, '--digest=')) {
+        $options['digest'] = substr($arg, 9);
+    } elseif (str_starts_with($arg, '--image=')) {
+        $options['image'] = substr($arg, 8);
     } elseif ($arg === '--security') {
         $options['security'] = true;
     } elseif (str_starts_with($arg, '--change=')) {
@@ -73,6 +79,21 @@ if ($sk === false || strlen($sk) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
 $keyId = Kaleta\Core\Signature::id(sodium_crypto_sign_publickey_from_secretkey($sk));
 if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
     exit("Key {$keyId} is not listed in system/update.pub - installations would reject its signature.\n");
+}
+
+// --- feed mode (container releases, docs/specs/update-and-deployment.md): the CI published the image, this signs the feed entry for it
+if ($options['feed']) {
+    $digest = strtolower((string) preg_replace('/^sha256:/', '', $options['digest']));
+    if (preg_match('/^[a-f0-9]{64}$/', $digest) !== 1 || $options['image'] === '') {
+        exit("Feed mode needs --digest=sha256:<64 hex> (of the pushed image) and --image=<registry/name:version>.\n");
+    }
+    @mkdir($root . '/dist');
+    file_put_contents($root . '/dist/update.json', json_encode([
+        'version' => $version, 'released' => date('Y-m-d'), 'security' => $options['security'], 'changes' => $options['changes'],
+        'image' => $options['image'], 'digest' => 'sha256:' . $digest, 'key' => $keyId,
+        'signature' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $digest, $options['security']), $sk)),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+    exit("Done: dist/update.json for {$options['image']}. Upload it to the release as the asset update.json.\n");
 }
 
 // --- package from the files tracked by git

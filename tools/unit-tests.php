@@ -333,10 +333,11 @@ foreach (Kaleta\Builder\Library::listAll() as $librarySection) {
     }
 }
 check('Builder model: every library section is a valid build with English keys only', $libraryProblems, []);
-check('Builder model: every element type, content field and style property of the schema is English', array_values(array_unique(array_intersect(
+// faq, video and html are Czech map keys that are also valid English words (element types, the content field of text)
+check('Builder model: every element type, content field and style property of the schema is English', array_values(array_diff(array_unique(array_intersect(
     [...array_map(fn (string $c): string => $c::TYPE, Kaleta\Builder\Build::ELEMENTS), ...array_keys(array_merge(...array_map(fn (string $c): array => $c::properties(), Kaleta\Builder\Build::ELEMENTS))),
         ...array_keys(Kaleta\Builder\Style::PROPERTIES), ...array_keys(Kaleta\Builder\Style::STATUSES), ...array_keys(Kaleta\Builder\DesignSystem::COLOR_TOKENS)],
-    [...$czechWords, ...array_keys(array_filter($czechBuilder['types'], fn (string $en, string $cz): bool => $en !== $cz, ARRAY_FILTER_USE_BOTH))]))), []);
+    [...$czechWords, ...array_diff(array_keys(array_filter($czechBuilder['types'], fn (string $en, string $cz): bool => $en !== $cz, ARRAY_FILTER_USE_BOTH)), array_values($czechBuilder['types']))])), ['faq', 'video', 'html'])), []);
 // Ready-made templates of site parts: each builds without errors, wrappers keep exactly one page content element, headers carry the logo
 $templateProblems = [];
 foreach (Kaleta\Builder\PartTemplates::LIST as $partType => $partTemplates) {
@@ -576,30 +577,28 @@ check('Cesty: vlastní adresa novinek koliduje se stránkou', [Routes::isNewsSlu
 check('Cesty: adresa novinek nesmí být systémová cesta ani mít špatný tvar', [Routes::systemSlugError('mcp'), Routes::systemSlugError('en'), Routes::systemSlugError('Blog'), Routes::systemSlugError('a/b'), Routes::systemSlugError('blog'), Routes::systemSlugError('news'), Routes::systemSlugError('')],
     ['This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', 'This URL is used by the system, choose another one.', null, null, null]);
 Routes::setNewsSlug(null);
-// dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
-$enDictionary = require KALETA_ROOT . '/system/languages/en.php';
-// English source texts (1.4.1+) are keys too: their "English translation" is the text itself
-$enDictionary += array_combine(array_keys(require KALETA_ROOT . '/system/languages/cs.php'), array_keys(require KALETA_ROOT . '/system/languages/cs.php'));
+// dictionaries of the site languages: same keys as the Czech one (English source texts), the same %s and tags in the values
+$sourceDictionary = require KALETA_ROOT . '/system/languages/cs.php';
 $dataNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 $brokenDictionaries = [];
 foreach (glob(KALETA_ROOT . '/system/languages/[a-z][a-z].php') ?: [] as $file) {
     $code = basename($file, '.php');
-    if ($code === 'en') {
+    if ($code === 'en' || $code === 'cs') {
         continue;
     }
     $dictionary = require $file;
     if (!isset(Kaleta\Core\Language::AVAILABLE[$code])) {
-        $brokenDictionaries[] = $code . ': jazyk není v Jazyk::DOSTUPNE';
+        $brokenDictionaries[] = $code . ': language is not in Language::AVAILABLE';
     }
     foreach ($dictionary as $key => $translation) {
-        if (!isset($enDictionary[$key]) && !in_array($key, $dataNames, true) && $key !== 'datum_format') {
-            $brokenDictionaries[] = $code . ': navíc „' . $key . '“';
-        } elseif (isset($enDictionary[$key]) && (preg_match_all('/%(?:\d+\$)?[sd]/', $enDictionary[$key]) !== preg_match_all('/%(?:\d+\$)?[sd]/', $translation) || substr_count($enDictionary[$key], '<') !== substr_count($translation, '<'))) {
-            $brokenDictionaries[] = $code . ': zástupné znaky nebo značky v „' . $key . '“';
+        if (!isset($sourceDictionary[$key]) && !in_array($key, $dataNames, true) && $key !== 'date_in_words' && $key !== 'datum_format') {
+            $brokenDictionaries[] = $code . ': extra "' . $key . '"';
+        } elseif (isset($sourceDictionary[$key]) && (preg_match_all('/%(?:\d+\$)?[sd]/', $key) !== preg_match_all('/%(?:\d+\$)?[sd]/', $translation) || substr_count($key, '<') !== substr_count($translation, '<'))) {
+            $brokenDictionaries[] = $code . ': placeholders or tags in "' . $key . '"';
         }
     }
 }
-check('Slovníky jazyků webu: klíče z en.php, stejné %s a HTML', $brokenDictionaries, []);
+check('Site language dictionaries: keys from cs.php, same %s and HTML', $brokenDictionaries, []);
 
 /* ---------- version comparison ---------- */
 $r = Kaleta\Core\Diff::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
@@ -725,8 +724,8 @@ try {
 
 /* ---------- temporary language switch (e-mails in the recipient's language) ---------- */
 Kaleta\Core\Language::set('cs');
-check('Jazyk::docasne: uvnitř platí cizí jazyk', Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Language::code() . '|' . t('Číst článek →')), 'en|Read article →');
-check('Jazyk::docasne: potom se jazyk vrátí', Kaleta\Core\Language::code() . '|' . t('Číst článek →'), 'cs|Číst článek →');
+check('Language::runWith: the other language applies inside', Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Language::code() . '|' . t('Read article →')), 'en|Read article →');
+check('Language::runWith: the language is restored afterwards', Kaleta\Core\Language::code() . '|' . t('Read article →'), 'cs|Číst článek →');
 try {
     Kaleta\Core\Language::runWith('en', function (): never { throw new RuntimeException('x'); });
 } catch (RuntimeException) {
@@ -1014,7 +1013,7 @@ check('Cesty: zbytek textu zůstává escapovaný', str_contains($routesHtml, '&
 check('Cesty: delší cesta má přednost a odkaz se nevnořuje', substr_count($routesHtml, '<a '), 1);
 check('Cesty: bez práva k modulu žádný odkaz', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', 'Nastavení → Pošta', []), '<a '), false);
 Kaleta\Core\Language::set('en', 'admin-');
-check('Cesty: v angličtině se odkazuje přeložená cesta', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', '3.0.1'), ['settings']), '>Settings → Backups and updates</a>'), true);
+check('Menu paths: in English the translated path is linked', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', t('A new version %s is available – install it in Settings → Backups and updates.', '3.0.1'), ['settings']), '>Settings → Backups and updates</a>'), true);
 Kaleta\Core\Language::set('cs', 'admin-');
 
 /* ---------- date in words in the administration (3.2.1: the English and German admin showed Czech months) ---------- */
@@ -1503,7 +1502,7 @@ check('2.1: security.txt', [Kaleta\Front\Seo::securityTxt('security@example.com'
     ["Contact: mailto:security@example.com\nExpires: 2027-03-23T00:00:00Z\nPreferred-Languages: en, de\nCanonical: https://example.com/.well-known/security.txt\n",
     "Contact: https://example.com/security\nExpires: 2027-03-23T00:00:00Z\nCanonical: https://example.com/web/.well-known/security.txt\n"]);
 check('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS), Kaleta\Builder\DesignSystem::LAYERS), true);
-check('DesignSystem::vycisti: nesmysl nahradí výchozí', Kaleta\Builder\DesignSystem::sanitize(['colors' => ['primarni' => 'red;}']])['colors']['primarni'], Kaleta\Builder\DesignSystem::DEFAULTS['colors']['primarni']);
+check('DesignSystem::sanitize: nonsense is replaced by the default', Kaleta\Builder\DesignSystem::sanitize(['colors' => ['primary' => 'red;}']])['colors']['primary'], Kaleta\Builder\DesignSystem::DEFAULTS['colors']['primary']);
 $buildLibraryErrors = [];
 // raw builds (section() already cleans them, so an invalid value would disappear silently)
 foreach ((new ReflectionMethod(Kaleta\Builder\Library::class, 'sections'))->invoke(null) as $buildKey => $buildSection) {
@@ -2448,7 +2447,7 @@ check('2.12 Conversions::path – an absolute path without the query string and 
 $clickLink = fn (string $href): int => preg_match(Kaleta\Core\Conversions::LINK_PATTERN, '<p><a href="' . $href . '">x</a></p>');
 check('2.12 Conversions::LINK_PATTERN – the links the script counts (tel:, mailto:, wa.me, api.whatsapp.com, whatsapp:), not an ordinary link; KEYS name every type',
     [$clickLink('tel:+420123456789'), $clickLink('mailto:info@example.com'), $clickLink('https://wa.me/420123456789'), $clickLink('https://api.whatsapp.com/send?phone=1'), $clickLink('whatsapp://send?phone=1'), $clickLink('https://example.com/tel:'), $clickLink('/kontakt'),
-        array_keys(Kaleta\Core\Conversions::KEYS), in_array('konverze', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)],
+        array_keys(Kaleta\Core\Conversions::KEYS), in_array('conversion', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)],
     [1, 1, 1, 1, 1, 0, 0, Kaleta\Core\Conversions::TYPES, true]);
 check('2.12 Conversions::total – every type together, missing keys are zero', [Kaleta\Core\Conversions::total(['calls' => 2, 'emails' => 1, 'whatsapp' => 4]), Kaleta\Core\Conversions::total(['path' => '/x', 'calls' => 1]), Kaleta\Core\Conversions::total([])], [7, 1, 0]);
 

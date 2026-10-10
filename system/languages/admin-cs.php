@@ -5345,4 +5345,9 @@ return [
     'outline' => 'obrys',
     'checks' => 'fajfky',
     'circle' => 'kruh',
+    'New versions' => 'Nové verze',
+    'Tell me when a new version is available' => 'Upozornit na novou verzi',
+    'Once a day the site reads the project\'s signed release feed (no identifier is sent). It only shows a notice: you update by pulling the new image and restarting. Needs the address of the feed in KALETA_UPDATE_FEED; KALETA_UPDATE_CHECK=0 switches the check off for good.' => 'Jednou denně web přečte podepsaný kanál vydání projektu (neposílá se žádný identifikátor). Jen zobrazí upozornění: aktualizujete stažením nového obrazu a restartem. Vyžaduje adresu kanálu v KALETA_UPDATE_FEED; KALETA_UPDATE_CHECK=0 kontrolu vypne natrvalo.',
+    'A SECURITY update %s is available – update by pulling the new image and restarting.' => 'Je k dispozici BEZPEČNOSTNÍ aktualizace %s – aktualizujte stažením nového obrazu a restartem.',
+    'A new version %s is available – update by pulling the new image and restarting.' => 'Je k dispozici nová verze %s – aktualizujte stažením nového obrazu a restartem.',
 ];

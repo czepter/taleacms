@@ -69,9 +69,9 @@ final class PagesFlowTest extends SiteTestCase
     public function testChangedAddressesOfACategoryAndAPageRedirect(): void
     {
         $this->assertPage('/admin.php?module=categories', 200, 'Kategorie', message: 'category form');
-        $idt = (int) $this->site()->value("SELECT category_id FROM ka_categories WHERE slug = 'aktuality'");
+        $idt = (int) $this->site()->value("SELECT category_id FROM ka_categories WHERE slug = 'novinky'");
         $this->adminPost('/admin.php?module=categories&action=save', ['category_id' => $idt, 'name' => 'Aktuality', 'slug' => 'aktuality-firmy', 'weight' => 100], '/admin.php?module=categories');
-        $this->assertRedirect('/news/category/aktuality', '/news/category/aktuality-firmy', 'the old address of a category redirects to the new one');
+        $this->assertRedirect('/news/category/novinky', '/news/category/aktuality-firmy', 'the old address of a category redirects to the new one');
 
         $ids = $this->idOf('kontakt');
         $this->savePage(['page_id' => $ids, 'title' => 'Kontakt', 'slug' => 'kontakty', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Adresa.</p>']);
@@ -96,7 +96,7 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringContainsString('noindex, follow', $body, 'page: noindex');
 
         $this->adminPost('/admin.php?module=pages&action=duplicate', ['page_id' => $ids], '/admin.php?module=pages');
-        $this->assertSame('0/kontakty-kopie', (string) $site->value("SELECT CONCAT(visible, '/', slug) FROM ka_pages ORDER BY page_id DESC LIMIT 1"), 'the duplicate is hidden and has a free address');
+        $this->assertSame('0/kontakty-copy', (string) $site->value("SELECT CONCAT(visible, '/', slug) FROM ka_pages ORDER BY page_id DESC LIMIT 1"), 'the duplicate is hidden and has a free address');
 
         $this->adminPost('/admin.php?module=pages&action=delete', ['page_id' => $ids], '/admin.php?module=pages');
         $this->assertPage('/kontakty', 404, message: 'a page in the trash is not on the web');
@@ -195,7 +195,7 @@ final class PagesFlowTest extends SiteTestCase
         $location = $this->savePage(['page_id' => 0, 'title' => 'Nabídka', 'template' => 'landing', 'visible' => 0, 'in_menu' => 0, 'text' => ''])->redirect;
         $this->assertStringContainsString('action=builder', $location, 'a new page from a template goes straight to the builder');
         $this->assertSame('1', (string) $site->value("SELECT build_draft LIKE '%\"type\":\"section\"%' FROM ka_pages WHERE slug = 'nabidka'"), 'the template builds a draft from sections');
-        self::$nabidka = $this->idOf('dropdown');
+        self::$nabidka = $this->idOf('nabidka');
         $this->assertGreaterThan(0, self::$nabidka);
     }
 
@@ -233,8 +233,8 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_components WHERE name LIKE 'Balíček%'"), 'a second import of the same page reuses the components');
         $idb = (int) $site->value("SELECT MIN(page_id) FROM ka_pages WHERE title = 'Balíček'");
         $out = json_decode($site->admin()->get('/admin.php?module=pages&action=export&id=' . $idb)->body, true);
-        $this->assertSame('2|balicek-karta,balicek-vlastni,karta|Balíček vnější,Balíček vnitřní',
-            $out['version'] . '|' . implode(',', preg_grep('/^(balicek|karta$)/', array_column($out['classes'], 'name'))) . '|' . implode(',', array_column($out['components'], 'name')),
+        $this->assertSame('2|balicek-karta,balicek-vlastni,card|Balíček vnější,Balíček vnitřní',
+            $out['version'] . '|' . implode(',', preg_grep('/^(balicek|card$)/', array_column($out['classes'], 'name'))) . '|' . implode(',', array_column($out['components'], 'name')),
             'the export lists the used classes and both components');
     }
 

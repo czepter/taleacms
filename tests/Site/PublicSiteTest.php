@@ -24,6 +24,15 @@ final class PublicSiteTest extends SiteTestCase
         $this->assertSame($this->site()->base . '/', $response->redirect);
     }
 
+    public function testHealthEndpointForAnOrchestrator(): void
+    {
+        $response = $this->site()->client()->get('/health');
+
+        $this->assertSame(200, $response->status);
+        $this->assertSame('ok', trim($response->body));
+        $this->assertSame('no-store', $response->headers['cache-control'] ?? '');
+    }
+
     public function testPagesAndStructuredData(): void
     {
         $this->assertPage('/sluzby', 200, 'Služby', message: 'page');
@@ -34,7 +43,7 @@ final class PublicSiteTest extends SiteTestCase
     {
         $this->assertPage('/news', 200, 'Vítejte v Kaletě');
         $this->assertPage('/news/vitejte-v-kalete', 200, ['Vítejte', '"BlogPosting"']);
-        $this->assertPage('/news/category/aktuality');
+        $this->assertPage('/news/category/novinky');
         $this->assertPage('/search?q=Kontakt', 200, 'href="/kontakt"');
     }
 

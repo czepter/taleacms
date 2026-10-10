@@ -21,7 +21,7 @@ trait PublicSiteWalk
             $response = $this->assertCzechFree('/' . $slug, 200, $visitor, label: "$starter: page");
             $this->assertHeadings($response->body, "$starter: page /$slug");
         }
-        $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM ka_pages WHERE build LIKE \'%"type":"obrazek"%\' AND build NOT LIKE \'%"src":"media/%\''), "$starter: a starter page has an image slot without an image");
+        $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM ka_pages WHERE build LIKE \'%"type":"image"%\' AND build NOT LIKE \'%"src":"media/%\''), "$starter: a starter page has an image slot without an image");
         if (in_array('news', explode(',', $site->settingValue('extensions')), true)) {
             $this->assertCzechFree('/news', 200, $visitor, label: "$starter: news");
             $slug = $site->value('SELECT slug FROM ka_news LIMIT 1');

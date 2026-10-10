@@ -189,7 +189,7 @@ final class Popups
                 'newsletter_signup' => [$h(t('News once a month')), $n('text', ['html' => '<p>' . e(t('Tips and news from our field. No spam – unsubscribe with one click.')) . '</p>']), $n('newsletter_signup')],
                 'lead_magnet' => [$h(t('Download the free guide')), $n('text', ['html' => '<p>' . e(t('We will send it by e-mail. We use your contact only to reply.')) . '</p>']),
                     $n('form', ['name' => t('Guide download'), 'thank_you' => t('Thank you! We will send you the guide by e-mail.'), 'button_text' => t('Send me the guide'),
-                        'fields' => [['label' => t('Name'), 'type' => 'text', 'required' => false, 'options' => ''], ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+                        'fields' => [['label' => t('Your name'), 'type' => 'text', 'required' => false, 'options' => ''], ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
                             ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => '']]])],
                 'announcement_bar' => [$n('container', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('button', ['text' => t('More information'), 'link' => '#', 'variant' => 'link'])])],
                 'discount' => [$h(t('10% off your first order')), $n('text', ['html' => '<p>' . e(t('Enter the code')) . ' <strong>' . e(t('WELCOME10')) . '</strong>.</p>']), $n('button', ['text' => t('Get the discount'), 'link' => '#'])],

@@ -1,6 +1,13 @@
 <?php
 /** The "Zálohy a aktualizace" (Backups and updates) tab. */
 ?>
+<?php if (!\Kaleta\Core\Updater::ENABLED): ?>
+<fieldset>
+<legend><?= e(t('New versions')) ?></legend>
+<p><?= e(t('Installed version:')) ?> <strong><?= e(KALETA_VERSION) ?></strong></p>
+<?php $field('update_check', 'Tell me when a new version is available', 'flag', 'Once a day the site reads the project\'s signed release feed (no identifier is sent). It only shows a notice: you update by pulling the new image and restarting. Needs the address of the feed in KALETA_UPDATE_FEED; KALETA_UPDATE_CHECK=0 switches the check off for good.') ?>
+</fieldset>
+<?php endif ?>
 <?php if (\Kaleta\Core\Updater::ENABLED): ?>
 <fieldset>
 <legend><?= e(t('System update')) ?></legend>

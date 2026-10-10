@@ -397,7 +397,7 @@ PHP);
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
         $this->assertStringNotContainsString('"type":"custom_html"', $about, 'website import: no Custom HTML from the old site');
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'novinky/%'"), 'website import: the old address of the post redirects');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'news/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
         $importId = $this->fieldOf($text, 'import_id');

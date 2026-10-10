@@ -82,7 +82,7 @@ class Settings extends Module
             'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
-            'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'backup_media' => 'flag', 'auto_updates' => 'flag', 'update_url' => 'url'],
+            'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'update_check' => 'flag', 'backup_media' => 'flag', 'auto_updates' => 'flag', 'update_url' => 'url'],
         'firewall' => ['firewall_enabled' => 'flag', 'firewall_proxy' => 'choice:|cloudflare', 'firewall_ips' => 'lines', 'firewall_countries' => 'pattern:/^[A-Za-z,;\s]{0,400}$/',
             'firewall_rate' => 'number:0:10000', 'firewall_probes' => 'flag'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save

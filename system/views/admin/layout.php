@@ -45,7 +45,7 @@ if ($username !== null) {
 }
 ?>
 <!doctype html>
-<html lang="<?= e(Kaleta\Core\Language::code()) ?>" data-band="<?= e(date_default_timezone_get()) ?>">
+<html lang="<?= e(Kaleta\Core\Language::code()) ?>" data-timezone="<?= e(date_default_timezone_get()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

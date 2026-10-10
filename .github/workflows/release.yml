@@ -1,8 +1,7 @@
-# Release: a tag vX.Y.Z runs the tests and creates a DRAFT release on GitHub.
-# The package is not signed here - the private key does not belong in CI (docs/RELEASING.md). The publisher then runs locally
-#   php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --change="…"
-# uploads dist/kaleta-X.Y.Z.zip to the draft (gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip), publishes the draft
-# and serves dist/update.json at https://kaletacms.com/update.json.
+# Release: a tag vX.Y.Z runs the tests, builds and pushes the multi-arch container image to GHCR, signs it with cosign (keyless,
+# GitHub OIDC) and creates a DRAFT release. The release feed (update.json) is signed by the publisher on their own computer, never here:
+#   php tools/release.php X.Y.Z --feed --image=ghcr.io/<owner>/talea:X.Y.Z --digest=sha256:<digest printed by this job> --change="…"
+# then upload dist/update.json to the draft as the asset update.json and publish it (docs/RELEASING.md, docs/DEPLOYMENT.md).
 name: Release
 
 on:
@@ -11,9 +10,11 @@ on:
 
 permissions:
   contents: write
+  packages: write
+  id-token: write
 
 jobs:
-  draft:
+  test:
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -25,13 +26,51 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
+        with: { php-version: '8.5', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
       - name: Version in the code matches the tag
         run: grep -q "const KALETA_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - name: Tests
         env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
         run: vendor/bin/paratest --processes 4 --exclude-group browser
-      - name: Draft release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-qemu-action@v3 # TODO pin the commit SHA like the other actions
+      - uses: docker/setup-buildx-action@v3 # TODO pin the commit SHA like the other actions
+      - uses: docker/login-action@v3 # TODO pin the commit SHA like the other actions
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - id: meta
+        uses: docker/metadata-action@v5 # TODO pin the commit SHA like the other actions
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/talea
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref_name, 'v0.') }}
+      - id: build
+        uses: docker/build-push-action@v6 # TODO pin the commit SHA like the other actions
+        with:
+          context: .
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+      - uses: sigstore/cosign-installer@v3 # TODO pin the commit SHA like the other actions
+      - name: Sign the image (keyless)
+        run: cosign sign --yes ghcr.io/${{ github.repository_owner }}/talea@${{ steps.build.outputs.digest }}
+      - name: Digest for the signed feed
+        run: echo "image digest ${{ steps.build.outputs.digest }}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  draft:
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with: { draft: true, generate_release_notes: true }

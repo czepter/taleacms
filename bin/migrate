@@ -4,6 +4,8 @@
 /**
  * Applies the pending database migrations: `php bin/migrate`. Used by the Docker entrypoint, deployments and tests.
  * --if-installed: do nothing (exit 0) while the site is not installed yet - the installer creates the tables itself.
+ * --backup: when migrations are pending, write a database backup first (storage/zalohy/, reason "before-update"): the rollback is
+ *   "restore this dump and start the previous image" (docs/DEPLOYMENT.md). Nothing is written when there is nothing to apply.
  * Exit code 0 = up to date or migrated, 1 = failed. More (status, rollback, create) with `php vendor/bin/phinx` and phinx.php.
  */
 
@@ -30,6 +32,14 @@ if (!is_array($config) || !isset($config['db'])) {
 }
 
 try {
+    if (in_array('--backup', $argv, true)) {
+        $db = \Kaleta\Core\Db::fromConfig($config['db']);
+        $pending = Migrator::pending($db);
+        if ($pending !== [] && $db->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", [$db->prefix . 'settings']) > 0) {
+            echo 'Backing up the database before applying ' . count($pending) . " migration(s)...\n";
+            echo \Kaleta\Core\Backup::create($db, 'before-update') . "\n";
+        }
+    }
     $applied = Migrator::migrate($config['db']);
 } catch (Throwable $e) {
     fwrite(STDERR, 'Migration failed: ' . $e->getMessage() . "\n");

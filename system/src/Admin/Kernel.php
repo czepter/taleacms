@@ -148,12 +148,12 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['available'] : null;
+            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\UpdateFeed($app->settings()))->available() : null;
             if ($newVersion !== null) {
-                // the text is translated here (with the version number); the menu path is turned into a link only when the message is rendered (Admin\MenuPaths)
+                // a notice only: the update is the operator's act (docker compose pull && up -d), see docs/DEPLOYMENT.md
                 $app->session->flash(!empty($newVersion['security']) ? 'error' : 'info', !empty($newVersion['security'])
-                    ? t('A SECURITY update %s is available – install it in Settings → Backups and updates.', (string) $newVersion['version'])
-                    : t('A new version %s is available – install it in Settings → Backups and updates.', (string) $newVersion['version']));
+                    ? t('A SECURITY update %s is available – update by pulling the new image and restarting.', (string) $newVersion['version'])
+                    : t('A new version %s is available – update by pulling the new image and restarting.', (string) $newVersion['version']));
             }
 
             return $this->page('', $app->view->render('admin/dashboard', $this->desktop()));

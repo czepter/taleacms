@@ -54,7 +54,7 @@ final class ComponentsTest extends SiteTestCase
     {
         $idm = (string) self::$idm;
         $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [
-            ['type' => 'component', 'content' => ['component' => $idm, 'values' => ['heading' => 'První <b>karta</b>', 'link' => 'javascript:alert(1)']]],
+            ['type' => 'component', 'content' => ['component' => $idm, 'values' => ['nadpis' => 'První <b>karta</b>', 'odkaz' => 'javascript:alert(1)']]],
             ['type' => 'component', 'content' => ['component' => $idm]],
         ]]]);
         $this->site()->clearPageCache();

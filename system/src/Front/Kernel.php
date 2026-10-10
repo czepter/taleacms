@@ -306,6 +306,16 @@ final class Kernel
         if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
             return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
         }
+        if ($path === '/health') {
+            // for an orchestrator (docker HEALTHCHECK, a load balancer): 200 when the database answers and no migration is waiting, else 503 with one word why
+            try {
+                $pending = \Kaleta\Core\Migrator::pending($this->app->db()) !== [];
+            } catch (\Throwable) {
+                return new Response("database\n", 503, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+            }
+
+            return new Response($pending ? "migrations pending\n" : "ok\n", $pending ? 503 : 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+        }
         if ($path === '/tasks' && $request->get('probe') !== '') {
             // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
             $probe = $this->app->settings()->get('update_probe');

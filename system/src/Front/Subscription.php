@@ -88,7 +88,7 @@ final class Subscription
         }
         if (!$r->isPost()) {
             [$heading, $text, $button] = $action === 'confirm'
-                ? [t('Confirm subscription'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Confirm subscription')]
+                ? [t('Confirm subscription'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Confirm my subscription')]
                 : [t('Unsubscribe'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Unsubscribe')];
 
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('subscribe') . '?' . $action . '=' . $o['token']) . '"><p><button class="button" type="submit">' . e($button) . '</button></p></form>'];

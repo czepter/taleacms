@@ -154,7 +154,7 @@ final class Components extends Module
      */
     private function usages(int $idm): array
     {
-        $pattern = '%"type":"komponenta"%"component":"' . $idm . '"%';
+        $pattern = '%"type":"component"%"component":"' . $idm . '"%';
         $whereParts = ' WHERE (build LIKE ? OR build_draft LIKE ?)';
         $usages = [];
         foreach ($this->db->all('SELECT title, deleted_at IS NOT NULL AS trashed FROM {pages}' . $whereParts . ' ORDER BY deleted_at IS NOT NULL, title', [$pattern, $pattern]) as $r) {

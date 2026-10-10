@@ -7,14 +7,14 @@
 	window.T = function (s) { return (window.KALETA_TRANSLATIONS || {})[s] || s; };
 	var T = window.T;
 
-	// date and time like date() in PHP, in the site's time zone (<html data-band>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31
+	// date and time like date() in PHP, in the site's time zone (<html data-timezone>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31
 	window.kaletaTime = function (time, timeOnly) {
 		var c = {};
 		var format = function (timeZone) {
 			new Intl.DateTimeFormat('en-GB', { timeZone: timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 				.formatToParts(new Date(time)).forEach(function (p) { c[p.type] = p.value; });
 		};
-		try { format(document.documentElement.getAttribute('data-band') || undefined); } catch (e) { format(undefined); }
+		try { format(document.documentElement.getAttribute('data-timezone') || undefined); } catch (e) { format(undefined); }
 		var clock = c.hour + ':' + c.minute;
 		if (timeOnly) { return clock; }
 		var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

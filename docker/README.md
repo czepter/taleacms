@@ -56,5 +56,9 @@ Each one also has a `_FILE` twin (`KALETA_DB_PASSWORD_FILE=/run/secrets/db`) for
 | `KALETA_ADDONS` | `true` | `false` = safe mode, no add-ons |
 | `KALETA_AI_URL` | – | Custom gateway for the writing assistant |
 | `KALETA_SITE_URL` | request host | Public URL, e.g. `https://example.com` (**set it**, used in e-mails/links) |
+| `KALETA_UPDATE_FEED` | – | Address of the signed release feed (`update.json`); without it nothing is requested |
+| `KALETA_UPDATE_CHECK` | on | `0` switches the daily check for a new version off for good |
+| `KALETA_BACKUP_BEFORE_MIGRATE` | on | `0` skips the database backup that precedes pending migrations on start |
+| `KALETA_CRON` | on | `0` on every replica but one: the background-job loop must run once |
 
 SMTP is configured in the admin (Settings → Mail).

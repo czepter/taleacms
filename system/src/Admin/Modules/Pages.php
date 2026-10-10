@@ -25,7 +25,7 @@ final class Pages extends Module
     public const string ICON = 'pages';
 
     /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', '_report'];
+    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', '_report'];
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
@@ -544,9 +544,9 @@ final class Pages extends Module
         if ($page === null) {
             return $this->back();
         }
-        $copy = array_diff_key($page, ['page_id' => 0, 'deleted_at' => 0]);
+        $copy = array_diff_key($page, ['page_id' => 0, 'public_id' => 0, 'deleted_at' => 0]);
         $copy['title'] = mb_substr(t('%s (copy)', $page['title']), 0, 200);
-        $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-kopie', 0, 110), 0);
+        $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-copy', 0, 110), 0);
         $copy['visible'] = 0;
         $copy['in_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['translation_of'] = null;

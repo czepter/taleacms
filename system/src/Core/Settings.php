@@ -184,6 +184,8 @@ final class Settings
         'media_sync_check' => '0',     // when the background media copy last ran
         'update_url' => '',      // URL of the update.json file; empty = the project's default source
         'update_cache' => '',
+        'update_check' => '1',    // ask the release feed (KALETA_UPDATE_FEED) once a day for a new version; only a notice, nothing is installed (Core\UpdateFeed)
+        'update_feed_cache' => '',
         'auto_updates' => '1',    // install security releases automatically
         'update_attempt' => '',    // the version the background maintenance has already tried / announced
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set

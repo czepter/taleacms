@@ -125,7 +125,7 @@ final class Site
             if (!is_file($marker)) {
                 foreach ($admin->query("SHOW DATABASES LIKE 'kaleta\\_tpl\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $old) {
                     if (!str_starts_with((string) $old, "kaleta_tpl_{$code}_")) {
-                        $admin->exec('DROP DATABASE `' . $old . '`');
+                        $admin->exec('DROP DATABASE IF EXISTS `' . $old . '`');
                         @unlink(sys_get_temp_dir() . '/' . $old . '.json');
                     }
                 }
@@ -405,7 +405,7 @@ final class Site
         }
         try {
             if (isset($this->pdo, $this->database) && !$this->keepDatabase) {
-                $this->pdo->exec('DROP DATABASE `' . $this->database . '`');
+                $this->pdo->exec('DROP DATABASE IF EXISTS `' . $this->database . '`');
             }
         } catch (\Throwable) {
         }
