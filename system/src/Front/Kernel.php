@@ -635,7 +635,8 @@ final class Kernel
         // the site – with its title; in another language version to its translation (page slugs are unique across
         // languages: /de/vergleich)
         $parentPage = null;
-        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [$collection['slug']]);
+        // with slugs per language the page of the version itself comes first
+        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL ORDER BY language = ? DESC LIMIT 1', [$collection['slug'], Language::siteColumn()]);
         if ($main !== null && $main['language'] === Language::siteColumn()) {
             $parentPage = $main['visible'] ? $main : null;
         } elseif ($main !== null) {
@@ -995,9 +996,18 @@ final class Kernel
             return null;
         }
         $path = trim($path, '/');
-        $plain = (string) preg_replace('#\.html$#', '', $path);
+        // with slugs per language (Core\Slug) a version's redirects carry its prefix (en/old: /old may be another page's), so in
+        // a language version the prefixed form comes first; the form without it still answers for older redirects
+        $sources = $this->app->languagePrefix !== '' && \Talea\Core\Slug::perLanguage($this->app->db()) ? [$this->app->languagePrefix . '/' . $path, $path] : [$path];
+        foreach ($sources as $source) {
+            $plain = (string) preg_replace('#\.html$#', '', $source);
+            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
+            if ($rule !== null) {
+                return $rule;
+            }
+        }
 
-        return $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$path, $plain, $plain . '.html', $path]);
+        return null;
     }
 
     private function notFound(): Response

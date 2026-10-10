@@ -854,4 +854,6 @@ return [
     'Choose a Media folder.' => 'Wähle einen Medienordner.',
     'Choose a member group.' => 'Wähle eine Mitgliedergruppe.',
     'Cannot create the folder storage/galleries – check the write permissions.' => 'Der Ordner storage/galleries kann nicht erstellt werden – prüfe die Schreibrechte.',
+    'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.' => 'Dieselbe Adresse in jeder Sprache lässt sich nicht ausschalten, solange zwei Sprachversionen eine Adresse teilen: %s. Ändere zuerst jeweils eine von beiden.',
+    'The database is not updated yet - run the migrations and try again.' => 'Die Datenbank ist noch nicht aktualisiert – führe die Migrationen aus und versuche es erneut.',
 ];

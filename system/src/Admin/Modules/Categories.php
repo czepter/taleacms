@@ -98,14 +98,15 @@ final class Categories extends Module
             return $this->form(['category_id' => $id] + $data, ['name' => 'Fill in the category name.']);
         }
 
-        $data['slug'] = \Talea\Core\Slug::makeUnique($data['slug'], fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$a, $id]) !== null, 120);
+        $data['slug'] = \Talea\Core\Slug::makeUnique($data['slug'], fn (string $a): bool => \Talea\Core\Slug::taken($this->db, 'categories', $a, $data['language'], $id), 120);
 
         if ($id > 0) {
-            $previous = $this->db->value('SELECT slug FROM {categories} WHERE category_id = ?', [$id]);
+            $before = $this->db->one('SELECT slug, language FROM {categories} WHERE category_id = ?', [$id]);
+            $previous = $before['slug'] ?? null;
             $this->db->update('categories', $data, ['category_id' => $id]);
             if ($previous !== null && $previous !== $data['slug']) {
                 // the category changed its slug: the old one is redirected, neither links nor search engines lose the page
-                Redirects::add($this->db, 'news/category/' . $previous, 'news/category/' . $data['slug']);
+                Redirects::add($this->db, \Talea\Core\Slug::redirectPath($this->db, 'news/category/' . $previous, (string) $before['language']), \Talea\Core\Slug::redirectPath($this->db, 'news/category/' . $data['slug'], $data['language']));
             }
             $this->db->run('UPDATE {news} SET language = ? WHERE category_id = ?', [$data['language'], $id]); // news items have the language of their category
         } else {

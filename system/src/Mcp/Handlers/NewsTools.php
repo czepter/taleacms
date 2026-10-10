@@ -177,7 +177,7 @@ trait NewsTools
         if ($displayName === '') {
             throw new \InvalidArgumentException('The category name is missing.');
         }
-        $seo = $this->availableSlug('categories', 'category_id', slugify($displayName, 110));
+        $seo = $this->availableSlug('categories', 'category_id', slugify($displayName, 110), '');
 
         return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Talea\Core\Html::safe((string) ($a['description'] ?? ''))]), 'slug' => $seo];
     }
@@ -207,12 +207,12 @@ trait NewsTools
             $changes['weight'] = max(0, min(65535, (int) $a['order']));
         }
         if (trim((string) ($a['slug'] ?? '')) !== '') {
-            $changes['slug'] = \Talea\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => $db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$x, $id]) !== null, 120);
+            $changes['slug'] = \Talea\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => \Talea\Core\Slug::taken($db, 'categories', $x, (string) $c['language'], $id), 120);
         }
         if ($changes !== []) {
             $db->update('categories', $changes, ['category_id' => $id]);
             if (isset($changes['slug']) && $changes['slug'] !== $c['slug']) {
-                \Talea\Admin\Modules\Redirects::add($db, 'news/category/' . $c['slug'], 'news/category/' . $changes['slug']);
+                \Talea\Admin\Modules\Redirects::add($db, \Talea\Core\Slug::redirectPath($db, 'news/category/' . $c['slug'], (string) $c['language']), \Talea\Core\Slug::redirectPath($db, 'news/category/' . $changes['slug'], (string) $c['language']));
             }
             \Talea\Front\Cache::clear();
         }

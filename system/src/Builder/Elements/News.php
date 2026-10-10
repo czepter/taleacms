@@ -48,7 +48,7 @@ final class News extends Element
     {
         $o = $p['content'];
         $reader = new NewsRepository($k->app->db(), $k->app->settings(), $k->app->request->basePath());
-        $idt = $o['category'] === '' ? null : $k->app->db()->value('SELECT category_id FROM {categories} WHERE slug = ?', [$o['category']]);
+        $idt = $o['category'] === '' ? null : $k->app->db()->value('SELECT category_id FROM {categories} WHERE slug = ? ORDER BY language = ? DESC LIMIT 1', [$o['category'], \Talea\Core\Language::siteColumn()]); // with slugs per language the version's own category first
         [$news] = $idt === null ? $reader->listPublished(1, (int) $o['count']) : $reader->inCategory((int) $idt, 1, (int) $o['count']);
         $html = '';
         foreach ($news as $n) {

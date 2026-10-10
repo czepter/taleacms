@@ -234,6 +234,20 @@ final class Db
         return $this->keyRows($table, false);
     }
 
+    /** Drops a unique key of a table (name without prefix) and forgets what uniqueKeys() knew. */
+    public function dropUniqueKey(string $table, string $key): void
+    {
+        unset($this->keyMemo[$table]);
+        $this->run($this->dialect()->dropUniqueKeySql($table, $key));
+    }
+
+    /** Adds a unique key; throws a PDOException when rows already break it. @param list<string> $columns */
+    public function addUniqueKey(string $table, string $key, array $columns): void
+    {
+        unset($this->keyMemo[$table]);
+        $this->run($this->dialect()->addUniqueKeySql($table, $key, $columns));
+    }
+
     /** The primary key columns of a table (name without prefix). @return list<string> */
     public function primaryKey(string $table): array
     {

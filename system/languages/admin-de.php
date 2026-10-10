@@ -5693,4 +5693,9 @@ return [
     'base' => 'Standard',
     'above' => 'darüber',
     'top' => 'ganz oben',
+    'The same address in every language version' => 'Dieselbe Adresse in jeder Sprachversion',
+    'A page, news item or category may have the same address as one in another language version (/contact and /en/contact). Redirects of changed addresses then keep the language prefix. Switching it off is refused while two language versions share an address.' => 'Eine Seite, Neuigkeit oder Kategorie darf dieselbe Adresse haben wie eine in einer anderen Sprachversion (/kontakt und /en/kontakt). Weiterleitungen geänderter Adressen behalten dann das Sprachpräfix. Ausschalten ist nicht möglich, solange zwei Sprachversionen eine Adresse teilen.',
+    'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.' => 'Dieselbe Adresse in jeder Sprache lässt sich nicht ausschalten, solange zwei Sprachversionen eine Adresse teilen: %s. Ändern Sie zuerst jeweils eine von beiden.',
+    'The database is not updated yet - run the migrations and try again.' => 'Die Datenbank ist noch nicht aktualisiert – führen Sie die Migrationen aus und versuchen Sie es erneut.',
+    'Skipped: %d (that language version already has the address).' => 'Übersprungen: %d (diese Sprachversion hat die Adresse bereits).',
 ];

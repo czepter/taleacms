@@ -5689,4 +5689,9 @@ return [
     'base' => 'základní',
     'above' => 'nad',
     'top' => 'nahoře',
+    'The same address in every language version' => 'Stejná adresa ve všech jazykových verzích',
+    'A page, news item or category may have the same address as one in another language version (/contact and /en/contact). Redirects of changed addresses then keep the language prefix. Switching it off is refused while two language versions share an address.' => 'Stránka, novinka nebo kategorie smí mít stejnou adresu jako ta v jiné jazykové verzi (/kontakt a /en/kontakt). Přesměrování změněných adres si pak ponechají jazykový prefix. Vypnout to nejde, dokud si dvě jazykové verze dělí adresu.',
+    'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.' => 'Stejnou adresu ve všech jazycích nelze vypnout, dokud si dvě jazykové verze dělí adresu: %s. Nejdřív změňte jednu z každé dvojice.',
+    'The database is not updated yet - run the migrations and try again.' => 'Databáze ještě není aktualizovaná – spusťte migrace a zkuste to znovu.',
+    'Skipped: %d (that language version already has the address).' => 'Přeskočeno: %d (tato jazyková verze už tu adresu má).',
 ];

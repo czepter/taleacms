@@ -51,6 +51,7 @@ class Settings extends Module
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'pattern:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
             'time_zone' => 'timezone', 'site_language' => 'choice:' . \Talea\Core\Language::CODES, 'german_register' => 'choice:formal|informal', 'additional_languages' => 'list:' . \Talea\Core\Language::CODES,
+            'slugs_per_language' => 'flag', // switched by Core\Slug::switchPerLanguage (actionSave), never written directly
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'choice:off|auto|dark', 'theme_switcher' => 'flag'],
@@ -200,6 +201,7 @@ class Settings extends Module
         $settings = $this->app->settings();
         $errors = [];
         $given = [];
+        $refused = null;
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
@@ -229,6 +231,13 @@ class Settings extends Module
                 $value = (string) $this->db->internalId('pages', $value); // the form carries the public id of the page (0 = news listing)
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
+            if ($key === 'slugs_per_language') {
+                // the database keys change with it; switching off is refused while two language versions share an address
+                if (($refusal = \Talea\Core\Slug::switchPerLanguage($this->db, $settings, $clean === '1')) !== null) {
+                    $refused = t($refusal[0], $refusal[1]);
+                }
+                continue;
+            }
             if ($clean !== null && $key === 'news_slug' && \Talea\Core\Routes::slugError($clean, $this->db) !== null) {
                 $clean = null; // the hint under the field lists what is not allowed
             }
@@ -266,6 +275,10 @@ class Settings extends Module
         if ($tab === 'general' && ($settings->bool('screen_mode') || $this->request->postBool('new_screen_token'))) {
             // the screen address exists as soon as the mode is on; the button replaces it (the old one stops working)
             \Talea\Front\Screen::ensureSecret($settings, $this->request->postBool('new_screen_token'));
+        }
+
+        if ($refused !== null) {
+            return $this->back($refused, '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
         }
 
         return $errors === []

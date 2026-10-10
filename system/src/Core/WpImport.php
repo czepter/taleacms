@@ -323,7 +323,7 @@ final class WpImport
 
         $seo = self::availableSlug(
             slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null,
+            fn (string $url): bool => Slug::taken($this->db, 'news', $url, $language),
         );
         $plugin = $this->seo($p, (string) (reset($p['categories']) ?: ''), 255, 320, $state);
         $idc = $this->db->insert('news', [
@@ -371,7 +371,7 @@ final class WpImport
         $seo = self::availableSlug(
             slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 110),
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
+                || Slug::taken($this->db, 'pages', $url, $language),
         );
         $text = WpContent::sanitize($p['content'], $state['attachments']);
         $plugin = $this->seo($p, '', 200, 300, $state);
@@ -557,7 +557,7 @@ final class WpImport
             if ($idt === null) {
                 $idt = $this->db->insert('categories', [
                     'name' => $name, 'description' => '', 'language' => $language,
-                    'slug' => self::availableSlug($seo, fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ?', [$a]) !== null),
+                    'slug' => self::availableSlug($seo, fn (string $a): bool => Slug::taken($this->db, 'categories', $a, $language)),
                 ]);
                 $state['result']['categories']++;
             }

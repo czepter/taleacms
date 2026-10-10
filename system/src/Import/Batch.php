@@ -316,7 +316,7 @@ final class Batch
         $now = date('Y-m-d H:i:s');
         $seo = Slug::makeUnique(
             slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null,
+            fn (string $url): bool => Slug::taken($this->db, 'news', $url, $language),
             120,
         );
         $idc = $this->db->insert('news', [
@@ -359,7 +359,7 @@ final class Batch
         $seo = Slug::makeUnique(
             slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110),
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
+                || Slug::taken($this->db, 'pages', $url, $language),
             120,
         );
         $text = WpContent::sanitize($p->html);
@@ -414,7 +414,7 @@ final class Batch
             if ($idt === null) {
                 $idt = $this->db->insert('categories', [
                     'name' => $name, 'description' => '', 'language' => $language,
-                    'slug' => Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ?', [$a]) !== null, 120),
+                    'slug' => Slug::makeUnique($seo, fn (string $a): bool => Slug::taken($this->db, 'categories', $a, $language), 120),
                 ]);
                 $state['result']['categories']++;
             }
