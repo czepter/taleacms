@@ -5689,4 +5689,5 @@ return [
     'base' => 'základní',
     'above' => 'nad',
     'top' => 'nahoře',
+    'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Aplikace připojené k tomuto účtu (konektor Claude) se novým heslem odpojí – připojte je znovu v aplikaci Claude.',
 ];

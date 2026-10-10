@@ -854,4 +854,5 @@ return [
     'Choose a Media folder.' => 'Wähle einen Medienordner.',
     'Choose a member group.' => 'Wähle eine Mitgliedergruppe.',
     'Cannot create the folder storage/galleries – check the write permissions.' => 'Der Ordner storage/galleries kann nicht erstellt werden – prüfe die Schreibrechte.',
+    'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Mit diesem Konto verbundene Apps (der Claude-Konnektor) werden mit dem neuen Passwort getrennt – verbinde sie in der Claude-App erneut.',
 ];

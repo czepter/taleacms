@@ -5693,4 +5693,5 @@ return [
     'base' => 'Standard',
     'above' => 'darüber',
     'top' => 'ganz oben',
+    'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Mit diesem Konto verbundene Apps (der Claude-Konnektor) werden mit dem neuen Passwort getrennt – verbinden Sie sie in der Claude-App erneut.',
 ];
