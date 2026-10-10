@@ -28,7 +28,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (choice:…). */
@@ -44,7 +44,7 @@ class Settings extends Module
         'general' => [
             'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone',
+            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone', 'trusted_proxy' => 'choice:|cloudflare',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'flag', 'screen_seconds' => 'number:' . \Talea\Front\Screen::MIN_SECONDS . ':' . \Talea\Front\Screen::MAX_SECONDS, 'screen_news' => 'flag', 'screen_hours' => 'flag', 'screen_clock' => 'flag',
             'auto_suspend' => 'list:' . \Talea\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Talea\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
@@ -83,8 +83,6 @@ class Settings extends Module
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
             'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'update_check' => 'flag', 'backup_media' => 'flag', 'auto_updates' => 'flag', 'update_url' => 'url'],
-        'firewall' => ['firewall_enabled' => 'flag', 'firewall_proxy' => 'choice:|cloudflare', 'firewall_ips' => 'lines', 'firewall_countries' => 'pattern:/^[A-Za-z,;\s]{0,400}$/',
-            'firewall_rate' => 'number:0:10000', 'firewall_probes' => 'flag'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
         'health' => ['health_token' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'flag', 'alerts_email' => 'email'],
     ];
@@ -174,13 +172,6 @@ class Settings extends Module
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Talea\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
-            'firewall' => $tab === 'firewall' ? [
-                'blocks' => $this->db->all('SELECT ip, until, reason FROM {firewall_blocks} WHERE until > NOW() ORDER BY until DESC LIMIT 100'),
-                'log' => $this->db->all('SELECT created_at, ip, reason, path FROM {firewall_log} ORDER BY id DESC LIMIT 50'),
-                'ip' => \Talea\Core\Firewall::visitorIp($this->request->serverValues(), $settings->get('firewall_proxy')),
-                'country' => \Talea\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
-                'invalid' => \Talea\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
-            ] : [],
             'hoursExceptions' => $tab === 'company' ? \Talea\Core\Hours::exceptions($this->db) : [],
             'hoursProposed' => $tab === 'company' ? \Talea\Core\Hours::proposed($this->db) : [], // by a drafts-only Claude connection (3.2)
             'fleet' => $tab === 'console' ? [
@@ -328,7 +319,6 @@ class Settings extends Module
     }
 
     /** Empties the application error log. */
-    /** Lifts a temporary block of the firewall (2.8). */
     /** An exception to the opening hours (2.10, Core\Hours). */
     protected function actionHoursAdd(): Response
     {
@@ -445,15 +435,6 @@ class Settings extends Module
         }
 
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
-    }
-
-    protected function actionFirewallUnblock(): Response
-    {
-        if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {firewall_blocks} WHERE ip = ?', [mb_substr($this->request->post('ip'), 0, 45)]);
-        }
-
-        return $this->back('The address is no longer blocked.', '', ['tab' => 'firewall']);
     }
 
     protected function actionDeleteLog(): Response

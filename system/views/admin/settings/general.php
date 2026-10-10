@@ -46,6 +46,14 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<span class="help"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?></span></div>
 </div>
 <div class="row">
+	<label for="trusted_proxy"><?= e(t('The site runs behind')) ?></label>
+	<div><select id="trusted_proxy" name="trusted_proxy">
+		<option value=""<?= ($values['trusted_proxy'] ?? '') === '' ? ' selected' : '' ?>><?= e(t('nothing – visitors connect directly')) ?></option>
+		<option value="cloudflare"<?= ($values['trusted_proxy'] ?? '') === 'cloudflare' ? ' selected' : '' ?>>Cloudflare</option>
+	</select>
+	<span class="help"><?= e(t('Your address as the site sees it: %s.', Talea\Core\Antispam::visitorIp($app->request->serverValues(), $values['trusted_proxy'] ?? ''))) ?> <?= e(t('The sign-in, password reset and Claude connection limits count visitors by it; behind Cloudflare choose Cloudflare, otherwise all visitors look alike.')) ?></span></div>
+</div>
+<div class="row">
 	<label for="site_language"><?= e(t('Site language')) ?></label>
 	<div><select id="site_language" name="site_language">
 <?php foreach (Talea\Core\Language::AVAILABLE as $code => [$languageName]): ?>

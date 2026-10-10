@@ -23,7 +23,9 @@ page.on('frameattached', () => {}); // builder canvases are iframes of the same 
 const canvas = () => page.frameLocator('.bd-canvas iframe').first();
 let steps = 0;
 
+const ONLY = process.env.ONLY; // while developing: run only the steps whose name contains this text (the sign-in always runs)
 async function step(name, fn) {
+  if (ONLY && !/^(sign in|find a page)/.test(name) && !name.includes(ONLY)) { return; }
   where = name;
   const before = errors.length;
   try {
@@ -228,6 +230,305 @@ await step('builder: structured data (Product), preview, checklist, publish, JSO
   const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
   const graph = blocks.flatMap((b) => JSON.parse(b)['@graph'] ?? []);
   if (!graph.some((n) => n['@type'] === 'Product' && n.name === 'Oak chair')) { throw new Error('the Product node is not in the JSON-LD of the public page'); }
+});
+
+
+// ---------- compose: direct manipulation on the canvas (spacing, resize, column dividers, toolbar, move) ----------
+// Each scenario ends as a valid SAVED build that survives a reload: the test reads the draft back from a fresh load of the builder.
+const COMPOSE = JSON.parse(process.env.COMPOSE_PAGES || '{}');
+const TOKENS = ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl'];
+const frameIn = (p) => p.frameLocator('.bd-canvas iframe').first();
+const node = (p, id) => frameIn(p).locator(`[data-tl-id="${id}"]`).first();
+const handle = (p, name) => frameIn(p).locator(`#tl-bd-overlay [data-bdo="${name}"]`).first();
+const find = (children, id) => { for (const c of children ?? []) { if (c.id === id) { return c; } const f = find(c.children, id); if (f) { return f; } } return null; };
+const parentOf = (children, id, parent = null) => { for (const c of children ?? []) { if (c.id === id) { return parent; } const f = parentOf(c.children, id, c); if (f !== undefined) { return f; } } return undefined; };
+const expect = (condition, message) => { if (!condition) { throw new Error(message); } };
+
+async function openBuilder(p, kind) {
+  await p.goto(`${BASE}/admin.php?module=pages&action=builder&id=${COMPOSE[kind]}`, { waitUntil: 'networkidle' });
+  await p.waitForFunction(() => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id="cs1"]'));
+  await p.waitForTimeout(500);
+}
+/** The draft as the server has it: wait until the autosave is done, then read it from a fresh load. */
+async function savedBuild(p, kind) {
+  await p.waitForFunction(() => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && s.saved === JSON.stringify(s.build); }, null, { timeout: 15000 });
+  await openBuilder(p, kind);
+  return p.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build);
+}
+async function pick(p, id, corner = false) {
+  const b = await node(p, id).boundingBox();
+  await p.mouse.click(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2);
+  await p.waitForFunction((x) => window.taleaBuilder.state.selected === x, id);
+  await handle(p, 'margin-bottom').waitFor({ timeout: 5000 });
+}
+const scaleOf = (p) => p.evaluate(() => window.taleaBuilder.scale());
+const undoDepth = (p) => p.evaluate(() => window.taleaBuilder.state.undo.length);
+async function mouseDrag(p, locator, dx, dy) {
+  await locator.scrollIntoViewIfNeeded();
+  const b = await locator.boundingBox();
+  const x = b.x + b.width / 2;
+  const y = b.y + b.height / 2;
+  await p.mouse.move(x, y);
+  await p.mouse.down();
+  await p.mouse.move(x + dx / 2, y + dy / 2, { steps: 4 });
+  await p.mouse.move(x + dx, y + dy, { steps: 6 });
+  await p.mouse.up();
+  await p.waitForTimeout(300);
+}
+const grid = (p, id) => node(p, id).boundingBox();
+
+await step('compose (mouse): space between two sections, one undo step per gesture', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cs1', true);
+  const m = await scaleOf(page);
+  const before = await undoDepth(page);
+  await mouseDrag(page, handle(page, 'margin-bottom'), 0, 30 * m);
+  expect((await undoDepth(page)) === before + 1, 'one gesture is not exactly one undo step');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  expect((await undoDepth(page)) === before && !find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style.base.margin_bottom, 'undo did not revert the gesture');
+  await pick(page, 'cs1', true);
+  await mouseDrag(page, handle(page, 'margin-bottom'), 0, 30 * m);
+  const build = await savedBuild(page, 'mouse');
+  const value = (find(build.children, 'cs1').style ?? {}).base?.margin_bottom;
+  expect(TOKENS.includes(value), `the section's margin is not a spacing token: ${value}`);
+});
+
+await step('compose (mouse): a phone edit leaves desktop alone, "reset to inherited" removes it', async () => {
+  await openBuilder(page, 'mouse');
+  const desktop = JSON.stringify(find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style.base);
+  await page.getByRole('button', { name: 'Mobile' }).first().click();
+  await page.waitForTimeout(1200);
+  await pick(page, 'cs1', true);
+  await mouseDrag(page, handle(page, 'margin-bottom'), 0, 60 * (await scaleOf(page)));
+  const style = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style;
+  expect(style.mobile && style.mobile.margin_bottom, 'the phone edit did not write the mobile state');
+  expect(JSON.stringify(style.base) === desktop, 'the phone edit changed the desktop style');
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  const reset = page.locator('.bd-property.bd-overridden .bd-reset').first();
+  await reset.waitFor({ timeout: 5000 });
+  await reset.click();
+  await page.waitForTimeout(400);
+  const after = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1').style;
+  expect(!after.mobile, 'reset to inherited did not remove the override');
+  await page.getByRole('button', { name: 'Desktop' }).first().click();
+  await page.waitForTimeout(800);
+});
+
+await step('compose (mouse): a failed save mid-gesture never corrupts the tree', async () => {
+  await openBuilder(page, 'mouse');
+  await page.route(/build_save/, (r) => r.abort());
+  await pick(page, 'cs4', true);
+  await mouseDrag(page, handle(page, 'padding-top'), 0, 30 * (await scaleOf(page)));
+  const state = await page.evaluate(() => JSON.parse(JSON.stringify(window.taleaBuilder.state.build)));
+  expect(find(state.children, 'cs4').style.base.padding_y, 'the gesture did not reach the tree while the save failed');
+  expect(state.children.length === 4 && find(state.children, 'cimg'), 'the tree is damaged');
+  await page.unroute(/build_save/);
+  const build = await savedBuild(page, 'mouse');
+  expect(find(build.children, 'cs4').style.base.padding_y, 'the change was lost after the save recovered');
+});
+
+await step('compose (mouse): a row of three columns becomes 2 : 1 : 1 with the dividers', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'txt1');
+  await page.keyboard.press('Escape'); // the parent: the first column; its row shows the dividers
+  await handle(page, 'divider-0').waitFor({ timeout: 5000 });
+  const box = await grid(page, 'cg3');
+  await mouseDrag(page, handle(page, 'divider-0'), (2 / 12) * box.width * 0.97, 0);
+  await mouseDrag(page, handle(page, 'divider-1'), (1 / 12) * box.width * 0.97, 0);
+  const build = await savedBuild(page, 'mouse');
+  expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `the columns are ${find(build.children, 'cg3').style.base.columns}`);
+});
+
+await step('compose (mouse): an image is resized to half width', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const b = await node(page, 'cimg').boundingBox();
+  await mouseDrag(page, handle(page, 'resize-se'), -b.width / 2, 0);
+  const build = await savedBuild(page, 'mouse');
+  const width = find(build.children, 'cimg').style.base.width;
+  expect(width === '50%' || width === '58.33%' || width === '41.67%', `the image width is ${width}`);
+  expect(width === '50%', `the image did not snap to half the width: ${width}`);
+});
+
+await step('compose (mouse): the toolbar groups and ungroups, Shift-click selects several', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'txt4');
+  const second = await node(page, 'btn1').boundingBox();
+  await page.keyboard.down('Shift');
+  await page.mouse.click(second.x + second.width / 2, second.y + second.height / 2);
+  await page.keyboard.up('Shift');
+  await page.waitForFunction(() => window.taleaBuilder.selectedIds().length === 2, null, { timeout: 5000 }).catch(async () => {
+    throw new Error('Shift-click did not add the button to the selection: ' + await page.evaluate(() => JSON.stringify([window.taleaBuilder.state.selected, window.taleaBuilder.state.multi])));
+  });
+  await frameIn(page).locator('#tl-bd-overlay [data-bdo="group"]').first().click();
+  await page.waitForTimeout(400);
+  let build = await savedBuild(page, 'mouse');
+  const wrapper = parentOf(build.children, 'btn1');
+  expect(wrapper && wrapper.type === 'container' && parentOf(build.children, 'txt4').id === wrapper.id && wrapper.id !== 'cola', 'the two elements were not grouped into a container');
+  await page.evaluate((id) => window.taleaBuilder.selection(id), wrapper.id); // a click on the wrapper would hit its content
+  await page.keyboard.press('Control+Shift+g');
+  await page.waitForTimeout(400);
+  build = await savedBuild(page, 'mouse');
+  expect(parentOf(build.children, 'btn1').id === 'cola' && !find(build.children, wrapper.id), 'ungroup did not put the elements back');
+});
+
+await step('compose (mouse): a button moves to the right column with the toolbar grip', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'btn1');
+  const target = await node(page, 'txt5').boundingBox();
+  const grip = await frameIn(page).locator('#tl-bd-overlay [data-bdo="move"]').first().boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height * 0.8, { steps: 12 });
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const build = await savedBuild(page, 'mouse');
+  const owner = parentOf(build.children, 'btn1');
+  expect(owner && owner.id === 'colb', `the button sits in ${owner && owner.id}, not in the right column`);
+});
+
+await step('compose (mouse): the marquee selects several elements, an image file dropped on the canvas is uploaded and inserted', async () => {
+  await openBuilder(page, 'mouse');
+  const a = await node(page, 'cg3').boundingBox();
+  await page.mouse.move(a.x + 2, a.y - 1);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width - 2, a.y + a.height + 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const count = await page.evaluate(() => window.taleaBuilder.selectedIds().length);
+  expect(count >= 1, 'the marquee selected nothing');
+  // a file dragged from the computer: a synthetic drop with a 1x1 PNG
+  const before = await page.evaluate(() => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length);
+  await frameIn(page).locator('body').evaluate(async (body) => {
+    const doc = body.ownerDocument;
+    const canvas = doc.createElement('canvas');
+    canvas.width = canvas.height = 16;
+    canvas.getContext('2d').fillRect(0, 0, 8, 8);
+    const png = await new Promise((done) => canvas.toBlob(done, 'image/png'));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([png], 'dropped.png', { type: 'image/png' }));
+    const r = doc.querySelector('[data-tl-id="cimg"]').getBoundingClientRect();
+    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.8, dataTransfer: transfer, bubbles: true, cancelable: true };
+    doc.querySelector('[data-tl-id="cimg"]').dispatchEvent(new DragEvent('dragover', at));
+    doc.querySelector('[data-tl-id="cimg"]').dispatchEvent(new DragEvent('drop', at));
+  });
+  await page.waitForFunction((n) => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length > n, before, { timeout: 15000 });
+});
+
+// keyboard only
+await step('compose (keyboard): Enter walks the handles, arrows change the spacing', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cs1', true);
+  await page.keyboard.press('Enter');
+  expect(await frameIn(page).locator('#tl-bd-overlay [data-bdo-h]:focus').count() === 1, 'Enter did not move the focus to a handle');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  expect(await frameIn(page).locator('#tl-bd-overlay [data-bdo="margin-bottom"]:focus').count() === 1, 'Tab does not walk the handles in order');
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(150);
+  const build = await savedBuild(page, 'keys');
+  expect(find(build.children, 'cs1').style.base.margin_bottom === 'xs', `margin is ${find(build.children, 'cs1').style.base.margin_bottom}`);
+});
+
+await step('compose (keyboard): the divider handles set 2 : 1 : 1', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'txt1');
+  await page.keyboard.press('Escape');
+  await handle(page, 'divider-0').waitFor({ timeout: 5000 });
+  await handle(page, 'divider-0').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  await handle(page, 'divider-1').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  const build = await savedBuild(page, 'keys');
+  expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `the columns are ${find(build.children, 'cg3').style.base.columns}`);
+});
+
+await step('compose (keyboard): Alt+arrows resize an image to half width', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cimg');
+  for (let i = 0; i < 6; i++) { await page.keyboard.press('Alt+ArrowLeft'); await page.waitForTimeout(120); }
+  const build = await savedBuild(page, 'keys');
+  expect(find(build.children, 'cimg').style.base.width === '50%', `the image width is ${find(build.children, 'cimg').style.base.width}`);
+});
+
+await step('compose (keyboard): Ctrl+Shift+arrow moves the button into the next column, arrows select siblings', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'txt4');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction(() => window.taleaBuilder.state.selected === 'btn1');
+  await page.keyboard.press('Control+Shift+ArrowRight');
+  await page.waitForTimeout(300);
+  const build = await savedBuild(page, 'keys');
+  expect(parentOf(build.children, 'btn1').id === 'colb', `the button is in ${parentOf(build.children, 'btn1').id}`);
+});
+
+// touch
+await step('compose (touch): the four tasks by pointer events of a finger', async () => {
+  const touch = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'en-GB', hasTouch: true });
+  await touch.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
+  const tp = await touch.newPage();
+  watch(tp);
+  await tp.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+  await tp.fill('input[name="username"]', 'admin');
+  await tp.fill('input[name="password"]', PASSWORD);
+  await Promise.all([tp.waitForNavigation(), tp.press('input[name="password"]', 'Enter')]);
+  const cdp = await touch.newCDPSession(tp);
+  const finger = async (from, to) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
+    for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * i / 10, y: from.y + (to.y - from.y) * i / 10 }] }); }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await tp.waitForTimeout(350);
+  };
+  const centre = async (locator) => { const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const tap = async (id, corner) => { const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
+  await openBuilder(tp, 'touch');
+
+  await tap('cs1', true);
+  const m = await scaleOf(tp);
+  const from = await centre(handle(tp, 'margin-bottom'));
+  await finger(from, { x: from.x, y: from.y + 30 * m });
+
+  await tap('txt1');
+  await tp.evaluate(() => window.taleaBuilder.selection('col1'));
+  await handle(tp, 'divider-0').waitFor();
+  await tp.waitForTimeout(1000);
+  const grid3 = await grid(tp, 'cg3');
+  let d = await centre(handle(tp, 'divider-0'));
+  await finger(d, { x: d.x + (2 / 12) * grid3.width * 0.97, y: d.y });
+  d = await centre(handle(tp, 'divider-1'));
+  await finger(d, { x: d.x + (1 / 12) * grid3.width * 0.97, y: d.y });
+
+  await tap('cimg');
+  const image = await node(tp, 'cimg').boundingBox();
+  const corner = await centre(handle(tp, 'resize-se'));
+  await finger(corner, { x: corner.x - image.width / 2, y: corner.y });
+
+  // moving by touch: the toolbar grip starts "tap the place", then the place is tapped
+  await tp.evaluate(() => window.taleaBuilder.selection('btn1')); // the image's toolbar covers the button above it, so it is selected by the editor
+  await handle(tp, 'margin-bottom').waitFor();
+  await tp.waitForTimeout(1000); // the canvas scrolls smoothly to the selection, the toolbar follows
+  const grip = await centre(frameIn(tp).locator('#tl-bd-overlay [data-bdo="move"]').first());
+  await tp.touchscreen.tap(grip.x, grip.y);
+  await tp.waitForFunction(() => !!window.taleaBuilder.state.placing);
+  await tp.waitForTimeout(400);
+  const right = await node(tp, 'txt5').boundingBox();
+  await tp.touchscreen.tap(right.x + right.width / 2, right.y + right.height * 0.8);
+  await tp.waitForTimeout(500);
+
+  const build = await savedBuild(tp, 'touch');
+  expect(TOKENS.includes((find(build.children, 'cs1').style ?? {}).base?.margin_bottom), 'touch: no spacing token written');
+  expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `touch: the columns are ${find(build.children, 'cg3').style.base.columns}`);
+  expect(find(build.children, 'cimg').style.base.width === '50%', `touch: the image width is ${find(build.children, 'cimg').style.base.width}`);
+  expect(parentOf(build.children, 'btn1').id === 'colb', 'touch: the button did not move to the right column');
+  await touch.close();
 });
 
 await step('builder: site header', async () => {

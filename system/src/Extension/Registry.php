@@ -29,7 +29,7 @@ final class Registry
     public const string DIR = TALEA_ROOT . '/extensions';
 
     /** Official add-ons that ship in extensions/ inside the release (slug = folder): off by default, switched on in Add-ons, updated with Talea. */
-    public const array BUNDLED = ['domain_watch'];
+    public const array BUNDLED = ['domain_watch', 'firewall'];
 
     /** Seconds an early request hook (Api::earlyRequest) may take before it counts as failed and is switched off. */
     public const float EARLY_BUDGET = 0.25;
@@ -56,6 +56,9 @@ final class Registry
 
     /** @var array<string, list<callable>> slug => hooks that run first in a public request (API 2) */
     private array $early = [];
+
+    /** @var array<string, list<callable>> hooks for requests that end in 404 (Api::notFound), by slug */
+    private array $notFound = [];
 
     /** @var array<string, callable> slug => rows for System status (API 2) */
     private array $healthRows = [];
@@ -366,21 +369,33 @@ final class Registry
      */
     public static function runEarly(App $app): ?Response
     {
+        return self::runHooks($app, 'early', [$app->request]);
+    }
+
+    /** The hooks of Api::notFound for an address that ends in 404: the first Response replaces the 404 page. Fail-open like runEarly(). */
+    public static function runNotFound(App $app, string $path): ?Response
+    {
+        return self::runHooks($app, 'notFound', [$app->request, $path]);
+    }
+
+    /** @param 'early'|'notFound' $list @param list<mixed> $arguments */
+    private static function runHooks(App $app, string $list, array $arguments): ?Response
+    {
         $self = self::$instance;
-        if ($self === null || $self->early === []) {
+        if ($self === null || $self->$list === []) {
             return null;
         }
-        foreach ($self->early as $slug => $hooks) {
+        foreach ($self->$list as $slug => $hooks) {
             foreach ($hooks as $hook) {
                 $start = microtime(true);
                 try {
-                    $answer = $hook($app->request);
+                    $answer = $hook(...$arguments);
                     if (microtime(true) - $start > self::EARLY_BUDGET) {
                         throw new \RuntimeException('The early request hook took longer than ' . (int) (self::EARLY_BUDGET * 1000) . ' ms.');
                     }
                 } catch (\Throwable $e) {
                     self::fail($app, $slug, $e);
-                    unset($self->early[$slug]);
+                    unset($self->$list[$slug]);
                     continue 2;
                 }
                 if ($answer instanceof Response) {
@@ -488,6 +503,11 @@ final class Registry
     public function addEarlyHook(string $slug, callable $hook): void
     {
         $this->early[$slug][] = $hook;
+    }
+
+    public function addNotFoundHook(string $slug, callable $hook): void
+    {
+        $this->notFound[$slug][] = $hook;
     }
 
     public function addHealthRows(string $slug, callable $rows): void

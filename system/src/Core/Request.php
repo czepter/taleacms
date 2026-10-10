@@ -108,7 +108,7 @@ final class Request
     }
 
     /**
-     * The server values of the request (the firewall reads the CDN's headers from them, 2.8).
+     * The server values of the request (the visitor address helper and add-ons read the CDN's headers from them).
      *
      * @return array<string, mixed>
      */

@@ -20,6 +20,7 @@
 /extensions/*
 !/extensions/README.md
 !/extensions/domain_watch/
+!/extensions/firewall/
 /.env
 
 # PHPUnit

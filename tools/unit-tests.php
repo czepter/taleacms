@@ -203,7 +203,6 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates',
     'test_mail' => 'admin: mail server settings', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
-    'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
     'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception', 'hours_sign' => $readOnly,
     'hours_apply' => 'save_hours_exception', 'hours_discard' => 'delete_hours_exception', // a proposal from a drafts-only connection (3.2)
     'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
@@ -246,7 +245,7 @@ $parity = [
         'replace' => 'admin: a new file behind the same address', 'folder' => 'admin: media folders', 'folder_delete' => 'admin: media folders',
         'cleanup' => 'list_media_without_alt', 'save_alts' => 'update_media', 'shrink' => 'admin: re-encoding a stored image in place (2.14) – Claude uploads a smaller file instead'],
     'appearance' => ['list' => $readOnly, 'preview' => $readOnly, 'tokens' => $readOnly, 'save' => 'update_design_system', 'tokens_import' => 'admin: upload of a design tokens file',
-        'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
+        'looks' => 'list_looks', 'apply_look' => 'apply_look', 'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
     'parts' => $builderParity + ['list' => $readOnly, 'variant' => $readOnly, 'save_variant' => 'save_part_variant', 'template' => 'save_part_variant',
         'templates' => $readOnly, 'apply_template' => 'apply_part_template'],
     'menu' => ['list' => $readOnly, 'save' => 'save_menu', 'automatic' => 'save_menu'],
@@ -394,26 +393,17 @@ check('2.8: Updater::probeVerdict', [
     Talea\Core\Updater::probeVerdict(['probe' => [403, 'Access denied.'], 'home' => [200, 'x'], 'admin' => [200, 'x']], '9.9.9'),
     Talea\Core\Updater::probeVerdict(['probe' => [200, 'TALEA-PROBE 2.7.0'], 'home' => [500, 'Fatal'], 'admin' => [200, 'x']], '9.9.9') !== null],
     [null, null, true, null, true, null, null, true]);
-// 2.8: the firewall – networks, the address behind Cloudflare only from Cloudflare, countries, the manual list
-use Talea\Core\Firewall;
-check('2.8: Firewall::inList', [Firewall::inList('198.51.100.77', ['198.51.100.0/24']), Firewall::inList('198.51.101.1', ['198.51.100.0/24']), Firewall::inList('203.0.113.7', ['203.0.113.7']),
-    Firewall::inList('10.1.2.3', ['10.0.0.0/9']), Firewall::inList('10.200.0.1', ['10.0.0.0/9']), Firewall::inList('2001:db8::1', ['2001:db8::/32']), Firewall::inList('2001:db9::1', ['2001:db8::/32']),
-    Firewall::inList('not-an-ip', ['0.0.0.0/8']), Firewall::inList('198.51.100.7', ['2001:db8::/32'])], [true, false, true, true, false, true, false, false, false]);
-check('2.8: Firewall::parseList and isValidEntry', [Firewall::parseList("203.0.113.7 # bot\n\n198.51.100.0/24\nnonsense\n10.0.0.0/4\n2001:db8::/32"), Firewall::isValidEntry('300.1.1.1')],
-    [[['203.0.113.7', '198.51.100.0/24', '2001:db8::/32'], ['nonsense', '10.0.0.0/4']], false]);
-check('2.8: Firewall::visitorIp – Cloudflare only from its addresses', [
-    Firewall::visitorIp(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_CONNECTING_IP' => '203.0.113.9'], 'cloudflare'),
-    Firewall::visitorIp(['REMOTE_ADDR' => '203.0.113.50', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1'], 'cloudflare'),
-    Firewall::visitorIp(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_CONNECTING_IP' => '203.0.113.9'], ''),
-    Firewall::visitorIp(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_CONNECTING_IP' => 'junk'], 'cloudflare')],
+// the client address helper (issue #29, was Core\Firewall): networks, the address behind Cloudflare only from Cloudflare
+use Talea\Core\Antispam;
+check('Antispam::inList', [Antispam::inList('198.51.100.77', ['198.51.100.0/24']), Antispam::inList('198.51.101.1', ['198.51.100.0/24']), Antispam::inList('203.0.113.7', ['203.0.113.7']),
+    Antispam::inList('10.1.2.3', ['10.0.0.0/9']), Antispam::inList('10.200.0.1', ['10.0.0.0/9']), Antispam::inList('2001:db8::1', ['2001:db8::/32']), Antispam::inList('2001:db9::1', ['2001:db8::/32']),
+    Antispam::inList('not-an-ip', ['0.0.0.0/8']), Antispam::inList('198.51.100.7', ['2001:db8::/32'])], [true, false, true, true, false, true, false, false, false]);
+check('Antispam::visitorIp – Cloudflare only from its addresses', [
+    Antispam::visitorIp(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_CONNECTING_IP' => '203.0.113.9'], 'cloudflare'),
+    Antispam::visitorIp(['REMOTE_ADDR' => '203.0.113.50', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1'], 'cloudflare'),
+    Antispam::visitorIp(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_CONNECTING_IP' => '203.0.113.9'], ''),
+    Antispam::visitorIp(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_CONNECTING_IP' => 'junk'], 'cloudflare')],
     ['203.0.113.9', '203.0.113.50', '172.70.1.2', '172.70.1.2']);
-check('2.8: Firewall::country and countries', [Firewall::country(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_IPCOUNTRY' => 'ru'], 'cloudflare'), Firewall::country(['REMOTE_ADDR' => '203.0.113.50', 'HTTP_CF_IPCOUNTRY' => 'RU'], 'cloudflare'),
-    Firewall::country(['GEOIP_COUNTRY_CODE' => 'CN'], ''), Firewall::country(['REMOTE_ADDR' => '172.70.1.2', 'HTTP_CF_IPCOUNTRY' => 'XX'], 'cloudflare'), Firewall::countries("ru, CN;\nde x"),
-    Firewall::countryBlocked('RU', 'RU, CN'), Firewall::countryBlocked('', 'RU')], ['RU', '', 'CN', '', ['RU', 'CN', 'DE'], true, false]);
-check('2.8: Firewall::PROBE_PATHS – probes count, missing images and old WordPress uploads never', array_map(fn (string $p): bool => preg_match(Firewall::PROBE_PATHS, $p) === 1,
-    ['wp-login.php', 'xmlrpc.php', '.env', 'app/.git/config', 'phpmyadmin/index.php', 'backup.sql', 'wp-content/uploads/2020/05/foto.jpg', 'image/logo.png', 'robots.txt', 'sitemap.xml', 'o-nas', '.well-known/security.txt']),
-    [true, true, true, true, true, true, false, false, false, false, false, false]);
-check('2.8: Firewall::isLocal', array_map(Firewall::isLocal(...), ['127.0.0.1', '10.0.0.5', '192.168.1.1', '::1', '203.0.113.7', '2a00:1450::1']), [true, true, true, true, false, false]);
 // 2.7: a reveal and a motion while scrolling run together; a hover effect gets its own rule, its motion only without reduced motion
 $motion = Talea\Builder\Style::css('#a', ['base' => ['animation' => 'tl-from-left', 'scroll_motion' => 'tl-parallax', 'hover_effect' => 'lift']]);
 check('2.7: scroll motion and hover effect in the CSS', [str_contains($motion, 'animation: tl-from-left linear both, tl-parallax linear both; animation-timeline: view(), view(); animation-range: entry 0% cover 28%, cover 0% cover 100%'),
@@ -1582,7 +1572,11 @@ check('Collections::fill: text is escaped only by the element, inline and html a
 check('Build::sanitize: {{fields}} tags in an image and a link pass', [$collectionBuild['children'][0]['children'][0]['content']['src'], $collectionBuild['children'][0]['children'][1]['content']['link'], $collectionErrors], ['{{photo}}', '{{url}}', []]);
 
 /* ---------- builder English: editor texts (JS) and schema labels (PHP) ---------- */
-preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(TALEA_ROOT . '/image/builder.js'), $enJs);
+$builderScripts = '';
+foreach (['builder', 'builder-overlay', 'builder-handles', 'builder-keys'] as $builderScript) { // the editor and the compose scripts (direct manipulation on the canvas)
+    $builderScripts .= (string) file_get_contents(TALEA_ROOT . '/image/' . $builderScript . '.js');
+}
+preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", $builderScripts, $enJs);
 preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-en.js'), $enJsDictionary);
 $enJsKeys = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsDictionary[1] ?? '{}'), true));
 preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-cs.js'), $csJsDictionary);
@@ -1750,7 +1744,7 @@ check('2.4: German is an admin language', [isset(Talea\Core\Language::ADMIN_LANG
 
 check('2.10: alert e-mails – errors and the warnings that need the owner, not every warning', array_column(Talea\Core\Alerts::worth([
     ['id' => 1, 'created_at' => '', 'type' => 'backup.failed', 'severity' => 'error', 'message' => '', 'data' => []],
-    ['id' => 2, 'created_at' => '', 'type' => 'firewall.blocked', 'severity' => 'warning', 'message' => '', 'data' => []],
+    ['id' => 2, 'created_at' => '', 'type' => 'fleet.site_updated', 'severity' => 'warning', 'message' => '', 'data' => []],
     ['id' => 3, 'created_at' => '', 'type' => 'content.review', 'severity' => 'warning', 'message' => '', 'data' => []],
     ['id' => 4, 'created_at' => '', 'type' => 'notfound.spike', 'severity' => 'warning', 'message' => '', 'data' => []]]), 'id'), [1, 3, 4]);
 /* ---------- 2.10: business facts – values by type, how they are shown, the token ---------- */
@@ -1876,6 +1870,8 @@ check('2.9: a heartbeat keeps only the known keys with sane values', [isset($fle
     [false, 255, '2.9.0', 12, 'Mail']);
 /* ---------- the domain watch add-on (extensions/domain_watch, issue #28): its own tests ---------- */
 require dirname(__DIR__) . '/extensions/domain_watch/tests/unit.php';
+/* ---------- the firewall add-on (extensions/firewall, issue #29): its own tests ---------- */
+require dirname(__DIR__) . '/extensions/firewall/tests/unit.php';
 /* ---------- 2.8: real-user speed (Core\WebVitals) – histogram buckets, p75, Google's ratings, the audit rule ---------- */
 use Talea\Core\WebVitals;
 check('2.8: WebVitals::bucket – an edge value belongs to its bucket, the next value to the next one, above the last edge to the open bucket',
@@ -2972,7 +2968,7 @@ $api2Errors = [];
 foreach ([fn () => $api2->eventType('other.thing', 'd'), fn () => $api2->eventType('backup.failed', 'd'), fn () => $api2->job('x', 60, 'l', fn () => 'ok', 'sometimes'), fn () => $api2->httpGet('https://example.com/')] as $call) {
     try { $call(); } catch (InvalidArgumentException | LogicException $e) { $api2Errors[] = get_class($e); }
 }
-check('API 2: the methods of version 2 and a runner refuse an add-on written for API 1; version 1 jobs stay "any"', [count($gated), $reg->jobs()['ext_oldone_plain'][1], Talea\Extension\Api::V2_METHODS === ['earlyRequest', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'], Talea\Extension\Api::SUPPORTED],
+check('API 2: the methods of version 2 and a runner refuse an add-on written for API 1; version 1 jobs stay "any"', [count($gated), $reg->jobs()['ext_oldone_plain'][1], Talea\Extension\Api::V2_METHODS === ['earlyRequest', 'notFound', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'], Talea\Extension\Api::SUPPORTED],
     [4, 'any', true, [1, 2]]);
 check('API 2: an event type is <slug>.<name>, Talea\'s own names are taken, an unknown runner and an undeclared capability are refused; cron jobs are marked', [$api2Errors, $reg->jobs()['ext_newone_heavy'][1],
     isset(Talea\Core\Events::types()['newone.expiring']), in_array('newone.expiring', Talea\Core\Alerts::warnings(), true), isset(Talea\Core\Events::TYPES['newone.expiring'])],
@@ -2991,7 +2987,7 @@ try { Talea\Extension\SettingsSchema::normalize(['ok' => ['label' => 'x', 'type'
 check('API 2: a setting with a bad name or an unknown type is refused', $schemaError, true);
 $apiContract = json_decode((string) file_get_contents(__DIR__ . '/contracts/extension-api.json'), true);
 check('API 2: the contract records version 2, both supported versions, and which methods are new in 2', [$apiContract['version'], $apiContract['supported'], $apiContract['v2_methods'], $apiContract['methods']['job']],
-    [2, [1, 2], ['earlyRequest', 'eventType', 'handoverFindings', 'healthRows', 'httpGet', 'settings'], ['string $name', 'int $interval', 'string $label', 'callable $run', 'string $runner']]);
+    [2, [1, 2], ['earlyRequest', 'eventType', 'handoverFindings', 'healthRows', 'httpGet', 'notFound', 'settings'], ['string $name', 'int $interval', 'string $label', 'callable $run', 'string $runner']]);
 
 /* ---------- 3.0: structured importers – the common base, Ghost and Blogger (Import\…) ---------- */
 $ghostPath = dirname(__DIR__) . '/tools/fixtures/ghost-export.json';
@@ -3402,12 +3398,12 @@ check('3.3.2 (N27): Claude cannot set GTM or Matomo (script chosen by their owne
 check('3.3.2 (N29): visitors\' personal data are never journaled for undo; content still is', array_map(Talea\Core\AgentJournal::journaled(...),
     ['enquiries', 'testimonial_requests', 'bookings', 'subscribers', 'mail', 'pages', 'settings']), [false, false, false, false, false, true, true]);
 $settingsScreens = array_values(array_filter(Talea\Admin\Kernel::MODULES, fn (string $c): bool => is_a($c, Talea\Admin\Modules\Settings::class, true)));
-check('3.3.2 (N24): the demo filters every Settings screen by its class – no backup, restore, download, pairing or firewall action through any of them; looking is allowed', [
+check('3.3.2 (N24): the demo filters every Settings screen by its class – no backup, restore, download or pairing action through any of them; looking is allowed', [
     count($settingsScreens) >= 5,
     array_values(array_filter(array_map(fn (string $c): string => $c::IDENT, $settingsScreens), fn (string $ident): bool => !Talea\Core\Demo::blocksAdmin($ident, 'backup', '', true)
         || !Talea\Core\Demo::blocksAdmin($ident, 'download_backup', '', false) || !Talea\Core\Demo::blocksAdmin($ident, 'restore_backup', '', true)
         || !Talea\Core\Demo::blocksAdmin($ident, 'delete_backup', '', true) || !Talea\Core\Demo::blocksAdmin($ident, 'fleet_pair', '', true)
-        || !Talea\Core\Demo::blocksAdmin($ident, 'firewall_unblock', '', true) || Talea\Core\Demo::blocksAdmin($ident, 'list', '', false))),
+        || Talea\Core\Demo::blocksAdmin($ident, 'list', '', false))),
     Talea\Core\Demo::blocksAdmin('settings', 'save', 'general', true), Talea\Core\Demo::blocksAdmin('settings', 'save', 'mail', true), Talea\Core\Demo::blocksAdmin('business', 'hours_add', '', true),
     Talea\Core\Demo::blocksAdmin('status', 'save', '', true), Talea\Core\Demo::blocksAdmin('claude_settings', 'save', '', true), Talea\Core\Demo::blocksAdmin('pages', 'save', '', true)],
     [true, [], false, true, false, true, true, false]);
@@ -3540,12 +3536,12 @@ check('3.3.3 (N60): a sign-in ends after 8 idle hours or 24 hours in total, howe
     // the tokens of Claude connections are not sessions: the MCP server signs the user in without one
     str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php'), '$this->app->auth()->signInAs($user);')],
     [true, false, false, true, 28800, 86400, true]);
-$cloudflareSettings = $reportSettings(['firewall_proxy' => 'cloudflare']);
+$cloudflareSettings = $reportSettings(['trusted_proxy' => 'cloudflare']);
 check('3.3.3 (N54): the sign-in, reset and MCP limits count the visitor behind Cloudflare, an IPv6 address by its /64', [
-    Talea\Core\Firewall::visitorKey(new Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '2001:db8:1:2:3:4:5:6']), $cloudflareSettings),
-    Talea\Core\Firewall::visitorKey(new Talea\Core\Request([], [], ['REMOTE_ADDR' => '203.0.113.9', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $cloudflareSettings),
-    Talea\Core\Firewall::visitorKey(new Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $reportSettings(['firewall_proxy' => ''])),
-    array_map(fn (string $file): bool => str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/' . $file . '.php'), 'Firewall::visitorKey(') && !str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/' . $file . '.php'), "hash('sha256', 'talea|' . \$this->app->request->ip())"),
+    Talea\Core\Antispam::visitorKey(new Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '2001:db8:1:2:3:4:5:6']), $cloudflareSettings),
+    Talea\Core\Antispam::visitorKey(new Talea\Core\Request([], [], ['REMOTE_ADDR' => '203.0.113.9', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $cloudflareSettings),
+    Talea\Core\Antispam::visitorKey(new Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $reportSettings(['trusted_proxy' => ''])),
+    array_map(fn (string $file): bool => str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/' . $file . '.php'), 'Antispam::visitorKey(') && !str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/' . $file . '.php'), "hash('sha256', 'talea|' . \$this->app->request->ip())"),
         ['Admin/Kernel', 'Admin/PasswordReset', 'Mcp/Server'])],
     ['2001:db8:1:2::/64', '203.0.113.9', '162.158.1.1', [true, true, true]]);
 check('3.3.3 (N62): the MCP wrong-token count only caps the rows it writes – it never refuses a request', [

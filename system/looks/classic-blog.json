@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "classic-blog",
+    "name": "Classic blog",
+    "description": "A familiar blog layout: a contact bar above the menu, blue links and a calm serif.",
+    "source": "Layout study of a classic blog-theme style: proportions, type scale and section order; tokens and sections written from scratch.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#1e5aa8",
+            "secondary": "#8a4b08",
+            "text": "#222222",
+            "background": "#ffffff",
+            "surface": "#f1f4f8"
+        },
+        "colors_dark": {
+            "text": "#e6e9ee",
+            "background": "#14181e",
+            "surface": "#1d232b",
+            "primary": "#7fb2f0",
+            "secondary": "#e0a468"
+        },
+        "font_heading": "lib:merriweather",
+        "font_body": "lib:open-sans",
+        "radius": "s",
+        "ratio_min": 1.2,
+        "ratio_max": 1.25,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 72,
+        "text_width": 44
+    },
+    "header": "with-bar",
+    "footer": "columns",
+    "sections": [
+        "page-title",
+        "news",
+        "benefits",
+        "testimonials",
+        "faq",
+        "call-to-action"
+    ]
+}

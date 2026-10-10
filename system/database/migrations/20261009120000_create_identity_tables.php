@@ -121,23 +121,5 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('checked_at', 'datetime', ['null' => false])
             ->addIndex(['type', 'target', 'ip', 'checked_at'], ['name' => 'ix_ip_checks_type_target_ip_checked_at'])
             ->create();
-
-        $this->table('firewall_blocks', ['id' => false, 'primary_key' => ['ip']])
-            ->addColumn('ip', 'string', ['limit' => 45, 'null' => false])
-            ->addColumn('until', 'datetime', ['null' => false])
-            ->addColumn('reason', 'string', ['limit' => 40, 'null' => false, 'default' => ''])
-            ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addIndex(['until'], ['name' => 'ix_firewall_blocks_until'])
-            ->create();
-
-        $this->table('firewall_log', ['id' => false, 'primary_key' => ['id']])
-            ->addColumn('id', 'biginteger', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addColumn('ip', 'string', ['limit' => 45, 'null' => false])
-            ->addColumn('reason', 'string', ['limit' => 40, 'null' => false, 'comment' => 'list | country | rate | probe | temporary'])
-            ->addColumn('path', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
-            ->addIndex(['created_at'], ['name' => 'ix_firewall_log_created_at'])
-            ->create();
-
     }
 }

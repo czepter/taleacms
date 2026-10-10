@@ -6,7 +6,6 @@ namespace Talea\Admin;
 
 use Talea\Core\Antispam;
 use Talea\Core\App;
-use Talea\Core\Firewall;
 use Talea\Core\Language;
 use Talea\Core\Mail;
 use Talea\Core\Response;
@@ -43,7 +42,7 @@ final class PasswordReset
         $error = null;
         if ($app->request->isPost()) {
             // counted by the visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54)
-            $ip = Antispam::hash(Firewall::visitorKey($app->request, $app->settings()));
+            $ip = Antispam::hash(Antispam::visitorKey($app->request, $app->settings()));
             $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'reset' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]);
             if ($attempts >= 5) {
                 $error = t('Too many requests. Try again in 15 minutes.');

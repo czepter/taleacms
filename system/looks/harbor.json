@@ -1,0 +1,44 @@
+{
+    "talea_look": 1,
+    "key": "harbor",
+    "name": "Harbor",
+    "description": "Clean business: blue accent, a friendly geometric sans and generous white space.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#1d4ed8",
+            "secondary": "#0e7490",
+            "text": "#0f172a",
+            "background": "#ffffff",
+            "surface": "#f1f5f9"
+        },
+        "colors_dark": {
+            "text": "#e2e8f0",
+            "background": "#0b1120",
+            "surface": "#131c2e",
+            "primary": "#8ab4ff",
+            "secondary": "#67d1e6"
+        },
+        "font_heading": "lib:plus-jakarta-sans",
+        "font_body": "lib:inter",
+        "radius": "m",
+        "ratio_min": 1.2,
+        "ratio_max": 1.25,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 72,
+        "text_width": 44
+    },
+    "header": "classic",
+    "footer": "columns",
+    "sections": [
+        "hero",
+        "benefits",
+        "numbers",
+        "process",
+        "pricing",
+        "faq",
+        "call-to-action"
+    ]
+}

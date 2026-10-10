@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "journal",
+    "name": "Journal",
+    "description": "An editorial reading layout: warm paper, a serif text face and a narrow text column. For blogs and magazines.",
+    "source": "Layout study of a classic blog-theme style: proportions, type scale and section order; tokens and sections written from scratch.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#b3261e",
+            "secondary": "#2f5d62",
+            "text": "#1f1d1a",
+            "background": "#fbf8f3",
+            "surface": "#f0ebe1"
+        },
+        "colors_dark": {
+            "text": "#ece6dc",
+            "background": "#161412",
+            "surface": "#211e1b",
+            "primary": "#ff8a80",
+            "secondary": "#7fc4c9"
+        },
+        "font_heading": "lib:source-serif-4",
+        "font_body": "lib:inter",
+        "radius": "s",
+        "ratio_min": 1.25,
+        "ratio_max": 1.333,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 68,
+        "text_width": 40
+    },
+    "header": "centered",
+    "footer": "columns",
+    "sections": [
+        "page-title",
+        "story",
+        "news",
+        "quote",
+        "faq",
+        "call-to-action"
+    ]
+}

@@ -1181,6 +1181,11 @@ body.login {
 .appearance-preset { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
 .appearance-preset:hover { border-color: var(--accent); }
 .appearance-preset strong { font-size: 16px; }
+.looks-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.look-card { display: grid; gap: 6px; align-content: start; padding: 14px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); }
+.look-card strong { font-size: 17px; }
+.look-card small { color: var(--text-weak); font-size: 12px; line-height: 1.4; }
+.look-card .button { justify-self: start; margin-top: 4px; }
 .appearance-preset small { color: var(--text-weak); font-size: 12px; line-height: 1.35; }
 .appearance-preset .badge { justify-self: start; }
 .appearance-export { padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }

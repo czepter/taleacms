@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "pulse",
+    "name": "Pulse",
+    "description": "High energy: condensed capitals, an orange accent and bold numbers. For fitness, sport and events.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#c2410c",
+            "secondary": "#0f172a",
+            "text": "#111111",
+            "background": "#ffffff",
+            "surface": "#f4f4f5"
+        },
+        "colors_dark": {
+            "text": "#f1f1f2",
+            "background": "#0d0d0e",
+            "surface": "#19191b",
+            "primary": "#fb923c",
+            "secondary": "#cbd5e1"
+        },
+        "font_heading": "lib:oswald",
+        "font_body": "lib:open-sans",
+        "radius": "s",
+        "ratio_min": 1.333,
+        "ratio_max": 1.5,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 74,
+        "text_width": 42
+    },
+    "header": "classic",
+    "footer": "cta",
+    "sections": [
+        "hero-dark",
+        "numbers",
+        "services",
+        "reviews",
+        "pricing",
+        "call-to-action"
+    ]
+}

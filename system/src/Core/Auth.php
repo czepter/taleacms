@@ -52,7 +52,7 @@ final class Auth
     }
 
     /**
-     * The password step of the sign-in. $address is what the per-address limit counts by – Firewall::visitorKey(): the
+     * The password step of the sign-in. $address is what the per-address limit counts by – Antispam::visitorKey(): the
      * visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54). $password is taken as typed (N61).
      *
      * @return string|null error text, null = signed in (or waiting for the second step)

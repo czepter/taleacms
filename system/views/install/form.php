@@ -104,6 +104,18 @@ $n = function () use (&$step): int {
 				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Talea site here – right after installation you import its export in Import and export.')) ?></small></label>
 			<span class="help"><?= e(t('A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.')) ?></span>
 		</fieldset>
+		<fieldset class="full sites">
+			<legend><?= e(t('Look')) ?></legend>
+			<label class="site"><input type="radio" name="look" value=""<?= $data['look'] === '' ? ' checked' : '' ?>>
+				<span class="swatches"><i></i><i></i><i></i></span>
+				<strong><?= e(t('The style of the website')) ?></strong><small><?= e(t('The colours and fonts that come with the chosen starter website.')) ?></small></label>
+<?php foreach (Talea\Builder\Looks::all() as $key => $look): $colors = $look['design_system']['colors']; ?>
+			<label class="site"><input type="radio" name="look" value="<?= e($key) ?>"<?= $data['look'] === $key ? ' checked' : '' ?>>
+				<span class="swatches"><i style="background:<?= e($colors['primary']) ?>"></i><i style="background:<?= e($colors['secondary']) ?>"></i><i style="background:<?= e($colors['surface']) ?>"></i></span>
+				<strong><?= e($look['name']) ?></strong><small><?= e(t($look['description'])) ?></small></label>
+<?php endforeach ?>
+			<span class="help"><?= e(t('A look can be changed or previewed later in Site appearance → Looks.')) ?></span>
+		</fieldset>
 		<div><label for="user"><?= e(t('User name')) ?></label><input type="text" id="user" name="username" value="<?= e($data['username']) ?>" required><?= $error('username') ?></div>
 		<div><label for="name"><?= e(t('First and last name')) ?></label><input type="text" id="name" name="name" value="<?= e($data['name']) ?>"><span class="help"><?= e(t('Shown with news items.')) ?></span></div>
 		<div class="full"><label for="email"><?= e(t('Email')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $error('email') ?></div>

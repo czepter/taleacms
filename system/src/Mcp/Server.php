@@ -276,7 +276,7 @@ final class Server
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
         // the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
-        $ip = \Talea\Core\Antispam::hash(\Talea\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
+        $ip = \Talea\Core\Antispam::hash(\Talea\Core\Antispam::visitorKey($this->app->request, $this->app->settings()));
         // a personal token from "My account" (talea_…) or the access token of an application connected via OAuth
         // (talea_oa_…, valid for an hour)
         if (!preg_match('/^Bearer\s+(talea_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {

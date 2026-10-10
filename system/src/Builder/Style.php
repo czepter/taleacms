@@ -150,7 +150,7 @@ final class Style
 
     public const array GROUPS = ['layout' => 'Layout', 'dimensions' => 'Size', 'spacing' => 'Spacing', 'typography' => 'Typography', 'background' => 'Background and border', 'advanced' => 'Advanced'];
 
-    /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--ka-…). Never ; { } < > \ or url(). */
+    /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--tl-…). Never ; { } < > \ or url(). */
     private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/i';
     private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--tl-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/i';
 

@@ -38,8 +38,23 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
 
 - **Adding:** click an element or a ready-made section in the Add panel, or **drag it onto the canvas** – a blue line shows
   where it will land (a frame means inside a container). Hover over a ready-made section to see its preview.
-- **Moving:** the selected element has a ⠿ handle on the canvas – drag it elsewhere. You can also drag in the Structure.
-  On tablets and phones tap **Move** (four arrows) and then the place where the element belongs.
+- **Moving:** the **floating toolbar** above the selected element has a move grip (four arrows) – drag it elsewhere (Alt-drag
+  duplicates). You can also drag in the Structure. On tablets and phones tap the grip and then the place where the element belongs.
+- **Pulling instead of typing:** the selected element shows handles on the canvas. The **orange pills** are its padding (inside)
+  and margin (outside) and the **purple pill** the gap between its elements: drag them, they snap to the site's spacing steps and
+  show the step's name (Alt = both opposite sides, Shift = all sides, Ctrl/Cmd = a free value). The **squares** on the right edge,
+  the bottom edge and the corner set the width (as a share of the row, e.g. 50 %, or a number of grid columns) and the minimum
+  height. Select a column (or the row itself) and the **purple bars** between the columns set the ratio, e.g. 2 : 1 : 1.
+  What you pull is written for the screen size selected at the top, so a change on Mobile never touches Desktop; a value
+  that exists only for the smaller screen is marked with a dot in the Style panel and has a **Reset to inherited** button.
+  The toolbar also offers align, duplicate, group into a container, delete and, by element, bold / italic / link / text size,
+  replace image / description, button link / appearance.
+- **Several elements:** Shift- or Ctrl/Cmd-click adds an element to the selection, dragging on empty space draws a frame around
+  several; then move, align, duplicate, delete or **group** them (Ctrl+G, Ctrl+Shift+G ungroups). Drop an **image or video
+  file from your computer** onto the page: it is uploaded to Media and inserted where you drop it.
+- **Without a mouse:** arrow keys select the previous or next element, Ctrl/Cmd+Shift+arrows move it (at the end of a container
+  it hops into the next one), Alt+arrows resize it by one step, **Enter** moves the focus to its handles (Tab walks them, arrows
+  change the value, Esc leaves). Esc also cancels a drag in progress. Every handle works with a finger as well.
 - **Text:** double-click a heading or text to edit it right on the canvas; longer edits in the **Content** panel.
 - **Style:** the **Style** panel – layout, size, spacing, typography, background. At the top, switch **Desktop / Tablet /
   Mobile**: a value for a smaller screen overrides the larger one only there. The **Hover** and **Press** toggles set the look

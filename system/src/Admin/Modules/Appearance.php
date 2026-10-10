@@ -9,6 +9,7 @@ use Talea\Core\Images;
 use Talea\Core\Look;
 use Talea\Core\Response;
 use Talea\Builder\DesignSystem;
+use Talea\Builder\Looks;
 
 /**
  * Site appearance: logo and design system (colors, fonts, sizes, width, rounding) with a live preview of the home page.
@@ -80,6 +81,31 @@ final class Appearance extends Module
         Look::setDesignSystem($s, $ds);
 
         return true;
+    }
+
+    /** The looks gallery (Builder\Looks): a click puts a whole look into the draft look. */
+    protected function actionLooks(): Response
+    {
+        $current = Look::designSystem($this->app->settings());
+
+        return $this->view('looks', 'Looks', ['looks' => Looks::all(), 'current' => array_search($current, array_column(Looks::all(), 'design_system', 'key'), false) ?: '',
+            'library' => DesignSystem::libraryFonts(), 'sections' => array_column(\Talea\Builder\Library::listAll(\Talea\Core\Extensions::enabled($this->app->settings())), 'name', 'key')]);
+    }
+
+    protected function actionApplyLook(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $key = $this->request->post('look');
+        if (!Looks::apply($this->app, $key)) {
+            return $this->back('The look does not exist.', '', [], 'error');
+        }
+        $this->app->settings()->set('appearance_saved', '1');
+        \Talea\Front\Cache::clear();
+        \Talea\Admin\ChangeLog::write($this->app, 'appearance', 'apply look', $key);
+
+        return $this->back('The look is in the draft – preview the whole site, then publish it.', 'looks');
     }
 
     protected function actionPublishLook(): Response

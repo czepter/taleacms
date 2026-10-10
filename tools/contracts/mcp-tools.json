@@ -20,6 +20,19 @@
             "openWorldHint": false
         }
     },
+    "apply_look": {
+        "parameters": {
+            "look": "string"
+        },
+        "required": [
+            "look"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "apply_part_template": {
         "parameters": {
             "language": "string",
@@ -919,6 +932,15 @@
         }
     },
     "list_look_versions": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_looks": {
         "parameters": [],
         "required": [],
         "annotations": {

@@ -129,8 +129,32 @@ final class Look
         $s->set('look_draft', (string) json_encode($change(self::draft($s)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
+    /** The header and footer templates a look (Builder\Looks) put into the drafts of the site parts: type => template key. */
+    public static function setParts(Settings $s, array $parts): void
+    {
+        self::write($s, function (array $d) use ($parts): array {
+            unset($d['parts']);
+
+            return $parts === [] ? $d : $d + ['parts' => $parts];
+        });
+    }
+
+    /** Throws the part drafts a look made away; a part that exists only because of the look goes too. */
+    public static function discardParts(Db $db, array $parts): void
+    {
+        foreach (array_keys($parts) as $type) {
+            $row = \Talea\Builder\SiteParts::row($db, (string) $type, '');
+            if ($row === null) {
+                continue;
+            }
+            $row['build'] === null ? $db->delete('site_parts', ['type' => $type, 'language' => '', 'variant' => ''])
+                : $db->update('site_parts', ['build_draft' => null], ['type' => $type, 'language' => '', 'variant' => '']);
+        }
+    }
+
     public static function discard(Settings $s): void
     {
+        self::discardParts($s->db(), self::draft($s)['parts'] ?? []);
         $s->set('look_draft', '');
     }
 
@@ -227,6 +251,10 @@ final class Look
             $changes = array_values(array_unique($changes));
             $lines[] = t('Design system: %s', $changes === [] ? t('no change') : implode(', ', array_slice($changes, 0, 8)) . (count($changes) > 8 ? ' …' : ''));
         }
+        if (($draft['parts'] ?? []) !== []) {
+            $lines[] = t('Header and footer: %s', implode(', ', array_map(fn (string $type, string $key): string => t(\Talea\Builder\SiteParts::TYPES[$type][0] ?? $type) . ' – ' . t(\Talea\Builder\PartTemplates::LIST[$type][$key][0] ?? $key),
+                array_keys($draft['parts']), $draft['parts'])));
+        }
         if (($draft['classes'] ?? []) !== []) {
             $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
             $lines[] = t('Classes: %s', implode(', ', array_map(fn (string $name): string => $name . ' (' . ($draft['classes'][$name] === null ? t('deleted')
@@ -287,7 +315,13 @@ final class Look
             [$location, $language] = explode('|', $key) + ['', ''];
             Menu::save($db, $location, $language, $items);
         }
-        self::discard($s);
+        foreach (array_keys($draft['parts'] ?? []) as $type) {
+            $row = \Talea\Builder\SiteParts::row($db, (string) $type, '');
+            if ($row !== null && $row['build_draft'] !== null) {
+                \Talea\Builder\Publisher::part($app, $row); // the editor may have adjusted the draft since the look was applied
+            }
+        }
+        $s->set('look_draft', '');
         \Talea\Front\Cache::clear();
         \Talea\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
 

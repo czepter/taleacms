@@ -52,14 +52,14 @@ final class PageLock
      */
     public static function unlock(App $app, array $page, string $password): string
     {
-        $ip = Firewall::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
+        $ip = Antispam::visitorIp($app->request->serverValues(), $app->settings()->get('trusted_proxy'));
         $pageKey = 'page-' . (int) $page['page_id'];
-        if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
+        if (Antispam::tally(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
         if ($password === '' || !password_verify($password, (string) $page['password_hash'])) {
             // only wrong passwords count for the page; past its cap they are refused as "too many attempts" (3.3.3, N58)
-            return Firewall::count($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
+            return Antispam::tally($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
                 ? t('Too many attempts. Try again in a few minutes.') : t('The password is not right.');
         }
         // the right password always opens the page, past the page's cap too (3.3.3, N58): wrong guesses from many addresses

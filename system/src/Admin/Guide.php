@@ -67,7 +67,6 @@ final class Guide
         'mail' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
-        'firewall' => 'site-health#firewall',
         'console' => 'fleet-console#pair-a-site',
         'health' => 'site-health',
     ];

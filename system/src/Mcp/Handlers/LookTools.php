@@ -146,6 +146,31 @@ trait LookTools
         return $this->toolPublishLook($name, $a);
     }
 
+    /** list_looks */
+    private function toolListLooks(string $name, array $a): mixed
+    {
+        return ['looks' => array_values(array_map(fn (array $l): array => ['key' => $l['key'], 'name' => $l['name'], 'description' => $l['description'], 'colors' => $l['design_system']['colors'],
+            'colors_dark' => $l['design_system']['colors_dark'], 'font_heading' => $l['design_system']['font_heading'], 'font_body' => $l['design_system']['font_body'],
+            'header' => $l['header'], 'footer' => $l['footer'], 'sections' => $l['sections']], \Talea\Builder\Looks::all())),
+            'note' => 'apply_look puts one into the draft look; the sections are ready-made sections for insert_section.'];
+    }
+
+    /** apply_look */
+    private function toolApplyLook(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Only the site administrator can use this tool.');
+        }
+        if (!\Talea\Builder\Looks::apply($this->app, (string) ($a['look'] ?? ''))) {
+            throw new \InvalidArgumentException('The look does not exist: ' . implode(', ', array_keys(\Talea\Builder\Looks::all())) . '.');
+        }
+        $this->app->settings()->set('appearance_saved', '1');
+        \Talea\Front\Cache::clear();
+
+        return ['status' => 'draft look – visitors see it after publish_look', 'draft' => \Talea\Core\Language::runWith('en', fn (): array => \Talea\Core\Look::summary($this->app->db(), $this->app->settings()), 'admin-'),
+            'readability' => \Talea\Builder\DesignSystem::contrasts(\Talea\Core\Look::designSystem($this->app->settings())), 'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+    }
+
     /** list_look_versions */
     private function toolListLookVersions(string $name, array $a): mixed
     {

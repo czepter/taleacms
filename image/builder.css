@@ -103,6 +103,12 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-property { display: grid; grid-template-columns: 1fr 132px; align-items: center; gap: 8px; margin-bottom: 6px; }
 .bd-property label { font-size: 12px; color: var(--text-weak); }
 .bd-property.set label { color: var(--text); font-weight: 600; }
+.bd-property.bd-overridden label::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
+.bd-reset { grid-column: 1; grid-row: 1; justify-self: end; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: var(--surface); color: var(--accent); cursor: pointer; }
+.bd-reset:hover, .bd-reset:focus-visible { background: var(--accent-light); }
+.bd-reset svg { width: 14px; height: 14px; }
+.bd-multi { margin: 0 0 8px; padding: 6px 10px; border-radius: 8px; background: var(--accent-light); color: var(--accent-dark); font-size: 12px; }
+.bd-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .bd-property .bd-field-row { gap: 4px; }
 .bd-property input, .bd-property select { width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--line-field); border-radius: 6px; background: var(--surface); font-size: 12px; }
 .bd-swatch { position: relative; flex: none; width: 22px; height: 22px; border: 1px solid var(--line-field); border-radius: 4px; cursor: pointer; overflow: hidden; }

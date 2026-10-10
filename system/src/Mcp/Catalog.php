@@ -62,6 +62,8 @@ final class Catalog
         'update_design_system' => ['draft', ''],
         'publish_look' => ['destructive', ''],
         'discard_look' => ['destructive', ''],
+        'list_looks' => ['read', ''],
+        'apply_look' => ['draft', ''],
         'list_look_versions' => ['read', ''],
         'restore_look_version' => ['draft', ''],
         // Collections

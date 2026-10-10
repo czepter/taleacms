@@ -39,7 +39,7 @@ final class Api
     public const array TOOL_ROLES = ['author', 'editor', 'admin'];
 
     /** Methods that exist since version 2: an add-on written for version 1 may not call them. */
-    public const array V2_METHODS = ['earlyRequest', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'];
+    public const array V2_METHODS = ['earlyRequest', 'notFound', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'];
 
     /** Where a job runs: with every visit and cron, or only from cron (heavy work). */
     public const array RUNNERS = ['any', 'cron'];
@@ -159,6 +159,18 @@ final class Api
         $this->needsVersion2('earlyRequest()');
         $this->needsCapability('early_request');
         $this->registry->addEarlyHook($this->slug, $hook);
+    }
+
+    /**
+     * (API 2, capability early_request) Runs when an address of the public site ends in 404 (no page, no redirect), before the 404 page:
+     * fn (\Talea\Core\Request $request, string $path): ?\Talea\Core\Response – null shows the 404 page, a Response answers instead. $path is
+     * the address without the leading slash. Fail-open and time-limited like earlyRequest().
+     */
+    public function notFound(callable $hook): void
+    {
+        $this->needsVersion2('notFound()');
+        $this->needsCapability('early_request');
+        $this->registry->addNotFoundHook($this->slug, $hook);
     }
 
     /**

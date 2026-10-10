@@ -52,7 +52,7 @@ final class AddonsApi2Test extends SiteTestCase
         file_put_contents($guard . '/extension.json', str_replace('">=3.0"', '">=2.0"', $manifest));
 
         $page = $this->assertPage('/admin.php?module=addons', 200, ['Guard', 'It declares that it:', 'runs on every public request before anything else and may refuse it', 'creates and keeps its own database tables'], message: 'API 2: capabilities are shown before switching on');
-        $this->assertSame(1, substr_count($page->body, 'Official add-on'), 'only the bundled Domain watch is official, a folder copied in is not');
+        $this->assertSame(2, substr_count($page->body, 'Official add-on'), 'only the bundled Domain watch and Firewall are official, a folder copied in is not');
         $this->assertFalse($this->tableExists('tl_ext_guard_log'), 'nothing is created before the add-on is switched on');
     }
 

@@ -96,6 +96,97 @@ final class Antispam
         }
     }
 
+    /** Cloudflare's published address ranges (https://www.cloudflare.com/ips/): the only senders whose CF-Connecting-IP header is believed. */
+    public const array CLOUDFLARE = [
+        '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20',
+        '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+        '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32',
+    ];
+
+    /**
+     * The visitor's address, decided in one place (issue #29): REMOTE_ADDR, or behind Cloudflare (setting trusted_proxy = cloudflare)
+     * the address it passes on – but only when the request really comes from a Cloudflare address, otherwise anyone could choose theirs.
+     *
+     * @param array<string, mixed> $server
+     */
+    public static function visitorIp(array $server, string $proxy): string
+    {
+        $remote = (string) ($server['REMOTE_ADDR'] ?? '');
+        if ($proxy === 'cloudflare' && isset($server['HTTP_CF_CONNECTING_IP']) && self::inList($remote, self::CLOUDFLARE)) {
+            $ip = trim((string) $server['HTTP_CF_CONNECTING_IP']);
+
+            return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : $remote;
+        }
+
+        return $remote;
+    }
+
+    /**
+     * What the sign-in, reset, MCP and page-lock limits count by: the visitor's address behind the configured proxy, an IPv6 address
+     * by its /64 (network()) – so visitors behind Cloudflare do not share one counter, and one IPv6 network does not get a fresh one
+     * for every address it owns.
+     */
+    public static function visitorKey(Request $request, Settings $settings): string
+    {
+        return self::network(self::visitorIp($request->serverValues(), $settings->get('trusted_proxy')));
+    }
+
+    /** @param list<string> $entries addresses and networks (CIDR) */
+    public static function inList(string $ip, array $entries): bool
+    {
+        $packed = @inet_pton($ip);
+        if ($packed === false) {
+            return false;
+        }
+        foreach ($entries as $entry) {
+            [$address, $bits] = str_contains($entry, '/') ? explode('/', $entry, 2) : [$entry, null];
+            $network = @inet_pton($address);
+            if ($network === false || strlen($network) !== strlen($packed)) {
+                continue;
+            }
+            $bits = $bits === null ? strlen($packed) * 8 : (int) $bits;
+            $bytes = intdiv($bits, 8);
+            if (substr($packed, 0, $bytes) !== substr($network, 0, $bytes)) {
+                continue;
+            }
+            $rest = $bits % 8;
+            if ($rest === 0 || ((ord($packed[$bytes]) ^ ord($network[$bytes])) & (0xFF << (8 - $rest)) & 0xFF) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Counts a request of a key in the current window and returns the count: one small file per key and window, a byte appended per
+     * request (no database write). $add false only reads the count. Used by the page lock and the firewall add-on.
+     */
+    public static function tally(string $key, string $kind, int $window, bool $add = true): int
+    {
+        $folder = TALEA_ROOT . '/storage/cache/limits';
+        if (!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
+            return 0;
+        }
+        $file = $folder . '/' . $kind . '-' . intdiv(time(), $window) . '-' . substr(hash('sha256', $key), 0, 24);
+        if ($add) {
+            @file_put_contents($file, '.', FILE_APPEND | LOCK_EX);
+        }
+        clearstatcache(true, $file);
+
+        return (int) @filesize($file);
+    }
+
+    /** The clean-up job: counter files older than two hours. */
+    public static function cleanUpCounters(): void
+    {
+        foreach (glob(TALEA_ROOT . '/storage/cache/limits/*') ?: [] as $file) {
+            if (filemtime($file) < time() - 7200) {
+                @unlink($file);
+            }
+        }
+    }
+
     /**
      * The network an address stands for when counting tries (3.3.2): an IPv4 address as it is, an IPv6 address by its
      * /64 prefix – one connection usually gets a whole /64, so counting single IPv6 addresses would count nothing.

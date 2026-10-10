@@ -793,4 +793,6 @@ return [
     'Choose whether to keep or delete the data of the add-on.' => 'Wähle, ob die Daten des Add-ons behalten oder gelöscht werden.',
     'The add-on is uninstalled and its data deleted. Delete its folder in extensions/ to remove the code.' => 'Das Add-on ist deinstalliert und seine Daten sind gelöscht. Den Code entfernst du, indem du seinen Ordner in extensions/ löschst.',
     'The add-on is uninstalled, its data is kept. Delete its folder in extensions/ to remove the code.' => 'Das Add-on ist deinstalliert, seine Daten bleiben erhalten. Den Code entfernst du, indem du seinen Ordner in extensions/ löschst.',
+    'The sign-in, password reset and Claude connection limits count visitors by it; behind Cloudflare choose Cloudflare, otherwise all visitors look alike.' => 'Die Limits für Anmeldung, Passwort-Zurücksetzen und die Claude-Verbindung zählen die Besucher danach; hinter Cloudflare wähle Cloudflare, sonst sehen alle Besucher gleich aus.',
+    'Behind Cloudflare, say so in Settings → General (The site runs behind).' => 'Hinter Cloudflare gib das unter Einstellungen → Allgemein an (Die Website läuft hinter).',
 ];

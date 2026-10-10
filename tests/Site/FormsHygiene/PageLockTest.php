@@ -48,7 +48,7 @@ final class PageLockTest extends SiteTestCase
     public function testPastThePageCapOnlyWrongPasswordsAreRefused(): void
     {
         // 3.3.3 (N58): past the page's cap of wrong passwords from all addresses only wrong ones are refused – the right one still opens
-        $directory = $this->site()->path('storage/cache/firewall');
+        $directory = $this->site()->path('storage/cache/limits');
         @mkdir($directory, 0775, true);
         $files = [];
         foreach ([0, 1] as $n) {

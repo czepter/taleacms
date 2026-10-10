@@ -338,7 +338,7 @@ final class Kernel
         $app = $this->app;
         $error = null;
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
-        $address = \Talea\Core\Firewall::visitorKey($app->request, $app->settings());
+        $address = \Talea\Core\Antispam::visitorKey($app->request, $app->settings());
         // second step with a passkey (fingerprint, Face ID): the script image/passkeys.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('step'), ['passkey_options', 'key'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();

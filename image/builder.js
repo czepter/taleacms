@@ -77,8 +77,13 @@
 	const state = {
 		build: D.build && Array.isArray(D.build.children) ? D.build : { v: 1, children: [] },
 		selected: null, bp: 'base', elementState: '', leftTab: 'add', rightTab: 'content', undo: [], redo: [], lastKey: null, lastTime: 0,
-		changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null,
+		changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null, multi: [], gesture: false, keepEditing: false, refreshAfterGesture: false,
 	};
+
+	/* The builder's small explicit interface for the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js): events and the API object at the end of the file. */
+	const listeners = {};
+	function on(name, fn) { (listeners[name] = listeners[name] || []).push(fn); }
+	function emit(name, ...args) { (listeners[name] || []).forEach((fn) => fn(...args)); }
 
 	/* ---------- small helpers ---------- */
 
@@ -315,14 +320,19 @@
 		frame.style.left = Math.max(0, Math.round((w - width * m) / 2)) + 'px';
 		frame.style.transform = m < 1 ? 'scale(' + m + ')' : '';
 		if (scale) { scale.textContent = width + ' px' + (m < 1 ? ' · ' + Math.round(m * 100) + ' %' : ''); }
+		frame.dataset.scale = String(m);
+		emit('resize');
 	}
 	function refreshPreview() {
 		if (state.editingCanvas) { return; }
+		if (state.gesture) { state.refreshAfterGesture = true; return; } // the canvas is not swapped under a gesture in progress
 		if (previewPending) { previewPending = 'again'; return; }
 		previewPending = true;
 		const fresh = el('iframe', { class: 'bd-loading', title: T('Page preview'), src: D.preview + '&t=' + Date.now() });
 		previewSize(fresh);
 		fresh.addEventListener('load', () => {
+			// a gesture started while this page was loading: the canvas is not swapped under it (the handle it holds would disappear)
+			if (state.gesture) { fresh.remove(); previewPending = false; state.refreshAfterGesture = true; return; }
 			const offset = preview && preview.contentWindow ? preview.contentWindow.scrollY : 0;
 			try { fresh.contentWindow.scrollTo(0, offset); } catch (e) { /* nothing */ }
 			preparePreview(fresh);
@@ -344,7 +354,7 @@
 			'[data-tl-id]{cursor:default} .tl-bd-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .tl-bd-selected{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
 			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .tl-edit-here,.cookies-bar,.cookies-reopen{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]') || e.target.id === 'tl-bd-grip') { return; }
+			if (e.target.closest('[contenteditable]') || e.target.closest('#tl-bd-overlay')) { return; }
 			e.preventDefault();
 			e.stopPropagation(); // page scripts do not run on the canvas (player, popups, sharing) – a click only selects
 			if (state.placing) {
@@ -359,6 +369,8 @@
 			// a locked element (Structure → lock) cannot be selected on the canvas: the nearest unlocked ancestor gets the selection
 			let t = e.target.closest('[data-tl-id]');
 			while (t && t.hasAttribute('data-tl-lock')) { t = t.parentElement && t.parentElement.closest('[data-tl-id]'); }
+			// Shift / Ctrl / Cmd-click adds the element to the selection or takes it out
+			if (t && (e.shiftKey || e.ctrlKey || e.metaKey) && find(t.getAttribute('data-tl-id'))) { toggleSelected(t.getAttribute('data-tl-id')); return; }
 			selection(t ? t.getAttribute('data-tl-id') : null);
 		}, true);
 		hiddenOnCanvas(doc);
@@ -376,6 +388,7 @@
 		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-tl-id]'); if (t && !t.hasAttribute('data-tl-lock')) { editOnCanvas(t); } });
 		doc.addEventListener('keydown', keys);
 		doc.addEventListener('paste', onPaste);
+		emit('preview', doc, frame);
 		doc.addEventListener('dragover', (e) => {
 			if (!state.dragging) { return; }
 			const place = canvasSpot(doc, e);
@@ -414,14 +427,16 @@
 	/** Move by tapping – a replacement for dragging on touch devices: select an element, tap "Move" and then the place. */
 	function startPlacing(id) {
 		if (!id) { return; }
-		state.placing = { move: id };
+		state.placing = { move: id, more: id === state.selected ? state.multi.slice() : [] };
 		document.body.classList.add('bd-placing');
+		emit('placing');
 		setState(T('Tap the place on the page to move the element to (top or bottom part of an element = before or after, middle of a container = inside). Esc cancels.'));
 	}
 
 	function endPlacing() {
 		state.placing = null;
 		document.body.classList.remove('bd-placing');
+		emit('placing');
 		setState('');
 	}
 
@@ -473,20 +488,7 @@
 
 	function dropAt(what, place) {
 		if (what.move) {
-			const n = find(what.move);
-			const target = !place.root && find(place.target);
-			if (!n || !target) { return; }
-			if (place.where !== 'inside' && !target.parent && n.p.type !== 'section' && n.p.type !== 'page_content') {
-				// an element moved between sections gets its own section
-				applyChange(() => {
-					n.siblings.splice(n.i, 1);
-					const c = find(place.target);
-					c.siblings.splice(c.i + (place.where === 'after' ? 1 : 0), 0, Object.assign(newElement('section'), { children: [n.p] }));
-				});
-			} else {
-				move(what.move, place.target, place.where);
-			}
-			selection(what.move);
+			placeElements([what.move, ...(what.more || [])], place, !!what.copy);
 			redrawPanels();
 			return;
 		}
@@ -517,28 +519,16 @@
 		if (!doc) { return; }
 		doc.querySelectorAll('.tl-bd-selected').forEach((x) => x.classList.remove('tl-bd-selected'));
 		const t = state.selected && doc.querySelector('[data-tl-id="' + state.selected + '"]');
-		let handle = doc.getElementById('tl-bd-grip');
+		state.multi.forEach((id) => { const x = doc.querySelector('[data-tl-id="' + id + '"]'); if (x) { x.classList.add('tl-bd-selected'); } });
+		let outline = doc.getElementById('tl-bd-outline');
 		if (t) {
 			t.classList.add('tl-bd-selected');
 			if (shift) { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-			// handle at the top left: dragging it moves the selected element elsewhere on the page
-			if (!handle) {
-				handle = Object.assign(doc.createElement('div'), { id: 'tl-bd-grip', draggable: true, title: T('Drag or tap to move') });
-				handle.textContent = '⠿';
-				handle.style.cssText = 'position:absolute;z-index:2147483647;display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#ff4f2e;color:#fff;font:14px/1 system-ui;cursor:grab;user-select:none';
-				handle.addEventListener('dragstart', (e) => startDrag(e, { move: state.selected }));
-				handle.addEventListener('dragend', endDrag);
-				handle.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); startPlacing(state.selected); }, true);
-				doc.body.append(handle);
-			}
 			// a component without its own wrapper has display: contents – it has no box, the outline is drawn around its content
-			handle.style.display = t.hasAttribute('data-tl-lock') ? 'none' : ''; // a locked element is not dragged
-			let r = t.getBoundingClientRect();
-			let outline = doc.getElementById('tl-bd-outline');
 			if (doc.defaultView.getComputedStyle(t).display === 'contents') {
 				const scope = doc.createRange();
 				scope.selectNodeContents(t);
-				r = scope.getBoundingClientRect();
+				const r = scope.getBoundingClientRect();
 				if (!outline) {
 					outline = Object.assign(doc.createElement('div'), { id: 'tl-bd-outline' });
 					outline.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;outline:2px solid #ff4f2e;outline-offset:2px';
@@ -549,14 +539,10 @@
 			} else if (outline) {
 				outline.hidden = true;
 			}
-			handle.hidden = false;
-			handle.style.left = Math.max(0, r.left + doc.defaultView.scrollX) + 'px';
-			handle.style.top = Math.max(0, r.top + doc.defaultView.scrollY - 24) + 'px';
-		} else if (handle) {
-			handle.hidden = true;
-			const outline = doc.getElementById('tl-bd-outline');
-			if (outline) { outline.hidden = true; }
+		} else if (outline) {
+			outline.hidden = true;
 		}
+		emit('mark', shift);
 	}
 
 	/** Double-click on a heading, text, button or reference: typing right on the canvas. */
@@ -570,10 +556,13 @@
 		state.editingCanvas = true;
 		target.contentEditable = n.p.type === 'button' ? 'plaintext-only' : 'true';
 		target.focus();
+		emit('edit', true);
 		const done = () => {
+			if (state.keepEditing) { return; } // a dialog of the compose toolbar (link) holds the editing – it ends with that dialog
 			target.removeEventListener('blur', done);
 			target.removeAttribute('contenteditable');
 			state.editingCanvas = false;
+			emit('edit', false);
 			const field = { heading: 'text', text: 'html', button: 'text', testimonial: 'text' }[n.p.type];
 			const value = n.p.type === 'button' ? target.textContent.trim() : target.innerHTML.trim();
 			if (value !== n.p.content[field]) { applyChange(() => { n.p.content[field] = value; }); } else { refreshPreview(); }
@@ -586,10 +575,48 @@
 
 	function selection(id) {
 		state.selected = id && find(id) ? id : null;
+		state.multi = [];
 		state.editedClass = null;
 		state.lastKey = null;
 		redrawPanels();
 		markInPreview(true);
+	}
+
+	/** Everything that is selected (the main element and the others), in the order of the page. */
+	function selectedIds() {
+		const ids = new Set([state.selected, ...state.multi].filter(Boolean));
+		const ordered = [];
+		(function walk(children) { children.forEach((p) => { if (ids.has(p.id)) { ordered.push(p.id); } if (p.children) { walk(p.children); } }); })(state.build.children);
+		return ordered;
+	}
+	/** Shift / Ctrl-click: adds the element to the selection, or takes it out (the main element passes to the next one). */
+	function toggleSelected(id) {
+		if (!state.selected) { selection(id); return; }
+		const ids = selectedIds();
+		if (ids.includes(id)) {
+			if (ids.length === 1) { selection(null); return; }
+			const rest = ids.filter((x) => x !== id);
+			state.selected = state.selected === id ? rest[0] : state.selected;
+			state.multi = rest.filter((x) => x !== state.selected);
+		} else {
+			state.multi = [...state.multi, id];
+		}
+		state.editedClass = null;
+		redrawPanels();
+		markInPreview(false);
+	}
+	/** A marquee or a program sets the whole selection at once (the first becomes the main element). */
+	function selectMany(ids) {
+		ids = ids.filter((id) => find(id));
+		if (!ids.length) { selection(null); return; }
+		state.selected = ids[0];
+		state.multi = ids.slice(1);
+		state.editedClass = null;
+		state.lastKey = null;
+		redrawPanels();
+		markInPreview(false);
+		const doc = preview && preview.contentDocument;
+		if (doc) { setState(T('%d elements selected.').replace('%d', String(ids.length))); }
 	}
 
 	function insert(element) {
@@ -618,13 +645,73 @@
 	function remove(id) {
 		const n = find(id);
 		if (!n) { return; }
-		applyChange(() => { n.siblings.splice(n.i, 1); state.selected = n.parent ? n.parent.id : (n.siblings[n.i] || n.siblings[n.i - 1] || {}).id || null; });
+		applyChange(() => { n.siblings.splice(n.i, 1); state.selected = n.parent ? n.parent.id : (n.siblings[n.i] || n.siblings[n.i - 1] || {}).id || null; state.multi = []; });
 	}
 	function duplicate(id) {
 		const n = find(id);
 		if (!n) { return; }
 		const copied = withNewIds(n.p);
-		applyChange(() => { n.siblings.splice(n.i + 1, 0, copied); state.selected = copied.id; });
+		applyChange(() => { n.siblings.splice(n.i + 1, 0, copied); state.selected = copied.id; state.multi = []; });
+	}
+	/** The selected elements without those that sit inside another selected element (they travel with it). */
+	function topSelected() {
+		const ids = selectedIds();
+		return ids.filter((id) => !ids.some((o) => o !== id && contains(find(o).p, id)));
+	}
+	function removeSelected() {
+		const ids = topSelected();
+		if (ids.length < 2) { remove(state.selected); return; }
+		applyChange(() => { ids.forEach((id) => { const n = find(id); if (n) { n.siblings.splice(n.i, 1); } }); state.selected = null; state.multi = []; });
+	}
+	function duplicateSelected() {
+		const ids = topSelected();
+		if (ids.length < 2) { duplicate(state.selected); return; }
+		const copies = [];
+		applyChange(() => { ids.forEach((id) => { const n = find(id); const c = withNewIds(n.p); n.siblings.splice(n.i + 1, 0, c); copies.push(c.id); }); state.selected = copies[0]; state.multi = copies.slice(1); });
+	}
+	/** Wraps the selected elements (siblings in one container) in a new container, in the place of the first of them. */
+	function group() {
+		const ids = topSelected();
+		const ns = ids.map((id) => find(id));
+		if (!ns.length) { return; }
+		if (ns.some((n) => !n.parent || n.parent.id !== ns[0].parent.id)) { setState(ns.some((n) => !n.parent) ? T('Sections cannot be grouped – put elements into a section instead.') : T('Only elements inside the same container can be grouped.'), true); return; }
+		if (ns.some((n) => n.p.type === 'section')) { setState(T('Sections cannot be grouped – put elements into a section instead.'), true); return; }
+		const wrapper = newElement('container');
+		applyChange(() => {
+			const set = new Set(ids);
+			const siblings = ns[0].siblings;
+			const index = siblings.findIndex((p) => set.has(p.id));
+			wrapper.children = siblings.filter((p) => set.has(p.id));
+			const rest = siblings.filter((p) => !set.has(p.id));
+			rest.splice(index, 0, wrapper);
+			siblings.splice(0, siblings.length, ...rest);
+			state.selected = wrapper.id;
+			state.multi = [];
+		});
+		setState(T('Grouped into a container.'));
+	}
+	/** A container's children take its place; the container disappears. */
+	function ungroup() {
+		const n = state.selected && find(state.selected);
+		if (!n || !n.parent || !n.p.children || !n.p.children.length || n.p.type === 'section' || !TYPY[n.p.type].container) { setState(T('Select a container with elements in it to ungroup.'), true); return; }
+		applyChange(() => { const kids = n.p.children; n.siblings.splice(n.i, 1, ...kids); state.selected = kids[0].id; state.multi = kids.slice(1).map((k) => k.id); });
+		setState(T('Container removed, its elements stay.'));
+	}
+	/** Properties of the style for the current breakpoint (desktop, tablet, phone) – one history step. list = [[id, {property: value | ''}], …]. */
+	function writeStyle(list, key) {
+		applyChange(() => {
+			list.forEach(([id, props]) => {
+				const n = find(id);
+				if (!n) { return; }
+				const p = n.p;
+				p.style = p.style && !Array.isArray(p.style) ? p.style : {};
+				const st = state.bp;
+				p.style[st] = p.style[st] || {};
+				for (const [k, v] of Object.entries(props)) { if (v === '' || v === null || v === undefined) { delete p.style[st][k]; } else { p.style[st][k] = String(v); } }
+				if (!Object.keys(p.style[st]).length) { delete p.style[st]; }
+			});
+		}, key);
+		if (key) { redrawRight(); }
 	}
 	function offset(id, direction) {
 		const n = find(id);
@@ -640,6 +727,60 @@
 			const target = find(targetId);
 			if (destination === 'inside') { target.p.children.push(n.p); } else { target.siblings.splice(target.i + (destination === 'after' ? 1 : 0), 0, n.p); }
 		});
+	}
+
+	/**
+	 * Places elements by a drop spot ({target, where}) – a move, or copies with Alt. Elements between sections get a section of their own.
+	 * One history step for all of them.
+	 */
+	function placeElements(ids, place, copy) {
+		ids = ids.filter((id) => find(id));
+		const target = !place.root && find(place.target);
+		if (!target) { return; }
+		if (!copy) { ids = ids.filter((id) => id !== place.target && !contains(find(id).p, place.target)); }
+		ids = ids.filter((id) => !ids.some((o) => o !== id && contains(find(o).p, id)));
+		if (!ids.length) { return; }
+		const wrap = place.where !== 'inside' && !target.parent;
+		const isSection = (p) => p.type === 'section' || p.type === 'page_content';
+		const placed = [];
+		applyChange(() => {
+			const items = ids.map((id) => { const n = find(id); if (copy) { return withNewIds(n.p); } n.siblings.splice(n.i, 1); return n.p; });
+			placed.push(...items.map((p) => p.id));
+			let out = items;
+			if (wrap && items.some((p) => !isSection(p))) { out = [...items.filter(isSection), Object.assign(newElement('section'), { children: items.filter((p) => !isSection(p)) })]; }
+			const c = find(place.target);
+			if (place.where === 'inside') { c.p.children.push(...out); } else { c.siblings.splice(c.i + (place.where === 'after' ? 1 : 0), 0, ...out); }
+		});
+		state.selected = placed[0];
+		state.multi = placed.slice(1);
+		redrawPanels();
+		markInPreview(false);
+	}
+
+	/** Keyboard move: the selection one place earlier (-1) or later (+1) among its siblings; at the end of a container it hops into the next container. */
+	function nudge(direction) {
+		const ids = topSelected();
+		const ns = ids.map((id) => find(id));
+		if (!ns.length || ns.some((n) => n.siblings !== ns[0].siblings || n.p.locked)) { return false; }
+		const set = new Set(ids);
+		const siblings = ns[0].siblings;
+		const start = siblings.findIndex((p) => set.has(p.id));
+		const rest = siblings.filter((p) => !set.has(p.id));
+		const to = start + direction;
+		if (to >= 0 && to <= rest.length) {
+			const moved = siblings.filter((p) => set.has(p.id));
+			applyChange(() => { rest.splice(to, 0, ...moved); siblings.splice(0, siblings.length, ...rest); });
+			return true;
+		}
+		// the end of the container: the single element hops into the neighbouring container (a button into the next column)
+		const parent = ns[0].parent && find(ns[0].parent.id);
+		const neighbour = parent && parent.siblings[parent.i + direction];
+		if (ns.length === 1 && neighbour && TYPY[neighbour.type] && TYPY[neighbour.type].container && ns[0].p.type !== 'section' && neighbour.type !== 'section' && !neighbour.locked) {
+			applyChange(() => { ns[0].siblings.splice(ns[0].i, 1); if (direction > 0) { neighbour.children.unshift(ns[0].p); } else { neighbour.children.push(ns[0].p); } });
+			return true;
+		}
+		setState(T('Nowhere further to move.'));
+		return false;
 	}
 
 	/* ---------- clipboard (also between pages and between Talea sites) ---------- */
@@ -760,10 +901,10 @@
 		if (mod && e.key.toLowerCase() === 'c' && marked) { return; }
 		if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) { forward(); } else { back(); } }
 		else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); forward(); }
-		else if (mod && e.key.toLowerCase() === 'd' && state.selected) { e.preventDefault(); duplicate(state.selected); }
+		else if (mod && e.key.toLowerCase() === 'd' && state.selected) { e.preventDefault(); duplicateSelected(); }
 		else if (mod && e.key.toLowerCase() === 'c' && state.selected) { copy(); }
 		else if (mod && e.key.toLowerCase() === 'v') { clearTimeout(state.pasteTimer); state.pasteTimer = setTimeout(pasteFromClipboard, 250); } // the paste event (onPaste) comes first when the system clipboard has text
-		else if ((e.key === 'Delete' || e.key === 'Backspace') && state.selected) { e.preventDefault(); remove(state.selected); }
+		else if ((e.key === 'Delete' || e.key === 'Backspace') && state.selected) { e.preventDefault(); removeSelected(); }
 		else if (e.key === '?' && !mod) { e.preventDefault(); hint(); }
 		else if (e.key === 'Escape' && state.placing) { const doc = preview && preview.contentDocument; if (doc) { showSpot(doc, null); } endPlacing(); }
 		else if (e.key === 'Escape' && state.selected) { const n = find(state.selected); selection(n && n.parent ? n.parent.id : null); }
@@ -883,7 +1024,11 @@
 		const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 		const shortcuts = [[mod + '+S', T('Save draft')], [mod + '+Z / ' + mod + '+Shift+Z', T('Undo / redo')], [mod + '+D', T('Duplicate the selected element')],
 			[mod + '+C / ' + mod + '+V', T('Copy and paste an element (also between pages and Talea sites)')], ['Delete', T('Delete the selected element')], ['Esc', T('Select the parent element / cancel moving')],
-			[T('double-click'), T('Edit text right on the canvas')], ['↑ ↓ ← →', T('Move within Structure')], ['?', T('This help')]];
+			[T('double-click'), T('Edit text right on the canvas')], ['↑ ↓ ← →', T('Move within Structure')],
+				[T('Shift- or Ctrl/Cmd-click'), T('Add an element to the selection or take it out')], [T('drag on empty space'), T('Select the elements inside a frame')],
+				[T('Arrows on the canvas'), T('Select the previous or next element')], [mod + '+Shift+ ↑ ↓ ← →', T('Move the selected elements (at the end of a container: into the next one)')],
+				['Alt+ ↑ ↓ ← →', T('Resize the selected element by one step')], ['Enter', T('Walk the handles of the selected element (Tab), arrows change a value')],
+				[mod + '+G / ' + mod + '+Shift+G', T('Group / ungroup')], [T('Alt-drag'), T('Duplicate while moving')], ['?', T('This help')]];
 		const d = el('dialog', { class: 'bd-dialog' },
 			el('div', {}, el('h2', {}, T('Keyboard shortcuts')),
 				el('dl', { class: 'bd-shortcuts' }, shortcuts.flatMap(([k, t]) => [el('dt', {}, el('kbd', {}, k)), el('dd', {}, t)]))),
@@ -1293,9 +1438,10 @@
 				el('button', { type: 'button', title: T('Up'), onclick: () => offset(p.id, -1) }, icon('up')),
 				el('button', { type: 'button', title: T('Down'), onclick: () => offset(p.id, 1) }, icon('down')),
 				n.parent ? el('button', { type: 'button', title: T('Select parent element (Esc)'), onclick: () => selection(n.parent.id) }, icon('parent')) : null,
-				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: () => duplicate(p.id) }, icon('copy')),
+				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: duplicateSelected }, icon('copy')),
 				moreButton, offer,
-				el('button', { type: 'button', class: 'danger', title: T('Delete (Delete)'), onclick: () => remove(p.id) }, icon('delete')))),
+				el('button', { type: 'button', class: 'danger', title: T('Delete (Delete)'), onclick: removeSelected }, icon('delete')))),
+			...(state.multi.length ? [el('p', { class: 'bd-multi', role: 'status' }, T('%d elements selected. The panel below edits the first one; Delete, Duplicate and Ctrl+G act on all of them.').replace('%d', String(state.multi.length + 1)))] : []),
 			el('div', { class: 'bd-tabs', role: 'tablist' }, tabItem('content', T('Content')), tabItem('style', T("Style")), tabItem('advanced', T("Advanced"))),
 			panel,
 		);
@@ -1637,7 +1783,10 @@
 		const id = 'bd-v-' + key;
 		(inputEl.matches('select') ? inputEl : inputEl.querySelector('input[type="text"]')).id = id;
 		const error = target.id && state.errors[state.selectedPath + '.style.' + s + '.' + key];
-		return el('div', { class: 'bd-property' + (value !== '' ? ' set' : '') + (error ? ' bd-field-error' : '') }, el('label', { for: id, title: def.css }, T(def.label)), inputEl,
+		// a value set only for this screen size is marked, and one click returns to what the larger screen gives
+		const overridden = value !== '' && s !== 'base';
+		return el('div', { class: 'bd-property' + (value !== '' ? ' set' : '') + (overridden ? ' bd-overridden' : '') + (error ? ' bd-field-error' : '') }, el('label', { for: id, title: def.css }, T(def.label)), inputEl,
+			overridden ? el('button', { type: 'button', class: 'bd-reset', title: T('Reset to inherited'), 'aria-label': T('Reset to inherited') + ': ' + T(def.label), onclick: () => { change(''); redrawRight(); } }, icon('undo')) : null,
 			error ? el('small', { class: 'bd-error-field', role: 'alert' }, error) : null);
 	}
 
@@ -1833,6 +1982,17 @@
 	}
 
 	/* ---------- start ---------- */
+
+	/** What the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js) may use – nothing else of the editor is reachable from them. */
+	window.taleaBuilder = {
+		D, T, TYPY, state, el, icon, on, find, contains, newElement, withNewIds, applyChange, writeStyle, selection, selectMany, toggleSelected, selectedIds, topSelected,
+		remove: removeSelected, duplicate: duplicateSelected, group, ungroup, nudge, placeElements, dropAt, canvasSpot, showSpot, startPlacing, endPlacing, editOnCanvas,
+		redrawPanels, redrawRight, setState, askName, labelText, query, refreshPreview, markInPreview, save,
+		previewDoc: () => (preview && preview.contentDocument) || null,
+		scale: () => (preview && parseFloat(preview.dataset.scale)) || 1,
+		/** After a gesture: the canvas may be swapped again (a refresh that came during it runs now). */
+		endGesture: () => { state.gesture = false; if (state.refreshAfterGesture) { state.refreshAfterGesture = false; refreshPreview(); } },
+	};
 
 	createBar();
 	left = el('aside', { class: 'bd-left', 'aria-label': T('Elements and structure') });

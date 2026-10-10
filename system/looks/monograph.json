@@ -1,0 +1,42 @@
+{
+    "talea_look": 1,
+    "key": "monograph",
+    "name": "Monograph",
+    "description": "Typographic minimalism: black on white, one family, no ornament and sharp corners.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#000000",
+            "secondary": "#525252",
+            "text": "#111111",
+            "background": "#ffffff",
+            "surface": "#f5f5f5"
+        },
+        "colors_dark": {
+            "text": "#f0f0f0",
+            "background": "#0a0a0a",
+            "surface": "#171717",
+            "primary": "#ffffff",
+            "secondary": "#a3a3a3"
+        },
+        "font_heading": "lib:dm-sans",
+        "font_body": "lib:dm-sans",
+        "radius": "0",
+        "ratio_min": 1.2,
+        "ratio_max": 1.25,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 64,
+        "text_width": 40
+    },
+    "header": "classic",
+    "footer": "compact",
+    "sections": [
+        "page-title",
+        "text-columns",
+        "services-list",
+        "quote",
+        "contact"
+    ]
+}

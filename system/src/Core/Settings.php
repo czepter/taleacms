@@ -142,12 +142,7 @@ final class Settings
         'report_monthly' => '0',       // monthly report by e-mail (2.9, Core\MonthlyReport) – off, so an update never starts e-mailing by itself
         'report_recipients' => '',     // where to, comma or line separated (at most 10); empty = the site e-mail
         'report_last_month' => '',     // the month (Y-m) whose report went out last (internal)
-        'firewall_enabled' => '0',     // the firewall of the public site (2.8, Core\Firewall)
-        'firewall_proxy' => '',        // '' | cloudflare – where the visitor's address and country come from
-        'firewall_ips' => '',          // blocked addresses and networks, one per line
-        'firewall_countries' => '',    // blocked countries (ISO codes), only with a known country
-        'firewall_rate' => '0',        // requests per minute from one address (0 = no limit)
-        'firewall_probes' => '1',      // block for a day an address probing for other systems
+        'trusted_proxy' => '',         // '' | cloudflare – where the visitor's address comes from (Core\Antispam::visitorIp)
         'update_probe' => '',          // one-time code while an update checks that the new version runs (internal, 2.8)
         'site_key_secret' => '',       // this site's Ed25519 key (2.9, Fleet\Keys) – internal, never exported or shown
         'fleet_console_url' => '',     // the fleet console this site reports to (2.9, Fleet\Link)

@@ -96,7 +96,7 @@ final class Scheduler
             'cleanup' => function (App $app, string $source): string {
                 Notifications::purgePersonalData($app, $source === 'cron'); // from cron on every run, on visits once a day
                 Events::prune($app->db());
-                Firewall::cleanUp($app->db());
+                Antispam::cleanUpCounters();
 
                 return 'ok';
             },

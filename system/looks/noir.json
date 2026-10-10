@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "noir",
+    "name": "Noir",
+    "description": "A dark gallery: near-black background, light type and a warm accent. Photos and videos take the stage.",
+    "source": "Layout study of portfolio and client-gallery layouts: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#e8d9b5",
+            "secondary": "#9ec5c5",
+            "text": "#eaeaea",
+            "background": "#0e0e0f",
+            "surface": "#19191b"
+        },
+        "colors_dark": {
+            "text": "#eaeaea",
+            "background": "#0e0e0f",
+            "surface": "#19191b",
+            "primary": "#e8d9b5",
+            "secondary": "#9ec5c5"
+        },
+        "font_heading": "lib:montserrat",
+        "font_body": "lib:inter",
+        "radius": "0",
+        "ratio_min": 1.2,
+        "ratio_max": 1.333,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 84,
+        "text_width": 42
+    },
+    "header": "classic",
+    "footer": "compact",
+    "sections": [
+        "hero-dark",
+        "gallery",
+        "portfolio",
+        "reviews",
+        "cta-bar",
+        "contact"
+    ]
+}

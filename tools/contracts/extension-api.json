@@ -53,6 +53,9 @@
             "callable $handler",
             "string $requires"
         ],
+        "notFound": [
+            "callable $hook"
+        ],
         "on": [
             "string $eventType",
             "callable $listener"
@@ -77,6 +80,7 @@
         "handoverFindings",
         "healthRows",
         "httpGet",
+        "notFound",
         "settings"
     ],
     "filters": [

@@ -116,10 +116,6 @@ final class Kernel
         if ($this->redirect !== null) {
             return $this->redirect;
         }
-        // 2.8: the firewall of the public site (off by default; never admin.php)
-        if (($refused = \Talea\Core\Firewall::check($this->app)) !== null) {
-            return $refused;
-        }
         // the public demo (2.6) offers no Claude connection: anyone could connect to the shared admin
         if (\Talea\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
             return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
@@ -983,8 +979,8 @@ final class Kernel
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
         $path = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
-        if (($refused = \Talea\Core\Firewall::notFound($this->app, $path)) !== null) {
-            return $refused; // 2.8: the fifth probe for another system in an hour blocks the address
+        if (($refused = \Talea\Extension\Registry::runNotFound($this->app, $path)) !== null) {
+            return $refused; // an add-on answers instead of the 404 page (the firewall: the fifth probe blocks the address)
         }
         if ($path !== '' && $this->app->request->get('part') === '' && !\Talea\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {

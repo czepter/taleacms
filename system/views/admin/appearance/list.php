@@ -48,6 +48,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <div role="tabpanel" id="panel-style" aria-labelledby="tab-style">
 <fieldset>
 <legend><?= e(t('Styles')) ?></legend>
+<p class="help"><a href="<?= e($module->url('looks')) ?>"><?= e(t('Browse the looks gallery')) ?></a> – <?= e(t('complete looks with fonts, a dark mode, a header and a footer.')) ?></p>
 <p class="help"><?= e(t('A style is a ready set of colours, fonts, sizes and corner radius. Pick one with a click and fine-tune it in the other tabs – the content of the site does not change.')) ?></p>
 <div class="appearance-presets">
 <?php foreach ($presets as $key => $p): ?>
@@ -97,6 +98,9 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 		<span><?= e(t($name)) ?><small data-hex><?= e($ds['colors_dark'][$key]) ?></small></span>
 	</label>
 <?php endforeach ?>
+<?php foreach (['primary', 'secondary'] as $key): if (isset($ds['colors_dark'][$key])): ?>
+	<input type="hidden" name="ds[colors_dark][<?= e($key) ?>]" value="<?= e($ds['colors_dark'][$key]) ?>">
+<?php endif; endforeach ?>
 	<p class="help"><?= e(t('Check your logo: a dark logo on a transparent background would disappear on a dark site.')) ?></p>
 </div>
 <label class="appearance-switch" data-section="dark"<?= !in_array($values['dark_mode'], ['auto', 'dark'], true) ? ' hidden' : '' ?>><input type="checkbox" name="theme_switcher" value="1"<?= $values['theme_switcher'] === '1' ? ' checked' : '' ?>> <?= e(t('Switcher for visitors – in the header they choose light, dark or matching their device (the choice is remembered in their browser)')) ?></label>

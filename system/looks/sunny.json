@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "sunny",
+    "name": "Sunny",
+    "description": "Friendly and bright: teal and amber, rounded type and corners. For schools, play and family businesses.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#0f766e",
+            "secondary": "#b45309",
+            "text": "#1b2b2a",
+            "background": "#fffdf7",
+            "surface": "#e6f4f1"
+        },
+        "colors_dark": {
+            "text": "#e5f0ee",
+            "background": "#0f1918",
+            "surface": "#182523",
+            "primary": "#5fd1c4",
+            "secondary": "#f0b66b"
+        },
+        "font_heading": "lib:poppins",
+        "font_body": "lib:nunito-sans",
+        "radius": "l",
+        "ratio_min": 1.2,
+        "ratio_max": 1.25,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 70,
+        "text_width": 44
+    },
+    "header": "centered",
+    "footer": "columns",
+    "sections": [
+        "hero-image",
+        "benefits",
+        "team",
+        "reviews",
+        "faq",
+        "contact-form"
+    ]
+}

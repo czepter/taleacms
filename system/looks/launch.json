@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "launch",
+    "name": "Launch",
+    "description": "Product-page energy: violet accent, a technical grotesque, rounded cards and a call to action in the footer.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#6d28d9",
+            "secondary": "#0e7490",
+            "text": "#0b0b14",
+            "background": "#ffffff",
+            "surface": "#f4f3fb"
+        },
+        "colors_dark": {
+            "text": "#ececf6",
+            "background": "#0c0b14",
+            "surface": "#16152a",
+            "primary": "#b79cff",
+            "secondary": "#67d1e6"
+        },
+        "font_heading": "lib:space-grotesk",
+        "font_body": "lib:inter",
+        "radius": "l",
+        "ratio_min": 1.25,
+        "ratio_max": 1.414,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 74,
+        "text_width": 44
+    },
+    "header": "classic",
+    "footer": "cta",
+    "sections": [
+        "hero-centered",
+        "logos",
+        "benefits",
+        "pricing",
+        "faq-columns",
+        "call-to-action"
+    ]
+}

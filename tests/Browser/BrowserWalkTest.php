@@ -72,9 +72,27 @@ final class BrowserWalkTest extends TestCase
                 'children' => [$gallery('gj', 'justified'), $gallery('gs', 'slideshow'), $gallery('gf', 'fullscreen')]]]];
             $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('gallery-test', 'Gallery test', '', 0, ?)", [json_encode($build)]);
 
+            // pages for the compose scenarios (direct manipulation on the canvas): two sections, a row of three columns, a row of two with a
+            // button in the first, and an image; the same build three times – for the mouse, the keyboard and touch
+            $section = fn (string $id, array $children): array => ['id' => $id, 'type' => 'section', 'tag' => 'section', 'content' => ['width' => 'content', 'background_video' => '', 'on_scroll' => '', 'text_at_top' => ''], 'style' => ['base' => ['padding_y' => 'm']], 'children' => $children];
+            $paragraph = fn (string $id, string $text): array => ['id' => $id, 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>' . $text . '</p>']];
+            $column = fn (string $id, array $children): array => ['id' => $id, 'type' => 'container', 'tag' => 'div', 'content' => ['link' => ''], 'children' => $children];
+            $row = fn (string $id, string $columns, array $children): array => ['id' => $id, 'type' => 'grid', 'tag' => 'div', 'content' => [], 'style' => ['base' => ['display' => 'grid', 'columns' => $columns, 'gap' => 'm']], 'children' => $children];
+            $composeBuild = ['v' => 1, 'children' => [
+                $section('cs1', [['id' => 'ch1', 'type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Compose test']]]),
+                $section('cs2', [$row('cg3', '3', [$column('col1', [$paragraph('txt1', 'One')]), $column('col2', [$paragraph('txt2', 'Two')]), $column('col3', [$paragraph('txt3', 'Three')])])]),
+                $section('cs3', [$row('cg2', '2', [$column('cola', [$paragraph('txt4', 'Left'), ['id' => 'btn1', 'type' => 'button', 'tag' => 'a', 'content' => ['text' => 'Go', 'link' => '/contact']]]), $column('colb', [$paragraph('txt5', 'Right')])])]),
+                $section('cs4', [['id' => 'cimg', 'type' => 'image', 'tag' => 'figure', 'content' => ['src' => 'media/2026/05/gt-a.jpg', 'alt' => 'A photo', 'caption' => '', 'link' => '', 'priority' => false], 'style' => ['base' => ['width' => '100%']]]]),
+            ]];
+            $composeIds = [];
+            foreach (['mouse', 'keys', 'touch'] as $kind) {
+                $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES (?, ?, '', 0, ?)", ["compose-$kind", "Compose $kind", json_encode($composeBuild)]);
+                $composeIds[$kind] = (string) $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', ["compose-$kind"]);
+            }
+
             $project = dirname(__DIR__, 2);
             $process = proc_open(['node', $project . '/tools/test-browser.mjs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $project,
-                array_merge(getenv(), ['BASE' => $site->base, 'PASSWORD' => $site->password, 'CHROME' => $chrome, 'NODE_PATH' => $modules . '/node_modules']));
+                array_merge(getenv(), ['BASE' => $site->base, 'PASSWORD' => $site->password, 'CHROME' => $chrome, 'NODE_PATH' => $modules . '/node_modules', 'COMPOSE_PAGES' => json_encode($composeIds)]));
             $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
             $exit = proc_close($process);
 

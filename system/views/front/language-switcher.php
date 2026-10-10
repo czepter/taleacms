@@ -2,7 +2,7 @@
 /**
  * Language version switcher. The layout gets it ready-made in the variable $jazyky_html (empty if the site has a single language).
  * Two to three languages = a switcher in one row, more = a button with a menu (Popover API, no JavaScript). Colours, corner
- * rounding and font come from the design system (tokens --ka-…), so it matches the appearance of the site.
+ * rounding and font come from the design system (tokens --tl-…), so it matches the appearance of the site.
  *
  * The label "Language" is deliberately in English (even a visitor who does not understand the page language understands it), hence lang="en".
  *

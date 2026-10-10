@@ -82,7 +82,7 @@ final class Installer
         $data = [
             'db_driver' => 'mysql', 'db_host' => 'localhost', 'db_port' => '', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'tl_',
             'site_name' => t('My website'), 'username' => 'admin', 'name' => '', 'email' => '',
-            'time_zone' => self::TIME_ZONES[$this->language], 'starter' => 'business', 'site_language' => $this->language,
+            'time_zone' => self::TIME_ZONES[$this->language], 'starter' => 'business', 'look' => '', 'site_language' => $this->language,
         ];
         $errors = [];
         $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
@@ -322,8 +322,15 @@ final class Installer
             \Talea\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'page_id' => $privacyPolicyId, 'text' => '']]);
 
             \Talea\Core\Search::complete($db);
+            // a look from the gallery (Builder\Looks) replaces the starter site's own style and brings its header and footer
+            $look = \Talea\Builder\Looks::get($d['look']);
+            foreach (['header', 'footer'] as $type) {
+                if ($look !== null && ($build = \Talea\Builder\PartTemplates::build($type, $look[$type], $siteLanguage, $extensions)) !== null) {
+                    $db->insert('site_parts', ['type' => $type, 'language' => '', 'build' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
+                }
+            }
             $settings = ['site_name' => $d['site_name'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                'design_system' => (string) json_encode(\Talea\Builder\DesignSystem::preset($siteSettings['preset']), JSON_UNESCAPED_SLASHES),
+                'design_system' => (string) json_encode($look['design_system'] ?? \Talea\Builder\DesignSystem::preset($siteSettings['preset']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['time_zone'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {

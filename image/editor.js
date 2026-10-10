@@ -130,7 +130,7 @@
 		var folder = document.querySelector('.gallery-window[open] select');
 		data.append('_csrf', CSRF);
 		data.append('folder_id', folder && folder.value !== '' && folder.value !== 'article' ? folder.value : '0');
-		files.forEach(function (s) { data.append('soubory[]', s); });
+		files.forEach(function (s) { data.append('files[]', s); });
 		return fetch(GALLERY + '&action=upload&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
 			.then(function (j) {

@@ -1,0 +1,43 @@
+{
+    "talea_look": 1,
+    "key": "boutique",
+    "name": "Boutique",
+    "description": "Elegant retail: a wine-red accent, a high-contrast serif and soft blush surfaces.",
+    "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
+    "assets": "none-third-party",
+    "design_system": {
+        "colors": {
+            "primary": "#7f1d3d",
+            "secondary": "#8a6d3b",
+            "text": "#231f20",
+            "background": "#fffaf8",
+            "surface": "#f7ece8"
+        },
+        "colors_dark": {
+            "text": "#f1e6e3",
+            "background": "#171213",
+            "surface": "#221b1d",
+            "primary": "#f08aa8",
+            "secondary": "#d7b98a"
+        },
+        "font_heading": "lib:playfair-display",
+        "font_body": "lib:lato",
+        "radius": "s",
+        "ratio_min": 1.25,
+        "ratio_max": 1.333,
+        "base_min": 1.0,
+        "base_max": 1.125,
+        "width": 72,
+        "text_width": 42
+    },
+    "header": "centered",
+    "footer": "columns",
+    "sections": [
+        "hero-image",
+        "services",
+        "gallery",
+        "reviews",
+        "numbers-light",
+        "call-to-action"
+    ]
+}

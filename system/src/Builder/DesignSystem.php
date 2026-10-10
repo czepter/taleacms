@@ -124,6 +124,16 @@ final class DesignSystem
         return array_map(fn (array $d): array => ['description' => $d[0], 'ratio' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);
     }
 
+    /**
+     * The same pairs for dark mode (surfaces and text from colors_dark, brand colours brightened there or the light ones).
+     *
+     * @return list<array{description: string, ratio: float, ok: bool}>
+     */
+    public static function contrastsDark(array $ds): array
+    {
+        return self::contrasts(['colors' => $ds['colors_dark'] + $ds['colors']]);
+    }
+
     /** @return array<string, mixed> the stored value completed with the defaults */
     public static function load(Settings $siteSettings): array
     {
@@ -188,6 +198,12 @@ final class DesignSystem
         }
         foreach ($v['colors_dark'] as $key => $defaults) {
             $clean['colors_dark'][$key] = $color($ds['colors_dark'][$key] ?? null, $defaults);
+        }
+        // a look may brighten the brand colours for dark mode (optional: without them the light ones stay)
+        foreach (['primary', 'secondary'] as $key) {
+            if (is_string($ds['colors_dark'][$key] ?? null) && preg_match('/^#[0-9a-f]{6}$/i', $ds['colors_dark'][$key])) {
+                $clean['colors_dark'][$key] = strtolower($ds['colors_dark'][$key]);
+            }
         }
 
         return $clean;
@@ -438,7 +454,8 @@ final class DesignSystem
         }
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         // the dark overrides replace the colour properties (surfaces and text follow the mode)
-        $dark = array_map(fn (string $k, string $h): string => "\t\t--tl-color-" . $k . ": {$h};", array_keys($ds['colors_dark']), $ds['colors_dark']);
+        $darkColors = $ds['colors_dark'] + (isset($ds['colors_dark']['primary']) ? ['on-primary' => self::contrastColor($ds['colors_dark']['primary'])] : []);
+        $dark = array_map(fn (string $k, string $h): string => "\t\t--tl-color-" . $k . ": {$h};", array_keys($darkColors), $darkColors);
 
         // dark colors: by the device (unless the visitor chose „light“) and always when the site or the visitor chooses dark mode
         return self::LAYERS . "\n" . $fonts . "@layer tokens {\n:root {\n" . implode("\n", $rows) . "\n}\n"

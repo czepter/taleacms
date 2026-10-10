@@ -2,6 +2,11 @@
 
 Status: draft for review. Owner decision: "add a real visual compose with drag and drop etc."
 
+Status of phase A (#22): built, M1–M4 (`image/builder-overlay.js`, `builder-handles.js`, `builder-keys.js`). Deviations from the text below:
+resize handles are on the right edge, the bottom edge and the bottom-right corner only (the other edges would not move the element's
+visible edge in a top-left flowing layout); padding handles write `padding_y` / `padding_x` (the model has no per-side padding);
+"distribute" and equal-spacing hints are not built; the move gesture is a toolbar grip (pointer events) in place of the old ⠿ handle.
+
 ## 1. Problem
 
 The builder already has drag and drop of *structure*: dragging elements and ready-made sections from the left panel onto the

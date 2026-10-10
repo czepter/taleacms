@@ -95,39 +95,4 @@ final class JobsTest extends SiteTestCase
         $this->assertStringContainsString('next_since_id', $events, 'list_events: with a cursor');
         $this->assertStringNotContainsString('"type":"enquiry.received"', $events, 'list_events: the other types are left out');
     }
-
-    public function testFirewall(): void
-    {
-        $site = $this->site();
-        $visitor = $site->client();
-        // the test server runs with TALEA_FIREWALL_LOCAL=1, so 127.0.0.1 counts as a visitor's address
-        foreach (['firewall_enabled' => '1', 'firewall_ips' => '127.0.0.1 # test', 'firewall_probes' => '1', 'firewall_rate' => '0'] as $key => $value) {
-            $site->setting($key, $value);
-        }
-        $this->assertSame(403, $visitor->get('/')->status, 'firewall: a listed address is refused on the public site');
-        $tab = $site->admin()->get('/admin.php?module=settings&tab=firewall');
-        $this->assertSame(200, $tab->status, 'firewall: the administration stays open');
-        $this->assertTrue($tab->contains('name="firewall_ips"') && $tab->contains('127.0.0.1'), 'firewall: the tab shows the settings and the refused request');
-
-        $site->setting('firewall_ips', '');
-        for ($i = 0; $i < 4; $i++) {
-            $visitor->get('/wp-login.php');
-        }
-        $this->assertSame(403, $visitor->get('/wp-login.php')->status, 'firewall: probing for other systems is blocked at the fifth try');
-        $this->assertSame(403, $visitor->get('/')->status, 'firewall: the blocked address is refused everywhere for a while');
-        $this->sameValue('1', $site->value("SELECT COUNT(*) FROM tl_events WHERE type = 'firewall.blocked'"), 'firewall: the block is recorded as an event');
-
-        $this->adminPost('/admin.php?module=settings&action=firewall_unblock', ['ip' => '127.0.0.1'], '/admin.php?module=settings&tab=firewall');
-        $this->assertSame(200, $visitor->get('/')->status, 'firewall: an address can be unblocked');
-
-        $site->setting('firewall_rate', '3');
-        $codes = [];
-        for ($i = 0; $i < 8; $i++) {
-            $codes[] = $visitor->get('/')->status;
-        }
-        $this->assertContains(429, $codes, 'firewall: too many requests a minute get 429');
-
-        $site->exec("UPDATE tl_settings SET value = '0' WHERE name IN ('firewall_enabled', 'firewall_rate')");
-        $this->assertSame(200, $visitor->get('/')->status, 'firewall: off again, the site answers');
-    }
 }

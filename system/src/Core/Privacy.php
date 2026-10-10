@@ -385,7 +385,6 @@ final class Privacy
         ], $cookies)];
         $sections[] = ['heading' => t('Security'), 'lines' => array_values(array_filter([
             t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = FALSE'), (int) $db->value("SELECT COUNT(*) FROM {users} WHERE blocked = FALSE AND totp_secret = ''") === 0 ? t('on for everyone') : t('not on for every account')),
-            $s->bool('firewall_enabled') ? t('Firewall: on (rate limits, probes, country and address blocks).') : '',
             t('Transport: %s.', $app->request->isHttps() ? 'HTTPS' : t('HTTP – switch the site to HTTPS')),
         ]))];
 
