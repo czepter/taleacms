@@ -59,12 +59,19 @@ final class Events
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
         'addon.enabled' => 'An add-on from extensions/ was switched on (its slug and version).',
         'addon.failed' => 'An add-on threw an error while loading and was switched off (the error is in Add-ons).',
+        'addon.uninstalled' => 'An add-on was uninstalled (its slug, and whether its data was deleted).',
         'claude.session_undone' => 'A Claude session was undone (how many rows were restored, removed or left because they changed since).',
         'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
         'agent_run.missed' => 'A scheduled Claude run was not picked up within 6 hours of its time (Scheduled runs) – the routine in Claude probably stopped.',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];
+
+    /** Talea's own event types and those of the switched-on add-ons (Extension\Api::eventType): type => description. @return array<string, string> */
+    public static function types(): array
+    {
+        return self::TYPES + \Talea\Extension\Registry::eventTypes();
+    }
 
     public const int KEEP_DAYS = 180;
 

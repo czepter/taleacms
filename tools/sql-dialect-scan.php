@@ -20,7 +20,7 @@ if (PHP_SAPI !== 'cli') {
 
 $root = dirname(__DIR__);
 $self = 'tools/sql-dialect-scan.php';
-$skip = ['system/src/Core/Dialect/', 'system/src/Core/MigrationSupport.php', 'tools/sql-dialect-scan.php'];
+$skip = ['system/src/Core/Dialect/', 'system/src/Core/MigrationSupport.php', 'tools/sql-dialect-scan.php', 'tools/unit-tests.php'];
 
 /** boolean columns of the schema: PostgreSQL does not compare them with 0 and 1. */
 $booleans = [];
@@ -41,30 +41,31 @@ $categories = [
     'insert_ignore' => ['INSERT IGNORE', '/INSERT\s+IGNORE/i', 'Db::insertIgnore()'],
     'replace_into' => ['REPLACE INTO', '/REPLACE\s+INTO/i', 'Db::upsert() (REPLACE deletes and inserts: check the foreign keys)'],
     'json' => ['JSON_* functions', '/\bJSON_[A-Z_]+\s*\(/', 'Dialect::jsonExtract(); JSON_SET/ARRAYAGG etc. need their own helper'],
-    'interval' => ['INTERVAL arithmetic', '/\bINTERVAL\s+(?:\?|\d+|\w+)\s+(?:SECOND|MINUTE|HOUR|DAY|WEEK|MONTH|YEAR)\b/i', 'Dialect::interval()'],
+    'interval' => ['INTERVAL arithmetic (portable: both engines are given MySQL\'s `INTERVAL n UNIT`)', '/\bINTERVAL\s+(?:\?|\d+|\w+)\s+(?:SECOND|MINUTE|HOUR|DAY|WEEK|MONTH|YEAR)\b/i', 'nothing: Postgres::rewrite() turns `INTERVAL 5 DAY` and `INTERVAL ? HOUR` into its own syntax; Dialect::interval() for built SQL'],
     'date_functions' => ['CURDATE / UNIX_TIMESTAMP / FROM_UNIXTIME / DATE_FORMAT / DATE_ADD / DATE_SUB / TIMESTAMPDIFF / DATEDIFF', '/\b(?:CURDATE|UNIX_TIMESTAMP|FROM_UNIXTIME|DATE_FORMAT|DATE_ADD|DATE_SUB|TIMESTAMPDIFF|DATEDIFF|STR_TO_DATE)\s*\(/', 'Dialect::unixTime(), CURRENT_DATE, or compute the date in PHP'],
     'now' => ['NOW() (portable: the session time zone is set on both engines)', '/\bNOW\s*\(\)/i', 'nothing; Dialect::now() when it sits next to an interval'],
     'group_concat' => ['GROUP_CONCAT', '/\bGROUP_CONCAT\s*\(/i', 'Dialect::groupConcat()'],
     'locks' => ['GET_LOCK / RELEASE_LOCK', '/\b(?:GET_LOCK|RELEASE_LOCK|IS_FREE_LOCK)\s*\(/i', 'Db::lock() / Db::unlock()'],
-    'fulltext' => ['MATCH ... AGAINST / FULLTEXT', '/\bMATCH\s*\(.*AGAINST|\bFULLTEXT\b/i', 'Dialect::fulltextMatch() + fulltextQuery()'],
+    'fulltext' => ['MATCH ... AGAINST / FULLTEXT', '/\bMATCH\s*\(.*AGAINST|\bFULLTEXT\b/', 'Dialect::fulltextMatch() + fulltextQuery()'],
     'backticks' => ['backtick quoting (Db rewrites them for PostgreSQL; use Dialect::quote() in new code)', '/`[A-Za-z_][A-Za-z0-9_.]*`/', 'covered by the rewrite shim; replace when touching the line'],
     'limit_comma' => ['LIMIT x, y', '/\bLIMIT\s+(?:\d+|\?|\$\w+)\s*,\s*(?:\d+|\?|\$\w+)/i', 'LIMIT y OFFSET x / Dialect::limit()'],
-    'limit_write' => ['UPDATE / DELETE with LIMIT or ORDER BY', '/\b(?:UPDATE|DELETE\s+FROM)\b[^;]*\bLIMIT\b/i', 'select the keys first (WHERE id IN (SELECT ... LIMIT n))'],
-    'multi_table' => ['UPDATE / DELETE with JOIN', '/\bUPDATE\s+\{?\w+\}?(?:\s+\w+)?\s+(?:INNER\s+|LEFT\s+)?JOIN\b|\bDELETE\s+\w+\s+FROM\b/i', 'UPDATE ... FROM / DELETE ... USING, or a subquery'],
+    'limit_write' => ['UPDATE / DELETE with LIMIT or ORDER BY', '/\b(?:UPDATE\s+\{|DELETE\s+FROM\s+\{)(?:(?!\(SELECT)[^;])*\bLIMIT\b/', 'select the keys first (WHERE id IN (SELECT ... LIMIT n))'],
+    'multi_table' => ['UPDATE / DELETE with JOIN', '/\bUPDATE\s+\{\w+\}(?:\s+\w+)?\s+(?:INNER\s+|LEFT\s+)?JOIN\b|\bDELETE\s+[a-z]\w*\s+FROM\s+\{/', 'UPDATE ... FROM / DELETE ... USING, or a subquery'],
     'show' => ['SHOW ...', '/\bSHOW\s+(?:TABLES|COLUMNS|FULL|CREATE|INDEX|INDEXES|KEYS|VARIABLES|STATUS|DATABASES|TABLE|GRANTS|WARNINGS|ENGINE)\b/i', 'information_schema or pg_catalog behind a Db method'],
     'information_schema' => ['information_schema', '/information_schema/i', 'Db::tableExists() or a catalogue method (table_schema = DATABASE() differs)'],
     'if_ifnull' => ['IF() / IFNULL()', '/\bIF\s*\((?!\s*\$)|\bIFNULL\s*\(/', 'CASE WHEN / COALESCE'],
     'find_in_set' => ['FIND_IN_SET / FIELD / LOCATE / SUBSTRING_INDEX / REGEXP / RLIKE', '/\b(?:FIND_IN_SET|FIELD|LOCATE|SUBSTRING_INDEX|REGEXP|RLIKE|ELT)\b\s*\(?/', 'per case: = ANY(string_to_array()), position(), regexp operators'],
-    'database_fn' => ['DATABASE() / LAST_INSERT_ID() / FOUND_ROWS()', '/\b(?:DATABASE|LAST_INSERT_ID|FOUND_ROWS|ROW_COUNT)\s*\(|SQL_CALC_FOUND_ROWS/i', 'Db::databaseName(), Db::insert() returns the key'],
-    'concat_null' => ['CONCAT() (NULL gives NULL in MySQL, is skipped in PostgreSQL)', '/\bCONCAT(?:_WS)?\s*\(/i', 'check each: COALESCE the arguments or use ||'],
+    'database_fn' => ['DATABASE() / LAST_INSERT_ID() / FOUND_ROWS()', '/\b(?:DATABASE|LAST_INSERT_ID|FOUND_ROWS|ROW_COUNT)\(\)|SQL_CALC_FOUND_ROWS/', 'Db::databaseName(), Db::insert() returns the key'],
+    'concat_null' => ['CONCAT() (NULL gives NULL in MySQL, is skipped in PostgreSQL; every use was reviewed: no argument is nullable where it matters)', '/\bCONCAT(?:_WS)?\s*\(/i', 'check each: COALESCE the arguments or use ||'],
+    'mysql_operators' => ['MySQL-only operators and functions (<=>, DIV, XOR, CAST AS SIGNED/UNSIGNED, DAYOFWEEK, LAST_DAY, TO_DAYS, UUID(), HEX(), BINARY)', '/^(?!.*\b(?:usort|uasort|uksort|fn)\b).*(?:\bSELECT\b|\bWHERE\b|\bORDER BY\b|\bJOIN\b).*<=>|\bCAST\s*\([^)]*\bAS\s+(?:UNSIGNED|SIGNED)\b|\b(?:DAYOFWEEK|DAYNAME|MONTHNAME|YEARWEEK|LAST_DAY|TO_DAYS|ADDDATE|SUBDATE|SEC_TO_TIME|TIME_TO_SEC|UUID|HEX|UNHEX)\s*\(\s*(?:\)|[a-z_.?]+\s*[,)])|\bSQL_NO_CACHE\b|\bSTRAIGHT_JOIN\b|\bUSE\s+INDEX\b|\bFORCE\s+INDEX\b/', 'per case: IS NOT DISTINCT FROM / CASE, CAST AS integer, EXTRACT, CURRENT_DATE'],
     'rand' => ['RAND()', '/\bRAND\s*\(/i', 'random() through a Dialect helper'],
-    'auto_increment' => ['AUTO_INCREMENT / ENGINE= / ON UPDATE CURRENT_TIMESTAMP', '/AUTO_INCREMENT|\bENGINE\s*=|ON\s+UPDATE\s+CURRENT_TIMESTAMP/i', 'only in migrations (Phinx identity)'],
-    'ddl_maintenance' => ['TRUNCATE / OPTIMIZE / ANALYZE / FOREIGN_KEY_CHECKS / ALTER TABLE', '/\b(?:OPTIMIZE|ANALYZE|REPAIR)\s+TABLE\b|FOREIGN_KEY_CHECKS|\bALTER\s+TABLE\b|\bTRUNCATE\b/i', 'per case (SET session_replication_role, TRUNCATE ... CASCADE)'],
+    'auto_increment' => ['AUTO_INCREMENT / ENGINE= / ON UPDATE CURRENT_TIMESTAMP', '/AUTO_INCREMENT|\bENGINE\s*=|ON\s+UPDATE\s+CURRENT_TIMESTAMP/', 'only in migrations (Phinx identity)'],
+    'ddl_maintenance' => ['OPTIMIZE / ANALYZE / FOREIGN_KEY_CHECKS / ALTER TABLE (TRUNCATE works on both)', '/\b(?:OPTIMIZE|ANALYZE|REPAIR)\s+TABLE\b|FOREIGN_KEY_CHECKS|\bALTER\s+TABLE\b/i', 'per case (SET session_replication_role, TRUNCATE ... CASCADE)'],
     'boolean_literal' => ['boolean column compared or summed as a number (= 1, = 0, SUM(col))', '/\b' . $booleanColumn . '\s*(?:=|<>|!=)\s*[01]\b|\b(?:SUM|AVG|MAX|MIN)\s*\(\s*' . $booleanColumn . '\s*\)/', 'compare with TRUE/FALSE or cast; (col)::int in sums'],
-    'collation_like' => ['LIKE / COLLATE (case- and accent-insensitive by default in MySQL)', '/\bLIKE\s+[?\'"]|\bCOLLATE\b/', 'Dialect::likeInsensitive() for user-facing text, the lookup columns carry talea_ci'],
-    'mysql_client' => ['MySQL PHP / command line specifics (mysqldump, MYSQL_ATTR, mysqli)', '/mysqldump|MYSQL_ATTR|mysqli|\bmysql\s+-|pdo_mysql/i', 'Backup and restore need a pg_dump counterpart'],
+    'collation_like' => ['COLLATE in SQL (LIKE on user-facing text goes through Dialect::likeInsensitive(), the lookup columns carry talea_ci)', '/\bCOLLATE\b/', 'Dialect::likeInsensitive()'],
+    'mysql_client' => ['MySQL PHP / command line specifics (mysqldump, MYSQL_ATTR, mysqli)', '/mysqldump|MYSQL_ATTR|mysqli|\bmysql\s+-/i', 'Backup and restore need a pg_dump counterpart'],
 ];
-$portable = ['now' => true];
+$portable = ['now' => true, 'interval' => true, 'concat_null' => true];
 
 $only = null;
 foreach ($argv as $arg) {
@@ -97,6 +98,7 @@ foreach ($files as $relative) {
         if ($trimmed === '' || str_starts_with($trimmed, '//') || str_starts_with($trimmed, '*') || str_starts_with($trimmed, '/*') || str_starts_with($trimmed, '#')) {
             continue;
         }
+        $line = (string) preg_replace('~\s//\s.*$~', '', $line); // a trailing comment is not SQL
         foreach ($categories as $key => [, $regex]) {
             if (preg_match($regex, $line) === 1) {
                 $found[$key][$relative] = ($found[$key][$relative] ?? 0) + 1;

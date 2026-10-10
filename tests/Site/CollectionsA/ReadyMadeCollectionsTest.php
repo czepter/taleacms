@@ -36,7 +36,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Field types', 'slug' => 'field-types', 'item_pages' => true, 'fields' => [
             ['label' => 'Start', 'type' => 'datetime'], ['label' => 'Brochure', 'type' => 'file'], ['label' => 'Place', 'type' => 'location'],
         ]]);
-        $this->assertSame('datetime,file,location', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].type'))) ORDER BY n.i) FROM tl_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'field-types'"), "Claude's datetime, file and location types");
+        $this->assertSame('datetime,file,location', implode(',', array_column((array) json_decode($this->sq("SELECT fields FROM tl_collections WHERE slug = 'field-types'"), true), 'type')), "Claude's datetime, file and location types"); // decoded in PHP: a computed JSON path differs between the engines
 
         $this->mcpText('save_collection_item', ['collection' => 'field-types', 'name' => 'Open day', 'slug' => 'open-day',
             'values' => ['start' => '2026-11-02T17:00', 'brochure' => '/media/brochure-2026.pdf', 'place' => '49.1951;16.6068'], 'visible' => true]);
@@ -74,7 +74,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
     private function inPeriod(string $period, string $endField): string
     {
-        $out = $this->site()->php('[$sql, $p] = Talea\Builder\Collections::periodCondition(' . var_export($period, true) . ', "begin", ' . var_export($endField, true) . ', date("Y-m-d H:i")); echo json_encode([$sql, $p]);');
+        $out = $this->site()->php('[$sql, $p] = Talea\Builder\Collections::periodCondition(Talea\Core\Dialect\Dialect::forDriver(' . var_export(\Talea\Tests\Support\TestDatabase::driver(), true) . '), ' . var_export($period, true) . ', "begin", ' . var_export($endField, true) . ', date("Y-m-d H:i")); echo json_encode([$sql, $p]);');
         [$sql, $params] = json_decode($out, true);
 
         return $this->sq("SELECT GROUP_CONCAT(slug ORDER BY slug) FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = 'period-test') AND $sql", $params);

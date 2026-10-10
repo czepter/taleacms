@@ -45,8 +45,7 @@ final class Menu
 
             return;
         }
-        $db->run('INSERT INTO {menus} (location, language, items, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE items = VALUES(items), updated_at = NOW()',
-            [$location, $language, (string) json_encode(self::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+        $db->upsert('menus', ['location' => $location, 'language' => $language, 'items' => (string) json_encode(self::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'updated_at' => date('Y-m-d H:i:s')], ['location', 'language']);
     }
 
     /**
@@ -113,7 +112,7 @@ final class Menu
     {
         $db = $app->db();
         $pages = [];
-        foreach ($db->all('SELECT page_id, title, slug, in_menu FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [$language]) as $s) {
+        foreach ($db->all('SELECT page_id, title, slug, in_menu FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [$language]) as $s) {
             $pages[(int) $s['page_id']] = $s;
         }
         $url = fn (array $s): string => $app->url((int) $s['page_id'] === $home ? '' : $s['slug']);

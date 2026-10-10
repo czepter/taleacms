@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Talea\Core;
+namespace TaleaAddon\DomainWatch;
+
+use Talea\Core\Demo;
+use Talea\Core\Events;
+use Talea\Extension\Api;
 
 /**
  * Domain and mail watch (2.8, "runs itself"): once a day the site checks what nobody notices until it breaks.
@@ -13,10 +17,13 @@ namespace Talea\Core;
  *  - The site's TLS certificate: days until it expires (a TLS handshake with the site's own host from site_url).
  *  - The domain registration: days until it expires, read from RDAP (https://rdap.org redirects to the registry).
  *
- * The result is a JSON in the setting "domain_watch" with the time of the check (Settings::DEFAULTS, internal).
- * No page view ever waits for DNS or a remote server: System status (Core\Health) and the site audit (Core\Audit) read
- * the cached result only. refresh() does the network work – the 2.8 scheduler calls it once a day, System status when the
- * cached result is older than a day or when the administrator presses "Check now". The public demo makes no requests.
+ * The result is a JSON in the add-on's setting "result" (ext.domain_watch.result) with the time of the check.
+ * No page view ever waits for DNS or a remote server: System status and the site audit read the cached result only
+ * (through the add-on's registrations, Extension\Api::healthRows and handoverFindings). refresh() does the network work – the
+ * daily job calls it, and "Check now" on the add-on's page. A certificate or a domain about to expire also records the
+ * event domain_watch.expiring, which is worth an alert e-mail. The public demo makes no requests.
+ *
+ * This class was Core\DomainWatch until the add-on API 2 (issue #28); it is the pilot of that API.
  *
  * Limitations, on purpose: the registrable domain is computed from a short list of two-level public suffixes
  * (co.uk, com.au…) – not the whole public suffix list; DKIM is looked up only under common selectors, so a provider with
@@ -28,9 +35,12 @@ namespace Talea\Core;
  */
 final class DomainWatch
 {
-    /** The setting the cached result lives in (JSON). */
-    public const string SETTING = 'domain_watch';
+    /** The add-on setting the cached result lives in (JSON), and the one that remembers when an expiry was last alerted. */
+    public const string RESULT = 'result';
+    public const string ALERTED = 'alerted';
 
+    /** An expiry is alerted again after this many days while it lasts. */
+    public const int ALERT_REPEAT_DAYS = 7;
 
     /** Days left on the certificate or the domain: under WARNING_DAYS a warning, under ERROR_DAYS an error. */
     public const int WARNING_DAYS = 21;
@@ -51,9 +61,8 @@ final class DomainWatch
         'amazonaws.com' => 'amazonses.com', 'postmarkapp.com' => 'spf.mtasv.net', 'mandrillapp.com' => 'spf.mandrillapp.com', 'mailjet.com' => 'spf.mailjet.com',
         'smtp2go.com' => 'spf.smtp2go.com', 'zoho.com' => 'zohomail.com', 'zoho.eu' => 'zohomail.eu'];
 
-    private const int TIMEOUT = 5;
-    private const int MAX_BYTES = 256 * 1024;
     private const int MAX_REDIRECTS = 3;
+    private const int TIMEOUT = 5;
 
     /** @var callable(string, int): (list<array<string, mixed>>|false)  DNS lookup: name and DNS_* type, records or false on failure */
     private $dns;
@@ -67,7 +76,7 @@ final class DomainWatch
     public function __construct(?callable $dns = null, ?callable $http = null, ?callable $tls = null)
     {
         $this->dns = $dns ?? self::lookup(...);
-        $this->http = $http ?? self::fetch(...);
+        $this->http = $http ?? fn (string $url): array => throw new \RuntimeException('no way to make a request');
         $this->tls = $tls ?? self::certificateExpiry(...);
     }
 
@@ -78,26 +87,44 @@ final class DomainWatch
      *
      * @return array<string, mixed>|null
      */
-    public static function cached(Settings $s): ?array
+    public static function cached(Api $api): ?array
     {
-        $result = json_decode($s->get(self::SETTING), true);
+        $result = json_decode($api->get(self::RESULT), true);
 
         return is_array($result) && isset($result['checked']) ? $result : null;
+    }
+
+    /** The default way to fetch an address: the extension API's pinned GET, https only, a few redirects (each one checked again). */
+    public static function viaApi(Api $api): \Closure
+    {
+        return function (string $url) use ($api): array {
+            for ($i = 0; $i <= self::MAX_REDIRECTS; $i++) {
+                if (!preg_match('#^https://[a-z0-9.-]+(:\d+)?/#i', $url)) {
+                    throw new \RuntimeException('only https:// addresses are followed');
+                }
+                $answer = $api->httpGet($url, self::TIMEOUT);
+                if (!in_array($answer['status'], [301, 302, 303, 307, 308], true) || $answer['location'] === '') {
+                    return [$answer['status'], $answer['body']];
+                }
+                $url = str_starts_with($answer['location'], '/') ? (string) parse_url($url, PHP_URL_SCHEME) . '://' . (string) parse_url($url, PHP_URL_HOST) . $answer['location'] : $answer['location'];
+            }
+            throw new \RuntimeException('too many redirects');
+        };
     }
 
     /* ---------- the check ---------- */
 
     /**
-     * Runs every check and stores the result in the setting. Called once a day by the scheduler and by "Check now".
+     * Runs every check, stores the result and raises the alerts. Called once a day by the job and by "Check now".
      *
      * @return array<string, mixed> the stored result (see collect()); in the public demo only ['checked' => …, 'demo' => true], nothing is stored
      */
-    public function refresh(App $app): array
+    public function refresh(Api $api): array
     {
         if (Demo::active()) {
             return ['checked' => time(), 'demo' => true]; // no request leaves the public demo
         }
-        $s = $app->settings();
+        $s = $api->app()->settings();
         $from = $s->get('mail_from') !== '' ? $s->get('mail_from') : $s->get('site_email');
         $result = $this->collect([
             'site_host' => self::ascii((string) parse_url($s->get('site_url'), PHP_URL_HOST)),
@@ -106,9 +133,38 @@ final class DomainWatch
             'smtp_host' => $s->get('mail_mode') === 'smtp' ? self::ascii($s->get('smtp_host')) : '',
             'report_email' => $s->get('site_email'),
         ]);
-        $s->set(self::SETTING, (string) json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->record($api, $result);
 
         return $result;
+    }
+
+    /**
+     * Stores a result and records the event domain_watch.expiring for a certificate or a domain about to expire (or expired) – once, and
+     * again every ALERT_REPEAT_DAYS while it lasts; an expiry that is fine again is forgotten, so the next one alerts at once. The alert
+     * e-mail itself is Talea's (Core\Alerts), the setting "alerts" switches the events off.
+     *
+     * @param array<string, mixed> $result
+     */
+    public function record(Api $api, array $result, ?int $now = null): void
+    {
+        $now ??= time();
+        $api->set(self::RESULT, (string) json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $alerted = json_decode($api->get(self::ALERTED), true);
+        $alerted = is_array($alerted) ? $alerted : [];
+        $current = [];
+        foreach ($api->get('alerts') === '1' ? self::handoverFindings($result) : [] as $finding) {
+            if (!in_array($finding['key'], ['certificate', 'domain'], true)) {
+                continue;
+            }
+            $current[] = $finding['key'];
+            if ((int) ($alerted[$finding['key']] ?? 0) > $now - self::ALERT_REPEAT_DAYS * 86400) {
+                continue;
+            }
+            $days = (int) ($finding['key'] === 'certificate' ? $result['tls']['days'] : $result['domain']['days']);
+            Events::record($api->app()->db(), 'domain_watch.expiring', $days < self::ERROR_DAYS ? 'error' : 'warning', $finding['message'], ['what' => $finding['key'], 'days' => $days]);
+            $alerted[$finding['key']] = $now;
+        }
+        $api->set(self::ALERTED, (string) json_encode(array_intersect_key($alerted, array_flip($current))));
     }
 
     /**
@@ -489,7 +545,7 @@ final class DomainWatch
         return $findings;
     }
 
-    /* ---------- the network (the defaults of the injectable callables) ---------- */
+    /* ---------- the network (the defaults of the injectable callables; the HTTPS fetch is viaApi()) ---------- */
 
     /** @return list<array<string, mixed>>|false */
     private static function lookup(string $name, int $type): array|false
@@ -501,86 +557,6 @@ final class DomainWatch
         }
 
         return $records;
-    }
-
-    /**
-     * HTTPS GET with at most MAX_REDIRECTS redirects, https only, a small body.
-     *
-     * @return array{0: int, 1: string}
-     */
-    private static function fetch(string $url): array
-    {
-        for ($i = 0; $i <= self::MAX_REDIRECTS; $i++) {
-            if (!preg_match('#^https://[a-z0-9.-]+(:\d+)?/#i', $url)) {
-                throw new \RuntimeException('only https:// addresses are followed');
-            }
-            [$status, $location, $body] = function_exists('curl_init') ? self::curlRequest($url) : self::streamRequest($url);
-            if (!in_array($status, [301, 302, 303, 307, 308], true) || $location === '') {
-                return [$status, $body];
-            }
-            $url = str_starts_with($location, '/') ? (string) parse_url($url, PHP_URL_SCHEME) . '://' . (string) parse_url($url, PHP_URL_HOST) . $location : $location;
-        }
-        throw new \RuntimeException('too many redirects');
-    }
-
-    /** @return array{0: int, 1: string, 2: string} status, Location header, body */
-    private static function curlRequest(string $url): array
-    {
-        $location = '';
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => self::TIMEOUT, CURLOPT_TIMEOUT => self::TIMEOUT * 2,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_MAXFILESIZE => self::MAX_BYTES,
-            CURLOPT_HTTPHEADER => ['Accept: application/rdap+json, application/json', 'User-Agent: Talea/' . TALEA_VERSION],
-            CURLOPT_HEADERFUNCTION => function ($ch, string $header) use (&$location): int {
-                if (stripos($header, 'Location:') === 0) {
-                    $location = trim(substr($header, 9));
-                }
-
-                return strlen($header);
-            },
-        ]);
-        $body = curl_exec($ch);
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $error = curl_error($ch); // no curl_close(): a no-op since PHP 8.0 and deprecated in 8.5
-        if (!is_string($body)) {
-            throw new \RuntimeException($error !== '' ? $error : 'connection failed');
-        }
-        if (strlen($body) > self::MAX_BYTES) {
-            throw new \RuntimeException('the response is unexpectedly large');
-        }
-
-        return [$status, $location, $body];
-    }
-
-    /** @return array{0: int, 1: string, 2: string} */
-    private static function streamRequest(string $url): array
-    {
-        $context = stream_context_create(['http' => ['method' => 'GET', 'timeout' => self::TIMEOUT, 'follow_location' => 0, 'ignore_errors' => true,
-            'header' => "Accept: application/rdap+json, application/json\r\nUser-Agent: Talea/" . TALEA_VERSION . "\r\n"]]);
-        $stream = @fopen($url, 'rb', false, $context);
-        if ($stream === false) {
-            throw new \RuntimeException('connection failed');
-        }
-        // the response headers come from the stream's metadata (the $http_response_header variable is deprecated since PHP 8.5)
-        $headers = stream_get_meta_data($stream)['wrapper_data'] ?? [];
-        $body = (string) stream_get_contents($stream, self::MAX_BYTES + 1);
-        fclose($stream);
-        if (strlen($body) > self::MAX_BYTES) {
-            throw new \RuntimeException('the response is unexpectedly large');
-        }
-        $status = 0;
-        $location = '';
-        foreach (is_array($headers) ? $headers : [] as $header) {
-            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
-                $status = (int) $m[1];
-                $location = '';
-            } elseif (stripos($header, 'Location:') === 0) {
-                $location = trim(substr($header, 9));
-            }
-        }
-
-        return [$status, $location, $body];
     }
 
     /** A TLS handshake with host:443 and the certificate's expiry; the chain is not verified – an expired certificate must be readable too. */

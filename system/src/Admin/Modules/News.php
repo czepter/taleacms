@@ -31,7 +31,7 @@ final class News extends Module
      * Talea has no other status "sent for approval" – the author can only save a draft and a message tells them an editor
      * will publish it.
      */
-    public const string AWAITING_PUBLICATION = 'c.visible = 0 AND c.author_id IN (SELECT user_id FROM {users} WHERE admin = 0)';
+    public const string AWAITING_PUBLICATION = 'c.visible = FALSE AND c.author_id IN (SELECT user_id FROM {users} WHERE admin = 0)';
 
     /** How many news items from authors wait to be published (for editors and administrators; 0 for authors). */
     public static function countAwaitingPublication(\Talea\Core\App $app): int
@@ -60,16 +60,16 @@ final class News extends Module
             $params[] = \Talea\Core\Language::column($s, $language);
         }
         if (($search = $this->request->get('search')) !== '') {
-            $where[] = 'c.title LIKE ?';
+            $where[] = $this->db->dialect()->likeInsensitive('c.title');
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
         $state = $this->request->get('status');
         $inTrash = $state === 'trash';
         $where[] = $inTrash ? 'c.deleted_at IS NOT NULL' : 'c.deleted_at IS NULL';
         $statusConditions = [
-            'published' => 'c.visible = 1 AND c.published_at <= NOW()',
-            'scheduled' => 'c.visible = 1 AND c.published_at > NOW()',
-            'drafts' => 'c.visible = 0',
+            'published' => 'c.visible = TRUE AND c.published_at <= NOW()',
+            'scheduled' => 'c.visible = TRUE AND c.published_at > NOW()',
+            'drafts' => 'c.visible = FALSE',
             'awaiting_publication' => self::AWAITING_PUBLICATION,
         ];
         if (isset($statusConditions[$state])) {
@@ -360,7 +360,7 @@ final class News extends Module
 
             return Response::json(['ok' => true, 'deleted_at' => true]);
         }
-        $this->db->run('INSERT INTO {news_drafts} (user_id, news_id, saved_at, data) VALUES (?, ?, NOW(), ?) ON DUPLICATE KEY UPDATE saved_at = NOW(), data = VALUES(data)', [$me, $idc, $data]);
+        $this->db->upsert('news_drafts', ['user_id' => $me, 'news_id' => $idc, 'saved_at' => date('Y-m-d H:i:s'), 'data' => $data], ['user_id', 'news_id']);
         if (random_int(1, 40) === 1) {
             $this->db->run('DELETE FROM {news_drafts} WHERE saved_at < NOW() - INTERVAL 30 DAY');
         }
@@ -377,7 +377,7 @@ final class News extends Module
         }
         $editMode = $this->request->get('edit') === '1';
         $news = $this->db->all(
-            'SELECT public_id, title, slug, language, visible AND published_at <= NOW() AS published FROM {news} WHERE deleted_at IS NULL AND title LIKE ?'
+            'SELECT public_id, title, slug, language, visible AND published_at <= NOW() AS published FROM {news} WHERE deleted_at IS NULL AND ' . $this->db->dialect()->likeInsensitive('title')
                 . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY published_at DESC LIMIT 8',
             ['%' . addcslashes($q, '%_\\') . '%'],
         );
@@ -512,7 +512,7 @@ final class News extends Module
             return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => $this->publicId((int) $existing)]);
         }
         // target category: the counterpart of the original's category, otherwise the first category of the given language
-        $category = $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY (translation_of <=> ?) DESC, weight DESC, category_id LIMIT 1', [$language, $newsItem['category_id']]);
+        $category = $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY CASE WHEN translation_of = ? THEN 1 ELSE 0 END DESC, weight DESC, category_id LIMIT 1', [$language, $newsItem['category_id']]);
         if ($category === null) {
             return $backToNewsItem('There is no category in the target language yet. Create one in News → Categories (the Language version field).');
         }
@@ -568,7 +568,7 @@ final class News extends Module
     {
         $newsItem = $this->load($this->idParam());
         $version = $newsItem === null ? null : $this->db->one(
-            "SELECT r.*, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_name FROM {news_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.revision_id = ? AND r.news_id = ?",
+            "SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name FROM {news_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.revision_id = ? AND r.news_id = ?",
             [$this->request->getInt('revision'), $newsItem['news_id'] ?? 0],
         );
         if ($version === null) {
@@ -599,7 +599,7 @@ final class News extends Module
         return $this->view('links', 'Broken links', [
             'links' => array_values(array_filter(\Talea\Core\Links::broken($this->app, 300, $this->app->auth()->articleScope('c.')), fn (array $l): bool => $l['kind'] === 'news' || $pages)),
             'checked' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {news} WHERE links_checked_at IS NOT NULL) + (SELECT COUNT(*) FROM {pages} WHERE links_checked IS NOT NULL) + (SELECT COUNT(*) FROM {collection_items} WHERE links_checked IS NOT NULL)'),
-            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL) + (SELECT COUNT(*) FROM {pages} WHERE visible = 1 AND deleted_at IS NULL) + (SELECT COUNT(*) FROM {collection_items} WHERE visible = 1 AND deleted_at IS NULL)'),
+            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL) + (SELECT COUNT(*) FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL) + (SELECT COUNT(*) FROM {collection_items} WHERE visible = TRUE AND deleted_at IS NULL)'),
             'isEnabled' => $this->app->settings()->bool('link_check'),
         ]);
     }
@@ -676,8 +676,8 @@ final class News extends Module
         $auth = $this->app->auth();
         $allowedIds = $auth->managedAuthors();
         $authors = $allowedIds === null
-            ? $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2")
-            : $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} WHERE user_id IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
+            ? $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2")
+            : $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE user_id IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
         // social post drafts (2.13): only a published news item has them; a news item published through Claude gets them here at the latest
         $published = $newsItem['news_id'] && $newsItem['visible'] && strtotime((string) $newsItem['published_at']) <= time() && empty($newsItem['deleted_at']);
         if ($published) {
@@ -706,7 +706,7 @@ final class News extends Module
             )),
             'allTags' => array_column($this->db->all('SELECT name FROM {tags} ORDER BY name LIMIT 500'), 'name'),
             'versions' => $this->db->all(
-                "SELECT r.revision_id, r.created_at, r.title, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_name
+                "SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name
                  FROM {news_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.news_id = ? ORDER BY r.revision_id DESC",
                 [(int) $newsItem['news_id']],
             ),
@@ -736,7 +736,7 @@ final class News extends Module
             $seo = slugify($name, 90);
             $ids = $db->value('SELECT tag_id FROM {tags} WHERE slug = ?', [$seo]);
             $ids = $ids !== null ? (int) $ids : $db->insert('tags', ['name' => $name, 'slug' => $seo]);
-            $db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$idc, $ids]);
+            $db->insertIgnore('news_tags', ['news_id' => $idc, 'tag_id' => $ids]);
         }
     }
 

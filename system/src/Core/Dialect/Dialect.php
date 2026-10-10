@@ -60,8 +60,17 @@ abstract class Dialect
     /** Seconds since 1970 of a date expression. */
     abstract public function unixTime(string $expression): string;
 
-    /** INSERT of one row, or an update of the columns in $update when a row with the same $keys exists. Without $update an existing row stays as it is. @param list<string> $columns @param list<string> $keys @param list<string> $update */
+    /**
+     * INSERT of one row, or an update when a row with the same $keys exists. Without $update an existing row stays as it is.
+     * $update: a column name (takes the inserted value) or `column => expression` (`'count' => '{old.count} + 1'`; `{old.col}` in the expression is the
+     * value of col in the existing row, `{new.col}` the inserted one; a bare column name would be ambiguous in PostgreSQL).
+     *
+     * @param list<string> $columns @param list<string> $keys @param array<int|string, string> $update
+     */
     abstract public function upsert(string $table, array $columns, array $keys, array $update): string;
+
+    /** INSERT ... SELECT that skips rows violating a unique key; $select is a complete SELECT statement with ? placeholders. @param list<string> $columns */
+    abstract public function insertIgnoreSelect(string $table, array $columns, string $select): string;
 
     /** INSERT that silently skips a row violating a unique key (MySQL INSERT IGNORE, PostgreSQL ON CONFLICT DO NOTHING). @param list<string> $columns */
     abstract public function insertIgnore(string $table, array $columns): string;
@@ -74,6 +83,23 @@ abstract class Dialect
 
     /** Values of a group joined into one string. $orderBy is an expression; with $distinct it must be the expression itself. */
     abstract public function groupConcat(string $expression, string $separator = ',', ?string $orderBy = null, bool $distinct = false): string;
+
+    /** ORDER BY expression that sorts by the position in a list (MySQL FIELD()): `CASE expr WHEN ? THEN 0 WHEN ? THEN 1 … ELSE n END`, one ? per value, in this order. */
+    public function listPosition(string $expression, int $count): string
+    {
+        $whens = '';
+        for ($i = 0; $i < $count; $i++) {
+            $whens .= ' WHEN ? THEN ' . $i;
+        }
+
+        return 'CASE ' . $expression . $whens . ' ELSE ' . $count . ' END';
+    }
+
+    /** A text expression as a number for sorting (MySQL: `expr + 0`, text without a number is 0). */
+    public function toNumber(string $expression): string
+    {
+        return '(' . $expression . ' + 0)';
+    }
 
     public function limit(int $count, int $offset = 0): string
     {
@@ -102,6 +128,54 @@ abstract class Dialect
 
     abstract public function currentDatabaseSql(): string;
 
+    // ---- backups (Core\Backup): a plain SQL file the application writes and reads itself, without mysqldump or pg_dump
+
+    /** Real names of the tables of this installation (prefix), in the order a restore can insert them (referenced tables first). @return list<string> */
+    abstract public function dumpTables(PDO $pdo, string $prefix): array;
+
+    /** Text after the file header: MySQL switches the foreign key checks off, PostgreSQL empties all the tables in one statement (the structure comes from the migrations, not from the file). @param list<string> $tables */
+    abstract public function dumpPrologue(array $tables): string;
+
+    abstract public function dumpEpilogue(): string;
+
+    /** Statements that recreate one table: MySQL its DROP and CREATE, PostgreSQL nothing. */
+    abstract public function dumpStructure(PDO $pdo, string $table): string;
+
+    /** Start of an INSERT of several rows of $table (real name), `VALUES` and a line break included; PostgreSQL names the columns, MySQL takes the table's own order. @param list<string> $columns */
+    abstract public function dumpInsert(string $table, array $columns): string;
+
+    /** Columns of $table (real name) PostgreSQL keeps as boolean: their 1 and 0 are written as TRUE and FALSE. @return list<string> */
+    abstract public function dumpBooleanColumns(PDO $pdo, string $table): array;
+
+    /** One value as an SQL literal that stays on one line (the restore reads statement by statement, a statement ends with a semicolon at the end of a line). */
+    abstract public function dumpLiteral(PDO $pdo, string $value): string;
+
+    /** Called before the first statement of a restore and, with $failed, after the last one. */
+    abstract public function restoreBegin(PDO $pdo): void;
+
+    abstract public function restoreEnd(PDO $pdo, bool $failed): void;
+
+    /** Statements ({table} names) that empty these tables whatever the foreign keys say: MySQL switches the checks off around DELETE, PostgreSQL TRUNCATEs them together (CASCADE: rows that only exist for them go too). @param list<string> $tables @return list<string> */
+    abstract public function emptyTablesSql(array $tables): array;
+
+    /** Statement ({table}, no placeholders) that moves the auto-number of a table past its highest key after rows were inserted with explicit keys; '' when the engine does it by itself (MySQL). */
+    public function syncSequenceSql(string $table, string $keyColumn): string
+    {
+        return '';
+    }
+
+    /** The column definition `{pk}` stands for in add-on migrations: an auto-numbered BIGINT primary key. */
+    abstract public function autoKeyColumn(): string;
+
+    /** SQL (? = real table name) listing the column names of a table in their order, one column `name`. */
+    abstract public function columnsSql(): string;
+
+    /** SQL (? = real table name) listing every unique key (the primary key too) of a table: `key_name`, `column_name`, `is_primary` (0|1), in key and column order. */
+    abstract public function uniqueKeysSql(): string;
+
+    /** SQL (? = LIKE pattern for the table names) giving the sum of data and index bytes of the matching tables of the current database. */
+    abstract public function sizeSql(): string;
+
     /** Text after an INSERT that returns the new row's key, '' when the engine reports it through PDO::lastInsertId(). */
     public function returning(string $keyColumn): string
     {
@@ -125,6 +199,25 @@ abstract class Dialect
         }
 
         return $keys;
+    }
+
+    /**
+     * The SET list of an upsert. @param array<int|string, string> $update
+     * @param \Closure(string): string $newValue the inserted value of a column (MySQL new_row.col, PostgreSQL EXCLUDED.col)
+     * @return list<string>
+     */
+    protected function assignments(string $table, array $update, \Closure $newValue): array
+    {
+        $sets = [];
+        foreach ($update as $column => $expression) {
+            if (is_int($column)) {
+                $sets[] = $this->quote($expression) . ' = ' . $newValue($expression);
+            } else {
+                $sets[] = $this->quote($column) . ' = ' . preg_replace_callback('/\{(new|old)\.([a-z_][a-z0-9_]*)\}/i', fn (array $m): string => $m[1] === 'new' ? $newValue($m[2]) : '{' . $this->identifier($table) . '}.' . $this->quote($m[2]), $expression);
+            }
+        }
+
+        return $sets;
     }
 
     protected function unit(string $unit): string

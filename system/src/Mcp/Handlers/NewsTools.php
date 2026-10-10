@@ -38,9 +38,9 @@ trait NewsTools
             $where[] = 'c.author_id IN (' . implode(',', $authors) . ')';
         }
         if (!$auth->hasModule('news')) {
-            $where[] = 'c.visible = 1 AND c.published_at <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
+            $where[] = 'c.visible = TRUE AND c.published_at <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
         }
-        $statuses = ['published' => 'c.visible = 1 AND c.published_at <= NOW()', 'scheduled' => 'c.visible = 1 AND c.published_at > NOW()', 'drafts' => 'c.visible = 0'];
+        $statuses = ['published' => 'c.visible = TRUE AND c.published_at <= NOW()', 'scheduled' => 'c.visible = TRUE AND c.published_at > NOW()', 'drafts' => 'c.visible = FALSE'];
         if (isset($statuses[$a['status'] ?? ''])) {
             $where[] = $statuses[$a['status']];
         }
@@ -49,7 +49,7 @@ trait NewsTools
             $p[] = $this->category((string) $a['category']);
         }
         if (!empty($a['search'])) {
-            $where[] = 'c.title LIKE ?';
+            $where[] = $db->dialect()->likeInsensitive('c.title');
             $p[] = '%' . addcslashes((string) $a['search'], '%_\\') . '%';
         }
 
@@ -113,7 +113,7 @@ trait NewsTools
         $need($auth->hasModule('news'), 'News items can be deleted only by users with the News section.');
         $item = $db->one('SELECT news_id, visible, author_id FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id]) ?? throw new \InvalidArgumentException('The news item does not exist. Use list_news.');
         $need($auth->canPublish() || (!$item['visible'] && (int) $item['author_id'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
-        $db->run('UPDATE {news} SET deleted_at = NOW(), visible = 0 WHERE news_id = ?', [$id]);
+        $db->run('UPDATE {news} SET deleted_at = NOW(), visible = FALSE WHERE news_id = ?', [$id]);
         \Talea\Front\Cache::clear();
 
         return ['trashed' => $id, 'restore' => 'restore_from_trash with type news within 30 days'];

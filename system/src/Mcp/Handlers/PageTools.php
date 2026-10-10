@@ -38,7 +38,7 @@ trait PageTools
             'site' => $siteSettings->get('site_name'), 'url' => $this->app->request->origin() . $this->app->url(''), 'description' => $siteSettings->get('site_description'),
             'home_page' => $siteSettings->int('home_page') ?: null, 'talea_version' => TALEA_VERSION,
             'pages' => (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL'),
-            'published_news' => (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL'),
+            'published_news' => (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL'),
             'username' => $auth->user()['username'], 'role' => \Talea\Core\Auth::TYPES[(int) $auth->user()['admin']], 'can_publish' => $auth->canPublish(),
             'can_edit_pages' => $auth->hasModule('pages'),
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
@@ -71,7 +71,7 @@ trait PageTools
             . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['page_id'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
             'home' => (int) $r['page_id'] === $home, 'visible' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . ($auth->hasModule('pages') ? '' : ' AND visible = 1') . ' ORDER BY language, sort_order, title'));
+            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . ($auth->hasModule('pages') ? '' : ' AND visible = TRUE') . ' ORDER BY language, sort_order, title'));
     }
 
     /** get_page */
@@ -159,7 +159,7 @@ trait PageTools
         if ((int) $page['page_id'] === $siteSettings->int('home_page')) {
             throw new \DomainException('The home page cannot be deleted – set another one first (update_settings → home_page).');
         }
-        $db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ? AND deleted_at IS NULL', [(int) $page['page_id']]);
+        $db->run('UPDATE {pages} SET deleted_at = NOW(), visible = FALSE WHERE page_id = ? AND deleted_at IS NULL', [(int) $page['page_id']]);
         \Talea\Front\Cache::clear();
 
         return ['id' => (int) $page['page_id'], 'status' => 'in the trash – it can be restored for 30 days in the admin (Pages → Trash)'];

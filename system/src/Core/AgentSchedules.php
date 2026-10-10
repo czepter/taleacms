@@ -173,7 +173,7 @@ final class AgentSchedules
     {
         return $db->all('SELECT s.*, r.status AS last_status, r.finished_at AS last_finished, r.summary AS last_summary
             FROM {agent_schedules} s LEFT JOIN {agent_runs} r ON r.id = (SELECT MAX(id) FROM {agent_runs} WHERE schedule_id = s.id)
-            ORDER BY s.active DESC, s.next_due, s.id');
+            ORDER BY s.active DESC, s.next_due IS NULL DESC, s.next_due, s.id'); // NULL first on both engines (PostgreSQL would sort it last)
     }
 
     /**
@@ -216,7 +216,7 @@ final class AgentSchedules
         $db = $app->db();
         $now = date('Y-m-d H:i:s');
         $out = [];
-        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = 1 AND next_due IS NOT NULL AND next_due <= ? ORDER BY next_due, id', [$now]) as $schedule) {
+        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = TRUE AND next_due IS NOT NULL AND next_due <= ? ORDER BY next_due, id', [$now]) as $schedule) {
             $open = $db->one("SELECT * FROM {agent_runs} WHERE schedule_id = ? AND status = 'running' ORDER BY id DESC LIMIT 1", [(int) $schedule['id']]);
             if ($open !== null && strtotime((string) $open['started_at']) < time() - self::HANDOUT_HOURS * 3600) {
                 $db->update('agent_runs', ['status' => 'failed', 'finished_at' => $now, 'summary' => t('Handed out but not reported within %d hours – written off by the site.', self::HANDOUT_HOURS)], ['id' => (int) $open['id']]);
@@ -274,7 +274,7 @@ final class AgentSchedules
         $now = new \DateTimeImmutable();
         $limit = $now->modify('-' . self::MISSED_HOURS . ' hours')->format('Y-m-d H:i:s');
         $missed = 0;
-        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = 1 AND next_due IS NOT NULL AND next_due < ?', [$limit]) as $schedule) {
+        foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = TRUE AND next_due IS NOT NULL AND next_due < ?', [$limit]) as $schedule) {
             if ($db->value("SELECT COUNT(*) FROM {agent_runs} WHERE schedule_id = ? AND status = 'running'", [(int) $schedule['id']]) > 0) {
                 continue; // handed out – late, but somebody is on it
             }

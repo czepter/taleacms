@@ -257,7 +257,7 @@ final class Language
         if ($additional === [] || $home === 0) {
             return $additional;
         }
-        $done = array_column($db->all('SELECT DISTINCT language FROM {pages} WHERE translation_of = ? AND visible = 1 AND deleted_at IS NULL', [$home]), 'language');
+        $done = array_column($db->all('SELECT DISTINCT language FROM {pages} WHERE translation_of = ? AND visible = TRUE AND deleted_at IS NULL', [$home]), 'language');
 
         return array_values(array_intersect($additional, $done));
     }

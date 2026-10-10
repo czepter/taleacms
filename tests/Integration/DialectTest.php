@@ -141,4 +141,81 @@ final class DialectTest extends DatabaseTestCase
         $this->assertFalse($this->db()->tableExists('no_such_table'));
         $this->assertStringStartsWith('talea_phpunit_', $this->db()->databaseName());
     }
+
+    public function testUpsertWithExpressionsCountsOnTheExistingRow(): void
+    {
+        $db = $this->db();
+        $day = date('Y-m-d');
+        $update = ['views' => '{old.views} + {new.views}'];
+        $db->upsert('stats_pages', ['day' => $day, 'path' => '/dialect', 'views' => 1], ['day', 'path'], $update);
+        $db->upsert('stats_pages', ['day' => $day, 'path' => '/dialect', 'views' => 4], ['day', 'path'], $update);
+        $db->upsert('stats_pages', ['day' => $day, 'path' => '/dialect', 'views' => 1], ['day', 'path'], ['views' => '{old.views} + 1']);
+
+        $this->assertSame(6, (int) $db->value('SELECT views FROM {stats_pages} WHERE day = ? AND path = ?', [$day, '/dialect']));
+    }
+
+    public function testInsertIgnoreSelectAddsOnlyWhatIsNew(): void
+    {
+        $db = $this->db();
+        $db->upsert('settings', ['name' => 'dialect_sel_a', 'value' => '1'], ['name']);
+        $db->upsert('settings', ['name' => 'dialect_sel_b', 'value' => '2'], ['name']);
+        $db->run("DELETE FROM {settings} WHERE name = 'dialect_sel_copy'");
+        $select = "SELECT 'dialect_sel_copy', value FROM {settings} WHERE name IN ('dialect_sel_a', 'dialect_sel_b') ORDER BY name";
+
+        $this->assertSame(1, $db->insertIgnoreSelect('settings', ['name', 'value'], $select), 'the first row is added, the second one has the same key');
+        $this->assertSame('1', $db->value("SELECT value FROM {settings} WHERE name = 'dialect_sel_copy'"));
+        $this->assertSame(0, $db->insertIgnoreSelect('settings', ['name', 'value'], $select));
+    }
+
+    public function testTheCatalogueHelpersListColumnsAndKeys(): void
+    {
+        $db = $this->db();
+
+        $this->assertSame(['day', 'path', 'views'], array_slice($db->columns('stats_pages'), 0, 3));
+        $this->assertSame(['day', 'path'], $db->primaryKey('stats_pages'));
+        $this->assertContains(['name'], array_values($db->uniqueKeys('settings')), 'the primary key is a unique key');
+        $this->assertSame([], $db->primaryKey('no_such_table'));
+        $this->assertGreaterThan(0, $db->tablesSize());
+    }
+
+    public function testListPositionSortsByTheGivenOrder(): void
+    {
+        $db = $this->db();
+        foreach (['dialect_pos_a', 'dialect_pos_b', 'dialect_pos_c'] as $name) {
+            $db->upsert('settings', ['name' => $name, 'value' => $name], ['name']);
+        }
+        $order = ['dialect_pos_c', 'dialect_pos_a', 'dialect_pos_b'];
+        $names = $db->all("SELECT name FROM {settings} WHERE name LIKE 'dialect\\_pos\\_%' ORDER BY " . $db->dialect()->listPosition('name', 3), $order);
+
+        $this->assertSame($order, array_column($names, 'name'));
+    }
+
+    public function testBooleansComeBackAsNumbersOnBothEngines(): void
+    {
+        $db = $this->db();
+        $db->insert('pages', ['slug' => 'bool-page', 'title' => 'B', 'text' => '', 'visible' => 1]);
+        $this->assertSame(1, $db->one("SELECT visible FROM {pages} WHERE slug = 'bool-page'")['visible'], 'a boolean is 1, not true');
+        $this->assertSame(1, $db->value("SELECT visible FROM {pages} WHERE slug = 'bool-page'"));
+        $this->assertSame([[1]], $db->run("SELECT visible FROM {pages} WHERE slug = 'bool-page'")->fetchAll(\PDO::FETCH_NUM), 'for every way of fetching');
+        $db->run("UPDATE {pages} SET visible = FALSE WHERE slug = 'bool-page'");
+        $this->assertSame(0, $db->value("SELECT visible FROM {pages} WHERE slug = 'bool-page'"), 'false is 0, and not "no row"');
+        $this->assertNull($db->value("SELECT visible FROM {pages} WHERE slug = 'no-such-page'"));
+        $this->assertSame(1, (int) $db->value('SELECT SUM(CASE WHEN visible THEN 1 ELSE 0 END) + 1 FROM {pages} WHERE slug = ?', ['bool-page']));
+    }
+
+    public function testEmptyTablesIgnoresForeignKeysAndTheSequenceCatchesUp(): void
+    {
+        $db = $this->db();
+        $category = $db->insert('categories', ['name' => 'E', 'slug' => 'empty-me', 'description' => '']);
+        $db->insert('news', ['slug' => 'empty-news', 'title' => 'T', 'intro' => '', 'text' => '', 'category_id' => $category, 'published_at' => date('Y-m-d H:i:s')]);
+
+        $db->emptyTables(['news', 'categories']);
+        $this->assertSame(0, (int) $db->value('SELECT COUNT(*) FROM {news}'));
+        $this->assertSame(0, (int) $db->value('SELECT COUNT(*) FROM {categories}'));
+
+        // rows with their own numbers (an import, a restore), then the counter moves past them
+        $db->run("INSERT INTO {categories} (category_id, name, slug, description, public_id) VALUES (500, 'X', 'x500', '', ?)", [\Talea\Core\Uuid::v4()]);
+        $db->syncSequences('categories');
+        $this->assertGreaterThan(500, $db->insert('categories', ['name' => 'Y', 'slug' => 'y501', 'description' => '']));
+    }
 }

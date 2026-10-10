@@ -87,7 +87,7 @@ final class Publisher
     {
         [$whereParts, $value] = self::whereClause($target);
 
-        return $db->all("SELECT r.revision_id, r.created_at, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_name FROM {build_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r." . $whereParts . ' ORDER BY r.revision_id DESC', [$value]);
+        return $db->all("SELECT r.revision_id, r.created_at, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name FROM {build_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r." . $whereParts . ' ORDER BY r.revision_id DESC', [$value]);
     }
 
     /** @param array{page_id?: int|string, part?: string} $target */

@@ -33,7 +33,6 @@ final class Scheduler
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
-        'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
@@ -58,7 +57,7 @@ final class Scheduler
     /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
     private static function lockName(Db $db): string
     {
-        return substr('talea-sched-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix), 0, 64);
+        return substr('talea-sched-' . hash('sha256', $db->databaseName() . '|' . $db->prefix), 0, 64);
     }
 
     /**
@@ -102,11 +101,6 @@ final class Scheduler
                 return 'ok';
             },
             'alerts' => fn (App $app): string => Alerts::run($app),
-            'domain_watch' => function (App $app): string {
-                $result = (new DomainWatch())->refresh($app);
-
-                return !empty($result['local']) ? 'local address, skipped' : 'checked';
-            },
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);
 
@@ -156,7 +150,7 @@ final class Scheduler
         \Talea\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
-        if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::lockName($db), $source === 'cron' ? 20 : 0]) !== 1) {
+        if (!$db->lock(self::lockName($db), $source === 'cron' ? 20 : 0)) {
             return []; // another run is in progress
         }
         $end = microtime(true) + $budget;
@@ -180,7 +174,7 @@ final class Scheduler
                 $results[$name] = self::runOne($app, $name, $job, $source, (int) ($state[$name]['failures'] ?? 0));
             }
         } finally {
-            $db->value('SELECT RELEASE_LOCK(?)', [self::lockName($db)]);
+            $db->unlock(self::lockName($db));
         }
 
         return $results;
@@ -210,9 +204,7 @@ final class Scheduler
         $now = date('Y-m-d H:i:s');
         try {
             $result = mb_substr((string) $job($app, $source), 0, 120);
-            $db->run('INSERT INTO {jobs} (name, last_run, last_ok, last_error, failures, runs, duration_ms) VALUES (?, ?, ?, \'\', 0, 1, ?)
-                ON DUPLICATE KEY UPDATE last_run = VALUES(last_run), last_ok = VALUES(last_ok), last_error = \'\', failures = 0, runs = runs + 1, duration_ms = VALUES(duration_ms)',
-                [$name, $now, $now, (int) ((microtime(true) - $start) * 1000)]);
+            $db->upsert('jobs', ['name' => $name, 'last_run' => $now, 'last_ok' => $now, 'last_error' => '', 'failures' => 0, 'runs' => 1, 'duration_ms' => (int) ((microtime(true) - $start) * 1000)], ['name'], ['last_run', 'last_ok', 'last_error', 'failures', 'runs' => '{old.runs} + 1', 'duration_ms']);
             if ($failures >= self::FAILURES_TO_ALERT) {
                 Events::record($db, 'task.recovered', 'info', t('The background job “%s” works again.', $name), ['job' => $name]);
             }
@@ -220,9 +212,7 @@ final class Scheduler
             return $result;
         } catch (\Throwable $e) {
             $error = mb_substr($e->getMessage(), 0, 255);
-            $db->run('INSERT INTO {jobs} (name, last_run, last_error, failures, runs, duration_ms) VALUES (?, ?, ?, 1, 1, ?)
-                ON DUPLICATE KEY UPDATE last_run = VALUES(last_run), last_error = VALUES(last_error), failures = failures + 1, runs = runs + 1, duration_ms = VALUES(duration_ms)',
-                [$name, $now, $error, (int) ((microtime(true) - $start) * 1000)]);
+            $db->upsert('jobs', ['name' => $name, 'last_run' => $now, 'last_error' => $error, 'failures' => 1, 'runs' => 1, 'duration_ms' => (int) ((microtime(true) - $start) * 1000)], ['name'], ['last_run', 'last_error', 'failures' => '{old.failures} + 1', 'runs' => '{old.runs} + 1', 'duration_ms']);
             if ($failures + 1 === self::FAILURES_TO_ALERT) {
                 Events::record($db, 'task.failed', 'error', t('The background job “%s” failed %d times in a row: %s', $name, self::FAILURES_TO_ALERT, $error), ['job' => $name]);
             }

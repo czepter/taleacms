@@ -1,0 +1,25 @@
+{
+    "name": "Caveat",
+    "category": "handwritten",
+    "weights": [
+        400,
+        500,
+        600,
+        700
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "caveat.woff2",
+            "weight": "400 700",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/caveat",
+    "licence": "OFL-1.1"
+}

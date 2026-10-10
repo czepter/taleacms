@@ -592,7 +592,7 @@ final class WpImport
         $seo = slugify($name, 90);
         $ids = $this->db->value('SELECT tag_id FROM {tags} WHERE slug = ?', [$seo]);
         $ids = $ids !== null ? (int) $ids : $this->db->insert('tags', ['name' => $name, 'slug' => $seo]);
-        $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$idc, $ids]);
+        $this->db->insertIgnore('news_tags', ['news_id' => $idc, 'tag_id' => $ids]);
         $this->writeMap('tag', $wpSlug, $ids);
     }
 
@@ -878,9 +878,6 @@ final class WpImport
 
     private function writeMap(string $type, string $foreignId, int $ourId): void
     {
-        $this->db->run(
-            'INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE local_id = VALUES(local_id)',
-            [$this->source, $type, mb_substr($foreignId, 0, 190), $ourId],
-        );
+        $this->db->upsert('import_map', ['source' => $this->source, 'type' => $type, 'source_id' => mb_substr($foreignId, 0, 190), 'local_id' => $ourId], ['source', 'type', 'source_id']);
     }
 }

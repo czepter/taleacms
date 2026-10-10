@@ -101,7 +101,7 @@ final class Media extends Module
         }
         $db->delete('media_usage', ['news_id' => $idc]);
         foreach (array_unique($ids) as $ido) {
-            $db->run('INSERT IGNORE INTO {media_usage} (media_id, news_id) SELECT media_id, ? FROM {media} WHERE media_id = ?', [$idc, $ido]);
+            $db->insertIgnoreSelect('media_usage', ['media_id', 'news_id'], 'SELECT media_id, ? FROM {media} WHERE media_id = ?', [$idc, $ido]);
         }
     }
 
@@ -120,7 +120,7 @@ final class Media extends Module
             [t('category'), 'SELECT name AS used_in, description AS content FROM {categories}'],
             [t('my section'), 'SELECT name AS used_in, element AS content FROM {sections}'],
             [t('username'), 'SELECT username AS used_in, photo AS content FROM {users}'],
-            [t('site part'), 'SELECT CONCAT(type, IF(name = \'\', \'\', CONCAT(\' – \', name))) AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {site_parts}'],
+            [t('site part'), 'SELECT CONCAT(type, CASE WHEN name = \'\' THEN \'\' ELSE CONCAT(\' – \', name) END) AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {site_parts}'],
             [t('collection'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {collections}'],
             [t('collection item'), "SELECT name AS used_in, CONCAT(data, ' ', image) AS content FROM {collection_items}"],
             [t('component'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {components}'],
@@ -436,7 +436,7 @@ final class Media extends Module
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
-            $where[] = '(o.name LIKE ? OR o.description LIKE ? OR o.image_path LIKE ?)';
+            $where[] = '(' . implode(' OR ', array_map(fn (string $c): string => $this->db->dialect()->likeInsensitive($c), ['o.name', 'o.description', 'o.image_path'])) . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             array_push($params, $pattern, $pattern, $pattern);
         }

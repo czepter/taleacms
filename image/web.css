@@ -17,7 +17,7 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 .text figure:not(.gallery) img { cursor: zoom-in; }
 
 /* ---------- photo viewer ---------- */
-.tl-lightbox { position: fixed; inset: 0; z-index: 9000; grid-template-rows: minmax(0, 1fr) auto; width: 100vw; max-width: none; height: 100vh; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: rgb(10 10 12 / 0.96); color: #fff; }
+.tl-lightbox { position: fixed; inset: 0; z-index: 9000; grid-template-rows: minmax(0, 1fr) auto; width: 100vw; max-width: none; height: 100vh; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: rgb(10 10 12 / 0.96); color: #fff; touch-action: pan-y; }
 .tl-lightbox[open] { display: grid; }
 .tl-lightbox::backdrop { background: #000; }
 .tl-lightbox img { align-self: center; justify-self: center; max-width: 100%; max-height: 100%; min-height: 0; object-fit: contain; }

@@ -384,7 +384,7 @@ final class WebImport
 
     private function map(string $source, string $type, string $key, int $id): void
     {
-        $this->db->run('INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE local_id = VALUES(local_id)', [$source, $type, $key, $id]);
+        $this->db->upsert('import_map', ['source' => $source, 'type' => $type, 'source_id' => $key, 'local_id' => $id], ['source', 'type', 'source_id']);
     }
 
     private function fetch(string $url): ?string

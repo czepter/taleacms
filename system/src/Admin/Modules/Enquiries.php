@@ -48,7 +48,7 @@ final class Enquiries extends Module
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
-            $conditions[] = '(email LIKE ? OR form LIKE ? OR data LIKE ? OR note LIKE ?)';
+            $conditions[] = '(' . implode(' OR ', array_map(fn (string $c): string => $this->db->dialect()->likeInsensitive($c), ['email', 'form', 'data', 'note'])) . ')';
             // the data is JSON with \uXXXX instead of diacritics – the search also looks in that form
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
@@ -61,7 +61,7 @@ final class Enquiries extends Module
             'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to FROM {enquiries} ' . $whereParts . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
-            'users' => $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2"),
+            'users' => $this->db->pairs("SELECT user_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"),
             'months' => $this->app->settings()->int('enquiries_months'),
             'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
@@ -95,7 +95,7 @@ final class Enquiries extends Module
     private function listAssignees(int $assignee = 0): array
     {
         return $this->db->pairs(
-            "SELECT public_id, IF(name = '', username, name) FROM {users} u WHERE (blocked = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
+            "SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} u WHERE (blocked = FALSE AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
             [\Talea\Core\Auth::ADMIN, self::IDENT, $assignee],
         );
     }

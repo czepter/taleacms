@@ -47,7 +47,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->call('save_build', ['id' => $this->site()->publicId('pages', $page), 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [[
             'type' => 'button', 'content' => ['text' => 'Go', 'variant' => 'outline', 'icon' => 'arrow'], 'style' => ['mobile' => ['gap' => 's', 'background' => 'primary-soft']],
         ]]]]]]);
-        $this->assertSame('button|outline|primary-soft', $this->sqlRow("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].type')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].content.variant')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].style.mobile.background')) FROM tl_pages WHERE page_id = $page"), 'MCP: an English build is stored as it is');
+        $this->assertSame('button|outline|primary-soft', $this->sqlRow("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].type')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].content.variant')) AS b, JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].style.mobile.background')) AS c FROM tl_pages WHERE page_id = $page"), 'MCP: an English build is stored as it is');
 
         $build = $this->call('get_build', ['id' => $this->site()->publicId('pages', $page)]);
         $this->assertSame('button|outline|primary-soft', $this->pick($build, 'build', 'children', 0, 'children', 0, 'type') . '|' . $this->pick($build, 'build', 'children', 0, 'children', 0, 'content', 'variant') . '|' . $this->pick($build, 'build', 'children', 0, 'children', 0, 'style', 'mobile', 'background'), 'MCP: get_build answers in English');
@@ -123,8 +123,8 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
         $before = (int) $this->sql("SELECT JSON_LENGTH(COALESCE(build_draft, build), '$.children') FROM tl_pages WHERE page_id = $page");
         $this->call('insert_section', ['id' => $this->site()->publicId('pages', $page), 'saved_section' => $this->site()->publicId('sections', $section)]);
-        $this->assertSame((string) ($before + 1) . '|1', $this->sql("SELECT JSON_LENGTH(build_draft, '$.children') FROM tl_pages WHERE page_id = $page") . '|'
-            . $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, CONCAT('$.children[', JSON_LENGTH(build_draft, '$.children') - 1, '].id'))) <> ? FROM tl_pages WHERE page_id = $page", [$first]), 'MCP: insert_section with a saved section adds it with new ids');
+        $children = json_decode($this->sql("SELECT build_draft FROM tl_pages WHERE page_id = $page"), true)['children']; // read in PHP: a JSON path built with CONCAT is MySQL-only
+        $this->assertSame((string) ($before + 1) . '|1', (string) count($children) . '|' . (int) (end($children)['id'] !== $first), 'MCP: insert_section with a saved section adds it with new ids');
         $this->call('discard_draft', ['id' => $this->site()->publicId('pages', $page)]);
         $this->call('delete_section', ['id' => $this->site()->publicId('sections', $section)]);
         $this->assertSame('0', $this->sql("SELECT COUNT(*) FROM tl_sections WHERE section_id = $section"), 'MCP: delete_section');

@@ -7,6 +7,7 @@ return [
     'button' => 'New notice board',
     'description' => 'Posting and takedown dates, reference number, issuer, category, document and summary; the board shows what is posted now, the archive what was taken down. Notices are never deleted and every change is logged.',
     'order' => 100,
+    'extension' => 'notice_board', // off by default (Core\Extensions); the Municipality blueprint turns it on
     'detail' => true,
     'redirect_hidden' => false, // a notice is never deleted or hidden once posted – its address stays
     'fields' => [

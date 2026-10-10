@@ -49,12 +49,18 @@ final class Presets
             $key = basename($file, '.php');
             $definition = preg_match(self::KEY_PATTERN, $key) === 1 ? require $file : null;
             if (is_array($definition) && is_string($definition['name'] ?? null) && is_array($definition['fields'] ?? null)) {
-                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null, 'card_extra' => null, 'page_extra' => null, 'extra_pages' => []];
+                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'extension' => '', 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null, 'card_extra' => null, 'page_extra' => null, 'extra_pages' => []];
             }
         }
         uasort($all, fn (array $a, array $b): int => [$a['order'], $a['name']] <=> [$b['order'], $b['name']]);
 
         return self::$all = $all;
+    }
+
+    /** @return array<string, array<string, mixed>> the presets this site may offer: those of a switched-off feature (the notice board) are left out */
+    public static function available(\Talea\Core\Settings $settings): array
+    {
+        return array_filter(self::all(), fn (array $p): bool => \Talea\Core\Extensions::isEnabled($settings, (string) $p['extension']));
     }
 
     /** @return array<string, mixed>|null */
@@ -132,7 +138,7 @@ final class Presets
      */
     public static function createWithPage(App $app, string $key, string $name = '', bool $withPage = true): ?array
     {
-        $preset = self::get($key);
+        $preset = self::available($app->settings())[$key] ?? null;
         if ($preset === null) {
             return null;
         }
@@ -249,10 +255,10 @@ final class Presets
      *
      * @return list<array<string, mixed>>
      */
-    public static function describe(): array
+    public static function describe(\Talea\Core\Settings $settings): array
     {
         $out = [];
-        foreach (self::all() as $key => $p) {
+        foreach (self::available($settings) as $key => $p) {
             $out[] = ['preset' => $key, 'name' => t($p['name']), 'description' => t((string) $p['description']), 'item_pages' => (bool) $p['detail'],
                 'fields' => array_map(fn (array $f): array => ['key' => $f[0], 'label' => t($f[1]), 'type' => $f[2]] + (isset($f[3]['preset']) ? ['links_to_preset' => $f[3]['preset']] : []), $p['fields']),
                 'structured_data' => is_array($p['schema']) ? (string) $p['schema']['type'] : '', 'how_to_use' => (string) $p['claude']];

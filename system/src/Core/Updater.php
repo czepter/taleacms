@@ -31,6 +31,23 @@ final class Updater
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
 
+    /** Is a path of the package left alone by an update? The folders of the site – except the official add-ons shipped in extensions/ (Extension\Registry::BUNDLED), which are Talea's code. */
+    private static function isProtected(string $relativePath): bool
+    {
+        foreach (\Talea\Extension\Registry::BUNDLED as $slug) {
+            if (str_starts_with($relativePath, 'extensions/' . $slug . '/')) {
+                return false;
+            }
+        }
+        foreach (self::PROTECTED_PATHS as $protectedPath) {
+            if ($relativePath === $protectedPath || (str_ends_with($protectedPath, '/') && str_starts_with($relativePath, $protectedPath))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function __construct(
         private readonly Settings $settings,
         private readonly string $root = TALEA_ROOT,
@@ -448,10 +465,8 @@ final class Updater
             if (str_contains($relativePath, '..') || str_starts_with($relativePath, '/') || str_contains($relativePath, "\0") || str_contains($relativePath, '\\')) {
                 throw new \RuntimeException(t('The package contains an unsafe path.'));
             }
-            foreach (self::PROTECTED_PATHS as $protectedPath) {
-                if ($relativePath === $protectedPath || (str_ends_with($protectedPath, '/') && str_starts_with($relativePath, $protectedPath))) {
-                    continue 2;
-                }
+            if (self::isProtected($relativePath)) {
+                continue;
             }
             $target = $destination . '/' . $relativePath;
             if (!is_dir(dirname($target))) {
@@ -538,10 +553,8 @@ final class Updater
             if (str_contains($relativePath, '..') || str_starts_with($relativePath, '/') || str_contains($relativePath, '\\') || str_contains($relativePath, "\0")) {
                 continue;
             }
-            foreach (self::PROTECTED_PATHS as $protectedPath) {
-                if ($relativePath === $protectedPath || (str_ends_with($protectedPath, '/') && str_starts_with($relativePath, $protectedPath))) {
-                    continue 2;
-                }
+            if (self::isProtected($relativePath)) {
+                continue;
             }
             $file = $root . '/' . $relativePath;
             if (is_file($file) && @unlink($file)) {

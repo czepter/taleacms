@@ -153,7 +153,7 @@ final class Users extends Module
     /** The administrator sends the user a link to set a new password (valid for 3 days). */
     protected function actionPasswordLink(): Response
     {
-        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = 0", [$this->idParam('user_id')]) : null;
+        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = FALSE", [$this->idParam('user_id')]) : null;
         if ($user === null) {
             return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }

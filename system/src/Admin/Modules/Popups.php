@@ -149,7 +149,7 @@ final class Popups extends Module
 
         return [
             'pages' => $this->db->all('SELECT page_id, public_id, title, language FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 500'),
-            'collection' => $this->db->all('SELECT slug, name FROM {collections} WHERE detail = 1 ORDER BY name'),
+            'collection' => $this->db->all('SELECT slug, name FROM {collections} WHERE detail = TRUE ORDER BY name'),
             'languages' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
         ];
     }

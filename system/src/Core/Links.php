@@ -64,9 +64,9 @@ final class Links
         $db = $app->db();
         $due = '(%1$s IS NULL OR %1$s < NOW() - INTERVAL 30 DAY) ORDER BY %1$s IS NOT NULL, %1$s';
         $rows = [
-            'news' => $db->one('SELECT news_id AS id, intro, text, links_checked_at AS checked FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked_at') . ', published_at DESC LIMIT 1'),
-            'page' => $db->one('SELECT page_id AS id, text, build, links_checked AS checked FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', page_id LIMIT 1'),
-            'item' => $db->one('SELECT item_id AS id, data, links_checked AS checked FROM {collection_items} WHERE visible = 1 AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', item_id LIMIT 1'),
+            'news' => $db->one('SELECT news_id AS id, intro, text, links_checked_at AS checked FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked_at') . ', published_at DESC LIMIT 1'),
+            'page' => $db->one('SELECT page_id AS id, text, build, links_checked AS checked FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', page_id LIMIT 1'),
+            'item' => $db->one('SELECT item_id AS id, data, links_checked AS checked FROM {collection_items} WHERE visible = TRUE AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', item_id LIMIT 1'),
         ];
         $kind = null;
         $row = null;

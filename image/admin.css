@@ -1171,6 +1171,12 @@ body.login {
 .appearance-device button[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
 .appearance-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--base); }
 .appearance-frame iframe { position: absolute; top: 0; left: 0; border: 0; background: #fff; transform-origin: 0 0; }
+.font-sample { margin: 4px 0 12px; padding: 12px 14px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); }
+.font-sample-heading { display: block; font-size: 22px; line-height: 1.2; font-weight: 700; }
+.font-sample p { margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
+.font-pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.font-pairs .appearance-preset { width: 100%; text-align: left; }
+.font-pairs em { color: var(--accent); font-size: 12px; font-style: normal; }
 .appearance-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .appearance-preset { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
 .appearance-preset:hover { border-color: var(--accent); }

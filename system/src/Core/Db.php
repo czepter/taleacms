@@ -27,6 +27,8 @@ final class Db
     private ?Dialect $dialect = null;
     /** @var array<string, ?string> memo of identityColumn() */
     private array $identity = [];
+    /** @var array<string, array<string, array{primary: bool, columns: list<string>}>> memo of keyRows(): table => key name => columns */
+    private array $keyMemo = [];
     /** @var array<string, array<int, string>> memo of publicId() */
     private array $publicIds = [];
 
@@ -65,7 +67,7 @@ final class Db
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
-            ]);
+            ] + ($this->dialect()->name() === 'pgsql' ? [PDO::ATTR_STATEMENT_CLASS => [PgStatement::class]] : []));
             // The database must count time the same way as PHP: PHP writes article dates (date()), but queries compare them with NOW().
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
@@ -161,11 +163,17 @@ final class Db
         return $id;
     }
 
-    /** Inserts a row, or updates $update (default: all other columns) of the row that has the same $keys (a unique key). */
+    /** Inserts a row, or updates $update (default: all other columns) of the row that has the same $keys (a unique key). $update: see Dialect::upsert() (`['count' => 'count + 1']`). */
     public function upsert(string $table, array $data, array $keys, ?array $update = null): void
     {
         $columns = array_keys($data);
         $this->run($this->dialect()->upsert($table, $columns, $keys, $update ?? array_values(array_diff($columns, $keys))), array_values($data));
+    }
+
+    /** `INSERT ... SELECT` that skips rows violating a unique key; returns the number added. $select is a complete SELECT ({tables}, ? placeholders). @param list<string> $columns */
+    public function insertIgnoreSelect(string $table, array $columns, string $select, array $params = []): int
+    {
+        return $this->run($this->dialect()->insertIgnoreSelect($table, $columns, $select), $params)->rowCount();
     }
 
     /** Inserts a row unless it violates a unique key (then nothing happens); returns whether a row was added. */
@@ -189,6 +197,74 @@ final class Db
     public function tableExists(string $table): bool
     {
         return (int) $this->value($this->dialect()->tableExistsSql(), [$this->prefix . $table]) > 0;
+    }
+
+    /** Empties tables (names without prefix) whatever the foreign keys say; see Dialect::emptyTablesSql(). @param list<string> $tables */
+    public function emptyTables(array $tables): void
+    {
+        foreach ($this->dialect()->emptyTablesSql($tables) as $sql) {
+            $this->run($sql);
+        }
+    }
+
+    /** After rows were inserted with explicit auto-numbers (import, restore): PostgreSQL's counter must move past them, MySQL's does it itself. */
+    public function syncSequences(string ...$tables): void
+    {
+        if ($this->dialect()->name() !== 'pgsql') {
+            return;
+        }
+        foreach ($tables as $table) {
+            $key = self::PRIMARY_KEYS[$table] ?? $this->identityColumn($table);
+            $sql = $key === null ? '' : $this->dialect()->syncSequenceSql($table, $key);
+            if ($sql !== '') {
+                $this->run($sql);
+            }
+        }
+    }
+
+    /** Column names of a table (name without prefix) in their order. @return list<string> */
+    public function columns(string $table): array
+    {
+        return array_map('strval', array_column($this->all($this->dialect()->columnsSql(), [$this->prefix . $table]), 'name'));
+    }
+
+    /** Every unique key of a table (name without prefix), the primary key included: key name => columns in order. @return array<string, list<string>> */
+    public function uniqueKeys(string $table): array
+    {
+        return $this->keyRows($table, false);
+    }
+
+    /** The primary key columns of a table (name without prefix). @return list<string> */
+    public function primaryKey(string $table): array
+    {
+        $keys = $this->keyRows($table, true);
+
+        return $keys === [] ? [] : array_values(reset($keys));
+    }
+
+    /** @return array<string, list<string>> */
+    private function keyRows(string $table, bool $primaryOnly): array
+    {
+        if (!isset($this->keyMemo[$table])) {
+            foreach ($this->all($this->dialect()->uniqueKeysSql(), [$this->prefix . $table]) as $r) {
+                $this->keyMemo[$table][(string) $r['key_name']] = ['primary' => (int) $r['is_primary'] === 1, 'columns' => [...($this->keyMemo[$table][(string) $r['key_name']]['columns'] ?? []), (string) $r['column_name']]];
+            }
+            $this->keyMemo[$table] ??= [];
+        }
+        $keys = [];
+        foreach ($this->keyMemo[$table] as $name => $k) {
+            if (!$primaryOnly || $k['primary']) {
+                $keys[$name] = $k['columns'];
+            }
+        }
+
+        return $keys;
+    }
+
+    /** Bytes of data and indexes of this site's tables (the prefix), 0 when the engine cannot tell. */
+    public function tablesSize(): int
+    {
+        return (int) $this->value($this->dialect()->sizeSql(), [addcslashes($this->prefix, '_%') . '%']);
     }
 
     public function databaseName(): string

@@ -166,7 +166,7 @@ final class Products
             if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/', $line['i']) !== 1) {
                 return null;
             }
-            $item = $db->one('SELECT name, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [(int) $collection['collection_id'], $line['i']]);
+            $item = $db->one('SELECT name, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [(int) $collection['collection_id'], $line['i']]);
             if ($item === null) {
                 return null;
             }

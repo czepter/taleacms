@@ -251,13 +251,8 @@ final class NewslettersTest extends SiteTestCase
         file_put_contents($site->path('layout/custom/base.php'), '<?php echo "CUSTOM TEMPLATE";');
 
         $status = $this->assertPage('/admin.php?module=status', 200, 'Cron', message: 'health: cron check');
-        $this->assertStringContainsString('Domain and mail', $status->body, 'health: domain and mail watch group');
-        $this->assertStringContainsString('action=domain_check', $status->body, 'health: Check now button');
-        $this->assertStringContainsString('runs on a local address', $status->body, 'health: nothing checked on a local address');
-
-        $this->adminPost('/admin.php?module=settings&action=domain_check', [], '/admin.php?module=settings');
-        $after = $this->assertPage('/admin.php?module=status', 200, 'Last checked', message: 'health: Check now stores the result and reports the local address');
-        $this->assertSame('true', $site->value("SELECT JSON_EXTRACT(value, '$.local') FROM tl_settings WHERE name = 'domain_watch'"), 'health: the check result is cached in the domain_watch setting');
+        $this->assertStringNotContainsString('Domain and mail', $status->body, 'health: the domain watch is an add-on, off by default (tests/Site/AgentAddons/DomainWatchAddonTest)');
+        $after = $this->assertPage('/admin.php?module=status', 200, [], message: 'health');
         $this->assertStringContainsString('custom in the layout/ folder', $after->body, 'health: a leftover custom layout is reported');
     }
 

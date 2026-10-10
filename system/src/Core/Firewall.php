@@ -73,8 +73,7 @@ final class Firewall
             return null;
         }
         $db = $app->db();
-        $db->run('INSERT INTO {firewall_blocks} (ip, until, reason, created_at) VALUES (?, NOW() + INTERVAL ? HOUR, ?, NOW()) ON DUPLICATE KEY UPDATE until = VALUES(until), reason = VALUES(reason)',
-            [$ip, self::PROBE_BLOCK_HOURS, 'probe']);
+        $db->upsert('firewall_blocks', ['ip' => $ip, 'until' => date('Y-m-d H:i:s', time() + self::PROBE_BLOCK_HOURS * 3600), 'reason' => 'probe', 'created_at' => date('Y-m-d H:i:s')], ['ip'], ['until', 'reason']);
         Events::record($db, 'firewall.blocked', 'warning', t('%s was blocked for %d hours after probing for other systems (%s).', $ip, self::PROBE_BLOCK_HOURS, '/' . mb_substr($path, 0, 120)), ['reason' => 'probe']);
 
         return self::refuse($db, $ip, 'probe', $path);

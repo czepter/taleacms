@@ -90,7 +90,7 @@ final class CreateFormsTables extends AbstractMigration
             ->addColumn('news_ids', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'chosen news items (idc, comma separated)'])
             ->addColumn('button_label', 'string', ['limit' => 80, 'null' => false, 'default' => ''])
             ->addColumn('button_url', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
-            ->addColumn('language', 'char', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'language of the fixed texts and the news items (empty = the site language)'])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'language of the fixed texts and the news items (empty = the site language)'])
             ->addColumn('status', 'string', ['limit' => 10, 'null' => false, 'default' => 'draft', 'comment' => 'draft | scheduled | sending | sent'])
             ->addColumn('scheduled_at', 'datetime', ['null' => true])
             ->addColumn('html', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'the rendered e-mail, kept from the start of sending'])

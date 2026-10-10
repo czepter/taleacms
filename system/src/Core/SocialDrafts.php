@@ -154,7 +154,7 @@ final class SocialDrafts
     public static function prepare(App $app, int $idc): int
     {
         $db = $app->db();
-        $c = $db->one('SELECT news_id, title, intro, slug, language, image, seo_title FROM {news} WHERE news_id = ? AND visible = 1 AND published_at <= NOW() AND deleted_at IS NULL', [$idc]);
+        $c = $db->one('SELECT news_id, title, intro, slug, language, image, seo_title FROM {news} WHERE news_id = ? AND visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL', [$idc]);
         if ($c === null) {
             return 0;
         }
@@ -189,7 +189,7 @@ final class SocialDrafts
     public static function forNews(Db $db, int $idc): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {social_drafts} WHERE news_id = ? ORDER BY FIELD(network, ' . implode(', ', array_fill(0, count(self::NETWORKS), '?')) . '), id', [$idc, ...array_keys(self::NETWORKS)]);
+            $rows = $db->all('SELECT * FROM {social_drafts} WHERE news_id = ? ORDER BY ' . $db->dialect()->listPosition('network', count(self::NETWORKS)) . ', id', [$idc, ...array_keys(self::NETWORKS)]);
         } catch (\Throwable) {
             return []; // before the 2.13 migration
         }

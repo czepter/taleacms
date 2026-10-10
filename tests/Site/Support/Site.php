@@ -114,7 +114,7 @@ final class Site
         foreach (array_filter(explode("\0", (string) shell_exec('cd ' . escapeshellarg($project) . ' && git ls-files -z --cached --others --exclude-standard -- system image'))) as $file) {
             $fingerprint .= $file . @filemtime($project . '/' . $file) . @filesize($project . '/' . $file);
         }
-        $code = substr(md5($fingerprint . md5_file(__FILE__)), 0, 8); // the installer defaults of this harness are part of what a template is
+        $code = substr(md5($fingerprint . md5_file(__FILE__) . TestDatabase::driver()), 0, 8); // the engine too: the marker file is shared by both servers // the installer defaults of this harness are part of what a template is
         $key = substr(md5((string) json_encode(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])))), 0, 8);
         $name = "talea_tpl_{$code}_{$key}";
         $marker = sys_get_temp_dir() . "/$name.json";
@@ -281,7 +281,7 @@ final class Site
     /** @param list<mixed> $params @return list<array<string, mixed>> */
     public function rows(string $sql, array $params = []): array
     {
-        $statement = $this->pdo->prepare($sql);
+        $statement = $this->pdo->prepare(TestSql::forEngine($sql, $this->pdo));
         $statement->execute($params);
 
         return $statement->fetchAll();
@@ -290,7 +290,7 @@ final class Site
     /** First column of the first row (null when none). @param list<mixed> $params */
     public function value(string $sql, array $params = []): mixed
     {
-        $statement = $this->pdo->prepare($sql);
+        $statement = $this->pdo->prepare(TestSql::forEngine($sql, $this->pdo));
         $statement->execute($params);
         $value = $statement->fetchColumn();
 
@@ -300,7 +300,7 @@ final class Site
     /** @param list<mixed> $params */
     public function exec(string $sql, array $params = []): int
     {
-        $statement = $this->pdo->prepare($sql);
+        $statement = $this->pdo->prepare(TestSql::forEngine($sql, $this->pdo));
         $statement->execute($params);
 
         return $statement->rowCount();

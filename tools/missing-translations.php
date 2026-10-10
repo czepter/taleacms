@@ -29,7 +29,7 @@ $missing = [];
 $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
 foreach ($it as $f) {
     $rel = substr($f->getPathname(), strlen($root) + 1);
-    if (preg_match('#^(vendor|tests|tools|docs|\.git|\.claude|node_modules|storage|media|system/languages|image/languages|extensions)/#', $rel) === 1) {
+    if (preg_match('#^(vendor|tests|tools|docs|\.git|\.claude|node_modules|storage|media|system/languages|image/languages)/#', $rel) === 1) {
         continue;
     }
     if (str_ends_with($rel, '.php')) {

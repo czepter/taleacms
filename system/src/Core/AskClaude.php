@@ -123,7 +123,7 @@ final class AskClaude
     public static function routine(Db $db): ?array
     {
         try {
-            $row = $db->one("SELECT cadence, day, time, next_due FROM {agent_schedules} WHERE active = 1 AND task = 'requests' ORDER BY next_due IS NULL, next_due LIMIT 1");
+            $row = $db->one("SELECT cadence, day, time, next_due FROM {agent_schedules} WHERE active = TRUE AND task = 'requests' ORDER BY next_due IS NULL, next_due LIMIT 1");
         } catch (\Throwable) {
             return null; // before the 2.17 migration
         }

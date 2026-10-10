@@ -319,11 +319,7 @@ final class SiteImport
                 throw new \RuntimeException('The site already has its own content. A Talea export can be imported only into a new, empty site.');
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
-            $this->db->run('SET FOREIGN_KEY_CHECKS = 0');
-            foreach (self::EMPTIED as $table) {
-                $this->db->run('DELETE FROM {' . $table . '}');
-            }
-            $this->db->run('SET FOREIGN_KEY_CHECKS = 1');
+            $this->db->emptyTables(self::EMPTIED);
             $state['emptied'] = true;
 
             return;
@@ -355,6 +351,7 @@ final class SiteImport
             });
         }
         if ($state['table'] >= count(self::TABLES)) {
+            $this->db->syncSequences(...self::TABLES);
             $this->loadIds((string) $state['file']);
             $this->applySettings((string) $state['file'], (string) ($state['header']['talea'] ?? ''));
             $state['phase'] = $state['media_total'] > 0 ? 'media' : 'done';
@@ -414,7 +411,7 @@ final class SiteImport
             return false; // a duplicate number or address in the export
         }
         foreach ($tags as $tagId) {
-            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$clean['news_id'], $tagId]);
+            $this->db->insertIgnore('news_tags', ['news_id' => $clean['news_id'], 'tag_id' => $tagId]);
         }
         if ($table === 'collection_items' && !$this->exportHasNoticeLog) {
             $this->logImportedNotice($clean);
@@ -439,7 +436,7 @@ final class SiteImport
     /** @return list<string> */
     private function columns(string $table): array
     {
-        return $this->columns[$table] ??= array_column($this->db->all('SHOW COLUMNS FROM {' . $table . '}'), 'Field');
+        return $this->columns[$table] ??= $this->db->columns($table);
     }
 
     /* ---------- rows ---------- */

@@ -12,6 +12,11 @@ vendor/bin/phpunit --testsuite site --filter PublicSiteTest
 
 MySQL: `TALEA_TEST_DB_*` (defaults to the dev stack's `db-test`, `127.0.0.1:33061` root/root). Without MySQL the tests are skipped.
 
+PostgreSQL: `TALEA_TEST_DB_DRIVER=pgsql vendor/bin/paratest --testsuite site --processes 6` (`TALEA_TEST_PG_*`, default `127.0.0.1:5433`, `postgres`/`postgres`; the template site is
+cloned natively). The suite must be green on both engines. The SQL a test writes through `Site::value/rows/exec` is MySQL SQL and is translated for PostgreSQL by
+`Support/TestSql.php` (GROUP_CONCAT, IF, IFNULL, JSON_EXTRACT, `visible = 1`, REPLACE INTO, …); what it cannot translate is written portable or branches on
+`TestDatabase::isPostgres()`. Fetched booleans are 1/0 on both engines.
+
 ## Writing a test
 
 ```php

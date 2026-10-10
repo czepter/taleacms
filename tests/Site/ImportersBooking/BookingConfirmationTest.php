@@ -78,7 +78,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $choose = '/_booking/choose/' . (self::$choose !== '' ? self::$choose : '0000000000000000000000000000000a');
         $this->assertPage($choose, 200, 'name="proposal"', $site->client(), '3.3 booking: the page lists the proposed times');
         $this->assertSame('pending', $this->q('SELECT status FROM tl_bookings WHERE id = ' . self::$proposed), '3.3 booking: opening the link chooses nothing');
-        $proposal = (int) $this->q('SELECT id FROM tl_booking_proposals WHERE booking_id = ' . self::$proposed . " AND starts_at LIKE '% 12:30:00'");
+        $proposal = (int) $this->q('SELECT id FROM tl_booking_proposals WHERE booking_id = ' . self::$proposed . " AND TIME(starts_at) = '12:30:00'");
         $site->client('visitor')->post($choose, ['proposal' => (string) $proposal]);
         $this->assertSame('confirmed|12:30:00|0|1', $this->q("SELECT CONCAT(status, '|', TIME(starts_at), '|', (SELECT COUNT(*) FROM tl_booking_proposals WHERE booking_id = " . self::$proposed . "), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'The customer accepted the proposed time%')) FROM tl_bookings WHERE id = " . self::$proposed), '3.3 booking: the customer picks a time - the booking moves there and is confirmed, the person is told');
     }

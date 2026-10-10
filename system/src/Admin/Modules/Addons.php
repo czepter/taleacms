@@ -27,7 +27,15 @@ final class Addons extends Module
     {
         $s = $this->app->settings();
 
-        return $this->view('list', 'Add-ons', ['addons' => Registry::discover(), 'enabled' => Registry::enabled($s),
+        $addons = Registry::discover();
+        $pending = [];
+        foreach (Registry::enabled($s) as $slug) {
+            if (isset($addons[$slug]) && $addons[$slug]['problem'] === '' && ($n = Registry::pendingMigrations($s, $addons[$slug])) > 0) {
+                $pending[$slug] = $n; // a newer version of the add-on was copied in: its new migrations run when the add-on is switched off and on again
+            }
+        }
+
+        return $this->view('list', 'Add-ons', ['addons' => $addons, 'enabled' => Registry::enabled($s), 'pending' => $pending,
             'errors' => array_map(fn (array $m): string => $s->get('addons_error.' . $m['slug']), Registry::discover()),
             'pages' => Registry::get()->adminPages(), 'safeMode' => ($this->app->config['addons'] ?? true) === false, 'demo' => \Talea\Core\Demo::active()]);
     }
@@ -53,6 +61,25 @@ final class Addons extends Module
         Registry::disable($this->app, $slug);
 
         return $this->back('The add-on is switched off – its data stays.');
+    }
+
+    /** Uninstalls a switched-off add-on: keeps its data (tables, settings) or deletes it, as the administrator chose. The code in extensions/ stays. */
+    protected function actionUninstall(): Response
+    {
+        if (!$this->request->isPost() || \Talea\Core\Demo::active()) {
+            return $this->back();
+        }
+        $choice = $this->request->post('data');
+        if (!in_array($choice, ['keep', 'delete'], true)) {
+            return $this->back('Choose whether to keep or delete the data of the add-on.', '', [], 'error');
+        }
+        try {
+            Registry::uninstall($this->app, $this->request->post('slug'), $choice === 'delete');
+        } catch (\InvalidArgumentException | \DomainException | \PDOException $e) {
+            return $this->back($e->getMessage(), '', [], 'error');
+        }
+
+        return $this->back($choice === 'delete' ? 'The add-on is uninstalled and its data deleted. Delete its folder in extensions/ to remove the code.' : 'The add-on is uninstalled, its data is kept. Delete its folder in extensions/ to remove the code.');
     }
 
     /** A page an add-on registered: admin.php?module=addons&action=page&p=<slug>.<name> */

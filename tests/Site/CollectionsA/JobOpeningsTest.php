@@ -103,9 +103,10 @@ final class JobOpeningsTest extends SiteTestCase
         $this->assertStringContainsString('/job-openings/carpenter?form=' . self::$element . '&result=ok#', $response->redirect, 'an application with a CV was sent');
 
         self::$applicationId = $this->sq("SELECT MAX(enquiry_id) FROM tl_enquiries WHERE source = 'collection:" . self::$idk . "'");
-        $this->assertSame('/job-openings/carpenter|jan@example.cz|Carpenter|1', $this->sq("SELECT CONCAT(page, '|', email, '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[6][1]')), '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[3][2]')) REGEXP '^[0-9]{4}/[0-9]{2}/[a-f0-9]{24}[.]pdf\$') FROM tl_enquiries WHERE enquiry_id = " . self::$applicationId),
-            "the application is an enquiry from the job's page with the job name as plain text and the CV outside the web root");
+        $this->assertSame('/job-openings/carpenter|jan@example.cz|Carpenter', $this->sq("SELECT CONCAT(page, '|', email, '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[6][1]'))) FROM tl_enquiries WHERE enquiry_id = " . self::$applicationId),
+            "the application is an enquiry from the job's page with the job name as plain text");
         self::$cvPath = $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '\$[3][2]')) FROM tl_enquiries WHERE enquiry_id = " . self::$applicationId);
+        $this->assertMatchesRegularExpression('~^[0-9]{4}/[0-9]{2}/[a-f0-9]{24}[.]pdf$~', self::$cvPath, 'the CV is outside the web root'); // PHP, not REGEXP: the engines differ
         $this->assertNotSame('', self::$cvPath);
         $this->assertFileExists($this->site()->path('storage/attachments/' . self::$cvPath), 'the CV is stored in storage/attachments');
 

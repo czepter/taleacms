@@ -232,7 +232,7 @@ final class Notices
      */
     public static function entries(Db $db, int $idk, ?int $idp = null): array
     {
-        $rows = $db->all('SELECT l.id, l.item_id, l.action, l.`at`, l.`by`, l.fields, p.name FROM {notice_log} l LEFT JOIN {collection_items} p ON p.item_id = l.item_id WHERE '
+        $rows = $db->all('SELECT l.id, l.item_id, l.action, l.' . $db->dialect()->quote('at') . ', l.' . $db->dialect()->quote('by') . ', l.fields, p.name FROM {notice_log} l LEFT JOIN {collection_items} p ON p.item_id = l.item_id WHERE '
             . ($idp !== null ? 'l.item_id = ?' : 'l.item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
         foreach ($rows as &$r) {
             $r['fields'] = json_decode((string) $r['fields'], true) ?: [];

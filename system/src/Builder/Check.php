@@ -40,6 +40,15 @@ final class Check
                 } elseif ($type === 'image' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
                     $findings[] = ['id' => $id, 'message' => t('The image has no description for blind visitors (alt).')];
                 }
+                if ($type === 'gallery') {
+                    $photos = array_filter(is_array($o['photos'] ?? null) ? $o['photos'] : [], static fn (mixed $f): bool => is_array($f) && ($f['src'] ?? '') !== '');
+                    if (($o['label'] ?? '') === '' && ($photos !== [] || ($o['folder'] ?? '') !== '')) {
+                        $findings[] = ['id' => $id, 'message' => t('The gallery has no name for screen readers.')];
+                    }
+                    if (array_filter($photos, static fn (array $f): bool => ($f['alt'] ?? '') === '' && !$tags($f['src'])) !== []) {
+                        $findings[] = ['id' => $id, 'message' => t('The gallery has photos without a description for blind visitors (alt).')];
+                    }
+                }
                 if ($type === 'structured_data') {
                     // typed schema.org data (HF-11): a node without its required properties earns no rich result
                     [$node] = StructuredData::sanitize($o['data'] ?? null);

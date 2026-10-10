@@ -1,0 +1,34 @@
+{
+    "name": "Source Serif 4",
+    "category": "serif",
+    "weights": [
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900
+    ],
+    "italic": true,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "source-serif-4.woff2",
+            "weight": "200 900",
+            "style": "normal"
+        },
+        {
+            "file": "source-serif-4-italic.woff2",
+            "weight": "200 900",
+            "style": "italic"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/sourceserif4",
+    "licence": "OFL-1.1"
+}

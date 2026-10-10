@@ -204,7 +204,14 @@ final class Blueprint
     {
         $db = $app->db();
         $created = ['collections' => [], 'facts' => []];
+        $enabled = Extensions::enabled($app->settings());
         foreach ($manifest['presets'] as $preset) {
+            // a preset of a switched-off feature (the notice board) turns it on: the blueprint is the way to ask for it
+            $feature = (string) (Presets::get($preset)['extension'] ?? '');
+            if ($feature !== '' && !in_array($feature, $enabled, true)) {
+                Extensions::save($app->settings(), [...$enabled, $feature]);
+                $enabled[] = $feature;
+            }
             if ($db->value('SELECT 1 FROM {collections} WHERE preset = ?', [$preset]) === null && ($id = Presets::create($app, $preset)) !== null) {
                 $created['collections'][] = (string) $db->value('SELECT slug FROM {collections} WHERE collection_id = ?', [$id]);
             }
@@ -273,8 +280,8 @@ final class Blueprint
                 [$ok, $edit] = match ($r['check']) {
                     'fact' => [trim((string) ($facts[$r['fact']]['value'] ?? '')) !== '', 'admin.php?module=facts'],
                     'setting' => [trim($settings->get($r['setting'])) !== '', 'admin.php?module=settings&action=company'],
-                    'page' => [$db->value('SELECT 1 FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND slug IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
-                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id']]) >= $r['min'],
+                    'page' => [$db->value('SELECT 1 FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND slug IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
+                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id']]) >= $r['min'],
                         $collection !== null ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', (int) $collection['collection_id']) : 'admin.php?module=collections'],
                     'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(updated_at, created_at)) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$collection['collection_id']])) === null
                         || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . $db->publicId('collections', (int) $collection['collection_id']) : 'admin.php?module=collections'],

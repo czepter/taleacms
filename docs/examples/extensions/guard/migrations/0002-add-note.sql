@@ -1,0 +1,1 @@
+ALTER TABLE {ext_guard_log} ADD COLUMN note VARCHAR(100) NULL;

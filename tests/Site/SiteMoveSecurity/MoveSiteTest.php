@@ -45,7 +45,8 @@ final class MoveSiteTest extends SiteTestCase
 
     private function sameNumbers(Site $site): string
     {
-        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT public_id FROM tl_pages WHERE page_id = (SELECT value FROM tl_settings WHERE name = 'home_page')), (SELECT value FROM tl_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.colors.primary') FROM tl_settings WHERE name = 'design_system'))");
+        $home = (int) $site->value("SELECT value FROM tl_settings WHERE name = 'home_page'"); // setting values are text: no `page_id = (SELECT value …)` on PostgreSQL
+        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT public_id FROM tl_pages WHERE page_id = $home), (SELECT value FROM tl_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.colors.primary') FROM tl_settings WHERE name = 'design_system'))");
     }
 
     /** Builds the content of the old site and downloads its export; returns the export file. */
@@ -57,7 +58,7 @@ final class MoveSiteTest extends SiteTestCase
         $site->admin()->post('/admin.php?module=redirects&action=save', ['_csrf' => $site->csrf(), 'from_path' => '/akce-leto', 'to_path' => '/kontakty', 'type' => 302]);
         $site->mcp('write_notebook', ['topic' => 'history', 'title' => 'Redesign history', 'text' => 'The site moved to Talea in October 2026.']); // 2.15: the notebook moves with the site
         $site->exec("INSERT INTO tl_booking_services (name) VALUES ('Move test')"); // 3.2: a booking set-up travels with the site
-        $site->exec('UPDATE tl_news SET text = CONCAT(text, ?) WHERE deleted_at IS NULL ORDER BY news_id LIMIT 1', [self::N6_PAYLOAD]); // 3.3.2: an archive from anywhere brings no script
+        $site->exec('UPDATE tl_news SET text = CONCAT(text, ?) WHERE news_id IN (SELECT news_id FROM (SELECT MIN(news_id) AS news_id FROM tl_news WHERE deleted_at IS NULL) AS first_news)', [self::N6_PAYLOAD]); // 3.3.2: an archive from anywhere brings no script
 
         // 3.3.3 (N55, N50): company_map, a social link and a text fact "javascript:…" – the import drops them, a valid link and an ordinary fact stay
         $saved = $site->rows("SELECT name, value FROM tl_settings WHERE name IN ('company_map', 'social_facebook', 'social_linkedin')");
@@ -101,7 +102,7 @@ final class MoveSiteTest extends SiteTestCase
         $site = $this->moved();
         $site->setting('tasks_token', 'own-' . bin2hex(random_bytes(8))); // the harness gives every site the same token; the old installer made each site's own
         $this->assertStringContainsString('Continue with the import', $site->installerResponse->body, 'installer: Start from an export leads to the import (the installer\'s own answer)');
-        $this->assertSame('0/0/1', (string) $site->value('SELECT CONCAT((SELECT COUNT(*) FROM tl_pages), "/", (SELECT COUNT(*) FROM tl_news), "/", (SELECT COUNT(*) FROM tl_users))'), 'installer: Start from an export leaves the site empty');
+        $this->assertSame('0/0/1', (string) $site->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_pages), '/', (SELECT COUNT(*) FROM tl_news), '/', (SELECT COUNT(*) FROM tl_users))"), 'installer: Start from an export leaves the site empty');
         $this->assertStringContainsString('id="file-talea"', $site->admin()->get('/admin.php?module=transfer')->body, 'an empty site offers Import from Talea');
     }
 

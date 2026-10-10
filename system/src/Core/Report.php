@@ -24,7 +24,7 @@ final class Report
         $sinceTime = $since . ' 00:00:00';
         $sum = fn (string $sql, array $params = []): int => (int) $db->value($sql, $params);
 
-        $traffic = $db->pairs('SELECT day, CONCAT(visits, ":", views) FROM {stats_days} WHERE day >= ?', [$since]);
+        $traffic = $db->pairs('SELECT day, CONCAT(visits, \':\', views) FROM {stats_days} WHERE day >= ?', [$since]);
         $enquiriesByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {enquiries} WHERE created_at >= ? GROUP BY DATE(created_at)', [$sinceTime]);
         $signupsByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {subscribers} WHERE created_at >= ? AND status = 1 GROUP BY DATE(created_at)', [$sinceTime]);
         $daysOut = [];

@@ -676,7 +676,7 @@ final class Library
     {
         foreach ($names as $name) {
             if (isset(self::CLASSES[$name])) {
-                $db->run('INSERT IGNORE INTO {classes} (name, style, updated_at) VALUES (?, ?, NOW())', [$name, (string) json_encode(self::CLASSES[$name], JSON_UNESCAPED_UNICODE)]);
+                $db->insertIgnore('classes', ['name' => $name, 'style' => (string) json_encode(self::CLASSES[$name], JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')]);
             }
         }
     }

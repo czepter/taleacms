@@ -33,7 +33,7 @@
 
 	/* ---------- photo viewer: photo galleries and single images in the text ---------- */
 
-	var modal = null, photos = [], position = 0;
+	var modal = null, photos = [], position = 0, opener = null, swiped = false;
 
 	function show(i) {
 		position = (i + photos.length) % photos.length;
@@ -44,14 +44,15 @@
 		modal.querySelector('p').textContent = (photos.length > 1 ? (position + 1) + ' / ' + photos.length + (description ? ' · ' : '') : '') + description;
 	}
 
-	function open(list, index) {
+	function open(list, index, fullscreen) {
 		if (!modal) {
 			modal = document.createElement('dialog');
 			modal.className = 'tl-lightbox';
-			modal.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-step="-1" aria-label="' + A('Previous photo') + '">‹</button>'
+			modal.innerHTML = '<img alt="" draggable="false"><p aria-live="polite"></p><button type="button" data-step="-1" aria-label="' + A('Previous photo') + '">‹</button>'
 				+ '<button type="button" data-step="1" aria-label="' + A('Next photo') + '">›</button><button type="button" data-close aria-label="' + A('Close') + '">×</button>';
 			document.body.appendChild(modal);
 			modal.addEventListener('click', function (e) {
+				if (swiped) { swiped = false; return; } // the pointer went up after a swipe, that is not a click
 				var step = e.target.getAttribute('data-step');
 				if (step) { show(position + parseInt(step, 10)); } else if (e.target.tagName !== 'IMG') { modal.close(); }
 			});
@@ -59,26 +60,88 @@
 				if (e.key === 'ArrowLeft') { show(position - 1); }
 				if (e.key === 'ArrowRight') { show(position + 1); }
 			});
+			// swipe with a finger, a pen or a mouse (pointer events); a vertical move is left to the browser (touch-action: pan-y)
 			var start = null;
-			modal.addEventListener('touchstart', function (e) { start = e.changedTouches[0].clientX; }, { passive: true });
-			modal.addEventListener('touchend', function (e) {
-				var offset = e.changedTouches[0].clientX - start;
-				if (Math.abs(offset) > 50 && photos.length > 1) { show(position + (offset < 0 ? 1 : -1)); }
-			}, { passive: true });
+			modal.addEventListener('pointerdown', function (e) { start = e.clientX; swiped = false; });
+			modal.addEventListener('pointerup', function (e) {
+				var offset = start === null ? 0 : e.clientX - start;
+				start = null;
+				if (Math.abs(offset) > 50 && photos.length > 1) { swiped = true; show(position + (offset < 0 ? 1 : -1)); }
+			});
+			modal.addEventListener('pointercancel', function () { start = null; });
+			// the focus goes back to the photo that opened the viewer
+			modal.addEventListener('close', function () {
+				if (document.fullscreenElement === modal && document.exitFullscreen) { document.exitFullscreen().catch(function () { /* already left */ }); }
+				if (opener && document.contains(opener)) { opener.focus(); }
+			});
 		}
 		photos = list;
 		modal.querySelectorAll('[data-step]').forEach(function (b) { b.hidden = photos.length < 2; });
 		show(index);
 		modal.showModal();
+		// the "grid, opens in full screen" layout asks the browser for real full screen (refused without a user gesture or support: the viewer still covers the page)
+		if (fullscreen && modal.requestFullscreen) { modal.requestFullscreen().catch(function () { /* not allowed here */ }); }
+	}
+
+	function openFrom(img) {
+		var gallery = img.closest('figure.gallery, .tl-gallery');
+		var list = Array.prototype.slice.call((gallery || img.closest('.text, .lead')).querySelectorAll(gallery ? 'img' : 'figure:not(.gallery) img'));
+		if (list.indexOf(img) === -1) { list = [img]; }
+		opener = img;
+		open(list, list.indexOf(img), !!(gallery && gallery.hasAttribute('data-fullscreen')));
 	}
 
 	document.addEventListener('click', function (e) {
 		var img = e.target;
 		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .lead, figure.gallery, .tl-gallery')) { return; }
-		var gallery = img.closest('figure.gallery, .tl-gallery');
-		var list = Array.prototype.slice.call((gallery || img.closest('.text, .lead')).querySelectorAll(gallery ? 'img' : 'figure:not(.gallery) img'));
-		if (list.indexOf(img) === -1) { list = [img]; }
-		open(list, list.indexOf(img));
+		openFrom(img);
+	});
+
+	/* a gallery photo is a button for the keyboard too: Tab reaches it, Enter or Space opens the viewer */
+	document.querySelectorAll('.tl-gallery img').forEach(function (img) {
+		if (img.closest('a')) { return; }
+		img.tabIndex = 0;
+		img.setAttribute('role', 'button');
+	});
+	document.addEventListener('keydown', function (e) {
+		var img = e.target;
+		if ((e.key === 'Enter' || e.key === ' ') && img.tagName === 'IMG' && img.closest('.tl-gallery') && img.getAttribute('role') === 'button') {
+			e.preventDefault();
+			openFrom(img);
+		}
+	});
+
+	/* ---------- justified rows: the photos of a row get one height so the row fills the width exactly; the width and height attributes give
+	   the shapes, so nothing jumps (without them or without this script the CSS rows still wrap) ---------- */
+
+	document.querySelectorAll('.tl-gallery--justified').forEach(function (gallery) {
+		var images = Array.prototype.slice.call(gallery.querySelectorAll('img'));
+		var ratios = images.map(function (img) { return img.getAttribute('width') / img.getAttribute('height'); });
+		if (!images.length || ratios.some(function (r) { return !(r > 0); })) { return; }
+		var lastWidth = 0;
+		function place(row, rowRatios, height) {
+			row.forEach(function (img, i) {
+				img.style.flex = 'none';
+				img.style.height = height + 'px';
+				img.style.width = Math.floor(rowRatios[i] * height) + 'px';
+			});
+		}
+		function layout() {
+			var width = gallery.clientWidth;
+			if (!width || width === lastWidth) { return; }
+			lastWidth = width;
+			var gap = parseFloat(getComputedStyle(gallery).columnGap) || 0;
+			var target = (width < 600 ? 8 : 12) * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+			var row = [], rowRatios = [], sum = 0;
+			images.forEach(function (img, i) {
+				row.push(img); rowRatios.push(ratios[i]); sum += ratios[i];
+				var free = width - gap * (row.length - 1);
+				if (sum * target >= free) { place(row, rowRatios, free / sum); row = []; rowRatios = []; sum = 0; }
+			});
+			if (row.length) { place(row, rowRatios, target); } // the last row keeps the target height instead of stretching
+		}
+		layout();
+		if (window.ResizeObserver) { new ResizeObserver(layout).observe(gallery); }
 	});
 
 	/* ---------- submenu: Esc closes a panel opened by focus or mouse and returns focus to the menu item (WCAG 1.4.13) ---------- */
@@ -148,8 +211,8 @@
 
 	/* ---------- carousel: arrows scroll the strip by the width of the visible slides ---------- */
 
-	document.querySelectorAll('[data-carousel]').forEach(function (k) {
-		var strip = k.querySelector('.tl-carousel-strip');
+	document.querySelectorAll('[data-carousel], [data-slideshow]').forEach(function (k) {
+		var strip = k.querySelector('.tl-carousel-strip, .tl-gallery-strip');
 		var arrows = k.querySelectorAll('[data-step]');
 		function state() {
 			arrows[0].disabled = strip.scrollLeft <= 2;

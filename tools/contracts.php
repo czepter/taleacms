@@ -61,7 +61,7 @@ function talea_element_contract(): array
  * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters and the
  * access levels of tools – what add-ons are written against.
  *
- * @return array{version: int, methods: array<string, list<string>>, filters: list<string>, tool_access: list<string>}
+ * @return array{version: int, supported: list<int>, methods: array<string, list<string>>, v2_methods: list<string>, filters: list<string>, tool_access: list<string>, runners: list<string>, capabilities: list<string>}
  */
 function talea_extension_contract(): array
 {
@@ -74,7 +74,12 @@ function talea_extension_contract(): array
     }
     ksort($methods);
 
-    return ['version' => Talea\Extension\Api::VERSION, 'methods' => $methods, 'filters' => array_keys(Talea\Extension\Api::FILTERS), 'tool_access' => Talea\Extension\Api::TOOL_ACCESS];
+    $v2 = Talea\Extension\Api::V2_METHODS;
+    sort($v2);
+
+    // version 2 is additive: "methods" lists all of them, "v2_methods" the ones an add-on of API 1 may not call (the rest is what version 1 had)
+    return ['version' => Talea\Extension\Api::VERSION, 'supported' => Talea\Extension\Api::SUPPORTED, 'methods' => $methods, 'v2_methods' => $v2, 'filters' => array_keys(Talea\Extension\Api::FILTERS),
+        'tool_access' => Talea\Extension\Api::TOOL_ACCESS, 'runners' => Talea\Extension\Api::RUNNERS, 'capabilities' => array_keys(Talea\Extension\Api::CAPABILITIES)];
 }
 
 /**
@@ -143,14 +148,28 @@ function talea_contract_diff(): array
     if (is_file($extensionFile)) {
         $recordedApi = json_decode((string) file_get_contents($extensionFile), true);
         $currentApi = talea_extension_contract();
-        if ($recordedApi['version'] !== $currentApi['version']) {
-            $broken[] = 'extension API version changed';
+        if ($recordedApi['version'] > $currentApi['version']) {
+            $broken[] = 'extension API version went down';
+        } elseif ($recordedApi['version'] < $currentApi['version']) {
+            $added[] = 'extension API version ' . $currentApi['version'];
+        }
+        foreach (['supported' => 'API version', 'v2_methods' => 'API 2 method', 'runners' => 'job runner', 'capabilities' => 'capability'] as $key => $what) {
+            foreach (array_diff($recordedApi[$key] ?? [], $currentApi[$key]) as $gone) {
+                $broken[] = "extension API: $what $gone removed";
+            }
+            foreach (array_diff($currentApi[$key], $recordedApi[$key] ?? []) as $new) {
+                $added[] = "extension API: $what $new";
+            }
         }
         foreach ($recordedApi['methods'] as $method => $parameters) {
             if (!isset($currentApi['methods'][$method])) {
                 $broken[] = "extension API: $method() removed";
             } elseif (array_slice($currentApi['methods'][$method], 0, count($parameters)) !== $parameters) {
                 $broken[] = "extension API: $method() parameters changed";
+            } else {
+                foreach (array_slice($currentApi['methods'][$method], count($parameters)) as $parameter) {
+                    $added[] = "extension API: $method() parameter $parameter";
+                }
             }
         }
         foreach (array_diff($recordedApi['filters'], $currentApi['filters']) as $filter) {

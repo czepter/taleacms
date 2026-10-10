@@ -519,9 +519,9 @@ final class Facts
         try {
             if ($what === 'news') {
                 $count = Extensions::isEnabled($app->settings(), 'news')
-                    ? (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL AND language = ?', [$language]) : null;
+                    ? (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND language = ?', [$language]) : null;
             } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT collection_id FROM {collections} WHERE slug = ?', [$what]) !== null) {
-                $count = (int) $db->value('SELECT COUNT(*) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ?', [$what, $language]);
+                $count = (int) $db->value('SELECT COUNT(*) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL AND p.language = ?', [$what, $language]);
             }
         } catch (\Throwable) {
             $count = null;

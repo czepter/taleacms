@@ -207,7 +207,7 @@ final class Mailing
         if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = NOW(), html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [$html, $text, $n['id']])->rowCount() === 0) {
             return;
         }
-        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, subscriber_id, NOW() FROM {subscribers} WHERE status = 1', [$n['id']])->rowCount();
+        $count = $db->insertIgnoreSelect('newsletter_queue', ['newsletter_id', 'subscriber_id', 'next_attempt'], 'SELECT ?, subscriber_id, NOW() FROM {subscribers} WHERE status = 1', [$n['id']]);
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
         \Talea\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
@@ -262,7 +262,7 @@ final class Mailing
         $db->run("UPDATE {newsletters} n SET status = 'sent', finished_at = NOW() WHERE n.status = 'sending'
             AND NOT EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = n.id AND q.next_attempt IS NOT NULL)");
         // recipients are kept only while sending (and a day for the hourly limit)
-        $db->run("DELETE q FROM {newsletter_queue} q JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.status = 'sent' AND n.finished_at < NOW() - INTERVAL 1 DAY");
+        $db->run("DELETE FROM {newsletter_queue} WHERE newsletter_id IN (SELECT id FROM {newsletters} WHERE status = 'sent' AND finished_at < NOW() - INTERVAL 1 DAY)");
 
         return $sent;
     }
@@ -291,7 +291,7 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $published = 'visible = 1 AND published_at <= NOW() AND deleted_at IS NULL';
+        $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL';
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
             if ($ids === []) {

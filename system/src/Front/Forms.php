@@ -256,10 +256,10 @@ final class Forms
     public static function findElement(\Talea\Core\Db $db, string $source, string $id, string $type): ?array
     {
         $build = match (true) {
-            (bool) preg_match('/^page:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = 1', [(int) $m[1]])),
+            (bool) preg_match('/^page:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = TRUE', [(int) $m[1]])),
             (bool) preg_match('/^part:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
-            (bool) preg_match('/^collection:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = 1', [(int) $m[1]])),
-            (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = 1', [(int) $m[1]])),
+            (bool) preg_match('/^collection:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = TRUE', [(int) $m[1]])),
+            (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = TRUE', [(int) $m[1]])),
             default => null,
         };
         // the element can also be inside a component (its published build); depth as when rendering

@@ -189,7 +189,16 @@
 				})
 				.catch(function () {});
 		};
+		// samples under the font pickers show the chosen families (their @font-face is on the page, a file loads only when used)
+		var showFontSamples = function () {
+			appearance.querySelectorAll('[data-font-sample]').forEach(function (sample) {
+				var select = appearance.elements[sample.getAttribute('data-font-sample')];
+				var option = select && select.options[select.selectedIndex];
+				if (option) { sample.style.fontFamily = option.getAttribute('data-family'); }
+			});
+		};
 		var change = function (e) {
+			showFontSamples();
 			if (e && e.target && e.target.type === 'color') { e.target.parentNode.querySelector('[data-hex]').textContent = e.target.value; }
 			appearance.querySelector('[data-unsaved]').hidden = false;
 			clearTimeout(timer);

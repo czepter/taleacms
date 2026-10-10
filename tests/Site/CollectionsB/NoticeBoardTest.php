@@ -26,6 +26,8 @@ final class NoticeBoardTest extends SiteTestCase
     public function testBoardArchivePagesAndNotices(): void
     {
         $site = $this->site();
+        // the notice board is off by default (Features); this class tests it switched on
+        $site->mcp('update_settings', ['settings' => ['extensions' => array_merge(explode(',', $site->settingValue('extensions')), ['notice_board'])]]);
         // the job runs only when the test asks (a day ahead: MySQL and PHP may be in different time zones)
         $site->exec("INSERT INTO tl_jobs (name, last_run) VALUES ('notices', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)");
         $yesterday = $this->day('-1 day');
@@ -125,7 +127,7 @@ final class NoticeBoardTest extends SiteTestCase
         $save = ['collection' => 'notice-board', 'id' => $site->publicId('collection_items', $b), 'values' => ['summary' => 'Approved budget.']];
         $site->mcp('save_collection_item', $save);
         $site->mcp('save_collection_item', $save);
-        $this->assertSame('1||Approved budget.|0', $site->value("SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[0]'))), ''), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[1]'))), '|', MAX(JSON_CONTAINS_PATH(fields, 'one', '\$.reference'))) FROM tl_notice_log WHERE item_id = $b AND action = 'changed'"),
+        $this->assertSame('1||Approved budget.|0', $site->value("SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[0]'))), ''), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[1]'))), '|', MAX(LENGTH(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.reference')), '')))) FROM tl_notice_log WHERE item_id = $b AND action = 'changed'"),
             'notices: a change is logged once with the field, the old and the new value');
 
         $token = $this->assertPage("/admin.php?module=collections&action=item&id={$site->publicId('collections', $board)}&item={$site->publicId('collection_items', $b)}")->csrf();

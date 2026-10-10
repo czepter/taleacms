@@ -32,8 +32,8 @@ final class Collections extends Module
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
-            'presets' => \Talea\Builder\Presets::all(),
-            'collection' => $this->db->all('SELECT k.collection_id, k.public_id, k.name, k.slug, k.detail, (SELECT COUNT(*) FROM {collection_items} p WHERE p.collection_id = k.collection_id AND p.deleted_at IS NULL) AS count FROM {collections} k ORDER BY k.name'),
+            'presets' => \Talea\Builder\Presets::available($this->app->settings()),
+            'collection' => array_filter($this->db->all('SELECT k.collection_id, k.public_id, k.name, k.slug, k.detail, k.preset, (SELECT COUNT(*) FROM {collection_items} p WHERE p.collection_id = k.collection_id AND p.deleted_at IS NULL) AS count FROM {collections} k ORDER BY k.name'), fn (array $k): bool => $k['preset'] !== 'notices' || \Talea\Core\Extensions::isEnabled($this->app->settings(), 'notice_board')),
         ]);
     }
 
@@ -349,7 +349,7 @@ final class Collections extends Module
             return $refusal;
         }
         $k = KolekceObsahu::byId($this->db, $this->idParam());
-        if ($k === null || !Notices::isNotices($k)) {
+        if ($k === null || !Notices::isNotices($k) || !\Talea\Core\Extensions::isEnabled($this->app->settings(), 'notice_board')) {
             return $this->error('The collection is not an official notice board.', 404);
         }
         \Talea\Admin\ChangeLog::write($this->app, 'collections', 'notice log CSV', $k['slug']);
@@ -384,7 +384,7 @@ final class Collections extends Module
     /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */
     public static function trashItem(\Talea\Core\Db $db, int $idp, int $idk): bool
     {
-        $moved = $db->run('UPDATE {collection_items} SET deleted_at = NOW(), visible = 0 WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk])->rowCount() > 0;
+        $moved = $db->run('UPDATE {collection_items} SET deleted_at = NOW(), visible = FALSE WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk])->rowCount() > 0;
         \Talea\Front\Cache::clear();
 
         return $moved;
@@ -458,7 +458,7 @@ final class Collections extends Module
         $k = $target['row'];
         $language = $k['template_language'];
         // preview on the first item in the template's language (an additional language has URLs /<language>/…)
-        $seo = $this->db->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = 1 AND deleted_at IS NULL ORDER BY sort_order, name LIMIT 1', [$k['collection_id'], $language]);
+        $seo = $this->db->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL ORDER BY sort_order, name LIMIT 1', [$k['collection_id'], $language]);
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['slug'] . '/' . ($seo ?? '_sample'));
 
         return [

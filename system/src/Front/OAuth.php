@@ -220,7 +220,7 @@ final class OAuth
     /** @param array<string, mixed> $client */
     private function issueTokens(Db $db, int $idu, array $client, string $level): Response
     {
-        $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = 0', [$idu]);
+        $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = FALSE', [$idu]);
         if ($user === null) {
             return $this->error('invalid_grant', 'The account that allowed the application no longer has access.');
         }

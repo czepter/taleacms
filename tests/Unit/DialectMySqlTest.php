@@ -105,4 +105,17 @@ final class DialectMySqlTest extends TestCase
         $this->assertSame(3306, $this->d->defaultPort());
         $this->assertSame('mysql', Dialect::forDriver('')->name());
     }
+
+    public function testUpsertExpressionsNameTheOldAndTheNewRow(): void
+    {
+        $this->assertSame(
+            'INSERT INTO {s} (`day`, `visits`) VALUES (?, ?) AS new_row ON DUPLICATE KEY UPDATE `visits` = {s}.`visits` + new_row.`visits`, `views` = {s}.`views` + 1',
+            $this->d->upsert('s', ['day', 'visits'], ['day'], ['visits' => '{old.visits} + {new.visits}', 'views' => '{old.views} + 1']),
+        );
+    }
+
+    public function testInsertIgnoreSelect(): void
+    {
+        $this->assertSame('INSERT IGNORE INTO {t} (`a`, `b`) SELECT 1, 2', $this->d->insertIgnoreSelect('t', ['a', 'b'], 'SELECT 1, 2'));
+    }
 }

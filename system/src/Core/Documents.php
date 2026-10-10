@@ -151,7 +151,7 @@ final class Documents
             return null;
         }
         // the hourly job hides an expired document a little later – the address stops working on the day itself
-        $item = $db->one('SELECT item_id, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= CURDATE())',
+        $item = $db->one('SELECT item_id, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)',
             [$collection['collection_id'], $seo, Language::siteColumn()]);
         $file = $item === null ? '' : (string) ((json_decode((string) $item['data'], true) ?: [])[$fileKey] ?? '');
         if ($file === '') {
@@ -207,7 +207,7 @@ final class Documents
             return;
         }
         $antispam->write($r->ip(), 'download', $idp);
-        $app->db()->run('INSERT INTO {document_downloads} (item_id, day, count) VALUES (?, CURDATE(), 1) ON DUPLICATE KEY UPDATE count = count + 1', [$idp]);
+        $app->db()->upsert('document_downloads', ['item_id' => $idp, 'day' => date('Y-m-d'), 'count' => 1], ['item_id', 'day'], ['count' => '{old.count} + 1']);
     }
 
     /**
@@ -218,7 +218,7 @@ final class Documents
     public static function counts(Db $db, int $idk): array
     {
         $out = [];
-        foreach ($db->all('SELECT d.item_id, SUM(d.count) AS total, SUM(IF(d.day >= CURDATE() - INTERVAL 30 DAY, d.count, 0)) AS recent FROM {document_downloads} d JOIN {collection_items} p ON p.item_id = d.item_id WHERE p.collection_id = ? GROUP BY d.item_id', [$idk]) as $r) {
+        foreach ($db->all('SELECT d.item_id, SUM(d.count) AS total, SUM(CASE WHEN d.day >= CURRENT_DATE - INTERVAL 30 DAY THEN d.count ELSE 0 END) AS recent FROM {document_downloads} d JOIN {collection_items} p ON p.item_id = d.item_id WHERE p.collection_id = ? GROUP BY d.item_id', [$idk]) as $r) {
             $out[(int) $r['item_id']] = [(int) $r['recent'], (int) $r['total']];
         }
 
@@ -292,7 +292,7 @@ final class Documents
             if ($fileKey === null) {
                 continue;
             }
-            $idp = $db->value("SELECT item_id FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fileKey . "')) = ? ORDER BY item_id LIMIT 1", [$collection['collection_id'], $file]);
+            $idp = $db->value("SELECT item_id FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL AND " . $db->dialect()->jsonExtract('data', '$.' . $fileKey) . " = ? ORDER BY item_id LIMIT 1", [$collection['collection_id'], $file]);
             if ($idp !== null) {
                 self::count($app, (int) $idp);
                 break;

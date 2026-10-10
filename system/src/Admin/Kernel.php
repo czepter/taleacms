@@ -273,15 +273,15 @@ final class Kernel
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)
             'traffic' => Extensions::isEnabled($this->app->settings(), 'stats') && isset($modules['stats'])
-                ? $db->all('SELECT day, visits, views FROM {stats_days} WHERE day > CURDATE() - INTERVAL 14 DAY ORDER BY day') : [],
+                ? $db->all('SELECT day, visits, views FROM {stats_days} WHERE day > CURRENT_DATE - INTERVAL 14 DAY ORDER BY day') : [],
             'counts' => array_filter([
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=awaiting_publication'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0'), 'admin.php?module=enquiries'] : null,
-                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = 1 AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
+                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
                 'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=published'] : null,
-                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=drafts'] : null,
+                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=published'] : null,
+                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = FALSE{$scope}"), 'admin.php?module=news&status=drafts'] : null,
             ]),
             'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, public_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
             'edited' => array_slice($edited, 0, 8),
@@ -306,11 +306,11 @@ final class Kernel
             // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved')],
             ['Fill in company details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
-            ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = 1') >= 3 && $s->int('home_page') > 0
-                && $db->value('SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND updated_at IS NOT NULL LIMIT 1') !== null],
+            ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE') >= 3 && $s->int('home_page') > 0
+                && $db->value('SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE AND updated_at IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([COMPANY NAME]…)
-                $db->value("SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "slug LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
+                $db->value("SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE AND (" . implode(' OR ', array_map(fn (string $w): string => "slug LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
             // 3.2: a suggestion, not an installer question – done once a blueprint is applied
             ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',

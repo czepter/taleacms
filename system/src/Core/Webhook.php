@@ -184,7 +184,7 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.name AS category FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = 1 AND c.published_at <= NOW() AND c.noindex = 0',
+            'SELECT c.*, t.name AS category FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = TRUE AND c.published_at <= NOW() AND c.noindex = FALSE',
             [$idc],
         );
         if ($c === null) {

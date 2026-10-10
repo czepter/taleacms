@@ -104,7 +104,10 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testCustomFontFromMedia(): void
     {
-        $this->site()->exec("UPDATE tl_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.custom_fonts', JSON_ARRAY(JSON_OBJECT('name', 'Brand Sans', 'file', 'media/2026/01/brand.woff2', 'bold', '')), '$.font_heading', 'custom-1') WHERE name = 'design_system'");
+        $design = json_decode((string) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'design_system'"), true) ?: []; // the JSON is merged in PHP: JSON_SET/JSON_OBJECT are MySQL-only
+        $design['custom_fonts'] = [['name' => 'Brand Sans', 'file' => 'media/2026/01/brand.woff2', 'bold' => '']];
+        $design['font_heading'] = 'custom-1';
+        $this->site()->exec("UPDATE tl_settings SET value = ? WHERE name = 'design_system'", [json_encode($design)]);
         $this->site()->clearPageCache();
 
         $page = $this->site()->client()->get('/contact');

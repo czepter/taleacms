@@ -280,8 +280,7 @@ final class Look
             if ($class === null) {
                 $db->delete('classes', ['name' => $name]);
             } else {
-                $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE style = VALUES(style), css = VALUES(css), updated_at = NOW()',
-                    [$name, (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
+                $db->upsert('classes', ['name' => $name, 'style' => (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), 'css' => (string) $class['css'], 'updated_at' => date('Y-m-d H:i:s')], ['name']);
             }
         }
         foreach ($draft['menus'] ?? [] as $key => $items) {

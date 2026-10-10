@@ -1,0 +1,28 @@
+{
+    "name": "Plus Jakarta Sans",
+    "category": "sans",
+    "weights": [
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "plus-jakarta-sans.woff2",
+            "weight": "200 800",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/plusjakartasans",
+    "licence": "OFL-1.1"
+}

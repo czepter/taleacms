@@ -46,7 +46,7 @@ final class Fleet extends Module
         if ($site === null) {
             return $this->back('The site is not in the console.', '', [], 'error');
         }
-        $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND JSON_EXTRACT(data, '$.site') = ? ORDER BY id DESC LIMIT 20", [(int) $site['id']]);
+        $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND " . $this->db->dialect()->jsonExtract('data', '$.site') . " = ? ORDER BY id DESC LIMIT 20", [(string) (int) $site['id']]);
 
         return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events, 'latest' => Console::latest($this->app)[0]]);
     }

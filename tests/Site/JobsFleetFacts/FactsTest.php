@@ -224,7 +224,8 @@ final class FactsTest extends SiteTestCase
         // field keys by the preset's order (system/presets/people.php: photo, role, languages, phone, email, on_leave, about)
         self::$team = (string) $site->value("SELECT slug FROM tl_collections WHERE schema_org LIKE '%Person%' ORDER BY collection_id DESC LIMIT 1");
         self::$teamIdk = (int) $site->value('SELECT collection_id FROM tl_collections WHERE slug = ?', [self::$team]);
-        $key = fn (int $i): string => (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, ?)) FROM tl_collections WHERE slug = ?", ["\$[$i].key", self::$team]);
+        $fields = json_decode((string) $site->value('SELECT fields FROM tl_collections WHERE slug = ?', [self::$team]), true); // (the path of JSON_EXTRACT as a parameter has no PostgreSQL spelling)
+        $key = fn (int $i): string => (string) $fields[$i]['key'];
         $saved = $this->mcpText('save_collection_item', ['collection' => self::$team, 'name' => 'Peter Signature', 'slug' => 'peter-signature', 'visible' => true, 'values' => [
             $key(1) => 'Sales director', $key(3) => '+420 777 123 456', $key(4) => 'peter@example.com', $key(5) => 'On leave until Friday',
         ]]);

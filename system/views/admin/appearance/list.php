@@ -106,29 +106,64 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 <div role="tabpanel" id="panel-font" aria-labelledby="tab-font">
 <fieldset>
 <legend><?= e(t('Font')) ?></legend>
+<?php
+$library = DesignSystem::libraryFonts();
+$fontSelect = function (string $key, string $id, array $systemFonts) use ($ds, $library): string {
+    $stack = fn (string $value): string => DesignSystem::fontFamily($ds, $value, $key === 'font_heading');
+    $option = fn (string $value, string $label): string => '<option value="' . e($value) . '" data-family="' . e($stack($value)) . '"' . ($ds[$key] === $value ? ' selected' : '') . '>' . e($label) . '</option>';
+    $html = '<select id="' . $id . '" name="ds[' . $key . ']">' . '<optgroup label="' . e(t('System fonts (nothing to download)')) . '">';
+    foreach ($systemFonts as $k => [$name, $description]) {
+        if ($k !== 'default') {
+            $html .= $option($k, t($name) . ' – ' . t($description));
+        }
+    }
+    $html .= '</optgroup>';
+    foreach (DesignSystem::FONT_CATEGORIES as $category => $label) {
+        $inCategory = array_filter($library, fn (array $f): bool => $f['category'] === $category);
+        if ($inCategory !== []) {
+            $html .= '<optgroup label="' . e(t($label)) . '">';
+            foreach ($inCategory as $slug => $f) {
+                $html .= $option('lib:' . $slug, $f['name']);
+            }
+            $html .= '</optgroup>';
+        }
+    }
+    if ($ds['custom_fonts'] !== []) {
+        $html .= '<optgroup label="' . e(t('Your fonts')) . '">';
+        foreach ($ds['custom_fonts'] as $i => $vp) {
+            $html .= $option('custom-' . ($i + 1), $vp['name'] . ' – ' . t('custom font'));
+        }
+        $html .= '</optgroup>';
+    }
+
+    return $html . '</select>';
+};
+$pairings = array_filter(DesignSystem::PAIRINGS, fn (array $p): bool => isset($library[$p[0]], $library[$p[1]]));
+?>
+<style><?= DesignSystem::libraryFontFaces(null, $app->request->basePath()) ?></style>
 <div class="row">
 	<label for="ds-font-heading"><?= e(t('Headings')) ?></label>
-	<select id="ds-font-heading" name="ds[font_heading]">
-<?php foreach (SiteIdentity::TITLE_FONTS as $key => [$name, $description]): if ($key === 'default') { continue; } ?>
-		<option value="<?= e($key) ?>"<?= $ds['font_heading'] === $key ? ' selected' : '' ?>><?= e(t($name) . ' – ' . t($description)) ?></option>
-<?php endforeach ?>
-<?php foreach ($ds['custom_fonts'] as $i => $vp): ?>
-		<option value="custom-<?= $i + 1 ?>"<?= $ds['font_heading'] === 'custom-' . ($i + 1) ? ' selected' : '' ?>><?= e($vp['name'] . ' – ' . t('custom font')) ?></option>
-<?php endforeach ?>
-	</select>
+	<?= $fontSelect('font_heading', 'ds-font-heading', SiteIdentity::TITLE_FONTS) ?>
 </div>
 <div class="row">
 	<label for="ds-font-body"><?= e(t('Text')) ?></label>
-	<div><select id="ds-font-body" name="ds[font_body]">
-<?php foreach (SiteIdentity::TEXT_FONTS as $key => [$name, $description]): if ($key === 'default') { continue; } ?>
-		<option value="<?= e($key) ?>"<?= $ds['font_body'] === $key ? ' selected' : '' ?>><?= e(t($name) . ' – ' . t($description)) ?></option>
-<?php endforeach ?>
-<?php foreach ($ds['custom_fonts'] as $i => $vp): ?>
-		<option value="custom-<?= $i + 1 ?>"<?= $ds['font_body'] === 'custom-' . ($i + 1) ? ' selected' : '' ?>><?= e($vp['name'] . ' – ' . t('custom font')) ?></option>
-<?php endforeach ?>
-	</select>
-	<span class="help"><?= e(t('System fonts download nothing. A custom font is stored on your own server – it does not need visitor consent either.')) ?></span></div>
+	<div><?= $fontSelect('font_body', 'ds-font-body', SiteIdentity::TEXT_FONTS) ?>
+	<span class="help"><?= e(t('Library fonts are stored on your own server – visitors contact no font server, and no consent is needed. Only the fonts you choose are loaded on the site.')) ?></span></div>
 </div>
+<div class="font-sample" aria-live="polite">
+	<strong data-font-sample="ds[font_heading]" class="font-sample-heading" style="font-family:<?= e(DesignSystem::fontFamily($ds, $ds['font_heading'], true)) ?>"><?= e('Handsome headlines, set with care') ?></strong>
+	<p data-font-sample="ds[font_body]" style="font-family:<?= e(DesignSystem::fontFamily($ds, $ds['font_body'], false)) ?>"><?= e('The quick brown fox jumps over the lazy dog. 0123456789 € &') ?></p>
+</div>
+<?php if ($pairings !== []): ?>
+<div class="row">
+	<span class="caption"><?= e(t('Suggested pairs')) ?></span>
+	<ul class="font-pairs">
+<?php foreach ($pairings as [$heading, $body, $character]): ?>
+		<li><button type="button" class="appearance-preset" data-preset="<?= e((string) json_encode(['font_heading' => 'lib:' . $heading, 'font_body' => 'lib:' . $body])) ?>"><strong><?= e(t($character)) ?></strong> <small><?= e($library[$heading]['name'] . ' + ' . $library[$body]['name']) ?></small> <em><?= e(t('use this pair')) ?></em></button></li>
+<?php endforeach ?>
+	</ul>
+</div>
+<?php endif ?>
 <details class="advanced"<?= $ds['custom_fonts'] !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Brand fonts (WOFF2)')) ?></summary>
 <p class="help"><?= e(t('Upload the font files (.woff2) to Media and paste their address here. One variable font file is enough, or a regular and a bold weight. After saving, choose the font above.')) ?></p>

@@ -37,11 +37,17 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   exports use the public id, never a row number.
 - **Schema changes are Phinx migrations** in `system/database/migrations/` (timestamped, table DSL, no raw SQL unless unavoidable, no
   `COLLATE`/`CHARSET`: the collation `utf8mb4_0900_ai_ci` is set once on the database). `bin/migrate` applies them (installer, Docker
-  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 or PostgreSQL 18 (`TALEA_DB_DRIVER`, HF-14 in progress).
-- **SQL is written portably (HF-14).** What differs between MySQL and PostgreSQL (upsert, insert-ignore, JSON, intervals, locks, full-text, `GROUP_CONCAT`,
-  quoting) goes through `Db::dialect()`, `Db::upsert()`, `Db::insertIgnore()`, `Db::lock()`; boolean columns are compared with `TRUE`/`FALSE`, not `1`/`0`;
-  schema differences live in `Core\MigrationSupport`. `php tools/sql-dialect-scan.php` lists what is still MySQL-only (the counts only go down);
-  design and conversion order: `docs/specs/postgres.md`. `composer test:pg` runs the integration suite on PostgreSQL.
+  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 or PostgreSQL 18 (`TALEA_DB_DRIVER`).
+- **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
+  (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
+  `Dialect::listPosition()`), `GROUP_CONCAT`, `JSON_EXTRACT`, `MATCH … AGAINST` (`Dialect::groupConcat()`, `jsonExtract()`, `fulltextMatch()`), `CURDATE()`
+  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`), `"text"` for strings.
+  Boolean columns: `= TRUE` / `= FALSE`, `SUM(CASE WHEN … THEN 1 ELSE 0 END)`, and `TRUE`/`FALSE` or a parameter in `INSERT`s; fetched booleans are 1/0 on both
+  engines (`Core\PgStatement`). `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are fine (`Postgres::rewrite()` turns them into PostgreSQL syntax). User-facing `LIKE` goes through
+  `Dialect::likeInsensitive()`; NULL ordering that shows is made explicit (`col IS NULL, col`). Schema differences live in `Core\MigrationSupport`.
+  `tests/Unit/NoMysqlOnlySqlTest.php` (`php tools/sql-dialect-scan.php`) fails when MySQL-only SQL appears outside `Core\Dialect`. SQL that a site test writes
+  (`Site::value/rows/exec`) is translated for PostgreSQL by `tests/Site/Support/TestSql.php`. Run the site suite on both: `TALEA_TEST_DB_DRIVER=pgsql
+  vendor/bin/paratest --testsuite site`; `composer test:pg` runs the integration suite on PostgreSQL. Design, decisions and differences met: `docs/specs/postgres.md`.
 - Settings: a new option = a key in `Settings::DEFAULTS` + a type in `Settings::FIELDS` + a row in `views/admin/settings/<tab>.php`.
 - Extensions (`Core\Extensions::CATALOG`) are built-in features that an administrator switches on and off; `Module::EXTENSION` and
   `Element::EXTENSION` tie modules and builder elements to them (off: the module disappears, the element is not offered or rendered, the

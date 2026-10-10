@@ -114,4 +114,6 @@ return [
     'News' => 'News',
     'Database type' => 'Datenbanktyp',
     'The PHP extension for this database type is missing (pdo_mysql or pdo_pgsql).' => 'Für diesen Datenbanktyp fehlt die PHP-Erweiterung (pdo_mysql oder pdo_pgsql).',
+    'Official notice board' => 'Amtliche Bekanntmachungen',
+    'The official notice board preset for municipalities and other offices: notices with posting and takedown dates, a permanent archive and an append-only audit trail (the list_notice_log tool). Applying the Municipality blueprint turns it on. Switching it off hides it but never deletes notices or their log.' => 'Die Vorlage für amtliche Bekanntmachungen für Gemeinden und andere Ämter: Bekanntmachungen mit Aushang- und Abnahmedatum, ein dauerhaftes Archiv und ein nur ergänzbares Änderungsprotokoll (das Werkzeug list_notice_log). Das Muster Gemeinde schaltet sie ein. Beim Ausschalten wird sie ausgeblendet, Bekanntmachungen und ihr Protokoll werden aber nie gelöscht.',
 ];

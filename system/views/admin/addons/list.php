@@ -7,6 +7,7 @@
  * @var string $csrf
  * @var array<string, array<string, mixed>> $addons Extension\Registry::discover()
  * @var list<string> $enabled
+ * @var array<string, int> $pending slug => migrations of an enabled add-on that did not run yet
  * @var array<string, string> $errors slug => the error that switched it off
  * @var array<string, array{slug: string, name: string, title: string}> $pages
  * @var bool $safeMode
@@ -26,7 +27,12 @@
 <tr>
 	<td><strong><?= e((string) $a['name']) ?></strong> <code class="small-text"><?= e($slug) ?></code><br><span class="small-text"><?= e((string) $a['description']) ?><?= $a['author'] !== '' ? ' – ' . e((string) $a['author']) : '' ?></span>
 	<?php if (($errors[$slug] ?? '') !== ''): ?><br><span class="error-field"><?= e(t('Switched off after an error: %s', $errors[$slug])) ?></span><?php endif ?>
-	<?php if ($a['problem'] !== ''): ?><br><span class="error-field"><?= e(t($a['problem'])) ?></span><?php endif ?></td>
+	<?php if ($a['problem'] !== ''): ?><br><span class="error-field"><?= e(t($a['problem'])) ?></span><?php endif ?>
+	<?php if ($a['bundled']): ?><br><span class="small-text"><?= e(t('Official add-on, shipped with Talea and updated with it.')) ?></span><?php endif ?>
+	<?php if ($a['requires_api'] >= 2): ?><br><span class="small-text"><strong><?= e(t('It declares that it:')) ?></strong>
+		<?= $a['capabilities'] === [] ? e(t('needs nothing beyond the extension API.')) : e(implode('; ', array_map(fn (string $c): string => lcfirst(t(Talea\Extension\Api::CAPABILITIES[$c])), $a['capabilities']))) . '.' ?>
+		<?= e(t('This is what it says about itself – Talea cannot check it, an add-on runs with the same rights as Talea.')) ?></span><?php endif ?>
+	<?php if (isset($pending[$slug])): ?><br><span class="small-text"><?= e(t('%d database migration(s) of a newer version are waiting – switch the add-on off and on again to run them.', $pending[$slug])) ?></span><?php endif ?></td>
 	<td><?= e((string) $a['version']) ?></td>
 	<td><?= e($on ? t('On') : t('Off')) ?></td>
 	<td class="actions">
@@ -35,6 +41,11 @@
 <?php elseif ($a['problem'] === '' && !$demo): ?>
 		<form class="inline" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="slug" value="<?= e($slug) ?>"><input type="hidden" name="on" value="1">
 		<label class="small-text"><input type="checkbox" name="trust" value="1" required> <?= e(t('I trust this code')) ?></label> <button class="btn" type="submit"><?= e(t('Switch on')) ?></button></form>
+<?php if ($a['has_tables'] || $a['requires_api'] >= 2): ?>
+			<form class="inline" method="post" action="<?= e($module->url('uninstall')) ?>"><?= $csrf ?><input type="hidden" name="slug" value="<?= e($slug) ?>">
+			<label class="small-text"><input type="radio" name="data" value="keep" checked> <?= e(t('Keep its data')) ?></label> <label class="small-text"><input type="radio" name="data" value="delete"> <?= e(t('Delete its data')) ?></label>
+			<button class="navigation danger" type="submit" data-confirm="<?= e(t('Uninstall this add-on? With “Delete its data” its tables and settings are removed for good.')) ?>"><?= e(t('Uninstall')) ?></button></form>
+<?php endif ?>
 <?php endif ?>
 	</td>
 </tr>
@@ -44,5 +55,5 @@
 <?php endif ?>
 <?php if ($pages !== []): ?>
 <h2><?= e(t('Pages of add-ons')) ?></h2>
-<ul><?php foreach ($pages as $key => $p): ?><li><a href="<?= e($module->url('page', ['p' => $key])) ?>"><?= e($p['title']) ?></a> <span class="small-text">(<?= e($p['slug']) ?>)</span></li><?php endforeach ?></ul>
+<ul><?php foreach ($pages as $key => $p): ?><li><a href="<?= e($module->url('page', ['p' => $key])) ?>"><?= e(t($p['title'])) ?></a> <span class="small-text">(<?= e($p['slug']) ?>)</span></li><?php endforeach ?></ul>
 <?php endif ?>

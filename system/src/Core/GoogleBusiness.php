@@ -246,7 +246,7 @@ final class GoogleBusiness
             return $answer['error'];
         }
         if ($action === 'gbp.post') {
-            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = 1 AND deleted_at IS NULL AND published_at <= NOW()', [(int) ($payload['news_id'] ?? 0)]);
+            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = TRUE AND deleted_at IS NULL AND published_at <= NOW()', [(int) ($payload['news_id'] ?? 0)]);
             if ($news === null) {
                 return ''; // unpublished or deleted before the delivery: no post
             }
@@ -301,9 +301,7 @@ final class GoogleBusiness
                 continue;
             }
             $kept[] = $row['review_id'];
-            $db->run('INSERT INTO {google_reviews} (review_id, author, stars, comment, reviewed_at, reply, replied_at, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE author = VALUES(author), stars = VALUES(stars), comment = VALUES(comment), reviewed_at = VALUES(reviewed_at), reply = VALUES(reply), replied_at = VALUES(replied_at), fetched_at = VALUES(fetched_at)',
-                [$row['review_id'], $row['author'], $row['stars'], $row['comment'], $row['reviewed_at'], $row['reply'], $row['replied_at'], $now]);
+            $db->upsert('google_reviews', ['review_id' => $row['review_id'], 'author' => $row['author'], 'stars' => $row['stars'], 'comment' => $row['comment'], 'reviewed_at' => $row['reviewed_at'], 'reply' => $row['reply'], 'replied_at' => $row['replied_at'], 'fetched_at' => $now], ['review_id']);
         }
         // everything Google did not return this time goes (by id – two fetches within one second must not keep a deleted review)
         $db->run('DELETE FROM {google_reviews}' . ($kept !== [] ? ' WHERE review_id NOT IN (' . implode(', ', array_fill(0, count($kept), '?')) . ')' : ''), $kept);
@@ -352,7 +350,7 @@ final class GoogleBusiness
             return [];
         }
         try {
-            $rows = $db->all('SELECT review_id, author, stars, comment, reviewed_at, reply, replied_at FROM {google_reviews} ORDER BY reviewed_at DESC, review_id');
+            $rows = $db->all('SELECT review_id, author, stars, comment, reviewed_at, reply, replied_at FROM {google_reviews} ORDER BY reviewed_at IS NULL, reviewed_at DESC, review_id');
         } catch (\Throwable) {
             return []; // before the 2.13 migration
         }

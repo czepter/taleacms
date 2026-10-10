@@ -1,0 +1,10 @@
+{
+  "name": "Domain watch",
+  "version": "1.0.0",
+  "description": "Checks once a day what nobody notices until it breaks: the SPF, DMARC and DKIM records of the sending domain, the site certificate and the domain registration. Rows in System status, findings before handing over, an alert e-mail before something expires.",
+  "author": "Talea project",
+  "class": "TaleaAddon\\DomainWatch\\Extension",
+  "entry": "Extension.php",
+  "requires": { "talea": ">=3.0", "api": 2 },
+  "capabilities": ["outgoing_requests", "mail"]
+}

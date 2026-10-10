@@ -59,33 +59,33 @@ final class Stats
         $salt = (new Antispam($db, $app->settings()))->key() . $today;
         $hash = substr(hash('sha256', $salt . '|' . $app->request->ip() . '|' . $ua), 0, 32);
 
-        $new = $db->run('INSERT IGNORE INTO {stats_visitors} (day, visitor_hash) VALUES (?, ?)', [$today, $hash])->rowCount() === 1;
-        $db->run('INSERT INTO {stats_days} (day, visits, views) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE visits = visits + VALUES(visits), views = views + 1', [$today, (int) $new]);
+        $new = $db->insertIgnore('stats_visitors', ['day' => $today, 'visitor_hash' => $hash]);
+        $db->upsert('stats_days', ['day' => $today, 'visits' => (int) $new, 'views' => 1], ['day'], ['visits' => '{old.visits} + {new.visits}', 'views' => '{old.views} + 1']);
         if ($idc !== null) {
-            $db->run('INSERT INTO {stats_news} (day, news_id, views) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE views = views + 1', [$today, $idc]);
+            $db->upsert('stats_news', ['day' => $today, 'news_id' => $idc, 'views' => 1], ['day', 'news_id'], ['views' => '{old.views} + 1']);
         }
         // views per URL (including the language version) – most read pages in the administration
         $path = mb_substr((string) parse_url($app->url(ltrim($app->request->path(), '/')), PHP_URL_PATH), 0, 255);
-        $db->run('INSERT INTO {stats_pages} (day, path, views) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE views = views + 1', [$today, $path]);
+        $db->upsert('stats_pages', ['day' => $today, 'path' => $path, 'views' => 1], ['day', 'path'], ['views' => '{old.views} + 1']);
         $source = strtolower((string) parse_url((string) ($server['HTTP_REFERER'] ?? ''), PHP_URL_HOST));
         $source = preg_replace('/^www\./', '', $source) ?? '';
         // the own site is the configured site URL, not the Host header – the client can write that however it wants
         $custom = preg_replace('/^www\./', '', strtolower((string) parse_url($app->request->origin(), PHP_URL_HOST))) ?? '';
         if ($new && $source !== '' && $source !== $custom) {
-            $db->run('INSERT INTO {stats_sources} (day, source, count) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE count = count + 1', [$today, mb_substr($source, 0, 100)]);
+            $db->upsert('stats_sources', ['day' => $today, 'source' => mb_substr($source, 0, 100), 'count' => 1], ['day', 'source'], ['count' => '{old.count} + 1']);
         }
         if ($new) {
             // 2.3: the device of the visit, and the campaign of the page it started on – both from the request itself
-            $db->run('INSERT INTO {stats_devices} (day, device, visits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE visits = visits + 1', [$today, self::device($ua)]);
+            $db->upsert('stats_devices', ['day' => $today, 'device' => self::device($ua), 'visits' => 1], ['day', 'device'], ['visits' => '{old.visits} + 1']);
             $campaign = Forms::campaignText(Forms::campaign($app->request->origin() . ($server['REQUEST_URI'] ?? '/'), $app->request->origin()));
             if ($campaign !== '') {
-                $db->run('INSERT INTO {stats_campaigns} (day, campaign, visits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE visits = visits + 1', [$today, mb_substr($campaign, 0, 255)]);
+                $db->upsert('stats_campaigns', ['day' => $today, 'campaign' => mb_substr($campaign, 0, 255), 'visits' => 1], ['day', 'campaign'], ['visits' => '{old.visits} + 1']);
             }
         }
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stats_visitors} WHERE day < CURDATE() - INTERVAL 1 DAY');
-            $db->run('DELETE FROM {stats_pages} WHERE day < CURDATE() - INTERVAL 400 DAY');
-            $db->run('DELETE FROM {stats_campaigns} WHERE day < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {stats_visitors} WHERE day < CURRENT_DATE - INTERVAL 1 DAY');
+            $db->run('DELETE FROM {stats_pages} WHERE day < CURRENT_DATE - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {stats_campaigns} WHERE day < CURRENT_DATE - INTERVAL 400 DAY');
         }
     }
 }

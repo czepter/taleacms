@@ -35,7 +35,7 @@ final class CreateMediaTables extends AbstractMigration
             ->addColumn('thumb_path', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
             ->addColumn('thumb_width', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('thumb_height', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0])
-            ->addColumn('color', 'char', ['limit' => 7, 'null' => false, 'default' => '', 'comment' => 'dominant color (#rrggbb) as a placeholder before loading; \'\' = not computed, \'-\' = cannot be determined'])
+            ->addColumn('color', 'string', ['limit' => 7, 'null' => false, 'default' => '', 'comment' => 'dominant color (#rrggbb) as a placeholder before loading; \'\' = not computed, \'-\' = cannot be determined'])
             ->addColumn('focal_point', 'string', ['limit' => 12, 'null' => false, 'default' => '', 'comment' => 'crop center (object-position), e.g. „50% 30%“; \'\' = center'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addIndex(['public_id'], ['name' => 'uq_media_public_id', 'unique' => true])

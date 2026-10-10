@@ -1,0 +1,29 @@
+{
+    "name": "JetBrains Mono",
+    "category": "mono",
+    "weights": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800
+    ],
+    "italic": false,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "jetbrains-mono.woff2",
+            "weight": "100 800",
+            "style": "normal"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/jetbrainsmono",
+    "licence": "OFL-1.1"
+}

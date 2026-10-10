@@ -179,6 +179,8 @@ final class DesignSystem
         foreach (['font_heading', 'font_body'] as $key) {
             if (preg_match('/^custom-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($clean['custom_fonts'][(int) $m[1] - 1])) {
                 $clean[$key] = $ds[$key];
+            } elseif (($library = self::libraryKey((string) ($ds[$key] ?? ''))) !== null) {
+                $clean[$key] = $library; // a font of the bundled library, stored as lib:<slug>
             }
         }
         foreach (self::COLORS as $key => $_) {
@@ -210,9 +212,141 @@ final class DesignSystem
         return $result;
     }
 
-    /** The font-family value for the chosen font (custom ones too); the fallback is a system font of the same character. */
+    /** Fallback stacks by category for library fonts (shown until the WOFF2 arrives, and in e-mail clients). */
+    private const array FALLBACKS = [
+        'sans' => 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        'display' => 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        'serif' => 'Georgia, "Times New Roman", Times, serif',
+        'mono' => 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace',
+        'handwritten' => '"Segoe Print", "Bradley Hand", "Comic Sans MS", cursive',
+    ];
+
+    /** Categories of the font library in the order of the picker. */
+    public const array FONT_CATEGORIES = ['sans' => 'Sans-serif', 'serif' => 'Serif', 'display' => 'Display faces', 'mono' => 'Monospace', 'handwritten' => 'Handwriting'];
+
+    /**
+     * Suggested pairings (heading font, body font, character) – slugs of the library. Shown in Appearance with a "use this pair" button.
+     * A pair that names a family missing from the library is skipped.
+     */
+    public const array PAIRINGS = [
+        ['playfair-display', 'source-sans-3', 'Editorial'],
+        ['lora', 'inter', 'Warm and readable'],
+        ['merriweather', 'open-sans', 'Classic and calm'],
+        ['cormorant-garamond', 'work-sans', 'Refined'],
+        ['libre-baskerville', 'inter', 'Traditional'],
+        ['eb-garamond', 'plus-jakarta-sans', 'Literary'],
+        ['abril-fatface', 'lato', 'Bold and elegant'],
+        ['montserrat', 'source-serif-4', 'Modern with a serif text'],
+        ['poppins', 'nunito-sans', 'Friendly'],
+        ['outfit', 'inter', 'Clean'],
+        ['dm-sans', 'dm-sans', 'One family'],
+        ['space-grotesk', 'inter', 'Technical'],
+        ['oswald', 'open-sans', 'Strong headlines'],
+        ['bebas-neue', 'roboto', 'Poster'],
+        ['archivo-black', 'work-sans', 'Heavy'],
+        ['manrope', 'manrope', 'One family, geometric'],
+        ['jetbrains-mono', 'inter', 'Developer'],
+        ['caveat', 'nunito-sans', 'Personal'],
+    ];
+
+    /**
+     * The font library (image/fonts/<slug>/font.json): slug => name, category, weights, italic, variable, files [file, weight, style].
+     * A folder with a missing or broken font.json or a missing WOFF2 file is skipped.
+     *
+     * @return array<string, array{slug: string, name: string, category: string, weights: list<int>, italic: bool, variable: bool, files: list<array{file: string, weight: string, style: string}>}>
+     */
+    public static function libraryFonts(): array
+    {
+        static $fonts = null;
+        if ($fonts !== null) {
+            return $fonts;
+        }
+        $fonts = [];
+        foreach (glob(TALEA_ROOT . '/image/fonts/*/font.json') ?: [] as $json) {
+            $dir = dirname($json);
+            $slug = basename($dir);
+            $f = json_decode((string) file_get_contents($json), true);
+            if (!is_array($f) || !preg_match('/^[a-z0-9-]+$/', $slug) || !is_string($f['name'] ?? null) || !isset(self::FONT_CATEGORIES[$f['category'] ?? '']) || !is_array($f['files'] ?? null) || $f['files'] === []) {
+                continue;
+            }
+            $files = [];
+            foreach ($f['files'] as $file) {
+                if (is_array($file) && preg_match('/^[a-z0-9-]+\.woff2$/', (string) ($file['file'] ?? '')) && is_file($dir . '/' . $file['file']) && preg_match('/^\d{3,4}( \d{3,4})?$/', (string) ($file['weight'] ?? ''))) {
+                    $files[] = ['file' => $file['file'], 'weight' => (string) $file['weight'], 'style' => ($file['style'] ?? '') === 'italic' ? 'italic' : 'normal'];
+                }
+            }
+            if ($files !== []) {
+                $fonts[$slug] = ['slug' => $slug, 'name' => preg_replace('/[^\p{L}\p{N} -]/u', '', $f['name']), 'category' => $f['category'], 'weights' => array_map('intval', (array) ($f['weights'] ?? [])),
+                    'italic' => (bool) ($f['italic'] ?? false), 'variable' => (bool) ($f['variable'] ?? false), 'files' => $files];
+            }
+        }
+        uasort($fonts, fn (array $a, array $b): int => [array_search($a['category'], array_keys(self::FONT_CATEGORIES)), $a['name']] <=> [array_search($b['category'], array_keys(self::FONT_CATEGORIES)), $b['name']]);
+
+        return $fonts;
+    }
+
+    /** "lib:<slug>" for a library font given as lib:<slug>, a bare slug or the family name ("Source Sans 3"); null when it is not in the library. */
+    public static function libraryKey(string $value): ?string
+    {
+        $fonts = self::libraryFonts();
+        $v = trim(str_starts_with($value, 'lib:') ? substr($value, 4) : $value);
+        if (isset($fonts[$v])) {
+            return 'lib:' . $v;
+        }
+        foreach ($fonts as $slug => $font) {
+            if (strcasecmp($font['name'], $v) === 0) {
+                return 'lib:' . $slug;
+            }
+        }
+
+        return null;
+    }
+
+    /** The library font behind a stored choice ("lib:<slug>"), or null. */
+    private static function libraryFont(string $key): ?array
+    {
+        return str_starts_with($key, 'lib:') ? (self::libraryFonts()[substr($key, 4)] ?? null) : null;
+    }
+
+    /**
+     * @font-face rules for library fonts (font-display: swap; a variable file declares its weight range). $slugs = null: all of them
+     * (the font picker in Appearance – a face downloads only when text uses it). The site itself only gets the chosen families.
+     *
+     * @param list<string>|null $slugs
+     */
+    public static function libraryFontFaces(?array $slugs, string $base = ''): string
+    {
+        $css = '';
+        foreach (self::libraryFonts() as $slug => $font) {
+            if ($slugs !== null && !in_array($slug, $slugs, true)) {
+                continue;
+            }
+            foreach (['normal', 'italic'] as $style) {
+                $files = array_values(array_filter($font['files'], fn (array $f): bool => $f['style'] === $style));
+                usort($files, fn (array $a, array $b): int => (int) $a['weight'] <=> (int) $b['weight']);
+                foreach ($files as $i => $file) {
+                    $weight = $file['weight'];
+                    if (!str_contains($weight, ' ')) {
+                        // static files: the lightest also answers lighter requests, the heaviest heavier ones – the browser never fakes a bold
+                        $lo = $i === 0 ? '100' : $weight;
+                        $hi = $i === count($files) - 1 ? '900' : $weight;
+                        $weight = $lo === $hi ? $lo : $lo . ' ' . $hi;
+                    }
+                    $css .= '@font-face { font-family: "' . $font['name'] . '"; src: url("' . $base . '/image/fonts/' . $slug . '/' . $file['file'] . '") format("woff2"); font-weight: '
+                        . $weight . '; font-style: ' . $style . '; font-display: swap; }' . "\n";
+                }
+            }
+        }
+
+        return $css;
+    }
+
+    /** The font-family value for the chosen font (library and custom ones too); the fallback is a system font of the same character. */
     public static function fontFamily(array $ds, string $key, bool $forHeadings): string
     {
+        if (($font = self::libraryFont($key)) !== null) {
+            return '"' . $font['name'] . '", ' . self::FALLBACKS[$font['category']];
+        }
         if (preg_match('/^custom-([1-3])$/', $key, $m) && isset($ds['custom_fonts'][(int) $m[1] - 1])) {
             return '"' . $ds['custom_fonts'][(int) $m[1] - 1]['name'] . '", system-ui, -apple-system, "Segoe UI", sans-serif';
         }
@@ -222,8 +356,8 @@ final class DesignSystem
 
     /**
      * Preload tags for the font files that render text above the fold (2.8): the body face and the heading face, only when
-     * they are the site's own WOFF2 files (the bundled choices are system fonts – nothing to download). Headings are bold
-     * (TYPOGRAPHY), so a heading font with a separate bold file preloads that file; every @font-face has font-display: swap,
+     * they are WOFF2 files (the bundled system choices have nothing to download). Headings are bold (TYPOGRAPHY), so a
+     * heading font with separate static files preloads the one nearest to bold. Every @font-face has font-display: swap,
      * so text shows in the fallback font until the file arrives. Nothing else is preloaded – an unused weight would only
      * compete for bandwidth.
      */
@@ -231,22 +365,36 @@ final class DesignSystem
     {
         $files = [];
         foreach (['font_body' => false, 'font_heading' => true] as $key => $forHeadings) {
-            if (preg_match('/^custom-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($ds['custom_fonts'][(int) $m[1] - 1])) {
-                $font = $ds['custom_fonts'][(int) $m[1] - 1];
-                $file = $forHeadings && $font['bold'] !== '' ? $font['bold'] : $font['file'];
+            $choice = (string) ($ds[$key] ?? '');
+            if (($font = self::libraryFont($choice)) !== null) {
+                $target = $forHeadings ? 700 : 400;
+                $upright = array_filter($font['files'], fn (array $f): bool => $f['style'] === 'normal');
+                usort($upright, fn (array $a, array $b): int => abs((int) $a['weight'] - $target) <=> abs((int) $b['weight'] - $target));
+                if ($upright !== []) {
+                    $files[$base . '/image/fonts/' . $font['slug'] . '/' . $upright[0]['file']] = true;
+                }
+            } elseif (preg_match('/^custom-([1-3])$/', $choice, $m) && isset($ds['custom_fonts'][(int) $m[1] - 1])) {
+                $custom = $ds['custom_fonts'][(int) $m[1] - 1];
+                $file = $forHeadings && $custom['bold'] !== '' ? $custom['bold'] : $custom['file'];
                 if (str_ends_with($file, '.woff2')) {
-                    $files[$file] = true;
+                    $files[$base . '/' . $file] = true;
                 }
             }
         }
 
-        return implode("\n", array_map(fn (string $file): string => '<link rel="preload" href="' . e($base . '/' . $file) . '" as="font" type="font/woff2" crossorigin>', array_keys($files)));
+        return implode("\n", array_map(fn (string $url): string => '<link rel="preload" href="' . e($url) . '" as="font" type="font/woff2" crossorigin>', array_keys($files)));
     }
 
     /** Tokens as CSS custom properties in the first cascade layer; the layout and the builder only use them. $base = installation folder (for the font files). */
     public static function css(array $ds, string $base = ''): string
     {
-        $fonts = '';
+        $chosen = [];
+        foreach (['font_heading', 'font_body'] as $key) {
+            if (($font = self::libraryFont((string) ($ds[$key] ?? ''))) !== null) {
+                $chosen[] = $font['slug'];
+            }
+        }
+        $fonts = self::libraryFontFaces($chosen, $base);
         foreach ($ds['custom_fonts'] ?? [] as $p) {
             // one file = the regular weight (or a variable font with all weights), the second one, if any, bold
             $fonts .= '@font-face { font-family: "' . $p['name'] . '"; src: url("' . $base . '/' . $p['file'] . '") format("woff2"); font-weight: ' . ($p['bold'] !== '' ? '400' : '100 900') . '; font-display: swap; }' . "\n";

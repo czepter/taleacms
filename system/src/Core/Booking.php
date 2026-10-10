@@ -63,7 +63,7 @@ final class Booking
     public static function services(Db $db, bool $activeOnly = true): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {booking_services}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, name, id');
+            $rows = $db->all('SELECT * FROM {booking_services}' . ($activeOnly ? ' WHERE active = TRUE' : '') . ' ORDER BY sort_order, name, id');
             $links = $db->all('SELECT staff_id, service_id FROM {booking_staff_services}');
         } catch (\Throwable) {
             return []; // before the 3.0 migration
@@ -97,7 +97,7 @@ final class Booking
     public static function staff(Db $db, bool $activeOnly = true): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {booking_staff}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, name, id');
+            $rows = $db->all('SELECT * FROM {booking_staff}' . ($activeOnly ? ' WHERE active = TRUE' : '') . ' ORDER BY sort_order, name, id');
             $links = $db->all('SELECT staff_id, service_id FROM {booking_staff_services}');
         } catch (\Throwable) {
             return [];

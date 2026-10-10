@@ -159,7 +159,7 @@ final class Newsletters extends Module
         $s = $this->app->settings();
         $languages = Language::additional($s) === [] ? [] : [Language::defaults($s), ...Language::additional($s)];
         $news = \Talea\Core\Extensions::isEnabled($s, 'news')
-            ? $this->db->all('SELECT news_id, public_id, title, published_at, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC, news_id DESC LIMIT 40') : [];
+            ? $this->db->all('SELECT news_id, public_id, title, published_at, language FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC, news_id DESC LIMIT 40') : [];
 
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
             'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Talea\Core\Extensions::isEnabled($s, 'news'),

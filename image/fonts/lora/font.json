@@ -1,0 +1,31 @@
+{
+    "name": "Lora",
+    "category": "serif",
+    "weights": [
+        400,
+        500,
+        600,
+        700
+    ],
+    "italic": true,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "lora.woff2",
+            "weight": "400 700",
+            "style": "normal"
+        },
+        {
+            "file": "lora-italic.woff2",
+            "weight": "400 700",
+            "style": "italic"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/lora",
+    "licence": "OFL-1.1",
+    "reserved_name": "Lora"
+}

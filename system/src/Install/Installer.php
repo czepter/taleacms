@@ -234,14 +234,16 @@ final class Installer
     {
         // PostgreSQL has no numeric codes of its own: the SQLSTATE (28P01 password, 3D000 no database, 08xxx connection) is in the message or errorInfo
         $state = (string) ($e->errorInfo[0] ?? (preg_match('/SQLSTATE\[(\w+)\]/', $e->getMessage(), $m) ? $m[1] : ''));
-        if (str_starts_with($e->getMessage(), 'SQLSTATE[08') || str_contains($e->getMessage(), 'could not translate host name') || str_contains($e->getMessage(), 'Connection refused')) {
-            return ['db_host' => t('Could not connect to the database server. Check the server and port.')];
-        }
-        if (in_array($state, ['28P01', '28000'], true)) {
+        // PostgreSQL reports a refused login as a failed connection (SQLSTATE 08006) and says why in the text: read the text first
+        if (in_array($state, ['28P01', '28000'], true) || preg_match('/password authentication failed|role "[^"]*" does not exist/', $e->getMessage()) === 1) {
             return ['db_user' => t('The database user name or password is wrong. Check them in your hosting control panel.')];
         }
         if ($state === '3D000' || (str_contains($e->getMessage(), 'database "') && str_contains($e->getMessage(), 'does not exist'))) {
             return ['db_name' => t('There is no database with this name on the server. Create it in your hosting control panel or correct the name.')];
+        }
+
+        if (str_starts_with($e->getMessage(), 'SQLSTATE[08') || str_contains($e->getMessage(), 'could not translate host name') || str_contains($e->getMessage(), 'Connection refused')) {
+            return ['db_host' => t('Could not connect to the database server. Check the server and port.')];
         }
 
         return match ((int) ($e->errorInfo[1] ?? $e->getCode())) {

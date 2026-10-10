@@ -55,7 +55,7 @@ trait CollectionTools
     {
         $existing = $this->app->db()->pairs("SELECT preset, slug FROM {collections} WHERE preset <> '' ORDER BY collection_id DESC");
 
-        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], \Talea\Builder\Presets::describe()),
+        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], \Talea\Builder\Presets::describe($this->app->settings())),
             'next' => 'create_collection {"preset":"<key>","name":"…"} creates one; then add items with save_collection_item and put a Collection list on a page.'];
     }
 
@@ -75,7 +75,7 @@ trait CollectionTools
             // a ready-made collection (2.10 people, 2.11 Builder\Presets)
             [$id, $pageId, $extraPages] = \Talea\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['name'] ?? '')) ?? [null, null, []];
             if ($id === null) {
-                throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Talea\Builder\Presets::all())) . ' (list_collection_presets).');
+                throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Talea\Builder\Presets::available($this->app->settings()))) . ' (list_collection_presets).');
             }
             $created = (array) Collections::byId($db, $id);
             $preset = (array) \Talea\Builder\Presets::get((string) $a['preset']);
@@ -181,10 +181,10 @@ trait CollectionTools
             $args[] = $a['language'];
         }
         if (!empty($a['visible_only']) || !$auth->hasModule('collections')) {
-            $whereParts[] = 'visible = 1'; // without the Collections section only published items
+            $whereParts[] = 'visible = TRUE'; // without the Collections section only published items
         }
         if (is_string($a['search'] ?? null) && trim($a['search']) !== '') {
-            $whereParts[] = '(name LIKE ? OR data LIKE ?)';
+            $whereParts[] = '(' . $db->dialect()->likeInsensitive('name') . ' OR ' . $db->dialect()->likeInsensitive('data') . ')';
             $pattern = '%' . addcslashes(mb_substr(trim($a['search']), 0, 100), '%_\\') . '%';
             array_push($args, $pattern, $pattern);
         }
@@ -402,7 +402,7 @@ trait CollectionTools
         $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         $id = (int) ($a['id'] ?? 0);
         $slug = trim((string) ($a['slug'] ?? ''));
-        $visible = $this->app->auth()->hasModule('collections') ? '' : ' AND visible = 1'; // without the Collections section only people on the site
+        $visible = $this->app->auth()->hasModule('collections') ? '' : ' AND visible = TRUE'; // without the Collections section only people on the site
         $item = match (true) {
             $id > 0 => $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL' . $visible, [$id, $k['collection_id']]),
             $slug !== '' => $db->one('SELECT * FROM {collection_items} WHERE slug = ? AND collection_id = ? AND deleted_at IS NULL' . $visible . ' ORDER BY language LIMIT 1', [$slug, $k['collection_id']]),

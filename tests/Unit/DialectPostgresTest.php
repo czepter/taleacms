@@ -72,7 +72,7 @@ final class DialectPostgresTest extends TestCase
 
     public function testGroupConcat(): void
     {
-        $this->assertSame("string_agg(DISTINCT (name)::text, ', ' ORDER BY name)", $this->d->groupConcat('name', ', ', 'name', true));
+        $this->assertSame("string_agg(DISTINCT (name)::text, ', ' ORDER BY (name)::text)", $this->d->groupConcat('name', ', ', 'name', true));
         $this->assertSame("string_agg((name)::text, ',')", $this->d->groupConcat('name'));
     }
 
@@ -119,5 +119,27 @@ final class DialectPostgresTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         Dialect::forDriver('sqlite');
+    }
+
+    public function testRewriteMakesMysqlIntervalsAndBackticksPostgres(): void
+    {
+        $this->assertSame("SELECT 1 WHERE d > NOW() - INTERVAL '30 day' AND e < NOW() + INTERVAL '2 year'", $this->d->rewrite('SELECT 1 WHERE d > NOW() - INTERVAL 30 DAY AND e < NOW() + INTERVAL 2 YEAR'));
+        $this->assertSame("WHERE a < NOW() - (CAST(? AS integer) * INTERVAL '1 hour')", $this->d->rewrite('WHERE a < NOW() - INTERVAL ? HOUR'));
+        $this->assertSame('SELECT "key" FROM "tl_x"', $this->d->rewrite('SELECT `key` FROM `tl_x`'));
+        $this->assertSame('FREQ=WEEKLY;INTERVAL=2', $this->d->rewrite('FREQ=WEEKLY;INTERVAL=2'), 'text that only looks like an interval stays');
+    }
+
+    public function testUpsertExpressionsNameTheOldAndTheNewRow(): void
+    {
+        $this->assertSame(
+            'INSERT INTO {s} ("day", "visits") VALUES (?, ?) ON CONFLICT ("day") DO UPDATE SET "visits" = {s}."visits" + EXCLUDED."visits", "views" = {s}."views" + 1',
+            $this->d->upsert('s', ['day', 'visits'], ['day'], ['visits' => '{old.visits} + {new.visits}', 'views' => '{old.views} + 1']),
+        );
+    }
+
+    public function testInsertIgnoreSelectAndListPosition(): void
+    {
+        $this->assertSame('INSERT INTO {t} ("a", "b") SELECT 1, 2 WHERE true ON CONFLICT DO NOTHING', $this->d->insertIgnoreSelect('t', ['a', 'b'], 'SELECT 1, 2 WHERE true'));
+        $this->assertSame('CASE n WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END', $this->d->listPosition('n', 2));
     }
 }

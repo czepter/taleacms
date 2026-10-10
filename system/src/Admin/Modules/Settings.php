@@ -163,12 +163,11 @@ class Settings extends Module
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
-            'domainWatch' => $tab === 'health' ? \Talea\Core\DomainWatch::cached($settings) : null,
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Talea\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
-            'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = 1 AND language = '' ORDER BY sort_order, title") : [],
+            'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = TRUE AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
@@ -634,19 +633,6 @@ class Settings extends Module
         return $sent === 0
             ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'error')
             : $this->back(t('The report has been handed over for delivery to %d recipient(s).', $sent), '', ['tab' => 'mail']);
-    }
-
-    /** Checks the mail DNS records, the certificate and the domain registration right away (2.8, Core\DomainWatch). */
-    protected function actionDomainCheck(): Response
-    {
-        if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'health']);
-        }
-        $result = (new \Talea\Core\DomainWatch())->refresh($this->app);
-
-        return $this->back(!empty($result['local'])
-            ? 'The site runs on a local address – the certificate, the domain and the mail records are checked once it has its public address.'
-            : 'The domain and mail check has run – the results are in the table above.', '', ['tab' => 'health']);
     }
 
     /** A test call to the webhook addresses, sent right away – the result is in the delivery log below. */

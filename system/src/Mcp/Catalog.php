@@ -142,7 +142,7 @@ final class Catalog
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],
-        'list_notice_log' => ['read', ''],
+        'list_notice_log' => ['read', 'notice_board'],
         // 3.2: from a drafts-only connection a PROPOSED exception the site ignores until a person applies it
         'save_hours_exception' => ['draft', ''],
         'delete_hours_exception' => ['destructive', ''],

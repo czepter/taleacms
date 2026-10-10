@@ -58,11 +58,11 @@ final class Notifications
         $db = $app->db();
         // scheduled pages: a hidden page publishes itself at the given time
         // scheduled collection items (1.9) likewise
-        $items = $db->run('UPDATE {collection_items} SET visible = 1, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount();
-        if ($db->run('UPDATE {pages} SET visible = 1, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount() + $items > 0) {
+        $items = $db->run('UPDATE {collection_items} SET visible = TRUE, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount();
+        if ($db->run('UPDATE {pages} SET visible = TRUE, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount() + $items > 0) {
             \Talea\Front\Cache::clear();
         }
-        $newsItems = $db->all('SELECT news_id, slug, language, noindex FROM {news} WHERE visible = 1 AND published_at <= NOW() AND announced_at IS NULL ORDER BY published_at LIMIT 5');
+        $newsItems = $db->all('SELECT news_id, slug, language, noindex FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND announced_at IS NULL ORDER BY published_at LIMIT 5');
         foreach ($newsItems as $c) {
             // mark first: if the notification fails, it must not repeat forever
             if ($db->run('UPDATE {news} SET announced_at = NOW() WHERE news_id = ? AND announced_at IS NULL', [$c['news_id']])->rowCount() === 0) {

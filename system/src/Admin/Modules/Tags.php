@@ -43,7 +43,7 @@ final class Tags extends Module
         // merge: the news items get the target tag, this one ceases to exist and its slug is redirected
         $target = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ? AND tag_id <> ?', [$this->idParam('merge_into'), $tag['tag_id']]);
         if ($target !== null) {
-            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) SELECT news_id, ? FROM {news_tags} WHERE tag_id = ?', [$target['tag_id'], $tag['tag_id']]);
+            $this->db->insertIgnoreSelect('news_tags', ['news_id', 'tag_id'], 'SELECT news_id, ? FROM {news_tags} WHERE tag_id = ?', [$target['tag_id'], $tag['tag_id']]);
             $this->db->delete('news_tags', ['tag_id' => $tag['tag_id']]);
             $this->db->delete('tags', ['tag_id' => $tag['tag_id']]);
             Redirects::add($this->db, 'news/tag/' . $tag['slug'], 'news/tag/' . $target['slug']);

@@ -97,6 +97,12 @@ trait LookTools
             }
         }
         $ds = DesignSystem::sanitize($changes + $ds);
+        foreach (['font_heading', 'font_body'] as $key) {
+            // a typo must not silently fall back to the default font
+            if (is_string($changes[$key] ?? null) && $changes[$key] !== 'default' && $ds[$key] !== $changes[$key] && DesignSystem::libraryKey($changes[$key]) !== $ds[$key]) {
+                throw new \InvalidArgumentException($key . ' "' . $changes[$key] . '" is not available. Library fonts: ' . implode(', ', array_column(DesignSystem::libraryFonts(), 'name')) . '; system fonts: ' . implode(', ', array_diff(array_keys(SiteIdentity::TITLE_FONTS), ['default'])) . '; custom-1…3 once the font is in custom_fonts.');
+            }
+        }
         \Talea\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
 
         return ['design_system' => $ds, 'readability' => DesignSystem::contrasts($ds), 'status' => 'draft look – visitors see it after publish_look',

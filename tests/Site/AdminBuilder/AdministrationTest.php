@@ -125,7 +125,8 @@ final class AdministrationTest extends SiteTestCase
 
         // news without a category: a default category is created in the site language
         $pdo = $this->site()->pdo;
-        $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+        // MySQL: foreign_key_checks; PostgreSQL: no triggers (foreign keys) in this session
+        $pdo->exec(\Talea\Tests\Support\TestDatabase::isPostgres() ? 'SET session_replication_role = replica' : 'SET FOREIGN_KEY_CHECKS=0');
         $pdo->exec('DROP TABLE IF EXISTS kat_zaloha');
         $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM tl_categories');
         $pdo->exec('DELETE FROM tl_categories');
@@ -138,7 +139,7 @@ final class AdministrationTest extends SiteTestCase
             $pdo->exec('INSERT INTO tl_categories SELECT * FROM kat_zaloha');
             $pdo->exec('DROP TABLE kat_zaloha');
             $pdo->exec("UPDATE tl_settings SET value='en' WHERE name='site_language'");
-            $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
+            $pdo->exec(\Talea\Tests\Support\TestDatabase::isPostgres() ? 'SET session_replication_role = DEFAULT' : 'SET FOREIGN_KEY_CHECKS=1');
         }
     }
 
@@ -161,7 +162,7 @@ final class AdministrationTest extends SiteTestCase
             '_csrf' => $csrf, 'news_id' => 0, 'title' => 'XSS-test', 'category_id' => $this->site()->publicId('categories', 1),
             'intro' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">link</a></p>',
         ]);
-        $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM tl_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');
+        $this->assertSame(0, preg_match('/script|onerror|onmouseover|javascript/i', (string) $this->site()->value("SELECT CONCAT(intro, text) FROM tl_news WHERE title = 'XSS-test'")), 'the author inserts no script into a news item');
 
         $this->assertPage('/admin.php', 200, 'News from authors awaiting publication', message: 'the editor sees authors\' news waiting for publishing on the overview');
         $this->assertPage('/admin.php?module=news&status=awaiting_publication', 200, 'XSS-test', message: 'news list: filter Waiting for publishing');

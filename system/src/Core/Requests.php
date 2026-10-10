@@ -121,8 +121,8 @@ final class Requests
     public static function all(App $app, string $status = '', int $limit = 100): array
     {
         $where = isset(self::STATUSES[$status]) ? 'WHERE r.status = ?' : '';
-        $rows = $app->db()->all("SELECT r.*, IF(u.name = '' OR u.name IS NULL, IFNULL(u.username, ''), u.name) AS author FROM {requests} r LEFT JOIN {users} u ON u.user_id = r.author_id {$where}"
-            . ' ORDER BY FIELD(r.status, ' . implode(', ', array_map(fn (string $s): string => "'" . $s . "'", array_keys(self::ORDER))) . '), r.id DESC LIMIT ' . max(1, min(500, $limit)), isset(self::STATUSES[$status]) ? [$status] : []);
+        $rows = $app->db()->all("SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN COALESCE(u.username, '') ELSE u.name END AS author FROM {requests} r LEFT JOIN {users} u ON u.user_id = r.author_id {$where}"
+            . ' ORDER BY ' . $app->db()->dialect()->listPosition('r.status', count(self::ORDER)) . ', r.id DESC LIMIT ' . max(1, min(500, $limit)), [...(isset(self::STATUSES[$status]) ? [$status] : []), ...array_keys(self::ORDER)]);
 
         return array_map(self::decode(...), $rows);
     }
@@ -130,7 +130,7 @@ final class Requests
     /** @return array<string, mixed>|null the request with its author's name */
     public static function get(App $app, int $id): ?array
     {
-        $row = $app->db()->one("SELECT r.*, IF(u.name = '' OR u.name IS NULL, IFNULL(u.username, ''), u.name) AS author, u.email AS author_email, u.language AS author_language, u.register AS author_register FROM {requests} r LEFT JOIN {users} u ON u.user_id = r.author_id WHERE r.id = ?", [$id]);
+        $row = $app->db()->one("SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN COALESCE(u.username, '') ELSE u.name END AS author, u.email AS author_email, u.language AS author_language, u.register AS author_register FROM {requests} r LEFT JOIN {users} u ON u.user_id = r.author_id WHERE r.id = ?", [$id]);
 
         return $row === null ? null : self::decode($row);
     }
@@ -157,7 +157,7 @@ final class Requests
             return [];
         }
         $site = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-        $rows = $app->db()->all('SELECT media_id, name, image_path, thumb_path, image_size FROM {media} WHERE media_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY FIELD(media_id, ' . implode(',', array_fill(0, count($ids), '?')) . ')', [...$ids, ...$ids]);
+        $rows = $app->db()->all('SELECT media_id, name, image_path, thumb_path, image_size FROM {media} WHERE media_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY ' . $app->db()->dialect()->listPosition('media_id', count($ids)), [...$ids, ...$ids]);
 
         return array_map(fn (array $m): array => ['id' => (int) $m['media_id'], 'name' => $m['name'] !== '' ? (string) $m['name'] : basename((string) $m['image_path']),
             'url' => $site . $app->url((string) $m['image_path']), 'size' => Files::size((int) $m['image_size']), 'image' => $m['thumb_path'] !== ''], $rows);
@@ -263,7 +263,7 @@ final class Requests
     {
         $s = $app->settings();
         $url = self::adminUrl($app, $id);
-        foreach ($app->db()->all("SELECT email, language, register FROM {users} WHERE admin = ? AND blocked = 0 AND email <> '' AND user_id <> ?", [Auth::ADMIN, $authorId]) as $admin) {
+        foreach ($app->db()->all("SELECT email, language, register FROM {users} WHERE admin = ? AND blocked = FALSE AND email <> '' AND user_id <> ?", [Auth::ADMIN, $authorId]) as $admin) {
             Language::runWith((string) $admin['language'] ?: Language::defaults($s), function () use ($s, $admin, $title, $url): void {
                 Mail::send($s, (string) $admin['email'], t('New request for Claude: %s', $title), t('A colleague wrote a new request for Claude: %s', $title) . "\n\n" . $url . "\n");
             }, 'admin-', Language::normalizeRegister((string) $admin['register']));

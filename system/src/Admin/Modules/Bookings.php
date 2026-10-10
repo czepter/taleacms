@@ -245,7 +245,7 @@ final class Bookings extends Module
         return $this->view('staff_edit', $member === [] ? 'New person' : (string) $member['name'], ['m' => $member, 'services' => Booking::services($this->db, false),
             'hours' => array_map(fn (int $d): string => \Talea\Core\Hours::rangesText($hours[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS))),
             'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Talea\Core\Hours::week($this->app->settings()),
-            'users' => $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2"), 'userPublicId' => $id > 0 ? $this->publicId((int) ($member['user_id'] ?? 0), 'users') : '']);
+            'users' => $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"), 'userPublicId' => $id > 0 ? $this->publicId((int) ($member['user_id'] ?? 0), 'users') : '']);
     }
 
     protected function actionStaffSave(): Response

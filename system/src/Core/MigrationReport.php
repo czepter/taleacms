@@ -213,7 +213,7 @@ final class MigrationReport
             return self::page($page);
         }
         if (count($s) === 2) {
-            $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = 1 AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
+            $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
             if ($item !== null) {
                 return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'description' => trim((string) $item['description']), 'form' => false,
                     'images' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'visible' => (bool) $item['visible']];

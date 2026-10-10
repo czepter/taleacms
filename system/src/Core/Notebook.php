@@ -45,7 +45,7 @@ final class Notebook
             $params[] = $topic;
         }
         if ($search !== '') {
-            $where[] = '(title LIKE ? OR text LIKE ?)';
+            $where[] = '(' . $db->dialect()->likeInsensitive('title') . ' OR ' . $db->dialect()->likeInsensitive('text') . ')';
             array_push($params, '%' . addcslashes($search, '%_\\') . '%', '%' . addcslashes($search, '%_\\') . '%');
         }
         try {
@@ -70,7 +70,7 @@ final class Notebook
     {
         try {
             return ['count' => (int) $db->value('SELECT COUNT(*) FROM {notebook}'),
-                'pinned' => array_map('strval', array_column($db->all('SELECT title FROM {notebook} WHERE pinned = 1 ORDER BY updated_at DESC, id DESC LIMIT 20'), 'title'))];
+                'pinned' => array_map('strval', array_column($db->all('SELECT title FROM {notebook} WHERE pinned = TRUE ORDER BY updated_at DESC, id DESC LIMIT 20'), 'title'))];
         } catch (\Throwable) {
             return ['count' => 0, 'pinned' => []]; // before the 2.15 migration
         }

@@ -60,6 +60,11 @@ trait BuilderActions
                 $element['properties']['component'] = ['type' => 'choice', 'label' => 'Component', 'default' => '',
                     'options' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'name' => $k['name']], $components), 'name', 'id')];
             }
+            if ($element['type'] === 'gallery') {
+                // in the editor, a choice of Media folders (the validator keeps the folder's public id as text)
+                $element['properties']['folder']['type'] = 'choice';
+                $element['properties']['folder']['options'] = ['' => '—'] + array_column($this->db->all('SELECT public_id, name FROM {media_folders} ORDER BY name'), 'name', 'public_id');
+            }
             if ($element['type'] === 'collection_list') {
                 // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
                 $element['properties']['collection'] = ['type' => 'choice', 'label' => 'Collections', 'default' => $collections[0]['slug'] ?? '',

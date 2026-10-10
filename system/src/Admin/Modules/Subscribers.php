@@ -25,7 +25,7 @@ final class Subscribers extends Module
     {
         $search = mb_substr($this->request->get('search'), 0, 100);
         $pageNumber = max(1, $this->request->getInt('page', 1));
-        $whereParts = $search !== '' ? ' WHERE email LIKE ?' : '';
+        $whereParts = $search !== '' ? ' WHERE ' . $this->db->dialect()->likeInsensitive('email') : '';
         $params = $search !== '' ? ['%' . addcslashes($search, '%_\\') . '%'] : [];
 
         return $this->view('list', 'Subscribers', [
@@ -33,7 +33,7 @@ final class Subscribers extends Module
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers}' . $whereParts, $params),
             'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'),
             'service' => \Talea\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
-            'queue' => $this->db->one('SELECT SUM(next_attempt_at IS NOT NULL) AS pending, SUM(next_attempt_at IS NULL) AS failed FROM {subscription_queue}') ?? ['pending' => 0, 'failed' => 0],
+            'queue' => $this->db->one('SELECT SUM(CASE WHEN next_attempt_at IS NOT NULL THEN 1 ELSE 0 END) AS pending, SUM(CASE WHEN next_attempt_at IS NULL THEN 1 ELSE 0 END) AS failed FROM {subscription_queue}') ?? ['pending' => 0, 'failed' => 0],
             'search' => $search, 'pageNumber' => $pageNumber,
         ]);
     }

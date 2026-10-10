@@ -26,13 +26,6 @@ $group = '';
 <p><button class="navigation" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button></p>
 </fieldset>
 <fieldset>
-<legend><?= e(t('Domain and mail')) ?></legend>
-<p><?= e($domainWatch === null
-    ? t('The mail DNS records (SPF, DMARC, DKIM), the site certificate and the domain registration have not been checked yet. The check runs once a day on its own; the results appear in the table above.')
-    : t('Last checked %s. The check runs once a day on its own; the results are in the table above.', format_date((new DateTimeImmutable())->setTimestamp((int) $domainWatch['checked']), true))) ?></p>
-<p><button class="navigation" type="submit" formaction="<?= e($module->url('domain_check')) ?>"><?= e(t('Check now')) ?></button></p>
-</fieldset>
-<fieldset>
 <legend><?= e(t('Error log')) ?></legend>
 <?php if ($errorLog === []): ?>
 <p><?= e(t('No errors – the log is empty.')) ?></p>

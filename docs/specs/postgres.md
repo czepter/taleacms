@@ -1,8 +1,9 @@
 # PostgreSQL support (HF-14)
 
-Status: foundation done (dialect layer, connection, installer, migrations, test infrastructure). The ~370 MySQL-only SQL lines are
-not converted yet; the site suite does not pass on PostgreSQL until they are. Tools: `php tools/sql-dialect-scan.php` (inventory),
-`composer test:pg` (integration suite on PostgreSQL).
+Status: the product's SQL is portable: `php tools/sql-dialect-scan.php` finds no MySQL-only line outside `Core\Dialect\MySql`, and `tests/Unit/NoMysqlOnlySqlTest.php`
+keeps it at zero. The same code runs on MySQL 8 and PostgreSQL 18; the installer, the whole site suite, the integration and the unit suites run on both
+(`composer test:pg` for the integration suite, `TALEA_TEST_DB_DRIVER=pgsql vendor/bin/paratest --testsuite site` for the sites). Section 5 lists what the conversion
+decided and found; section 6 what is left.
 
 ## 1. What the scan found
 
@@ -117,18 +118,48 @@ construction for search, and by the collation for lookups. `to_tsvector('simple'
 Limit: a nondeterministic collation cannot back `ILIKE`, pattern-matching operators with `text_pattern_ops` indexes or `=` in hash joins; `LIKE 'abc%'` on those columns does not use a btree index.
 The lookup columns are short and few; revisit if a profile asks.
 
-## 4. Conversion order for the next steps
+## 4. How the conversion was done (and the rules that keep it)
 
-Each step: convert one category with the helpers, run `composer test:pg` and the site suite on both engines, then lower the counts in the scan.
+The scan numbers in section 1 are the starting point (369 lines); today every category is zero except the ones marked portable (`NOW()`, `INTERVAL`, `CONCAT`).
 
-1. **Installer path** (so a PostgreSQL install completes and the template build of the site suite works): `INSERT IGNORE` (10), upsert (23), `DATABASE()` and `information_schema`, `SHOW`.
-   Without these the installer stops at the first default-data insert (`INSERT IGNORE INTO tl_classes`).
-2. **Booleans** (140 lines, the biggest): `= 1`/`= 0` to `TRUE`/`FALSE`, `SUM(flag)` to a count, `bool` vs `int` on fetched flags.
-3. **Time** (interval 55, date functions 20): `Dialect::interval()`, `unixTime()`, `CURRENT_DATE`; then check the time zone behaviour with a site suite run.
-4. **`IF`/`IFNULL`/`CONCAT`/`FIND_IN_SET`/`GROUP_CONCAT`/`LIMIT` in writes/multi-table writes** (about 45 lines): plain rewrites, no helper needed for most.
-5. **JSON (7) and full-text (3)**: `jsonExtract`, `fulltextMatch` + `fulltextQuery` in `Search::query()`/`NewsRepository`, `Joomla` import.
-6. **Locks** (Scheduler) and the **sessions of long jobs**.
-7. **Backup/restore and catalogue code** (`Backup`, `AgentJournal`, `SiteImport`, `Health`): `pg_dump`/`psql` or a PHP dump, `SHOW CREATE TABLE` replacements.
-8. **Tests**: raw MySQL SQL in site tests (`Site::exec` calls with `ON DUPLICATE KEY`, `SHOW`, backticks), then `composer test:pg` for the site suite in CI, then the scan as a guard
-   (fail when a category count grows).
-9. Documentation: README, docs/DEPLOYMENT.md, the installer screens in the screenshots.
+| Category | Now |
+|---|---|
+| `INSERT IGNORE`, `ON DUPLICATE KEY UPDATE` | `Db::insertIgnore()`, `Db::insertIgnoreSelect()`, `Db::upsert($table, $data, $keys, $update)`; `$update` takes column names (the inserted value) or `column => expression` with `{old.col}` (existing row) and `{new.col}` (inserted value): `['views' => '{old.views} + 1']`. PostgreSQL needs the old row qualified (an unqualified `visits = visits + EXCLUDED.visits` is ambiguous), so the dialect writes `{table}.col`. Values that were `NOW()`/`CURDATE()` in the statement are PHP `date()` values now (PHP and the session time zone agree, see below). |
+| booleans (`visible = 1`, `SUM(visible)`) | `= TRUE` / `= FALSE` (MySQL takes both); `SUM(CASE WHEN … THEN 1 ELSE 0 END)`. **Fetched booleans:** PostgreSQL returns `bool`, MySQL `int`. `Core\PgStatement` (set as `PDO::ATTR_STATEMENT_CLASS` on PostgreSQL only) turns every fetched `bool` into 1/0 for `fetch`, `fetchAll` and `fetchColumn`, so `=== 1`, `(int)` and arithmetic behave as before. Chosen over `ATTR_STRINGIFY_FETCHES` (stringifies everything) and a per-column cast layer (needs the column types of every query): it is 40 lines, active on one engine, and also covers `$pdo->query()`. `fetchColumn` is implemented over `fetch(FETCH_NUM)`, so a false value is `0`, not "no row". Inserting `0/1` literals into boolean columns is the one thing that cannot be normalised: write `TRUE`/`FALSE` or bind a parameter. |
+| time | `CURDATE()` -> `CURRENT_DATE`. `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are valid MySQL and are **rewritten for PostgreSQL by `Postgres::rewrite()`** (the same shim that turns backticks into double quotes), so the 55 call sites stay as written; `Dialect::interval()` remains for SQL that is built by code. The connection sets the session time zone to PHP's offset on both engines (`Db::pdo()`, `App::applyTimezone()` -> `Dialect::setTimeZone()`); PHP writes dates with `date()`, queries compare with `NOW()`; `published_at <= NOW()` was verified on a site whose zone differs from the server's (Europe/London, +01:00). |
+| `IF`, `IFNULL`, `FIELD`, `GROUP_CONCAT`, `UPDATE … LIMIT`, multi-table `DELETE` | `CASE WHEN`, `COALESCE`, `Dialect::listPosition()` (a portable `CASE x WHEN ? THEN 0 …`), `Dialect::groupConcat()`, `WHERE id IN (subselect)`. |
+| JSON | `Dialect::jsonExtract()` (`Builder\Collections`, `Front\Kernel`, `Core\Documents`, `Core\Calendar`, `Fleet`). `Collections::periodCondition()` takes the dialect as its first argument. A JSON `null` is the text `'null'` on MySQL and SQL NULL on PostgreSQL: callers treat both as empty. |
+| full text | `Core\Search::words()` returns the normalised words, `Dialect::fulltextMatch()` + `fulltextQuery()` build the predicate (`MATCH … AGAINST` / `to_tsvector('simple', …) @@ to_tsquery(…)`), `NewsRepository::search()` ORs it with `likeInsensitive('c.title')`. |
+| `LIKE` on user-facing text | `Dialect::likeInsensitive()` in every search box of the administration and MCP (news, pages, redirects, subscribers, enquiries, media, change log, collections, notebook). Internal `LIKE` (builder JSON, slug prefixes, event types) stays deterministic on purpose. |
+| locks | `Db::lock()` / `unlock()` in `Core\Scheduler` (name includes `Db::databaseName()` and the prefix) and `Core\Migrator`. |
+| catalogue | `Db::columns()`, `Db::primaryKey()`, `Db::uniqueKeys()` (memoised; `AgentJournal` follows `INSERT … ON DUPLICATE` and `ON CONFLICT` by them), `Db::tablesSize()`, `Db::tableExists()`, `Db::databaseName()`. |
+| emptying and numbering | `Db::emptyTables()` (MySQL: foreign key checks off around `DELETE`; PostgreSQL: one `TRUNCATE … CASCADE`) used by `SiteImport`; `Db::syncSequences()` moves a PostgreSQL identity past rows that were inserted with their own numbers (site import, backup restore); MySQL does it by itself. |
+| backup and restore | `Core\Backup` writes a plain SQL file with the dialect's help (`Dialect::dump*()`, `restoreBegin/End()`): MySQL as before (`DROP`/`CREATE` from `SHOW CREATE TABLE`, rows); PostgreSQL: one `TRUNCATE` of all tables, then the rows of every table with a column list, tables in foreign-key order, booleans as `TRUE`/`FALSE`, strings with line breaks or backslashes as `E'…'` so a statement still ends at the end of a line. The structure of a PostgreSQL backup is not in the file: it comes from the migrations (restore into a site at the same migration level). The restore runs in one transaction on PostgreSQL (a failed restore changes nothing). The file says `-- engine: pgsql|mysql`; a file of the other engine is refused (move content between engines with the export). `bin/migrate --backup` and the updater use the same code. |
+| `char(n)` columns | PostgreSQL pads `char(2)` with blanks (`'  '` instead of `''`): the `language`, `color`, `reset_token_hash` and `secret_hash` columns are `varchar` now (the other `char` columns always hold a full-length value). |
+| `ORDER BY` of nullable columns | `col IS NULL DESC, col` (NULLs first) or `col IS NULL, col DESC` (last) where the visible order depends on it (`AgentSchedules`, `GoogleBusiness`); no `NULLS FIRST` (MySQL has no such syntax). |
+| installer | a refused PostgreSQL login arrives as SQLSTATE 08006 with the reason in the text: `Installer::connectionError()` reads the text before it treats 08xxx as "server not reachable". |
+
+### Tests
+
+- `TestSql` (tests/Site/Support) translates the MySQL SQL the site tests write (`Site::value/rows/exec`) for PostgreSQL: GROUP_CONCAT, IF, IFNULL, JSON_EXTRACT/UNQUOTE/`->>`, CONCAT and `SUM` of booleans or predicates, REPLACE INTO and ON DUPLICATE KEY (the unique key is asked of the database), `visible = 1`, `0/1` literals under boolean columns in `INSERT … VALUES`, FIND_IN_SET, SHA2, UNIX_TIMESTAMP, LEFT, DAYOFWEEK, TIME, `INSERT IGNORE`. It is a mini-translator for what the tests use, not a general one; what it cannot translate is written portable in the test or branches on `TestDatabase::isPostgres()` with a comment.
+- The test connection of the harness uses `PgStatement` too, so booleans read 1/0 on both engines. The template database name includes the engine (the marker file in the temp folder is shared by both servers).
+- `tests/Site/PagesNews/SearchParityTest` asks the site search and the administration search box the same words (accents, case, prefixes, a word inside a title) and expects the same results on both engines; `tests/Site/SiteMoveSecurity/BackupRoundTripTest` writes and restores a backup with values that look like SQL.
+- `tests/Integration/DialectTest` executes every helper (upsert with expressions, insertIgnoreSelect, catalogue, listPosition, booleans, emptyTables + syncSequences) on the engine the suite runs against.
+
+## 5. Differences between the engines that the conversion met
+
+- Booleans: `boolean = integer` is an error in PostgreSQL; fetched as `bool`. `SUM(boolean)` and `MAX(boolean)` do not exist; `COALESCE(boolean, 0)` does not type-check.
+- `ON CONFLICT … DO UPDATE` needs the conflict target (the unique key) and an unambiguous column reference on the right side; MySQL's `VALUES(col)` is `EXCLUDED.col`.
+- `string_agg(DISTINCT x, ',' ORDER BY y)` wants `y` to be `x`. `GROUP_CONCAT` has no PostgreSQL function of that name.
+- `UPDATE` row counts (changed vs matched): every `rowCount()` of the product sits behind a `WHERE` that makes a matched row a changed row (checked one by one).
+- `CONCAT(…)` skips NULL on PostgreSQL and returns NULL on MySQL: none of the product's uses has a nullable argument where it matters.
+- A failed statement aborts a PostgreSQL transaction (MySQL carries on): code that catches an exception inside `Db::transaction()` and continues would break; none was found by the suites.
+- Double-quoted text is an identifier in PostgreSQL (`CONCAT(a, ":", b)`): fixed in `Core\Report`.
+- `char(n)` padding (above); NULL ordering (above); unsigned columns do not exist; index names are schema-wide; `SUM(int)` is an integer on PostgreSQL and a decimal string on MySQL: tests that compare to a string cast.
+- InnoDB's full-text index has a stopword list and a 3-letter minimum, PostgreSQL's `simple` configuration has neither: a search for a stopword ("with") finds rows on PostgreSQL and nothing on MySQL. Search already ignores words under three letters; the stopwords are the only visible difference.
+
+## 6. What is left
+
+- Documentation: README, docs/DEPLOYMENT.md and the installer screenshots (step 9 of the original plan).
+- `Backup` on PostgreSQL is data only: restoring into a database at another migration level fails on the first insert (an error, the transaction rolls back). A `pg_dump`-based backup is not planned: the application must not need the client tools on shared hosting.
+- Add-on SQL (`{pk}` is portable, the rest of an add-on's migration is the author's) and `Dialect::interval()` users are the only places that depend on the author using portable SQL; `docs/EXTENSIONS.md` says so.

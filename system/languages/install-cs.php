@@ -2981,4 +2981,6 @@ return [
     'Always-on core: Pages, Collections, Media, Site appearance, Site parts, Menu, Components, Users and Settings.' => 'Vždy zapnuté jádro: Stránky, Kolekce, Média, Vzhled webu, Části webu, Menu, Komponenty, Uživatelé a Nastavení.',
     'Database type' => 'Typ databáze',
     'The PHP extension for this database type is missing (pdo_mysql or pdo_pgsql).' => 'Pro tento typ databáze chybí rozšíření PHP (pdo_mysql nebo pdo_pgsql).',
+    'Official notice board' => 'Úřední deska',
+    'The official notice board preset for municipalities and other offices: notices with posting and takedown dates, a permanent archive and an append-only audit trail (the list_notice_log tool). Applying the Municipality blueprint turns it on. Switching it off hides it but never deletes notices or their log.' => 'Předvolba úřední desky pro obce a další úřady: oznámení s daty vyvěšení a sejmutí, trvalý archiv a protokol změn, do kterého se jen přidává (nástroj list_notice_log). Zapne se použitím vzoru Obec. Po vypnutí se skryje, ale oznámení ani jejich protokol se nikdy nesmažou.',
 ];

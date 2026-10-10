@@ -109,7 +109,7 @@ trait SettingsTools
             }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Talea\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
-                && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = 1 AND deleted_at IS NULL', [(int) $clean]) === null) {
+                && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = TRUE AND deleted_at IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Only a visible page can be the home page.';
                 continue;
             }

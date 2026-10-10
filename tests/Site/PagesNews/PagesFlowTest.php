@@ -230,7 +230,7 @@ final class PagesFlowTest extends SiteTestCase
         $inner = (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Bundle inner'");
 
         $this->assertSame('1/0', (string) $site->value("SELECT CONCAT(css LIKE '%color: red%', '/', css LIKE '%behavior%') FROM tl_classes WHERE name = 'bundle-karta'"), 'page import creates the missing class (cleaned)');
-        $this->assertSame('1:{}:color: blue', (string) $site->value("SELECT CONCAT(COUNT(*), ':', style, ':', css) FROM tl_classes WHERE name = 'bundle-own'"), "page import keeps the site's own class");
+        $this->assertSame('1:{}:color: blue', (string) $site->value("SELECT CONCAT(COUNT(*), ':', MAX(style), ':', MAX(css)) FROM tl_classes WHERE name = 'bundle-own'"), "page import keeps the site's own class");
         $this->assertSame('1/1', (string) $site->value("SELECT CONCAT((SELECT build LIKE ? FROM tl_components WHERE component_id = ?), '/', build_draft LIKE ?) FROM tl_pages WHERE title = 'Bundle'",
             ['%"component":"' . $inner . '"%', self::$outer, '%"component":"' . self::$outer . '"%']), 'page import creates both components and points the uses at them');
 

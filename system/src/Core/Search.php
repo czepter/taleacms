@@ -80,11 +80,9 @@ final class Search
         return array_slice($results, 0, $limit);
     }
 
-    /** Query for MATCH … AGAINST in BOOLEAN mode: all words of 3 or more characters with any ending. */
-    public static function query(string $q): string
+    /** The words of a full-text query: normalised, 3 or more characters, at most 8; every one is a prefix and all are required (Dialect::fulltextQuery()). @return list<string> */
+    public static function words(string $q): array
     {
-        $words = array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 3);
-
-        return implode(' ', array_map(fn (string $s): string => '+' . $s . '*', array_slice($words, 0, 8)));
+        return array_slice(array_values(array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 3)), 0, 8);
     }
 }

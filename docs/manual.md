@@ -8,7 +8,7 @@ For whoever runs the site: from installation through the page builder to connect
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
-   the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings starts switched off.
+   the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings starts switched off. The **Official notice board** (posting and takedown dates, permanent archive, audit trail) also starts switched off; applying the Municipality blueprint turns it on, other organisations switch it on in Features. Switching it off hides it but never deletes notices or their log.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
 5. The installer is in English, Czech and German. When it finishes, it shows the address for connecting Claude and
    a first prompt to try.
@@ -68,6 +68,15 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   **back-to-top button** and **newsletter sign-up**. Sections support a **background video**, videos a **poster**,
   navigation a **mega menu** and background images **parallax**.
 
+- **Gallery:** add photos to the list and/or pick a **Media folder** – its photos are added after the list and the page follows the
+  folder (new uploads appear, removed ones disappear). **Layout:** *grid* (default, columns from Style → Columns), *masonry* (columns of
+  photos in their natural shape), *justified rows* (every row fills the width at an even height), *slideshow* (one large photo with arrows,
+  swipe and keyboard scrolling) or *grid, opens in full screen* (the viewer asks the browser for real full screen). A click, Enter or Space
+  on a photo opens the viewer: arrows or swipe move, **Esc** closes it and the focus returns to the photo. Photos load lazily and keep their
+  space (width and height come from Media), so the page does not jump. Give the gallery a **name for screen readers** and a description of every
+  photo; the builder check and the Site audit flag a gallery without them. Claude sets the same fields (`layout`, `folder`, `label`) on the
+  `gallery` element with `save_build` / `edit_build`.
+
 - **Structured data:** the **Structured data** element (Advanced) puts markup for search engines into the page – a product,
   an event, a recipe, a job, an FAQ and about 30 other schema.org types. It shows nothing to visitors; on the canvas it is a
   dashed badge. Choose a type (the search field filters the list), fill in the form – required properties are marked with *,
@@ -99,6 +108,12 @@ The page has tabs:
   choice is remembered in the visitor's browser.
 - **Fonts and sizes** – heading and text fonts (also your own WOFF2 files), base font on phones and monitors, heading ratio,
   content width, and the **typography styles** (Main title, Section heading, Lead…) you pick for elements in the builder.
+  The pickers list system fonts (nothing to download) and a **font library** of 28 open-source families – sans-serif, serif,
+  display, monospace and handwriting – with a sample under each picker and **suggested pairs** with a "use this pair" button.
+  The fonts live on your own server: visitors contact no font host, no consent is needed, and the site loads only the one or two
+  families you chose (the files for text and headings are preloaded). Latin and Latin-extended: English, German, Czech and
+  Polish letters all render in the chosen font. Over Claude, `update_design_system` takes the family name, e.g.
+  `{"font_heading": "Playfair Display", "font_body": "Source Sans 3"}`. Your own WOFF2 files keep working next to the library.
 - **Shapes** – corner radius for buttons, cards, images and form fields.
 - **Logo and icon**.
 - **Import and export** – download and load the look in the W3C Design Tokens format (DTCG) for Figma or Tokens Studio.

@@ -237,7 +237,7 @@ final class Form extends Element
             $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('variant'), 0, 100), 'q' => max(1, min(9999, $r->getInt('quantity', 1)))];
             $lines = \Talea\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
             if ($lines !== null && $lines !== []) {
-                $line['n'] = (string) $k->app->db()->value('SELECT p.name FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.slug = ? AND p.visible = 1 LIMIT 1', [$m[1], $m[2]]);
+                $line['n'] = (string) $k->app->db()->value('SELECT p.name FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.slug = ? AND p.visible = TRUE LIMIT 1', [$m[1], $m[2]]);
                 $prefill = (string) json_encode([$line], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 $list = '<li>' . e($lines[0]) . '</li>';
             }

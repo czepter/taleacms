@@ -51,7 +51,7 @@ final class Hours
     public static function exceptions(Db $db, bool $pastToo = false): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 0' . ($pastToo ? '' : ' AND date_to >= CURDATE()') . ' ORDER BY date_from, id LIMIT 200');
+            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = FALSE' . ($pastToo ? '' : ' AND date_to >= CURRENT_DATE') . ' ORDER BY date_from, id LIMIT 200');
         } catch (\Throwable) {
             return []; // before the 2.10 migration
         }
@@ -68,7 +68,7 @@ final class Hours
     public static function find(Db $db, int $id, bool $proposed = false): ?array
     {
         try {
-            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ? AND proposed = ' . ($proposed ? 1 : 0), [$id]) : null;
+            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ? AND proposed = ' . ($proposed ? 'TRUE' : 'FALSE'), [$id]) : null;
         } catch (\Throwable) {
             return null; // before the 2.10 migration
         }
@@ -84,7 +84,7 @@ final class Hours
     public static function proposed(Db $db): array
     {
         try {
-            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 1 AND date_to >= CURDATE() ORDER BY date_from, id LIMIT 200'));
+            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = TRUE AND date_to >= CURRENT_DATE ORDER BY date_from, id LIMIT 200'));
         } catch (\Throwable) {
             return []; // before the 3.2 migration
         }

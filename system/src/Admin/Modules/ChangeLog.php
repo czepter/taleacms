@@ -42,7 +42,7 @@ final class ChangeLog extends Module
             $params[] = $whereParts;
         }
         if ($search !== '') {
-            $conditions[] = 'description LIKE ?';
+            $conditions[] = $this->db->dialect()->likeInsensitive('description');
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
@@ -52,7 +52,7 @@ final class ChangeLog extends Module
 
         return $this->view('list', 'Change log', [
             'records' => $this->db->all('SELECT * FROM {change_log}' . $sql . ' ORDER BY log_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'users' => $this->db->pairs("SELECT public_id, IF(name = '', username, name) FROM {users} ORDER BY 2"),
+            'users' => $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} ORDER BY 2"),
             'modules' => array_column($this->db->all('SELECT DISTINCT module FROM {change_log} ORDER BY module'), 'module'),
             'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);

@@ -54,11 +54,16 @@ final class MySql extends Dialect
 
     public function upsert(string $table, array $columns, array $keys, array $update): string
     {
-        $sets = array_map(fn (string $c): string => $this->quote($c) . ' = new_row.' . $this->quote($c), $update);
+        $sets = $this->assignments($table, $update, fn (string $c): string => 'new_row.' . $this->quote($c));
         $own = '{' . $this->identifier($table) . '}.' . $this->quote($keys[0]);
         $sets = $sets === [] ? [$own . ' = ' . $own] : $sets; // nothing to update: keep the row
 
         return sprintf('INSERT INTO {%s} (%s) VALUES (%s) AS new_row ON DUPLICATE KEY UPDATE %s', $this->identifier($table), $this->quoteAll($columns), implode(', ', array_fill(0, count($columns), '?')), implode(', ', $sets));
+    }
+
+    public function insertIgnoreSelect(string $table, array $columns, string $select): string
+    {
+        return sprintf('INSERT IGNORE INTO {%s} (%s) %s', $this->identifier($table), $this->quoteAll($columns), $select);
     }
 
     public function insertIgnore(string $table, array $columns): string
@@ -117,6 +122,80 @@ final class MySql extends Dialect
     public function tableExistsSql(): string
     {
         return 'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?';
+    }
+
+    public function autoKeyColumn(): string
+    {
+        return 'BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY';
+    }
+
+    public function columnsSql(): string
+    {
+        return 'SELECT column_name AS name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position';
+    }
+
+    public function uniqueKeysSql(): string
+    {
+        return "SELECT index_name AS key_name, column_name AS column_name, (index_name = 'PRIMARY') AS is_primary FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND non_unique = 0 ORDER BY index_name, seq_in_index";
+    }
+
+    public function sizeSql(): string
+    {
+        return 'SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?';
+    }
+
+    public function emptyTablesSql(array $tables): array
+    {
+        return ['SET FOREIGN_KEY_CHECKS = 0', ...array_map(fn (string $t): string => 'DELETE FROM {' . $this->identifier($t) . '}', $tables), 'SET FOREIGN_KEY_CHECKS = 1'];
+    }
+
+    public function dumpTables(PDO $pdo, string $prefix): array
+    {
+        $stmt = $pdo->prepare('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name');
+        $stmt->execute([addcslashes($prefix, '_%') . '%']);
+
+        return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    public function dumpPrologue(array $tables): string
+    {
+        return "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n";
+    }
+
+    public function dumpEpilogue(): string
+    {
+        return "SET FOREIGN_KEY_CHECKS = 1;\n";
+    }
+
+    public function dumpStructure(PDO $pdo, string $table): string
+    {
+        $create = $pdo->query('SHOW CREATE TABLE ' . $this->quote($table))->fetch(PDO::FETCH_NUM)[1];
+
+        return 'DROP TABLE IF EXISTS ' . $this->quote($table) . ";\n{$create};\n\n";
+    }
+
+    public function dumpInsert(string $table, array $columns): string
+    {
+        return 'INSERT INTO ' . $this->quote($table) . " VALUES\n";
+    }
+
+    public function dumpBooleanColumns(PDO $pdo, string $table): array
+    {
+        return [];
+    }
+
+    public function dumpLiteral(PDO $pdo, string $value): string
+    {
+        return $pdo->quote($value); // MySQL escapes line breaks itself
+    }
+
+    public function restoreBegin(PDO $pdo): void
+    {
+    }
+
+    public function restoreEnd(PDO $pdo, bool $failed): void
+    {
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
 
     public function currentDatabaseSql(): string

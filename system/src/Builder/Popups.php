@@ -131,7 +131,7 @@ final class Popups
     public static function forPage(Db $db, array $whereParts): array
     {
         return array_values(array_filter(
-            array_map(self::prepare(...), $db->all('SELECT * FROM {popups} WHERE active = 1 AND build IS NOT NULL ORDER BY sort_order, name')),
+            array_map(self::prepare(...), $db->all('SELECT * FROM {popups} WHERE active = TRUE AND build IS NOT NULL ORDER BY sort_order, name')),
             fn (array $p): bool => self::matches($p['rules'], $whereParts),
         ));
     }

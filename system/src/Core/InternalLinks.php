@@ -67,19 +67,19 @@ final class InternalLinks
                 $linked[$path] = true;
             }
         };
-        foreach ($db->all('SELECT slug, language, in_menu, text, build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL') as $p) {
+        foreach ($db->all('SELECT slug, language, in_menu, text, build FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL') as $p) {
             $take((string) ($p['build'] ?? $p['text']));
             if ($p['in_menu']) {
                 $linked[$prefix((string) $p['language']) . $p['slug']] = true; // the automatic navigation and the footer list it
             }
         }
-        foreach ($db->all('SELECT build FROM {site_parts} WHERE build IS NOT NULL UNION ALL SELECT build FROM {components} WHERE build IS NOT NULL UNION ALL SELECT build FROM {popups} WHERE build IS NOT NULL AND active = 1 UNION ALL SELECT build FROM {collections} WHERE build IS NOT NULL AND detail = 1') as $c) {
+        foreach ($db->all('SELECT build FROM {site_parts} WHERE build IS NOT NULL UNION ALL SELECT build FROM {components} WHERE build IS NOT NULL UNION ALL SELECT build FROM {popups} WHERE build IS NOT NULL AND active = TRUE UNION ALL SELECT build FROM {collections} WHERE build IS NOT NULL AND detail = TRUE') as $c) {
             $take((string) $c['build']);
         }
-        foreach ($db->all('SELECT intro, text FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL LIMIT 2000') as $c) {
+        foreach ($db->all('SELECT intro, text FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL LIMIT 2000') as $c) {
             $take($c['intro'] . ' ' . $c['text']);
         }
-        foreach ($db->all('SELECT data FROM {collection_items} WHERE visible = 1 AND deleted_at IS NULL LIMIT 5000') as $p) {
+        foreach ($db->all('SELECT data FROM {collection_items} WHERE visible = TRUE AND deleted_at IS NULL LIMIT 5000') as $p) {
             $take((string) $p['data']);
         }
         $pageIds = [];
@@ -112,7 +112,7 @@ final class InternalLinks
         $newsListed = $newsListed || str_contains($builds, '"type":"news_list"') || isset($linked['news']) || isset($linked[Routes::publicPath('news', $db)]);
 
         $out = [];
-        foreach ($db->all('SELECT page_id, title, slug, language, build IS NOT NULL AS build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND page_id <> ? ORDER BY sort_order, title', [$home]) as $p) {
+        foreach ($db->all('SELECT page_id, title, slug, language, build IS NOT NULL AS build FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND page_id <> ? ORDER BY sort_order, title', [$home]) as $p) {
             $path = $prefix((string) $p['language']) . $p['slug'];
             if (!isset($linked[$path])) {
                 $out[] = ['kind' => 'page', 'id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . $db->publicId('pages', (int) $p['page_id']), 'target' => ['page' => (int) $p['page_id']]];
@@ -120,14 +120,14 @@ final class InternalLinks
         }
         if (!$newsListed && Extensions::isEnabled($s, 'news')) {
             $base = strlen($app->request->basePath());
-            foreach ($db->all('SELECT news_id, title, slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 1000') as $c) {
+            foreach ($db->all('SELECT news_id, title, slug, language FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 1000') as $c) {
                 $path = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
                 if (!isset($linked[$path])) {
                     $out[] = ['kind' => 'news', 'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . $db->publicId('news', (int) $c['news_id']), 'target' => ['news' => (int) $c['news_id']]];
                 }
             }
         }
-        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
             $path = $prefix((string) $p['language']) . $p['collection'] . '/' . $p['slug'];
             if (!isset($listedCollections[(string) $p['collection']]) && !isset($linked[$path])) {
                 $out[] = ['kind' => 'item', 'id' => (int) $p['item_id'], 'title' => (string) $p['name'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . $db->publicId('collections', (int) $p['collection_id']) . '&item=' . $db->publicId('collection_items', (int) $p['item_id']), 'target' => ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]];
@@ -152,7 +152,7 @@ final class InternalLinks
         $home = (int) $app->settings()->get('home_page');
         $additional = Language::additional($app->settings());
         $sources = [];
-        foreach ($app->db()->all('SELECT page_id, title, slug, language, text, build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL LIMIT 1000') as $p) {
+        foreach ($app->db()->all('SELECT page_id, title, slug, language, text, build FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL LIMIT 1000') as $p) {
             $build = Build::fromJson(is_string($p['build']) ? $p['build'] : null);
             $text = $p['title'] . ' ' . strip_tags($build !== null ? Build::asText($build) : (string) $p['text']);
             $sources[] = ['id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => (int) $p['page_id'] === $home ? '' : (in_array((string) $p['language'], $additional, true) ? $p['language'] . '/' : '') . $p['slug'],

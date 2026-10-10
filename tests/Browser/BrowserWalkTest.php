@@ -56,6 +56,22 @@ final class BrowserWalkTest extends TestCase
                 'children' => [['id' => 'bk1', 'type' => 'booking', 'tag' => 'form', 'content' => ['service' => 0, 'staff_member' => 0, 'button_text' => 'Book', 'thank_you' => 'Thank you.', 'consent' => 'I agree.']]]]]];
             $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('booking-test', 'Booking test', '', 0, ?)", [json_encode($build)]);
 
+            // a page with galleries in several layouts (/gallery-test): real small photos in Media, so width and height are known
+            @mkdir($site->path('media/2026/05'), 0775, true);
+            $photos = [['gt-a', 400, 300], ['gt-b', 300, 400], ['gt-c', 500, 300], ['gt-d', 300, 300]];
+            $photoList = [];
+            foreach ($photos as [$name, $w, $h]) {
+                $image = imagecreatetruecolor($w, $h);
+                imagejpeg($image, $site->path("media/2026/05/$name.jpg"));
+                $site->exec("INSERT INTO tl_media (image_path, thumb_path, name, image_width, image_height, created_at) VALUES (?, '', ?, ?, ?, NOW())", ["media/2026/05/$name.jpg", "Photo $name", $w, $h]);
+                $photoList[] = ['src' => "media/2026/05/$name.jpg", 'alt' => "Photo $name"];
+            }
+            $gallery = fn (string $id, string $layout): array => ['id' => $id, 'type' => 'gallery', 'tag' => 'div', 'content' => ['photos' => $photoList, 'layout' => $layout, 'label' => "Gallery $layout", 'ratio' => '4 / 3', 'caption' => '', 'folder' => '']];
+            $build = ['v' => 1, 'children' => [['id' => 's2', 'type' => 'section', 'tag' => 'section',
+                'content' => ['width' => 'content', 'background_video' => '', 'on_scroll' => '', 'text_at_top' => ''],
+                'children' => [$gallery('gj', 'justified'), $gallery('gs', 'slideshow'), $gallery('gf', 'fullscreen')]]]];
+            $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('gallery-test', 'Gallery test', '', 0, ?)", [json_encode($build)]);
+
             $project = dirname(__DIR__, 2);
             $process = proc_open(['node', $project . '/tools/test-browser.mjs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $project,
                 array_merge(getenv(), ['BASE' => $site->base, 'PASSWORD' => $site->password, 'CHROME' => $chrome, 'NODE_PATH' => $modules . '/node_modules']));

@@ -59,7 +59,8 @@ final class TestDatabase
         $s = self::server();
         $dsn = self::isPostgres() ? "pgsql:host={$s['host']};port={$s['port']};dbname={$database}" : "mysql:host={$s['host']};port={$s['port']};dbname={$database};charset=utf8mb4";
 
-        return new PDO($dsn, $s['username'], $s['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+        // PostgreSQL: a boolean column comes back as 1 or 0 like MySQL's TINYINT(1), as it does in the application (Core\PgStatement)
+        return new PDO($dsn, $s['username'], $s['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC] + (self::isPostgres() ? [PDO::ATTR_STATEMENT_CLASS => [\Talea\Core\PgStatement::class]] : []));
     }
 
     /** A new empty database; $template (PostgreSQL only) = clone of an existing one, the native and fast way of copying a whole database. */

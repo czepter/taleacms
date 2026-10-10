@@ -48,16 +48,16 @@ final class RedirectMatcher
         $additional = Language::additional($s);
         $prefix = fn (string $language): string => in_array($language, $additional, true) ? $language . '/' : '';
         $out = [];
-        foreach ($db->all('SELECT slug, language FROM {pages} WHERE visible = 1 AND deleted_at IS NULL LIMIT 3000') as $p) {
+        foreach ($db->all('SELECT slug, language FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL LIMIT 3000') as $p) {
             $out[] = $prefix((string) $p['language']) . $p['slug'];
         }
         if (Extensions::isEnabled($s, 'news')) {
             $base = strlen($app->request->basePath());
-            foreach ($db->all('SELECT slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 3000') as $c) {
+            foreach ($db->all('SELECT slug, language FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 3000') as $c) {
                 $out[] = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
             }
         }
-        foreach ($db->all('SELECT p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL LIMIT 5000') as $p) {
+        foreach ($db->all('SELECT p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.deleted_at IS NULL LIMIT 5000') as $p) {
             $out[] = $prefix((string) $p['language']) . $p['collection'] . '/' . $p['slug'];
         }
 

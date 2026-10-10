@@ -58,6 +58,6 @@ trait HealthTools
         $events = Events::since($db, $since, $types, $limit, $severity);
 
         return ['events' => $events, 'next_since_id' => $events !== [] ? end($events)['id'] : $since, 'more' => count($events) === $limit,
-            'types' => array_keys(Events::TYPES)];
+            'types' => array_keys(Events::types())];
     }
 }

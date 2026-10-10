@@ -1,5 +1,9 @@
 {
-    "version": 1,
+    "version": 2,
+    "supported": [
+        1,
+        2
+    ],
     "methods": {
         "adminPage": [
             "string $name",
@@ -7,6 +11,14 @@
             "callable $render"
         ],
         "app": [],
+        "earlyRequest": [
+            "callable $hook"
+        ],
+        "eventType": [
+            "string $type",
+            "string $description",
+            "bool $alert"
+        ],
         "filter": [
             "string $name",
             "callable $filter"
@@ -15,11 +27,23 @@
             "string $key",
             "string $default"
         ],
+        "handoverFindings": [
+            "callable $findings"
+        ],
+        "healthRows": [
+            "callable $rows"
+        ],
+        "httpGet": [
+            "string $url",
+            "int $timeout",
+            "int $maxBytes"
+        ],
         "job": [
             "string $name",
             "int $interval",
             "string $label",
-            "callable $run"
+            "callable $run",
+            "string $runner"
         ],
         "mcpTool": [
             "string $name",
@@ -37,11 +61,24 @@
             "string $key",
             "string $value"
         ],
+        "settings": [
+            "array $schema",
+            "string $title",
+            "?callable $extra"
+        ],
         "token": [
             "string $name",
             "callable $render"
         ]
     },
+    "v2_methods": [
+        "earlyRequest",
+        "eventType",
+        "handoverFindings",
+        "healthRows",
+        "httpGet",
+        "settings"
+    ],
     "filters": [
         "head",
         "footer",
@@ -52,5 +89,15 @@
         "draft",
         "write",
         "destructive"
+    ],
+    "runners": [
+        "any",
+        "cron"
+    ],
+    "capabilities": [
+        "early_request",
+        "tables",
+        "outgoing_requests",
+        "mail"
     ]
 }

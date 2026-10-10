@@ -146,7 +146,7 @@ final class SiteExport
         self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
         self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
-        self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() AND proposed = 0 ORDER BY date_from'));
+        self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURRENT_DATE AND proposed = FALSE ORDER BY date_from'));
         // online booking (3.0, Core\Booking): the set-up goes along – the bookings themselves are personal data and stay
         self::fields($f, 'booking_services', $all('booking_services', 'SELECT id, public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order FROM {booking_services} ORDER BY id'));
         self::fields($f, 'booking_staff', $all('booking_staff', 'SELECT id, public_id, name, email, active, sort_order FROM {booking_staff} ORDER BY id'));
@@ -157,7 +157,7 @@ final class SiteExport
         // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
         self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
-        self::fields($f, 'notice_log', $one('notice_log', 'SELECT id, item_id, action, `at`, `by`, fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
+        self::fields($f, 'notice_log', $one('notice_log', 'SELECT id, item_id, action, ' . $db->dialect()->quote('at') . ', ' . $db->dialect()->quote('by') . ', fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         // deliberately not here: the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along);
         // nor the scheduled Claude runs (2.17, Core\AgentSchedules) – a routine in Claude is set up per site and the run history belongs to it
         fwrite($f, "}\n");

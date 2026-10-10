@@ -213,7 +213,7 @@ final class Calendar
             || preg_match('#/' . preg_quote((string) $collection['slug'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $back, $m) !== 1) {
             return null;
         }
-        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [$idk, $m[1]]);
+        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$idk, $m[1]]);
         if ($item === null) {
             return null;
         }
@@ -236,7 +236,7 @@ final class Calendar
             if ($fields === null || $fields['repeat'] === '') {
                 continue;
             }
-            foreach ($db->all("SELECT item_id, name, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['repeat'] . "')) <> ''", [(int) $collection['collection_id']]) as $r) {
+            foreach ($db->all("SELECT item_id, name, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL AND " . $db->dialect()->jsonExtract('data', '$.' . $fields['repeat']) . " <> ''", [(int) $collection['collection_id']]) as $r) {
                 $data = json_decode((string) $r['data'], true) ?: [];
                 $get = fn (string $role): string => $fields[$role] !== '' ? (string) ($data[$fields[$role]] ?? '') : '';
                 $next = self::nextOccurrence($get('start'), $get('end'), $get('repeat'), $get('repeat_until'), $now);

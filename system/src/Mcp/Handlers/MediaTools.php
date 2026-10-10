@@ -33,7 +33,7 @@ trait MediaTools
         $search = is_string($a['search'] ?? null) && trim($a['search']) !== '' ? '%' . addcslashes(trim($a['search']), '%_\\') . '%' : null;
 
         return array_map(fn (array $o): array => $this->medium($o),
-            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE name LIKE ? OR image_path LIKE ?' : '') . ' ORDER BY media_id DESC LIMIT ?',
+            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE ' . $db->dialect()->likeInsensitive('name') . ' OR ' . $db->dialect()->likeInsensitive('image_path') : '') . ' ORDER BY media_id DESC LIMIT ?',
                 [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
     }
 

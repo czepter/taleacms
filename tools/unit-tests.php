@@ -42,9 +42,9 @@ check('date: Czech format', Talea\Core\Language::runWith('cs', fn () => format_d
 
 /* ---------- search ---------- */
 check('Search::normalize', Search::normalize('<p>Nábřeží&nbsp;<b>Vltavy</b></p><h2>Proměna!</h2>'), 'nabrezi vltavy promena'); // check-english: allow
-check('Search::query: short words drop out', Search::query('co je na Nábřeží'), '+nabrezi*'); // check-english: allow
-check('Search::query: fulltext operators do not take effect', Search::query('+tajne -verejne "fraze" (x) ~y*'), '+tajne* +verejne* +fraze*');
-check('Search::query: at most 8 words', substr_count(Search::query('aaa bbb ccc ddd eee fff ggg hhh iii jjj'), '+'), 8);
+check('Search::words: short words drop out', Search::words('co je na Nábřeží'), ['nabrezi']); // check-english: allow
+check('Search::words: fulltext operators do not take effect', Search::words('+tajne -verejne "fraze" (x) ~y*'), ['tajne', 'verejne', 'fraze']);
+check('Search::words: at most 8 words', count(Search::words('aaa bbb ccc ddd eee fff ggg hhh iii jjj')), 8);
 
 /* ---------- TOTP (RFC 6238, secret "12345678901234567890") ---------- */
 $totpSeed = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -201,7 +201,7 @@ $builderParity = [
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates',
-    'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
+    'test_mail' => 'admin: mail server settings', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
     'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception', 'hours_sign' => $readOnly,
@@ -257,7 +257,7 @@ $parity = [
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions'],
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
-    'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'page' => 'admin: pages add-ons add to the administration'],
+    'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'uninstall' => 'admin: removing an add-on and its data is the administrator’s decision (API 2)', 'page' => 'admin: pages add-ons add to the administration'],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found',
         'settings' => 'update_settings'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
@@ -1874,60 +1874,8 @@ check('2.9: attention – what is wrong with a site, weighted', [
 $fleetClean = Talea\Fleet\Console::clean(['version' => '2.9.0', 'name' => str_repeat('x', 400), 'secret' => 'drop me', 'problems' => [['check' => 'Mail', 'status' => 'warning', 'detail' => ['deep' => ['deeper' => ['deepest' => 1]]]]], 'visits_7_days' => 12.7]);
 check('2.9: a heartbeat keeps only the known keys with sane values', [isset($fleetClean['secret']), mb_strlen($fleetClean['name']), $fleetClean['version'], $fleetClean['visits_7_days'], $fleetClean['problems'][0]['check']],
     [false, 255, '2.9.0', 12, 'Mail']);
-/* ---------- 2.8: domain and mail watch (Core\DomainWatch) – no network, the lookups are fixtures ---------- */
-$watchClass = Talea\Core\DomainWatch::class;
-check('DomainWatch: registrable domain – www., subdomains and two-level suffixes', array_map($watchClass::registrableDomain(...), ['www.example.cz', 'shop.firma.example.co.uk', 'Example.COM', 'www.example.com.au', 'example.cz.']), ['example.cz', 'example.co.uk', 'example.com', 'example.com.au', 'example.cz']);
-check('DomainWatch: a public host is not an IP, localhost or a development suffix', array_map($watchClass::isPublicHost(...), ['www.example.cz', '127.0.0.1', 'localhost', 'web.test', 'talea.localhost', '::1', '']), [true, false, false, false, false, false, false]);
-check('DomainWatch: SPF covers the SMTP server – include of a known provider, a/mx in the own domain, redirect', [
-    $watchClass::spfCovers('v=spf1 include:_spf.google.com ~all', 'example.cz', 'smtp.gmail.com'),
-    $watchClass::spfCovers('v=spf1 include:_spf.google.com ~all', 'example.cz', 'smtp.seznam.cz'),
-    $watchClass::spfCovers('v=spf1 a mx -all', 'example.cz', 'mail.example.cz'),
-    $watchClass::spfCovers('v=spf1 a mx -all', 'example.cz', 'smtp.seznam.cz'),
-    $watchClass::spfCovers('v=spf1 redirect=_spf.seznam.cz', 'example.cz', 'smtp.seznam.cz'),
-    $watchClass::spfCovers('v=spf1 ip4:93.184.216.34 -all', 'example.cz', 'smtp.seznam.cz'),
-    $watchClass::spfCovers('google-site-verification=abc', 'example.cz', 'smtp.seznam.cz'),
-], [true, false, true, false, true, null, null]);
-check('DomainWatch: suggested SPF – provider include, own server, mail() from the web server', [
-    $watchClass::suggestedSpf('example.cz', 'smtp.gmail.com', 'www.example.cz'), $watchClass::suggestedSpf('example.cz', 'mail.example.cz', 'www.example.cz'),
-    $watchClass::suggestedSpf('example.cz', 'smtp.relay-xyz.io', 'www.example.cz'), $watchClass::suggestedSpf('example.cz', '', 'www.example.cz'), $watchClass::suggestedSpf('example.cz', '', 'web12.hosting.net'),
-], ['v=spf1 mx include:_spf.google.com ~all', 'v=spf1 a mx ~all', 'v=spf1 mx include:relay-xyz.io ~all', 'v=spf1 a mx ~all', 'v=spf1 mx a:hosting.net ~all']);
-check('DomainWatch: suggested DMARC and parsing', [$watchClass::suggestedDmarc('info@example.cz'), $watchClass::suggestedDmarc(''), $watchClass::parseDmarc('v=DMARC1; p=quarantine; rua=mailto:dmarc@example.cz; pct=100')],
-    ['v=DMARC1; p=none; rua=mailto:info@example.cz', 'v=DMARC1; p=none', ['p' => 'quarantine', 'rua' => 'mailto:dmarc@example.cz']]);
-$rdap = '{"objectClassName":"domain","ldhName":"example.cz","events":[{"eventAction":"registration","eventDate":"2010-05-01T10:00:00Z"},{"eventAction":"expiration","eventDate":"2027-03-14T10:00:00Z"}]}';
-check('DomainWatch: RDAP expiry – the expiration event, none, invalid JSON', [$watchClass::rdapExpiry($rdap), $watchClass::rdapExpiry('{"events":[{"eventAction":"registration","eventDate":"2010-05-01T10:00:00Z"}]}'), $watchClass::rdapExpiry('nonsense')],
-    [gmmktime(10, 0, 0, 3, 14, 2027), null, null]);
-check('DomainWatch: thresholds – 21 days warning, 7 days error, unknown ok', array_map($watchClass::level(...), [60, 21, 20, 7, 6, 0, -3, null]), ['ok', 'ok', 'warning', 'warning', 'error', 'error', 'error', 'ok']);
-$watchNow = 1_800_000_000;
-$watchDns = fn (string $name, int $type): array => match ($name) {
-    'example.cz' => [['type' => 'TXT', 'txt' => 'google-site-verification=abc'], ['type' => 'TXT', 'txt' => 'v=spf1 include:_spf.google.com ~all']],
-    '_dmarc.example.cz' => [['type' => 'TXT', 'txt' => 'v=DMARC1; p=none; rua=mailto:dmarc@example.cz']],
-    'google._domainkey.example.cz' => [['type' => 'TXT', 'txt' => 'v=DKIM1; k=rsa; p=MIGfMA0G']],
-    default => [],
-};
-$watchHttp = fn (string $url): array => $url === 'https://rdap.org/domain/example.cz' ? [200, json_encode(['events' => [['eventAction' => 'expiration', 'eventDate' => gmdate('c', $watchNow + 100 * 86400)]]])] : [404, ''];
-$watchSite = ['site_host' => 'www.example.cz', 'https' => true, 'mail_domain' => 'example.cz', 'smtp_host' => 'smtp.gmail.com', 'report_email' => 'info@example.cz'];
-$watchResult = (new $watchClass($watchDns, $watchHttp, fn (string $host): int => $watchNow + 15 * 86400))->collect($watchSite, $watchNow);
-check('DomainWatch: SPF, DMARC and DKIM found, SPF includes the SMTP server, days left', [$watchResult['mail']['spf'], $watchResult['mail']['spf_covers_smtp'], $watchResult['mail']['dmarc'] !== null, $watchResult['mail']['dkim'], $watchResult['tls']['days'], $watchResult['domain']['days'], $watchResult['domain']['name']],
-    ['v=spf1 include:_spf.google.com ~all', true, true, 'google', 15, 100, 'example.cz']);
-check('DomainWatch: rows – a certificate under 21 days is a warning, the rest ok', array_column($watchClass::rows($watchResult, false, $watchNow), 'status', 'name'),
-    [t('SPF record') => 'ok', t('DMARC record') => 'ok', t('DKIM signature') => 'ok', t('Certificate') => 'warning', t('Domain registration') => 'ok']);
-check('DomainWatch: handover lists only the certificate here', array_column($watchClass::handoverFindings($watchResult), 'key'), ['certificate']);
-$watchBare = (new $watchClass(fn (): array => [], fn (): array => [404, ''], fn (): int => throw new RuntimeException('refused')))->collect(['site_host' => 'www.example.cz', 'https' => true, 'mail_domain' => 'example.cz', 'smtp_host' => ''], $watchNow);
-check('DomainWatch: nothing in DNS – SPF and DMARC missing, DKIM not found, registry without RDAP is unknown, certificate error', [$watchBare['mail']['spf'], $watchBare['mail']['dmarc'], $watchBare['mail']['dkim'], $watchBare['domain']['expires'], $watchBare['domain']['error'], $watchBare['tls']['error']], [null, null, null, null, null, 'refused']);
-check('DomainWatch: rows suggest the records to add; DKIM not found is a note, not a warning', [
-    str_contains($watchClass::rows($watchBare, false, $watchNow)[0]['info'], 'v=spf1 a mx ~all'), str_contains($watchClass::rows($watchBare, false, $watchNow)[1]['info'], '_dmarc.example.cz'),
-    array_column($watchClass::rows($watchBare, false, $watchNow), 'status'),
-], [true, true, ['warning', 'warning', 'ok', 'warning', 'ok']]);
-check('DomainWatch: handover lists the certain problems only (not DKIM, not an unknown registry)', array_column($watchClass::handoverFindings($watchBare), 'key'), ['spf', 'dmarc']);
-$watchExpired = (new $watchClass($watchDns, fn (string $url): array => [200, json_encode(['events' => [['eventAction' => 'expiration', 'eventDate' => gmdate('c', $watchNow - 86400)]]])], fn (string $host): int => $watchNow - 3 * 86400))->collect($watchSite, $watchNow);
-check('DomainWatch: an expired certificate and domain are errors and handover findings', [array_column($watchClass::rows($watchExpired, false, $watchNow), 'status', 'name')[t('Certificate')], array_column($watchClass::rows($watchExpired, false, $watchNow), 'status', 'name')[t('Domain registration')], array_column($watchClass::handoverFindings($watchExpired), 'key')],
-    ['error', 'error', ['certificate', 'domain']]);
-$watchFailed = (new $watchClass(fn (): false => false, $watchHttp, fn (string $host): int => $watchNow + 90 * 86400))->collect($watchSite, $watchNow);
-check('DomainWatch: a failed DNS lookup is reported, never judged', [$watchFailed['mail']['error'], array_column($watchClass::rows($watchFailed, false, $watchNow), 'status')[0], $watchClass::handoverFindings($watchFailed)], ['dns', 'warning', []]);
-$watchLocal = (new $watchClass(fn (): array => throw new RuntimeException('no network'), fn (): array => throw new RuntimeException('no network'), fn (): int => throw new RuntimeException('no network')))->collect(['site_host' => '127.0.0.1', 'https' => false, 'mail_domain' => 'example.cz', 'smtp_host' => ''], $watchNow);
-check('DomainWatch: a site on a local address makes no request and is one ok row', [$watchLocal['local'] ?? false, $watchLocal['mail'], array_column($watchClass::rows($watchLocal, false, $watchNow), 'status'), $watchClass::handoverFindings($watchLocal)], [true, null, ['ok'], []]);
-check('DomainWatch: no result yet and the public demo are one ok row each', [array_column($watchClass::rows(null, false, $watchNow), 'status'), array_column($watchClass::rows(null, true, $watchNow), 'status'), $watchClass::handoverFindings(null)], [['ok'], ['ok'], []]);
-check('DomainWatch: the cache lives in a setting, not editable, not exported', [isset(Talea\Core\Settings::DEFAULTS[$watchClass::SETTING]), Talea\Admin\Modules\Settings::verifyValue($watchClass::SETTING, 'x'), in_array($watchClass::SETTING, Talea\Core\SiteExport::SETTINGS, true)], [true, null, false]);
+/* ---------- the domain watch add-on (extensions/domain_watch, issue #28): its own tests ---------- */
+require dirname(__DIR__) . '/extensions/domain_watch/tests/unit.php';
 /* ---------- 2.8: real-user speed (Core\WebVitals) – histogram buckets, p75, Google's ratings, the audit rule ---------- */
 use Talea\Core\WebVitals;
 check('2.8: WebVitals::bucket – an edge value belongs to its bucket, the next value to the next one, above the last edge to the open bucket',
@@ -3010,6 +2958,41 @@ check('3.0 Api: unknown filters, access levels and names are refused; a tool is 
     Talea\Mcp\Catalog::access('ext_unit_greet'), Talea\Mcp\Catalog::allows('read', 'ext_unit_greet'), Talea\Mcp\Catalog::allows('full', 'ext_unit_greet')],
     [3, 'write', 'write', false, true]);
 
+/* ---------- extension API 2 (issue #27): version gate, declared settings, event and alert types, the contract ---------- */
+$api1 = new Talea\Extension\Api($reg, 'oldone', new Talea\Core\App(['db' => []], new Talea\Core\Request([], [], [])), 1);
+$gated = [];
+foreach ([fn () => $api1->healthRows(fn () => []), fn () => $api1->earlyRequest(fn () => null), fn () => $api1->job('x', 60, 'l', fn () => 'ok', 'cron'), fn () => $api1->eventType('oldone.x', 'd')] as $call) {
+    try { $call(); } catch (LogicException $e) { $gated[] = true; }
+}
+$api1->job('plain', 60, 'A job', fn () => 'ok');
+$api2 = new Talea\Extension\Api($reg, 'newone', new Talea\Core\App(['db' => []], new Talea\Core\Request([], [], [])), 2, ['early_request']);
+$api2->eventType('newone.expiring', 'Something expires.', alert: true);
+$api2->job('heavy', 60, 'Heavy', fn () => 'ok', 'cron');
+$api2Errors = [];
+foreach ([fn () => $api2->eventType('other.thing', 'd'), fn () => $api2->eventType('backup.failed', 'd'), fn () => $api2->job('x', 60, 'l', fn () => 'ok', 'sometimes'), fn () => $api2->httpGet('https://example.com/')] as $call) {
+    try { $call(); } catch (InvalidArgumentException | LogicException $e) { $api2Errors[] = get_class($e); }
+}
+check('API 2: the methods of version 2 and a runner refuse an add-on written for API 1; version 1 jobs stay "any"', [count($gated), $reg->jobs()['ext_oldone_plain'][1], Talea\Extension\Api::V2_METHODS === ['earlyRequest', 'healthRows', 'handoverFindings', 'eventType', 'settings', 'httpGet'], Talea\Extension\Api::SUPPORTED],
+    [4, 'any', true, [1, 2]]);
+check('API 2: an event type is <slug>.<name>, Talea\'s own names are taken, an unknown runner and an undeclared capability are refused; cron jobs are marked', [$api2Errors, $reg->jobs()['ext_newone_heavy'][1],
+    isset(Talea\Core\Events::types()['newone.expiring']), in_array('newone.expiring', Talea\Core\Alerts::warnings(), true), isset(Talea\Core\Events::TYPES['newone.expiring'])],
+    [['InvalidArgumentException', 'InvalidArgumentException', 'InvalidArgumentException', 'LogicException'], 'cron', true, true, false]);
+check('API 2: a warning of an add-on\'s alert type is worth an alert e-mail, one of an unknown type is not', array_column(Talea\Core\Alerts::worth([
+    ['id' => 1, 'created_at' => '', 'type' => 'newone.expiring', 'severity' => 'warning', 'message' => '', 'data' => []],
+    ['id' => 2, 'created_at' => '', 'type' => 'stranger.thing', 'severity' => 'warning', 'message' => '', 'data' => []],
+    ['id' => 3, 'created_at' => '', 'type' => 'stranger.thing', 'severity' => 'error', 'message' => '', 'data' => []]]), 'id'), [1, 3]);
+check('API 2: declared settings – types are checked, numbers are clamped, a flag is 1 or 0', [
+    Talea\Extension\SettingsSchema::sanitize('number:1:365', '9999'), Talea\Extension\SettingsSchema::sanitize('number:1:365', 'abc'), Talea\Extension\SettingsSchema::sanitize('flag', 'on'), Talea\Extension\SettingsSchema::sanitize('flag', ''),
+    Talea\Extension\SettingsSchema::sanitize('choice:a|b', 'c'), Talea\Extension\SettingsSchema::sanitize('email', 'x'), Talea\Extension\SettingsSchema::sanitize('url', 'https://example.com/a'), Talea\Extension\SettingsSchema::sanitize('text', "a\nb")],
+    ['365', null, '1', '0', null, null, 'https://example.com/a', 'a b']);
+$schemaError = false;
+try { Talea\Extension\SettingsSchema::normalize(['Bad Name' => ['label' => 'x', 'type' => 'text']]); } catch (InvalidArgumentException) { $schemaError = true; }
+try { Talea\Extension\SettingsSchema::normalize(['ok' => ['label' => 'x', 'type' => 'binary']]); $schemaError = false; } catch (InvalidArgumentException) { }
+check('API 2: a setting with a bad name or an unknown type is refused', $schemaError, true);
+$apiContract = json_decode((string) file_get_contents(__DIR__ . '/contracts/extension-api.json'), true);
+check('API 2: the contract records version 2, both supported versions, and which methods are new in 2', [$apiContract['version'], $apiContract['supported'], $apiContract['v2_methods'], $apiContract['methods']['job']],
+    [2, [1, 2], ['earlyRequest', 'eventType', 'handoverFindings', 'healthRows', 'httpGet', 'settings'], ['string $name', 'int $interval', 'string $label', 'callable $run', 'string $runner']]);
+
 /* ---------- 3.0: structured importers – the common base, Ghost and Blogger (Import\…) ---------- */
 $ghostPath = dirname(__DIR__) . '/tools/fixtures/ghost-export.json';
 $bloggerPath = dirname(__DIR__) . '/tools/fixtures/blogger-export.xml';
@@ -3271,8 +3254,8 @@ check('3.2: Waiting for you – every kind opens an admin section that exists, i
     array_values(array_filter(array_column(Talea\Core\PendingReview::KINDS, 0), fn (string $label): bool => !isset($adminCs[$label], $adminDe[$label]))),
     str_contains($migrationSource, "'proposed', 'boolean'"),
     // the site, the export and the door sign read only applied exceptions; proposals have their own list
-    (bool) preg_match("/hours_exceptions} WHERE proposed = 0/", (string) file_get_contents(TALEA_SYSTEM . '/src/Core/Hours.php')),
-    str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Core/SiteExport.php'), 'AND proposed = 0')],
+    (bool) preg_match("/hours_exceptions} WHERE proposed = FALSE/", (string) file_get_contents(TALEA_SYSTEM . '/src/Core/Hours.php')),
+    str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Core/SiteExport.php'), 'AND proposed = FALSE')],
     [[], [], true, true, true]);
 /* ---------- 3.2: feature defaults – Bookings is a feature, Statistics has one switch ---------- */
 check('3.2: Bookings is a feature that new installations start without; a site that never saved its choice does not get it', [

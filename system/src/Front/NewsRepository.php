@@ -29,7 +29,7 @@ final class NewsRepository
     private const string LIST_COLUMNS = "c.news_id, c.public_id, c.slug, c.title, c.intro, '' AS text, c.image, c.category_id, c.author_id, c.published_at, c.visible, c.keywords, c.noindex, '' AS faq, c.visit,
         c.edited_at, c.updated_at, c.language, c.translation_of";
 
-    private const string PUBLISHED = 'c.visible = 1 AND c.published_at <= NOW()';
+    private const string PUBLISHED = 'c.visible = TRUE AND c.published_at <= NOW()';
 
     /** Condition "published news item in the language of the currently shown site version". */
     private readonly string $published;
@@ -99,14 +99,15 @@ final class NewsRepository
         // index without diacritics (Core\Search): "cafe" finds "café"; short words and parts of words are searched in the title
         \Talea\Core\Search::complete($this->db); // news from before the index are filled in automatically
         $like = '%' . addcslashes($q, '%_\\') . '%';
-        $query = \Talea\Core\Search::query($q);
-        if ($query === '') {
-            return $this->query($this->published . ' AND c.title LIKE ?', [$like], 'c.published_at DESC, c.news_id DESC', $pageNumber);
+        $words = \Talea\Core\Search::words($q);
+        $dialect = $this->db->dialect();
+        if ($words === []) {
+            return $this->query($this->published . ' AND ' . $dialect->likeInsensitive('c.title'), [$like], 'c.published_at DESC, c.news_id DESC', $pageNumber);
         }
 
         return $this->query(
-            $this->published . ' AND (MATCH(c.search_text) AGAINST (? IN BOOLEAN MODE) OR c.title LIKE ?)',
-            [$query, $like],
+            $this->published . ' AND (' . $dialect->fulltextMatch(['search_text']) . ' OR ' . $dialect->likeInsensitive('c.title') . ')',
+            [$dialect->fulltextQuery($words), $like],
             'c.published_at DESC, c.news_id DESC',
             $pageNumber,
         );

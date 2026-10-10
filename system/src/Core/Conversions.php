@@ -73,7 +73,7 @@ final class Conversions
         }
         $antispam->write($request->ip(), 'conversion', 0);
         // only pages the statistics have seen (the page view is counted before anyone can click) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURRENT_DATE - INTERVAL 1 DAY', [$path]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
@@ -81,12 +81,12 @@ final class Conversions
         // is a different hash than the visitor's, so it never makes a visit "new" for Front\Stats
         $salt = $antispam->key() . $today;
         $mark = substr(hash('sha256', $salt . '|' . $request->ip() . '|' . $ua . '|' . $path . '|' . $type), 0, 32);
-        if ($db->run('INSERT IGNORE INTO {stats_visitors} (day, visitor_hash) VALUES (?, ?)', [$today, $mark])->rowCount() !== 1) {
+        if (!$db->insertIgnore('stats_visitors', ['day' => $today, 'visitor_hash' => $mark])) {
             return new Response('', 204);
         }
-        $db->run('INSERT INTO {stats_conversions} (day, path, type, count) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE count = count + 1', [$today, $path, $type]);
+        $db->upsert('stats_conversions', ['day' => $today, 'path' => $path, 'type' => $type, 'count' => 1], ['day', 'path', 'type'], ['count' => '{old.count} + 1']);
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stats_conversions} WHERE day < CURDATE() - INTERVAL ' . self::KEEP_DAYS . ' DAY');
+            $db->run('DELETE FROM {stats_conversions} WHERE day < CURRENT_DATE - INTERVAL ' . self::KEEP_DAYS . ' DAY');
         }
 
         return new Response('', 204);

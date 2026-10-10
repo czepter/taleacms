@@ -40,7 +40,7 @@ final class Health
         $add(t('Database'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
         $pending = count(Migrator::pending($db));
         $add(t('Database'), t('Database structure'), $pending === 0, $pending === 0 ? t('up to date') : t('%d migrations pending - run "php bin/migrate" on the server', $pending));
-        $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
+        $size = $db->tablesSize();
         $add(t('Database'), t('Size'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {news}')));
 
         // --- files and security
@@ -84,7 +84,7 @@ final class Health
         $add($group, t('Connections without an expiry'), $hygiene['no_expiry'] === [] ? 'ok' : 'warning',
             $hygiene['no_expiry'] === [] ? t('every personal token has an expiry date') : t('%d personal token(s) never expire – a token works until it is revoked; revoke those that are not needed, or create them again with an expiry', count($hygiene['no_expiry'])),
             array_map($connectionLink, $hygiene['no_expiry']));
-        $blocked = $db->all('SELECT user_id, username, name, auto_blocked_at FROM {users} WHERE blocked = 1 ORDER BY username');
+        $blocked = $db->all('SELECT user_id, username, name, auto_blocked_at FROM {users} WHERE blocked = TRUE ORDER BY username');
         $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'warning', $blocked === [] ? t('none') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
             $accountLinks($blocked));
         $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
@@ -168,8 +168,8 @@ final class Health
         }
         $add(t('Operation'), t('Mail delivery'), $smtp || function_exists('mail') ? 'ok' : 'warning', $smtp ? t('via SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('using the server\'s mail() function – SMTP is more reliable (Settings → Mail)') : t('the mail() function is disabled – set up SMTP (Settings → Mail)')));
 
-        // --- domain and mail (2.8, Core\DomainWatch): the cached result only – no page view waits for DNS or a remote server
-        return [...$k, ...DomainWatch::rows(DomainWatch::cached($siteSettings), Demo::active(), time())];
+        // --- rows of switched-on add-ons (API 2, Extension\Api::healthRows), e.g. the domain watch
+        return [...$k, ...\Talea\Extension\Registry::healthRows($app)];
     }
 
     /** Summary for monitoring: the worst status found. */

@@ -43,7 +43,7 @@ trait EnquiryAndPopupTools
             $params[] = $statuses[$a['status']];
         }
         if (($a['search'] ?? '') !== '') {
-            $whereParts[] = '(email LIKE ? OR data LIKE ?)';
+            $whereParts[] = '(' . $db->dialect()->likeInsensitive('email') . ' OR ' . $db->dialect()->likeInsensitive('data') . ')';
             $search = '%' . addcslashes((string) $a['search'], '%_\\') . '%';
             array_push($params, $search, $search);
         }

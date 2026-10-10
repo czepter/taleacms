@@ -50,7 +50,7 @@ final class PasswordReset
             } else {
                 $app->db()->insert('ip_checks', ['ip' => $ip, 'type' => 'reset', 'checked_at' => date('Y-m-d H:i:s')]);
                 $who = trim($app->request->post('user_id'));
-                $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = 0 AND email <> '' LIMIT 1", [$who, $who]);
+                $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = FALSE AND email <> '' LIMIT 1", [$who, $who]);
                 if ($user !== null) {
                     $this->sendLink($user);
                 }
@@ -102,7 +102,7 @@ final class PasswordReset
     {
         $app = $this->app;
         $user = preg_match('/^[a-f0-9]{64}$/', $token) === 1
-            ? $app->db()->one('SELECT * FROM {users} WHERE reset_token_hash = ? AND blocked = 0 AND reset_sent_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
+            ? $app->db()->one('SELECT * FROM {users} WHERE reset_token_hash = ? AND blocked = FALSE AND reset_sent_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
             : null;
         if ($user === null) {
             return $this->page(['step' => 'invalid', 'sent' => false, 'error' => t('The link has expired or has already been used. Request a new one.')], 400);

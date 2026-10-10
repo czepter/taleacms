@@ -36,10 +36,7 @@ final class Redirects extends Module
         // the new target URL also takes over older redirects, so that no chains form
         $db->run('UPDATE {redirects} SET to_path = ? WHERE to_path = ?', [$commandName, $z]);
         $db->run('DELETE FROM {redirects} WHERE from_path = ?', [trim($commandName, '/ ')]);
-        $db->run(
-            'INSERT INTO {redirects} (from_path, to_path, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE to_path = VALUES(to_path)',
-            [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255)],
-        );
+        $db->upsert('redirects', ['from_path' => mb_substr($z, 0, 255), 'to_path' => mb_substr($commandName, 0, 255), 'created_at' => date('Y-m-d H:i:s')], ['from_path'], ['to_path']);
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
         \Talea\Core\LinkHealing::heal($db, $z, $commandName);
     }
@@ -49,7 +46,7 @@ final class Redirects extends Module
     protected function actionList(): Response
     {
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
-        $whereParts = $search !== '' ? 'WHERE from_path LIKE ? OR to_path LIKE ?' : '';
+        $whereParts = $search !== '' ? 'WHERE ' . $this->db->dialect()->likeInsensitive('from_path') . ' OR ' . $this->db->dialect()->likeInsensitive('to_path') : '';
         $params = $search !== '' ? array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%') : [];
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {redirects} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));

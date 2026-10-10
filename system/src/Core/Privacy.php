@@ -155,7 +155,7 @@ final class Privacy
     {
         $db = $app->db();
         $samples = [];
-        foreach ($db->all('SELECT text, build FROM {pages} WHERE deleted_at IS NULL AND visible = 1') as $p) {
+        foreach ($db->all('SELECT text, build FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE') as $p) {
             $samples[] = (string) $p['build'] . "\n" . $p['text'];
         }
         foreach ($db->all('SELECT build FROM {site_parts}') as $c) {
@@ -196,7 +196,7 @@ final class Privacy
             $result['error'] = 'curl is not available';
         } else {
             $base = $app->request->origin() . $app->url('');
-            $paths = array_merge([''], array_map('strval', array_column($app->db()->all("SELECT slug FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND language = '' AND parent_id IS NULL ORDER BY sort_order LIMIT ?", [self::SCAN_PAGES - 1]), 'slug')));
+            $paths = array_merge([''], array_map('strval', array_column($app->db()->all("SELECT slug FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND language = '' AND parent_id IS NULL ORDER BY sort_order LIMIT ?", [self::SCAN_PAGES - 1]), 'slug')));
             foreach ($paths as $path) {
                 $names = self::setCookies($base . $path);
                 if ($names === null) {
@@ -384,7 +384,7 @@ final class Privacy
             $s->bool('cookies_log') ? t('Consents are logged (time, a random identifier, the categories – no IP address)%s.', $s->int('cookies_log_months') > 0 ? ' ' . t('and deleted after %d months', $s->int('cookies_log_months')) : '') : t('Consents are not logged.'),
         ], $cookies)];
         $sections[] = ['heading' => t('Security'), 'lines' => array_values(array_filter([
-            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = 0'), (int) $db->value("SELECT COUNT(*) FROM {users} WHERE blocked = 0 AND totp_secret = ''") === 0 ? t('on for everyone') : t('not on for every account')),
+            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = FALSE'), (int) $db->value("SELECT COUNT(*) FROM {users} WHERE blocked = FALSE AND totp_secret = ''") === 0 ? t('on for everyone') : t('not on for every account')),
             $s->bool('firewall_enabled') ? t('Firewall: on (rate limits, probes, country and address blocks).') : '',
             t('Transport: %s.', $app->request->isHttps() ? 'HTTPS' : t('HTTP – switch the site to HTTPS')),
         ]))];

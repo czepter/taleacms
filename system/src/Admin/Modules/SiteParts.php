@@ -163,7 +163,7 @@ final class SiteParts extends Module
         // a variant is shown on the first page it applies to
         $page = $target['row']['variant'] !== '' ? (json_decode((string) $target['row']['pages'], true) ?: [])[0] ?? null : null;
         $path = $page !== null ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [(int) $page]) : match ($type) {
-            'news_item' => ($seo = $this->db->value('SELECT slug FROM {news} WHERE visible = 1 AND deleted_at IS NULL AND published_at <= NOW() AND language = ? ORDER BY published_at DESC LIMIT 1', [$language])) !== null ? 'news/' . $seo : 'news',
+            'news_item' => ($seo = $this->db->value('SELECT slug FROM {news} WHERE visible = TRUE AND deleted_at IS NULL AND published_at <= NOW() AND language = ? ORDER BY published_at DESC LIMIT 1', [$language])) !== null ? 'news/' . $seo : 'news',
             'list' => 'news',
             'not_found' => 'this-page-does-not-exist',
             default => '',

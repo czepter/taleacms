@@ -43,7 +43,7 @@ final class Pages extends Module
             $params[] = $column;
         }
         if ($search !== '') {
-            $where[] = '(title LIKE ? OR slug LIKE ?)';
+            $where[] = '(' . $this->db->dialect()->likeInsensitive('title') . ' OR ' . $this->db->dialect()->likeInsensitive('slug') . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             array_push($params, $pattern, $pattern);
         }
@@ -146,7 +146,7 @@ final class Pages extends Module
                 'visible' => $this->db->update('pages', ['visible' => 1, 'publish_at' => null, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
                 'hide' => $this->db->update('pages', ['visible' => 0, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
                 'language' => $this->db->update('pages', ['language' => $language, 'translation_of' => $language === '' ? null : $page['translation_of'], 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
-                default => $this->db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ?', [$id]),
+                default => $this->db->run('UPDATE {pages} SET deleted_at = NOW(), visible = FALSE WHERE page_id = ?', [$id]),
             };
             \Talea\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['visible' => 'shown', 'hide' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'trash' => 'moved to trash'][$action], mb_substr($page['title'], 0, 80));
             $done++;
@@ -508,7 +508,7 @@ final class Pages extends Module
         if ($ids === $this->app->settings()->int('home_page')) {
             return $this->back('The home page cannot be deleted. First choose another home page in Settings → General.', '', [], 'error');
         }
-        $this->db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ? AND deleted_at IS NULL', [$ids]);
+        $this->db->run('UPDATE {pages} SET deleted_at = NOW(), visible = FALSE WHERE page_id = ? AND deleted_at IS NULL', [$ids]);
 
         return $this->back(t('The page is in the trash. You can restore it for %d days.', self::TRASH_DAYS));
     }
@@ -575,7 +575,7 @@ final class Pages extends Module
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),
-            'versions' => $page['page_id'] ? $this->db->all('SELECT r.revision_id, r.created_at, r.title, IF(u.name = \'\', u.username, u.name) AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [(int) $page['page_id']]) : [],
+            'versions' => $page['page_id'] ? $this->db->all('SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = \'\' THEN u.username ELSE u.name END AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [(int) $page['page_id']]) : [],
             'home' => $page['page_id'] > 0 && (int) $page['page_id'] === $this->app->settings()->int('home_page'),
             'inMenu' => $page['page_id'] > 0 ? \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) ($page['language'] ?? '')) : null,
             'customMenu' => \Talea\Core\Menu::load($this->db, 'main', (string) ($page['language'] ?? '')) !== null,

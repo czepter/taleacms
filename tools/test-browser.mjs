@@ -79,6 +79,59 @@ await step('appearance: save to the draft look, preview bar, publish', async () 
   if (await page.locator('#appearance-draft').count()) { throw new Error('the draft look is still there after publishing'); }
 });
 
+const SAMPLE = 'Quick brown fox ÄÖÜäöüß ěščřžýáíéúůťďňĚŠČŘŽ ąćęłńóśźżĄĆĘŁŃÓŚŹŻ € –'; // English, German, Czech, Polish; check-english: allow
+
+await step('fonts: every library family has the glyphs of English, German, Czech and Polish (no fallback)', async () => {
+  await visit('/admin.php?module=appearance');
+  const names = await page.$$eval('#ds-font-heading option[value^="lib:"]', (o) => o.map((x) => x.textContent.trim()));
+  if (names.length < 25) { throw new Error('the font library has only ' + names.length + ' families'); }
+  const lacking = await page.evaluate(async ([names, sample]) => {
+    const ctx = document.createElement('canvas').getContext('2d');
+    const width = (family, ch, fallback) => { ctx.font = `400 48px "${family}", ${fallback}`; return ctx.measureText(ch).width; };
+    const result = [];
+    for (const name of names) {
+      await document.fonts.load(`400 48px "${name}"`, sample);
+      // a glyph the font lacks comes from the fallback – and two different fallbacks measure it differently
+      const missing = [...new Set(sample.replace(/ /g, ''))].filter((ch) => width(name, ch, 'monospace') !== width(name, ch, 'serif'));
+      if (missing.length) { result.push(name + ': ' + missing.join('')); }
+    }
+    return result;
+  }, [names, SAMPLE]);
+  if (lacking.length) { throw new Error('glyphs fall back to another font in ' + lacking.join(' | ')); }
+});
+
+await step('fonts: choose library fonts, publish, the public page loads only those files from its own host', async () => {
+  await visit('/admin.php?module=appearance');
+  await page.getByRole('tab', { name: 'Fonts and sizes' }).click();
+  await page.locator('#ds-font-heading').selectOption('lib:playfair-display');
+  await page.locator('#ds-font-body').selectOption('lib:source-sans-3');
+  const sample = await page.locator('[data-font-sample="ds[font_heading]"]').evaluate((e) => getComputedStyle(e).fontFamily);
+  if (!sample.startsWith('"Playfair Display"')) { throw new Error('the sample under the picker does not show the chosen font: ' + sample); }
+  await Promise.all([page.waitForNavigation(), page.locator('.appearance-save input[type="submit"]').click()]);
+  await page.locator('#appearance-draft').waitFor();
+  await Promise.all([page.waitForNavigation(), page.locator('#appearance-draft button.btn').click()]);
+
+  const requests = [];
+  const listen = (r) => requests.push(r.url());
+  page.on('request', listen);
+  await visit('/');
+  page.off('request', listen);
+  const outside = requests.filter((u) => !u.startsWith('data:') && !u.startsWith('blob:') && new URL(u).host !== new URL(BASE).host);
+  if (outside.length) { throw new Error('requests to another host: ' + outside.join(', ')); }
+  const fontFiles = requests.filter((u) => /\.woff2?($|\?)/.test(u)).map((u) => new URL(u).pathname.replace(/^.*\/image\/fonts\//, ''));
+  const expected = ['playfair-display/playfair-display.woff2', 'source-sans-3/source-sans-3.woff2'];
+  if (fontFiles.filter((f) => !expected.includes(f)).length) { throw new Error('unexpected font files: ' + fontFiles.join(', ')); }
+  for (const f of expected) { if (!fontFiles.includes(f)) { throw new Error('font file not loaded: ' + f + ' (got ' + fontFiles.join(', ') + ')'); } }
+  await page.evaluate(() => document.fonts.ready);
+  const used = await page.evaluate(() => ({
+    loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')),
+    heading: getComputedStyle(document.querySelector('h1, h2') || document.body).fontFamily,
+    body: getComputedStyle(document.querySelector('p') || document.body).fontFamily,
+  }));
+  if (!used.loaded.includes('Playfair Display') || !used.loaded.includes('Source Sans 3')) { throw new Error('document.fonts: ' + used.loaded.join(', ')); }
+  if (!used.heading.startsWith('"Playfair Display"') || !used.body.startsWith('"Source Sans 3"')) { throw new Error('computed families: ' + used.heading + ' / ' + used.body); }
+});
+
 await step('builder: select, style, mobile, edit text', async () => {
   await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
@@ -254,6 +307,52 @@ await step('public site: home, phone menu, cookies', async () => {
 for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
   await step(`site ${url}`, () => visit(url));
 }
+
+await step('galleries: justified rows, slideshow, viewer by keyboard and swipe, Esc, focus returns', async () => {
+  await visit('/gallery-test');
+  const accept = page.getByRole('button', { name: /Accept|Allow/ }).first();
+  if (await accept.count()) { await accept.click().catch(() => {}); }
+  // accessibility: every photo has alt text and every gallery a name
+  const bad = await page.evaluate(() => [...document.querySelectorAll('.tl-gallery img')].filter((i) => !i.getAttribute('alt')).length
+    + [...document.querySelectorAll('.tl-gallery')].filter((g) => !g.getAttribute('aria-label')).length);
+  if (bad) { throw new Error(`${bad} gallery photos without alt or galleries without a name`); }
+  // justified rows: every row ends at the same right edge (the script evened them out) and no photo is cropped
+  const rows = await page.evaluate(() => {
+    const g = document.querySelector('.tl-gallery--justified');
+    const box = g.getBoundingClientRect();
+    const lines = new Map();
+    g.querySelectorAll('img').forEach((i) => { const r = i.getBoundingClientRect(); lines.set(Math.round(r.top), Math.max(lines.get(Math.round(r.top)) ?? 0, r.right)); });
+    return { width: box.right, rights: [...lines.values()] };
+  });
+  if (rows.rights.length > 1 && Math.abs(rows.rights[0] - rows.width) > 2) { throw new Error('the first justified row does not fill the width: ' + JSON.stringify(rows)); }
+  // slideshow: the arrows are shown by the script and move the strip
+  const strip = page.locator('.tl-gallery-strip').first();
+  await page.locator('.tl-gallery--slideshow[data-enabled] .tl-gallery-arrows [data-step="1"]').click();
+  await page.waitForTimeout(700);
+  if ((await strip.evaluate((s) => s.scrollLeft)) < 10) { throw new Error('the slideshow arrow did not scroll the strip'); }
+  // viewer: open with the keyboard from a gallery photo, arrows, swipe, Esc, focus back
+  const photo = page.locator('.tl-gallery--fullscreen img').nth(1);
+  await photo.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.locator('dialog.tl-lightbox[open]');
+  await dialog.waitFor({ timeout: 3000 });
+  const caption = () => dialog.locator('p').innerText();
+  if (!(await caption()).startsWith('2 / 4')) { throw new Error('the viewer did not open on the second photo: ' + await caption()); }
+  await page.keyboard.press('ArrowRight');
+  if (!(await caption()).startsWith('3 / 4')) { throw new Error('ArrowRight did not move on: ' + await caption()); }
+  const box = await dialog.locator('img').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  if (!(await caption()).startsWith('2 / 4')) { throw new Error('a swipe to the right did not go back: ' + await caption()); }
+  if (!(await dialog.count())) { throw new Error('a swipe closed the viewer'); }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  if (await page.locator('dialog.tl-lightbox[open]').count()) { throw new Error('Esc did not close the viewer'); }
+  const back = await page.evaluate(() => { const a = document.activeElement; return a && a.tagName === 'IMG' && !!a.closest('.tl-gallery--fullscreen') && a.getAttribute('alt'); });
+  if (back !== 'Photo gt-b') { throw new Error('the focus did not return to the photo that opened the viewer: ' + back); }
+});
 
 await step('booking: pick a day, the month stays drawn and the free times load', async () => {
   // until 3.2.1 the month and the times shared one request counter: after a day click the month stayed on "Loading…"

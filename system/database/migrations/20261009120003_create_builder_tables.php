@@ -113,7 +113,7 @@ final class CreateBuilderTables extends AbstractMigration
             ->addColumn('publish_at', 'datetime', ['null' => true, 'comment' => 'a hidden item publishes itself at this moment'])
             ->addColumn('valid_until', 'date', ['null' => true, 'comment' => 'true until: the day after, the item hides itself (2.10, Core\\Validity)'])
             ->addColumn('review_by', 'date', ['null' => true, 'comment' => 'review by: on this day the site audit asks for a check (2.10)'])
-            ->addColumn('language', 'char', ['limit' => 2, 'null' => false, 'default' => ''])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => ''])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('updated_at', 'datetime', ['null' => true])
             ->addColumn('links_checked', 'datetime', ['null' => true, 'comment' => 'when the links in the item\'s fields were last checked (2.14, Core\\Links)'])
@@ -127,7 +127,7 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('collection_templates', ['id' => false, 'primary_key' => ['collection_id', 'language']])
             ->addColumn('collection_id', 'integer', ['signed' => false, 'null' => false])
-            ->addColumn('language', 'char', ['limit' => 2, 'null' => false])
+            ->addColumn('language', 'string', ['limit' => 2, 'null' => false])
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('updated_at', 'datetime', ['null' => true])

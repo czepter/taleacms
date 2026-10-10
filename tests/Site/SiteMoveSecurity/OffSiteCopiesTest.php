@@ -85,7 +85,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertSame(1, $this->putCount('#^PUT /talea-backups/talea-.*\.sql#m'), 'the backup is uploaded once');
         $this->assertSame($mediaFiles, $this->putCount('#^PUT /talea-backups/media/#m'), 'every media file is uploaded');
         $this->assertSame(0, $this->putCount('/unsigned/'), 'every request is signed');
-        $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(value, '|', -2) FROM tl_settings WHERE name = 'remote_media_status'"), 'media status: complete');
+        $this->assertSame('ok|0', implode('|', array_slice(explode('|', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'remote_media_status'")), -2)), 'media status: complete');
         $this->assertPage('/admin.php?module=settings&tab=backups', 200, 'Media: the copy is complete', message: 'Backups show the media copy');
     }
 

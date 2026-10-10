@@ -131,8 +131,10 @@ final class WordPressImportTest extends SiteTestCase
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-cpt.xml', 200, 'reference', message: 'the preview shows the custom post type as a collection');
         $this->runImport('wordpress-cpt.xml', $options);
 
+        $collection = $this->site()->rows("SELECT slug, detail, fields FROM tl_collections WHERE name = 'Reference'")[0]; // the field list is read in PHP: `$[*]` paths are MySQL-only
+        $fields = json_decode((string) $collection['fields'], true);
         $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "content"]|["text", "number", "date", "link", "image", "html"]',
-            $this->seo('SELECT CONCAT(slug, \'|\', detail, \'|\', JSON_EXTRACT(fields, \'$[*].key\'), \'|\', JSON_EXTRACT(fields, \'$[*].type\')) FROM tl_collections WHERE name = \'Reference\''),
+            $collection['slug'] . '|' . (int) $collection['detail'] . '|[' . implode(', ', array_map(fn ($k) => '"' . $k . '"', array_column($fields, 'key'))) . ']|[' . implode(', ', array_map(fn ($k) => '"' . $k . '"', array_column($fields, 'type'))) . ']',
             'a custom post type became a collection with fields by values');
         $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01', // check-english: allow (Czech WordPress fixture)
             $this->seo('SELECT GROUP_CONCAT(CONCAT(slug, \':\', visible, \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.klient\')), \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.datum_predani\'))) ORDER BY item_id SEPARATOR \'|\') FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = \'reference\')'),

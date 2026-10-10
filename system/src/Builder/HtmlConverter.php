@@ -97,8 +97,7 @@ final class HtmlConverter
                 continue;
             }
             $style = (string) json_encode($conversion['class_styles'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
-            $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE style = VALUES(style), css = VALUES(css), updated_at = NOW()',
-                [$className, $style, $conversion['classes'][$className] ?? '']);
+            $db->upsert('classes', ['name' => $className, 'style' => $style, 'css' => $conversion['classes'][$className] ?? '', 'updated_at' => date('Y-m-d H:i:s')], ['name']);
         }
         $skipped = [];
         $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['classes']), array_keys($conversion['class_styles'])), $skipped);

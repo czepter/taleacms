@@ -1,0 +1,32 @@
+{
+    "name": "Open Sans",
+    "category": "sans",
+    "weights": [
+        300,
+        400,
+        500,
+        600,
+        700,
+        800
+    ],
+    "italic": true,
+    "variable": true,
+    "scripts": [
+        "latin",
+        "latin-ext"
+    ],
+    "files": [
+        {
+            "file": "open-sans.woff2",
+            "weight": "300 800",
+            "style": "normal"
+        },
+        {
+            "file": "open-sans-italic.woff2",
+            "weight": "300 800",
+            "style": "italic"
+        }
+    ],
+    "source": "https://github.com/google/fonts/tree/main/ofl/opensans",
+    "licence": "OFL-1.1"
+}

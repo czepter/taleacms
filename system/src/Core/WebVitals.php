@@ -111,16 +111,15 @@ final class WebVitals
         }
         $antispam->write($request->ip(), 'vitals', 0);
         // only pages the statistics have seen (the page view is counted before the beacon arrives) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURRENT_DATE - INTERVAL 1 DAY', [$path]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
         foreach ($values as $metric => $value) {
-            $db->run('INSERT INTO {web_vitals} (day, path, metric, bucket, samples) VALUES (?, ?, ?, ?, 1) ON DUPLICATE KEY UPDATE samples = samples + 1',
-                [$today, $path, $metric, self::bucket($metric, $value)]);
+            $db->upsert('web_vitals', ['day' => $today, 'path' => $path, 'metric' => $metric, 'bucket' => self::bucket($metric, $value), 'samples' => 1], ['day', 'path', 'metric', 'bucket'], ['samples' => '{old.samples} + 1']);
         }
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {web_vitals} WHERE day < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {web_vitals} WHERE day < CURRENT_DATE - INTERVAL 400 DAY');
         }
 
         return new Response('', 204);

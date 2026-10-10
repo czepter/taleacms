@@ -19,6 +19,12 @@ final class Alerts
     /** Warnings worth an e-mail (2.10); the rest of the warnings – e.g. a blocked address – stay in the events and System status. */
     public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'fleet.site_silent', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed'];
 
+    /** Talea's warnings worth an e-mail and those of the switched-on add-ons (Extension\Api::eventType with $alert). @return list<string> */
+    public static function warnings(): array
+    {
+        return [...self::WARNINGS, ...\Talea\Extension\Registry::alertTypes()];
+    }
+
     /** One run of the job: returns what it did, for System status. */
     public static function run(App $app): string
     {
@@ -65,7 +71,7 @@ final class Alerts
      */
     public static function worth(array $events): array
     {
-        return array_values(array_filter($events, fn (array $e): bool => $e['severity'] === 'error' || in_array($e['type'], self::WARNINGS, true)));
+        return array_values(array_filter($events, fn (array $e): bool => $e['severity'] === 'error' || in_array($e['type'], self::warnings(), true)));
     }
 
     /**

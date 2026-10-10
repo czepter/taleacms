@@ -59,11 +59,15 @@ final class Kernel
     /** A preview of the whole site with all drafts and the draft look (signed link, target "web"). */
     private bool $sitePreview = false;
 
+    /** The answer of an add-on's early request hook (a refusal), null = the request goes on. */
+    private ?Response $early = null;
+
     public function __construct(private readonly App $app)
     {
         $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
         \Talea\Extension\Registry::boot($app); // add-ons (3.0)
+        $this->early = \Talea\Extension\Registry::runEarly($app); // early request hooks of add-ons (API 2): before routing, sessions and the cache
         // language version: /en/news/x -> language "en", path "/news/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());
@@ -106,6 +110,9 @@ final class Kernel
     public function handle(): Response
     {
         $request = $this->app->request;
+        if ($this->early !== null) {
+            return $this->early;
+        }
         if ($this->redirect !== null) {
             return $this->redirect;
         }
@@ -228,7 +235,7 @@ final class Kernel
             $popupId = $this->app->db()->internalId('popups', $request->post('popup'));
             if ($column !== null && $popupId > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
                 $antispam->write($request->ip(), 'popup', 0);
-                $this->app->db()->run('UPDATE {popups} SET ' . $column . ' = ' . $column . ' + 1 WHERE popup_id = ? AND active = 1', [$popupId]);
+                $this->app->db()->run('UPDATE {popups} SET ' . $column . ' = ' . $column . ' + 1 WHERE popup_id = ? AND active = TRUE', [$popupId]);
             }
 
             return new Response('', 204);
@@ -362,7 +369,7 @@ final class Kernel
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
         // (?preview_key=…, Core\Preview)
         $showHidden = $this->sitePreview || ($request->get('build') === 'draft' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
-        $page = $this->app->db()->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND deleted_at IS NULL' . ($showHidden ? '' : ' AND visible = 1'), [ltrim($path, '/'), Language::siteColumn()]);
+        $page = $this->app->db()->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND deleted_at IS NULL' . ($showHidden ? '' : ' AND visible = TRUE'), [ltrim($path, '/'), Language::siteColumn()]);
         if ($page !== null && !$page['visible'] && !$this->canSeeDraft('page:' . (int) $page['page_id'])) {
             $page = null;
         }
@@ -514,7 +521,7 @@ final class Kernel
         }
         $items = [];
         foreach ($slugs as $slug) {
-            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id'], $slug, Language::siteColumn()]);
+            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id'], $slug, Language::siteColumn()]);
             if ($item !== null) {
                 $item['data'] = json_decode((string) $item['data'], true) ?: [];
                 $items[] = $item;
@@ -556,10 +563,10 @@ final class Kernel
         if ($collection === null || $fields === null) {
             return null;
         }
-        $start = "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['start'] . "'))";
+        $start = $db->dialect()->jsonExtract('data', '$.' . $fields['start']);
         $rows = $itemSlug !== ''
-            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id'], $itemSlug, Language::siteColumn()])
-            : $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = 1 AND deleted_at IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
+            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id'], $itemSlug, Language::siteColumn()])
+            : $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
                 [$collection['collection_id'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
         if ($itemSlug !== '' && $rows === []) {
             return $this->notFound();
@@ -594,7 +601,7 @@ final class Kernel
         if ($collection === null || (!$collection['detail'] && !$draft)) {
             return $this->notFound();
         }
-        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND deleted_at IS NULL' . ($draft ? '' : ' AND visible = 1'), [$collection['collection_id'], $seo, Language::siteColumn()]);
+        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND deleted_at IS NULL' . ($draft ? '' : ' AND visible = TRUE'), [$collection['collection_id'], $seo, Language::siteColumn()]);
         if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== ''
             && $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$collection['collection_id'], $seo]) !== null) {
             // a hidden or deleted item (a person who left, 2.10): its old address leads to the chosen page instead of a 404
@@ -620,7 +627,7 @@ final class Kernel
             $parentPage = $main['visible'] ? $main : null;
         } elseif ($main !== null) {
             $original = (int) ($main['translation_of'] ?: $main['page_id']);
-            $parentPage = $db->one('SELECT slug, title FROM {pages} WHERE (page_id = ? OR translation_of = ?) AND language = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
+            $parentPage = $db->one('SELECT slug, title FROM {pages} WHERE (page_id = ? OR translation_of = ?) AND language = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
         }
         $this->breadcrumbs([$parentPage !== null && $parentPage['title'] !== '' ? (string) $parentPage['title'] : $collection['name'], $parentPage !== null ? $this->app->url((string) $parentPage['slug']) : ''],
             [$item['name'] ?? t('Sample item'), '']);
@@ -680,11 +687,11 @@ final class Kernel
 
     private function home(): Response
     {
-        $page = ($id = $this->homePageId()) > 0 ? $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ? AND visible = 1', [$id]) : null;
+        $page = ($id = $this->homePageId()) > 0 ? $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ? AND visible = TRUE', [$id]) : null;
 
         if ($page === null && !Extensions::isEnabled($this->app->settings(), 'news')) {
             // without a home page and without news: the site's first published page
-            $page = $this->app->db()->one('SELECT * FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND language = ? ORDER BY sort_order, page_id LIMIT 1', [Language::siteColumn()]);
+            $page = $this->app->db()->one('SELECT * FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND language = ? ORDER BY sort_order, page_id LIMIT 1', [Language::siteColumn()]);
         }
 
         return $page !== null ? $this->showPage($page, '', true) : (Extensions::isEnabled($this->app->settings(), 'news') ? $this->showNewsList(true) : $this->notFound());
@@ -700,7 +707,7 @@ final class Kernel
             $levels = [];
             $segments = explode('/', (string) $page['slug']);
             for ($i = 1; $i < count($segments); $i++) {
-                $parent = $this->app->db()->one('SELECT title, slug FROM {pages} WHERE slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [implode('/', array_slice($segments, 0, $i)), $page['language']]);
+                $parent = $this->app->db()->one('SELECT title, slug FROM {pages} WHERE slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [implode('/', array_slice($segments, 0, $i)), $page['language']]);
                 if ($parent !== null) {
                     $levels[] = [$parent['title'], $this->app->url($parent['slug'])];
                 }
@@ -920,8 +927,8 @@ final class Kernel
             $db = $this->app->db();
             $home = $this->homePageId();
             $candidates = array_map(fn (array $s): array => ['title' => $s['title'], 'url' => (int) $s['page_id'] === $home ? '' : $s['slug'], 'text' => (string) $s['text']],
-                $db->all('SELECT page_id, title, slug, text FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order LIMIT 500', [Language::siteColumn()]));
-            foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS collection, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
+                $db->all('SELECT page_id, title, slug, text FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order LIMIT 500', [Language::siteColumn()]));
+            foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS collection, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
                 // only text fields are searched – image paths and link URLs would add noise to the results and snippets
                 $textFields = array_column(array_filter(json_decode((string) $p['fields'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'lines', 'html'], true)), 'key');
@@ -982,7 +989,7 @@ final class Kernel
         if ($path !== '' && $this->app->request->get('part') === '' && !\Talea\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {not_found}') < 2000 || $this->app->db()->value('SELECT 1 FROM {not_found} WHERE path = ?', [$path]) !== null) {
-                    $this->app->db()->run('INSERT INTO {not_found} (path, count, last_seen_at) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE count = count + 1, last_seen_at = NOW()', [$path]);
+                    $this->app->db()->upsert('not_found', ['path' => $path, 'count' => 1, 'last_seen_at' => date('Y-m-d H:i:s')], ['path'], ['count' => '{old.count} + 1', 'last_seen_at']);
                     if ((int) $this->app->db()->value('SELECT count FROM {not_found} WHERE path = ?', [$path]) === \Talea\Core\NotFound::SPIKE) {
                         \Talea\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Talea\Core\NotFound::SPIKE), ['path' => $path]);
                     }
@@ -1037,15 +1044,15 @@ final class Kernel
         $translations = [];
         if ($newsItem !== null) {
             $original = (int) ($newsItem['translation_of'] ?: $newsItem['news_id']);
-            $translations = array_map(fn (string $seo): string => 'news/' . $seo, $this->app->db()->pairs('SELECT language, slug FROM {news} WHERE (news_id = ? OR translation_of = ?) AND visible = 1 AND published_at <= NOW()', [$original, $original]));
+            $translations = array_map(fn (string $seo): string => 'news/' . $seo, $this->app->db()->pairs('SELECT language, slug FROM {news} WHERE (news_id = ? OR translation_of = ?) AND visible = TRUE AND published_at <= NOW()', [$original, $original]));
         } elseif ($this->collectionItem !== null) {
             [$idk, $collection, $seo] = $this->collectionItem;
-            $translations = array_map(fn (string $s): string => $collection . '/' . $s, $this->app->db()->pairs('SELECT language, slug FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = 1', [$idk, $seo]));
+            $translations = array_map(fn (string $s): string => $collection . '/' . $s, $this->app->db()->pairs('SELECT language, slug FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE', [$idk, $seo]));
         } elseif ($this->counterpart !== null && !$this->isHome) {
             // category or page: the original + its translations
             [$table, $key, $row, $path] = $this->counterpart;
             $original = (int) ($row['translation_of'] ?: $row[$key]);
-            $condition = $table === 'pages' ? ' AND visible = 1' : '';
+            $condition = $table === 'pages' ? ' AND visible = TRUE' : '';
             $translations = array_map(fn (string $seo): string => $path . $seo, $this->app->db()->pairs("SELECT language, slug FROM {{$table}} WHERE ({$key} = ? OR translation_of = ?){$condition}", [$original, $original]));
         }
         $root = $this->app->request->basePath() . '/';
@@ -1103,7 +1110,7 @@ final class Kernel
             $home = $this->homePageId();
             $this->menuPages = array_map(
                 fn (array $s): array => ['title' => $s['title'], 'slug' => (int) $s['page_id'] === $home ? '' : $s['slug'], 'intro' => (int) $s['page_id'] === $home],
-                $this->app->db()->all('SELECT page_id, title, slug FROM {pages} WHERE visible = 1 AND in_menu = 1 AND language = ? ORDER BY sort_order, title', [Language::siteColumn()]),
+                $this->app->db()->all('SELECT page_id, title, slug FROM {pages} WHERE visible = TRUE AND in_menu = TRUE AND language = ? ORDER BY sort_order, title', [Language::siteColumn()]),
             );
         }
 

@@ -187,7 +187,7 @@ final class Auth
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
-        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('pending_user')['user_id']]);
+        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [(int) $this->session->get('pending_user')['user_id']]);
         if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
             $this->session->remove('pending_user');
 
@@ -259,7 +259,7 @@ final class Auth
         }
         $challenge = (string) $this->session->get('passkey_challenge', '');
         $this->session->remove('passkey_challenge'); // the challenge is valid for one attempt
-        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('pending_user')['user_id']]);
+        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [(int) $this->session->get('pending_user')['user_id']]);
         if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
             $this->session->remove('pending_user');
 
@@ -313,7 +313,7 @@ final class Auth
             }
             $id = $this->session->get('user_id');
             $this->user = is_int($id)
-                ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [$id])
+                ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$id])
                 : null;
             if ($this->user !== null) {
                 $hash = $this->session->get('fingerprint');

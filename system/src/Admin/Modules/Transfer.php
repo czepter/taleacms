@@ -495,7 +495,7 @@ final class Transfer extends Module
             'source' => Sources::byKey($state['source']),
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
-            'users' => $this->db->all('SELECT user_id, public_id, name, username FROM {users} WHERE blocked = 0 ORDER BY name, username'),
+            'users' => $this->db->all('SELECT user_id, public_id, name, username FROM {users} WHERE blocked = FALSE ORDER BY name, username'),
             'redirectsEnabled' => \Talea\Core\Extensions::isEnabled($settings, 'redirects'),
         ]);
     }
@@ -517,7 +517,7 @@ final class Transfer extends Module
             'authors' => $authors, 'language' => $r->post('language'),
             'drafts' => $r->postBool('drafts'), 'builder' => $r->postBool('builder'), 'redirects' => $r->postBool('redirects'),
             'default_category' => $this->db->internalId('categories', $r->post('default_category')), 'site_url' => $r->post('site_url'),
-        ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT user_id FROM {users} WHERE blocked = 0'), 'user_id')));
+        ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT user_id FROM {users} WHERE blocked = FALSE'), 'user_id')));
         if ($state['web']['url'] === '' && $state['mapping']['site_url'] === '' && $r->post('site_url') !== '') {
             return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['file']], 'error');
         }
