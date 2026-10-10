@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\FormsHygiene;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** Outbound connectors: OAuth with PKCE, encrypted credentials, the delivery log (was: section 74, "2.13"). */
+/** Outbound connectors: OAuth with PKCE, encrypted credentials, the delivery log (was: section 74,). */
 #[Group('site')]
 final class ConnectorsTest extends SiteTestCase
 {

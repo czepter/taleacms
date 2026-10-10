@@ -45,7 +45,7 @@ final class SearchDataTest extends SiteTestCase
         $this->assertStringContainsString('search_data: google 5, bing 2', $tasks, 'search: the daily job loaded 2 queries, 2 pages and a sitemap from Google and 1 query and 1 page from Bing');
 
         $today = $this->siteDate('today');
-        $this->assertSame('bing:page:https://example.com/kontakt:4:50:8.00:5.0 bing:query:kaleta bing:6:120:5.00:5.0 google:page:https://example.com/sluzby:31:640:4.84:6.2 google:page:https://example.com/:12:200:6.00:2.1 google:query:kaleta cms:42:900:4.67:3.4 google:query:firemní web zdarma:7:310:2.26:11.8 google:sitemap:https://example.com/sitemap.xml:10:15:66.67:0.0',
+        $this->assertSame('bing:page:https://example.com/contact:4:50:8.00:5.0 bing:query:kaleta bing:6:120:5.00:5.0 google:page:https://example.com/services:31:640:4.84:6.2 google:page:https://example.com/:12:200:6.00:2.1 google:query:kaleta cms:42:900:4.67:3.4 google:query:company website free:7:310:2.26:11.8 google:sitemap:https://example.com/sitemap.xml:10:15:66.67:0.0',
             $site->value("SELECT GROUP_CONCAT(CONCAT(engine, ':', kind, ':', `key`, ':', clicks, ':', impressions, ':', ctr, ':', position) ORDER BY engine, kind, clicks DESC SEPARATOR ' ') FROM ka_search_stats WHERE day = ?", [$today]),
             'search: the snapshot of today – Google\'s CTR in per cent, Bing\'s days summed with the position weighted by impressions, the stale day dropped, the sitemap counts');
 
@@ -62,10 +62,10 @@ final class SearchDataTest extends SiteTestCase
     {
         $site = $this->site();
         $stats = $this->assertPage('/admin.php?module=stats&days=7', 200, 'kaleta cms', message: 'search: Statistics show the queries and pages of both engines with the sitemap coverage');
-        $this->assertStringContainsString('<td>kaleta bing</td><td class="number">6</td><td class="number">120</td><td class="number">5,0 %</td><td class="number">5,0</td>', $stats->body, 'search: the Bing query row');
-        $this->assertStringContainsString('href="https://example.com/sluzby"', $stats->body, 'search: the page link');
+        $this->assertStringContainsString('<td>kaleta bing</td><td class="number">6</td><td class="number">120</td><td class="number">5.0 %</td><td class="number">5.0</td>', $stats->body, 'search: the Bing query row');
+        $this->assertStringContainsString('href="https://example.com/services"', $stats->body, 'search: the page link');
         $this->assertStringContainsString('<td>https://example.com/sitemap.xml</td><td class="number">15</td><td class="number">10</td>', $stats->body, 'search: the sitemap row');
-        $this->assertStringContainsString('Nejčastější dotazy (Google)', $stats->body, 'search: the Google heading');
+        $this->assertStringContainsString('Top queries (Google)', $stats->body, 'search: the Google heading');
         $this->assertStringNotContainsString('bing-test-key', $stats->body, 'search: no Bing key in Statistics');
 
         $this->assertStringNotContainsString('bing-test-key', $site->admin()->get(self::CONNECTORS)->body, 'search: the Bing key is not on the Connections screen');
@@ -86,9 +86,9 @@ final class SearchDataTest extends SiteTestCase
     public function testTheMonthlyReportNamesTheTopQueriesOfTheMonth(): void
     {
         $last = trim($this->site()->php('echo (new DateTimeImmutable("last day of last month"))->format("Y-m-d");'));
-        $this->site()->exec("INSERT INTO ka_search_stats (day, engine, kind, `key`, clicks, impressions, ctr, position) VALUES (?, 'google', 'query', 'kaleta minulý měsíc', 15, 300, 5, 4.0)", [$last]);
-        $report = $this->assertPage('/admin.php?module=settings&action=report_preview', 200, 'kaleta minulý měsíc na Google', message: 'search: the monthly report mentions the top queries when the month has a snapshot');
-        $this->assertStringContainsString('Hledání, která přivedla návštěvníky', $report->body, 'search: the report section heading');
+        $this->site()->exec("INSERT INTO ka_search_stats (day, engine, kind, `key`, clicks, impressions, ctr, position) VALUES (?, 'google', 'query', 'kaleta last month', 15, 300, 5, 4.0)", [$last]);
+        $report = $this->assertPage('/admin.php?module=settings&action=report_preview', 200, 'kaleta last month on Google', message: 'search: the monthly report mentions the top queries when the month has a snapshot');
+        $this->assertStringContainsString('Searches that brought visitors', $report->body, 'search: the report section heading');
         $this->assertStringNotContainsString('kaleta bing', $report->body, 'search: only the queries of that month');
     }
 

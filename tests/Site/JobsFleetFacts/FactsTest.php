@@ -38,14 +38,14 @@ final class FactsTest extends SiteTestCase
 
     public function testTokensAreFilledInOnThePageAndInStructuredData(): void
     {
-        $this->mcpText('create_page', ['title' => 'Fakta test', 'slug' => 'fakta-test', 'visible' => true, 'content' => '<p>Máme za sebou {{fact.projects}} zakázek od roku {{ fact.founded }}.</p><p>Loni jsme dokončili 1500 zakázek.</p><p>{{fact.neexistuje}}</p>']);
-        $body = $this->page('/fakta-test');
-        $this->assertMatchesRegularExpression('/1.?500 zakázek od roku 2004/u', $body, 'facts: tokens filled in on the page (number with the thousands separator)');
+        $this->mcpText('create_page', ['title' => 'Facts test', 'slug' => 'facts-test', 'visible' => true, 'content' => '<p>We have {{fact.projects}} projects since {{ fact.founded }}.</p><p>Last year we finished 1500 projects.</p><p>{{fact.missing}}</p>']);
+        $body = $this->page('/facts-test');
+        $this->assertMatchesRegularExpression('/1.?500 projects since 2004/u', $body, 'facts: tokens filled in on the page (number with the thousands separator)');
         $this->assertStringNotContainsString('{{', $body, 'facts: no token is left unfilled');
         $this->assertStringContainsString('"foundingDate":"2004"', $body, 'facts: a fact with a schema property is in the structured data');
 
-        $this->mcpText('create_page', ['title' => 'Fakta dokumentace', 'slug' => 'fakta-dokumentace', 'visible' => true, 'content' => '<p>Napište <code>{{fact.projects}}</code> do textu.</p>']);
-        $this->assertStringContainsString('<code>{{fact.projects}}</code>', $this->page('/fakta-dokumentace'), 'facts: a token inside <code> stays as written (documentation)');
+        $this->mcpText('create_page', ['title' => 'Facts documentation', 'slug' => 'facts-documentation', 'visible' => true, 'content' => '<p>Write <code>{{fact.projects}}</code> in the text.</p>']);
+        $this->assertStringContainsString('<code>{{fact.projects}}</code>', $this->page('/facts-documentation'), 'facts: a token inside <code> stays as written (documentation)');
     }
 
     public function testATextFactWithAScriptSchemeIsNeverALink(): void
@@ -65,14 +65,14 @@ final class FactsTest extends SiteTestCase
     public function testLlmsTxtListsTheFactsAndAChangeFindsTheOldSentences(): void
     {
         $this->assertMatchesRegularExpression('/^- Projects: 1.?500$/mu', $this->site()->client()->get('/llms.txt')->body, 'facts: llms.txt lists the facts');
-        $this->assertStringContainsString('Loni jsme dokon', $this->mcpText('save_fact', ['key' => 'projects', 'value' => '1600']), 'facts: a change lists the sentences that still state the old value');
-        $this->assertMatchesRegularExpression('/1.?600 zakázek/u', $this->page('/fakta-test'), 'facts: the page says the new value at once (the cache is cleared)');
+        $this->assertStringContainsString('Last year we finished', $this->mcpText('save_fact', ['key' => 'projects', 'value' => '1600']), 'facts: a change lists the sentences that still state the old value');
+        $this->assertMatchesRegularExpression('/1.?600 projects/u', $this->page('/facts-test'), 'facts: the page says the new value at once (the cache is cleared)');
     }
 
     public function testClaimsAuditAndFactList(): void
     {
-        $this->assertStringContainsString('Loni jsme dokon', $this->mcpText('find_claims'), 'claims inventory: sentences with numbers written as plain text');
-        $this->assertStringContainsString('fact.neexistuje', $this->mcpText('site_audit', ['kind' => 'fact']), 'site audit: a token of a fact that does not exist');
+        $this->assertStringContainsString('Last year we finished', $this->mcpText('find_claims'), 'claims inventory: sentences with numbers written as plain text');
+        $this->assertStringContainsString('fact.missing', $this->mcpText('site_audit', ['kind' => 'fact']), 'site audit: a token of a fact that does not exist');
         $list = $this->mcpText('list_facts');
         $this->assertStringContainsString('company_phone', $list, 'MCP list_facts: built-in facts');
         $this->assertStringContainsString('used_in', $list, 'MCP list_facts: their use');
@@ -83,10 +83,10 @@ final class FactsTest extends SiteTestCase
         $admin = $this->site()->admin();
         $list = $this->assertPage('/admin.php?module=facts', 200, message: 'facts: the admin list');
         $this->assertStringContainsString('fact.projects', $list->body, 'facts: the list shows the token');
-        $this->assertStringContainsString('Fakta test', $admin->get('/admin.php?module=facts&action=edit&key=projects')->body, 'facts: the fact shows where it is used');
+        $this->assertStringContainsString('Facts test', $admin->get('/admin.php?module=facts&action=edit&key=projects')->body, 'facts: the fact shows where it is used');
         $this->adminPost('/admin.php?module=facts&action=save', ['key' => 'projects', 'label' => 'Projects', 'type' => 'number', 'value' => '1700'], '/admin.php?module=facts');
-        $this->assertStringContainsString('starou hodnotu', $admin->get('/admin.php?module=facts&action=edit&key=projects')->body, 'facts: after a change in the admin it says whether the old value is still stated');
-        $this->assertStringContainsString('Loni jsme dokon', $admin->get('/admin.php?module=facts&action=claims')->body, 'facts: the claims inventory in the admin');
+        $this->assertStringContainsString('the old value', $admin->get('/admin.php?module=facts&action=edit&key=projects')->body, 'facts: after a change in the admin it says whether the old value is still stated');
+        $this->assertStringContainsString('Last year we finished', $admin->get('/admin.php?module=facts&action=claims')->body, 'facts: the claims inventory in the admin');
     }
 
     // ---- 52 computed facts and sourced proof numbers
@@ -95,35 +95,35 @@ final class FactsTest extends SiteTestCase
     {
         $site = $this->site();
         // the old run had the team collection from an earlier section
-        $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'Tým', 'preset' => 'people']), 'the team collection exists');
+        $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'Team', 'preset' => 'people']), 'the team collection exists');
         $years = (int) date('Y') - 2004;
-        $team = $site->value("SELECT COUNT(*) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'tym' AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''");
-        $this->mcpText('create_page', ['title' => 'Pocitane test', 'slug' => 'pocitane-test', 'visible' => true, 'content' => '<p>Roky: {{years_since:2004}} / {{ years_since:fact.founded }}. Tým: {{count:tym}}. Novinky: {{count:news}}. Vadné: {{count:neexistuje}}|{{years_since:brzy}}.</p>']);
-        $body = $this->site()->client()->get('/pocitane-test')->body;
+        $team = $site->value("SELECT COUNT(*) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'team' AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''");
+        $this->mcpText('create_page', ['title' => 'Computed test', 'slug' => 'computed-test', 'visible' => true, 'content' => '<p>Years: {{years_since:2004}} / {{ years_since:fact.founded }}. Team: {{count:team}}. News: {{count:news}}. Bad: {{count:missing}}|{{years_since:soon}}.</p>']);
+        $body = $this->site()->client()->get('/computed-test')->body;
 
-        $this->assertStringContainsString("Roky: $years / $years. Tým: $team.", $body, 'computed facts: years since a year and a fact, the count of a collection');
-        $this->assertMatchesRegularExpression('/Novinky: [0-9]+\./', $body, 'computed facts: the count of news');
-        $this->assertStringContainsString('Vadné: |.', $body, 'computed facts: a bad token is empty');
+        $this->assertStringContainsString("Years: $years / $years. Team: $team.", $body, 'computed facts: years since a year and a fact, the count of a collection');
+        $this->assertMatchesRegularExpression('/News: [0-9]+\./', $body, 'computed facts: the count of news');
+        $this->assertStringContainsString('Bad: |.', $body, 'computed facts: a bad token is empty');
         $this->assertStringNotContainsString('{{', $body, 'computed facts: no token is left');
 
         $audit = $this->mcpText('site_audit', ['kind' => 'fact']);
-        $this->assertStringContainsString('count:neexistuje', $audit, 'site audit: a computed token that cannot be computed (count)');
-        $this->assertStringContainsString('years_since:brzy', $audit, 'site audit: a computed token that cannot be computed (years)');
+        $this->assertStringContainsString('count:missing', $audit, 'site audit: a computed token that cannot be computed (count)');
+        $this->assertStringContainsString('years_since:soon', $audit, 'site audit: a computed token that cannot be computed (years)');
         $this->assertStringContainsString('cannot be computed', $audit, 'site audit: the reason');
-        $this->assertStringNotContainsString('Roky:', $this->mcpText('find_claims'), 'claims inventory: a sentence with a computed token is not a claim');
+        $this->assertStringNotContainsString('Years:', $this->mcpText('find_claims'), 'claims inventory: a sentence with a computed token is not a claim');
     }
 
     public function testCounterTakesAFactAndTheAuditFlagsTypedDigits(): void
     {
         $site = $this->site();
         $years = (int) date('Y') - 2004;
-        $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'pocitane-test'");
+        $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'computed-test'");
         $this->mcpText('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
-            ['id' => 'cnt1', 'type' => 'counter', 'content' => ['number' => '1500', 'suffix' => '+', 'caption' => 'zakázek']],
-            ['id' => 'cnt2', 'type' => 'counter', 'content' => ['number' => '{{fact.projects}}', 'suffix' => '', 'caption' => 'zakázek z faktu']],
-            ['id' => 'cnt3', 'type' => 'counter', 'content' => ['number' => '{{years_since:fact.founded}}', 'suffix' => ' let', 'caption' => 'na trhu']],
+            ['id' => 'cnt1', 'type' => 'counter', 'content' => ['number' => '1500', 'suffix' => '+', 'caption' => 'projects']],
+            ['id' => 'cnt2', 'type' => 'counter', 'content' => ['number' => '{{fact.projects}}', 'suffix' => '', 'caption' => 'projects from a fact']],
+            ['id' => 'cnt3', 'type' => 'counter', 'content' => ['number' => '{{years_since:fact.founded}}', 'suffix' => ' years', 'caption' => 'on the market']],
         ]]]]]);
-        $body = $this->page('/pocitane-test');
+        $body = $this->page('/computed-test');
         $this->assertMatchesRegularExpression('/data-counter="1700">1.?700</u', $body, 'counter: a fact as the number');
         $this->assertStringContainsString("data-counter=\"$years\">$years<", $body, 'counter: a computed token as the number');
         $this->assertStringContainsString('data-counter="1500"', $body, 'counter: the typed number stays');
@@ -149,8 +149,8 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('years_since:fact.founded', $admin, 'facts: the admin list explains the computed tokens');
         $this->assertStringContainsString("count:$first}}</code></td><td>$count<", $admin, 'facts: the admin list shows their current values');
 
-        $this->mcpText('trash_page', ['id' => (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'pocitane-test'")]);
-        $this->assertStringContainsString('Fakta test', $this->mcpText('delete_fact', ['key' => 'founded']), 'deleting a fact lists where it was still used');
+        $this->mcpText('trash_page', ['id' => (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'computed-test'")]);
+        $this->assertStringContainsString('Facts test', $this->mcpText('delete_fact', ['key' => 'founded']), 'deleting a fact lists where it was still used');
     }
 
     // ---- 53 opening hours with exceptions
@@ -158,30 +158,30 @@ final class FactsTest extends SiteTestCase
     public function testOpeningHoursExceptions(): void
     {
         $site = $this->site();
-        $site->exec("REPLACE INTO ka_settings VALUES ('company_hours', 'Po-Pá 8:00-17:00'), ('company_type', 'LocalBusiness')");
+        $site->exec("REPLACE INTO ka_settings VALUES ('company_hours', 'Mon-Fri 8:00-17:00'), ('company_type', 'LocalBusiness')");
         $tomorrow = date('Y-m-d', strtotime('+1 day'));
-        $this->assertStringContainsString('Inventura', $this->mcpText('save_hours_exception', ['from' => $tomorrow, 'note' => 'Inventura', 'notice_days' => 7]), 'hours: Claude adds an exception (closed tomorrow)');
+        $this->assertStringContainsString('Stocktaking', $this->mcpText('save_hours_exception', ['from' => $tomorrow, 'note' => 'Stocktaking', 'notice_days' => 7]), 'hours: Claude adds an exception (closed tomorrow)');
         $this->assertStringContainsString('YYYY-MM-DD', $this->mcpText('save_hours_exception', ['from' => '2026-13-01']), 'hours: a wrong date is refused');
 
         $home = $this->page('/');
-        $this->assertTrue(str_contains($home, 'class="ka-notice-hours"') && str_contains($home, 'Inventura'), 'hours: the notice bar on the site');
+        $this->assertTrue(str_contains($home, 'class="ka-notice-hours"') && str_contains($home, 'Stocktaking'), 'hours: the notice bar on the site');
         $this->assertStringContainsString('"specialOpeningHoursSpecification"', $home, 'hours: the exception in the structured data');
 
-        $this->mcpText('create_page', ['title' => 'Hodiny test', 'slug' => 'hodiny-test', 'visible' => true, 'content' => '<p>Dnes: {{hours.today}}. {{hours.status}}</p>']);
-        $body = $site->client()->get('/hodiny-test')->body;
+        $this->mcpText('create_page', ['title' => 'Hours test', 'slug' => 'hours-test', 'visible' => true, 'content' => '<p>Today: {{hours.today}}. {{hours.status}}</p>']);
+        $body = $site->client()->get('/hours-test')->body;
         $this->assertStringNotContainsString('{{hours', $body, 'hours: the tokens are filled in');
-        $this->assertMatchesRegularExpression('/Dnes: ([0-9]|zavřeno)/u', $body, 'hours: {{hours.today}} and {{hours.status}} filled in');
+        $this->assertMatchesRegularExpression('/Today: ([0-9]|closed)/u', $body, 'hours: {{hours.today}} and {{hours.status}} filled in');
 
         $list = $this->mcpText('list_hours');
         $this->assertStringContainsString('Monday', $list, 'MCP list_hours: the week');
-        $this->assertStringContainsString('Inventura', $list, 'MCP list_hours: the exceptions');
+        $this->assertStringContainsString('Stocktaking', $list, 'MCP list_hours: the exceptions');
 
         $business = $site->admin()->get('/admin.php?module=business')->body;
-        $this->assertTrue(str_contains($business, 'Inventura') && str_contains($business, 'name="exception_from"'), 'hours: the exceptions in Settings → Company');
+        $this->assertTrue(str_contains($business, 'Stocktaking') && str_contains($business, 'name="exception_from"'), 'hours: the exceptions in Settings → Company');
         $exception = (int) $site->value('SELECT id FROM ka_hours_exceptions LIMIT 1');
         $this->assertStringContainsString("action=hours_sign&amp;exception=$exception", $business, 'hours: every exception has a Door sign link');
 
-        $sign = $this->assertPage("/admin.php?module=settings&action=hours_sign&exception=$exception", 200, 'Inventura', message: 'hours: the door sign is a printable page with the note');
+        $sign = $this->assertPage("/admin.php?module=settings&action=hours_sign&exception=$exception", 200, 'Stocktaking', message: 'hours: the door sign is a printable page with the note');
         $this->assertStringContainsString('<svg class="qr"', $sign->body, 'hours: the sign carries the QR code');
         $this->assertStringContainsString(substr($site->base, 7), $sign->body, 'hours: the QR code holds the site address');
         $this->assertStringContainsString('@page { size: A4', $sign->body, 'hours: A4 print CSS');
@@ -200,24 +200,24 @@ final class FactsTest extends SiteTestCase
     public function testCollectionsLinkToEachOtherAndHiddenPeopleRedirect(): void
     {
         $site = $this->site();
-        $this->mcpText('create_collection', ['name' => 'Pobočky test', 'slug' => 'pobocky-test', 'item_pages' => true, 'fields' => [['label' => 'Město', 'type' => 'text']]]);
-        $this->mcpText('save_collection_item', ['collection' => 'pobocky-test', 'name' => 'Praha centrum', 'slug' => 'praha-centrum', 'values' => ['mesto' => 'Praha'], 'visible' => true]);
-        $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'Lidé test', 'slug' => 'lide-test', 'item_pages' => true, 'redirect_hidden_to' => '/pobocky-test', 'fields' => [['label' => 'Pobočka', 'type' => 'item', 'collection' => 'pobocky-test']]]), 'collections: Claude links a field to another collection');
-        $this->sameValue('pobocky-test', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].collection')) FROM ka_collections WHERE slug = 'lide-test'"), 'collections: the link remembers the collection');
+        $this->mcpText('create_collection', ['name' => 'Branches test', 'slug' => 'branches-test', 'item_pages' => true, 'fields' => [['label' => 'City', 'type' => 'text']]]);
+        $this->mcpText('save_collection_item', ['collection' => 'branches-test', 'name' => 'Prague centre', 'slug' => 'prague-centre', 'values' => ['city' => 'Prague'], 'visible' => true]);
+        $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'People test', 'slug' => 'people-test', 'item_pages' => true, 'redirect_hidden_to' => '/branches-test', 'fields' => [['label' => 'Branch', 'type' => 'item', 'collection' => 'branches-test']]]), 'collections: Claude links a field to another collection');
+        $this->sameValue('branches-test', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].collection')) FROM ka_collections WHERE slug = 'people-test'"), 'collections: the link remembers the collection');
 
-        $this->mcpText('save_collection_item', ['collection' => 'lide-test', 'name' => 'Jana Nová', 'slug' => 'jana-nova', 'values' => ['pobocka' => 'praha-centrum'], 'visible' => true]);
-        $this->assertStringContainsString('Praha centrum', $site->client()->get('/lide-test/jana-nova')->body, 'collections: the item page shows the linked item by its name');
+        $this->mcpText('save_collection_item', ['collection' => 'people-test', 'name' => 'Jane Novak', 'slug' => 'jane-novak', 'values' => ['branch' => 'prague-centre'], 'visible' => true]);
+        $this->assertStringContainsString('Prague centre', $site->client()->get('/people-test/jane-novak')->body, 'collections: the item page shows the linked item by its name');
 
-        $this->mcpText('save_collection_item', ['collection' => 'lide-test', 'id' => (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jana-nova'"), 'visible' => false]);
-        $hidden = $site->client()->get('/lide-test/jana-nova');
-        $this->assertSame('301 ' . $site->base . '/pobocky-test', $hidden->status . ' ' . $hidden->redirect, 'people: the page of a hidden person leads to the chosen page (301)');
-        $this->assertSame(404, $site->client()->get('/lide-test/nikdo-takovy')->status, 'people: an address that never existed is still not found');
+        $this->mcpText('save_collection_item', ['collection' => 'people-test', 'id' => (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jane-novak'"), 'visible' => false]);
+        $hidden = $site->client()->get('/people-test/jane-novak');
+        $this->assertSame('301 ' . $site->base . '/branches-test', $hidden->status . ' ' . $hidden->redirect, 'people: the page of a hidden person leads to the chosen page (301)');
+        $this->assertSame(404, $site->client()->get('/people-test/nobody-like-that')->status, 'people: an address that never existed is still not found');
     }
 
     public function testPeoplePresetAndEmailSignature(): void
     {
         $site = $this->site();
-        $preset = $this->mcpText('create_collection', ['name' => 'Tým', 'preset' => 'people']);
+        $preset = $this->mcpText('create_collection', ['name' => 'Team', 'preset' => 'people']);
         $this->assertStringContainsString('redirect_hidden_to', $preset, 'people: the ready-made team collection (redirect)');
         $this->assertStringContainsString('image', $preset, 'people: the ready-made team collection (photo)');
 
@@ -225,20 +225,20 @@ final class FactsTest extends SiteTestCase
         self::$team = (string) $site->value("SELECT slug FROM ka_collections WHERE schema_org LIKE '%Person%' ORDER BY collection_id DESC LIMIT 1");
         self::$teamIdk = (int) $site->value('SELECT collection_id FROM ka_collections WHERE slug = ?', [self::$team]);
         $key = fn (int $i): string => (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, ?)) FROM ka_collections WHERE slug = ?", ["\$[$i].key", self::$team]);
-        $saved = $this->mcpText('save_collection_item', ['collection' => self::$team, 'name' => 'Petr Podpis', 'slug' => 'petr-podpis', 'visible' => true, 'values' => [
-            $key(1) => 'Obchodní ředitel', $key(3) => '+420 777 123 456', $key(4) => 'petr@example.cz', $key(5) => 'Dovolená do pátku',
+        $saved = $this->mcpText('save_collection_item', ['collection' => self::$team, 'name' => 'Peter Signature', 'slug' => 'peter-signature', 'visible' => true, 'values' => [
+            $key(1) => 'Sales director', $key(3) => '+420 777 123 456', $key(4) => 'peter@example.com', $key(5) => 'On leave until Friday',
         ]]);
-        self::$person = (int) $site->value('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$teamIdk, 'petr-podpis']);
+        self::$person = (int) $site->value('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$teamIdk, 'peter-signature']);
         $this->assertGreaterThan(0, self::$person, 'people: a person with a role, a phone and an e-mail ' . substr($saved, 0, 300));
 
         $signature = $this->mcpText('get_email_signature', ['collection' => self::$team, 'id' => self::$person]);
-        foreach (['Petr Podpis', '777 123 456', 'tel:+420777123456', 'max-width:600px'] as $needle) {
+        foreach (['Peter Signature', '777 123 456', 'tel:+420777123456', 'max-width:600px'] as $needle) {
             $this->assertStringContainsString($needle, $signature, "people: get_email_signature has $needle");
         }
-        $this->assertStringNotContainsString('Dovolen', $signature, 'people: the signature never carries the absence');
+        $this->assertStringNotContainsString('On leave', $signature, 'people: the signature never carries the absence');
 
-        $bySlug = $this->mcpText('get_email_signature', ['collection' => self::$team, 'slug' => 'petr-podpis']);
-        $this->assertStringContainsString('mailto:petr@example.cz', $bySlug, 'people: the signature by the person\'s address');
+        $bySlug = $this->mcpText('get_email_signature', ['collection' => self::$team, 'slug' => 'peter-signature']);
+        $this->assertStringContainsString('mailto:peter@example.com', $bySlug, 'people: the signature by the person\'s address');
         $this->assertStringContainsString('"people_collection":true', $bySlug, 'people: it knows the collection holds people');
     }
 
@@ -249,16 +249,16 @@ final class FactsTest extends SiteTestCase
         $person = self::$person;
         $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$person", 200, 'action=signature', message: 'people: the item form offers the e-mail signature');
         $preview = $this->assertPage("/admin.php?module=collections&action=signature&id=$idk&item=$person", 200, 'data-copy-signature', message: 'people: the admin signature page shows the preview with the copy button');
-        foreach (['Petr Podpis', 'Obchodní ředitel', 'href="tel:+420777123456"'] as $needle) {
+        foreach (['Peter Signature', 'Sales director', 'href="tel:+420777123456"'] as $needle) {
             $this->assertStringContainsString($needle, $preview->body, "people: the preview has $needle");
         }
-        $this->assertStringNotContainsString('Dovolen', $preview->body, 'people: the preview never shows the absence');
+        $this->assertStringNotContainsString('On leave', $preview->body, 'people: the preview never shows the absence');
 
-        $linked = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'lide-test'");
+        $linked = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'people-test'");
         $form = $site->admin()->get("/admin.php?module=collections&action=edit&id=$linked")->body;
         $this->assertStringContainsString('name="hidden_redirect"', $form, 'collections: the form offers the redirect');
         $this->assertStringContainsString('name="fields[0][collection]"', $form, 'collections: the form offers links');
-        $item = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jana-nova'");
-        $this->assertStringContainsString('<option value="praha-centrum" selected>Praha centrum</option>', $site->admin()->get("/admin.php?module=collections&action=item&id=$linked&item=$item")->body, 'collections: the item form chooses the linked item');
+        $item = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jane-novak'");
+        $this->assertStringContainsString('<option value="prague-centre" selected>Prague centre</option>', $site->admin()->get("/admin.php?module=collections&action=item&id=$linked&item=$item")->body, 'collections: the item form chooses the linked item');
     }
 }

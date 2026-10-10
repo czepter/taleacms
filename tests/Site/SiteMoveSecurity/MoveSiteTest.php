@@ -55,7 +55,7 @@ final class MoveSiteTest extends SiteTestCase
         $this->createTeam($site);
         $this->uploadPhoto($site);
         $site->admin()->post('/admin.php?module=redirects&action=save', ['_csrf' => $site->csrf(), 'from_path' => '/akce-leto', 'to_path' => '/kontakty', 'type' => 302]);
-        $site->mcp('write_notebook', ['topic' => 'history', 'title' => 'Historie redesignu', 'text' => 'Web přešel na Kaletu v říjnu 2026.']); // 2.15: the notebook moves with the site
+        $site->mcp('write_notebook', ['topic' => 'history', 'title' => 'Redesign history', 'text' => 'The site moved to Kaleta in October 2026.']); // 2.15: the notebook moves with the site
         $site->exec("INSERT INTO ka_booking_services (name) VALUES ('Move test')"); // 3.2: a booking set-up travels with the site
         $site->exec('UPDATE ka_news SET text = CONCAT(text, ?) WHERE deleted_at IS NULL ORDER BY news_id LIMIT 1', [self::N6_PAYLOAD]); // 3.3.2: an archive from anywhere brings no script
 
@@ -96,11 +96,11 @@ final class MoveSiteTest extends SiteTestCase
     #[Depends('testTheOldSiteExportsItsContentWithMedia')]
     public function testStartFromAnExportInstallsAnEmptySite(): void
     {
-        self::$moved = Site::boot(['web' => 'export', 'siteName' => 'Nový web', 'extensions' => ['news']]); // the installer's "Hotovo" page is the answer or boot() throws
+        self::$moved = Site::boot(['web' => 'export', 'siteName' => 'New site', 'extensions' => ['news']]); // the installer's "Done" page is the answer or boot() throws
 
         $site = $this->moved();
         $site->setting('tasks_token', 'own-' . bin2hex(random_bytes(8))); // the harness gives every site the same token; the old installer made each site's own
-        $this->assertStringContainsString('Pokračovat importem', $site->installerResponse->body, 'installer: Start from an export leads to the import (the installer\'s own answer)');
+        $this->assertStringContainsString('Continue with the import', $site->installerResponse->body, 'installer: Start from an export leads to the import (the installer\'s own answer)');
         $this->assertSame('0/0/1', (string) $site->value('SELECT CONCAT((SELECT COUNT(*) FROM ka_pages), "/", (SELECT COUNT(*) FROM ka_news), "/", (SELECT COUNT(*) FROM ka_users))'), 'installer: Start from an export leaves the site empty');
         $this->assertStringContainsString('id="file-kaleta"', $site->admin()->get('/admin.php?module=transfer')->body, 'an empty site offers Import from Kaleta');
     }
@@ -114,7 +114,7 @@ final class MoveSiteTest extends SiteTestCase
         $upload = $admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['file' => $zipFile]);
         $preview = $admin->get(str_replace($new->base, '', $upload->redirect));
 
-        $this->assertStringContainsString('Export webu „Testovací firma“', $preview->body, 'preview of the export with counts');
+        $this->assertStringContainsString('Export of the site “Test Company”', $preview->body, 'preview of the export with counts');
         $this->assertStringContainsString('name="confirmation"', $preview->body, 'preview of the export has a confirmation');
         $file = self::$file = substr($upload->redirect, (int) strrpos($upload->redirect, 'file=') + 5);
 
@@ -133,11 +133,11 @@ final class MoveSiteTest extends SiteTestCase
         $result = null;
         for ($i = 0; $i < 80; $i++) {
             $result = $admin->post('/admin.php?module=transfer&action=kaleta', ['_csrf' => $new->csrf(), 'file' => $file]);
-            if ($result->contains('Web je naimportovaný') || $result->contains('Import se zastavil')) {
+            if ($result->contains('The site has been imported') || $result->contains('The import has stopped')) {
                 break;
             }
         }
-        $this->assertStringContainsString('Web je naimportovaný', $result->body, 'the import went through in batches: ' . mb_substr($result->text(), 0, 300));
+        $this->assertStringContainsString('The site has been imported', $result->body, 'the import went through in batches: ' . mb_substr($result->text(), 0, 300));
         $this->assertStringNotContainsString('data-auto-submit', $result->body, 'the result no longer submits itself');
 
         $this->assertSame($this->counts($old), $this->counts($new), 'the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)');
@@ -175,8 +175,8 @@ final class MoveSiteTest extends SiteTestCase
 
         $home = $new->client()->get('/');
         $this->assertSame(200, $home->status, 'the moved site runs');
-        $this->assertStringContainsString('Testovací firma', $home->body, 'the moved site shows the old name');
-        $this->assertSame('1|history|Historie redesignu|test', (string) $new->value("SELECT CONCAT(COUNT(*), '|', MAX(topic), '|', MAX(title), '|', MAX(author)) FROM ka_notebook"), '2.15: the notebook moved with the site (the note, its topic and author)');
+        $this->assertStringContainsString('Test Company', $home->body, 'the moved site shows the old name');
+        $this->assertSame('1|history|Redesign history|test', (string) $new->value("SELECT CONCAT(COUNT(*), '|', MAX(topic), '|', MAX(title), '|', MAX(author)) FROM ka_notebook"), '2.15: the notebook moved with the site (the note, its topic and author)');
 
         $slug = (string) $new->value("SELECT slug FROM ka_pages WHERE visible = 1 AND deleted_at IS NULL AND page_id <> (SELECT value FROM ka_settings WHERE name = 'home_page') ORDER BY page_id LIMIT 1");
         $h1 = static function (Site $s) use ($slug): string {

@@ -58,7 +58,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
 
     private function captchaPost(string $email, array $extra = []): string
     {
-        return $this->submitForm(['p0' => ['Koupelna'], 'p2' => $email] + $extra);
+        return $this->submitForm(['p0' => ['Bathroom'], 'p2' => $email] + $extra);
     }
 
     private function startCaptcha(): void
@@ -117,7 +117,7 @@ PHP);
 
     private function oldPage(string $title, string $description, string $body): string
     {
-        return sprintf('<!doctype html><html><head><title>%s | Old Oak</title><meta name="description" content="%s"></head><body><header><nav><a href="/">Old home</a> <a href="/about-us/">About</a></nav></header><main><h1>%s</h1>%s</main><footer>Old footer 1990</footer></body></html>', $title, $description, $title, $body);
+        return sprintf('<!doctype html><html><head><title>%s | Old Oak</title><meta name="description" content="%s"></head><body><header><nav><a href="/">Old home</a> <a href="/our-story/">About</a></nav></header><main><h1>%s</h1>%s</main><footer>Old footer 1990</footer></body></html>', $title, $description, $title, $body);
     }
 
     // ---- tests, in the order of the old section
@@ -139,9 +139,9 @@ PHP);
         $page = $this->firstId($site->mcp('create_page', ['title' => 'Leads 23', 'visible' => true]));
         $this->assertGreaterThan(0, $page, 'the lead page was created');
         $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
-            ['type' => 'form', 'content' => ['name' => 'Poptavka 23', 'fields' => [
-                ['label' => 'Sluzby', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kuchyne\nKoupelna"],
-                ['label' => 'Produkt', 'type' => 'hidden', 'value' => 'Dubovy stul'],
+            ['type' => 'form', 'content' => ['name' => 'Enquiry 23', 'fields' => [
+                ['label' => 'Services', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kitchen\nBathroom"],
+                ['label' => 'Product', 'type' => 'hidden', 'value' => 'Oak chair'],
                 ['label' => 'Email', 'type' => 'email', 'required' => true],
             ]]],
             ['type' => 'embed', 'content' => ['address' => 'https://calendly.com/acme/consultation', 'title' => 'Book a consultation']],
@@ -151,8 +151,8 @@ PHP);
         $site->exec('UPDATE ka_pages SET head_code = ? WHERE page_id = ?', ['<meta name="kaleta-test" content="23">', $page]);
 
         $form = $this->loadForm();
-        $this->assertStringContainsString('type="checkbox" name="p0[]" value="Kuchyne"', $form->body, 'ticked options on the page');
-        $this->assertStringNotContainsString('Dubovy stul', $form->body, 'the hidden value is not on the page');
+        $this->assertStringContainsString('type="checkbox" name="p0[]" value="Kitchen"', $form->body, 'ticked options on the page');
+        $this->assertStringNotContainsString('Oak chair', $form->body, 'the hidden value is not on the page');
         $this->assertStringContainsString('data-insert="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"', $form->body, 'Embed: a known service after a click');
         $this->assertStringNotContainsString('evil.example', $form->body, 'Embed: anything else not at all');
         $this->assertStringContainsString('<meta name="kaleta-test" content="23">', $form->body, 'code in the head of the page');
@@ -170,15 +170,15 @@ PHP);
     {
         $site = $this->site();
         sleep(4); // the form must have been open a few seconds (anti-spam time signature)
-        $this->submitForm(['p0' => ['Koupelna'], 'p2' => 'petr@example.cz', 'ka_landing' => '/sluzby', 'ka_campaign' => 'utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', 'ka_referrer' => 'google.com']);
-        $this->assertSame('/sluzby|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM ka_enquiries WHERE email = 'petr@example.cz'"),
+        $this->submitForm(['p0' => ['Bathroom'], 'p2' => 'petr@example.cz', 'ka_landing' => '/services', 'ka_campaign' => 'utm_source=google&utm_medium=cpc&utm_campaign=kitchen', 'ka_referrer' => 'google.com']);
+        $this->assertSame('/services|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kitchen', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM ka_enquiries WHERE email = 'petr@example.cz'"),
             'an enquiry carries the first page, the campaign and the referring site of the visit');
 
         $text = $this->toolText('get_stats', ['days' => 7]);
-        $this->assertStringContainsString('"campaign":"google / cpc / kuchyne"', $text, 'get_stats: campaigns');
+        $this->assertStringContainsString('"campaign":"google / cpc / kitchen"', $text, 'get_stats: campaigns');
         $this->assertStringContainsString('"device":"phone"', $text, 'get_stats: devices');
-        $this->assertStringContainsString('"path":"/sluzby"', $text, 'get_stats: the first pages of leads');
-        $this->assertPage('/admin.php?module=stats&days=7', 200, 'google / cpc / kuchyne', message: 'Statistics: pages, campaigns and first pages that bring leads');
+        $this->assertStringContainsString('"path":"/services"', $text, 'get_stats: the first pages of leads');
+        $this->assertPage('/admin.php?module=stats&days=7', 200, 'google / cpc / kitchen', message: 'Statistics: pages, campaigns and first pages that bring leads');
     }
 
     #[Depends('testEnquiryOriginAndStatisticsOverMcpAndAdmin')]
@@ -187,24 +187,24 @@ PHP);
         $site = $this->site();
         $visitor = $site->client();
         $this->clearCache();
-        $this->assertMatchesRegularExpression('#<script src="/image/vitals.js\?v=[^"]*" defer data-vitals="/vitals"></script>#', $visitor->get('/sluzby')->body, '2.8: the speed beacon script loads deferred with the statistics on');
-        $this->assertStringNotContainsString('blocking="render" data-vitals', $visitor->get('/sluzby')->body, '2.8: the beacon script does not block rendering');
-        $this->assertStringNotContainsString('vitals.js', $site->admin()->get('/sluzby')->body, '2.8: no speed beacon for signed-in users');
+        $this->assertMatchesRegularExpression('#<script src="/image/vitals.js\?v=[^"]*" defer data-vitals="/vitals"></script>#', $visitor->get('/services')->body, '2.8: the speed beacon script loads deferred with the statistics on');
+        $this->assertStringNotContainsString('blocking="render" data-vitals', $visitor->get('/services')->body, '2.8: the beacon script does not block rendering');
+        $this->assertStringNotContainsString('vitals.js', $site->admin()->get('/services')->body, '2.8: no speed beacon for signed-in users');
 
-        $beacon = $visitor->post('/vitals', ['path' => '/sluzby', 'lcp' => 1800, 'cls' => 0.05, 'inp' => 120]);
+        $beacon = $visitor->post('/vitals', ['path' => '/services', 'lcp' => 1800, 'cls' => 0.05, 'inp' => 120]);
         $this->assertSame(204, $beacon->status, '2.8: a beacon answers 204');
         $visitor->post('/vitals', ['path' => '/neexistuje-vitals', 'lcp' => 1800]);                            // a page the statistics never saw
-        $visitor->post('/vitals', ['path' => '/sluzby', 'lcp' => 1800], [], 'curl/8.0');                       // a bot
-        $visitor->post('/vitals', ['path' => '/sluzby', 'lcp' => 999999, 'cls' => 'abc']);                     // out of range, not numeric
-        $this->assertSame('/sluzby:cls:2:1,/sluzby:inp:2:1,/sluzby:lcp:3:1', $site->value("SELECT GROUP_CONCAT(CONCAT(path, ':', metric, ':', bucket, ':', samples) ORDER BY metric) FROM ka_web_vitals"),
+        $visitor->post('/vitals', ['path' => '/services', 'lcp' => 1800], [], 'curl/8.0');                       // a bot
+        $visitor->post('/vitals', ['path' => '/services', 'lcp' => 999999, 'cls' => 'abc']);                     // out of range, not numeric
+        $this->assertSame('/services:cls:2:1,/services:inp:2:1,/services:lcp:3:1', $site->value("SELECT GROUP_CONCAT(CONCAT(path, ':', metric, ':', bucket, ':', samples) ORDER BY metric) FROM ka_web_vitals"),
             '2.8: the beacon lands in histogram buckets per metric; made-up pages, bots and nonsense do not');
 
         $stats = $site->admin()->get('/admin.php?module=stats&days=7')->body;
-        $this->assertStringContainsString('href="/sluzby"', $stats, '2.8: Statistics list the page');
+        $this->assertStringContainsString('href="/services"', $stats, '2.8: Statistics list the page');
         $this->assertMatchesRegularExpression('#2[.,]0 s <span class="badge badge-published">#', $stats, '2.8: Statistics show p75 LCP with the rating');
         $this->assertMatchesRegularExpression('#150 ms <span class="badge badge-published">#', $stats, '2.8: Statistics show p75 INP with the rating');
         $text = $this->toolText('get_stats', ['days' => 7]);
-        $this->assertStringContainsString('"web_vitals":[{"path":"/sluzby","samples":1,"lcp_p75":2000', $text, '2.8: get_stats carries web_vitals');
+        $this->assertStringContainsString('"web_vitals":[{"path":"/services","samples":1,"lcp_p75":2000', $text, '2.8: get_stats carries web_vitals');
         $this->assertStringContainsString('"lcp_rating":"good"', $text, '2.8: get_stats LCP rating');
         $this->assertStringContainsString('"cls_p75":0.05', $text, '2.8: get_stats CLS');
         $this->assertStringContainsString('"inp_p75":150', $text, '2.8: get_stats INP');
@@ -213,8 +213,8 @@ PHP);
         $site->mcp('update_settings', ['settings' => ['stats' => '0']]);
         $this->clearCache();
         $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('stats', value) FROM ka_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
-        $this->assertStringNotContainsString('vitals', $visitor->get('/sluzby')->body, '2.8: statistics off - no beacon script on the page');
-        $visitor->post('/vitals', ['path' => '/sluzby', 'lcp' => 1800]);
+        $this->assertStringNotContainsString('vitals', $visitor->get('/services')->body, '2.8: statistics off - no beacon script on the page');
+        $visitor->post('/vitals', ['path' => '/services', 'lcp' => 1800]);
         $this->assertSame('3', (string) $site->value('SELECT SUM(samples) FROM ka_web_vitals'), '2.8: statistics off - a beacon is not counted');
         $text = $this->toolText('update_settings', ['settings' => ['stats' => true]]);
         $this->clearCache();
@@ -222,12 +222,12 @@ PHP);
         $this->assertSame('1', (string) $site->value("SELECT (LENGTH(value) - LENGTH(REPLACE(value, 'stats', ''))) DIV LENGTH('stats') FROM ka_settings WHERE name = 'extensions'"),
             '3.2: update_settings stats=true switches the Statistics feature on again, once');
 
-        // the audit: p75 LCP from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 today) is flagged, /sluzby with one measurement is not
+        // the audit: p75 LCP from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 today) is flagged, /services with one measurement is not
         $site->exec("INSERT INTO ka_web_vitals (day, path, metric, bucket, samples) VALUES (CURDATE() - INTERVAL 35 DAY, '/audit-pomalu', 'lcp', 3, 30), (CURDATE(), '/audit-pomalu', 'lcp', 5, 30)");
         $text = $this->toolText('site_audit', ['kind' => 'speed']);
         $this->assertStringContainsString('"path":"/audit-pomalu"', $text, '2.8: the site audit flags the slowed page');
         $this->assertMatchesRegularExpression('#3[.,]0 s#', $text, '2.8: the audit names the new p75 LCP');
-        $this->assertStringNotContainsString('/sluzby', $text, '2.8: the site audit flags only a page that got worse by more than 25 %');
+        $this->assertStringNotContainsString('/services', $text, '2.8: the site audit flags only a page that got worse by more than 25 %');
         $site->exec("DELETE FROM ka_web_vitals WHERE path = '/audit-pomalu'");
     }
 
@@ -236,8 +236,8 @@ PHP);
     {
         $site = $this->site();
         $this->assertMatchesRegularExpression('#result=field&field=0#', $this->submitForm(['p2' => 'tick@example.cz']), 'a required group needs at least one ticked option');
-        $this->submitForm(['p0' => ['Kuchyne', 'Podvrh'], 'p1' => 'Hacked', 'p2' => 'tick@example.cz']);
-        $this->assertSame('[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM ka_enquiries WHERE email = 'tick@example.cz'"),
+        $this->submitForm(['p0' => ['Kitchen', 'Forged'], 'p1' => 'Hacked', 'p2' => 'tick@example.cz']);
+        $this->assertSame('[["Services","Kitchen"],["Product","Oak chair"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM ka_enquiries WHERE email = 'tick@example.cz'"),
             "ticked options (only offered ones) and the form's own hidden value are saved");
     }
 
@@ -245,14 +245,14 @@ PHP);
     public function testAccessibilityAndHandOverAudits(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Access 23', 'visible' => true, 'content' => '<p>Prices: <a href="/sluzby">click here</a>.</p><table><tr><td>1</td></tr></table>']);
+        $site->mcp('create_page', ['title' => 'Access 23', 'visible' => true, 'content' => '<p>Prices: <a href="/services">click here</a>.</p><table><tr><td>1</td></tr></table>']);
         $text = $this->toolText('site_audit', ['kind' => 'accessibility']);
         $this->assertStringContainsString('click here', $text, 'site audit: link texts');
         $this->assertStringContainsString('header cells', $text, 'site audit: tables');
         $this->assertStringContainsString('accessibility statement', $text, 'site audit: the accessibility statement');
 
         // 2.4 for agencies
-        $this->assertPage('/admin.php?module=roles&action=new&preset=client', 200, 'name="name" value="Klient"', message: '2.4: ready-made Client role fills the form');
+        $this->assertPage('/admin.php?module=roles&action=new&preset=client', 200, 'name="name" value="Client"', message: '2.4: ready-made Client role fills the form');
         $text = $this->toolText('site_audit', ['kind' => 'handover']);
         $this->assertMatchesRegularExpression('#"handover": ?"agency"#', $text, 'hand-over check: agency contact missing');
         $this->assertMatchesRegularExpression('#"handover": ?"smtp"#', $text, 'hand-over check: SMTP missing');
@@ -356,7 +356,7 @@ PHP);
     {
         $site = $this->site();
         $old = $site->workDir('oldsite');
-        foreach (['about-us', 'blog/first-post', 'img', 'contact'] as $dir) {
+        foreach (['our-story', 'blog/first-post', 'img', 'visit-us'] as $dir) {
             @mkdir($old . '/' . $dir, 0775, true);
         }
         $image = imagecreatetruecolor(400, 300);
@@ -367,16 +367,16 @@ PHP);
         $origin = 'http://127.0.0.1:' . $port;
         file_put_contents($old . '/robots.txt', "User-agent: *\nSitemap: $origin/sitemap.xml\n");
         $sitemap = static fn (array $paths): string => '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(static fn ($p) => "<url><loc>$origin$p</loc></url>", $paths)) . '</urlset>';
-        file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/about-us/', '/blog/first-post/']));
+        file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/our-story/', '/blog/first-post/']));
         file_put_contents($old . '/index.html', $this->oldPage('Welcome', 'The old home page', '<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>'));
-        file_put_contents($old . '/about-us/index.html', $this->oldPage('About us', 'Who we are', '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video>'));
+        file_put_contents($old . '/our-story/index.html', $this->oldPage('About us', 'Who we are', '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video>'));
         file_put_contents($old . '/blog/first-post/index.html', '<!doctype html><html><head><title>Our first post | Old Oak</title><meta property="article:published_time" content="2024-05-06T09:00:00+02:00"></head><body><article><h1>Our first post</h1><p>Today we opened the new workshop for visitors, come and see how a table is made from a single oak.</p></article></body></html>');
         $site->startPhp($old, 'router.php', [], $port);
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
         $this->assertSame('preview', $this->fieldOf($text, 'phase'), 'website import: the pages are shown before importing');
         $this->assertSame('3', $this->fieldOf($text, 'found'), 'website import: three pages found in the sitemap');
-        $this->assertStringContainsString('/about-us', $text, 'website import: the preview lists the about page');
+        $this->assertStringContainsString('/our-story', $text, 'website import: the preview lists the about page');
         $importId = $this->fieldOf($text, 'import_id');
         $this->toolText('import_website', ['import_id' => $importId, 'confirm' => true]);
         $text = $this->toolText('import_website', ['import_id' => $importId]);
@@ -385,15 +385,15 @@ PHP);
         }
         $this->assertSame('done', $this->fieldOf($text, 'phase'), 'website import finished');
 
-        $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM ka_pages WHERE slug = 'about-us'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM ka_news WHERE title = 'Our first post'))"),
+        $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM ka_pages WHERE slug = 'our-story'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM ka_news WHERE title = 'Our first post'))"),
             'website import: pages hidden, the post as a hidden news item');
-        $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM ka_pages WHERE slug = 'about-us'");
+        $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM ka_pages WHERE slug = 'our-story'");
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
         $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
         $this->assertStringContainsString('"type":"heading"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
-        $aboutText = (string) $site->value("SELECT text FROM ka_pages WHERE slug = 'about-us'");
+        $aboutText = (string) $site->value("SELECT text FROM ka_pages WHERE slug = 'our-story'");
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
         $this->assertStringNotContainsString('"type":"custom_html"', $about, 'website import: no Custom HTML from the old site');
@@ -409,25 +409,25 @@ PHP);
         $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
 
         // 2.7: the migration report - a fourth old page with a form that nothing on the new site answers
-        file_put_contents($old . '/contact/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p><form action="/send"><input name="email"><textarea name="message"></textarea></form>'));
-        file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/about-us/', '/blog/first-post/', '/contact/']));
+        file_put_contents($old . '/visit-us/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p><form action="/send"><input name="email"><textarea name="message"></textarea></form>'));
+        file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/our-story/', '/blog/first-post/', '/visit-us/']));
         $report = $this->reportDone($origin);
         $this->assertSame('{"addresses":4,"checked":4,"ok":1,"redirected":0,"not_published":2,"missing":1,"errors":1,"warnings":3}', $this->fieldOf($report, 'summary'),
             'migration report: four old addresses - the imported ones not published yet, the contact page missing');
-        $this->assertStringContainsString('/contact', $report, 'migration report: the contact address is listed');
+        $this->assertStringContainsString('/visit-us', $report, 'migration report: the contact address is listed');
         $this->assertMatchesRegularExpression('#form_missing|missing#', $report, 'migration report: the missing page is flagged');
         $this->assertStringContainsString('site_checks', $report, 'migration report: the checks of the whole site');
 
-        $site->mcp('save_redirect', ['from' => '/contact', 'to' => '/about-us']);
-        $site->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'about-us'");
+        $site->mcp('save_redirect', ['from' => '/visit-us', 'to' => '/our-story']);
+        $site->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'our-story'");
         $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}', $this->fieldOf($this->reportDone($origin), 'summary'),
             'migration report: after a redirect and publishing, the contact address redirects (but the form is gone)');
-        $site->exec("UPDATE ka_pages SET visible = 0 WHERE slug = 'about-us'");
-        $site->exec("DELETE FROM ka_redirects WHERE from_path = 'contact'");
+        $site->exec("UPDATE ka_pages SET visible = 0 WHERE slug = 'our-story'");
+        $site->exec("DELETE FROM ka_redirects WHERE from_path = 'visit-us'");
 
         // 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
         $entries = [
-            ['date' => '2025-03-14 09:30', 'form' => 'Contact', 'page' => '/contact', 'fields' => ['Name' => 'Jana Old', 'E-mail' => 'jana.old@example.cz', 'Message' => 'A table please']],
+            ['date' => '2025-03-14 09:30', 'form' => 'Contact', 'page' => '/visit-us', 'fields' => ['Name' => 'Jana Old', 'E-mail' => 'jana.old@example.cz', 'Message' => 'A table please']],
             ['date' => '2025-03-15 10:00', 'form' => 'Contact', 'fields' => [['label' => 'Phone', 'value' => '777 000 111']]],
         ];
         $first = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $entries]);
@@ -458,13 +458,13 @@ PHP);
 
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'login'"); // the sign-in limit per address was used up by the account lock test
         $visitor = $site->client('consent');
-        $visitor->get('/oauth/authorize?response_type=code&client_id=' . $client . '&redirect_uri=' . self::REDIRECT_URI . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=nove');
+        $visitor->get('/oauth/authorize?response_type=code&client_id=' . $client . '&redirect_uri=' . self::REDIRECT_URI . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=new');
         $csrf = $visitor->get('/admin.php?action=oauth')->csrf();
         $redirect = $visitor->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => $site->password])->redirect;
         $this->assertStringContainsString('action=oauth', $redirect, 'a signed-out person returns to the consent page after signing in');
 
         $account = $site->admin()->get('/admin.php?action=account');
-        $this->assertStringContainsString('Připojené aplikace', $account->body, 'the connected app in My account');
+        $this->assertStringContainsString('Connected applications', $account->body, 'the connected app in My account');
         $site->admin()->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'disconnect_client' => $client]);
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_api_tokens WHERE client_id = ?', [$client]), 'disconnecting the app deletes its tokens');
     }

@@ -91,7 +91,7 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
     public function testTheAdminShowsTheStatusAndTheHistory(): void
     {
         $base = $this->site()->base;
-        $this->assertPage('/admin.php?module=schedules', 200, 'Zmeškaný', message: 'schedules: the list shows the last run status');
+        $this->assertPage('/admin.php?module=schedules', 200, 'Missed', message: 'schedules: the list shows the last run status');
         $history = $this->assertPage('/admin.php?module=schedules&action=history&id=' . self::$schedule, 200, 'Audit clean, two descriptions drafted.', message: 'schedules: the history shows the summary of the reported run');
         $this->assertStringContainsString("href=\"$base/sluzby\"", $history->body, 'schedules: the history links the draft');
         $this->assertStringNotContainsString('javascript:', $history->body, 'schedules: the bad link never got in');

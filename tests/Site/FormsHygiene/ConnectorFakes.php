@@ -54,7 +54,7 @@ trait ConnectorFakes
     {
         $fake = 'http://127.0.0.1:' . $this->site()->port('fake');
 
-        return trim($this->site()->php(sprintf('putenv("KALETA_CONNECTORS_FAKE=%s"); $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, %s, "GET", %s); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];',
+        return trim($this->site()->php(sprintf('putenv("KALETA_CONNECTORS_FAKE=%s"); $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); $r = Kaleta\Core\Connectors::request($app, %s, "GET", %s); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];',
             $fake, var_export($service, true), var_export($url, true))));
     }
 }

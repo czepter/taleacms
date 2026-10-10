@@ -17,7 +17,7 @@ final class PartTemplatesTest extends SiteTestCase
 
     public function testTemplatesAreOfferedInTheAdminAndThroughMcp(): void
     {
-        $this->assertPage('/admin.php?module=parts&action=templates&type=header', 200, 'Logo uprostřed', message: 'templates of the header');
+        $this->assertPage('/admin.php?module=parts&action=templates&type=header', 200, 'Centred logo', message: 'templates of the header');
         $schema = $this->call('builder_schema');
         $this->assertSame(1, $this->lines($this->pick($schema, 'part_templates', 'header', 'centered'), 'Centred logo'), 'MCP: builder_schema lists the header templates');
         $this->assertSame(1, $this->lines($this->pick($schema, 'part_templates', 'footer', 'imprint'), 'imprint'), 'MCP: builder_schema lists the footer templates');

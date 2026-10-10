@@ -48,7 +48,7 @@ final class OAuthConnectorTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/action=oauth$/', $authorize->redirect, 'signing in leads to the consent in the administration');
 
         $consent = $admin->get('/admin.php?action=oauth');
-        $this->assertStringContainsString('Povolit přístup', $consent->body, 'the consent page');
+        $this->assertStringContainsString('Allow access', $consent->body, 'the consent page');
         $this->assertStringContainsString("form-action 'self' https://claude.ai;", $consent->headers['content-security-policy'] ?? '', 'the consent CSP allows the return to the app (form-action)');
         $this->assertArrayNotHasKey('x-kaleta-form-action', $consent->headers, 'the internal form-action header does not leak');
 

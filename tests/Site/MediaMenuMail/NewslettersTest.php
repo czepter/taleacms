@@ -125,10 +125,10 @@ final class NewslettersTest extends SiteTestCase
         $site->setting('tasks_last_run', '0');
         // the earlier sections had published more than one news item; the newsletter lists the latest two
         $category = (string) $site->value("SELECT name FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1");
-        $created = $this->mcpText('create_news', ['title' => 'Druhá novinka pro newsletter', 'category' => $category, 'publish' => true]);
+        $created = $this->mcpText('create_news', ['title' => 'Second news item for the newsletter', 'category' => $category, 'publish' => true]);
         $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_news WHERE visible = 1 AND deleted_at IS NULL"), 'two published news items exist: ' . $created);
 
-        $this->assertPage('/admin.php?module=newsletters', 200, 'Napsat newsletter', message: 'newsletters: empty list');
+        $this->assertPage('/admin.php?module=newsletters', 200, 'Write a newsletter', message: 'newsletters: empty list');
         $this->assertPage('/admin.php?module=newsletters&action=new', 200, 'name="subject"', message: 'newsletters: new draft form');
     }
 
@@ -136,15 +136,15 @@ final class NewslettersTest extends SiteTestCase
     public function testDraftPreviewAndNoSendingWithoutSmtpOrCron(): void
     {
         $site = $this->site();
-        $this->newsletterAction('save', ['id' => 0, 'subject' => 'Jarní novinky', 'preheader' => 'Co je nového', 'intro' => "Dobrý den,\n\nposíláme novinky. Více na https://example.cz/akce",
-            'news_mode' => 'latest', 'news_count' => 2, 'button_label' => 'Všechny novinky', 'button_url' => '/news']);
+        $this->newsletterAction('save', ['id' => 0, 'subject' => 'Spring news', 'preheader' => 'What is new', 'intro' => "Hello,\n\nwe are sending news. More at https://example.cz/akce",
+            'news_mode' => 'latest', 'news_count' => 2, 'button_label' => 'All news', 'button_url' => '/news']);
         self::$s['nl'] = (int) $site->value('SELECT id FROM ka_newsletters ORDER BY id DESC LIMIT 1');
         $nl = $this->nl();
-        $this->assertSame('draft|Jarní novinky|2', $site->value("SELECT CONCAT(status, '|', subject, '|', news_count) FROM ka_newsletters WHERE id = ?", [$nl]), 'newsletter draft saved');
+        $this->assertSame('draft|Spring news|2', $site->value("SELECT CONCAT(status, '|', subject, '|', news_count) FROM ka_newsletters WHERE id = ?", [$nl]), 'newsletter draft saved');
 
-        $preview = $this->assertPage("/admin.php?module=newsletters&action=preview&id=$nl", 200, 'utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=jarni-novinky', message: 'newsletter: e-mail preview');
+        $preview = $this->assertPage("/admin.php?module=newsletters&action=preview&id=$nl", 200, 'utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=spring-news', message: 'newsletter: e-mail preview');
         $text = $preview->body;
-        $this->assertSame([2, 1, 1, 1], [$this->lines($text, 'Číst dál'), $this->lines($text, 'href="https://example.cz/akce"'), $this->lines($text, 'Všechny novinky'), $this->lines($text, 'Odhlásit odběr')], 'preview: 2 news items, linked address, button and unsubscribe');
+        $this->assertSame([2, 1, 1, 1], [$this->lines($text, 'Read more'), $this->lines($text, 'href="https://example.cz/akce"'), $this->lines($text, 'All news'), $this->lines($text, 'Unsubscribe')], 'preview: 2 news items, linked address, button and unsubscribe');
 
         $this->newsletterAction('send', ['id' => $nl, 'when' => 'now']);
         $this->assertSame('draft', $this->statusOf($nl), 'no sending without an SMTP server');
@@ -154,7 +154,7 @@ final class NewslettersTest extends SiteTestCase
         }
         $this->newsletterAction('send', ['id' => $nl, 'when' => 'now']);
         $this->assertSame('draft', $this->statusOf($nl), 'no sending while cron does not run');
-        $this->assertPage("/admin.php?module=newsletters&action=edit&id=$nl", 200, 'Cron za posledních 30 minut', message: 'newsletter form tells why it cannot send');
+        $this->assertPage("/admin.php?module=newsletters&action=edit&id=$nl", 200, 'Cron has not called the tasks address in the last 30 minutes', message: 'newsletter form tells why it cannot send');
     }
 
     #[Depends('testDraftPreviewAndNoSendingWithoutSmtpOrCron')]
@@ -165,7 +165,7 @@ final class NewslettersTest extends SiteTestCase
         $site->runTasks();
         $this->newsletterAction('test', ['id' => $nl]);
         $admin = $this->waitForMail('admin@example.cz');
-        $this->assertSame(1, preg_match_all('/^Subject-Decoded: \[Zkouška\] Jarní novinky$/m', $admin), 'test e-mail to the signed-in user');
+        $this->assertSame(1, preg_match_all('/^Subject-Decoded: \[Test\] Spring news$/m', $admin), 'test e-mail to the signed-in user');
 
         $this->newsletterAction('send', ['id' => $nl, 'when' => 'now']);
         $this->assertSame('sending|3|1', $site->value("SELECT CONCAT(status, '|', recipients, '|', html LIKE '%{{unsubscribe}}%') FROM ka_newsletters WHERE id = ?", [$nl]), 'sending started for confirmed subscribers only');
@@ -182,7 +182,7 @@ final class NewslettersTest extends SiteTestCase
             $this->lines($anna, self::$s['petr']),
         ], 'subscriber e-mail: one-click unsubscribe with the own link, no one else\'s');
         $this->assertSame([1, 1, 1], [
-            preg_match_all('/^Subject-Decoded: Jarní novinky$/m', $anna), $this->lines($anna, 'Všechny novinky: http', true), $this->lines($anna, '<h1 '),
+            preg_match_all('/^Subject-Decoded: Spring news$/m', $anna), $this->lines($anna, 'All news: http', true), $this->lines($anna, '<h1 '),
         ], 'subscriber e-mail: subject, text part and HTML part');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_mail WHERE recipient IN ('anna@example.cz', 'petr@example.cz')"), 'newsletter recipients are not in the mail log');
     }
@@ -197,8 +197,8 @@ final class NewslettersTest extends SiteTestCase
             $site->runTasks();
         }
         $this->assertSame('sent|2|1|1', $site->value("SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL) FROM ka_newsletters WHERE id = ?", [$nl]), 'a refused address is given up after three attempts, the newsletter is sent');
-        $this->assertPage('/admin.php?module=newsletters', 200, 'Odesláno', message: 'newsletters: list with counts');
-        $sent = $this->assertPage("/admin.php?module=newsletters&action=edit&id=$nl", 200, 'Příjemci', message: 'a sent newsletter is read-only');
+        $this->assertPage('/admin.php?module=newsletters', 200, 'Sent', message: 'newsletters: list with counts');
+        $sent = $this->assertPage("/admin.php?module=newsletters&action=edit&id=$nl", 200, 'Recipients', message: 'a sent newsletter is read-only');
         $this->assertStringNotContainsString('name="subject"', $sent->body, 'a sent newsletter has no form');
     }
 
@@ -214,9 +214,9 @@ final class NewslettersTest extends SiteTestCase
         $this->assertStringContainsString('"name":"draft_newsletter"', json_encode($list), 'MCP: newsletter tools listed');
 
         $site->exec("DELETE FROM ka_subscribers WHERE email LIKE 'odmitnout%'");
-        $draft = $site->mcpResult('draft_newsletter', ['subject' => 'Novinky přes Clauda', 'intro' => "Ahoj,\n\nkrátká zpráva.", 'news_mode' => 'none', 'button_label' => 'Kontakt', 'button_url' => '/kontakt']);
+        $draft = $site->mcpResult('draft_newsletter', ['subject' => 'News via Claude', 'intro' => "Hi,\n\na short message.", 'news_mode' => 'none', 'button_label' => 'Contact', 'button_url' => '/contact']);
         $nl2 = (int) $draft['id'];
-        $this->assertSame([ 'draft', 1], [$draft['status'], $this->lines((string) $draft['text'], 'Kontakt: http://127.0.0.1', true)], 'MCP: draft_newsletter returns the text version');
+        $this->assertSame([ 'draft', 1], [$draft['status'], $this->lines((string) $draft['text'], 'Contact: http://127.0.0.1', true)], 'MCP: draft_newsletter returns the text version');
 
         $test = $site->mcpResult('send_test_newsletter', ['id' => $nl2]);
         $this->assertSame('admin@example.cz', $test['sent_to'], 'MCP: test goes to the connected user');
@@ -244,18 +244,18 @@ final class NewslettersTest extends SiteTestCase
     {
         $site = $this->site();
         // a leftover custom layout folder (an earlier section left one there)
-        mkdir($site->path('layout/vlastni'), 0775, true);
-        file_put_contents($site->path('layout/vlastni/base.php'), '<?php echo "VLASTNI SABLONA";');
+        mkdir($site->path('layout/custom'), 0775, true);
+        file_put_contents($site->path('layout/custom/base.php'), '<?php echo "CUSTOM TEMPLATE";');
 
         $status = $this->assertPage('/admin.php?module=status', 200, 'Cron', message: 'health: cron check');
-        $this->assertStringContainsString('Doména a pošta', $status->body, 'health: domain and mail watch group');
+        $this->assertStringContainsString('Domain and mail', $status->body, 'health: domain and mail watch group');
         $this->assertStringContainsString('action=domain_check', $status->body, 'health: Check now button');
-        $this->assertStringContainsString('běží na místní adrese', $status->body, 'health: nothing checked on a local address');
+        $this->assertStringContainsString('runs on a local address', $status->body, 'health: nothing checked on a local address');
 
         $this->adminPost('/admin.php?module=settings&action=domain_check', [], '/admin.php?module=settings');
-        $after = $this->assertPage('/admin.php?module=status', 200, 'Naposledy zkontrolováno', message: 'health: Check now stores the result and reports the local address');
+        $after = $this->assertPage('/admin.php?module=status', 200, 'Last checked', message: 'health: Check now stores the result and reports the local address');
         $this->assertSame('true', $site->value("SELECT JSON_EXTRACT(value, '$.local') FROM ka_settings WHERE name = 'domain_watch'"), 'health: the check result is cached in the domain_watch setting');
-        $this->assertStringContainsString('vlastni ve složce layout/', $after->body, 'health: a leftover custom layout is reported');
+        $this->assertStringContainsString('custom in the layout/ folder', $after->body, 'health: a leftover custom layout is reported');
     }
 
     #[Depends('testHealthPage')]

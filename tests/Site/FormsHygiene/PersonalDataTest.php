@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\FormsHygiene;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** Personal data requests: find, export, erase (was: section 76, "2.14"). */
+/** Personal data requests: find, export, erase (was: section 76,). */
 #[Group('site')]
 final class PersonalDataTest extends SiteTestCase
 {

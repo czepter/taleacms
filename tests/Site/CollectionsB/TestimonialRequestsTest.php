@@ -16,7 +16,7 @@ final class TestimonialRequestsTest extends SiteTestCase
     public function testRequestLinkConsentAndTheHiddenDraftReference(): void
     {
         $site = $this->site();
-        $enquiry = $this->insertEnquiry('zakaznik@example.cz', '[["Zpráva","Děkujeme"]]', 2);
+        $enquiry = $this->insertEnquiry('customer@example.com', '[["Message","Thank you"]]', 2);
         $noMail = $this->insertEnquiry('', '[]', 2);
 
         $this->assertStringContainsString('no e-mail address', $this->mcpText('request_testimonial', ['id' => $noMail]), 'testimonials: an enquiry without an e-mail cannot be asked');
@@ -35,16 +35,16 @@ final class TestimonialRequestsTest extends SiteTestCase
         $signed = ['as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature')];
         sleep(4); // the anti-spam signature has a minimum age
 
-        $refused = $customer->post("/$link", $signed + ['text' => 'Výborná spolupráce, vše včas.', 'name' => 'Eva Nováková']);
-        $this->assertMatchesRegularExpression('/only with your consent|jen s vaším souhlasem/', $refused->body, 'testimonials: nothing is saved without the consent');
+        $refused = $customer->post("/$link", $signed + ['text' => 'Excellent cooperation, all on time.', 'name' => 'Eve Novak']);
+        $this->assertMatchesRegularExpression('/only with your consent/', $refused->body, 'testimonials: nothing is saved without the consent');
 
-        $answered = $customer->post("/$link", $signed + ['text' => 'Výborná spolupráce, vše <b>včas</b>.', 'name' => 'Eva Nováková', 'role' => 'ředitelka, ACME', 'consent_words' => 1]);
+        $answered = $customer->post("/$link", $signed + ['text' => 'Excellent cooperation, all <b>on time</b>.', 'name' => 'Eve Novak', 'role' => 'director, ACME', 'consent_words' => 1]);
         $item = $site->value('SELECT item_id FROM ka_testimonial_requests WHERE enquiry_id = ? AND used_at IS NOT NULL', [$enquiry]);
         $this->assertNotNull($item, 'testimonials: the answer was saved: ' . mb_substr($answered->text(), 0, 300));
-        $this->assertSame('0|Eva Nováková|Výborná spolupráce, vše včas.|Eva Nováková, ředitelka, ACME|references', $site->value("SELECT CONCAT(p.visible, '|', p.name, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE p.item_id = ?", [$item]),
+        $this->assertSame('0|Eve Novak|Excellent cooperation, all on time.|Eve Novak, director, ACME|references', $site->value("SELECT CONCAT(p.visible, '|', p.name, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE p.item_id = ?", [$item]),
             'testimonials: the answer is a hidden draft reference with the words, the name and the role');
 
-        $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = ?", [$item]);
+        $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' FROM ka_testimonial_requests WHERE item_id = ?", [$item]);
         $this->assertSame('1|404', $kept . '|' . $customer->get("/$link")->status, 'testimonials: the consent the customer saw is kept, the link works once');
 
         $this->assertPage("/admin.php?module=enquiries&action=detail&id=$enquiry", 200, "item=$item", message: 'testimonials: the enquiry detail shows the request and links the draft');

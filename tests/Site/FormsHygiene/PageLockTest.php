@@ -8,7 +8,7 @@ use Kaleta\Tests\Site\Support\Http;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** Password-protected pages (was: section 77, "2.14"). */
+/** Password-protected pages (was: section 77,). */
 #[Group('site')]
 final class PageLockTest extends SiteTestCase
 {
@@ -62,7 +62,7 @@ final class PageLockTest extends SiteTestCase
         $visitor->get('/partner-ceny');
         $wrong = $visitor->post('/partner-ceny', ['ka_page_password' => 'wrong-again']);
         $this->assertSame(403, $wrong->status, 'page lock: past the cap a wrong password is refused');
-        $this->assertTrue($wrong->contains('Příliš mnoho pokusů'), 'page lock: as too many attempts');
+        $this->assertTrue($wrong->contains('Too many attempts'), 'page lock: as too many attempts');
         $this->assertSame(303, $visitor->post('/partner-ceny', ['ka_page_password' => 'partner-2026'])->status, 'page lock: the right password still passes');
         $this->assertTrue($this->secretOn($visitor), 'page lock: and opens the page');
 

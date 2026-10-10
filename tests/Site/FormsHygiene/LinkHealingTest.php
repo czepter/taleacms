@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\FormsHygiene;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** Self-healing internal links (was: section 75, "2.14"). */
+/** Self-healing internal links (was: section 75,). */
 #[Group('site')]
 final class LinkHealingTest extends SiteTestCase
 {

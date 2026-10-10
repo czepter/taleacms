@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\FormsHygiene;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** Share images drawn by the site (was: section 71, "2.12: share images drawn by the site"). */
+/** Share images drawn by the site (was: section 71,). */
 #[Group('site')]
 final class ShareImagesTest extends SiteTestCase
 {
@@ -25,7 +25,7 @@ final class ShareImagesTest extends SiteTestCase
     {
         $this->site()->clearPageCache();
 
-        return $this->site()->client()->get('/drevene-schody');
+        return $this->site()->client()->get('/wooden-stairs');
     }
 
     public function testAPageWithoutAnImagePointsOgImageToAGeneratedPng(): void
@@ -34,7 +34,7 @@ final class ShareImagesTest extends SiteTestCase
             $this->markTestSkipped('The PHP used by the test has no GD – the image checks are skipped.');
         }
         $this->site()->exec("DELETE FROM ka_settings WHERE name IN ('share_image', 'share_image_auto')");
-        self::$page = $this->createPage(['title' => 'Dřevěné schody na míru', 'slug' => 'drevene-schody', 'visible' => true, 'content' => '<p>Schody.</p>']);
+        self::$page = $this->createPage(['title' => 'Custom wooden stairs', 'slug' => 'wooden-stairs', 'visible' => true, 'content' => '<p>Stairs.</p>']);
 
         $response = $this->fetchPage();
         self::$imageUrl = $this->ogImage($response->body);
@@ -75,7 +75,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testAChangedTitleIsANewAddress(): void
     {
-        $this->site()->exec("UPDATE ka_pages SET title = 'Kamenné schody' WHERE page_id = ?", [self::$page]);
+        $this->site()->exec("UPDATE ka_pages SET title = 'Stone stairs' WHERE page_id = ?", [self::$page]);
         $url = $this->ogImage($this->fetchPage()->body);
 
         $this->assertNotSame(self::$imageUrl, $url, 'the address changed with the title (no stale copies at the social networks)');
@@ -85,10 +85,10 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testAPageWithItsOwnImageKeepsIt(): void
     {
-        $this->site()->exec("UPDATE ka_pages SET image = 'media/2026/01/sdileni.jpg' WHERE page_id = ?", [self::$page]);
+        $this->site()->exec("UPDATE ka_pages SET image = 'media/2026/01/sharing.jpg' WHERE page_id = ?", [self::$page]);
         $response = $this->fetchPage();
 
-        $this->assertTrue($response->matches('#og:image" content="http[^"]*/media/2026/01/sdileni.jpg"#'), "a page's own share image is used");
+        $this->assertTrue($response->matches('#og:image" content="http[^"]*/media/2026/01/sharing.jpg"#'), "a page's own share image is used");
         $this->assertFalse($response->contains('/og/'), 'no generated image next to it');
     }
 

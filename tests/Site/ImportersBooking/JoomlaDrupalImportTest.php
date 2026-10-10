@@ -95,7 +95,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->assertStringContainsString('option value="webflow">Webflow', $page->body, 'Webflow is a file upload');
         $this->assertStringNotContainsString('option value="joomla"', $page->body, 'Joomla is not a file upload');
         $this->transfer('source_fetch', ['system' => 'joomla', 'url' => 'http://10.0.0.5', 'token' => 'whatever']);
-        $this->assertTrue($this->site()->admin()->get('/admin.php?module=transfer')->matches('/not an internal address|ne vnitřní adresu/'), 'fetch: an internal address is refused');
+        $this->assertTrue($this->site()->admin()->get('/admin.php?module=transfer')->matches('/not an internal address/'), 'fetch: an internal address is refused');
     }
 
     public function testJoomlaFetch(): void
@@ -103,7 +103,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $steps = ['categories', 'users', 'tags'];
         $this->fetch('joomla', $this->fake(), 'wrong-token-value', $steps);
         $answer = $this->batch(self::JOOMLA);
-        $this->assertMatchesRegularExpression('/refused the request.*401|odmítl.*401/', $answer->body, 'Joomla: a wrong token is a clear error with the 401');
+        $this->assertMatchesRegularExpression('/refused the request.*401/', $answer->body, 'Joomla: a wrong token is a clear error with the 401');
         $this->assertUnderStorageNot('wrong-token-value', 'Joomla: the refused token is nowhere under storage/');
 
         $this->fetch('joomla', $this->fake(), 'jm-secret-token', $steps);
@@ -156,7 +156,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
     public function testDrupal(): void
     {
         $this->fetch('drupal', $this->fake() . '/', 'drupal:wrong-pass', ['pages', 'tags']);
-        $this->assertMatchesRegularExpression('/refused the request.*401|odmítl.*401/', $this->batch(self::DRUPAL)->body, 'Drupal: wrong credentials are a clear error with the 401');
+        $this->assertMatchesRegularExpression('/refused the request.*401/', $this->batch(self::DRUPAL)->body, 'Drupal: wrong credentials are a clear error with the 401');
         $this->fetch('drupal', $this->fake(), 'drupal:dr-pass', ['pages', 'tags']);
         for ($i = 0; $i < 3; $i++) {
             $this->batch(self::DRUPAL);
@@ -167,7 +167,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
             'Drupal: the fake saw the right Basic auth on the 4 calls after the refused one, articles paged with offsets 0 and 2, the tags endpoint asked once',
         );
         $preview = $this->preview(self::DRUPAL);
-        $this->assertTrue($preview->contains('does not offer tags') || $preview->contains('nenabízí tags'), 'Drupal: the preview notes the skipped tags step');
+        $this->assertTrue($preview->contains('does not offer tags'), 'Drupal: the preview notes the skipped tags step');
         $this->assertStringContainsString('Hello from Drupal', $preview->body, 'Drupal: the preview shows the article title');
         $this->assertStringContainsString('About the bakery', $preview->body, 'Drupal: the preview shows the page title');
         $this->assertStringNotContainsString('dr-pass', $preview->body, 'Drupal: the preview never shows the credentials');
@@ -195,7 +195,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->batch(self::WEBFLOW);
         $preview = $this->preview(self::WEBFLOW);
         $this->assertStringContainsString('name="site_url"', $preview->body, 'Webflow: the preview asks for the collection address');
-        $this->assertTrue($preview->contains('From a live website') || $preview->contains('Z běžícího webu'), 'Webflow: the preview points static pages to the URL importer');
+        $this->assertTrue($preview->contains('From a live website'), 'Webflow: the preview points static pages to the URL importer');
         $this->assertStringContainsString('Spring sourdough', $preview->body, 'Webflow: the preview shows the first titles');
         $webflowRun = fn () => $this->runImport(self::WEBFLOW, ['site_url' => $this->site()->base . '/blog/']);
         $webflowRun();

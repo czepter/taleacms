@@ -13,7 +13,7 @@ final class MonthlyReportTest extends SiteTestCase
 {
     private function reportMails(): int
     {
-        return (int) $this->site()->value("SELECT COUNT(*) FROM ka_mail WHERE subject LIKE '%Zpráva o webu%' OR subject LIKE '%Website report%'");
+        return (int) $this->site()->value("SELECT COUNT(*) FROM ka_mail WHERE subject LIKE '%Website report%'");
     }
 
     public function testSettingsPreviewAndSendNow(): void
@@ -37,7 +37,7 @@ final class MonthlyReportTest extends SiteTestCase
         $this->assertStringNotContainsString('spravce@example.cz', $preview->body, 'the preview does not show the site e-mail');
 
         $this->adminPost('/admin.php?module=settings&action=report_send', [], '/admin.php?module=settings&tab=mail');
-        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM ka_mail WHERE recipient = 'owner@example.cz' AND (subject LIKE '%Zpráva o webu%' OR subject LIKE '%Website report%')"), 'send now: the report is queued for the recipient');
+        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM ka_mail WHERE recipient = 'owner@example.cz' AND (subject LIKE '%Website report%')"), 'send now: the report is queued for the recipient');
         $this->assertSame($lastMonth, $site->settingValue('report_last_month'), 'send now remembers the month, so the job does not send it again');
     }
 

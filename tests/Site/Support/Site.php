@@ -115,7 +115,7 @@ final class Site
         foreach (array_filter(explode("\0", (string) shell_exec('cd ' . escapeshellarg($project) . ' && git ls-files -z --cached --others --exclude-standard -- system image'))) as $file) {
             $fingerprint .= $file . @filemtime($project . '/' . $file) . @filesize($project . '/' . $file);
         }
-        $code = substr(md5($fingerprint), 0, 8);
+        $code = substr(md5($fingerprint . md5_file(__FILE__)), 0, 8); // the installer defaults of this harness are part of what a template is
         $key = substr(md5((string) json_encode(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])))), 0, 8);
         $name = "kaleta_tpl_{$code}_{$key}";
         $marker = sys_get_temp_dir() . "/$name.json";
@@ -444,17 +444,15 @@ final class Site
         $visitor = $this->client('installer');
         $fields = [
             'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
-            'db_prefix' => $this->options['prefix'] ?? 'ka_', 'site_name' => $this->options['siteName'] ?? 'Testovací firma', 'starter' => $this->options['web'] ?? 'business',
+            'db_prefix' => $this->options['prefix'] ?? 'ka_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
             'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects'],
         ];
-        if (isset($this->options['language'])) {
-            $fields['language'] = $this->options['language'];
-        }
+        $fields['language'] = $this->options['language'] ?? 'en';
         // extra or replaced installer fields (German register, site language, e-mail …); a null value drops the field
         $fields = array_filter(array_replace($fields, (array) ($this->options['installerFields'] ?? [])), static fn ($v): bool => $v !== null);
         $answer = $visitor->post('/install.php', $fields);
-        if (!$answer->contains($this->options['doneText'] ?? 'Hotovo, web běží')) {
+        if (!$answer->contains($this->options['doneText'] ?? 'Done, your website is running')) {
             throw new \RuntimeException('The installer failed: ' . mb_substr($answer->text(), 0, 1100));
         }
 

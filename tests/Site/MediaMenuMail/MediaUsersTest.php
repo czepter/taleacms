@@ -36,13 +36,13 @@ final class MediaUsersTest extends SiteTestCase
         if ($upload <= 0 || $upload + 4096 >= $post) {
             $this->markTestSkipped('upload_max_filesize is not below post_max_size (the old script skipped this check too).');
         }
-        $file = $this->site()->workDir('files') . '/velky.zip';
+        $file = $this->site()->workDir('files') . '/large.zip';
         file_put_contents($file, str_repeat("\0", $upload + 1024));
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
 
         $response = $this->site()->admin()->upload('/admin.php?module=media&action=upload&format=json', ['_csrf' => $csrf], ['files[]' => $file]);
 
-        $this->assertMatchesRegularExpression('/nejvýš [0-9,]* MB/u', $response->body, 'a file over the limit: the message names the limit in MB');
+        $this->assertMatchesRegularExpression('/[0-9,]+ MB at most/', $response->body, 'a file over the limit: the message names the limit in MB');
     }
 
     public function testReplaceKeepsTheAddressAndFocusIsSaved(): void
@@ -61,10 +61,10 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testRedirectsAndChangelog(): void
     {
-        $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/akce-leto', 'to_path' => '/kontakty', 'type' => 302], '/admin.php?module=redirects');
-        $this->assertSame(302, $this->site()->client()->get('/akce-leto')->status, 'a temporary redirect answers 302');
-        $this->assertPage('/admin.php?module=redirects&search=akce-leto', 200, 'akce-leto', message: 'searching the redirects');
-        $this->assertPage('/admin.php?module=changelog&area=stranky', 200, 'Protokol', message: 'changelog with a filter');
+        $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/summer-event', 'to_path' => '/contacts', 'type' => 302], '/admin.php?module=redirects');
+        $this->assertSame(302, $this->site()->client()->get('/summer-event')->status, 'a temporary redirect answers 302');
+        $this->assertPage('/admin.php?module=redirects&search=summer-event', 200, 'summer-event', message: 'searching the redirects');
+        $this->assertPage('/admin.php?module=changelog&area=pages', 200, 'Change log', message: 'changelog with a filter');
     }
 
     public function testInvitedUserAndCustomRole(): void
@@ -72,15 +72,15 @@ final class MediaUsersTest extends SiteTestCase
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'pozvany', 'email' => 'pozvany@example.cz', 'admin' => 2, 'invite' => 1], '/admin.php?module=users');
         $this->assertSame('1', (string) $this->site()->value("SELECT reset_token_hash <> '' AND reset_sent_at > NOW() FROM ka_users WHERE username = 'pozvany'"), 'an invited user has a link to set the password with a longer validity');
 
-        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => 0, 'name' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']], '/admin.php?module=roles');
+        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => 0, 'name' => 'Salesperson', 'level' => 0, 'modules' => ['enquiries', 'collections']], '/admin.php?module=roles');
         $idr = (int) $this->site()->value('SELECT MAX(role_id) FROM ka_role');
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'obchodnik', 'password' => $this->site()->password, 'admin' => "r$idr"], '/admin.php?module=users');
         $this->assertSame('collections,enquiries', $this->site()->value("SELECT GROUP_CONCAT(p.module ORDER BY p.module) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' AND u.role = ?", [$idr]), 'a custom role gives the user its sections');
 
-        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => $idr, 'name' => 'Obchodník', 'level' => 1, 'modules' => ['enquiries']], '/admin.php?module=roles');
+        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => $idr, 'name' => 'Salesperson', 'level' => 1, 'modules' => ['enquiries']], '/admin.php?module=roles');
         $this->assertSame('1:enquiries', $this->site()->value("SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.module)) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' GROUP BY u.user_id"), 'a change of the role reaches its members');
-        $this->assertPage('/admin.php?module=roles', 200, 'Obchodník', message: 'role overview');
-        $this->assertPage('/admin.php?module=users', 200, 'Obchodník', message: 'users show the custom role');
+        $this->assertPage('/admin.php?module=roles', 200, 'Salesperson', message: 'role overview');
+        $this->assertPage('/admin.php?module=users', 200, 'Salesperson', message: 'users show the custom role');
     }
 
     public function testRequiredTwoFactorLetsOnlyMyAccountThrough(): void
@@ -104,26 +104,26 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testCustomFontFromMedia(): void
     {
-        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.custom_fonts', JSON_ARRAY(JSON_OBJECT('name', 'Znacka Sans', 'file', 'media/2026/01/znacka.woff2', 'bold', '')), '$.font_heading', 'custom-1') WHERE name = 'design_system'");
+        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.custom_fonts', JSON_ARRAY(JSON_OBJECT('name', 'Brand Sans', 'file', 'media/2026/01/brand.woff2', 'bold', '')), '$.font_heading', 'custom-1') WHERE name = 'design_system'");
         $this->site()->clearPageCache();
 
-        $page = $this->site()->client()->get('/kontakt');
+        $page = $this->site()->client()->get('/contact');
 
-        $this->assertStringContainsString('@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")', $page->body, 'custom font face');
-        $this->assertStringContainsString('--ka-font-heading: "Znacka Sans"', $page->body, 'custom font as the heading font');
+        $this->assertStringContainsString('@font-face { font-family: "Brand Sans"; src: url("/media/2026/01/brand.woff2")', $page->body, 'custom font face');
+        $this->assertStringContainsString('--ka-font-heading: "Brand Sans"', $page->body, 'custom font as the heading font');
     }
 
     public function testStatisticsSwitch(): void
     {
-        $this->site()->client()->get('/kontakt');
+        $this->site()->client()->get('/contact');
         $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) > 0 FROM ka_stats_pages'), 'statistics by page');
 
         // a phone number or e-mail anywhere on the page keeps web.js for the click counter while the statistics are on – off, the page does without it
         $this->statsFeature(false);
-        $this->assertStringNotContainsString('image/web.js', $this->site()->client()->get('/o-nas')->body, 'web.js only where it is needed (a page without a form)');
+        $this->assertStringNotContainsString('image/web.js', $this->site()->client()->get('/about-us')->body, 'web.js only where it is needed (a page without a form)');
         $this->assertPage('/admin.php?module=settings&tab=analytics', 200, [], message: '3.2: Analytics tab with the feature off');
         $off = $this->site()->admin()->get('/admin.php?module=settings&tab=analytics');
-        $this->assertMatchesRegularExpression('/Off – nothing is measured|Vypnuto – nic se neměří/u', $off->body, '3.2: with the Statistics feature off the Analytics tab says so and links to Features');
+        $this->assertMatchesRegularExpression('/Off – nothing is measured/', $off->body, '3.2: with the Statistics feature off the Analytics tab says so and links to Features');
 
         $this->statsFeature(true);
         $on = $this->assertPage('/admin.php?module=settings&tab=analytics', 200, 'admin.php?module=extensions', message: '3.2: the Analytics tab links to Features');

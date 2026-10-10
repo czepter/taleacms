@@ -17,10 +17,10 @@ final class BookingSwitchOffTest extends SiteTestCase
     {
         $this->bookingFixture();
         $site = $this->site();
-        $this->assertStringContainsString('class="ka-booking"', $site->client()->get('/rezervace-test')->body, 'the element is on the page while the feature is on');
+        $this->assertStringContainsString('class="ka-booking"', $site->client()->get('/booking-test')->body, 'the element is on the page while the feature is on');
         $site->exec("UPDATE ka_settings SET value = ? WHERE name = 'extensions'", [self::$extensionsBefore]);
         $site->clearPageCache();
-        $this->assertStringNotContainsString('class="ka-booking"', $site->client()->get('/rezervace-test')->body, '3.2 bookings off: the Booking element is not on the page');
+        $this->assertStringNotContainsString('class="ka-booking"', $site->client()->get('/booking-test')->body, '3.2 bookings off: the Booking element is not on the page');
 
         // an appointment booked before the switch-off - its cancel and .ics links keep working
         $token = 'cafe0000cafe0000cafe0000cafe0003';

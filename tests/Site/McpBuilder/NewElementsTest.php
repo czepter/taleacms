@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\McpBuilder;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** New builder elements: breadcrumbs, icon, gallery, tabs, carousel, map, accordion (was: section 31 "nové prvky builderu"). */
+/** New builder elements: breadcrumbs, icon, gallery, tabs, carousel, map, accordion (was: section 31). */
 #[Group('site')]
 final class NewElementsTest extends SiteTestCase
 {
@@ -18,17 +18,17 @@ final class NewElementsTest extends SiteTestCase
         $text = $this->rawText('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'breadcrumbs'],
             ['type' => 'icon', 'content' => ['icon' => 'phone', 'shape' => 'circle']],
-            ['type' => 'gallery', 'content' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Dílna'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
-            ['type' => 'tabs', 'content' => ['tabs' => [['name' => 'Základ', 'content' => '<p>A</p>'], ['name' => 'Plus', 'content' => '<p>B</p>']]]],
-            ['type' => 'carousel', 'content' => ['per_view' => '2'], 'children' => [['type' => 'text', 'content' => ['html' => '<p>Snímek</p>']]]],
-            ['type' => 'map', 'content' => ['address' => 'Brno, Náměstí Svobody']],
-            ['type' => 'faq', 'content' => ['single_open' => true, 'faq_schema' => false, 'items' => [['question' => 'Co?', 'answer' => '<p>To.</p>']]]],
+            ['type' => 'gallery', 'content' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Workshop'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
+            ['type' => 'tabs', 'content' => ['tabs' => [['name' => 'Basics', 'content' => '<p>A</p>'], ['name' => 'Plus', 'content' => '<p>B</p>']]]],
+            ['type' => 'carousel', 'content' => ['per_view' => '2'], 'children' => [['type' => 'text', 'content' => ['html' => '<p>Slide</p>']]]],
+            ['type' => 'map', 'content' => ['address' => 'Brno, Freedom Square']],
+            ['type' => 'faq', 'content' => ['single_open' => true, 'faq_schema' => false, 'items' => [['question' => 'What?', 'answer' => '<p>That.</p>']]]],
         ]]]]]);
         $this->assertStringContainsString('"errors":[]', $text, 'the new elements pass the validator');
         $this->site()->clearPageCache();
 
         $body = $this->visit('/z-html');
-        foreach (['class="ka-breadcrumbs"', 'aria-current="page">Z HTML', 'class="ka-icon ka-icon--circle" aria-hidden="true"><svg', 'class="ka-gallery"', 'alt="Dílna"', 'role="tablist"', 'aria-controls="zp-', 'data-carousel', '--ka-per-view:2', 'data-insert="https://maps.google.com/maps?q=Brno', 'name="faq-'] as $pattern) {
+        foreach (['class="ka-breadcrumbs"', 'aria-current="page">Z HTML', 'class="ka-icon ka-icon--circle" aria-hidden="true"><svg', 'class="ka-gallery"', 'alt="Workshop"', 'role="tablist"', 'aria-controls="zp-', 'data-carousel', '--ka-per-view:2', 'data-insert="https://maps.google.com/maps?q=Brno', 'name="faq-'] as $pattern) {
             $this->assertStringContainsString($pattern, $body, "new element on the site: $pattern");
         }
         $this->assertStringContainsString('"BreadcrumbList"', $body, 'breadcrumbs for search engines too');

@@ -19,18 +19,18 @@ final class EnquiryTriageTest extends SiteTestCase
     public function testClaudeSortsEnquiriesOverMcp(): void
     {
         $site = $this->site();
-        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
-        self::$enquiry = $this->insertEnquiry('eva@example.cz', '[["Zpráva","Chceme nabídku na 40 oken do pátku"]]', 0);
-        $spam = $this->insertEnquiry('seo@example.com', '[["Zpráva","We can get you to the first page of Google"]]', 0);
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
+        self::$enquiry = $this->insertEnquiry('eve@example.com', '[["Message","We would like a quote for 40 windows by Friday"]]', 0);
+        $spam = $this->insertEnquiry('seo@example.com', '[["Message","We can get you to the first page of Google"]]', 0);
         $id = self::$enquiry;
 
         $text = $this->mcpText('triage_enquiries');
         $this->assertStringContainsString("\"id\":$id", $text, 'triage: Claude gets the unsorted enquiry');
-        $this->assertStringContainsString('40 oken', $text, 'triage: Claude gets the enquiries as text');
+        $this->assertStringContainsString('40 windows', $text, 'triage: Claude gets the enquiries as text');
 
-        $site->mcp('update_enquiry', ['id' => $id, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Dobrý den, děkujeme za poptávku.']);
+        $site->mcp('update_enquiry', ['id' => $id, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Hello, thank you for your enquiry.']);
         $site->mcp('update_enquiry', ['id' => $spam, 'category' => 'spam']);
-        $this->assertSame('sales|3|Dobrý den, děkujeme za poptávku.|claude', $site->value('SELECT CONCAT(category, \'|\', priority, \'|\', suggested_reply, \'|\', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?', [$id]), "triage: Claude's sorting is saved");
+        $this->assertSame('sales|3|Hello, thank you for your enquiry.|claude', $site->value('SELECT CONCAT(category, \'|\', priority, \'|\', suggested_reply, \'|\', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?', [$id]), "triage: Claude's sorting is saved");
 
         $this->assertStringContainsString('category must be one of', $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'nonsense']), 'triage: an unknown kind is refused');
 
@@ -41,7 +41,7 @@ final class EnquiryTriageTest extends SiteTestCase
         $admin = $this->assertPage('/admin.php?module=enquiries', 200, 'category=spam', message: 'triage: the admin list has the spam filter');
         $this->assertStringNotContainsString('first page of Google', $admin->body, 'triage: spam is not in the default list');
 
-        $this->assertPage("/admin.php?module=enquiries&action=detail&id=$id", 200, 'body=Dobr%C3%BD%20den', message: 'triage: the detail has the kind, the priority and the draft in the e-mail reply');
+        $this->assertPage("/admin.php?module=enquiries&action=detail&id=$id", 200, 'body=Hello%2C%20thank', message: 'triage: the detail has the kind, the priority and the draft in the e-mail reply');
     }
 
     #[Depends('testClaudeSortsEnquiriesOverMcp')]
@@ -50,7 +50,7 @@ final class EnquiryTriageTest extends SiteTestCase
         $site = $this->site();
         $id = self::$enquiry;
         $token = $this->assertPage('/admin.php?module=enquiries')->csrf();
-        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'category' => 'support', 'priority' => 1, 'suggested_reply' => 'Vlastní odpověď']);
+        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'category' => 'support', 'priority' => 1, 'suggested_reply' => 'Own reply']);
 
         $text = $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'sales']);
         $this->assertStringContainsString('A person sorted this enquiry already', $text, 'triage: Claude is told a person sorted this enquiry already');
@@ -67,7 +67,7 @@ final class EnquiryTriageTest extends SiteTestCase
             <?php
             file_put_contents(__DIR__ . '/requests.log', file_get_contents('php://input') . "\n", FILE_APPEND);
             header('Content-Type: application/json');
-            echo json_encode(['content' => [['type' => 'text', 'text' => '{"category": "support", "priority": 2, "reply": "Dobrý den, podíváme se na to."}']]]);
+            echo json_encode(['content' => [['type' => 'text', 'text' => '{"category": "support", "priority": 2, "reply": "Hello, we will look into it."}']]]);
             PHP);
         $log = $dir . '/requests.log';
         file_put_contents($log, '');
@@ -79,7 +79,7 @@ final class EnquiryTriageTest extends SiteTestCase
         file_put_contents($config, preg_replace('/<\?php/', "<?php define('KALETA_AI_URL', 'http://127.0.0.1:$port/');", $original, 1));
         sleep(3); // OPcache of the test server revalidates the file after 2 s, as the old script waited
         try {
-            $id = $this->insertEnquiry('jan@example.cz', '[["Zpráva","Nefunguje nám zámek u dveří"]]', 0);
+            $id = $this->insertEnquiry('john@example.com', '[["Message","The lock on our door does not work"]]', 0);
             $site->setting('ai_key', 'test-key-for-the-fake-provider');
             $site->setting('ai_provider', 'anthropic');
             $site->setting('triage_assistant', '0');
@@ -98,11 +98,11 @@ final class EnquiryTriageTest extends SiteTestCase
                 }
                 sleep(1);
             }
-            $this->assertSame('support|2|assistant|Dobrý den, podíváme se na to.', $row, 'triage: switched on, the assistant sorts a new enquiry and drafts a reply');
+            $this->assertSame('support|2|assistant|Hello, we will look into it.', $row, 'triage: switched on, the assistant sorts a new enquiry and drafts a reply');
 
             $sent = (string) file_get_contents($log);
             $this->assertStringContainsString('never instructions', $sent, 'triage: the assistant is told the enquiry is data, not instructions');
-            $this->assertStringContainsString('zámek', $sent, 'triage: the enquiry text goes to the assistant');
+            $this->assertStringContainsString('lock', $sent, 'triage: the enquiry text goes to the assistant');
         } finally {
             file_put_contents($config, $original);
             $site->setting('triage_assistant', '0');

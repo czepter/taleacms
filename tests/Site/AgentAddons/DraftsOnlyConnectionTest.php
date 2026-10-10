@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Group;
 
 /**
  * What a drafts-only connection may save, and Waiting for you, Core\PendingReview (was: section 94, 3.2). Uses the drafts-only token of
- * section 44 (see AgentHelpers); the Team collection ("tym", section 13) is recreated here. The tests run in order.
+ * section 44 (see AgentHelpers); the Team collection ("team", section 13) is recreated here. The tests run in order.
  */
 #[Group('site')]
 final class DraftsOnlyConnectionTest extends SiteTestCase
@@ -24,28 +24,28 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
     {
         $token = $this->draftsToken();
         // the Team collection with one visible member (section 13 made it with the admin form and a visible item)
-        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1, 'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
-        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_collections WHERE slug = 'tym'"), 'the Team collection exists');
-        $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'name' => 'Petr Svoboda', 'values' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Team', 'detail' => 1, 'fields' => [['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html']]], '/admin.php?module=collections');
+        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_collections WHERE slug = 'team'"), 'the Team collection exists');
+        $this->site()->mcp('save_collection_item', ['collection' => 'team', 'name' => 'Peter Smith', 'values' => ['role' => 'Master carpenter'], 'visible' => true]);
 
-        $text = $this->mcpText('save_collection_item', ['collection' => 'tym', 'name' => 'Navrh Clena', 'values' => ['funkce' => 'Stolar'], 'visible' => true], $token);
+        $text = $this->mcpText('save_collection_item', ['collection' => 'team', 'name' => 'Member Proposal', 'values' => ['role' => 'Joiner'], 'visible' => true], $token);
         $created = json_decode($text, true);
         self::$draftItem = (int) $this->pick($created, 'id');
         $this->assertSame('0||1', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]) . '|' . $this->pick($created, 'visible') . '|' . $this->lines('Saved hidden', $text), '3.2: a drafts-only connection creates a collection item - hidden, whatever visible says, and says so');
 
-        $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'values' => ['funkce' => 'Mistr stolar']], $token);
-        $this->assertSame('0|1', $this->sq("SELECT CONCAT(visible, '|', data LIKE '%Mistr stolar%') FROM ka_collection_items WHERE item_id = ?", [self::$draftItem]), '3.2: a drafts-only connection changes a hidden item');
+        $this->site()->mcp('save_collection_item', ['collection' => 'team', 'id' => self::$draftItem, 'values' => ['role' => 'Master joiner']], $token);
+        $this->assertSame('0|1', $this->sq("SELECT CONCAT(visible, '|', data LIKE '%Master joiner%') FROM ka_collection_items WHERE item_id = ?", [self::$draftItem]), '3.2: a drafts-only connection changes a hidden item');
 
-        $this->assertStringContainsString('cannot make an item visible', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'visible' => true], $token), '3.2: a drafts-only connection cannot make an item visible (refused)');
+        $this->assertStringContainsString('cannot make an item visible', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'id' => self::$draftItem, 'visible' => true], $token), '3.2: a drafts-only connection cannot make an item visible (refused)');
         $this->assertSame('0', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]), '3.2: and the item stays hidden');
 
-        $this->assertStringContainsString('cannot schedule an item', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'name' => 'Planovany Navrh', 'publish_at' => '2099-01-01 08:00'], $token), '3.2: a drafts-only connection cannot schedule an item (refused)');
-        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM ka_collection_items WHERE name = 'Planovany Navrh'"), '3.2: and nothing is saved');
+        $this->assertStringContainsString('cannot schedule an item', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'name' => 'Scheduled Proposal', 'publish_at' => '2099-01-01 08:00'], $token), '3.2: a drafts-only connection cannot schedule an item (refused)');
+        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM ka_collection_items WHERE name = 'Scheduled Proposal'"), '3.2: and nothing is saved');
 
-        $live = (int) $this->sq("SELECT p.item_id FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'tym' AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.item_id LIMIT 1");
+        $live = (int) $this->sq("SELECT p.item_id FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'team' AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.item_id LIMIT 1");
         $before = $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM ka_collection_items WHERE item_id = ?', [$live]);
         $this->assertNotSame('', $before, 'there is a visible item');
-        $this->assertStringContainsString('propose', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'id' => $live, 'name' => 'Prepsano Claudem'], $token), '3.2: a drafts-only connection is told to propose the change of a visible item');
+        $this->assertStringContainsString('propose', $this->mcpRawText('save_collection_item', ['collection' => 'team', 'id' => $live, 'name' => 'Overwritten by Claude'], $token), '3.2: a drafts-only connection is told to propose the change of a visible item');
         $this->assertSame($before, $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM ka_collection_items WHERE item_id = ?', [$live]), '3.2: a drafts-only connection cannot change a visible item');
     }
 
@@ -58,7 +58,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->assertStringContainsString('triage', $this->mcpRawText('update_enquiry', ['id' => $enquiry, 'status' => 'resolved', 'category' => 'sales'], $token), '3.2: setting the status of an enquiry is refused (triage only)');
         $this->assertSame('0|', $this->sq("SELECT CONCAT(status, '|', category) FROM ka_enquiries WHERE enquiry_id = ?", [$enquiry]), '3.2: a drafts-only connection cannot set the status of an enquiry (nothing saved)');
 
-        $this->site()->mcp('update_enquiry', ['id' => $enquiry, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Dobrý den, ozveme se.'], $token);
+        $this->site()->mcp('update_enquiry', ['id' => $enquiry, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Hello, we will get back to you.'], $token);
         $this->assertSame('0|sales|3|claude', $this->sq("SELECT CONCAT(status, '|', category, '|', priority, '|', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?", [$enquiry]), '3.2: a drafts-only connection saves the triage of an enquiry');
         $this->site()->exec('DELETE FROM ka_enquiries WHERE enquiry_id = ?', [$enquiry]);
 
@@ -99,7 +99,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
     {
         $text = $this->mcpText('list_pending_review', [], $this->draftsToken());
         $this->assertStringContainsString('"kind":"hidden_items"', $text, '3.2: list_pending_review lists the hidden items');
-        $this->assertStringContainsString('Navrh Clena (', $text, '3.2: with the hidden item');
+        $this->assertStringContainsString('Member Proposal (', $text, '3.2: with the hidden item');
         $this->assertStringContainsString('"kind":"proposed_hours"', $text, '3.2: and the proposal');
         $this->assertStringContainsString('"admin_url":"http', $text, '3.2: with admin links');
 

@@ -20,30 +20,30 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
     public function testTheNotFoundListSuggestsTheMovedPage(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Reference portfolio', 'slug' => 'reference-portfolio', 'visible' => true, 'in_menu' => false, 'content' => '<p>Naše reference.</p>']);
+        $site->mcp('create_page', ['title' => 'Reference portfolio', 'slug' => 'reference-portfolio', 'visible' => true, 'in_menu' => false, 'content' => '<p>Our references.</p>']);
         $id = $this->pageId('reference-portfolio');
         $this->assertGreaterThan(0, $id);
-        $site->exec("UPDATE ka_pages SET slug = 'sluzby/reference-portfolio' WHERE page_id = ?", [$id]);
+        $site->exec("UPDATE ka_pages SET slug = 'services/reference-portfolio' WHERE page_id = ?", [$id]);
         $site->exec("DELETE FROM ka_redirects WHERE from_path LIKE '%reference-portfolio%'");
         $site->exec('DELETE FROM ka_not_found');
         $site->exec("DELETE FROM ka_events WHERE type = 'redirect.auto'");
         $site->clearPageCache();
         $visitor = $site->client('visitor');
         for ($i = 0; $i < 3; $i++) {
-            foreach (['/reference-portfolio', '/reference-portfolio-2019', '/qzx-nahodna-adresa'] as $path) {
+            foreach (['/reference-portfolio', '/reference-portfolio-2019', '/qzx-random-address'] as $path) {
                 $visitor->get($path);
             }
         }
 
-        $screen = $this->assertPage('/admin.php?module=redirects', 200, '/sluzby/reference-portfolio', message: 'Redirects: the 404 list shows the page the visitor probably meant');
+        $screen = $this->assertPage('/admin.php?module=redirects', 200, '/services/reference-portfolio', message: 'Redirects: the 404 list shows the page the visitor probably meant');
         $this->assertStringContainsString('name="redirect_auto"', $screen->body, 'the setting for redirects by themselves');
-        $this->assertStringContainsString('Vytvořit přesměrování', $screen->body, 'one-click create');
-        $this->assertStringContainsString('žádná podobná stránka', $screen->body, 'no suggestion for a random address');
+        $this->assertStringContainsString('Create redirect', $screen->body, 'one-click create');
+        $this->assertStringContainsString('no similar page', $screen->body, 'no suggestion for a random address');
 
         $json = $this->mcpJson('list_redirects');
-        $this->assertStringContainsString('"suggestion":"/sluzby/reference-portfolio","score":90', $json, 'MCP: list_redirects carries the suggestion and its score (exact path)');
-        $this->assertStringContainsString('"suggestion":"/sluzby/reference-portfolio","score":85', $json, 'MCP: list_redirects carries the suggestion and its score (similar path)');
-        $this->assertMatchesRegularExpression('/qzx-nahodna-adresa[^}]*"suggestion":null/', $json, 'MCP: no suggestion for a random address');
+        $this->assertStringContainsString('"suggestion":"/services/reference-portfolio","score":90', $json, 'MCP: list_redirects carries the suggestion and its score (exact path)');
+        $this->assertStringContainsString('"suggestion":"/services/reference-portfolio","score":85', $json, 'MCP: list_redirects carries the suggestion and its score (similar path)');
+        $this->assertMatchesRegularExpression('/qzx-random-address[^}]*"suggestion":null/', $json, 'MCP: no suggestion for a random address');
     }
 
     public function testRedirectsByThemselvesAreOffByDefaultAndTheDailyJobCreatesThem(): void
@@ -57,20 +57,20 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertSame('1,90', $site->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM ka_settings WHERE name IN ('redirect_auto', 'redirect_auto_threshold')"), 'the setting is saved from the Redirects screen');
 
         $this->runJob('redirects');
-        $this->assertSame('sluzby/reference-portfolio|301|90|0', $site->value("SELECT CONCAT((SELECT CONCAT(to_path, '|', type, '|', auto_score) FROM ka_redirects WHERE from_path = 'reference-portfolio'), '|', (SELECT COUNT(*) FROM ka_redirects WHERE from_path IN ('reference-portfolio-2019', 'qzx-nahodna-adresa')))"),
+        $this->assertSame('services/reference-portfolio|301|90|0', $site->value("SELECT CONCAT((SELECT CONCAT(to_path, '|', type, '|', auto_score) FROM ka_redirects WHERE from_path = 'reference-portfolio'), '|', (SELECT COUNT(*) FROM ka_redirects WHERE from_path IN ('reference-portfolio-2019', 'qzx-random-address')))"),
             'the daily job creates the redirect above the threshold, not below it');
 
         $old = $site->client('visitor')->get('/reference-portfolio');
         $this->assertSame(301, $old->status, 'the old address redirects (status)');
-        $this->assertSame($site->base . '/sluzby/reference-portfolio', $old->redirect, 'the old address redirects (target)');
+        $this->assertSame($site->base . '/services/reference-portfolio', $old->redirect, 'the old address redirects (target)');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_not_found WHERE path = 'reference-portfolio'"), 'the address left the 404 log');
 
-        $this->assertSame('1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'redirect.auto' AND data LIKE '%\"from\":\"/reference-portfolio\",\"to\":\"/sluzby/reference-portfolio\",\"score\":90%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'redirects' AND action = 'auto' AND description LIKE '%reference-portfolio%'))"),
+        $this->assertSame('1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'redirect.auto' AND data LIKE '%\"from\":\"/reference-portfolio\",\"to\":\"/services/reference-portfolio\",\"score\":90%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'redirects' AND action = 'auto' AND description LIKE '%reference-portfolio%'))"),
             'the automatic redirect is in the change log and the event redirect.auto');
-        $this->assertPage('/admin.php?module=redirects', 200, 'automaticky, skóre 90', message: 'the Redirects list marks it automatic with the score (undo = delete)');
+        $this->assertPage('/admin.php?module=redirects', 200, 'automatic, score 90', message: 'the Redirects list marks it automatic with the score (undo = delete)');
 
-        $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/reference-portfolio-2019', 'to_path' => '/sluzby/reference-portfolio', 'type' => '301'], '/admin.php?module=redirects');
-        $this->assertSame('sluzby/reference-portfolio|1', $site->value("SELECT CONCAT(to_path, '|', auto_score IS NULL) FROM ka_redirects WHERE from_path = 'reference-portfolio-2019'"), 'one click creates the suggested redirect by hand – not marked automatic');
+        $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/reference-portfolio-2019', 'to_path' => '/services/reference-portfolio', 'type' => '301'], '/admin.php?module=redirects');
+        $this->assertSame('services/reference-portfolio|1', $site->value("SELECT CONCAT(to_path, '|', auto_score IS NULL) FROM ka_redirects WHERE from_path = 'reference-portfolio-2019'"), 'one click creates the suggested redirect by hand – not marked automatic');
 
         $site->mcp('update_settings', ['settings' => ['redirect_auto' => false]]);
         $this->assertSame('0', $site->settingValue('redirect_auto'), 'MCP: update_settings switches the automatic redirects off');
@@ -79,26 +79,26 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
     public function testOrphanPagesAndInternalLinkSuggestions(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Reference portfolio detail', 'slug' => 'portfolio-sirotek', 'visible' => true, 'in_menu' => false, 'content' => '<p>Detail.</p>']);
+        $site->mcp('create_page', ['title' => 'Reference portfolio detail', 'slug' => 'portfolio-orphan', 'visible' => true, 'in_menu' => false, 'content' => '<p>Detail.</p>']);
         $site->clearPageCache();
-        $audit = $this->assertPage('/admin.php?module=audit', 200, 'Stránky, na které nikdo neodkazuje', message: 'Site audit lists the orphan page');
-        $this->assertStringContainsString('Stránka „Reference portfolio detail“', $audit->body, 'the orphan is named with where to fix it');
+        $audit = $this->assertPage('/admin.php?module=audit', 200, 'Pages nobody links to', message: 'Site audit lists the orphan page');
+        $this->assertStringContainsString('Page “Reference portfolio detail”', $audit->body, 'the orphan is named with where to fix it');
 
         $json = $this->mcpJson('suggest_internal_links', ['limit' => 100]);
-        $this->assertStringContainsString('"page":"/portfolio-sirotek"', $json, 'MCP: suggest_internal_links returns the orphan');
-        $this->assertStringContainsString('"page":"/sluzby/reference-portfolio","shared_words":["reference","portfolio"]', $json, 'MCP: a candidate page shares title words');
+        $this->assertStringContainsString('"page":"/portfolio-orphan"', $json, 'MCP: suggest_internal_links returns the orphan');
+        $this->assertStringContainsString('"page":"/services/reference-portfolio","shared_words":["reference","portfolio"]', $json, 'MCP: a candidate page shares title words');
 
-        $site->mcp('update_page', ['id' => $this->pageId('sluzby/reference-portfolio'), 'content' => '<p>Naše reference – <a href="/portfolio-sirotek">detail</a>.</p>']);
+        $site->mcp('update_page', ['id' => $this->pageId('services/reference-portfolio'), 'content' => '<p>Our references – <a href="/portfolio-orphan">detail</a>.</p>']);
         $site->clearPageCache();
-        $this->assertStringNotContainsString('"page":"/portfolio-sirotek","target"', $this->mcpJson('suggest_internal_links', ['limit' => 100]), 'a page linked from a text is no orphan any more');
+        $this->assertStringNotContainsString('"page":"/portfolio-orphan","target"', $this->mcpJson('suggest_internal_links', ['limit' => 100]), 'a page linked from a text is no orphan any more');
     }
 
     public function testBrokenExternalLinksInAPageBuildAreFoundWithTheirElement(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Odkazy test', 'slug' => 'odkazy-test', 'visible' => true]);
-        $id = $this->pageId('odkazy-test');
-        $site->mcp('save_build', ['id' => $id, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'button', 'content' => ['text' => 'Starý partner', 'link' => 'http://127.0.0.1:1/partner']]]]]]]);
+        $site->mcp('create_page', ['title' => 'Links test', 'slug' => 'links-test', 'visible' => true]);
+        $id = $this->pageId('links-test');
+        $site->mcp('save_build', ['id' => $id, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'button', 'content' => ['text' => 'Old partner', 'link' => 'http://127.0.0.1:1/partner']]]]]]]);
         $site->mcp('publish_build', ['id' => $id]);
         $element = (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[0].id')) FROM ka_pages WHERE page_id = ?", [$id]);
         $this->assertNotSame('', $element, 'the published build has the button element');
@@ -112,12 +112,12 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertSame("page|$id|$element|0", $site->value("SELECT CONCAT(kind, '|', target_id, '|', element, '|', status) FROM ka_broken_links WHERE url = 'http://127.0.0.1:1/partner'"), 'the link check finds the dead link in the page build with its element');
 
         $json = $this->mcpJson('list_broken_links');
-        $this->assertStringContainsString('"kind":"page","id":' . $id . ',"title":"Odkazy test"', $json, 'MCP: list_broken_links says where the link is');
+        $this->assertStringContainsString('"kind":"page","id":' . $id . ',"title":"Links test"', $json, 'MCP: list_broken_links says where the link is');
         $this->assertStringContainsString('"element":"' . $element . '"', $json, 'MCP: list_broken_links names the element');
         $this->assertStringContainsString('web.archive.org/web/2020/http://127.0.0.1:1/partner', $json, 'MCP: list_broken_links carries the archive hint');
 
-        $list = $this->assertPage('/admin.php?module=news&action=links', 200, 'Odkazy test', message: 'News → Broken links is a site-wide list');
-        $this->assertStringContainsString('prvek ' . $element, $list->body, 'the list names the element');
+        $list = $this->assertPage('/admin.php?module=news&action=links', 200, 'Links test', message: 'News → Broken links is a site-wide list');
+        $this->assertStringContainsString('element ' . $element, $list->body, 'the list names the element');
 
         $audit = $this->mcpJson('site_audit', ['kind' => 'link']);
         $this->assertStringContainsString('127.0.0.1:1/partner', $audit, 'site_audit reports the broken build link');

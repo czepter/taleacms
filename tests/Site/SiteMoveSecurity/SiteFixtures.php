@@ -6,30 +6,30 @@ namespace Kaleta\Tests\Site\SiteMoveSecurity;
 
 use Kaleta\Tests\Site\Support\Site;
 
-/** State the old sections 37, 38 and 40 took from earlier sections (media upload, the "Tým" collection), recreated in the simplest way. */
+/** State the old sections 37, 38 and 40 took from earlier sections (media upload, the "Team" collection), recreated in the simplest way. */
 trait SiteFixtures
 {
     /** Uploads one generated JPEG into the media library as the administrator (old section 28). */
     protected function uploadPhoto(Site $site): void
     {
-        $file = $site->workDir('fixtures') . '/foto.jpg';
+        $file = $site->workDir('fixtures') . '/photo.jpg';
         $image = imagecreatetruecolor(800, 600);
         imagefill($image, 0, 0, (int) imagecolorallocate($image, 200, 120, 40));
         imagejpeg($image, $file);
         $site->admin()->upload('/admin.php?module=media&action=upload', ['_csrf' => $site->csrf()], ['files[]' => $file]);
     }
 
-    /** The "Tým" collection with the visible Jana Nováková, a hidden member and Zuzana Zelena (old section 13). */
+    /** The "Team" collection with the visible Jane Novak, a hidden member and Susan Green (old section 13). */
     protected function createTeam(Site $site): void
     {
-        $site->admin()->post('/admin.php?module=collections&action=save', ['_csrf' => $site->csrf(), 'collection_id' => 0, 'name' => 'Tým', 'detail' => 1, 'fields' => [
-            ['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html'],
+        $site->admin()->post('/admin.php?module=collections&action=save', ['_csrf' => $site->csrf(), 'collection_id' => 0, 'name' => 'Team', 'detail' => 1, 'fields' => [
+            ['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html'],
         ]]);
-        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
+        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
         $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'collection_id' => $idk, 'item_id' => 0] + $fields);
-        $save(['name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p>'], 'sort_order' => 1, 'visible' => 1]);
-        $save(['name' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'poradi' => 2]);
-        $site->mcp('save_collection_item', ['collection' => 'tym', 'name' => 'Zuzana Zelena', 'values' => ['funkce' => 'Jednatelka'], 'visible' => true]);
+        $save(['name' => 'Jane Novak', 'data' => ['role' => 'Managing director', 'bio' => '<p>Twenty years <b>in the trade</b>.</p>'], 'sort_order' => 1, 'visible' => 1]);
+        $save(['name' => 'Hidden Member', 'data' => ['role' => 'Secret'], 'sort_order' => 2]);
+        $site->mcp('save_collection_item', ['collection' => 'team', 'name' => 'Susan Green', 'values' => ['role' => 'Managing director'], 'visible' => true]);
     }
 
     /** The raw JSON-RPC answer as text, for the old `grep` on an MCP response. */

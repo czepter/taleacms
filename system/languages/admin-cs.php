@@ -3864,7 +3864,7 @@ return [
     'Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.' => 'Stažení ze stálé adresy /…/latest: posledních 30 dní / celkem. Roboti se nepočítají.',
     'The stable address of the current file – it stays the same when a new version replaces the file.' => 'Stálá adresa aktuálního souboru – zůstává stejná, i když soubor nahradí nová verze.',
     'Document expires soon' => 'Dokument brzy přestane platit',
-    'The document is true until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.' => 'Dokument platí do %s – nahrajte nové vydání nebo posuňte datum; den poté se sám skryje a jeho adresa ke stažení přestane fungovat.',
+    'The document is valid until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.' => 'Dokument platí do %s – nahrajte nové vydání nebo posuňte datum; den poté se sám skryje a jeho adresa ke stažení přestane fungovat.',
     'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.' => 'Po odeslání poslat návštěvníkovi e-mailem tento soubor (soubor z Médií; formulář potřebuje pole e-mail). Soubor v Médiích zůstává dostupný na své vlastní adrese – brání to běžnému sdílení, ne odhodlanému člověku.',
     'Store locator' => 'Vyhledávač poboček',
     'Branches or stores from a collection: a list with directions, a search box, “Nearest to me” and a map that loads after a click.' => 'Pobočky nebo prodejny z kolekce: seznam s trasou, vyhledávání, „Nejblíže ke mně“ a mapa, která se načte po kliknutí.',

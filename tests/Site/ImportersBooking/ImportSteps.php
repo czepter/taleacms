@@ -50,7 +50,7 @@ trait ImportSteps
         $this->transfer('source_images', ['file' => $file]);
         for ($i = 0; $i < 10; $i++) {
             $answer = $this->batch($file);
-            if (str_contains($answer->body, 'images downloaded') || preg_match('/Staženo .* obrázků/', $answer->body) === 1) {
+            if (str_contains($answer->body, 'images downloaded')) {
                 return;
             }
         }
@@ -66,6 +66,6 @@ trait ImportSteps
 
     private function skippedTile(Response $response, int $count): bool
     {
-        return str_contains($response->body, 'dlazdice-polozka"><strong>' . $count . '</strong><span>Skipped') || str_contains($response->body, '<strong>' . $count . '</strong><span>Přeskočeno');
+        return str_contains($response->body, '<div class="tiles-item"><strong>' . $count . '</strong><span>Skipped');
     }
 }

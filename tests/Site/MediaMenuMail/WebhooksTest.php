@@ -37,7 +37,7 @@ final class WebhooksTest extends SiteTestCase
         $this->site()->admin()->post('/admin.php?module=settings&action=' . $action, ['_csrf' => $csrf, 'tab' => 'webhooks'] + $fields);
     }
 
-    /** The receiver (logs every call with its signature headers; an address containing "chyba" answers 500) and one real enquiry. */
+    /** The receiver (logs every call with its signature headers; an address containing "error" answers 500) and one real enquiry. */
     public function testTheDeliveryLogListsTheEnquiryCall(): void
     {
         $dir = $this->site()->workDir('hook');
@@ -47,7 +47,7 @@ $log = __DIR__ . '/calls.log';
 $h = array_change_key_case(getallheaders());
 file_put_contents($log, json_encode(['uri' => $_SERVER['REQUEST_URI'], 'event' => $h['x-kaleta-event'] ?? '', 'delivery' => $h['x-kaleta-delivery'] ?? '', 'ts' => $h['x-kaleta-timestamp'] ?? '',
     'sig' => $h['x-kaleta-signature'] ?? '', 'body' => file_get_contents('php://input')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
-http_response_code(str_contains($_SERVER['REQUEST_URI'], 'chyba') ? 500 : 204); return true;
+http_response_code(str_contains($_SERVER['REQUEST_URI'], 'error') ? 500 : 204); return true;
 PHP);
         $port = $this->site()->startPhp($dir, 'router.php');
         file_put_contents($this->callsLog(), '');
@@ -56,12 +56,12 @@ PHP);
 
         // a real enquiry: the form's time stamp is signed, so it is dated back instead of waiting the minimum seconds
         $visitor = $this->site()->client();
-        $form = $visitor->get('/kontakt');
+        $form = $visitor->get('/contact');
         [$source, $element] = [$form->field('source'), $form->field('element')];
         $time = time() - 10;
         $signature = hash_hmac('sha256', "form|$source|$element|$time", $this->site()->settingValue('secret_key'));
-        $visitor->post('/form', ['source' => $source, 'element' => $element, 'back' => '/kontakt', 'as_time' => $time, 'as_signature' => $signature,
-            'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'Chci kuchyň na míru.', 'p4' => 1]);
+        $visitor->post('/form', ['source' => $source, 'element' => $element, 'back' => '/contact', 'as_time' => $time, 'as_signature' => $signature,
+            'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => 1]);
         for ($i = 0; $i < 100 && (int) $this->site()->value('SELECT COUNT(*) FROM ka_webhook_deliveries WHERE delivered IS NOT NULL') === 0; $i++) {
             usleep(100_000);
         }
@@ -84,7 +84,7 @@ PHP);
     public function testFailedCallIsRetriedThenGivenUpAndCanBeSentAgain(): void
     {
         $site = $this->site();
-        $site->setting('webhook_enquiries', 'https://hooks.example.com/chyba');
+        $site->setting('webhook_enquiries', 'https://hooks.example.com/error');
         file_put_contents($this->callsLog(), '');
         $this->webhookAction('test_webhook');
         $failed = (int) $site->value('SELECT MAX(id) FROM ka_webhook_deliveries');

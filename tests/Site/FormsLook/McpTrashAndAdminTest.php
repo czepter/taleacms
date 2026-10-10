@@ -29,7 +29,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
         $info = $this->call('site_info');
         $this->assertStringContainsString('news', $this->pick($info, 'extensions'), 'MCP: site_info lists extensions');
-        $this->assertSame('cs', $this->pick($info, 'languages', 'default'), 'MCP: site_info lists languages');
+        $this->assertSame('en', $this->pick($info, 'languages', 'default'), 'MCP: site_info lists languages');
     }
 
     public function testBuilderSchemaAndBuildsUseTheEnglishVocabulary(): void
@@ -60,24 +60,24 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
     public function testCollectionItemsAndCollectionsGoThroughTheTrash(): void
     {
-        $this->call('create_collection', ['name' => 'Kos test', 'fields' => [['label' => 'Popis', 'type' => 'text']]]);
-        $item = (int) $this->pick($this->call('save_collection_item', ['collection' => 'kos-test', 'name' => 'Polozka', 'visible' => true]), 'id');
-        $this->call('delete_collection_item', ['collection' => 'kos-test', 'id' => $item]);
+        $this->call('create_collection', ['name' => 'Trash test', 'fields' => [['label' => 'Description', 'type' => 'text']]]);
+        $item = (int) $this->pick($this->call('save_collection_item', ['collection' => 'trash-test', 'name' => 'Item', 'visible' => true]), 'id');
+        $this->call('delete_collection_item', ['collection' => 'trash-test', 'id' => $item]);
         $this->assertSame('10', $this->sql("SELECT CONCAT(deleted_at IS NOT NULL, visible) FROM ka_collection_items WHERE item_id = $item"), 'MCP: a collection item goes to the trash, hidden');
 
-        $collection = $this->sql("SELECT collection_id FROM ka_collections WHERE slug = 'kos-test'");
-        $this->assertPage("/admin.php?module=collections&action=items&id=$collection&status=trash", 200, 'Polozka', message: 'collection trash in the admin');
-        $this->assertSame('Polozka', $this->pick($this->call('list_trash'), 'collection_items', 0, 'name'), 'MCP: list_trash shows the item');
+        $collection = $this->sql("SELECT collection_id FROM ka_collections WHERE slug = 'trash-test'");
+        $this->assertPage("/admin.php?module=collections&action=items&id=$collection&status=trash", 200, 'Item', message: 'collection trash in the admin');
+        $this->assertSame('Item', $this->pick($this->call('list_trash'), 'collection_items', 0, 'name'), 'MCP: list_trash shows the item');
 
-        $this->assertStringContainsString('is in the trash', $this->raw('save_collection_item', ['collection' => 'kos-test', 'id' => $item, 'visible' => true]), 'MCP: saving an item from the trash is refused');
+        $this->assertStringContainsString('is in the trash', $this->raw('save_collection_item', ['collection' => 'trash-test', 'id' => $item, 'visible' => true]), 'MCP: saving an item from the trash is refused');
         $this->assertSame('0', $this->sql("SELECT visible FROM ka_collection_items WHERE item_id = $item"), 'MCP: an item in the trash cannot be published by saving it (1.9)');
-        $this->assertStringNotContainsString('Polozka', $this->raw('list_collection_items', ['collection' => 'kos-test']), 'list_collection_items leaves the trash out');
+        $this->assertStringNotContainsString('Item', $this->raw('list_collection_items', ['collection' => 'trash-test']), 'list_collection_items leaves the trash out');
 
         $this->call('restore_from_trash', ['type' => 'collection_item', 'id' => $item]);
         $this->assertSame('10', $this->sql("SELECT CONCAT(deleted_at IS NULL, visible) FROM ka_collection_items WHERE item_id = $item"), 'MCP: restored from the trash as hidden');
 
-        $this->call('delete_collection', ['collection' => 'kos-test']);
-        $this->assertSame('0|0', $this->sql("SELECT COUNT(*) FROM ka_collections WHERE slug = 'kos-test'") . '|' . $this->sql("SELECT COUNT(*) FROM ka_collection_items WHERE item_id = $item"), 'MCP: delete_collection removes it with its items');
+        $this->call('delete_collection', ['collection' => 'trash-test']);
+        $this->assertSame('0|0', $this->sql("SELECT COUNT(*) FROM ka_collections WHERE slug = 'trash-test'") . '|' . $this->sql("SELECT COUNT(*) FROM ka_collection_items WHERE item_id = $item"), 'MCP: delete_collection removes it with its items');
     }
 
     public function testNewsAndCategoriesTrashAndDelete(): void
@@ -104,12 +104,12 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
     public function testComponentsAreBuiltPublishedListedAndDeleted(): void
     {
-        $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['key' => 'title', 'label' => 'Titulek', 'type' => 'text', 'default' => 'Ahoj']]]), 'id');
+        $comp = (int) $this->pick($this->call('save_component', ['name' => 'Card', 'properties' => [['key' => 'title', 'label' => 'Title', 'type' => 'text', 'default' => 'Hello']]]), 'id');
         $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => '{{title}}']]]]]]]);
         $this->call('publish_build', ['component' => $comp]);
         $this->assertSame('1', $this->sql("SELECT build LIKE '%{{title}}%' AND build_draft IS NULL FROM ka_components WHERE component_id = $comp"), 'MCP: a component built and published through the component target');
         $list = $this->call('list_components');
-        $this->assertSame('Karta|1', $this->pick($list, 0, 'name') . '|' . $this->pick($list, 0, 'published'), 'MCP: list_components');
+        $this->assertSame('Card|1', $this->pick($list, 0, 'name') . '|' . $this->pick($list, 0, 'published'), 'MCP: list_components');
         $this->call('delete_component', ['id' => $comp]);
         $this->assertSame('0', $this->sql("SELECT COUNT(*) FROM ka_components WHERE component_id = $comp"), 'MCP: delete_component');
     }
@@ -118,8 +118,8 @@ final class McpTrashAndAdminTest extends SiteTestCase
     {
         $page = (int) $this->sql('SELECT page_id FROM ka_pages WHERE build IS NOT NULL AND deleted_at IS NULL ORDER BY page_id LIMIT 1');
         $first = json_decode($this->sql("SELECT COALESCE(build_draft, build) FROM ka_pages WHERE page_id = $page"), true)['children'][0]['id'];
-        $section = (int) $this->pick($this->call('save_section', ['id' => $page, 'element' => $first, 'name' => 'Moje sekce z MCP']), 'id');
-        $this->assertStringContainsString('Moje sekce z MCP', $this->raw('builder_schema'), 'MCP: saved sections in builder_schema');
+        $section = (int) $this->pick($this->call('save_section', ['id' => $page, 'element' => $first, 'name' => 'My section from MCP']), 'id');
+        $this->assertStringContainsString('My section from MCP', $this->raw('builder_schema'), 'MCP: saved sections in builder_schema');
 
         $before = (int) $this->sql("SELECT JSON_LENGTH(COALESCE(build_draft, build), '$.children') FROM ka_pages WHERE page_id = $page");
         $this->call('insert_section', ['id' => $page, 'saved_section' => $section]);
@@ -140,16 +140,16 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $png = $this->png();
         $this->call('upload_file', ['filename' => 'mcp-smazat.png', 'data' => $png]);
         $media = (int) $this->sql('SELECT media_id FROM ka_media ORDER BY media_id DESC LIMIT 1');
-        $this->call('update_media', ['id' => $media, 'alt' => 'Cerny ctverec', 'caption' => 'Popisek']);
-        $this->assertSame('Cerny ctverec|Popisek', $this->sql("SELECT CONCAT(name, '|', description) FROM ka_media WHERE media_id = $media"), 'MCP: update_media');
+        $this->call('update_media', ['id' => $media, 'alt' => 'Black square', 'caption' => 'Caption']);
+        $this->assertSame('Black square|Caption', $this->sql("SELECT CONCAT(name, '|', description) FROM ka_media WHERE media_id = $media"), 'MCP: update_media');
         $file = $this->sql("SELECT image_path FROM ka_media WHERE media_id = $media");
         $this->call('delete_media', ['id' => $media]);
         $this->assertSame('0|gone', $this->sql("SELECT COUNT(*) FROM ka_media WHERE media_id = $media") . '|' . (file_exists($this->site()->path($file)) ? 'file' : 'gone'), 'MCP: delete_media removes the record and the file');
 
         // the old run only tested this when some page already used a file; a fresh site has none, so make one
-        $this->call('upload_file', ['filename' => 'mcp-pouzito.png', 'data' => $png]);
+        $this->call('upload_file', ['filename' => 'mcp-used.png', 'data' => $png]);
         $mediaUsed = (int) $this->sql('SELECT media_id FROM ka_media ORDER BY media_id DESC LIMIT 1');
-        $this->site()->exec("UPDATE ka_pages SET text = CONCAT(COALESCE(text, ''), ' <img src=\"/', ?, '\">') WHERE slug = 'o-nas'", [$this->sql("SELECT image_path FROM ka_media WHERE media_id = $mediaUsed")]);
+        $this->site()->exec("UPDATE ka_pages SET text = CONCAT(COALESCE(text, ''), ' <img src=\"/', ?, '\">') WHERE slug = 'about-us'", [$this->sql("SELECT image_path FROM ka_media WHERE media_id = $mediaUsed")]);
         $used = $this->sql("SELECT media_id FROM ka_media m WHERE EXISTS (SELECT 1 FROM ka_pages s WHERE CONCAT_WS(' ', s.build, s.build_draft, s.text) LIKE CONCAT('%', REPLACE(m.image_path, '/', '%'), '%')) LIMIT 1");
         $this->assertNotSame('', $used, 'a file in use exists');
         $this->assertStringContainsString('still used on the site', $this->raw('delete_media', ['id' => (int) $used]), 'MCP: a file in use is not deleted');

@@ -52,7 +52,7 @@ final class DraftLookTest extends SiteTestCase
         $this->assertStringNotContainsString('Only in the draft', $preview->get("/$slug")->body, 'ending the preview shows the published site again');
         $this->call('discard_draft', ['id' => $draftPage]);
 
-        $this->assertPage('/admin.php?module=pages', 200, 'Publikovat vzhled', message: 'the admin shows the look bar on every screen');
+        $this->assertPage('/admin.php?module=pages', 200, 'Publish the look', message: 'the admin shows the look bar on every screen');
 
         $this->call('publish_look');
         $this->assertSame('#123456|1|1||1', implode('|', [
@@ -67,7 +67,7 @@ final class DraftLookTest extends SiteTestCase
         $version = (int) $this->pick($this->call('list_look_versions'), 'versions', 0, 'id');
         $this->call('restore_look_version', ['id' => $version]);
         $this->assertSame($oldPrimary, $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.design_system.colors.primary')) FROM ka_settings WHERE name = 'look_draft'"), 'MCP: an earlier look comes back into the draft');
-        $this->assertPage('/admin.php?module=appearance', 200, 'Vrátit tento vzhled', message: 'earlier looks in Site appearance');
+        $this->assertPage('/admin.php?module=appearance', 200, 'Back to this look', message: 'earlier looks in Site appearance');
 
         $this->call('discard_look');
         $this->assertSame('|#123456', $this->sql("SELECT value FROM ka_settings WHERE name = 'look_draft'") . '|' . $this->sql(self::PRIMARY), 'MCP: discard_look');

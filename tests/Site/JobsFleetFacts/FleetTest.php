@@ -27,7 +27,7 @@ final class FleetTest extends SiteTestCase
     {
         parent::setUpBeforeClass();
         try {
-            self::$console = Site::boot(['siteName' => 'Konzole agentury', 'web' => 'business', 'extensions' => ['fleet', 'claude']]);
+            self::$console = Site::boot(['siteName' => 'Agency console', 'web' => 'business', 'extensions' => ['fleet', 'claude']]);
             self::$console->setting('extensions', 'fleet,claude');
         } catch (\Throwable) {
             self::$console = null; // no MySQL: the tests are skipped by the base class

@@ -28,19 +28,19 @@ final class McpVariantsTest extends SiteTestCase
     public function testFooterVariantForOnePage(): void
     {
         $idz = $this->zPage();
-        $answer = $this->mcpData('save_part_variant', ['part' => 'footer', 'name' => 'Kampaň', 'pages' => [$idz]]);
+        $answer = $this->mcpData('save_part_variant', ['part' => 'footer', 'name' => 'Campaign', 'pages' => [$idz]]);
         self::$variant = (string) $answer['variant'];
-        $this->assertSame('kampan|[' . $idz . ']', self::$variant . '|' . json_encode($answer['pages']), 'the footer variant is created');
+        $this->assertSame('campaign|[' . $idz . ']', self::$variant . '|' . json_encode($answer['pages']), 'the footer variant is created');
 
-        $saved = $this->mcpData('save_build', ['part' => 'footer', 'variant' => self::$variant, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'heading', 'tag' => 'p', 'content' => ['text' => 'Paticka kampane']]]]]]]);
+        $saved = $this->mcpData('save_build', ['part' => 'footer', 'variant' => self::$variant, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'heading', 'tag' => 'p', 'content' => ['text' => 'Campaign footer']]]]]]]);
         $preview = (string) $saved['preview'];
         $this->assertStringContainsString('variant=' . self::$variant, $preview, 'the preview link names the variant');
-        $this->assertStringContainsString('Paticka kampane', $this->visit($preview), 'signed preview of the variant draft');
+        $this->assertStringContainsString('Campaign footer', $this->visit($preview), 'signed preview of the variant draft');
 
         $this->site()->mcp('publish_build', ['part' => 'footer', 'variant' => self::$variant]);
         $this->site()->clearPageCache();
-        $this->assertStringContainsString('Paticka kampane', $this->visit('/z-html'), 'the published footer variant is on the chosen page');
-        $this->assertStringNotContainsString('Paticka kampane', $this->visit('/kontakt'), 'and only there');
+        $this->assertStringContainsString('Campaign footer', $this->visit('/z-html'), 'the published footer variant is on the chosen page');
+        $this->assertStringNotContainsString('Campaign footer', $this->visit('/contact'), 'and only there');
 
         $this->site()->mcp('save_part_variant', ['part' => 'footer', 'variant' => self::$variant, 'delete' => true]);
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_site_parts WHERE variant = ?', [self::$variant]), 'the variant is deleted');
@@ -49,13 +49,13 @@ final class McpVariantsTest extends SiteTestCase
     public function testVersionsOfAPage(): void
     {
         $site = $this->site();
-        $site->mcp('build_from_html', ['title' => 'Verze test', 'html' => '<section><h1>Verze A</h1></section>', 'publish' => true]);
-        self::$idv = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'verze-test'");
-        $site->mcp('build_from_html', ['id' => self::$idv, 'html' => '<section><h1>Verze B</h1></section>', 'publish' => true]);
+        $site->mcp('build_from_html', ['title' => 'Version test', 'html' => '<section><h1>Version A</h1></section>', 'publish' => true]);
+        self::$idv = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'version-test'");
+        $site->mcp('build_from_html', ['id' => self::$idv, 'html' => '<section><h1>Version B</h1></section>', 'publish' => true]);
 
         $versionId = $this->mcpData('list_build_versions', ['id' => self::$idv])['versions'][0]['version_id'];
         $site->mcp('restore_build_version', ['id' => self::$idv, 'version_id' => $versionId]);
-        $this->assertSame('11', (string) $site->value("SELECT CONCAT(build_draft LIKE '%Verze A%', build LIKE '%Verze B%') FROM ka_pages WHERE page_id = ?", [self::$idv]), 'the older version is in the draft, the published one stays');
+        $this->assertSame('11', (string) $site->value("SELECT CONCAT(build_draft LIKE '%Version A%', build LIKE '%Version B%') FROM ka_pages WHERE page_id = ?", [self::$idv]), 'the older version is in the draft, the published one stays');
 
         $site->mcp('discard_draft', ['id' => self::$idv]);
         $this->assertSame('1', (string) $site->value('SELECT build_draft IS NULL FROM ka_pages WHERE page_id = ?', [self::$idv]), 'the draft is discarded');
@@ -63,19 +63,19 @@ final class McpVariantsTest extends SiteTestCase
 
     public function testSubpageWithAScheduledPublication(): void
     {
-        $parent = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'o-nas'");
-        $this->site()->mcp('create_page', ['title' => 'Podstranka MCP', 'parent' => $parent, 'publish_at' => '2099-01-01 10:00']);
+        $parent = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
+        $this->site()->mcp('create_page', ['title' => 'MCP subpage', 'parent' => $parent, 'publish_at' => '2099-01-01 10:00']);
 
-        $this->assertSame('o-nas/podstranka-mcp|2099-01-01 10:00:00|0', (string) $this->site()->value("SELECT CONCAT(slug, '|', publish_at, '|', visible) FROM ka_pages WHERE title = 'Podstranka MCP'"), 'a subpage with a scheduled publication stays hidden');
+        $this->assertSame('about-us/mcp-subpage|2099-01-01 10:00:00|0', (string) $this->site()->value("SELECT CONCAT(slug, '|', publish_at, '|', visible) FROM ka_pages WHERE title = 'MCP subpage'"), 'a subpage with a scheduled publication stays hidden');
     }
 
     public function testEnquiriesCarryTheirCampaign(): void
     {
         // the old section 12 had stored this enquiry through the contact form (from a page with utm_* parameters)
-        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, campaign, email, data, status) VALUES (NOW(), 'Kontakt', '/kontakt', 'utm_source=newsletter&utm_medium=email&utm_campaign=jaro', 'jana@example.cz', '[]', 0)");
+        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, campaign, email, data, status) VALUES (NOW(), 'Contact', '/contact', 'utm_source=newsletter&utm_medium=email&utm_campaign=spring', 'jane@example.com', '[]', 0)");
 
         $first = $this->mcpData('list_enquiries', ['status' => 'all'])[0];
 
-        $this->assertSame('jana@example.cz|newsletter / email / jaro', $first['email'] . '|' . $first['campaign'], 'enquiries with their campaign');
+        $this->assertSame('jane@example.com|newsletter / email / spring', $first['email'] . '|' . $first['campaign'], 'enquiries with their campaign');
     }
 }

@@ -55,10 +55,10 @@ trait BookingFixture
 
     private function bookingStaffAndService(): string
     {
-        $this->bookingText('save_booking_service', ['name' => 'Střih test', 'duration_min' => 30, 'buffer_min' => 10, 'price_text' => '450 Kč', 'description' => 'Mytí, střih, foukaná']);
+        $this->bookingText('save_booking_service', ['name' => 'Haircut test', 'duration_min' => 30, 'buffer_min' => 10, 'price_text' => '$45', 'description' => 'Wash, cut, blow-dry']);
         self::$service = $this->firstId($this->site()->value('SELECT id FROM ka_booking_services ORDER BY id DESC LIMIT 1'));
         $hours = array_fill_keys(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], '9:00-17:00');
-        $text = $this->bookingText('save_booking_staff', ['name' => 'Jana Rezervace', 'email' => 'jana-bk@example.cz', 'services' => [self::$service], 'hours' => $hours]);
+        $text = $this->bookingText('save_booking_staff', ['name' => 'Jane Booking', 'email' => 'jana-bk@example.cz', 'services' => [self::$service], 'hours' => $hours]);
         self::$staff = $this->firstId($this->site()->value('SELECT id FROM ka_booking_staff ORDER BY id DESC LIMIT 1'));
 
         return $text;
@@ -83,10 +83,10 @@ trait BookingFixture
 
     private function bookingPage(): void
     {
-        $this->site()->mcp('create_page', ['title' => 'Rezervace test', 'slug' => 'rezervace-test', 'visible' => true]);
-        self::$page = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'rezervace-test'");
+        $this->site()->mcp('create_page', ['title' => 'Booking test', 'slug' => 'booking-test', 'visible' => true]);
+        self::$page = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'booking-test'");
         $this->site()->mcp('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
-            ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Objednejte se']],
+            ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Book a time']],
             ['id' => 'bk1', 'type' => 'booking', 'content' => new \stdClass()],
         ]]]]]);
     }
@@ -94,7 +94,7 @@ trait BookingFixture
     /** Reads the signed form fields from the page; the time signature is made the way the server checks it. */
     private function bookingForm(): Response
     {
-        $page = $this->site()->client()->get('/rezervace-test');
+        $page = $this->site()->client()->get('/booking-test');
         self::$source = $page->field('source');
         self::$formTime = time() - 10;
         self::$signature = hash_hmac('sha256', 'booking|' . self::$source . '|bk1|' . self::$formTime, $this->site()->settingValue('secret_key'));
@@ -107,7 +107,7 @@ trait BookingFixture
     private function book(array $fields): string
     {
         return $this->site()->client('visitor')->post('/_booking', [
-            'source' => self::$source, 'element' => 'bk1', 'back' => '/rezervace-test', 'as_time' => self::$formTime, 'as_signature' => self::$signature,
+            'source' => self::$source, 'element' => 'bk1', 'back' => '/booking-test', 'as_time' => self::$formTime, 'as_signature' => self::$signature,
             'service' => self::$service, 'staff' => 0,
         ] + $fields)->redirect;
     }

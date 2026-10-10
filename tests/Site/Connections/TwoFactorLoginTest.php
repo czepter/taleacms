@@ -22,12 +22,12 @@ final class TwoFactorLoginTest extends SiteTestCase
         return ['login' => false];
     }
 
-    /** First and second step of the sign-in of "autor"; returns the status of the code step and the browser. @return array{int, Http} */
+    /** First and second step of the sign-in of "author"; returns the status of the code step and the browser. @return array{int, Http} */
     private function signInWithCode(string $code): array
     {
-        $browser = $this->site()->client('autor');
+        $browser = $this->site()->client('author');
         $csrf = $browser->get('/admin.php')->csrf();
-        $first = $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'autor', 'password' => $this->site()->password]);
+        $first = $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'author', 'password' => $this->site()->password]);
         $this->assertStringContainsString('name="code"', $first->body, 'the second step is asked for');
 
         return [$browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'code', 'code' => $code])->status, $browser];
@@ -38,11 +38,11 @@ final class TwoFactorLoginTest extends SiteTestCase
         $site = $this->site();
         // section 5 created the news author; create him here as the administrator did
         $site->signIn($site->admin());
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Autor', 'username' => 'autor', 'password' => $site->password, 'admin' => 0]);
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_users WHERE username = 'autor'"), 'the author exists');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Author', 'username' => 'author', 'password' => $site->password, 'admin' => 0]);
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_users WHERE username = 'author'"), 'the author exists');
 
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'login'");
-        $site->exec("UPDATE ka_users SET totp_secret = ?, totp_backup_codes = ? WHERE username = 'autor'", [self::SECRET, json_encode([hash('sha256', 'abcde-12345')])]);
+        $site->exec("UPDATE ka_users SET totp_secret = ?, totp_backup_codes = ? WHERE username = 'author'", [self::SECRET, json_encode([hash('sha256', 'abcde-12345')])]);
 
         $this->assertSame(401, $this->signInWithCode('000000')[0], 'a wrong code from the app does not pass');
         $code = trim($site->php('echo Kaleta\Core\Totp::code("' . self::SECRET . '", intdiv(time(), 30));'));
@@ -57,11 +57,11 @@ final class TwoFactorLoginTest extends SiteTestCase
     {
         $site = $this->site();
         // 3.3.2 (N7): a correct password does not reset the count of wrong codes
-        $site->exec("UPDATE ka_users SET failed_logins = 0 WHERE username = 'autor'");
+        $site->exec("UPDATE ka_users SET failed_logins = 0 WHERE username = 'author'");
         $this->signInWithCode('111111');
         $this->signInWithCode('222222');
-        $this->assertSame('2', (string) $site->value("SELECT failed_logins FROM ka_users WHERE username = 'autor'"), '3.3.2: wrong codes add up across sign-ins with the right password');
-        $site->exec("UPDATE ka_users SET failed_logins = 0 WHERE username = 'autor'");
+        $this->assertSame('2', (string) $site->value("SELECT failed_logins FROM ka_users WHERE username = 'author'"), '3.3.2: wrong codes add up across sign-ins with the right password');
+        $site->exec("UPDATE ka_users SET failed_logins = 0 WHERE username = 'author'");
     }
 
     #[Depends('testAppCodeAndBackupCodes')]
@@ -81,18 +81,18 @@ final class TwoFactorLoginTest extends SiteTestCase
         $this->assertSame([403, 403, 200], $statuses, '3.3.3: a passkey challenge only with the current password');
         $this->assertSame(1, preg_match_all('/"challenge"/m', $right->body), '3.3.3: the challenge is in the answer');
 
-        $site->exec("UPDATE ka_users SET email = 'autor-puvodni@example.cz', language = '' WHERE username = 'autor'");
-        $site->exec("DELETE FROM ka_mail WHERE recipient = 'autor-puvodni@example.cz'");
-        $post(['op' => 'profile', 'name' => 'Autor', 'email' => 'utocnik@example.cz']);
-        $post(['op' => 'profile', 'name' => 'Autor', 'email' => 'utocnik@example.cz', 'current_password' => 'wrong-password-1']);
-        $this->assertSame('autor-puvodni@example.cz', $site->value("SELECT email FROM ka_users WHERE username = 'autor'"), '3.3.3: without the current password the e-mail stays');
+        $site->exec("UPDATE ka_users SET email = 'author-original@example.cz', language = '' WHERE username = 'author'");
+        $site->exec("DELETE FROM ka_mail WHERE recipient = 'author-original@example.cz'");
+        $post(['op' => 'profile', 'name' => 'Author', 'email' => 'attacker@example.cz']);
+        $post(['op' => 'profile', 'name' => 'Author', 'email' => 'attacker@example.cz', 'current_password' => 'wrong-password-1']);
+        $this->assertSame('author-original@example.cz', $site->value("SELECT email FROM ka_users WHERE username = 'author'"), '3.3.3: without the current password the e-mail stays');
 
-        $post(['op' => 'profile', 'name' => 'Autor-jmeno', 'email' => 'autor-puvodni@example.cz']);
-        $this->assertSame('Autor-jmeno|autor-puvodni@example.cz', $site->value("SELECT CONCAT(name, '|', email) FROM ka_users WHERE username = 'autor'"),
+        $post(['op' => 'profile', 'name' => 'Author-name', 'email' => 'author-original@example.cz']);
+        $this->assertSame('Author-name|author-original@example.cz', $site->value("SELECT CONCAT(name, '|', email) FROM ka_users WHERE username = 'author'"),
             '3.3.3: other details save without the password while the e-mail stays the same');
 
-        $post(['op' => 'profile', 'name' => 'Autor', 'email' => 'autor-novy@example.cz', 'current_password' => $site->password]);
-        $this->assertSame('autor-novy@example.cz|1', $site->value("SELECT CONCAT((SELECT email FROM ka_users WHERE username = 'autor'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'autor-puvodni@example.cz' AND subject LIKE 'E-mail va%'))"),
+        $post(['op' => 'profile', 'name' => 'Author', 'email' => 'author-new@example.cz', 'current_password' => $site->password]);
+        $this->assertSame('author-new@example.cz|1', $site->value("SELECT CONCAT((SELECT email FROM ka_users WHERE username = 'author'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'author-original@example.cz' AND subject LIKE 'The e-mail address of your account%'))"),
             '3.3.3: with the current password the e-mail changes and the old address gets a notice');
     }
 }

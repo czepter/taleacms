@@ -86,7 +86,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertSame($mediaFiles, $this->putCount('#^PUT /kaleta-zalohy/media/#m'), 'every media file is uploaded');
         $this->assertSame(0, $this->putCount('/unsigned/'), 'every request is signed');
         $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(value, '|', -2) FROM ka_settings WHERE name = 'remote_media_status'"), 'media status: complete');
-        $this->assertPage('/admin.php?module=settings&tab=backups', 200, 'Média: kopie je kompletní', message: 'Backups show the media copy');
+        $this->assertPage('/admin.php?module=settings&tab=backups', 200, 'Media: the copy is complete', message: 'Backups show the media copy');
     }
 
     #[Depends('testTheBackupAndEveryMediaFileAreUploadedSigned')]

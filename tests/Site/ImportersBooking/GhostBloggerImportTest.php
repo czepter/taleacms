@@ -62,10 +62,10 @@ final class GhostBloggerImportTest extends SiteTestCase
     public function testGhostImport(): void
     {
         $answer = $this->ghostRun();
-        $this->assertTrue(str_contains($answer->body, 'The content import is finished') || str_contains($answer->body, 'Import obsahu je hotový'), 'Ghost: the import finished in one batch');
+        $this->assertTrue(str_contains($answer->body, 'The content import is finished'), 'Ghost: the import finished in one batch');
         $today = $this->site()->php('echo date("Y-m-d");');
         $this->assertSame(
-            "firing-the-first-kiln:1:2024-03-10:Workshop:Glazes:Firing the first kiln – Clay Notes|glaze-recipes-we-keep:0:$today:Glazes:-:|spring-market:1:2099-05-01:Nezařazené:-:",
+            "firing-the-first-kiln:1:2024-03-10:Workshop:Glazes:Firing the first kiln – Clay Notes|glaze-recipes-we-keep:0:$today:Glazes:-:|spring-market:1:2099-05-01:Uncategorized:-:",
             $this->newsRow("SELECT GROUP_CONCAT(CONCAT(n.slug, ':', n.visible, ':', DATE(n.published_at), ':', k.name, ':', IFNULL((SELECT GROUP_CONCAT(s.name) FROM ka_news_tags ns JOIN ka_tags s ON s.tag_id = ns.tag_id WHERE ns.news_id = n.news_id), '-'), ':', n.seo_title) ORDER BY n.news_id SEPARATOR '|') FROM ka_news n JOIN ka_categories k ON k.category_id = n.category_id WHERE n.slug IN ('firing-the-first-kiln', 'glaze-recipes-we-keep', 'spring-market')"),
             'Ghost: posts as news items with status and date, the primary tag as the category, the other tag as a tag, SEO fields',
         );
@@ -97,7 +97,7 @@ final class GhostBloggerImportTest extends SiteTestCase
         $this->uploadSource('blogger', self::$bloggerFile);
         $this->batch('blogger-blogger-export.xml');
         $preview = $this->preview('blogger-blogger-export.xml');
-        $this->assertTrue(str_contains($preview->body, 'Comments are skipped') || str_contains($preview->body, 'Komentáře se vynechávají'), 'Blogger: the preview says comments are skipped');
+        $this->assertTrue(str_contains($preview->body, 'Comments are skipped'), 'Blogger: the preview says comments are skipped');
         $this->assertStringNotContainsString('name="site_url"', $preview->body, "Blogger: the preview knows the blog's address");
         $this->assertStringContainsString('Planting the first beds', $preview->body, 'Blogger: the preview shows the first titles');
         $this->transfer('source_run', ['file' => 'blogger-blogger-export.xml', 'posts' => 'news', 'pages' => 'page', 'categories' => 'category', 'tags' => 'tag', 'drafts' => '1', 'builder' => '1', 'redirects' => '1', 'default_category' => '0']);

@@ -18,15 +18,15 @@ final class JobsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('site_email', 'owner@example.test');
-        $form = $site->client()->get('/kontakt');
+        $form = $site->client()->get('/contact');
         $source = $form->field('source');
         $element = $form->field('element');
         $this->assertNotSame('', $element, 'the contact page has an enquiry form');
         $time = (string) (time() - 10);
         $signature = hash_hmac('sha256', "form|$source|$element|$time", $site->settingValue('secret_key'));
         $location = $site->client()->post('/form', [
-            'source' => $source, 'element' => $element, 'back' => '/kontakt', 'as_time' => $time, 'as_signature' => $signature,
-            'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'Chci kuchyň na míru.', 'p4' => '1',
+            'source' => $source, 'element' => $element, 'back' => '/contact', 'as_time' => $time, 'as_signature' => $signature,
+            'p0' => 'Jane', 'p1' => 'jane@example.com', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => '1',
         ])->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the enquiry was accepted');
 
@@ -57,7 +57,7 @@ final class JobsTest extends SiteTestCase
     public function testAnErrorEventGoesOutAsOneAlertEmailAtMostAnHour(): void
     {
         $site = $this->site();
-        $problems = "SELECT COUNT(*) FROM ka_mail WHERE subject LIKE '%problem%' OR subject LIKE '%problém%'";
+        $problems = "SELECT COUNT(*) FROM ka_mail WHERE subject LIKE '%problem%'";
         $site->exec("UPDATE ka_settings SET value = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE name = 'alerts_cursor'");
         $site->exec("UPDATE ka_settings SET value = '0' WHERE name = 'alerts_last_sent'");
         $site->exec("INSERT INTO ka_settings (name, value) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_settings WHERE name = 'alerts_cursor')");

@@ -29,7 +29,7 @@ trait McpBuilderHelpers
         return is_string($text) ? $text : (string) json_encode($answer, JSON_UNESCAPED_UNICODE);
     }
 
-    /** Like rawText() with JSON-escaped slashes written plainly (the old greps looked for "tym\/zdenek" in a double-encoded answer). */
+    /** Like rawText() with JSON-escaped slashes written plainly (the old greps looked for "team\/zdenek" in a double-encoded answer). */
     private function mcpText(string $tool, array $args = []): string
     {
         return str_replace('\/', '/', $this->rawText($tool, $args));
@@ -64,5 +64,5 @@ trait McpBuilderHelpers
         return self::$zPage;
     }
 
-    private const string Z_HTML = '<style>.uvod-x { padding-block: var(--ka-space-2xl); } .uvod-x h1 { color: red }</style><header class="uvod-x"><div class="container"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class="btn" href="/kontakt">Kontakt</a></div></header><form><input></form>';
+    private const string Z_HTML = '<style>.intro-x { padding-block: var(--ka-space-2xl); } .intro-x h1 { color: red }</style><header class="intro-x"><div class="container"><h1>Page by Claude</h1><p>Text <b>bold</b>.</p><a class="btn" href="/contact">Contact</a></div></header><form><input></form>';
 }

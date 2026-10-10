@@ -155,11 +155,11 @@ final class DraftCommentsTest extends SiteTestCase
         }
         $this->assertNotSame('', $mail, 'comments: the administrator gets a message');
         $text = $this->decodeMail($mail);
-        $this->assertStringContainsString('Nový komentář ke konceptu „Comment draft“', $text, 'comments: the e-mail subject');
+        $this->assertStringContainsString('New comment on the draft of “Comment draft”', $text, 'comments: the e-mail subject');
         $this->assertStringContainsString('Client Novak', $text, 'comments: the e-mail names the commenter');
         $this->assertStringContainsString('module=pages&action=builder&id=' . self::$page, $text, 'comments: the e-mail links the builder');
 
-        $this->assertPage('/admin.php?module=pages', 200, 'Komentářů: 1', message: 'comments: the pages list shows the badge with the count');
+        $this->assertPage('/admin.php?module=pages', 200, '1 comments', message: 'comments: the pages list shows the badge with the count');
         $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page, 200, '"name":"Client Novak"', message: 'comments: the builder shows the comment in its panel data');
     }
 

@@ -69,15 +69,15 @@ final class WordPressImportTest extends SiteTestCase
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-sample.xml', 200, 'nav_menu_item', message: 'the preview warns about a type that cannot be converted');
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-sample.xml', 200, 'Rank Math', message: 'the preview reports SEO data of plugins');
         $this->runImport('wordpress-sample.xml', ['drafts' => 1, 'pages' => 1, 'builder' => 1, 'redirects' => 1, 'category' => 0]);
-        $this->assertStringContainsString('Import obsahu je hotový', self::$lastBatch, 'the import finished');
+        $this->assertStringContainsString('The content import is finished', self::$lastBatch, 'the import finished');
     }
 
     #[Depends('testImportOfAWordPressExport')]
     public function testImportedContentIsOnTheSite(): void
     {
-        $this->assertPage('/news/lavka-pres-bystrinu', 200, 'Lávka přes Bystřinu', message: 'imported news');
+        $this->assertPage('/news/lavka-pres-bystrinu', 200, 'Lávka přes Bystřinu', message: 'imported news'); // check-english: allow (Czech WordPress fixture)
         $this->assertPage('/news/lavka-pres-bystrinu', 200, 'class="gallery"', message: 'imported news – gallery and video');
-        $this->assertPage('/o-zpravodaji', 200, 'Kontakt', message: 'imported page');
+        $this->assertPage('/o-zpravodaji', 200, 'Kontakt', message: 'imported page'); // check-english: allow (Czech WordPress fixture)
         $this->assertPage('/o-zpravodaji', 200, '<main id="main" class="build">', message: 'the imported page is in the builder at once');
         $this->assertPage('/o-zpravodaji', 200, '<h1>O zpravodaji</h1>', message: 'the imported page has the WordPress heading');
     }
@@ -85,16 +85,16 @@ final class WordPressImportTest extends SiteTestCase
     #[Depends('testImportOfAWordPressExport')]
     public function testSeoDataOfPluginsIsImported(): void
     {
-        $this->assertSame('1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0',
-            $this->seo("SELECT CONCAT(seo_title LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_description, '|', noindex) FROM ka_news WHERE slug = 'lavka-pres-bystrinu'"),
+        $this->assertSame('1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0', // check-english: allow (Czech WordPress fixture)
+            $this->seo("SELECT CONCAT(seo_title LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_description, '|', noindex) FROM ka_news WHERE slug = 'lavka-pres-bystrinu'"), // check-english: allow (Czech WordPress fixture)
             'SmartCrawl: title with the site name, description, no noindex');
-        $this->assertSame('|Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.|1',
+        $this->assertSame('|Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.|1', // check-english: allow (Czech WordPress fixture)
             $this->seo("SELECT CONCAT(seo_title, '|', seo_description, '|', noindex) FROM ka_news WHERE slug = 'slavnosti-syra'"),
             'Yoast: the default title pattern is not imported, description and noindex are');
         $this->assertSame('1|1',
-            $this->seo("SELECT CONCAT(seo_title LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_news WHERE slug = 'lavka-pres-bystrinu-2'"),
+            $this->seo("SELECT CONCAT(seo_title LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_news WHERE slug = 'lavka-pres-bystrinu-2'"), // check-english: allow (Czech WordPress fixture)
             'Rank Math: title with variables, noindex from a serialized array');
-        $this->assertSame('O Podhorském zpravodaji – kdo jsme a kde nás najdete|Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.|0',
+        $this->assertSame('O Podhorském zpravodaji – kdo jsme a kde nás najdete|Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.|0', // check-english: allow (Czech WordPress fixture)
             $this->seo("SELECT CONCAT(seo_title, '|', description, '|', noindex) FROM ka_pages WHERE slug = 'o-zpravodaji'"),
             'SmartCrawl on a page: title and description');
         $this->assertPage('/news/slavnosti-syra', 200, 'noindex', message: 'imported news with noindex from the plugin prints it');
@@ -134,10 +134,10 @@ final class WordPressImportTest extends SiteTestCase
         $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "content"]|["text", "number", "date", "link", "image", "html"]',
             $this->seo('SELECT CONCAT(slug, \'|\', detail, \'|\', JSON_EXTRACT(fields, \'$[*].key\'), \'|\', JSON_EXTRACT(fields, \'$[*].type\')) FROM ka_collections WHERE name = \'Reference\''),
             'a custom post type became a collection with fields by values');
-        $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01',
+        $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01', // check-english: allow (Czech WordPress fixture)
             $this->seo('SELECT GROUP_CONCAT(CONCAT(slug, \':\', visible, \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.klient\')), \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.datum_predani\'))) ORDER BY item_id SEPARATOR \'|\') FROM ka_collection_items WHERE collection_id = (SELECT collection_id FROM ka_collections WHERE slug = \'reference\')'),
             'collection items: field values, the draft is hidden');
-        $this->assertPage('/reference/kuchyne-novak', 200, 'Rodina Novákových', message: 'collection item on the old address');
+        $this->assertPage('/reference/kuchyne-novak', 200, 'Rodina Novákových', message: 'collection item on the old address'); // check-english: allow (Czech WordPress fixture)
         $old = $this->visitor()->get('/?p=401');
         $this->assertSame(301, $old->status, 'the old /?p=401 address redirects');
         $this->assertSame($this->site()->base . '/reference/kuchyne-novak', $old->redirect, 'the old /?p=401 address points to the item');
@@ -154,14 +154,14 @@ final class WordPressImportTest extends SiteTestCase
     {
         $site = $this->site();
         // what the export must carry or leave out: a collection item, a site part, a pop-up with counters, an enquiry
-        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
-            'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
-        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Team', 'detail' => 1,
+            'fields' => [['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html']]], '/admin.php?module=collections');
+        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'team'");
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jane Novak', 'data' => ['role' => 'Managing director'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
         $site->mcpResult('save_build', ['part' => 'footer', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
-        $popup = $site->mcpResult('save_popup', ['template' => 'blank', 'name' => 'Akce okno']);
-        $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['akce-okno']);
-        $site->exec("INSERT INTO ka_enquiries (created_at, form, data) VALUES (NOW(), 'kontakt', 'Chci kuchyň na míru.')");
+        $popup = $site->mcpResult('save_popup', ['template' => 'blank', 'name' => 'Event window']);
+        $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['event-window']);
+        $site->exec("INSERT INTO ka_enquiries (created_at, form, data) VALUES (NOW(), 'contact', 'I want a custom kitchen.')");
         $this->assertNotSame('', (string) ($popup['id'] ?? ''), 'a pop-up was created for the export');
 
         $this->adminPost(self::TRANSFER . '&action=export');
@@ -181,16 +181,16 @@ final class WordPressImportTest extends SiteTestCase
 
         $this->assertStringContainsString('"format":"kaleta-export"', $json, 'export format');
         $this->assertStringContainsString('"news"', $json, 'export carries news');
-        $this->assertDoesNotMatchRegularExpression('/"password"|smtp_heslo|tajny_klic|ai_klic/', $json, 'export holds no secrets');
+        $this->assertDoesNotMatchRegularExpression('/"password"|smtp_password|secret_key|ai_key/', $json, 'export holds no secrets');
         $this->assertStringContainsString('"collection_items":[', $json, 'export carries collection items');
-        $this->assertStringContainsString('Jana Nováková', $json, 'export carries the item');
+        $this->assertStringContainsString('Jane Novak', $json, 'export carries the item');
         $this->assertStringContainsString('"classes":[', $json, 'export carries classes');
         $this->assertStringContainsString('"site_parts":[', $json, 'export carries site parts');
-        $this->assertStringNotContainsString('Chci kuchyň', $json, 'enquiries are not exported');
-        $this->assertStringContainsString('"slug":"akce-okno"', $json, 'export carries pop-ups');
+        $this->assertStringNotContainsString('I want a custom', $json, 'enquiries are not exported');
+        $this->assertStringContainsString('"slug":"event-window"', $json, 'export carries pop-ups');
         $this->assertStringNotContainsString('"impressions":', $json, 'pop-up counters are not exported');
 
         $anonymous = $site->client('anonymous')->get(self::TRANSFER . '&action=download&file=' . $file);
-        $this->assertStringContainsString('Heslo', $anonymous->body, 'the export is for the signed-in administrator only');
+        $this->assertStringContainsString('Password', $anonymous->body, 'the export is for the signed-in administrator only');
     }
 }

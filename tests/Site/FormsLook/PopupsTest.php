@@ -19,7 +19,7 @@ final class PopupsTest extends SiteTestCase
 
     public function testAdminOffersNoWindowsYetAndNewOnesFromATemplate(): void
     {
-        $this->assertPage('/admin.php?module=popups', 200, 'Zatím žádná pop-up okna', message: 'pop-ups in the admin');
+        $this->assertPage('/admin.php?module=popups', 200, 'No pop-ups yet', message: 'pop-ups in the admin');
         $this->assertPage('/admin.php?module=popups&action=new', 200, 'name="template" value="newsletter_signup"', message: 'a new window from a template');
     }
 
@@ -57,16 +57,16 @@ final class PopupsTest extends SiteTestCase
     public function testServerRulesPlacesAndPeriod(): void
     {
         $id = self::$popup;
-        $about = (int) $this->sql("SELECT page_id FROM ka_pages WHERE slug = 'o-nas'");
+        $about = (int) $this->sql("SELECT page_id FROM ka_pages WHERE slug = 'about-us'");
         $this->call('save_popup', ['id' => $id, 'rules' => ['where' => 'selected', 'pages' => [$about]]]);
         $this->site()->clearPageCache();
         $visitor = $this->site()->client();
         $this->assertStringNotContainsString("data-popup=\"$id\"", $visitor->get('/')->body, 'the window is not on the home page');
-        $this->assertStringContainsString("data-popup=\"$id\"", $visitor->get('/o-nas')->body, 'the window is on the selected page');
+        $this->assertStringContainsString("data-popup=\"$id\"", $visitor->get('/about-us')->body, 'the window is on the selected page');
 
         $this->call('save_popup', ['id' => $id, 'rules' => ['from' => '2099-01-01']]);
         $this->site()->clearPageCache();
-        $this->assertStringNotContainsString("data-popup=\"$id\"", $visitor->get('/o-nas')->body, 'a window out of its period is not put into the page');
+        $this->assertStringNotContainsString("data-popup=\"$id\"", $visitor->get('/about-us')->body, 'a window out of its period is not put into the page');
 
         $saved = $this->call('save_popup', ['id' => $id, 'rules' => ['from' => '', 'where' => 'all']]);
         self::$previewUrl = $this->pick($saved, 'preview');
@@ -90,8 +90,8 @@ final class PopupsTest extends SiteTestCase
 
         $this->assertPage("/admin.php?module=popups&action=builder&id=$id", 200, 'id="builder-data"', message: 'window in the builder');
         $this->assertPage("/_popup/$id?build=draft&editor=1", 200, 'ka-popup--editor', message: 'window canvas in the builder');
-        $this->assertStringContainsString("data-popup=\"$id\"", $this->site()->admin()->get('/o-nas')->body, 'the site shows the window to the administrator');
-        $this->assertStringNotContainsString('data-popup=', $this->site()->admin()->get('/o-nas?build=draft&editor=1')->body, 'the page builder canvas is without the site pop-ups');
+        $this->assertStringContainsString("data-popup=\"$id\"", $this->site()->admin()->get('/about-us')->body, 'the site shows the window to the administrator');
+        $this->assertStringNotContainsString('data-popup=', $this->site()->admin()->get('/about-us?build=draft&editor=1')->body, 'the page builder canvas is without the site pop-ups');
     }
 
     #[Depends('testCountersPreviewAndBuilderCanvas')]
@@ -120,9 +120,9 @@ final class PopupsTest extends SiteTestCase
 
     public function testEditingRightOnTheSiteIsOnlyForSignedInUsers(): void
     {
-        $this->assertPage('/news/vitejte-v-kalete', 200, 'ka-edit-here', message: 'edit in place: link');
-        $this->assertPage('/news/vitejte-v-kalete?edit=text', 200, 'ka-edit-text', message: 'edit in place: form');
-        $this->assertPage('/o-nas?edit=text', 200, 'ka-edit-text', message: 'edit a page in place');
-        $this->assertStringNotContainsString('ka-edit', $this->site()->client()->get('/news/vitejte-v-kalete?edit=text')->body, 'edit in place is not visible without signing in');
+        $this->assertPage('/news/our-new-website-is-live', 200, 'ka-edit-here', message: 'edit in place: link');
+        $this->assertPage('/news/our-new-website-is-live?edit=text', 200, 'ka-edit-text', message: 'edit in place: form');
+        $this->assertPage('/about-us?edit=text', 200, 'ka-edit-text', message: 'edit a page in place');
+        $this->assertStringNotContainsString('ka-edit', $this->site()->client()->get('/news/our-new-website-is-live?edit=text')->body, 'edit in place is not visible without signing in');
     }
 }

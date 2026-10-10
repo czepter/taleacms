@@ -729,7 +729,10 @@ final class Facts
         if (mb_strlen($needle) < 2) {
             return [];
         }
-        $pattern = '/' . implode('[\s\x{00A0}\x{202F}]*', array_map(fn (string $ch): string => preg_quote($ch, '/'), preg_split('//u', preg_replace('/[\s\x{00A0}\x{202F}]+/u', '', $needle) ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [])) . '/iu';
+        // 1,500 / 1.500 / 1 500 are one number: when the needle has a thousands separator, any of them separates the digits
+        $separators = preg_match('/\d[,.]\d{3}(?!\d)/', $needle) === 1 ? '[\s\x{00A0}\x{202F},.]*' : '[\s\x{00A0}\x{202F}]*';
+        $needle = preg_replace('/(?<=\d)[,.](?=\d{3}(?!\d))/', '', $needle) ?? $needle;
+        $pattern = '/' . implode($separators, array_map(fn (string $ch): string => preg_quote($ch, '/'), preg_split('//u', preg_replace('/[\s\x{00A0}\x{202F}]+/u', '', $needle) ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [])) . '/iu';
         // a number must not be part of a longer one (2004 in 12004)
         if (preg_match('/^\d/', $needle)) {
             $pattern = '/(?<![\d])' . substr($pattern, 1, -3) . '(?![\d])/iu';

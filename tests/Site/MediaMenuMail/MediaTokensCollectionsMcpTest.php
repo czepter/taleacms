@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Media library caption, DTCG design tokens, collection items through MCP (was: section 36 of tools/test.sh; the picture came from
- * section 28 and the "Tým" collection with Petr Svoboda from section 13).
+ * section 28 and the "Team" collection with Peter Smith from section 13).
  */
 #[Group('site')]
 final class MediaTokensCollectionsMcpTest extends SiteTestCase
@@ -54,18 +54,18 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
     public function testCollectionItemsThroughMcp(): void
     {
         $site = $this->site();
-        // the "Tým" collection with its text field "Funkce" and a displayed item (as the collections section made it)
-        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
-            'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
-        $site->mcp('save_collection_item', ['collection' => 'tym', 'name' => 'Petr Svoboda', 'values' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
+        // the "Team" collection with its text field "Role" and a displayed item (as the collections section made it)
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Team', 'detail' => 1,
+            'fields' => [['label' => 'Role', 'type' => 'text'], ['label' => 'Photo', 'type' => 'image'], ['label' => 'Bio', 'type' => 'html']]], '/admin.php?module=collections');
+        $site->mcp('save_collection_item', ['collection' => 'team', 'name' => 'Peter Smith', 'values' => ['role' => 'Master carpenter'], 'visible' => true]);
 
-        $filtered = $this->mcpText('list_collection_items', ['collection' => 'tym', 'field' => 'funkce', 'value' => 'Mistr truhlář']);
-        $this->assertStringContainsString('Petr Svoboda', $filtered, 'collection through MCP: filter by field (the item)');
+        $filtered = $this->mcpText('list_collection_items', ['collection' => 'team', 'field' => 'role', 'value' => 'Master carpenter']);
+        $this->assertStringContainsString('Peter Smith', $filtered, 'collection through MCP: filter by field (the item)');
         $this->assertStringContainsString('"total":1', $filtered, 'collection through MCP: filter by field (the total)');
 
-        $idp = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE name = 'Petr Svoboda'");
-        $site->mcp('save_collection_item', ['collection' => 'tym', 'id' => $idp, 'values' => ['funkce' => 'Vedouci dilny']]);
-        $this->assertSame('Petr Svoboda|1', $site->value("SELECT CONCAT(name, '|', data LIKE '%Vedouci dilny%') FROM ka_collection_items WHERE item_id = ?", [$idp]), 'collection through MCP: editing an item without a name keeps the name');
+        $idp = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE name = 'Peter Smith'");
+        $site->mcp('save_collection_item', ['collection' => 'team', 'id' => $idp, 'values' => ['role' => 'Workshop lead']]);
+        $this->assertSame('Peter Smith|1', $site->value("SELECT CONCAT(name, '|', data LIKE '%Workshop lead%') FROM ka_collection_items WHERE item_id = ?", [$idp]), 'collection through MCP: editing an item without a name keeps the name');
     }
 
     private function importTokens(string $file): void

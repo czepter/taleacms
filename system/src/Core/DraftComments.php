@@ -168,7 +168,7 @@ final class DraftComments
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['page_id']);
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');
         foreach ($recipients as $recipient) {
-            Language::runWith((string) $recipient['language'] !== '' ? (string) $recipient['language'] : 'cs', function () use ($s, $recipient, $page, $name, $excerpt, $url): void {
+            Language::runWith((string) $recipient['language'] !== '' ? (string) $recipient['language'] : Language::defaults($s), function () use ($s, $recipient, $page, $name, $excerpt, $url): void {
                 Mail::send($s, (string) $recipient['email'], t('New comment on the draft of “%s”', (string) $page['title']),
                     t('%s commented on the draft of the page “%s” through a preview link:', $name, (string) $page['title']) . "\n\n" . $excerpt . "\n\n"
                     . t('Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.') . "\n" . $url . "\n");

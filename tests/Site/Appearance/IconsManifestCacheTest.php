@@ -13,7 +13,7 @@ final class IconsManifestCacheTest extends SiteTestCase
 {
     public function testWithoutAnIconTheFaviconRequestIsNotA404Page(): void
     {
-        $this->assertSame(204, $this->site()->client()->get('/favicon.ico')->status, 'favicon.ico bez ikony nevygeneruje stránku 404');
+        $this->assertSame(204, $this->site()->client()->get('/favicon.ico')->status, 'favicon.ico without an icon does not generate a 404 page');
     }
 
     public function testTheSiteHasAWebManifest(): void
@@ -29,7 +29,7 @@ final class IconsManifestCacheTest extends SiteTestCase
 
         $response = $visitor->get('/news?utm_source=newsletter&fbclid=x');
 
-        $this->assertMatchesRegularExpression('/^kaleta/i', $response->headers['x-cache'] ?? '', 'odkaz s utm parametry jde z cache');
+        $this->assertMatchesRegularExpression('/^kaleta/i', $response->headers['x-cache'] ?? '', 'a link with utm parameters is served from the cache');
     }
 
     public function testACachedPageAnswers304ToAMatchingEtag(): void
@@ -38,6 +38,6 @@ final class IconsManifestCacheTest extends SiteTestCase
         $etag = $visitor->get('/news')->headers['etag'] ?? '';
         $this->assertNotSame('', $etag, 'the cached page has an ETag');
 
-        $this->assertSame(304, $visitor->get('/news', ['If-None-Match: ' . $etag])->status, 'stránka z cache odpoví 304 na shodný ETag');
+        $this->assertSame(304, $visitor->get('/news', ['If-None-Match: ' . $etag])->status, 'a cached page answers 304 to a matching ETag');
     }
 }

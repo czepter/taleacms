@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\McpBuilder;
 use Kaleta\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** Claude (MCP) builds a page: English tool interface, HTML to build, publishing, design system, dark mode (was: section 9 "Claude (MCP): builder"). */
+/** Claude (MCP) builds a page: English tool interface, HTML to build, publishing, design system, dark mode (was: section 9). */
 #[Group('site')]
 final class McpBuilderTest extends SiteTestCase
 {
@@ -63,8 +63,8 @@ final class McpBuilderTest extends SiteTestCase
     public function testNewPageStaysHiddenAndTheClassFromStyleIsSaved(): void
     {
         $site = $this->site();
-        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(visible, '/', build IS NULL, '/', build_draft LIKE '%od Clauda%') FROM ka_pages WHERE page_id = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
-        $this->assertSame('padding-block: var(--ka-space-2xl);', (string) $site->value("SELECT css FROM ka_classes WHERE name = 'uvod-x'"), 'the class from <style> was saved');
+        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(visible, '/', build IS NULL, '/', build_draft LIKE '%by Claude%') FROM ka_pages WHERE page_id = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
+        $this->assertSame('padding-block: var(--ka-space-2xl);', (string) $site->value("SELECT css FROM ka_classes WHERE name = 'intro-x'"), 'the class from <style> was saved');
     }
 
     public function testPublishedPageIsOnTheSite(): void
@@ -77,8 +77,8 @@ final class McpBuilderTest extends SiteTestCase
 
         $body = $this->visit('/z-html');
 
-        $this->assertStringContainsString('<h1>Stránka od Clauda</h1>', $body, 'heading');
-        $this->assertStringContainsString('class="uvod-x"', $body, 'class');
+        $this->assertStringContainsString('<h1>Page by Claude</h1>', $body, 'heading');
+        $this->assertStringContainsString('class="intro-x"', $body, 'class');
         $this->assertStringNotContainsString('container', $body, 'the unknown wrapper class is gone');
         $this->assertStringContainsString('"FAQPage"', $body, 'the inserted FAQ section is there');
     }
