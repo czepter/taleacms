@@ -33,7 +33,9 @@ COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zz-talea-dev.ini
 # the container runs as the host user (compose "user:"), so Caddy keeps its state in /tmp instead of /data and /config
 ENV XDG_DATA_HOME=/tmp/caddy-data XDG_CONFIG_HOME=/tmp/caddy-config
 EXPOSE 8080
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint -- the dev stage runs as the host user (compose "user:")
 ENTRYPOINT ["talea-entrypoint"]
+# nosemgrep: dockerfile.security.missing-user.missing-user -- same: the dev stage is never published; production sets USER www-data
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
 
 # ---- production (the default target: the last stage)

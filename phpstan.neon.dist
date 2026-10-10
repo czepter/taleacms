@@ -14,7 +14,7 @@ parameters:
         # config.php exists only on an installed site (the installer writes it)
         -
             identifier: require.fileNotFound
-            path: system/src/Core/App.php
+            path: system/src/Core/Config.php
             reportUnmatched: false
 includes:
     # findings of 2.1.0 (mostly type annotations, none a known bug) – new code must not add any; remove entries as they are fixed
