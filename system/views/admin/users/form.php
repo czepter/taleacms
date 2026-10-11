@@ -113,7 +113,7 @@ $role = [
 <fieldset id="connections">
 <legend><?= e(t('Claude connections')) ?></legend>
 <p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
-<?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
+<?php $accessLabel = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS); ?>
 <?php foreach ($connections as $c): ?>
 <form class="inline" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-confirm="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">
 <p><span class="badge"><?= e($c['name']) ?></span> <span class="badge"><?= e(t($c['kind'] === 'token' ? 'personal token' : 'connected application')) ?></span> <span class="badge"><?= e($accessLabel[$c['access']] ?? $accessLabel['read']) ?></span>

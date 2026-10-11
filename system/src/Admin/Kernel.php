@@ -405,16 +405,17 @@ final class Kernel
             if (!$app->request->postBool('allow')) {
                 return Response::redirect($oauth->deny($pending));
             }
-            $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
+            $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page
             ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
         }
 
-        $page = $this->page('Connect an application', $app->view->render('admin/oauth', [
+        // a focused frame without the admin menu and the draft-look bar – a stray Publish has no place here
+        $page = Response::html($app->view->render('admin/bare', ['app' => $app, 'heading' => t('Connect an application'), 'content' => $app->view->render('admin/oauth', [
             'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'username' => $app->auth()->user(),
             'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
-        ]));
+        ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);
         $origin = ($target['scheme'] ?? '') . '://' . ($target['host'] ?? '') . (isset($target['port']) ? ':' . $target['port'] : '');

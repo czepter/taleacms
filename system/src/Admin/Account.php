@@ -84,7 +84,7 @@ final class Account
                         break;
                     }
                     $token = 'talea_' . bin2hex(random_bytes(24));
-                    $access = \Talea\Front\OAuth::access($r->post('access') ?: 'full');
+                    $access = \Talea\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('lifetime', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('lifetime', 365) : 365;
                     $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
@@ -234,7 +234,7 @@ final class Account
             'keys' => $app->auth()->accountKeys((int) $user['user_id']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokens} WHERE user_id = ? AND kind = 'token' ORDER BY token_id DESC", [$user['user_id']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
-            'apps' => $app->db()->all("SELECT client_id, MAX(name) AS name, MAX(access) AS access, MIN(created_at) AS created_at, MAX(used_at) AS used_at FROM {api_tokens} WHERE user_id = ? AND client_id IS NOT NULL AND expires_at > ? GROUP BY client_id ORDER BY MIN(created_at) DESC",
+            'apps' => $app->db()->all("SELECT client_id, MAX(name) AS name, " . \Talea\Front\OAuth::strongestAccessSql() . " AS access, MIN(created_at) AS created_at, MAX(used_at) AS used_at FROM {api_tokens} WHERE user_id = ? AND client_id IS NOT NULL AND expires_at > ? GROUP BY client_id ORDER BY MIN(created_at) DESC",
                 [$user['user_id'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));

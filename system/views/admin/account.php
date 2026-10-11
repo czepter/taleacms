@@ -145,7 +145,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </div>
 <?php endif ?>
 <p><?= e(t('The easiest way is to add a custom connector in the Claude app with the address %s – Claude sends you here to sign in and confirm access, no token to copy. The token below is for Claude Code and other tools without sign-in.', $mcpUrl)) ?></p>
-<?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
+<?php $accessLabel = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS); ?>
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>
 <?php foreach ($apps as $a): ?>
@@ -165,7 +165,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 	<option value="<?= $days ?>"<?= $days === 365 ? ' selected' : '' ?>><?= e($days === 0 ? t('no expiry') : ($days === 365 ? t('1 year') : t('%d days', $days))) ?></option>
 <?php endforeach ?>
 </select><span class="help"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
-<?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'full']) ?>
+<?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'drafts']) ?>
 <p class="buttons"><button class="btn" type="submit" name="op" value="token_novy"><?= e(t('Create token')) ?></button></p>
 </fieldset>
 </form>

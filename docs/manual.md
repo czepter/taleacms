@@ -365,10 +365,13 @@ be changed over the connection.
 
 **What a connection may do.** When you connect Claude (or create a token), you choose:
 
-- **Everything your account may do** – build, edit and publish, never beyond your role;
-- **Drafts only** – Claude builds pages, writes news drafts and prepares look changes, and you publish them; it cannot
-  change settings, redirects or anything else on the live site;
+- **Drafts only – you publish** (the default, recommended) – Claude builds pages, writes news drafts and prepares look
+  changes, and you publish them; it cannot change settings, redirects or anything else on the live site;
+- **Can also publish** – build, edit and publish, never beyond your role;
 - **Read only** – Claude reads pages, settings, the audit and the change log and suggests changes.
+
+A form sent without a choice always gets drafts only. The consent screen stands on its own (no menu, no Publish bar).
+Existing connections keep the access they were given.
 
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).

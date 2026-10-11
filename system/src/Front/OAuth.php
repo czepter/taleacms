@@ -34,6 +34,20 @@ final class OAuth
     private const int CODE_LIFETIME = 600;
     private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/';
 
+    /** One name for each access level: the consent screen, My account, Claude settings and Users say the same (translated with t() where shown). */
+    public const array ACCESS_LABELS = ['drafts' => 'Drafts only – you publish', 'full' => 'Can also publish', 'read' => 'Read only'];
+
+    /**
+     * SQL for an aggregated query over {api_tokens}: the strongest access among the grouped rows (full, then drafts, then read) –
+     * one application can hold several tokens from different consents, and the alphabetically largest value is the weakest.
+     */
+    public static function strongestAccessSql(string $column = 'access'): string
+    {
+        $rank = "CASE $column WHEN 'full' THEN 0 WHEN 'drafts' THEN 1 ELSE 2 END";
+
+        return "CASE MIN($rank) WHEN 0 THEN 'full' WHEN 1 THEN 'drafts' ELSE 'read' END";
+    }
+
     public function __construct(private readonly App $app)
     {
     }
@@ -258,7 +272,6 @@ final class OAuth
         return preg_match(self::CLIENT_PATTERN, $clientId) ? $this->app->db()->one('SELECT * FROM {oauth_clients} WHERE client_id = ?', [$clientId]) : null;
     }
 
-    /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
     /**
      * Disconnects every app a user connected over OAuth (the Claude connector): its access and refresh tokens go. Called when
      * the password changes – a refresh token lives a year, so a stolen one must not outlive the password. Personal tokens
@@ -269,6 +282,7 @@ final class OAuth
         return $db->run("DELETE FROM {api_tokens} WHERE user_id = ? AND kind <> 'token'", [$userId])->rowCount();
     }
 
+    /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
     public static function access(string $access): string
     {
         return isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';
