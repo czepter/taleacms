@@ -146,7 +146,8 @@ final class Audit
             $url = ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'];
             $target = ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']];
             $values = [];
-            array_walk_recursive($data = json_decode((string) $p['data'], true) ?: [], static function (mixed $v) use (&$values): void {
+            $data = json_decode((string) $p['data'], true) ?: [];
+            array_walk_recursive($data, static function (mixed $v) use (&$values): void {
                 $values[] = is_string($v) ? $v : '';
             });
             if (($found = SampleContent::inText(implode(' ', $values))) !== []) {
