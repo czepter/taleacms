@@ -18,13 +18,14 @@ $languages = Language::additional($app->settings());
 <?= $csrf ?>
 <input type="hidden" name="collection_id" value="<?= e($k['public_id']) ?>">
 <input type="hidden" name="item_id" value="<?= e($p['public_id']) ?>">
-<div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
+<?php $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (string) $p['language'])); // an item of a right-to-left version (Arabic) ?>
+<div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($p['name']) ?>" maxlength="200" required<?= $contentDir ?>></div></div>
 <?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'field-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
 <div class="row<?= $field['type'] === 'html' ? ' span-all' : '' ?>">
 	<label for="<?= e($id) ?>"><?= e($field['label']) ?></label>
 	<div><?= match ($field['type']) {
-        'lines' => '<textarea class="textbox low" id="' . e($id) . '" name="' . e($displayName) . '" rows="4">' . e($h) . '</textarea>',
-        'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor>' . e($h) . '</textarea>',
+        'lines' => '<textarea class="textbox low" id="' . e($id) . '" name="' . e($displayName) . '" rows="4"' . $contentDir . '>' . e($h) . '</textarea>',
+        'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor' . $contentDir . '>' . e($h) . '</textarea>',
         'image' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-image>',
         'link' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . '/page">',
         'number' => '<input class="textfield" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
@@ -37,7 +38,7 @@ $languages = Language::additional($app->settings());
             (array) ($field['options'] ?? []))) . '</select>',
         'item' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
             array_keys($choices = Talea\Builder\Collections::choices($app->db(), (string) ($field['collection'] ?? ''))), $choices)) . '</select>',
-        default => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500">',
+        default => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $contentDir . '>',
     } ?> <code class="help">{{<?= e($field['key']) ?>}}</code></div>
 </div>
 <?php endforeach ?>
