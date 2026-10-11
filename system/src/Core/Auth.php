@@ -354,19 +354,19 @@ final class Auth
         $this->modules = null;
     }
 
-    /** @var array{name: string, access: string}|null the Claude connection of this request (MCP, 2.2) */
+    /** @var array{name: string, access: string, tool_set: string}|null the Claude connection of this request (MCP, 2.2) */
     private ?array $connection = null;
 
     /**
      * The request comes through a Claude connection: its name goes to the change log, and a connection limited to drafts
      * or to reading never publishes, whatever the user's role (canPublish).
      */
-    public function useConnection(string $name, string $access): void
+    public function useConnection(string $name, string $access, string $toolSet = 'all'): void
     {
-        $this->connection = ['name' => $name, 'access' => isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read'];
+        $this->connection = ['name' => $name, 'access' => isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read', 'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet)];
     }
 
-    /** @return array{name: string, access: string}|null */
+    /** @return array{name: string, access: string, tool_set: string}|null */
     public function connection(): ?array
     {
         return $this->connection;
