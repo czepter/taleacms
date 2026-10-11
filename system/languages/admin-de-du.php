@@ -856,4 +856,6 @@ return [
     'Cannot create the folder storage/galleries – check the write permissions.' => 'Der Ordner storage/galleries kann nicht erstellt werden – prüfe die Schreibrechte.',
     'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.' => 'Dieselbe Adresse in jeder Sprache lässt sich nicht ausschalten, solange zwei Sprachversionen eine Adresse teilen: %s. Ändere zuerst jeweils eine von beiden.',
     'The database is not updated yet - run the migrations and try again.' => 'Die Datenbank ist noch nicht aktualisiert – führe die Migrationen aus und versuche es erneut.',
+    'Language versions the site does not have yet: %s – add them below, otherwise their posts are left out.' => 'Sprachversionen, die die Website noch nicht hat: %s – füge sie unten hinzu, sonst werden ihre Beiträge ausgelassen.',
+    'Left out – the site has no version in these languages: %s. Add the language in Settings and import the file again, or tick the option to add the language versions.' => 'Ausgelassen – die Website hat keine Version in diesen Sprachen: %s. Füge die Sprache in den Einstellungen hinzu und importiere die Datei erneut, oder aktiviere die Option, die Sprachversionen hinzuzufügen.',
 ];
