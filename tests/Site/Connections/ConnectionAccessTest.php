@@ -83,8 +83,8 @@ final class ConnectionAccessTest extends SiteTestCase
         $site->exec("INSERT INTO tl_api_tokens (user_id, name, client_id, kind, access, token_hash, created_at, expires_at)
             SELECT user_id, 'Strongest', ?, 'refresh', 'read', ?, NOW(), ? FROM tl_users WHERE username = 'admin'", [self::$client, hash('sha256', 'strongest-access-test'), date('Y-m-d H:i:s', time() + 30 * 86400)]);
         $apps = $admin->get('/admin.php?action=account')->body;
-        $this->assertMatchesRegularExpression('~<span class="badge">[^<]*</span> <span class="badge">Drafts only – you publish</span> connected~u', $apps, 'My account shows the application with its strongest access (drafts beats read)');
-        $this->assertStringNotContainsString('<span class="badge">Read only</span> connected', $apps, 'and not as read only');
+        $this->assertMatchesRegularExpression('~<span class="badge">Strongest</span> <span class="badge">Drafts only – you publish</span>~u', $apps, 'My account shows the application with its strongest access (drafts beats read)');
+        $this->assertStringNotContainsString('<span class="badge">Strongest</span> <span class="badge">Read only</span>', $apps, 'and not as read only');
         $this->assertStringContainsString('Drafts only – you publish', $admin->get('/admin.php?module=claude_settings')->body, 'Claude settings say the same');
 
         $answer = $site->mcp('create_page', ['title' => 'From a read-only connection'], self::$readToken);
