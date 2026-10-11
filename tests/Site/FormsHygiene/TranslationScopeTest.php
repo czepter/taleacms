@@ -22,7 +22,7 @@ final class TranslationScopeTest extends SiteTestCase
         $this->createPage(['title' => 'Scope hidden DE', 'visible' => false, 'language' => 'de', 'translation_of' => $this->site()->publicId('pages', $hidden)]);
 
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Scope Author', 'username' => 'scopeauthor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
-        $token = 'talea_' . str_repeat('s', 48);
+        $token = 'talea_' . str_repeat('a', 48);
         $this->site()->exec('INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, ?, ?, NOW() FROM tl_users WHERE username = ?', ['scope', hash('sha256', $token), 'scopeauthor']);
 
         $asAdmin = array_column($this->site()->mcpResult('translation_status', ['status' => 'all', 'type' => 'page'])['items'] ?? [], null, 'id');
