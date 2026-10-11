@@ -18,6 +18,17 @@
 $field('cookies_text', 'Banner text', 'lines');
 $field('cookies_policy_url', 'Link to the policy', 'text', 'E.g. /privacy-policy – create the page in the Pages section.', 'maxlength="255"');
 ?>
+<?php if (($additionalLanguages = Talea\Core\Language::additional($app->settings())) !== []): // the bar in each language version ?>
+<?php $invalidHere = fn (string $key): string => in_array($key, $invalidFields, true) ? ' aria-invalid="true"' : ''; ?>
+<details class="advanced"<?= array_filter($additionalLanguages, fn (string $l): bool => ($values['cookies_text_' . $l] ?? '') . ($values['cookies_policy_url_' . $l] ?? '') !== '' || $invalidHere('cookies_policy_url_' . $l) !== '') !== [] ? ' open' : '' ?>>
+<summary><?= e(t('Banner text and policy link in other language versions')) ?></summary>
+<p class="help"><?= e(t('Visitors of each language version read the banner in its language. An empty field means the same as in the default language.')) ?></p>
+<?php foreach ($additionalLanguages as $l): ?>
+<div class="row"><label for="cookies_text_<?= e($l) ?>"><?= e(t('Banner text')) ?> (<?= e(strtoupper($l)) ?>)</label><div><textarea class="textbox" id="cookies_text_<?= e($l) ?>" name="cookies_text_<?= e($l) ?>" rows="4" lang="<?= e($l) ?>"<?= $invalidHere('cookies_text_' . $l) ?>><?= e($values['cookies_text_' . $l] ?? '') ?></textarea></div></div>
+<div class="row"><label for="cookies_policy_url_<?= e($l) ?>"><?= e(t('Link to the policy')) ?> (<?= e(strtoupper($l)) ?>)</label><div><input class="textfield wide" type="text" id="cookies_policy_url_<?= e($l) ?>" name="cookies_policy_url_<?= e($l) ?>" value="<?= e($values['cookies_policy_url_' . $l] ?? '') ?>" maxlength="255" placeholder="/<?= e($l) ?>/…"<?= $invalidHere('cookies_policy_url_' . $l) ?>></div></div>
+<?php endforeach ?>
+</details>
+<?php endif ?>
 </fieldset>
 <details class="advanced"<?= $values['cookies_mode'] === 'external' || $values['marketing_code'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Codes and records')) ?></summary>
