@@ -157,11 +157,13 @@
 				h.style.left = Math.max(6, Math.min(doc.documentElement.clientWidth - 6, at[0])) + 'px';
 				h.style.top = Math.max(2, at[1]) + 'px';
 			});
+			// the margin style properties are the start and end sides (mirrored on an Arabic page): the physical left edge is margin_right there
+			const stored = doc.documentElement.dir === 'rtl' && AXIS[side] === 'x' ? { left: 'right', right: 'left' }[side] : side;
 			const planFor = (px, m) => {
 				const v = C.snapSpace(doc, px, m.free);
 				const keys = padding
 					? (m.shift ? ['padding_y', 'padding_x'] : [PADDING_PROPERTY[side]])
-					: (m.shift ? ['margin_top', 'margin_right', 'margin_bottom', 'margin_left'] : (m.alt ? (AXIS[side] === 'y' ? ['margin_top', 'margin_bottom'] : ['margin_left', 'margin_right']) : ['margin_' + side]));
+					: (m.shift ? ['margin_top', 'margin_right', 'margin_bottom', 'margin_left'] : (m.alt ? (AXIS[side] === 'y' ? ['margin_top', 'margin_bottom'] : ['margin_left', 'margin_right']) : ['margin_' + stored]));
 				const props = {};
 				const css = {};
 				keys.forEach((k) => { props[k] = v.key; css[k] = v.css; });
@@ -266,6 +268,7 @@
 	function resizing(ctx) {
 		const { doc, id, node } = ctx;
 		if (C.composeParent && C.composeParent(node)) { return; }
+		if (doc.documentElement.dir === 'rtl') { return; } // ponytail: drag-resize measures from the left edge; on an Arabic page use the Style panel (mirror it when it is needed)
 		const win = doc.defaultView;
 		[['e', T('Resize width'), 'x'], ['s', T('Resize height'), 'y'], ['se', T('Resize width and height'), 'xy']].forEach(([dir, label, axes]) => {
 			const h = slider(doc, 'bdo-rz', 'resize-' + dir, label);
@@ -353,6 +356,7 @@
 
 	function dividers(ctx) {
 		const { doc } = ctx;
+		if (doc.documentElement.dir === 'rtl') { return; } // ponytail: column dividers count tracks from the left edge; the Columns style field works on an Arabic page
 		const win = doc.defaultView;
 		// the selected container itself, or the row its element sits in
 		const parent = ctx.node.parentElement;

@@ -14,13 +14,15 @@
 	if (!B || !C) { return; }
 	const { state } = B;
 	const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+	/** On an Arabic page the previous element lies to the right, so the arrows swap. */
+	const isRtl = (doc) => !!doc && doc.documentElement.dir === 'rtl';
 
 	/** The previous / next element among the siblings; in a grid the arrows up and down jump by a row of cells. */
 	function selectSibling(key) {
 		const n = state.selected && B.find(state.selected);
 		if (!n) { return; }
-		let step = key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 1;
 		const doc = B.previewDoc();
+		let step = key === 'ArrowUp' || key === (isRtl(doc) ? 'ArrowRight' : 'ArrowLeft') ? -1 : 1;
 		const node = doc && C.nodeOf(doc, state.selected);
 		const parent = node && node.parentElement;
 		if (parent && (key === 'ArrowUp' || key === 'ArrowDown') && /grid/.test(doc.defaultView.getComputedStyle(parent).display)) {
@@ -42,7 +44,7 @@
 		if (mod && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) { B.ungroup(); } else { B.group(); } return; }
 		if (!state.selected || !onCanvas || target.closest('#tl-bd-overlay')) { return; }
 		if (ARROWS.includes(e.key)) {
-			if (mod && e.shiftKey) { e.preventDefault(); B.nudge(e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1); } else if (e.altKey && !mod) { e.preventDefault(); C.keyResize(e.key, e.shiftKey); } else if (!mod && !e.shiftKey && !e.altKey) { e.preventDefault(); selectSibling(e.key); }
+			if (mod && e.shiftKey) { e.preventDefault(); B.nudge(e.key === 'ArrowUp' || e.key === (isRtl(B.previewDoc()) ? 'ArrowRight' : 'ArrowLeft') ? -1 : 1); } else if (e.altKey && !mod) { e.preventDefault(); C.keyResize(e.key, e.shiftKey); } else if (!mod && !e.shiftKey && !e.altKey) { e.preventDefault(); selectSibling(e.key); }
 		} else if (e.key === 'Enter' && !mod && !e.altKey && !e.shiftKey && !state.placing && target.tagName !== 'A' && target.tagName !== 'BUTTON') {
 			if (C.focusHandles()) { e.preventDefault(); }
 		}
