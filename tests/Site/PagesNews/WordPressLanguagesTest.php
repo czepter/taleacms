@@ -103,7 +103,7 @@ final class WordPressLanguagesTest extends SiteTestCase
         $pages = $this->bySlug('pages', 'page_id, language, translation_of');
         $this->assertSame((int) $pages['sluzby-wpx']['page_id'], (int) $pages['services-wpx']['translation_of'], 'a WPML translation group is linked');
         $this->assertSame((int) $pages['cenik-wpx']['page_id'], (int) $pages['cenik-wpx-en']['translation_of'], 'a WPML duplicate is linked to its original');
-        $this->assertSame('en', $pages['about-wpx']['language'], 'a page without WPML fields takes its language from /en/ in its address');
+        $this->assertSame('en-gb', $pages['about-wpx']['language'], 'a page without WPML fields takes its language from /en/ in its address (the site has English as en-gb)');
         $this->assertNull($pages['about-wpx']['translation_of'], 'and is linked to nothing');
         $news = $this->bySlug('news', 'news_id, language, translation_of');
         $this->assertSame((int) $news['novy-servisni-vuz-wpx']['news_id'], (int) $news['new-service-van-wpx']['translation_of'], 'WPML posts are linked');
