@@ -68,7 +68,9 @@ final class Account
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
                         $db->update('users', ['password' => $newHash], ['user_id' => $user['user_id']]);
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
-                        $revoked = $r->postBool('revoke_tokens') ? $db->delete('api_tokens', ['user_id' => $user['user_id']]) : 0;
+                        // apps connected over OAuth (Claude) always go – their refresh token lives a year; personal tokens on request
+                        $revoked = \Talea\Front\OAuth::revokeConnections($db, (int) $user['user_id'])
+                            + ($r->postBool('revoke_tokens') ? $db->delete('api_tokens', ['user_id' => $user['user_id'], 'kind' => 'token']) : 0);
                         ChangeLog::write($app, 'account', 'password_change', ($revoked > 0 ? $revoked . ' connection tokens revoked' : ''));
                         $message = ['ok', $revoked > 0 ? 'The password has been changed, other sign-ins ended and connection tokens revoked.' : 'The password has been changed and other sign-ins of this account have been ended.'];
                     }

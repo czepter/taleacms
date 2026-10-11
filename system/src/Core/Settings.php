@@ -185,6 +185,7 @@ final class Settings
         'smtp_encryption' => 'tls',    // tls (STARTTLS, port 587) | ssl (port 465) | none
         'smtp_user' => '',
         'smtp_password' => '',           // type "tajne": never written back into the form
+        'smtp_provider' => '',         // the mail service chosen in Settings → Mail (Core\MailServices); '' = derived from smtp_host
         'notification_check' => '0',   // when the check for newly published news items last ran
         'tasks_last_run' => '0',       // when cron last called /tasks (newsletters are sent only while cron runs)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
@@ -197,8 +198,12 @@ final class Settings
         'cleaned_version' => '',       // the version after whose deployment the one-time cleanup of removed files has already run
     ];
 
-    /** Settings that can be filled in separately for each additional language version of the site (key_en, key_de…). */
-    public const array PER_LANGUAGE = ['site_name', 'site_description'];
+    /**
+     * Settings that can be filled in separately for each additional language version of the site (key_en, key_de…); the
+     * visitor's version reads its own value, an empty one falls back to the default language's. The cookie bar text and
+     * the privacy policy link too.
+     */
+    public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
 
     /** @var array<string, string>|null */
     private ?array $values = null;

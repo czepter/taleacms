@@ -65,6 +65,9 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <div class="row"><span class="caption"><?= e(t('Connections')) ?></span><div class="options"><label><input type="checkbox" name="revoke_tokens" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
 	<span class="help"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span></div></div>
 <?php endif ?>
+<?php if ($apps !== []): ?>
+<p class="help"><?= e(t('Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.')) ?></p>
+<?php endif ?>
 </fieldset>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Change password')) ?>"></p>
 </form>

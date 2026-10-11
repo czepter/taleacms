@@ -89,7 +89,8 @@ final class Navigation extends Element
 	/* keyboard: Tab past the last menu item – the open menu hides so that it does not cover the element focus moved to (WCAG 2.4.11),
 	   and shows again when focus returns to the navigation; Esc or a tap outside closes it completely (Popover API, no JavaScript) */
 	:root:has(:focus-visible) .tl-nav:not(:has(:focus-visible)) > .tl-nav-menu[popover]:popover-open { display: none; }
-	.tl-nav-menu[popover] ul { flex-direction: column; }
+	/* the rows of the phone sheet sit close together: --tl-nav-space is the gap of the bar on a wide screen */
+	.tl-nav-menu[popover] ul { flex-direction: column; gap: 2px; }
 	.tl-nav-menu[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
 	.tl-nav-menu[popover] .submenu > a::after, .tl-nav-menu[popover] .submenu > .menu-group::after { display: none; }
 	.tl-nav-menu[popover] .menu-column > ul { padding-inline-start: 1rem; }
