@@ -231,14 +231,27 @@ final class Language
     }
 
     /**
-     * A code for a site with the languages $site: a regional version the site does not have, whose language it has, becomes that
-     * language (en-gb into a site with en); anything else stays. Imports use it so a regional source lands in the version the site has.
+     * A code for a site with the languages $site, which an import uses so a source lands in the version the site has: a regional version
+     * the site does not have, whose language it has, becomes that language (en-gb into a site with en); a language the site has only as
+     * a regional version becomes that version (en into a site with en-gb); anything else stays.
      *
      * @param list<string> $site the default and the additional languages
      */
     public static function forSite(string $code, array $site): string
     {
-        return $code !== '' && !in_array($code, $site, true) && in_array(self::base($code), $site, true) ? self::base($code) : $code;
+        if ($code === '' || in_array($code, $site, true)) {
+            return $code;
+        }
+        if (in_array(self::base($code), $site, true)) {
+            return self::base($code);
+        }
+        foreach ($site as $have) {
+            if (self::base($have) === $code) {
+                return $have;
+            }
+        }
+
+        return $code;
     }
 
     /** Any value to formal | informal (anything unknown, empty included, is formal). */
