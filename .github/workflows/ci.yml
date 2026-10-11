@@ -23,6 +23,7 @@ jobs:
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 5
     outputs:
       run: ${{ steps.gate.outputs.run }}
     steps:
@@ -51,11 +52,10 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - uses: ./.github/actions/php-composer
       - run: php tools/check-english.php
       - run: php tools/contracts.php
       - run: php tools/sql-dialect-scan.php
@@ -66,6 +66,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 45
     services:
       db:
         image: mysql:8.4
@@ -74,9 +75,7 @@ jobs:
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - uses: ./.github/actions/php-composer
       - name: PHPUnit (unit, integration and whole installed sites, in parallel)
         run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
         env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
@@ -86,6 +85,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
     services:
       db:
         image: postgres:18
@@ -94,9 +94,7 @@ jobs:
         options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - uses: ./.github/actions/php-composer
       - name: PHPUnit (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_TEST_PG_HOST: 127.0.0.1, TALEA_TEST_PG_PORT: "${{ job.services.db.ports['5432'] }}", TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
@@ -106,6 +104,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
     services:
       db:
         image: mysql:8.4
@@ -114,9 +113,7 @@ jobs:
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - uses: ./.github/actions/php-composer
       - name: Admin, builder, editors and public site in Chrome
         run: |
           CHROME=$(command -v google-chrome chromium chromium-browser | head -n1) || { echo "::error::no Chrome on this runner"; exit 1; }
@@ -130,11 +127,10 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.5', extensions: '${{ env.PHP_EXTENSIONS }}', coverage: none }
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - uses: ./.github/actions/php-composer
       - name: PHPStan
         run: |
           curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
@@ -144,6 +140,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
