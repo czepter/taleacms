@@ -138,7 +138,7 @@ final class RightToLeftTest extends TestCase
 
     public function testAnArabicWordPressExportImportsAsAnArabicVersion(): void
     {
-        $state = WpImport::newState('wordpress-arabic.xml');
+        $state = WpImport::newState('wordpress-arabic.xml', ['en', 'ar']);
         WpImport::analyze($state, 30, dirname(__DIR__, 2) . '/tools/fixtures/wordpress-arabic.xml');
         $this->assertSame('polylang', $state['languages']['plugin']);
         $this->assertSame(['en' => 'en', 'ar' => 'ar'], $state['languages']['codes']);
