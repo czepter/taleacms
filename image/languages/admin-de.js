@@ -2985,5 +2985,6 @@ window.TALEA_TRANSLATIONS = {
 	"Send backward (layer)": "Nach hinten (Ebene)",
 	"below": "darunter",
 	"base": "Standard",
-	"above": "darüber"
+	"above": "darüber",
+	"Sample content “%s” – replace it with your own or delete it.": "Beispielinhalt „%s“ – ersetzen Sie ihn durch Ihren eigenen oder löschen Sie ihn."
 };

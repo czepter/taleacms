@@ -247,4 +247,5 @@ Der Link gilt %d Tage.
     'The link to “%s” does not work any more. Ask the photographer for a new one.' => 'Der Link zu „%s“ funktioniert nicht mehr. Bitte die Fotografin oder den Fotografen um einen neuen.',
     'This gallery is too large to download in one piece. Download the images one by one.' => 'Diese Galerie ist zu groß, um sie auf einmal herunterzuladen. Lade die Bilder einzeln herunter.',
     'Mark the images you like with the heart – %d marked.' => 'Markiere die Bilder, die dir gefallen, mit dem Herz – %d markiert.',
+    'Get in touch – within [number] hours we will come back with a proposal for next steps.' => 'Melde dich – innerhalb von [Anzahl] Stunden melden wir uns mit einem Vorschlag für das weitere Vorgehen.',
 ];

@@ -115,6 +115,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   properties `grid_column_start/end` (lines 1–13), `grid_row_start/end` (1–40) and `layer` (below|base|above|top); `Build::sanitize` drops them
   (reported) anywhere else, so overlap exists only there. Tablet and phone stack the children in source order (CSS). Editor: `builder-compose.js`
   (column overlay, move grip and eight resize handles snapping to grid lines, Stack ⇄ Compose conversion, tidy up, layers).
+- **No invented content** (#54): starter sections, elements' defaults and templates carry bracketed placeholders (`[Customer’s name]`, `[number]`, `[price]`), never realistic reviews, people, figures or prices. `Builder\SampleContent` finds them (and the demo texts of older starters) in a build, a text, news or a collection item; it warns in the MCP pre-publish `check`, the builder's check, the content check and `site_audit` (kind `sample`), and Claude's guide says to ask the owner. It never blocks publishing. New starter text: use a placeholder, not an invented value.
 - **Looks gallery** (`Builder\Looks`, data in `system/looks/<key>.json`): 14 finished looks = design system (colours with a dark mode incl. optional
   `colors_dark.primary/secondary`, library fonts) + header/footer template (`PartTemplates`) + recommended library sections. Applied with
   `Looks::apply` (admin Appearance → Looks, MCP `list_looks`/`apply_look`, installer field `look`) as a draft look; the part drafts are marked in
