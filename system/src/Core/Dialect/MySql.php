@@ -139,6 +139,16 @@ final class MySql extends Dialect
         return "SELECT index_name AS key_name, column_name AS column_name, (index_name = 'PRIMARY') AS is_primary FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND non_unique = 0 ORDER BY index_name, seq_in_index";
     }
 
+    public function dropUniqueKeySql(string $table, string $key): string
+    {
+        return 'ALTER TABLE {' . $this->identifier($table) . '} DROP INDEX ' . $this->quote($key);
+    }
+
+    public function addUniqueKeySql(string $table, string $key, array $columns): string
+    {
+        return 'ALTER TABLE {' . $this->identifier($table) . '} ADD UNIQUE KEY ' . $this->quote($key) . ' (' . $this->quoteAll($columns) . ')';
+    }
+
     public function sizeSql(): string
     {
         return 'SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?';

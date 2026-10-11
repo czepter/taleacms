@@ -134,8 +134,10 @@ final class Kernel
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
-        if ($request->getInt('p') > 0 && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
-            $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', ['?p=' . $request->getInt('p')]);
+        // also Polylang's language home ?lang=en, stored as ?lang=en by the WordPress import
+        $lang = preg_match('/^[a-z]{2}$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
+        if (($request->getInt('p') > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
+            $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
             if ($target !== null) {
                 $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
 
@@ -635,7 +637,8 @@ final class Kernel
         // the site – with its title; in another language version to its translation (page slugs are unique across
         // languages: /de/vergleich)
         $parentPage = null;
-        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [$collection['slug']]);
+        // with slugs per language the page of the version itself comes first
+        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL ORDER BY language = ? DESC LIMIT 1', [$collection['slug'], Language::siteColumn()]);
         if ($main !== null && $main['language'] === Language::siteColumn()) {
             $parentPage = $main['visible'] ? $main : null;
         } elseif ($main !== null) {
@@ -995,9 +998,18 @@ final class Kernel
             return null;
         }
         $path = trim($path, '/');
-        $plain = (string) preg_replace('#\.html$#', '', $path);
+        // a language version's redirects carry its prefix (en/old: /old may be another page's – with slugs per language, or from a
+        // Polylang or WPML import), so in a language version the prefixed form comes first; the form without it still answers
+        $sources = $this->app->languagePrefix !== '' ? [$this->app->languagePrefix . '/' . $path, $path] : [$path];
+        foreach ($sources as $source) {
+            $plain = (string) preg_replace('#\.html$#', '', $source);
+            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
+            if ($rule !== null) {
+                return $rule;
+            }
+        }
 
-        return $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$path, $plain, $plain . '.html', $path]);
+        return null;
     }
 
     private function notFound(): Response

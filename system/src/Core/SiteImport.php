@@ -320,6 +320,11 @@ final class SiteImport
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->emptyTables(self::EMPTIED);
+            // an export that shares addresses between language versions needs the per-language keys before its rows arrive
+            $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file']) . '/settings.json'), true);
+            if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
+                Slug::switchPerLanguage($this->db, $this->settings, true);
+            }
             $state['emptied'] = true;
 
             return;
@@ -872,6 +877,7 @@ final class SiteImport
                 'home_page' => (string) $this->ref('pages', $value),
                 'news_per_page' => (string) max(0, (int) $value),
                 'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
+                'slugs_per_language' => null, // switched before the rows are imported (importData)
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
                 'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),

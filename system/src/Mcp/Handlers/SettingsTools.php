@@ -99,6 +99,16 @@ trait SettingsTools
                 $stored[$key] = $path;
                 continue;
             }
+            if ($key === 'slugs_per_language' && is_scalar($value)) {
+                // changes the database keys; refused while two language versions share an address (Core\Slug)
+                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes'], true);
+                if (($refusal = \Talea\Core\Slug::switchPerLanguage($db, $siteSettings, $on)) !== null) {
+                    $errors[$key] = sprintf($refusal[0], $refusal[1]);
+                    continue;
+                }
+                $stored[$key] = $on ? '1' : '0';
+                continue;
+            }
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
                 $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes'], true);
@@ -145,7 +155,7 @@ trait SettingsTools
         $current = [];
         foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'news_slug', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
             'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher',
-            'indexing', 'schema_org', 'llms_txt', 'markdown_news', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact'] as $key) {
+            'indexing', 'schema_org', 'llms_txt', 'markdown_news', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact', 'slugs_per_language'] as $key) {
             $current[$key] = $siteSettings->get($key);
         }
         $current['stats'] = \Talea\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
