@@ -73,7 +73,7 @@ class Settings extends Module
         'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
             'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
         'mail' => ['mail_mode' => 'choice:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'pattern:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'number:1:65535',
-            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000',
+            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000',
             'report_monthly' => 'flag', 'report_recipients' => 'emails'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
@@ -101,6 +101,12 @@ class Settings extends Module
                 $field += ['site_name_' . $language => 'text', 'site_description_' . $language => 'lines'];
             }
             $field['screen_collections'] = 'list:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
+        }
+        if ($tab === 'cookies') {
+            // the cookie bar text and the policy link for each further language version; empty = as in the default language
+            foreach (\Talea\Core\Language::additional($this->app->settings()) as $language) {
+                $field += ['cookies_text_' . $language => $field['cookies_text'], 'cookies_policy_url_' . $language => $field['cookies_policy_url']];
+            }
         }
 
         return $field;
@@ -238,6 +244,11 @@ class Settings extends Module
                 continue;
             }
             $settings->set($key, $clean);
+        }
+        // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
+        // a server that already is the service's stays as it is – the user name and the password are never touched
+        if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Talea\Core\Demo::active()) {
+            \Talea\Core\MailServices::settle($settings, $this->request->post('smtp_ses_region'));
         }
         if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
             $settings->set('indexnow_key', bin2hex(random_bytes(16)));
@@ -580,9 +591,11 @@ class Settings extends Module
         ], 'admin-');
         $ok = \Talea\Core\Mail::send($this->app->settings(), $recipient, $subject, $text, queueOnFailure: false);
         $back = $this->request->post('tab') === 'mail' ? 'mail' : 'health';
+        $service = \Talea\Core\MailServices::current($this->app->settings()); // a failed sign-in says what this service wants as the password
 
         return $this->back(
             match (true) {
+                !$ok && $service !== null => t('Sending failed: %s', t(\Talea\Core\Mail::$error)) . ' ' . t('%s – password: %s', \Talea\Core\MailServices::PROVIDERS[$service]['name'], t(\Talea\Core\MailServices::PROVIDERS[$service]['password'])),
                 !$ok => t('Sending failed: %s', t(\Talea\Core\Mail::$error)),
                 $this->app->settings()->get('mail_mode') === 'smtp' => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder.', $recipient),
                 default => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder – or set up sending via SMTP (Settings → Mail).', $recipient),
@@ -693,13 +706,27 @@ class Settings extends Module
      */
     public static function checkable(string $key): bool
     {
+        $type = self::fieldType($key);
+
+        return $type !== null && !str_starts_with($type, 'secret') && !str_starts_with($type, 'list');
+    }
+
+    /**
+     * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
+     * cookies_text_de, cookies_policy_url_de) has the type of its base. null = not a field of the admin form.
+     */
+    private static function fieldType(string $key): ?string
+    {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
-                return !str_starts_with($field[$key], 'secret') && !str_starts_with($field[$key], 'list');
+                return $field[$key];
             }
         }
+        if (preg_match('/^(.+)_([a-z]{2})$/D', $key, $m) === 1 && in_array($m[1], \Talea\Core\Settings::PER_LANGUAGE, true)) {
+            return self::fieldType($m[1]);
+        }
 
-        return false;
+        return null;
     }
 
     /**
@@ -708,13 +735,7 @@ class Settings extends Module
      */
     public static function verifyValue(string $key, string $value): ?string
     {
-        $type = null;
-        foreach (self::FIELDS as $field) {
-            $type ??= $field[$key] ?? null;
-        }
-        if ($type === null && preg_match('/^(site_name|site_description)_([a-z]{2})$/', $key, $m)) {
-            $type = $m[1] === 'site_name' ? 'text' : 'lines';
-        }
+        $type = self::fieldType($key);
         if ($type === null || str_starts_with($type, 'secret') || str_starts_with($type, 'list')) {
             return null;
         }

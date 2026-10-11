@@ -16,7 +16,7 @@ jobs:
   channel:
     name: Update channel
     if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -25,7 +25,7 @@ jobs:
 
   tests:
     name: Tests on PHP ${{ matrix.php }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     continue-on-error: ${{ matrix.php == 'nightly' }}
     strategy:
       fail-fast: false
@@ -35,7 +35,7 @@ jobs:
       mysql:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root }
-        ports: ['3306:3306']
+        ports: ['3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -43,11 +43,11 @@ jobs:
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.mysql.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   analysis:
     name: Static analysis
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     permissions:
       contents: read
       security-events: write
@@ -75,7 +75,7 @@ jobs:
   websites:
     name: Project website from outside
     if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Security headers and closed paths
         run: |
@@ -95,7 +95,7 @@ jobs:
     name: Issue on failure
     needs: [channel, tests, analysis, websites]
     if: ${{ failure() }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     permissions:
       issues: write
     steps:
