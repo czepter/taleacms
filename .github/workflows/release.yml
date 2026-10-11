@@ -15,12 +15,12 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     services:
       mysql:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root }
-        ports: ['3306:3306']
+        ports: ['3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -31,12 +31,12 @@ jobs:
         run: grep -q "const TALEA_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - name: Tests
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.mysql.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
         run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
 
   image:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -70,7 +70,7 @@ jobs:
 
   draft:
     needs: image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with: { draft: true, generate_release_notes: true }
