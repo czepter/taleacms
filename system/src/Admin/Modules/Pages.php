@@ -103,10 +103,14 @@ final class Pages extends Module
     {
         // from the translation overview (2.14): the language version and the original are filled in
         $language = \Talea\Core\Language::column($this->app->settings(), $this->request->get('language'));
-        $original = $language !== '' ? $this->db->one("SELECT page_id, title, description FROM {pages} WHERE page_id = ? AND language = '' AND deleted_at IS NULL", [$this->idParam('translation_of')]) : null;
+        $original = $language !== '' ? $this->db->one("SELECT page_id, title, description, text, build, build_draft FROM {pages} WHERE page_id = ? AND language = '' AND deleted_at IS NULL", [$this->idParam('translation_of')]) : null;
+        // a translation of a builder page starts as a copy of the original's build (the draft, otherwise the published one - as MCP
+        // create_page with copy_build), a text page as a copy of its text
+        $copyBuild = $original !== null && ($original['build_draft'] ?? $original['build']) !== null;
 
-        return $this->form(['page_id' => 0, 'slug' => '', 'title' => $original['title'] ?? '', 'description' => $original['description'] ?? '', 'seo_title' => '', 'image' => '', 'noindex' => 0, 'text' => '', 'visible' => 1, 'in_menu' => 1, 'sort_order' => 100, 'build' => null, 'build_draft' => null,
-            'parent_id' => $this->idParam('parent') ?: null, 'publish_at' => null, 'valid_until' => null, 'review_by' => null, 'language' => $language, 'translation_of' => $original['page_id'] ?? null]);
+        return $this->form(['page_id' => 0, 'slug' => '', 'title' => $original['title'] ?? '', 'description' => $original['description'] ?? '', 'seo_title' => '', 'image' => '', 'noindex' => 0, 'text' => $original !== null && !$copyBuild ? (string) $original['text'] : '', 'visible' => 1, 'in_menu' => 1, 'sort_order' => 100, 'build' => null, 'build_draft' => null,
+            'parent_id' => $this->idParam('parent') ?: null, 'publish_at' => null, 'valid_until' => null, 'review_by' => null, 'language' => $language, 'translation_of' => $original['page_id'] ?? null,
+            'copy_build' => $copyBuild], translationOf: $original === null ? null : (string) $original['title']);
     }
 
     /** Translation overview (2.14, Core\Translations): what is missing or older than the original in each language version. */
@@ -292,7 +296,7 @@ final class Pages extends Module
         if ($errors !== []) {
             $previous = $id > 0 ? $this->db->one('SELECT build, build_draft, password_hash FROM {pages} WHERE page_id = ?', [$id]) : null;
 
-            return $this->form(['page_id' => $id] + $data + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
+            return $this->form(['page_id' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
         }
         if ($id > 0) {
             $previous = $this->db->one('SELECT slug, visible, title, text, language FROM {pages} WHERE page_id = ?', [$id]);
@@ -308,6 +312,15 @@ final class Pages extends Module
             $id = $this->db->insert('pages', $data);
             \Talea\Core\Slug::fromId($this->db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
             \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
+            $original = $data['translation_of'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [$data['translation_of']]) : null;
+            if ($original !== null && ($original['build_draft'] ?? $original['build']) !== null) {
+                // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
+                $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
+                \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
+                $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
+
+                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+            }
             $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
             if ($template !== null && $template[1] !== []) {
                 // new page from a template: sections from the library as a draft and straight into the builder
@@ -576,14 +589,17 @@ final class Pages extends Module
      * @param array<string, mixed> $page
      * @param array<string, string> $errors
      */
-    private function form(array $page, array $errors = []): Response
+    private function form(array $page, array $errors = [], ?string $translationOf = null): Response
     {
         $page['public_id'] ??= $this->publicId((int) $page['page_id']);
         $language = (string) ($page['language'] ?? '');
         $custom = (string) ($page['slug'] ?? '');
 
-        return $this->view('form', $page['page_id'] ? 'Edit page' : 'New page', [
-            'page' => $page, 'errors' => $errors, 'parentPublicId' => $this->publicId((int) ($page['parent_id'] ?? 0)),
+        $languageName = \Talea\Core\Language::AVAILABLE[$language][0] ?? $language;
+
+        // a new translation says so in its heading: "Translation: Garden design → Português"
+        return $this->view('form', $page['page_id'] ? 'Edit page' : ($translationOf !== null ? t('Translation: %s → %s', $translationOf, $languageName) : 'New page'), [
+            'page' => $page, 'errors' => $errors, 'translationOf' => $translationOf, 'languageName' => $languageName, 'parentPublicId' => $this->publicId((int) ($page['parent_id'] ?? 0)),
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),

@@ -51,16 +51,19 @@ final class Collections extends Module
         if (($refusal = $this->admin()) !== null || !$this->request->isPost()) {
             return $refusal ?? $this->back();
         }
-        $id = self::createPreset($this->app, $this->request->post('preset'));
+        [$id, $pageId] = \Talea\Builder\Presets::createWithPage($this->app, $this->request->post('preset')) ?? [null, null];
+        if ($id === null) {
+            return $this->back('Unknown template.', '', [], 'error');
+        }
+        // the message says what really happened - the list page is made only when its address is free
+        $path = '/' . (string) $this->db->value('SELECT slug FROM {collections} WHERE collection_id = ?', [$id]);
+        $page = $pageId === null ? $this->db->one("SELECT title FROM {pages} WHERE slug = ? AND language = '' AND deleted_at IS NULL", [ltrim($path, '/')]) : null;
 
-        return $id === null ? $this->back('Unknown template.', '', [], 'error')
-            : $this->back('The collection was created with a hidden page that lists it – add the first items, then publish the page.', 'items', ['id' => $this->publicId($id)]);
-    }
-
-    /** Creates a ready-made collection; returns its id, or null for an unknown preset. Also for MCP (create_collection preset). */
-    public static function createPreset(\Talea\Core\App $app, string $preset, string $name = ''): ?int
-    {
-        return \Talea\Builder\Presets::create($app, $preset, $name);
+        return $this->back(match (true) {
+            $pageId !== null => t('Created, with a hidden page %s that lists it – add the first items, then publish the page in Pages.', $path),
+            $page !== null => t('Created. The page “%s” already uses the address %s, so no list page was added – open that page in the builder and add the Collection list element.', (string) $page['title'], $path),
+            default => t('Created. The address %s is taken, so no list page was added – add the Collection list element to a page in the builder.', $path),
+        }, 'items', ['id' => $this->publicId($id)]);
     }
 
     protected function actionNew(): Response

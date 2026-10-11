@@ -66,7 +66,7 @@ $languages = Language::additional($app->settings());
 <div class="row"><span class="caption"><?= e(t('Display')) ?></span><div class="options"><label><input type="checkbox" name="visible" value="1"<?= $p['visible'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
 	<span class="help" data-active-when="visible="><label for="publish_at"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textfield" type="datetime-local" id="publish_at" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"></span></div></div>
 <div class="row">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
 	<span class="help"><?= e(t('After this day the item hides itself. Empty = always.')) ?></span></div>
 </div>

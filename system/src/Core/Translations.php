@@ -90,6 +90,8 @@ final class Translations
                 'translations' => $cells($itemTranslations[(int) $p['collection_id']][$p['slug']] ?? [], $changed)];
         }
 
-        return ['languages' => $languages, 'rows' => $rows];
+        // a language enters the switcher once the home page has a published translation (Language::published)
+        return ['languages' => $languages, 'rows' => $rows, 'home' => $db->publicId('pages', $s->int('home_page')),
+            'notInSwitcher' => array_values(array_diff($languages, Language::published($s, $db)))];
     }
 }

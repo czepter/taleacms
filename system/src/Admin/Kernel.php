@@ -163,7 +163,11 @@ final class Kernel
         }
         $class = $this->modules()[$ident] ?? null;
         if ($class === null) {
-            return $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403);
+            // a mistyped section is not a matter of access
+            $known = array_filter(self::MODULES, fn (string $c): bool => $c::IDENT === $ident) !== [];
+
+            return $known ? $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403)
+                : $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 404);
         }
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
