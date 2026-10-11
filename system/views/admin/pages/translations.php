@@ -58,6 +58,8 @@ foreach ($rows as $row) {
 <?php else: ?>
 		<a class="navigation" href="<?= e($createUrl($row, $code)) ?>"><?= e(t('Create')) ?></a>
 <?php endif ?>
+<?php elseif ($cell['id'] === null): /* a translation outside your own lists: counted, but not linked */ ?>
+		<span class="badge <?= $cell['status'] === Translations::OUTDATED ? 'badge-draft' : 'badge-published' ?>"><?= e($cell['status'] === Translations::OUTDATED ? t('older than original') : t('translated')) ?></span>
 <?php elseif ($cell['status'] === Translations::OUTDATED): ?>
 		<a class="badge badge-draft" href="<?= e($editUrl($row, $cell['id'])) ?>" title="<?= e(t('The original changed after this translation was saved.')) ?>"><?= e(t('older than original')) ?></a>
 <?php else: ?>

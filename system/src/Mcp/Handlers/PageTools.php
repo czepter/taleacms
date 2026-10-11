@@ -71,7 +71,7 @@ trait PageTools
             . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['page_id'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
             'home' => (int) $r['page_id'] === $home, 'visible' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . ($auth->hasModule('pages') ? '' : ' AND visible = TRUE') . ' ORDER BY language, sort_order, title'));
+            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . $auth->pageListScope() . ' ORDER BY language, sort_order, title'));
     }
 
     /** get_page */
