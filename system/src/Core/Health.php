@@ -40,6 +40,9 @@ final class Health
         $add(t('Database'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
         $pending = count(Migrator::pending($db));
         $add(t('Database'), t('Database structure'), $pending === 0, $pending === 0 ? t('up to date') : t('%d migrations pending - run "php bin/migrate" on the server', $pending));
+        [$clockState, $clockInfo] = self::clock($siteSettings->get('time_zone'), date_default_timezone_get(), intdiv((int) date('Z'), 60),
+            (int) $db->value('SELECT ' . $db->dialect()->sessionOffsetMinutes()));
+        $add(t('Database'), t('Time zone'), $clockState, $clockInfo);
         $size = $db->tablesSize();
         $add(t('Database'), t('Size'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {news}')));
 
@@ -170,6 +173,27 @@ final class Health
 
         // --- rows of switched-on add-ons (API 2, Extension\Api::healthRows), e.g. the domain watch
         return [...$k, ...\Talea\Extension\Registry::healthRows($app)];
+    }
+
+    /**
+     * Do the time_zone setting, PHP and the database session count time the same way? PHP writes dates on the site's clock and SQL
+     * compares them with NOW(); when they disagree, scheduled publishing and time limits shift. Pure for the tests: the setting,
+     * PHP's zone, and the UTC offsets of PHP and of the database session in minutes.
+     *
+     * @return array{0: string, 1: string} [ok | warning, what the administrator reads]
+     */
+    public static function clock(string $setting, string $phpZone, int $phpMinutes, int $dbMinutes): array
+    {
+        $offset = fn (int $minutes): string => sprintf('UTC%s%02d:%02d', $minutes < 0 ? '-' : '+', intdiv(abs($minutes), 60), abs($minutes) % 60);
+        if ($setting !== '' && $setting !== $phpZone) {
+            return ['warning', t('The time zone setting is %s, but PHP runs in %s – this server does not know the zone, so dates are written and shown on the %s clock. Choose the zone again in Settings → General.', $setting, $phpZone, $phpZone)];
+        }
+        if ($dbMinutes !== $phpMinutes) {
+            return ['warning', t('PHP writes dates in %s (%s), but the database compares them in %s – scheduled publishing and time limits are off by %d minutes. Ask the hosting whether the database connection keeps its session time zone.',
+                $phpZone, $offset($phpMinutes), $offset($dbMinutes), abs($phpMinutes - $dbMinutes))];
+        }
+
+        return ['ok', t('%s (%s) – PHP and the database count time the same way', $phpZone, $offset($phpMinutes))];
     }
 
     /** Summary for monitoring: the worst status found. */

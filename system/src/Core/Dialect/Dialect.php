@@ -48,6 +48,9 @@ abstract class Dialect
     /** Session time zone as an offset ("+01:00"): PHP writes dates, queries compare them with NOW(). */
     abstract public function setTimeZone(PDO $pdo, string $offset): void;
 
+    /** SQL for the session's UTC offset in minutes (what PHP's date('Z') / 60 must equal when both count time the same way). */
+    abstract public function sessionOffsetMinutes(): string;
+
     /** Current time of the session; the database column types are plain DATETIME, so this compares with them directly. */
     public function now(): string
     {

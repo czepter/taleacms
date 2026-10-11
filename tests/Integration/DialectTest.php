@@ -68,6 +68,7 @@ final class DialectTest extends DatabaseTestCase
         $this->assertSame(['new'], array_column($db->all('SELECT type FROM {ip_checks} WHERE checked_at > ' . $d->now() . ' - ' . $d->interval(1, 'hour')), 'type'));
         $this->assertSame(['old'], array_column($db->all('SELECT type FROM {ip_checks} WHERE checked_at < ' . $d->now() . ' - ' . $d->interval(90, 'minute')), 'type'));
         $this->assertEqualsWithDelta(time(), (int) $db->value('SELECT ' . $d->unixTime($d->now())), 5, 'the session time zone matches PHP');
+        $this->assertSame(intdiv((int) date('Z'), 60), (int) $db->value('SELECT ' . $d->sessionOffsetMinutes()), 'the session offset in minutes matches PHP (the System status clock check)');
     }
 
     public function testGroupConcatJoinsTheValuesOfAGroup(): void

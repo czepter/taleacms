@@ -54,6 +54,11 @@ final class Postgres extends Dialect
         $pdo->exec("SET TIME ZONE INTERVAL '" . $offset . "' HOUR TO MINUTE");
     }
 
+    public function sessionOffsetMinutes(): string
+    {
+        return 'CAST(EXTRACT(TIMEZONE FROM NOW()) / 60 AS integer)';
+    }
+
     public function interval(int $amount, string $unit): string
     {
         return "INTERVAL '" . $amount . ' ' . strtolower($this->unit($unit)) . "'";
