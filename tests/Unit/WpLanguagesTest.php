@@ -26,7 +26,8 @@ final class WpLanguagesTest extends TestCase
             'the locale wins over an odd slug' => ['cz', 'cs_CZ', 'cs'],
             'a regional code' => ['pt-br', '', 'pt-br'],
             'Norwegian Bokmål' => ['nb', '', 'no'],
-            'a language this site cannot offer' => ['ar', 'ar', null],
+            'a language this site cannot offer' => ['he', 'he_IL', null],
+            'Arabic is offered' => ['ar', 'ar_SA', 'ar'],
             'nothing' => ['', '', null],
         ];
     }
@@ -64,7 +65,7 @@ final class WpLanguagesTest extends TestCase
     {
         $header = (new WpFile(self::fixture('wordpress-polylang.xml')))->header();
         $this->assertSame('polylang', $header['plugin']);
-        $this->assertSame(['cs' => 'cs_CZ', 'en' => 'en_GB', 'ar' => 'ar'], $header['languages']);
+        $this->assertSame(['cs' => 'cs_CZ', 'en' => 'en_GB', 'he' => 'he_IL'], $header['languages']);
         $this->assertSame(['cs', 'en'], [$header['term_language'][5], $header['term_language'][6]], 'the two categories are translations of each other');
         $this->assertSame($header['term_group'][5], $header['term_group'][6]);
         $this->assertSame('ICTX Blog', $header['term_name'][6], 'the name of the second category with the shared slug is kept');
@@ -88,7 +89,7 @@ final class WpLanguagesTest extends TestCase
         $state = WpImport::newState('wordpress-polylang.xml', ['cs', 'en']);
         WpImport::analyze($state, 30, self::fixture('wordpress-polylang.xml'));
         $this->assertEquals(['cs' => 3, 'en' => 3], $state['languages']['found'], 'items per language (the export is en_GB, the site has English)');
-        $this->assertSame(['ar' => 1], $state['languages']['unsupported'], 'Arabic cannot be offered');
+        $this->assertSame(['he' => 1], $state['languages']['unsupported'], 'Hebrew cannot be offered');
         $this->assertTrue(WpImport::isMultilingual($state));
     }
 
