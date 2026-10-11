@@ -2,6 +2,9 @@
 # the runner's tool cache said "installed" while the file was gone, and ramsey/composer-install does not look anywhere else.
 # So: Composer is requested explicitly, installed again from getcomposer.org when the runner has none, and `composer install` is
 # retried (a registry hiccup or a cache that vanished between two steps must not fail a pull request).
+# The two runners share one host, which setup-php documents as unsupported ("parallel workflows will conflict with each other"):
+# one job rewrites /usr/local/bin/composer while the other runs it ('Class "Composer\Util\PackageSorter" not found in phar://…').
+# So setup-php itself is tried up to three times, with a pause in between, before the job is allowed to fail.
 name: PHP and Composer
 description: Sets up PHP with Composer on a self-hosted runner and installs the dependencies
 inputs:
@@ -18,6 +21,39 @@ runs:
   using: composite
   steps:
     - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      id: php1
+      continue-on-error: true
+      env:
+        runner: self-hosted
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        tools: composer:v2
+        coverage: none
+    - name: Pause before trying setup-php again
+      if: steps.php1.outcome == 'failure'
+      shell: bash
+      run: sleep 20
+    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      id: php2
+      if: steps.php1.outcome == 'failure'
+      continue-on-error: true
+      env:
+        runner: self-hosted
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        tools: composer:v2
+        coverage: none
+    - name: Pause before trying setup-php again
+      if: steps.php2.outcome == 'failure'
+      shell: bash
+      run: sleep 45
+    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      id: php3
+      if: steps.php2.outcome == 'failure'
+      env:
+        runner: self-hosted
       with:
         php-version: ${{ inputs.php-version }}
         extensions: ${{ inputs.extensions }}
