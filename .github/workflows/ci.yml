@@ -36,7 +36,10 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           run=true
-          if [ "$EVENT" = pull_request ] && [ "$BASE" = main ] && [ "$HEAD" = dev ] && [ "$HEAD_REPO" = "$GITHUB_REPOSITORY" ]; then
+          # a fork's pull request must never run on the self-hosted runners
+          if [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            run=false; echo "pull request from a fork: not run on self-hosted runners"
+          elif [ "$EVENT" = pull_request ] && [ "$BASE" = main ] && [ "$HEAD" = dev ]; then
             n=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
               "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&status=success&per_page=1" \
               | jq -r '.total_count' 2>/dev/null || echo 0)
