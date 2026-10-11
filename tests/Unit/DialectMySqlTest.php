@@ -118,4 +118,12 @@ final class DialectMySqlTest extends TestCase
     {
         $this->assertSame('INSERT IGNORE INTO {t} (`a`, `b`) SELECT 1, 2', $this->d->insertIgnoreSelect('t', ['a', 'b'], 'SELECT 1, 2'));
     }
+
+    public function testUniqueKeyStatements(): void
+    {
+        $this->assertSame('ALTER TABLE {pages} DROP INDEX `uq_pages_slug`', $this->d->dropUniqueKeySql('pages', 'uq_pages_slug'));
+        $this->assertSame('ALTER TABLE {pages} ADD UNIQUE KEY `uq_pages_slug` (`slug`)', $this->d->addUniqueKeySql('pages', 'uq_pages_slug', ['slug']));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->d->dropUniqueKeySql('pages; DROP', 'x');
+    }
 }

@@ -73,6 +73,11 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them.
 - Language versions: the column `language` ('' = default) on pages, categories and news; every public query filters by
   `Language::siteColumn()`; `App::url()` adds `/en/` only to addresses without an extension.
+- **Shared slugs** (setting `slugs_per_language`, off by default, Settings → General): a page, news item or category may share its address with the version in
+  another language (`/contact`, `/de/contact`). Language columns are `VARCHAR(35)`; pages, news and categories have a per-language unique key
+  `(language, slug)` next to the global one. `Core\Slug::switchPerLanguage` is the only writer of the setting (drops/restores the global keys; refuses to go
+  off while an address is shared; undoes the keys it already put back when a later table fails). Every "slug taken?" check asks `Slug::taken()` / `Slug::scope()`;
+  redirects of a version carry its prefix (`Slug::redirectPath`) while it is on.
 - Page cache (`Front\Cache`): anonymous visitors only; every admin POST calls `Cache::clear()`; `Auth::user()` must not start a session
   for an anonymous visitor.
 - The site address is the setting `site_url`, not the Host header; absolute addresses come from `$app->request->origin()`.

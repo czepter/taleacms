@@ -551,35 +551,44 @@ final class Audit
         }
         $db = $this->app->db();
         $segments = $path === '/' ? [] : explode('/', ltrim($path, '/'));
+        $language = '';
         if ($segments !== [] && in_array($segments[0], Language::additional($this->app->settings()), true)) {
-            array_shift($segments);
+            $language = array_shift($segments);
         }
+        // with slugs per language /en/contact and /contact may be two pages: the lookup stays in the link's version, and a
+        // redirect may be stored with the prefix (en/old) or, from before, without it (Front\Kernel looks up both)
+        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
+        [$sameItemLanguage] = Slug::scope($db, $language, 'p.language');
         $rest = '/' . implode('/', $segments);
+        $redirects = array_values(array_unique([trim($path, '/'), ...(Slug::perLanguage($db) ? [trim($rest, '/')] : [])]));
         [$internal] = Routes::internalPath($rest, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
         $ok = match (true) {
             $s === [] => true,
             is_file(TALEA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
             in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
-            $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1)),
-            $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL', [implode('/', $s)]) !== null => true,
-            count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL', [$s[0], $s[1]]) !== null => true,
-            $db->value('SELECT 1 FROM {redirects} WHERE from_path = ?', [trim($path, '/')]) !== null => true,
+            $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1), $sameLanguage, $languageParams),
+            $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,
+            count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,
+            $db->value('SELECT 1 FROM {redirects} WHERE from_path IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', $redirects) !== null => true,
             default => false,
         };
 
         return $this->resolved[$path] = $ok;
     }
 
-    /** @param list<string> $s the path after /news */
-    private function newsPathExists(array $s): bool
+    /**
+     * @param list<string> $s the path after /news
+     * @param list<string> $languageParams
+     */
+    private function newsPathExists(array $s, string $sameLanguage = '', array $languageParams = []): bool
     {
         $db = $this->app->db();
 
         return match (true) {
             $s === [] => true,
             count($s) === 1 => $db->value('SELECT 1 FROM {news} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL', [$s[0]]) !== null,
-            count($s) === 2 && $s[0] === 'category' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?', [$s[1]]) !== null,
+            count($s) === 2 && $s[0] === 'category' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?' . $sameLanguage, [$s[1], ...$languageParams]) !== null,
             count($s) === 2 && $s[0] === 'tag' => $db->value('SELECT 1 FROM {tags} WHERE slug = ?', [$s[1]]) !== null,
             default => false,
         };

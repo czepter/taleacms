@@ -9,6 +9,7 @@
  * @var list<string> $languages  language versions of the site, the first one is the default
  * @var list<array{category_id:int, name:string, language:string}> $categories  news categories
  * @var bool $redirectsEnabled
+ * @var list<string> $missingLanguages  language versions of a multilingual export that the site does not have yet
  */
 $p = $state['overview'];
 $options = $state['options'];
@@ -39,6 +40,18 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
     $t['fields'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Talea\Builder\Collections::FIELD_TYPES[Talea\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['fields']), $t['fields'])))) ?>
 <?php if ($t['left_out'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['left_out'])))) ?><?php endif ?></p>
 <?php endforeach ?>
+<?php if (Talea\Core\WpImport::isMultilingual($state)): // Polylang or WPML ?>
+<?php $found = (array) $state['languages']['found']; $languageName = fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0] ?? $code; ?>
+<p><?= e(t('Multilingual site (%s): %s.', $state['languages']['plugin'] === 'wpml' ? 'WPML' : ($state['languages']['plugin'] === 'polylang' ? 'Polylang' : t('languages in the addresses')),
+    $found === [] ? t('no language named') : implode(', ', array_map(fn (string $code, int $count): string => $languageName($code) . ' ' . $count, array_map('strval', array_keys($found)), array_map('intval', $found))))) ?>
+	<?= e(t('Each post, page and category arrives in its language version and is linked to its original in the default language.')) ?>
+<?php if ($missingLanguages !== []): ?>
+	<?= e(t('Language versions the site does not have yet: %s – add them below, otherwise their posts are left out.', implode(', ', array_map($languageName, $missingLanguages)))) ?>
+<?php endif ?></p>
+<?php if (($state['languages']['unsupported'] ?? []) !== []): ?>
+<p class="notice notice-warning"><?= e(t('Not imported – this site cannot offer these languages yet: %s.', implode(', ', array_map(fn (string $language, int $count): string => $language . ' (' . $count . ')', array_map('strval', array_keys($state['languages']['unsupported'])), array_map('intval', $state['languages']['unsupported']))))) ?></p>
+<?php endif ?>
+<?php endif ?>
 <?php foreach ($p['seo'] ?? [] as $plugin => $n): ?>
 <p><?= e(t('SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.', $plugin, (int) $n['title'], (int) $n['description'], (int) $n['noindex'])) ?><?= (int) $n['canonical'] > 0 ? ' ' . e(t('Canonical URLs (%s) are not transferred.', (int) $n['canonical'])) : '' ?></p>
 <?php endforeach ?>
@@ -79,6 +92,9 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 	<label><input type="checkbox" name="redirects" value="1"<?= $options['redirects'] ? ' checked' : '' ?>> <?= e(t('redirects from old addresses to new ones')) ?></label>
 <?php if (($p['types'] ?? []) !== []): ?>
 	<label><input type="checkbox" name="collections" value="1"<?= ($options['collections'] ?? true) ? ' checked' : '' ?>> <?= e(t('custom post types as collections (%s)', implode(', ', array_keys($p['types'])))) ?></label>
+<?php endif ?>
+<?php if ($missingLanguages !== []): ?>
+	<label><input type="checkbox" name="add_languages" value="1"<?= ($options['add_languages'] ?? false) ? ' checked' : '' ?>> <?= e(t('add the language versions %s to the site – they show in the language switcher at once', implode(', ', array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0] ?? $code, $missingLanguages)))) ?></label>
 <?php endif ?>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
