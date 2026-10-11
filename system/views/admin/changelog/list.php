@@ -53,10 +53,10 @@ $action = ['save' => 'save', 'delete' => 'deletion', 'delete_permanently' => 'de
 <?php foreach ($records as $z): ?>
 <tr<?= $z['action'] === 'failed_attempt' ? ' class="unpublished"' : '' ?>>
 	<td class="number"><?= e(format_date($z['created_at'], true)) ?></td>
-	<td><?= e($z['user_name'] !== '' ? $z['user_name'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="badge" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
+	<td><?= bdi($z['user_name'] !== '' ? $z['user_name'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="badge" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
 	<td><?= e(isset($names[$z['module']]) ? t($names[$z['module']]) : $z['module']) ?></td>
 	<td><?= e(t($action[$z['action']] ?? $z['action'])) ?></td>
-	<td><?= e($z['description']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="small-text"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
+	<td><?= bdi($z['description']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="small-text"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

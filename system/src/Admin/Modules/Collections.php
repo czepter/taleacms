@@ -216,6 +216,7 @@ final class Collections extends Module
             $this->db->update('collection_items', $row, ['item_id' => $idp]);
         } else {
             $idp = $this->db->insert('collection_items', $row + ['created_at' => date('Y-m-d H:i:s')]);
+            \Talea\Core\Slug::fromId($this->db, 'collection_items', $idp); // a name with nothing to transliterate: item-<id>
         }
         \Talea\Core\Members::saveFromForm($this->app, 'item', $idp);
         Notices::recordSave($this->app, $k, $previous, $row, $idp);

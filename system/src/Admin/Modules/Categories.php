@@ -110,7 +110,7 @@ final class Categories extends Module
             }
             $this->db->run('UPDATE {news} SET language = ? WHERE category_id = ?', [$data['language'], $id]); // news items have the language of their category
         } else {
-            $this->db->insert('categories', $data);
+            \Talea\Core\Slug::fromId($this->db, 'categories', $this->db->insert('categories', $data)); // nothing to transliterate: category-<id>
         }
 
         return $this->back('Category saved.');

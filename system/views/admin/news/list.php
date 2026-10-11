@@ -86,8 +86,8 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr class="unpublished">
-	<td><?= e($c['title']) ?></td>
-	<td><?= e($c['category_name']) ?></td>
+	<td><?= bdi($c['title']) ?></td>
+	<td><?= bdi($c['category_name']) ?></td>
 	<td class="number"><?= e(format_date($c['deleted_at'], true)) ?></td>
 	<td class="actions"><button class="navigation" type="submit" form="restore-one" name="delete[]" value="<?= e($c['public_id']) ?>"><?= e(t('Restore')) ?></button></td>
 	<td class="center"><input type="checkbox" name="delete[]" value="<?= e($c['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
@@ -115,9 +115,9 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>"><?= e($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
-	<td><?= e($c['category_name']) ?></td>
-	<td><?= e($c['author_name'] ?: $c['author_login']) ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>"><?= bdi($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
+	<td><?= bdi($c['category_name']) ?></td>
+	<td><?= bdi($c['author_name'] ?: $c['author_login']) ?></td>
 	<td class="number"><?= e(format_date($c['published_at'], true)) ?></td>
 <?php if (!$c['visible'] && (int) $c['author_level'] === 0 && $app->auth()->canPublish()): // an author's draft: waiting for an editor to publish it ?>
 	<td><span class="badge badge-pending" title="<?= e(t('News authors cannot publish – review this news item and publish it.')) ?>"><?= e(t('awaiting publication')) ?></span></td>

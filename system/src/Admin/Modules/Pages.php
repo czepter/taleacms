@@ -306,6 +306,7 @@ final class Pages extends Module
             }
         } else {
             $id = $this->db->insert('pages', $data);
+            \Talea\Core\Slug::fromId($this->db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
             \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
             $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
             if ($template !== null && $template[1] !== []) {

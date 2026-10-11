@@ -179,7 +179,9 @@ trait NewsTools
         }
         $seo = $this->availableSlug('categories', 'category_id', slugify($displayName, 110), '');
 
-        return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Talea\Core\Html::safe((string) ($a['description'] ?? ''))]), 'slug' => $seo];
+        $id = $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Talea\Core\Html::safe((string) ($a['description'] ?? ''))]);
+
+        return ['id' => $id, 'slug' => \Talea\Core\Slug::fromId($db, 'categories', $id)]; // nothing to transliterate: category-<id>
     }
 
     /** update_category */

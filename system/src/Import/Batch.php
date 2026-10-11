@@ -328,6 +328,7 @@ final class Batch
             'edited_at' => $now,
             'announced_at' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
+        Slug::fromId($this->db, 'news', $idc); // a title with nothing to transliterate: news-<id>, not n-a
         $tags = $m['tags'] === 'tag' ? $p->tagKeys : [];
         if ($m['categories'] === 'tag') {
             $tags = [...$tags, ...$p->categoryKeys];
@@ -373,6 +374,7 @@ final class Batch
             'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
+        Slug::fromId($this->db, 'pages', $ids); // a title with nothing to transliterate: page-<id>, not n-a
         $this->writeMap('page', $p->key, $ids);
         $state['result']['pages']++;
         if ($m['redirects']) {
@@ -416,6 +418,7 @@ final class Batch
                     'name' => $name, 'description' => '', 'language' => $language,
                     'slug' => Slug::makeUnique($seo, fn (string $a): bool => Slug::taken($this->db, 'categories', $a, $language), 120),
                 ]);
+                Slug::fromId($this->db, 'categories', (int) $idt); // nothing to transliterate: category-<id>
                 $state['result']['categories']++;
             }
             $this->writeMap('category', $key, (int) $idt);

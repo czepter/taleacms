@@ -47,7 +47,7 @@ $admin = $app->auth()->isAdmin();
 <tbody>
 <?php foreach ($subscribers as $o): ?>
 <tr<?= (int) $o['status'] === 1 ? '' : ' class="unpublished"' ?>>
-	<td><?= e($o['email']) ?></td>
+	<td><?= bdi($o['email']) ?></td>
 	<td><?= (int) $o['status'] === 1 ? '<span class="badge badge-published">' . e(t('confirmed')) . '</span>' : e(t('awaiting confirmation')) ?></td>
 <?php if ($service !== ''): ?>
 	<td><?= match ((string) $o['sync']) {
