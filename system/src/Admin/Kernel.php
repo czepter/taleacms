@@ -406,9 +406,10 @@ final class Kernel
                 return Response::redirect($oauth->deny($pending));
             }
             $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page
-            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ')', 0, 100));
+            $toolSet = \Talea\Mcp\Catalog::toolSet($app->request->post('tool_set')); // none sent: all tools, as before
+            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));
 
-            return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
+            return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
         }
 
         // a focused frame without the admin menu and the draft-look bar – a stray Publish has no place here

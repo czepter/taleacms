@@ -483,7 +483,7 @@ check('2.1: public contracts kept (tools/contracts)', talea_contract_diff(), ['b
 // MCP in English (since the hard fork the implementation is English: there is no translation layer): every tool of the public contract is
 // implemented, and no tool name, parameter name or description carries a Czech word or a Czech diacritic
 $mcpContract = json_decode((string) file_get_contents(__DIR__ . '/contracts/mcp-tools.json'), true);
-$mcpDefined = array_column(Talea\Mcp\Tools::definitions(), null, 'name');
+$mcpDefined = array_column([...Talea\Mcp\Tools::definitions(), ...Talea\Mcp\Discovery::definitions()], null, 'name'); // the meta tools of the Essentials tool set are in the contract too
 $mcpCzech = [];
 foreach (Talea\Mcp\Tools::definitions() as $mcpTool) {
     $mcpText = $mcpTool['name'] . ' ' . $mcpTool['description'];
@@ -495,7 +495,7 @@ foreach (Talea\Mcp\Tools::definitions() as $mcpTool) {
     }
 }
 check('MCP: every tool of the contract is implemented under its English name; no Czech in the names, parameters and descriptions',
-    [array_values(array_diff(array_keys($mcpContract), array_keys($mcpDefined))), array_values(array_diff(array_keys($mcpDefined), array_keys($mcpContract), array_keys(Talea\Mcp\Catalog::TOOLS))), $mcpCzech, class_exists('Talea\\Mcp\\Translator', false)], [[], [], [], false]);
+    [array_values(array_diff(array_keys($mcpContract), array_keys($mcpDefined))), array_values(array_diff(array_keys($mcpDefined), array_keys($mcpContract), array_keys(Talea\Mcp\Catalog::TOOLS), array_keys(Talea\Mcp\Catalog::META))), $mcpCzech, class_exists('Talea\\Mcp\\Translator', false)], [[], [], [], false]);
 $mcpCzechMessages = [];
 foreach ([...glob(TALEA_ROOT . '/system/src/Mcp/*.php'), ...glob(TALEA_ROOT . '/system/src/Mcp/Handlers/*.php')] as $mcpFile) {
     if (preg_match("/Exception\\('[^']*[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u", (string) file_get_contents($mcpFile)) === 1) { // check-english: allow

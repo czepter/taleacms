@@ -559,6 +559,18 @@
             "openWorldHint": false
         }
     },
+    "find_tools": {
+        "parameters": {
+            "names": "array",
+            "query": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],
@@ -1407,6 +1419,48 @@
         },
         "required": [
             "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "run_destructive_tool": {
+        "parameters": {
+            "arguments": "object",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
+    "run_read_tool": {
+        "parameters": {
+            "arguments": "object",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "run_tool": {
+        "parameters": {
+            "arguments": "object",
+            "name": "string"
+        },
+        "required": [
+            "name"
         ],
         "annotations": {
             "readOnlyHint": false,
