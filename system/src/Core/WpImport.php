@@ -974,9 +974,20 @@ final class WpImport
         }
         $state['result']['translations'] = (int) ($state['result']['translations'] ?? 0) + $linked;
         if ($state['options']['redirects']) {
-            foreach (array_intersect(array_map('strval', array_keys((array) $state['languages']['found'])), Language::additional($this->settings)) as $code) {
-                if ($this->db->value('SELECT 1 FROM {redirects} WHERE from_path = ?', ['?lang=' . $code]) === null) {
-                    Redirects::add($this->db, '?lang=' . $code, $code); // Polylang's /?lang=en – the home of the version
+            // Polylang's /?lang=en – the home of the version; the old slug may differ from our code (slug en, locale en_GB → en-gb)
+            $found = (array) $state['languages']['found'];
+            $from = [];
+            foreach (array_map('strval', array_keys($found)) as $code) {
+                $from[$code] = $code;
+            }
+            foreach ((array) $state['languages']['codes'] as $slug => $code) {
+                if (isset($found[(string) $code])) {
+                    $from[(string) $slug] = (string) $code;
+                }
+            }
+            foreach ($from as $slug => $code) {
+                if (in_array($code, Language::additional($this->settings), true) && $this->db->value('SELECT 1 FROM {redirects} WHERE from_path = ?', ['?lang=' . $slug]) === null) {
+                    Redirects::add($this->db, '?lang=' . $slug, $code);
                     $state['result']['redirects']++;
                 }
             }
