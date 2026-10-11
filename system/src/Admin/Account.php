@@ -31,7 +31,7 @@ final class Account
 
         if ($r->isPost()) {
             $message = null;
-            switch ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : $r->post('op'))) {
+            switch ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('op')))) {
                 case 'profile':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $message = ['error', 'The e-mail address is not valid.'];
@@ -85,16 +85,34 @@ final class Account
                     }
                     $token = 'talea_' . bin2hex(random_bytes(24));
                     $access = \Talea\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only
+                    // a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
+                    $toolSet = \Talea\Mcp\Catalog::toolSet($r->post('tool_set'));
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('lifetime', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('lifetime', 365) : 365;
-                    $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
+                    $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'tool_set' => $toolSet, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                         'expires_at' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
-                    ChangeLog::write($app, 'account', 'claude_token', $access . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
+                    ChangeLog::write($app, 'account', 'claude_token', $access . ($toolSet === 'essentials' ? ', essentials' : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_delete':
                     $db->delete('api_tokens', ['token_id' => $db->internalId('api_tokens', $r->post('delete_token')), 'user_id' => $user['user_id']]);
                     $message = ['ok', 'Token revoked.'];
+                    break;
+                case 'tool_set':
+                    // an existing connection switches between the essentials and all tools – "<set>:token:<public id>" for a
+                    // personal token, "<set>:app:<client_id>" for every token of a connected application (a refresh copies it)
+                    $parts = explode(':', $r->post('tool_set_switch'), 3);
+                    $toolSet = \Talea\Mcp\Catalog::toolSet($parts[0]);
+                    $changed = match ($parts[1] ?? '') {
+                        'token' => $db->run("UPDATE {api_tokens} SET tool_set = ? WHERE token_id = ? AND user_id = ? AND kind = 'token'", [$toolSet, $db->internalId('api_tokens', (string) ($parts[2] ?? '')), $user['user_id']])->rowCount(),
+                        'app' => $db->run('UPDATE {api_tokens} SET tool_set = ? WHERE client_id = ? AND user_id = ?', [$toolSet, (string) ($parts[2] ?? ''), $user['user_id']])->rowCount(),
+                        default => 0,
+                    };
+                    if ($changed > 0) {
+                        ChangeLog::write($app, 'account', 'claude_tool_set', $toolSet);
+                    }
+                    $message = ['ok', $toolSet === 'essentials' ? 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.'
+                        : 'Done – Claude will see all tools in the next conversation it starts.'];
                     break;
                 case 'app_disconnect':
                     $db->delete('api_tokens', ['client_id' => $r->post('disconnect_client'), 'user_id' => $user['user_id']]);
@@ -234,8 +252,8 @@ final class Account
             'keys' => $app->auth()->accountKeys((int) $user['user_id']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokens} WHERE user_id = ? AND kind = 'token' ORDER BY token_id DESC", [$user['user_id']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
-            'apps' => $app->db()->all("SELECT client_id, MAX(name) AS name, " . \Talea\Front\OAuth::strongestAccessSql() . " AS access, MIN(created_at) AS created_at, MAX(used_at) AS used_at FROM {api_tokens} WHERE user_id = ? AND client_id IS NOT NULL AND expires_at > ? GROUP BY client_id ORDER BY MIN(created_at) DESC",
-                [$user['user_id'], date('Y-m-d H:i:s')]),
+            'apps' => $app->db()->all("SELECT client_id, MAX(name) AS name, " . \Talea\Front\OAuth::strongestAccessSql() . " AS access, (SELECT n.tool_set FROM {api_tokens} n WHERE n.client_id = t.client_id AND n.user_id = ? ORDER BY n.token_id DESC LIMIT 1) AS tool_set, MIN(created_at) AS created_at, MAX(used_at) AS used_at FROM {api_tokens} t WHERE user_id = ? AND client_id IS NOT NULL AND expires_at > ? GROUP BY client_id ORDER BY MIN(created_at) DESC",
+                [$user['user_id'], $user['user_id'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));
     }

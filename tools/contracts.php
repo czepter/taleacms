@@ -18,7 +18,8 @@ require_once dirname(__DIR__) . '/system/bootstrap.php';
 function talea_mcp_contract(): array
 {
     $contract = [];
-    foreach (Talea\Mcp\Tools::definitions() as $tool) {
+    // the meta tools (find_tools and the runners of the Essentials tool set) are part of the interface too
+    foreach ([...Talea\Mcp\Tools::definitions(), ...Talea\Mcp\Discovery::definitions()] as $tool) {
         $properties = (array) $tool['inputSchema']['properties'];
         ksort($properties);
         $contract[$tool['name']] = [

@@ -179,12 +179,14 @@ final class OAuth
      * to the application.
      *
      * @param array<string, mixed> $pending parameters saved in authorize()
+     * @param string $toolSet the tool set chosen on the consent screen (Mcp\Catalog::TOOL_SETS)
      */
-    public function issueCode(array $pending, int $idu, string $access = 'full'): string
+    public function issueCode(array $pending, int $idu, string $access = 'full', string $toolSet = 'all'): string
     {
         $code = bin2hex(random_bytes(32));
         $this->app->db()->insert('oauth_codes', ['code_hash' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'user_id' => $idu, 'redirect_uri' => $pending['redirect_uri'],
-            'code_challenge' => $pending['challenge'], 'access' => self::access($access), 'expires_at' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
+            'code_challenge' => $pending['challenge'], 'access' => self::access($access),
+            'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
 
         return self::withParams((string) $pending['redirect_uri'], ['code' => $code, 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
     }
@@ -218,7 +220,7 @@ final class OAuth
                 return $this->error('invalid_grant', 'The code is invalid, expired, already used, or the return address or PKCE does not match.');
             }
 
-            return $this->issueTokens($db, (int) $code['user_id'], $client, (string) $code['access']);
+            return $this->issueTokens($db, (int) $code['user_id'], $client, (string) $code['access'], (string) $code['tool_set']);
         }
         if ($r->post('grant_type') === 'refresh_token') {
             $refresh = $db->one("SELECT * FROM {api_tokens} WHERE token_hash = ? AND kind = 'refresh'", [hash('sha256', $r->post('refresh_token'))]);
@@ -227,14 +229,14 @@ final class OAuth
             }
             $db->delete('api_tokens', ['token_id' => (int) $refresh['token_id']]); // rotation: the old refresh token ends
 
-            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access']); // the access chosen at consent stays
+            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set']); // the access and the tool set chosen at consent (or switched in My account) stay
         }
 
         return $this->error('unsupported_grant_type', 'Only authorization_code and refresh_token are supported.');
     }
 
     /** @param array<string, mixed> $client */
-    private function issueTokens(Db $db, int $idu, array $client, string $level): Response
+    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet): Response
     {
         $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = FALSE', [$idu]);
         if ($user === null) {
@@ -244,7 +246,7 @@ final class OAuth
         $refresh = 'talea_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'access', self::ACCESS_LIFETIME], [$refresh, 'refresh', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
-                'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
+                'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
         }
         // cleanup of expired tokens and codes
         $db->run("DELETE FROM {api_tokens} WHERE kind <> 'token' AND expires_at < ?", [date('Y-m-d H:i:s')]);
