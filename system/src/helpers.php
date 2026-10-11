@@ -67,23 +67,14 @@ function slugify(string $text, int $maxLength = 120): string
 /** Decimal number in the site language: 4,5 in Czech, Slovak and German, 4.5 in English and Arabic (Western digits). */
 function format_number(float|int $number, int $decimals = 1): string
 {
-<<<<<<< HEAD
-    return number_format((float) $number, $decimals, Talea\Core\Language::base(Talea\Core\Language::code()) === 'en' ? '.' : ',', '');
-=======
-    return number_format((float) $number, $decimals, in_array(Talea\Core\Language::code(), ['en', 'ar'], true) ? '.' : ',', '');
->>>>>>> cdc50e21 (Arabic and right-to-left (1/4): Language::isRtl/dir, Arabic slugs, search and bidi isolation)
+    return number_format((float) $number, $decimals, in_array(Talea\Core\Language::base(Talea\Core\Language::code()), ['en', 'ar'], true) ? '.' : ',', '');
 }
 
 /** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English and Arabic, 12.345 in German. */
 function format_count(float|int $number, int $decimals = 0): string
 {
-<<<<<<< HEAD
     [$decimalSeparator, $thousandsSeparator] = match (Talea\Core\Language::base(Talea\Core\Language::code())) {
-        'en' => ['.', ','],
-=======
-    [$decimalSeparator, $thousandsSeparator] = match (Talea\Core\Language::code()) {
         'en', 'ar' => ['.', ','],
->>>>>>> cdc50e21 (Arabic and right-to-left (1/4): Language::isRtl/dir, Arabic slugs, search and bidi isolation)
         'de' => [',', '.'],
         default => [',', "\u{00A0}"],
     };

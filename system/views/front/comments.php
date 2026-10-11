@@ -13,16 +13,16 @@
 ?>
 <div class="tl-comments" id="tl-comment" data-tl-comments>
 <style>
-.tl-comments{position:fixed;right:1rem;bottom:1rem;z-index:2147482000;font:14px/1.45 system-ui,sans-serif;color:#16181d}
+.tl-comments{position:fixed;inset-inline-end:1rem;bottom:1rem;z-index:2147482000;font:14px/1.45 system-ui,sans-serif;color:#16181d}
 .tl-comments-btn{display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.1rem;border:0;border-radius:999px;background:#16181d;color:#fff;font:600 14px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-.tl-comments-panel{position:fixed;right:1rem;bottom:4.5rem;width:min(22rem,calc(100vw - 2rem));max-height:calc(100vh - 6rem);overflow:auto;padding:1rem;border-radius:12px;background:#fff;color:#16181d;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.tl-comments-panel{position:fixed;inset-inline-end:1rem;bottom:4.5rem;width:min(22rem,calc(100vw - 2rem));max-height:calc(100vh - 6rem);overflow:auto;padding:1rem;border-radius:12px;background:#fff;color:#16181d;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 .tl-comments-panel h2{margin:0 0 .5rem;font-size:1.05rem}
 .tl-comments-panel p{margin:0 0 .6rem}
 .tl-comments-panel label{display:block;margin:0 0 .6rem;font-weight:600}
 .tl-comments-panel input[type=text],.tl-comments-panel textarea{display:block;width:100%;box-sizing:border-box;margin-top:.25rem;padding:.5rem;border:1px solid #c6c9d0;border-radius:8px;background:#fff;color:#16181d;font:inherit;font-weight:400}
 .tl-comments-panel textarea{min-height:6rem;resize:vertical}
 .tl-comments-target,.tl-comments-quote{padding:.4rem .6rem;border-radius:8px;background:#f1f3f6;font-size:13px}
-.tl-comments-target button{margin-left:.4rem;border:0;background:none;color:inherit;font:inherit;cursor:pointer;text-decoration:underline}
+.tl-comments-target button{margin-inline-start:.4rem;border:0;background:none;color:inherit;font:inherit;cursor:pointer;text-decoration:underline}
 .tl-comments-note{color:#5a5f6b;font-size:13px}
 .tl-comments-result{padding:.5rem .7rem;border-radius:8px;background:#e6f4ea;color:#14532d}
 .tl-comments-result.error{background:#fdecea;color:#7f1d1d}
@@ -44,7 +44,7 @@
 	<p class="tl-comments-quote" data-tl-comment-quote hidden>„<span></span>“</p>
 	<input type="hidden" name="target" value="<?= e($target) ?>"><input type="hidden" name="key" value="<?= e($key) ?>"><input type="hidden" name="back" value="<?= e($back) ?>">
 	<input type="hidden" name="element" value=""><input type="hidden" name="quote" value="">
-	<div style="position:absolute;left:-9999px" aria-hidden="true"><label><?= e(t('Leave this field empty')) ?> <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+	<div style="position:absolute;inset-inline-start:-9999px" aria-hidden="true"><label><?= e(t('Leave this field empty')) ?> <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 	<label><?= e(t('Your name')) ?> <input type="text" name="name" required maxlength="<?= Talea\Core\DraftComments::MAX_NAME ?>" autocomplete="name"></label>
 	<label><?= e(t('Comment')) ?> <textarea name="text" required maxlength="<?= Talea\Core\DraftComments::MAX_TEXT ?>"></textarea></label>
 	<p><button type="submit" class="tl-comments-btn"><?= e(t('Send comment')) ?></button></p>

@@ -13,7 +13,7 @@
  * @var string $canonical
  * @var string $head  tags for <head> from Settings: SEO, structured data, tracking codes (always output before </head>)
  * @var string $foot   cookie bar and codes before </body> (always output)
- * @var string $language  language code of the displayed version of the site (cs, en…) for <html lang>
+ * @var string $language  language code of the displayed version of the site (cs, en…) for <html lang> and <html dir> (rtl for Arabic)
  * @var string $languages_html  ready-made language version switcher; empty if the site has a single language
  * @var bool $with_news  the News extension is enabled (links to RSS)
  * @var list<array{title:string, slug:string, intro:bool}> $pages  pages "in the menu" (the home page has an empty slug) – only for older templates
@@ -29,7 +29,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 ?>
 <!doctype html>
 <?php $dark = in_array($web->get('dark_mode'), ['auto', 'dark'], true); ?>
-<html lang="<?= e($language ?? 'en') ?>"<?= $dark ? ' data-dark' : '' ?><?= $web->get('dark_mode') === 'dark' ? ' data-theme="dark"' : '' ?>>
+<html lang="<?= e($language ?? 'en') ?>"<?= Talea\Core\Language::dirAttribute($language ?? 'en') ?><?= $dark ? ' data-dark' : '' ?><?= $web->get('dark_mode') === 'dark' ? ' data-theme="dark"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <?php if ($dark && $web->get('theme_switcher') === '1'): ?>

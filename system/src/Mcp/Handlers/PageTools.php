@@ -46,8 +46,9 @@ trait PageTools
             // what the site has switched on, so Claude does not guess (extension keys: news, enquiries, newsletter_signup…)
             'extensions' => \Talea\Core\Extensions::enabled($siteSettings),
             'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
-            'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings),
-                'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
+            // direction: rtl for Arabic - the site mirrors the layout itself, Claude writes the text in its natural order
+            'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings), 'direction' => Language::dir(Language::defaults($siteSettings)),
+                'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true), 'direction' => Language::dir($code)], Language::additional($siteSettings))],
             'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
             'look_draft' => \Talea\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
         ] + (\Talea\Fleet\Link::isPaired($siteSettings) ? [
@@ -124,7 +125,10 @@ trait PageTools
                 + (isset($row['collection']) ? ['collection' => $row['collection']['slug']] : []) + ['translations' => $keep];
         }
 
-        return ['default_language' => Language::defaults($this->app->settings()), 'languages' => $matrix['languages'], 'summary' => $counts, 'items' => $items,
+        $languages = [Language::defaults($this->app->settings()), ...$matrix['languages']];
+
+        return ['default_language' => Language::defaults($this->app->settings()), 'languages' => $matrix['languages'],
+            'directions' => array_combine($languages, array_map(Language::dir(...), $languages)), 'summary' => $counts, 'items' => $items,
             'next' => $matrix['languages'] === [] ? 'The site has a single language; language versions are set with update_settings (additional_languages).'
                 : 'Translate only on the user\'s instruction and as drafts: a page with create_page (language, translation_of, copy_build) and edit_build; a news item with create_news in a category of that language; a collection item with save_collection_item (language, the same slug). An outdated translation needs its texts compared with the original.'];
     }

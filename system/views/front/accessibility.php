@@ -17,11 +17,11 @@ $options = ['text' => t('Larger text'), 'contrast' => t('High contrast'), 'under
 :root.tl-contrast img, :root.tl-contrast video { filter: contrast(1.15); }
 :root.tl-underline a { text-decoration: underline; text-decoration-thickness: 0.09em; text-underline-offset: 0.12em; }
 :root.tl-calm *, :root.tl-calm *::before, :root.tl-calm *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
-.tl-accessibility { position: fixed; left: 12px; bottom: 56px; z-index: 998; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.tl-accessibility { position: fixed; inset-inline-start: 12px; bottom: 56px; z-index: 998; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .tl-accessibility-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #475467; border-radius: 999px; background: #ffffff; color: #14171f; cursor: pointer; font: inherit; }
 .tl-accessibility-btn:focus-visible, .tl-accessibility-panel button:focus-visible { outline: 3px solid #0000c8; outline-offset: 2px; }
-.tl-accessibility-panel { position: fixed; left: 12px; bottom: 100px; margin: 0; padding: 8px; border: 1px solid #475467; border-radius: 10px; background: #ffffff; color: #14171f; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); min-width: 220px; }
-.tl-accessibility-panel button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tl-accessibility-panel { position: fixed; inset-inline-start: 12px; bottom: 100px; margin: 0; padding: 8px; border: 1px solid #475467; border-radius: 10px; background: #ffffff; color: #14171f; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); min-width: 220px; }
+.tl-accessibility-panel button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .tl-accessibility-panel button:hover { background: #f2f4f7; }
 .tl-accessibility-panel button[aria-pressed="true"]::after { content: "✓"; font-weight: 700; }
 .tl-accessibility-panel button[aria-pressed="false"]::after { content: ""; width: 1em; }

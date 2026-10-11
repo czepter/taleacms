@@ -49,8 +49,8 @@
 
 @layer template.layout {
 	.wrap { width: min(100% - 2 * var(--space), var(--width)); margin-inline: auto; }
-	.skip { position: absolute; left: -999px; }
-	.skip:focus { left: var(--space); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--base); }
+	.skip { position: absolute; inset-inline-start: -999px; }
+	.skip:focus { inset-inline-start: var(--space); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--base); }
 	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
 	.tl-notice-hours { background: var(--accent-soft); color: var(--text); border-bottom: 1px solid var(--line); font-size: 0.9375rem; text-align: center; }
 	.tl-notice-hours p { margin: 0 auto; padding: 0.5rem var(--space); max-width: var(--width); }
@@ -69,7 +69,7 @@
 	.navigation li > .menu-group { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: 0.5rem 0.8rem; font-weight: 600; cursor: default; }
 	.navigation .submenu > a::after, .navigation .submenu > .menu-group::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
 	.navigation .submenu.active > a, .navigation .submenu.active > .menu-group { color: var(--accent); }
-	.navigation .submenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
+	.navigation .submenu > ul { display: none; position: absolute; top: 100%; inset-inline-start: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
 	.navigation .submenu > ul a { border-radius: calc(var(--radius) / 1.5); font-weight: 500; }
 	.navigation .submenu:hover > ul, .navigation .submenu:focus-within > ul { display: flex; }
 	/* icon before the label; a group inside a submenu = a heading with its items under it (Core\Menu::html) */
@@ -82,13 +82,13 @@
 		.menu-btn { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--line); border-radius: 50%; background: var(--base); color: var(--text); cursor: pointer; }
 		.menu-btn span, .menu-btn span::before, .menu-btn span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 		.menu-btn span { position: relative; }
-		.menu-btn span::before, .menu-btn span::after { content: ""; position: absolute; left: 0; }
+		.menu-btn span::before, .menu-btn span::after { content: ""; position: absolute; inset-inline-start: 0; }
 		.menu-btn span::before { top: -6px; }
 		.menu-btn span::after { top: 6px; }
 		.navigation[popover] { inset: 4.5rem var(--space) auto; width: auto; margin: 0; padding: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); color: var(--text); box-shadow: 0 20px 50px rgb(0 0 0 / 0.18); }
 		.navigation[popover] ul { flex-direction: column; }
 		.navigation[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--radius) / 1.5); }
-		.navigation[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+		.navigation[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0; padding-inline-start: 1rem; border: 0; box-shadow: none; }
 		.navigation[popover] .submenu > a::after, .navigation[popover] .submenu > .menu-group::after { display: none; }
 		/* keyboard: Tab past the last item – the open menu hides so it does not cover the focused element (WCAG 2.4.11), and comes back
 		   when focus returns to the button or into the menu; Esc or a tap outside closes it completely */
@@ -115,14 +115,14 @@
 	.page-intro .text > h1:first-child { max-width: 18ch; font-size: clamp(2.5rem, 1.6rem + 4.5vw, 4.5rem); }
 	.page-intro .text > :where(p, ul) { max-width: var(--text-width); font-size: var(--step-1); color: var(--text-muted); }
 	.lead { font-size: var(--step-1); line-height: 1.5; color: var(--text-muted); }
-	.text blockquote { margin-inline: 0; padding-left: 1.2em; border-left: 3px solid var(--accent); }
+	.text blockquote { margin-inline: 0; padding-inline-start: 1.2em; border-inline-start: 3px solid var(--accent); }
 	.news-image { margin: 0 0 1.5em; }
 	.news-image img { width: 100%; border-radius: var(--radius); }
 	.news-updated { font-size: 0.875em; color: var(--text-muted); }
 	.news-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2em; }
 	.news-tags a { padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--surface); font-size: 0.875em; text-decoration: none; }
 	.related { margin-top: var(--space-large); padding-top: var(--space); border-top: 1px solid var(--line); }
-	.related ul { padding-left: 1.1em; }
+	.related ul { padding-inline-start: 1.1em; }
 
 	/* news list: cards that adapt to the width of the container (container queries), not the window */
 	.listing-header { max-width: var(--text-width); margin-bottom: var(--space); }

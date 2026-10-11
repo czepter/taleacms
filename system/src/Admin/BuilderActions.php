@@ -83,6 +83,8 @@ trait BuilderActions
             'version' => self::computeBuildVersion($target['draft'] ?? $target['build']),
             'schema' => $schema,
             'structured' => \Talea\Builder\StructuredData::forEditor(),
+            // rtl: the content fields follow the text of the page (the canvas has its own <html dir>), the editor itself stays left to right
+            'direction' => Language::dir(Language::ofContent($app->settings(), (string) $target['language'])),
             'collections' => $collections,
             'components' => $components,
             'ai' => (new \Talea\Core\Assistant($app->settings()))->isReady(),

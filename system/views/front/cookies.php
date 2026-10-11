@@ -35,15 +35,15 @@
 </div>
 <button type="button" class="cookies-reopen" id="cookies-reopen" hidden><?= e(t('Cookie settings')) ?></button>
 <style>
-.cookies-bar { position: fixed; z-index: 1000; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto 0 0; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.cookies-bar { position: fixed; z-index: 1000; inset-inline: 16px; bottom: 16px; max-width: 560px; margin-block: 0; margin-inline: 0 auto; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .cookies-bar p { margin: 6px 0 12px; }
 .cookies-bar a { color: inherit; }
 .cookies-options { display: grid; gap: 6px; margin-bottom: 14px; }
 .cookies-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .cookies-buttons button { padding: 9px 16px; border: 1px solid #14171F; border-radius: 6px; background: #14171F; color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer; }
 .cookies-buttons button[data-cookies="none"], .cookies-buttons button[data-cookies="save"] { background: #FFFFFF; color: #14171F; }
-.cookies-buttons .cookies-link { border-color: transparent; background: none; color: #14171F; text-decoration: underline; font-weight: 400; padding-left: 4px; padding-right: 4px; }
-.cookies-reopen { position: fixed; z-index: 999; left: 12px; bottom: 12px; padding: 5px 10px; border: 1px solid #D0D5DD; border-radius: 6px; background: #FFFFFF; color: #475467; font: 12px system-ui, sans-serif; cursor: pointer; opacity: 0.85; }
+.cookies-buttons .cookies-link { border-color: transparent; background: none; color: #14171F; text-decoration: underline; font-weight: 400; padding-inline: 4px; }
+.cookies-reopen { position: fixed; z-index: 999; inset-inline-start: 12px; bottom: 12px; padding: 5px 10px; border: 1px solid #D0D5DD; border-radius: 6px; background: #FFFFFF; color: #475467; font: 12px system-ui, sans-serif; cursor: pointer; opacity: 0.85; }
 </style>
 <script>
 (function () {
