@@ -43,7 +43,7 @@ final class ToolSetTest extends SiteTestCase
         $consent = $site->admin()->get('/admin.php?action=oauth')->body;
         $this->assertMatchesRegularExpression('/name="tool_set" value="essentials" checked/', $consent, 'Essentials is preselected on the consent screen');
 
-        $all = $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'nochoice'));
+        $all = $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'nochoice', ['access' => 'full']));
         $this->assertSame('all', $site->value('SELECT tool_set FROM tl_api_tokens WHERE token_hash = SHA2(?, 256)', [$all['access_token'] ?? '']), 'a consent without a tool set (an old page) lists all tools');
         $this->assertContains('list_redirects', $this->listed((string) $all['access_token']));
     }
