@@ -66,17 +66,21 @@ final class WpImport
 
     /* ---------- state file ---------- */
 
-    /** @return array<string, mixed> */
-    public static function newState(string $file): array
+    /**
+     * @param list<string> $siteLanguages the site's languages when the import begins (default and additional): an export's regional language the site has the language of folds into it
+     * @return array<string, mixed>
+     */
+    public static function newState(string $file, array $siteLanguages = []): array
     {
         return [
             'file' => $file, 'phase' => 'analysis', 'position' => 0, 'total' => 0, 'web' => ['name' => '', 'url' => ''],
             'overview' => ['articles' => [], 'pages' => [], 'categories' => 0, 'tags' => 0, 'authors' => 0, 'attachments' => 0, 'images' => 0, 'other' => [], 'shortcodes' => [], 'seo' => [], 'types' => []],
             'attachments' => [], 'options' => self::DEFAULT_OPTIONS, 'previews' => [],
-            // the languages of a multilingual export (Polylang, WPML): the plugin, Polylang slug => our code ('' = a language this
+            // the languages of a multilingual export (Polylang, WPML): the plugin, the site's own languages when the import began (a
+            // regional language of the export folds into the version the site has), Polylang slug => our code ('' = a language this
             // site cannot offer), items per language, the unavailable ones, the ones left out because the site lacks them, each
             // item's [code, type, slug], the translation groups (group => WordPress ids) and the versions the import added
-            'languages' => ['plugin' => '', 'codes' => [], 'found' => [], 'unsupported' => [], 'left_out' => [], 'items' => [], 'groups' => [], 'added' => []],
+            'languages' => ['plugin' => '', 'site' => $siteLanguages, 'codes' => [], 'found' => [], 'unsupported' => [], 'left_out' => [], 'items' => [], 'groups' => [], 'added' => []],
             'result' => ['articles' => 0, 'pages' => 0, 'categories' => 0, 'redirects' => 0, 'skipped' => 0, 'seo' => 0, 'items' => 0, 'translations' => 0, 'clashes' => 0],
             'clashes' => [], // slugs another language version already has – [address it would have, address it got, the other one]
             'images' => ['type' => 'news', 'id' => 0, 'done' => 0, 'total' => 0, 'downloaded' => 0, 'failed' => 0, 'errors' => []],
@@ -129,7 +133,7 @@ final class WpImport
             $state['overview']['authors'] = count($h['authors']);
             $state['languages']['plugin'] = $h['plugin'];
             foreach ($h['languages'] as $slug => $locale) {
-                $state['languages']['codes'][(string) $slug] = WpLanguages::code((string) $slug, $locale) ?? '';
+                $state['languages']['codes'][(string) $slug] = WpLanguages::code((string) $slug, $locale, (array) ($state['languages']['site'] ?? [])) ?? '';
             }
         }
         $end = microtime(true) + $seconds;
@@ -253,12 +257,12 @@ final class WpImport
         $raw = (string) ($p['language_wp'] ?? '');
         $codes = (array) ($state['languages']['codes'] ?? []);
         if ($raw !== '') {
-            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw) ?? '');
+            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw, '', (array) ($state['languages']['site'] ?? [])) ?? '');
 
             return $code === '' ? ['', $raw] : [$code, ''];
         }
         if (($state['languages']['plugin'] ?? '') !== '' || ($p['language_plugin'] ?? '') !== '') {
-            return [WpLanguages::urlLanguage((string) ($p['link'] ?? ''), array_keys(Language::AVAILABLE)), ''];
+            return [Language::forSite(WpLanguages::urlLanguage((string) ($p['link'] ?? ''), array_keys(Language::AVAILABLE)), (array) ($state['languages']['site'] ?? [])), ''];
         }
 
         return ['', ''];
@@ -713,7 +717,7 @@ final class WpImport
     private function termLanguage(int $term): ?string
     {
         $raw = $this->header['term_language'][$term] ?? '';
-        $code = $raw === '' ? null : WpLanguages::code($raw, $this->header['languages'][$raw] ?? '');
+        $code = $raw === '' ? null : WpLanguages::code($raw, $this->header['languages'][$raw] ?? '', [Language::defaults($this->settings), ...Language::additional($this->settings)]);
 
         return $code === null ? null : Language::column($this->settings, $code);
     }

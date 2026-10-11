@@ -74,7 +74,7 @@ final class Kernel
         // language version: /en/news/x -> language "en", path "/news/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());
-        if (preg_match('#^/([a-z]{2})(/.*)?$#', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
+        if (preg_match('#^/(' . Language::TAG . ')(/.*)?$#', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
             $language = $m[1];
             $app->languagePrefix = $m[1];
             $app->request->setPath($m[2] ?? '/');
@@ -128,14 +128,14 @@ final class Kernel
             return $oauth;
         }
         if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
-            return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
                 . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
                 . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
         // also Polylang's language home ?lang=en, stored as ?lang=en by the WordPress import
-        $lang = preg_match('/^[a-z]{2}$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
+        $lang = preg_match('/^' . Language::TAG . '$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
         if (($request->getInt('p') > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
             $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
             if ($target !== null) {
@@ -446,7 +446,7 @@ final class Kernel
         $css = \Talea\Builder\DesignSystem::css(\Talea\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Talea\Builder\Build::css($this->app->db(), $k) . '@layer classes {' . $classes . '}';
         $layout = $this->app->url('image/template.css');
 
-        return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
             . '<link rel="stylesheet" href="' . e($layout) . '"><link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '"><style>' . $css . 'body{margin:0}</style></head>'
             . '<body><main class="build">' . $html . '</main></body></html>', 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, max-age=300']);
     }
@@ -1463,7 +1463,7 @@ final class Kernel
             'menu' => $this->menu('main'),
             'menu_footer' => $this->menu('footer'),
             'menu_html' => \Talea\Core\Menu::html(...),
-            'language' => Language::code(),
+            'language' => Language::tag(Language::code()),
             'languages_html' => $languagesHtml,
             'with_news' => Extensions::isEnabled($siteSettings, 'news'), // News extension enabled (RSS links in the template)
             'parts' => $parts,

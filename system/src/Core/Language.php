@@ -20,14 +20,18 @@ final class Language
     /**
      * code => [name in that language, locale (Open Graph, date format), numeric date format for date()]. Right-to-left languages
      * (Arabic, Hebrew) are not available yet – templates and the builder do not account for them.
+     * Regional versions (en-gb, de-at, pt-br, zh-hant) are stored and addressed in lowercase (/pt-br/) and follow their language: they use
+     * the dictionary of base() unless they have one of their own, and print their tag in the canonical case (tag(): pt-BR) in lang and hreflang.
      */
     public const array AVAILABLE = [
         'cs' => ['Čeština', 'cs_CZ', 'j. n. Y'],
         'en' => ['English', 'en_US', 'j M Y'],
+        'en-gb' => ['English (UK)', 'en_GB', 'j M Y'],
         'bg' => ['Български', 'bg_BG', 'd.m.Y'],
         'ca' => ['Català', 'ca_ES', 'd/m/Y'],
         'da' => ['Dansk', 'da_DK', 'd.m.Y'],
         'de' => ['Deutsch', 'de_DE', 'd.m.Y'],
+        'de-at' => ['Deutsch (Österreich)', 'de_AT', 'd.m.Y'],
         'el' => ['Ελληνικά', 'el_GR', 'd/m/Y'],
         'es' => ['Español', 'es_ES', 'd/m/Y'],
         'et' => ['Eesti', 'et_EE', 'd.m.Y'],
@@ -45,6 +49,7 @@ final class Language
         'no' => ['Norsk', 'nb_NO', 'd.m.Y'],
         'pl' => ['Polski', 'pl_PL', 'd.m.Y'],
         'pt' => ['Português', 'pt_PT', 'd/m/Y'],
+        'pt-br' => ['Português (Brasil)', 'pt_BR', 'd/m/Y'],
         'ro' => ['Română', 'ro_RO', 'd.m.Y'],
         'sk' => ['Slovenčina', 'sk_SK', 'j. n. Y'],
         'sl' => ['Slovenščina', 'sl_SI', 'j. n. Y'],
@@ -62,10 +67,14 @@ final class Language
         'ko' => ['한국어', 'ko_KR', 'Y. m. d.'],
         'vi' => ['Tiếng Việt', 'vi_VN', 'd/m/Y'],
         'zh' => ['中文', 'zh_CN', 'Y-m-d'],
+        'zh-hant' => ['中文（繁體）', 'zh_TW', 'Y/m/d'],
     ];
 
     /** Codes from AVAILABLE for Settings field types (choice:… / list:…). */
-    public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
+    public const string CODES = 'cs|en|en-gb|bg|ca|da|de|de-at|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|pt-br|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh|zh-hant';
+
+    /** A stored language code as a regular expression (without delimiters): "de", "pt-br", "zh-hant". The only place the shape of a code is written. */
+    public const string TAG = '[a-z]{2}(?:-[a-z]{2,4})?';
 
     private static string $code = 'en';
 
@@ -115,15 +124,17 @@ final class Language
 
             return;
         }
+        // a regional version without a dictionary of its own uses the one of its language (de-at → de.php, en-gb → en.php)
         $file = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '.php';
+        $file = is_file($file) ? $file : TALEA_SYSTEM . '/languages/' . $dictionarySet . self::base(self::$code) . '.php';
         $custom = is_file($file) ? require $file : [];
-        $overlay = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '-du.php';
+        $overlay = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::base(self::$code) . '-du.php';
         if (self::$register === 'informal' && is_file($overlay)) {
             $custom = (require $overlay) + $custom;
         }
-        $baseDictionary = self::$code !== 'en' && is_file(TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php') ? require TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php' : [];
+        $baseDictionary = self::base(self::$code) !== 'en' && is_file(TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php') ? require TALEA_SYSTEM . '/languages/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
-        if (self::$code !== 'en') {
+        if (self::base(self::$code) !== 'en') {
             // the date format from the English dictionary is not taken over: its own, otherwise the language's numeric format and the date in words from the Czech keys of days and months
             if (!isset($custom['datum_format'])) {
                 self::$dictionary['datum_format'] = self::AVAILABLE[self::$code][2];
@@ -170,10 +181,64 @@ final class Language
         }
     }
 
-    /** Value of the "language" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
+    /** Value of the "language" column for the currently shown version of the site ('' = default language). Only '' or a code of TAG (de, pt-br). */
     public static function siteColumn(): string
     {
         return self::$column;
+    }
+
+    /** The language subtag of a stored code: pt-br → pt, zh-hant → zh, cs → cs. What a regional version shares with its language. */
+    public static function base(string $code): string
+    {
+        return explode('-', $code, 2)[0];
+    }
+
+    /**
+     * A stored code in the canonical case of BCP 47 for <html lang>, hreflang, feeds and structured data: the language lowercase, a
+     * script titlecase, a region uppercase – pt-br → pt-BR, zh-hant → zh-Hant. A two-letter code stays as it is. URLs, settings keys and
+     * the database keep the lowercase form.
+     */
+    public static function tag(string $code): string
+    {
+        $parts = explode('-', strtolower($code));
+        foreach ($parts as $i => $part) {
+            if ($i > 0) {
+                $parts[$i] = strlen($part) === 4 ? ucfirst($part) : strtoupper($part);
+            }
+        }
+
+        return implode('-', $parts);
+    }
+
+    /**
+     * A code from another system (a WordPress locale pt_BR, a slug zh-tw, nb) as the site offers it: the longest part of it that is in
+     * AVAILABLE (pt_BR → pt-br, zh-Hant-TW → zh-hant, en-US → en, nb → no); '' = a language this site cannot offer.
+     */
+    public static function fromForeign(string $tag): string
+    {
+        $tag = (string) preg_replace('/^n[bn](?=-|$)/', 'no', strtolower(str_replace('_', '-', trim($tag))));
+        $tag = (string) preg_replace('/^zh-(tw|hk|mo)(?=-|$)/', 'zh-hant', $tag); // Traditional Chinese is written by its region as well
+        if (preg_match('/^' . self::TAG . '(?:-[a-z0-9]{2,8})*$/D', $tag) !== 1) {
+            return '';
+        }
+        for ($parts = explode('-', $tag); $parts !== []; array_pop($parts)) {
+            if (isset(self::AVAILABLE[$code = implode('-', $parts)])) {
+                return $code;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * A code for a site with the languages $site: a regional version the site does not have, whose language it has, becomes that
+     * language (en-gb into a site with en); anything else stays. Imports use it so a regional source lands in the version the site has.
+     *
+     * @param list<string> $site the default and the additional languages
+     */
+    public static function forSite(string $code, array $site): string
+    {
+        return $code !== '' && !in_array($code, $site, true) && in_array(self::base($code), $site, true) ? self::base($code) : $code;
     }
 
     /** Any value to formal | informal (anything unknown, empty included, is formal). */
@@ -200,7 +265,7 @@ final class Language
      */
     public static function visitorAddress(Settings $s): ?string
     {
-        return in_array('de', array_merge([self::defaults($s)], self::additional($s)), true) ? self::normalizeRegister($s->get('german_register')) : null;
+        return in_array('de', array_map(self::base(...), array_merge([self::defaults($s)], self::additional($s))), true) ? self::normalizeRegister($s->get('german_register')) : null;
     }
 
     /** Register of the currently loaded dictionary: only German has an informal one. */
@@ -271,6 +336,8 @@ final class Language
     /** Value of the "language" column for the given language: the site's default language is stored as an empty string. */
     public static function column(Settings $s, string $code): string
     {
+        $code = self::forSite($code, [self::defaults($s), ...self::additional($s)]); // en-gb into a site with English only is English
+
         return $code === self::defaults($s) || !in_array($code, self::additional($s), true) ? '' : $code;
     }
 }

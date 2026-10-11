@@ -725,7 +725,7 @@ class Settings extends Module
         foreach (self::FIELDS as $field) {
             $type ??= $field[$key] ?? null;
         }
-        if ($type === null && preg_match('/^(site_name|site_description)_([a-z]{2})$/', $key, $m)) {
+        if ($type === null && preg_match('/^(site_name|site_description)_(' . \Talea\Core\Language::TAG . ')$/D', $key, $m)) {
             $type = $m[1] === 'site_name' ? 'text' : 'lines';
         }
         if ($type === null || str_starts_with($type, 'secret') || str_starts_with($type, 'list')) {

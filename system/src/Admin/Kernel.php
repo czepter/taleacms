@@ -71,7 +71,8 @@ final class Kernel
         \Talea\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
-        $language = (string) ($app->auth()->user()['language'] ?? '') ?: \Talea\Core\Language::defaults($app->settings());
+        // (a regional site language such as de-at gives the administration of its language)
+        $language = \Talea\Core\Language::base((string) ($app->auth()->user()['language'] ?? '') ?: \Talea\Core\Language::defaults($app->settings()));
         \Talea\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Talea\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Talea\Core\Language::set(isset(\Talea\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'en', 'admin-');

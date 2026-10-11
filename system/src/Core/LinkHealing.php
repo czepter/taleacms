@@ -99,7 +99,7 @@ final class LinkHealing
             $host = $origin;
             $url = substr($url, strlen($origin));
         }
-        $pattern = '#^/(?:([a-z]{2})/)?' . preg_quote($old, '#') . '(/?)([?\#].*)?$#s';
+        $pattern = '#^/(?:(' . Language::TAG . ')/)?' . preg_quote($old, '#') . '(/?)([?\#].*)?$#s';
         if (!str_starts_with($url, '/') || preg_match($pattern, $url, $m) !== 1) {
             return null;
         }
