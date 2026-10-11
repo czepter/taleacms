@@ -5689,4 +5689,12 @@ return [
     'base' => 'základní',
     'above' => 'nad',
     'top' => 'nahoře',
+    'Sample content “%s” – replace it with your own or delete it.' => 'Ukázkový obsah „%s“ – nahraďte ho vlastním nebo smažte.',
+    'Sample content from the starter site is still here (%d: %s) – replace it with your own or delete it before publishing. Invented reviews and numbers can mislead visitors.' => 'Na stránce zůstal ukázkový obsah ze startovní šablony (%d: %s) – před zveřejněním ho nahraďte vlastním nebo smažte. Vymyšlené reference a čísla mohou návštěvníky uvést v omyl.',
+    'The page text still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Text stránky stále obsahuje zástupné texty v hranatých závorkách (%s) – doplňte je nebo smažte.',
+    'The text still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Text stále obsahuje zástupné texty v hranatých závorkách (%s) – doplňte je nebo smažte.',
+    'The item still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Položka stále obsahuje zástupné texty v hranatých závorkách (%s) – doplňte je nebo smažte.',
+    'No placeholders in square brackets left.' => 'V textu nezůstaly žádné zástupné texty v hranatých závorkách.',
+    'Placeholders in square brackets are still in the text (%s) – fill them in or delete them before publishing.' => 'V textu stále zůstávají zástupné texty v hranatých závorkách (%s) – před zveřejněním je doplňte nebo smažte.',
+    'Sample content' => 'Ukázkový obsah',
 ];

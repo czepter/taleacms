@@ -5693,4 +5693,12 @@ return [
     'base' => 'Standard',
     'above' => 'darüber',
     'top' => 'ganz oben',
+    'Sample content “%s” – replace it with your own or delete it.' => 'Beispielinhalt „%s“ – ersetzen Sie ihn durch Ihren eigenen oder löschen Sie ihn.',
+    'Sample content from the starter site is still here (%d: %s) – replace it with your own or delete it before publishing. Invented reviews and numbers can mislead visitors.' => 'Auf der Seite steht noch Beispielinhalt aus der Startvorlage (%d: %s) – ersetzen Sie ihn vor dem Veröffentlichen durch Ihren eigenen oder löschen Sie ihn. Erfundene Bewertungen und Zahlen können Besucher in die Irre führen.',
+    'The page text still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Der Seitentext enthält noch Platzhalter in eckigen Klammern (%s) – füllen Sie sie aus oder löschen Sie sie.',
+    'The text still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Der Text enthält noch Platzhalter in eckigen Klammern (%s) – füllen Sie sie aus oder löschen Sie sie.',
+    'The item still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Der Eintrag enthält noch Platzhalter in eckigen Klammern (%s) – füllen Sie sie aus oder löschen Sie sie.',
+    'No placeholders in square brackets left.' => 'Keine Platzhalter in eckigen Klammern mehr übrig.',
+    'Placeholders in square brackets are still in the text (%s) – fill them in or delete them before publishing.' => 'Im Text stehen noch Platzhalter in eckigen Klammern (%s) – füllen Sie sie vor dem Veröffentlichen aus oder löschen Sie sie.',
+    'Sample content' => 'Beispielinhalt',
 ];

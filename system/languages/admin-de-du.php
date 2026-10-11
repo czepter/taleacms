@@ -854,4 +854,12 @@ return [
     'Choose a Media folder.' => 'Wähle einen Medienordner.',
     'Choose a member group.' => 'Wähle eine Mitgliedergruppe.',
     'Cannot create the folder storage/galleries – check the write permissions.' => 'Der Ordner storage/galleries kann nicht erstellt werden – prüfe die Schreibrechte.',
+    'Sample content “%s” – replace it with your own or delete it.' => 'Beispielinhalt „%s“ – ersetze ihn durch deinen eigenen oder lösche ihn.',
+    'Sample content from the starter site is still here (%d: %s) – replace it with your own or delete it before publishing. Invented reviews and numbers can mislead visitors.' => 'Auf der Seite steht noch Beispielinhalt aus der Startvorlage (%d: %s) – ersetze ihn vor dem Veröffentlichen durch deinen eigenen oder lösche ihn. Erfundene Bewertungen und Zahlen können Besucher in die Irre führen.',
+    'The page text still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Der Seitentext enthält noch Platzhalter in eckigen Klammern (%s) – fülle sie aus oder lösche sie.',
+    'The text still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Der Text enthält noch Platzhalter in eckigen Klammern (%s) – fülle sie aus oder lösche sie.',
+    'The item still has placeholders in square brackets (%s) – fill them in or delete them.' => 'Der Eintrag enthält noch Platzhalter in eckigen Klammern (%s) – fülle sie aus oder lösche sie.',
+    'No placeholders in square brackets left.' => 'Keine Platzhalter in eckigen Klammern mehr übrig.',
+    'Placeholders in square brackets are still in the text (%s) – fill them in or delete them before publishing.' => 'Im Text stehen noch Platzhalter in eckigen Klammern (%s) – fülle sie vor dem Veröffentlichen aus oder lösche sie.',
+    'Sample content' => 'Beispielinhalt',
 ];
