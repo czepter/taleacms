@@ -75,7 +75,10 @@ final class RegionalLanguagesTest extends TestCase
         $this->assertSame('en', Language::forSite('en-gb', ['en', 'de']), 'the site has English but not British English');
         $this->assertSame('en-gb', Language::forSite('en-gb', ['de']), 'no English at all: the regional version stays');
         $this->assertSame('en-gb', Language::forSite('en-gb', ['en', 'en-gb']), 'the site has the version');
-        $this->assertSame('de', Language::forSite('de', ['de-at']), 'a language never turns into a region');
+        $this->assertSame('de-at', Language::forSite('de', ['cs', 'de-at']), 'a language the site has only as a region becomes it');
+        $this->assertSame('de', Language::forSite('de', ['cs']), 'a language the site lacks stays');
+        $this->assertSame('en-gb', Language::forSite('en', ['cs', 'en-gb']), 'a language the site has only as a regional version');
+        $this->assertSame('en', Language::forSite('en', ['en', 'en-gb']));
         $this->assertSame('', Language::forSite('', ['en']));
     }
 

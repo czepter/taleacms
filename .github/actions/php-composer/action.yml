@@ -1,0 +1,80 @@
+# PHP and Composer for the self-hosted runners, in one step. Two jobs failed with "Unable to find Composer at …/_work/_tool/setup-php/tools/composer":
+# the runner's tool cache said "installed" while the file was gone, and ramsey/composer-install does not look anywhere else.
+# So: Composer is requested explicitly, installed again from getcomposer.org when the runner has none, and `composer install` is
+# retried (a registry hiccup or a cache that vanished between two steps must not fail a pull request).
+# The two runners share one host, which setup-php documents as unsupported ("parallel workflows will conflict with each other"):
+# one job rewrites /usr/local/bin/composer while the other runs it ('Class "Composer\Util\PackageSorter" not found in phar://…').
+# So setup-php itself is tried up to three times, with a pause in between, before the job is allowed to fail.
+name: PHP and Composer
+description: Sets up PHP with Composer on a self-hosted runner and installs the dependencies
+inputs:
+  php-version:
+    description: PHP version
+    default: '8.5'
+  extensions:
+    description: PHP extensions
+    default: 'pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache'
+  install:
+    description: Run composer install ('false' for jobs that only need PHP)
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      id: php1
+      continue-on-error: true
+      env:
+        runner: self-hosted
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        tools: composer:v2
+        coverage: none
+    - name: Pause before trying setup-php again
+      if: steps.php1.outcome == 'failure'
+      shell: bash
+      run: sleep 20
+    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      id: php2
+      if: steps.php1.outcome == 'failure'
+      continue-on-error: true
+      env:
+        runner: self-hosted
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        tools: composer:v2
+        coverage: none
+    - name: Pause before trying setup-php again
+      if: steps.php2.outcome == 'failure'
+      shell: bash
+      run: sleep 45
+    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      id: php3
+      if: steps.php2.outcome == 'failure'
+      env:
+        runner: self-hosted
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        tools: composer:v2
+        coverage: none
+    - name: Composer (installed again when the runner lost it, install retried)
+      if: inputs.install == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v composer >/dev/null 2>&1; then
+          echo "::warning::no composer on this runner: installing it from getcomposer.org"
+          mkdir -p "$HOME/.local/bin"
+          curl -fsS https://getcomposer.org/installer | php -- --quiet --install-dir="$HOME/.local/bin" --filename=composer
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+        fi
+        composer --version
+        for attempt in 1 2 3; do
+          if composer install --no-interaction --no-progress --prefer-dist; then exit 0; fi
+          echo "::warning::composer install failed (attempt $attempt of 3)"
+          sleep $((attempt * 10))
+        done
+        exit 1

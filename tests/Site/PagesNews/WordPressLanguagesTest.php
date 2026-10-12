@@ -74,22 +74,22 @@ final class WordPressLanguagesTest extends SiteTestCase
         $this->adminPost(self::TRANSFER . '&action=select', ['file' => 'wordpress-polylang.xml']);
         $this->runImport('wordpress-polylang.xml', ['drafts' => 1, 'pages' => 1, 'redirects' => 1, 'category' => 0, 'add_languages' => 1]);
         $this->assertStringContainsString('Language versions added to the site: English', self::$lastBatch);
-        $this->assertSame('en', $this->site()->settingValue('additional_languages'), 'the English version was added');
+        $this->assertSame('en-gb', $this->site()->settingValue('additional_languages'), 'the English version was added (the export is en_GB and the site has no English: the regional version)');
 
         $pages = $this->bySlug('pages', 'page_id, language, translation_of');
-        $this->assertSame('en', $pages['solutions-ictx']['language'], 'the translation is in its language version');
+        $this->assertSame('en-gb', $pages['solutions-ictx']['language'], 'the translation is in its language version');
         $this->assertSame((int) $pages['reseni-ictx']['page_id'], (int) $pages['solutions-ictx']['translation_of'], 'a translation that came before its original is linked to it');
         $this->assertSame((int) $pages['kontakt-ictx']['page_id'], (int) $pages['kontakt-ictx-2']['translation_of'], 'the page that shared a slug got a number and is linked');
-        $this->assertStringContainsString('/en/kontakt-ictx-2 instead of /en/kontakt-ictx', self::$lastBatch, 'the slug clash is reported');
+        $this->assertStringContainsString('/en-gb/kontakt-ictx-2 instead of /en-gb/kontakt-ictx', self::$lastBatch, 'the slug clash is reported');
         $this->assertSame(301, $this->site()->client('visitor')->get('/en/kontakt-ictx')->status, 'the old address of a renamed translation redirects');
 
         $news = $this->bySlug('news', 'news_id, language, translation_of, category_id');
         $this->assertArrayHasKey('snidane-s-ai-ictx', $news, 'the Czech post came');
-        $this->assertSame('en', $news['breakfast-with-ai-ictx']['language'], 'the English post came in its version');
+        $this->assertSame('en-gb', $news['breakfast-with-ai-ictx']['language'], 'the English post came in its version');
         $this->assertSame((int) $news['snidane-s-ai-ictx']['news_id'], (int) $news['breakfast-with-ai-ictx']['translation_of'], 'posts are linked');
         $categories = $this->bySlug('categories', 'category_id, name, language, translation_of');
         $this->assertSame('ICTX Blog', $categories['blog-ictx-2']['name'], 'the English category kept its own name although both share a slug');
-        $this->assertSame('en', $categories['blog-ictx-2']['language'], 'the category belongs to its language version');
+        $this->assertSame('en-gb', $categories['blog-ictx-2']['language'], 'the category belongs to its language version');
         $this->assertSame((int) $categories['blog-ictx']['category_id'], (int) $categories['blog-ictx-2']['translation_of'], 'categories are linked');
         $this->assertSame((int) $categories['blog-ictx-2']['category_id'], (int) $news['breakfast-with-ai-ictx']['category_id'], 'the post sits in the category of its language');
         $this->assertSame(301, $this->site()->client('visitor')->get('/?lang=en')->status, 'Polylang\'s language home redirects');
@@ -103,7 +103,7 @@ final class WordPressLanguagesTest extends SiteTestCase
         $pages = $this->bySlug('pages', 'page_id, language, translation_of');
         $this->assertSame((int) $pages['sluzby-wpx']['page_id'], (int) $pages['services-wpx']['translation_of'], 'a WPML translation group is linked');
         $this->assertSame((int) $pages['cenik-wpx']['page_id'], (int) $pages['cenik-wpx-en']['translation_of'], 'a WPML duplicate is linked to its original');
-        $this->assertSame('en', $pages['about-wpx']['language'], 'a page without WPML fields takes its language from /en/ in its address');
+        $this->assertSame('en-gb', $pages['about-wpx']['language'], 'a page without WPML fields takes its language from /en/ in its address (the site has English as en-gb)');
         $this->assertNull($pages['about-wpx']['translation_of'], 'and is linked to nothing');
         $news = $this->bySlug('news', 'news_id, language, translation_of');
         $this->assertSame((int) $news['novy-servisni-vuz-wpx']['news_id'], (int) $news['new-service-van-wpx']['translation_of'], 'WPML posts are linked');

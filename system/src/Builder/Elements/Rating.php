@@ -23,7 +23,7 @@ final class Rating extends Element
     {
         return [
             'value' => ['type' => 'text', 'label' => 'Rating (0–5, e.g. 4.8)', 'default' => '4,8', 'max' => 4],
-            'text' => ['type' => 'text', 'label' => 'Text next to the stars', 'default' => t('out of 5 · 120 reviews'), 'max' => 120],
+            'text' => ['type' => 'text', 'label' => 'Text next to the stars', 'default' => t('out of 5 · [number] reviews'), 'max' => 120],
         ];
     }
 
