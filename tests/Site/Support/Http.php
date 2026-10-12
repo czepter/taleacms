@@ -7,6 +7,9 @@ namespace Talea\Tests\Site\Support;
 /** A browser of the test site: its own cookie jar, so two instances are two sessions. */
 final class Http
 {
+    /** The cURL error of the last request (a refused or reset connection, a timeout); null when it got an answer. */
+    public ?string $lastError = null;
+
     private readonly string $jar;
 
     public function __construct(private readonly string $base, string $jarDir, string $name = 'session')
@@ -93,6 +96,7 @@ final class Http
             curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($data) && !$multipart ? $this->encode($data) : ($data ?? ''));
         }
         $body = (string) curl_exec($ch);
+        $this->lastError = curl_errno($ch) !== 0 ? curl_error($ch) : null;
         $response = new Response((int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE), $body, (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL), $responseHeaders);
 
         return $response;
