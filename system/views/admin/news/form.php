@@ -73,7 +73,7 @@ $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($
 	<span class="help"><?= e(t('A future date = the news item is published automatically at that time.')) ?></span></div>
 </div>
 <div class="row">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($newsItem['valid_until'] ?? '')) ?>">
 	<span class="help"><?= e(t('After this day the news item hides itself. Empty = always.')) ?></span></div>
 </div>

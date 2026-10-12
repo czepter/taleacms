@@ -70,7 +70,7 @@
 <?php foreach ($items as $p): ?>
 <tr<?= $p['visible'] ? '' : ' class="unpublished"' ?>>
 	<td><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $p['name'])) ?>"></td>
-	<td><a href="<?= e($module->url('item', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e($p['name']) ?></a><?= $p['language'] !== '' ? ' <span class="badge">' . e(strtoupper($p['language'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('item', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e($p['name']) ?></a><?= $p['language'] !== '' ? ' <span class="badge">' . e(strtoupper($p['language'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('visible until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['sort_order'] ?></td>
 <?php if ($downloads !== null): ?>
 	<td class="number download"><?= (int) ($downloads[(int) $p['item_id']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['item_id']][1] ?? 0) ?></td>

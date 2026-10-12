@@ -68,7 +68,7 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <div class="row"><label for="referrer"><?= e(t('Only from a referrer')) ?></label><div><input class="textfield" id="referrer" name="referrer" value="<?= e($rules['referrer']) ?>" maxlength="80"><span class="help"><?= e(t('Part of the address of the site the visitor came from (e.g. facebook.com). Empty = from anywhere.')) ?></span></div></div>
 </fieldset>
 <div class="row">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
 	<span class="help"><?= e(t('After this day the pop-up switches itself off. Empty = always.')) ?></span></div>
 </div>

@@ -229,7 +229,8 @@ final class Presets
         if (is_string($image)) {
             $card[] = $n('image', ['src' => '{{' . $image . '}}', 'alt' => '{{name}}']);
         }
-        $card[] = ['tag' => 'h3'] + $n('heading', ['text' => '{{name}}']);
+        // an h2 under the page's h1 (an h3 skipped a level), in the size the h3 had
+        $card[] = ['tag' => 'h2', 'style' => ['base' => ['font_size' => '1']]] + $n('heading', ['text' => '{{name}}']);
         foreach ((array) $preset['card'] as $key) {
             // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
             if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {

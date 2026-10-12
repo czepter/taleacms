@@ -61,7 +61,7 @@ final class CollectionList extends Element
     {
         // the class card from the section library (the editor creates it on insert if the site does not have it yet)
         return [['classes' => ['card']] + \Talea\Builder\Build::fresh('container', [], [
-            ['tag' => 'h3'] + \Talea\Builder\Build::fresh('heading', ['text' => '{{name}}']),
+            ['tag' => 'h2', 'style' => ['base' => ['font_size' => '1']]] + \Talea\Builder\Build::fresh('heading', ['text' => '{{name}}']),
             \Talea\Builder\Build::fresh('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
         ])];
     }

@@ -64,7 +64,7 @@ $running = in_array($state['phase'], ['analysis', 'import', 'images'], true);
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>
-<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
+<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigation" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show the pages')) ?></a><?php if ($app->auth()->hasModule('redirects')): // somewhere to go after the counts ?> <a class="navigation" href="<?= e($app->url('admin.php?module=redirects')) ?>"><?= e(t('Show the redirects')) ?></a><?php endif ?> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
 <h2><?= e(t('Images from the old site')) ?></h2>
 <?php if ($state['phase'] === 'images_done'): ?>

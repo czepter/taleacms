@@ -17,7 +17,7 @@ $statuses = ['publish' => 'published', 'future' => 'scheduled', 'draft' => 'draf
 $byStatus = function (array $counts) use ($statuses): string {
     $parts = [];
     foreach ($counts as $s => $count) {
-        $parts[] = (int) $count . ' ' . t($statuses[$s] ?? 'other');
+        $parts[] = t($statuses[$s] ?? 'other') . ': ' . (int) $count; // "drafts: 1" – no plural forms needed
     }
 
     return implode(', ', $parts);
@@ -85,7 +85,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endforeach ?>
 </select><span class="help"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>
-<div class="row"><span class="caption"><?= e(t('What to import')) ?></span><div class="options">
+<div class="row"><span class="caption"><?= e(t('What to import')) ?></span><div class="options options-stacked">
 	<label><input type="checkbox" name="drafts" value="1"<?= $options['drafts'] ? ' checked' : '' ?>> <?= e(t('drafts and posts pending review (%s)', (int) (($p['articles']['draft'] ?? 0) + ($p['articles']['pending'] ?? 0)))) ?></label>
 	<label><input type="checkbox" name="pages" value="1"<?= $options['pages'] ? ' checked' : '' ?>> <?= e(t('pages (%s)', $converts($p['pages']))) ?></label>
 	<label><input type="checkbox" name="builder" value="1"<?= ($options['builder'] ?? true) ? ' checked' : '' ?>> <?= e(t('pages straight into the builder – edit them visually; the original text stays as a backup')) ?></label>

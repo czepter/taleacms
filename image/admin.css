@@ -583,6 +583,14 @@ form.center.small-text .btn {
 	font-weight: 400;
 	margin-right: 16px;
 }
+/* the import choices one under another, so each label reads on its own line */
+.form .options-stacked {
+	display: grid;
+	gap: 6px;
+}
+.form .options-stacked label {
+	margin-right: 0;
+}
 .form .buttons {
 	display: flex;
 	flex-wrap: wrap;
@@ -910,17 +918,13 @@ body.login {
 .article-settings .advanced[open] summary {
 	margin-bottom: 14px;
 }
-/* article and page title: a large field without a border (must stay after the .textfield rules) */
+/* article and page title: a large field (must stay after the .textfield rules), with the usual visible border - a borderless field
+   on a white card looked like empty space */
 .title-field {
 	padding: 8px 10px;
-	border-color: transparent;
 	font-size: 20px;
 	font-weight: 700;
 	letter-spacing: -0.02em;
-}
-.title-field:focus {
-	border-color: var(--line-field);
-	box-shadow: none;
 }
 .article-main .row > label {
 	font-size: 12px;

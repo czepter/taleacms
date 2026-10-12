@@ -9,9 +9,12 @@
  * @var bool $customMenu  the site has a built main menu
  * @var list<array{page_id:int, title:string, slug:string}> $parents  possible parent pages
  * @var list<array{revision_id:int, created_at:string, title:string, user_id:?string}> $versions  older versions of the text
+ * @var ?string $translationOf  the title of the original when this is a new translation
+ * @var string $languageName  the name of the page's language version
  */
 // the content fields of a right-to-left version (Arabic) are written from the right; the administration around them stays as it is
 $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) ($page['language'] ?? '')));
+$copyBuild = !$page['page_id'] && !empty($page['copy_build']);
 $segment = basename((string) $page['slug']);
 $prefix = '';
 foreach ($parents as $r) {
@@ -29,14 +32,21 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <p class="notice notice-warning"><?= e(t(($page['build'] ?? null) !== null ? 'The builder has work-in-progress changes that are not on the site yet.' : 'You are building this page in the builder. The site still shows the text below – once you publish in the builder, the build replaces it.')) ?>
 	<a href="<?= e($module->url('builder', ['id' => $page['public_id']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 <?php endif ?>
+<?php if (!$page['page_id'] && ($translationOf ?? null) !== null): ?>
+<p class="notice"><?= e($copyBuild ? t('Translate “%s” into %s – the page starts as a copy of the original; replace the texts and publish.', $translationOf, $languageName)
+    : t('Translate “%s” into %s – the text below is a copy of the original; replace it and publish.', $translationOf, $languageName)) ?></p>
+<?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>" data-draft="page-<?= e($page['public_id'] ?: 'new') ?>">
 <?= $csrf ?>
+<?php if ($copyBuild): ?>
+<input type="hidden" name="copy_build" value="1">
+<?php endif ?>
 <input type="hidden" name="page_id" value="<?= e($page['public_id']) ?>">
 <div class="row span-all">
 	<label for="title"><?= e(t('Page title')) ?></label>
-	<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($page['title']) ?>" maxlength="200" required<?= $contentDir ?>><?= $error('title') ?>
+	<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($page['title']) ?>" maxlength="200" required placeholder="<?= e(t('e.g. Garden design')) ?>"<?= $page['page_id'] ? '' : ' autofocus' ?><?= $contentDir ?>><?= $error('title') ?>
 </div>
-<?php if (!$page['page_id']): ?>
+<?php if (!$page['page_id'] && ($translationOf ?? null) === null): ?>
 <div class="row">
 	<label for="template"><?= e(t('Start from a template')) ?></label>
 	<div><select id="template" name="template">
@@ -47,7 +57,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	</select><span class="help"><?= e(t('A template builds the page from ready-made sections with sample texts and opens it in the builder.')) ?></span></div>
 </div>
 <?php endif ?>
-<?php if (($page['build'] ?? null) !== null): ?>
+<?php if ($copyBuild): ?>
+<input type="hidden" name="text" value="">
+<?php elseif (($page['build'] ?? null) !== null): ?>
 <div class="row span-all">
 	<p class="notice"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="btn" href="<?= e($module->url('builder', ['id' => $page['public_id']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 	<input type="hidden" name="text" value="<?= e($page['text']) ?>">
@@ -126,9 +138,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	</div>
 </div>
 <div class="row">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($page['valid_until'] ?? '')) ?>">
-	<span class="help"><?= e(t('After this day the page hides itself. Empty = always.')) ?></span></div>
+	<span class="help"><?= e(t('After this day the page hides itself. Leave empty to keep it visible.')) ?></span></div>
 </div>
 <div class="row">
 	<label for="review_by"><?= e(t('Review by')) ?></label>
@@ -140,8 +152,21 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<div><input class="textfield" type="number" id="sort_order" name="sort_order" value="<?= (int) $page['sort_order'] ?>" min="0" max="65535">
 	<span class="help"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
+<?php if ($copyBuild): ?>
+<p class="buttons"><button class="btn" type="submit"><?= e(t('Create the translation and open the builder')) ?></button></p>
+<?php else: ?>
 <p class="buttons"><button class="btn" type="submit"><?= e(t('Save')) ?></button><?php if (($page['build'] ?? null) === null): ?> <button class="navigation" type="submit" name="after_save" value="builder"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
+<?php endif ?>
 </form>
+<?php if (!$page['page_id'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Talea\Core\Extensions::isEnabled($app->settings(), 'claude')): // translating is what Claude does well ?>
+<form class="form" method="post" action="<?= e($app->url('admin.php?module=requests&action=save')) ?>">
+<?= $csrf ?>
+<input type="hidden" name="quick" value="1">
+<input type="hidden" name="about" value="page:<?= e($app->db()->publicId('pages', (int) $page['translation_of'])) ?>">
+<input type="hidden" name="text" value="<?= e(t('Translate the page “%s” into %s: start the translation as a copy of the original build, translate all its texts and leave it as a draft for me to check.', $translationOf, $languageName)) ?>">
+<p class="help"><?= e(t('Or let Claude do it: it creates the translation as a draft for you to check.')) ?> <button class="navigation" type="submit"><?= e(t('Ask Claude to translate it')) ?></button></p>
+</form>
+<?php endif ?>
 <?php if ($versions !== []): ?>
 <details class="advanced">
 <summary><?= e(t('Text history (%s)', count($versions))) ?></summary>
