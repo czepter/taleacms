@@ -514,7 +514,8 @@ final class Site
         }
         if (!$answer->contains($this->options['doneText'] ?? 'Done, your website is running')) {
             $log = @file_get_contents($this->work . '/server-' . $this->port . '.log');
-            throw new \RuntimeException('The installer failed (HTTP ' . $answer->status . ($visitor->lastError !== null ? ', ' . $visitor->lastError : '') . '): ' . mb_substr($answer->text(), 0, 1100)
+            throw new \RuntimeException('The installer failed (HTTP ' . $answer->status . ', ' . strlen($answer->text()) . ' bytes' . ($visitor->lastError !== null ? ', ' . $visitor->lastError : '')
+                . ($answer->text() === '' ? ', an empty answer: a PHP fatal error, a time-out or a killed worker – see the PHP log of the runner' : '') . '): ' . mb_substr($answer->text(), 0, 1100)
                 . ($log !== false && $log !== '' ? "\nServer log: " . mb_substr($log, -1500) : ''));
         }
 
