@@ -28,10 +28,10 @@ final class ConnectionAccessTest extends SiteTestCase
         $site = $this->site();
         self::$client = $this->registerClient();
 
-        // section 43 left a connection approved without a choice (the consent page before 2.2)
+        // a consent form sent without a choice gets drafts only, never full access
         $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'full'));
-        $this->assertSame('full', $site->value('SELECT GROUP_CONCAT(DISTINCT access) FROM tl_api_tokens WHERE client_id = ?', [self::$client]),
-            'an OAuth connection approved without a choice (a consent page from before 2.2) has full access');
+        $this->assertSame('drafts', $site->value('SELECT GROUP_CONCAT(DISTINCT access) FROM tl_api_tokens WHERE client_id = ?', [self::$client]),
+            'an OAuth connection approved without a choice has drafts only');
 
         $tokens = $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'drafts', ['access' => 'drafts']));
         $refreshed = $site->client('oauth')->post('/oauth/token', ['grant_type' => 'refresh_token', 'refresh_token' => $tokens['refresh_token'] ?? '', 'client_id' => self::$client])->json();
@@ -46,6 +46,23 @@ final class ConnectionAccessTest extends SiteTestCase
     }
 
     #[Depends('testOauthConnectionsKeepTheAccessTheOwnerChose')]
+    public function testTheConsentScreenStandsAloneAndStartsAtDraftsOnly(): void
+    {
+        $site = $this->site();
+        $admin = $site->admin();
+        $admin->get('/oauth/authorize?response_type=code&client_id=' . self::$client . '&redirect_uri=' . self::REDIRECT_URI
+            . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=consent');
+        $page = $admin->get('/admin.php?action=oauth');
+        $this->assertSame(200, $page->status, 'the consent screen opens');
+        $this->assertMatchesRegularExpression('/value="drafts" checked/', $page->body, 'drafts only is pre-selected');
+        $this->assertStringContainsString('Drafts only – you publish', $page->body, 'the level has its one name');
+        $this->assertStringContainsString('Can also publish', $page->body, 'publishing is one click away');
+        $this->assertStringNotContainsString('class="menu-wrap"', $page->body, 'the consent screen has no admin menu');
+        $this->assertStringNotContainsString('appearance-draft', $page->body, 'the consent screen has no draft-look bar with a Publish button');
+        $admin->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'allow' => '0']); // leave nothing pending
+    }
+
+    #[Depends('testTheConsentScreenStandsAloneAndStartsAtDraftsOnly')]
     public function testPersonalTokensWithLimitedAccess(): void
     {
         $site = $this->site();
@@ -58,6 +75,17 @@ final class ConnectionAccessTest extends SiteTestCase
 
         $this->assertSame('drafts,read', $site->value("SELECT GROUP_CONCAT(access ORDER BY name) FROM tl_api_tokens WHERE name IN ('Claude read', 'Claude drafts')"),
             'tokens from My account keep the chosen access');
+
+        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude no choice']);
+        $this->assertSame('drafts', $site->value("SELECT access FROM tl_api_tokens WHERE name = 'Claude no choice'"), 'a token form without a choice gets drafts only');
+
+        // one application with several consents shows its strongest live access, not the alphabetically largest ('read' sorts last)
+        $site->exec("INSERT INTO tl_api_tokens (user_id, name, client_id, kind, access, token_hash, created_at, expires_at)
+            SELECT user_id, 'Strongest', ?, 'refresh', 'read', ?, NOW(), ? FROM tl_users WHERE username = 'admin'", [self::$client, hash('sha256', 'strongest-access-test'), date('Y-m-d H:i:s', time() + 30 * 86400)]);
+        $apps = $admin->get('/admin.php?action=account')->body;
+        $this->assertMatchesRegularExpression('~<span class="badge">Strongest</span> <span class="badge">Drafts only – you publish</span>~u', $apps, 'My account shows the application with its strongest access (drafts beats read)');
+        $this->assertStringNotContainsString('<span class="badge">Strongest</span> <span class="badge">Read only</span>', $apps, 'and not as read only');
+        $this->assertStringContainsString('Drafts only – you publish', $admin->get('/admin.php?module=claude_settings')->body, 'Claude settings say the same');
 
         $answer = $site->mcp('create_page', ['title' => 'From a read-only connection'], self::$readToken);
         $this->assertStringContainsString('can only read the site', $this->answerRaw($answer), 'a read-only connection is told it can only read');

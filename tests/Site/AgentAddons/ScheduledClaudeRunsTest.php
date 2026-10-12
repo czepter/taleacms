@@ -67,8 +67,8 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
 
         $this->assertSame(
             'ok|1|1|1|1|2|07:00:00',
-            $this->sq("SELECT CONCAT(r.status, '|', r.finished_at IS NOT NULL, '|', r.links LIKE '%$base/sluzby%' AND r.links NOT LIKE '%javascript%', '|', s.last_run_at IS NOT NULL, '|', s.next_due > NOW() AND s.next_due <= NOW() + INTERVAL 7 DAY, '|', DAYOFWEEK(s.next_due), '|', TIME(s.next_due)) FROM tl_agent_runs r JOIN tl_agent_schedules s ON s.id = r.schedule_id WHERE r.id = ?", [self::$run]),
-            'schedules: the run is ok with the web link only, last_run_at set, next_due moved on to the next Monday 07:00',
+            $this->sq("SELECT CONCAT(r.status, '|', r.finished_at IS NOT NULL, '|', r.links LIKE '%$base/sluzby%' AND r.links NOT LIKE '%javascript%', '|', s.last_run_at IS NOT NULL, '|', s.next_due > NOW() - INTERVAL 1 DAY AND s.next_due <= NOW() + INTERVAL 8 DAY, '|', DAYOFWEEK(s.next_due), '|', TIME(s.next_due)) FROM tl_agent_runs r JOIN tl_agent_schedules s ON s.id = r.schedule_id WHERE r.id = ?", [self::$run]),
+            'schedules: the run is ok with the web link only, last_run_at set, next_due moved on to the next Monday 07:00 (a day of slack each way: the database clock may be an hour off the site zone)',
         );
         $this->assertStringContainsString('already reported', $this->mcpRawText('report_agent_run', ['id' => self::$run, 'status' => 'ok', 'summary' => 'again'], $token), 'schedules: a run is reported once');
         $this->assertStringContainsString('can only save drafts', $this->mcpRawText('publish_build', ['id' => 1], $token), 'schedules: the same drafts-only connection cannot publish');

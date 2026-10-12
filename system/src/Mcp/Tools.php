@@ -386,7 +386,7 @@ final class Tools
     public static function annotations(string $name): array
     {
         return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => in_array($name, ['upload_file', 'import_website', 'migration_report'], true)]; // an upload from a URL, an import and the migration report reach outside the site
+            'openWorldHint' => Catalog::isOpenWorld($name)]; // an upload from a URL, an import and the migration report reach outside the site
     }
 
     public static function isWriteTool(string $name): bool

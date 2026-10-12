@@ -32,14 +32,10 @@ trait NewsTools
         $auth = $this->app->auth();
         $db = $this->app->db();
 
-        $where = ['c.deleted_at IS NULL']; // the trash is neither listed nor edited via MCP
+        // the trash is neither listed nor edited via MCP; an author sees their own news items, and without the News section only what
+        // visitors see – Auth::newsListScope, shared with translation_status
+        $where = ['c.deleted_at IS NULL' . $auth->newsListScope('c.')];
         $p = [];
-        if (($authors = $auth->managedAuthors()) !== null) {
-            $where[] = 'c.author_id IN (' . implode(',', $authors) . ')';
-        }
-        if (!$auth->hasModule('news')) {
-            $where[] = 'c.visible = TRUE AND c.published_at <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
-        }
         $statuses = ['published' => 'c.visible = TRUE AND c.published_at <= NOW()', 'scheduled' => 'c.visible = TRUE AND c.published_at > NOW()', 'drafts' => 'c.visible = FALSE'];
         if (isset($statuses[$a['status'] ?? ''])) {
             $where[] = $statuses[$a['status']];

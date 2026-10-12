@@ -8,7 +8,7 @@
  * @var list<array<string, mixed>> $connections
  */
 $mcpUrl = $app->request->origin() . $app->url('mcp');
-$accessNames = ['full' => t('Everything the account may'), 'drafts' => t('Drafts only'), 'read' => t('Read only')];
+$accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS);
 ?>
 <?php if (!in_array('claude', $enabledExtensions, true)): ?>
 <p class="notice notice-error"><?= e(t('The Claude connection is switched off.')) ?> <a href="<?= e($app->url('admin.php?module=extensions')) ?>"><?= e(t('Features')) ?></a></p>
@@ -17,7 +17,7 @@ $accessNames = ['full' => t('Everything the account may'), 'drafts' => t('Drafts
 <ol class="guide">
 	<li><?= e(t('In the Claude app open Settings → Connectors → Add custom connector.')) ?></li>
 	<li><?= e(t('Enter this address:')) ?> <code class="totp-key" style="font-size:13px"><?= e($mcpUrl) ?></code></li>
-	<li><?= e(t('Claude sends you here to sign in. You choose what it may do: everything your account may, only save drafts, or only read.')) ?></li>
+	<li><?= e(t('Claude sends you here to sign in. You choose what it may do: save drafts for you to publish (recommended), also publish, or only read.')) ?></li>
 </ol>
 <p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http talea <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('The connector needs the site on HTTPS. In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>

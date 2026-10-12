@@ -42,6 +42,11 @@ final class MySql extends Dialect
         $pdo->exec("SET time_zone = '" . $offset . "'");
     }
 
+    public function sessionOffsetMinutes(): string
+    {
+        return 'TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())';
+    }
+
     public function interval(int $amount, string $unit): string
     {
         return 'INTERVAL ' . $amount . ' ' . $this->unit($unit);
