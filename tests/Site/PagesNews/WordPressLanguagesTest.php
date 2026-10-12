@@ -55,7 +55,7 @@ final class WordPressLanguagesTest extends SiteTestCase
         $this->batch('wordpress-polylang.xml');
         $preview = $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-polylang.xml', 200, 'Polylang', message: 'the preview names the plugin');
         $this->assertStringContainsString('name="add_languages"', $preview->body, 'a language the site lacks can be added with a checkbox');
-        $this->assertStringContainsString('ar (1)', $preview->body, 'a language the site cannot offer is reported');
+        $this->assertStringContainsString('he (1)', $preview->body, 'a language the site cannot offer is reported');
 
         $this->runImport('wordpress-polylang.xml', ['drafts' => 1, 'pages' => 1, 'redirects' => 1, 'category' => 0]);
         $this->assertStringContainsString('The content import is finished', self::$lastBatch);
@@ -64,7 +64,7 @@ final class WordPressLanguagesTest extends SiteTestCase
         $this->assertArrayHasKey('reseni-ictx', $pages, 'the default-language pages came');
         $this->assertArrayHasKey('kontakt-ictx', $pages, 'the default-language pages came');
         $this->assertArrayNotHasKey('solutions-ictx', $pages, 'a page in a language the site lacks was left out');
-        $this->assertArrayNotHasKey('solutions-ictx-ar', $pages, 'a page in a language this site cannot offer was left out');
+        $this->assertArrayNotHasKey('solutions-ictx-he', $pages, 'a page in a language this site cannot offer was left out');
         $this->assertSame('', $this->site()->settingValue('additional_languages'), 'no language was added behind the owner\'s back');
     }
 

@@ -219,7 +219,7 @@ final class Collections
     /** Options of a choice field: a list or lines of text, trimmed, without tags and duplicates, at most 30 of 80 characters. @return list<string> */
     public static function cleanOptions(mixed $input): array
     {
-        $lines = is_array($input) ? $input : preg_split('/\R/', (string) (is_scalar($input) ? $input : ''));
+        $lines = is_array($input) ? $input : preg_split('/\R/u', (string) (is_scalar($input) ? $input : ''));
         $out = [];
         foreach ((array) $lines as $line) {
             $line = mb_substr(trim(strip_tags(is_scalar($line) ? (string) $line : '')), 0, 80);
@@ -480,7 +480,12 @@ final class Collections
         // one pass: a filled-in value is not scanned again ({{…}} tags written in a field's text stay text)
         $htmlTag = substr(self::PLACEHOLDER_PATTERN, 1, -1);
         $pattern = $target === 'html' ? '#<p>\s*' . $htmlTag . '\s*</p>|' . $htmlTag . '#' : self::PLACEHOLDER_PATTERN;
-        $result = (string) preg_replace_callback($pattern, function (array $m) use ($target, $values): string {
+        // a right-to-left page (Arabic): a value inside a sentence is its own direction island, so a Latin product name with
+        // "(5 cm)" or a price keeps its order among the Arabic words around it
+        $isolate = in_array($target, ['html', 'inline_text'], true) && \Talea\Core\Language::isRtl(\Talea\Core\Language::code())
+            ? static fn (string $html): string => $html === '' ? '' : '<bdi>' . $html . '</bdi>'
+            : static fn (string $html): string => $html;
+        $result = (string) preg_replace_callback($pattern, function (array $m) use ($target, $values, $isolate): string {
             $key = ($m[1] ?? '') !== '' ? $m[1] : $m[2];
             [$h, $type] = $values[$key] ?? ['', 'text'];
             if ($target === 'html' && ($m[1] ?? '') !== '') {
@@ -494,8 +499,8 @@ final class Collections
             $plain = $type === 'html' ? trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)) : $h;
 
             return match ($target) {
-                'html' => $type === 'html' ? $h : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
-                'inline_text' => $type === 'lines' ? nl2br(e($h), false) : e($plain),
+                'html' => $type === 'html' ? $h : $isolate($type === 'lines' ? nl2br(e($h), false) : e($h)),
+                'inline_text' => $isolate($type === 'lines' ? nl2br(e($h), false) : e($plain)),
                 // Custom HTML is output as it is (the code filter ran on save, the filling only now): the value must not bring tags
                 'code' => $type === 'html' ? \Talea\Core\Html::safe($h) : ($type === 'lines' ? nl2br(e($h), false) : e($h)),
                 default => $plain,

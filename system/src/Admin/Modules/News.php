@@ -291,6 +291,7 @@ final class News extends Module
             }
         } else {
             $id = $this->db->insert('news', $data);
+            \Talea\Core\Slug::fromId($this->db, 'news', $id); // a title with nothing to transliterate: news-<id>, not n-a
         }
         \Talea\Core\Members::saveFromForm($this->app, 'news', $id);
 

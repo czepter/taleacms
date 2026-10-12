@@ -52,6 +52,11 @@ final class Timeline extends Element
 }';
     }
 
+    public static function rtlCss(): string
+    {
+        return '.tl-timeline::before, .tl-timeline-item::before { translate: 50% 0; }';
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';

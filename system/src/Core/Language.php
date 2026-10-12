@@ -18,8 +18,8 @@ namespace Talea\Core;
 final class Language
 {
     /**
-     * code => [name in that language, locale (Open Graph, date format), numeric date format for date()]. Right-to-left languages
-     * (Arabic, Hebrew) are not available yet – templates and the builder do not account for them.
+     * code => [name in that language, locale (Open Graph, date format), numeric date format for date()]. Arabic is the first
+     * right-to-left language: the site writes <html dir> by dir() and its CSS uses logical properties.
      * Regional versions (en-gb, de-at, pt-br, zh-hant) are stored and addressed in lowercase (/pt-br/) and follow their language: they use
      * the dictionary of base() unless they have one of their own, and print their tag in the canonical case (tag(): pt-BR) in lang and hreflang.
      */
@@ -68,13 +68,23 @@ final class Language
         'vi' => ['Tiếng Việt', 'vi_VN', 'd/m/Y'],
         'zh' => ['中文', 'zh_CN', 'Y-m-d'],
         'zh-hant' => ['中文（繁體）', 'zh_TW', 'Y/m/d'],
+        'ar' => ['العربية', 'ar_SA', 'd/m/Y'],
     ];
 
     /** Codes from AVAILABLE for Settings field types (choice:… / list:…). */
-    public const string CODES = 'cs|en|en-gb|bg|ca|da|de|de-at|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|pt-br|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh|zh-hant';
+    public const string CODES = 'cs|en|en-gb|bg|ca|da|de|de-at|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|pt-br|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh|zh-hant|ar';
 
     /** A stored language code as a regular expression (without delimiters): "de", "pt-br", "zh-hant". The only place the shape of a code is written. */
     public const string TAG = '[a-z]{2}(?:-[a-z]{2,4})?';
+
+    /**
+     * Languages written right to left: Arabic is offered; Hebrew, Persian, Urdu and the others are ready for the day a
+     * dictionary comes. A script subtag decides first - az-arab is right to left, a Latin transliteration of an RTL language is not.
+     */
+    public const array RTL = ['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'ug', 'yi', 'dv', 'ckb'];
+
+    /** Scripts written right to left (ISO 15924, lowercase as a stored tag has them). */
+    private const array RTL_SCRIPTS = ['arab', 'hebr', 'thaa', 'syrc', 'nkoo', 'adlm', 'rohg', 'mand', 'samr'];
 
     private static string $code = 'en';
 
@@ -287,6 +297,34 @@ final class Language
         return self::$register;
     }
 
+    /** Is the language written right to left? By the script subtag when the code has one, otherwise by the language (RTL). */
+    public static function isRtl(string $code): bool
+    {
+        $parts = explode('-', strtolower($code));
+        foreach (array_slice($parts, 1) as $part) {
+            if (strlen($part) === 4 && ctype_alpha($part)) {
+                return in_array($part, self::RTL_SCRIPTS, true);
+            }
+        }
+
+        return in_array($parts[0], self::RTL, true);
+    }
+
+    /** The value of the HTML dir attribute for a language: rtl or ltr. */
+    public static function dir(string $code): string
+    {
+        return self::isRtl($code) ? 'rtl' : 'ltr';
+    }
+
+    /**
+     * ' dir="rtl"' for a right-to-left language, otherwise '' - a left-to-right page keeps its markup as it was (ltr is the
+     * default of HTML). For <html>, e-mails and content areas of the administration.
+     */
+    public static function dirAttribute(string $code): string
+    {
+        return self::isRtl($code) ? ' dir="rtl"' : '';
+    }
+
     public static function code(): string
     {
         return self::$code;
@@ -298,6 +336,11 @@ final class Language
             self::set(self::$code); // texts before the first set() (early errors, tools) use the default language too
         }
         $translation = self::$dictionary[$text] ?? $text;
+        if ($values !== [] && self::isRtl(self::$code)) {
+            // a name, an address or a date inside a right-to-left sentence is its own direction island (first strong isolate),
+            // so "(5 cm)" of a Latin product name does not lose its bracket to the Arabic around it
+            $values = array_map(fn (string|int $v): string|int => is_string($v) && $v !== '' ? "\u{2068}" . $v . "\u{2069}" : $v, $values);
+        }
 
         return $values === [] ? $translation : sprintf($translation, ...$values);
     }

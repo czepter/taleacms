@@ -453,6 +453,7 @@ final class WpImport
             'edited_at' => $now,
             'announced_at' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
+        $seo = Slug::fromId($this->db, 'news', $idc); // a title with nothing to transliterate: news-<id>, not n-a
         foreach (array_slice($p['tags'], 0, 20, true) as $url => $name) {
             $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['tags'][$url] ?? $url));
         }
@@ -501,6 +502,7 @@ final class WpImport
             'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
+        $seo = Slug::fromId($this->db, 'pages', $pageId); // a title with nothing to transliterate: page-<id>, not n-a
         $this->writeMap('page', (string) $p['id'], $pageId);
         $state['result']['pages']++;
         if ($state['options']['redirects']) {
@@ -564,6 +566,7 @@ final class WpImport
             'visible' => $articleStatus['visible'], 'language' => $language, 'created_at' => self::date($p), 'updated_at' => date('Y-m-d H:i:s'),
         ];
         $idp = $this->db->insert('collection_items', $row);
+        $seo = Slug::fromId($this->db, 'collection_items', $idp); // a name with nothing to transliterate: item-<id>
         $this->writeMap('item', (string) $p['id'], $idp);
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
         $board = \Talea\Builder\Collections::byId($this->db, $idk);
@@ -684,6 +687,7 @@ final class WpImport
                     'name' => $name, 'description' => '', 'language' => $language,
                     'slug' => $this->freeSlug('categories', $seo, $language, 'news/category/', $state, 110),
                 ]);
+                Slug::fromId($this->db, 'categories', (int) $idt); // nothing to transliterate: category-<id>
                 $state['result']['categories']++;
             }
             $this->writeMap('category', $key, (int) $idt);

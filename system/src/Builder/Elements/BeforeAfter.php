@@ -51,6 +51,14 @@ final class BeforeAfter extends Element
 .tl-before-after[data-enabled]:has(.tl-before-after-handle:focus-visible)::after { outline: 3px solid var(--tl-color-secondary); outline-offset: 2px; }';
     }
 
+    public static function rtlCss(): string
+    {
+        // the range runs from the right: the divider stands at --tl-split from the right and the after photo shows to its left
+        return '.tl-before-after[data-enabled] .tl-before-after-after { clip-path: inset(0 var(--tl-split) 0 0); }
+.tl-before-after[data-enabled]::before { translate: 50% 0; }
+.tl-before-after[data-enabled]::after { translate: 50% -50%; }';
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['content'];

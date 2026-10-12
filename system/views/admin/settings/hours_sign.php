@@ -23,7 +23,7 @@
 $a5 = $format === 'a5';
 ?>
 <!DOCTYPE html>
-<html lang="<?= e(Talea\Core\Language::tag($language)) ?>">
+<html lang="<?= e(Talea\Core\Language::tag($language)) ?>"<?= Talea\Core\Language::dirAttribute(Talea\Core\Language::tag($language)) ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

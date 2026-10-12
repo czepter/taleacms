@@ -206,7 +206,7 @@ final class Screen
         $siteName = $s->get('site_name');
         $logo = $s->get('logo');
         $logoHtml = $logo !== '' ? '<img class="screen-logo" src="' . e($base . '/' . ltrim($logo, '/')) . '" alt="' . e($siteName) . '">' : '<span class="screen-name">' . e($siteName) . '</span>';
-        $html = '<!doctype html><html lang="' . e(Language::code()) . '"' . ($dark ? ' data-dark' : '') . ($s->get('dark_mode') === 'dark' ? ' data-theme="dark"' : '') . '><head><meta charset="utf-8">'
+        $html = '<!doctype html><html lang="' . e(Language::code()) . '"' . Language::dirAttribute(Language::code()) . ($dark ? ' data-dark' : '') . ($s->get('dark_mode') === 'dark' ? ' data-theme="dark"' : '') . '><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>' . e($siteName) . '</title>'
             . ($count > 1 ? '<noscript><meta http-equiv="refresh" content="' . $seconds . '; url=' . e($path . '?s=' . (($active + 1) % $count)) . '"></noscript>' : '')
             . DesignSystem::fontPreloads($ds, $base) . '<style>' . DesignSystem::css($ds, $base) . self::css() . '</style></head><body class="screen">'

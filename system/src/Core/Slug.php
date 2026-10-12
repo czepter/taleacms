@@ -83,6 +83,31 @@ final class Slug
         return $db->value("SELECT 1 FROM {{$table}} WHERE slug = ? AND {$id} <> ?{$where} LIMIT 1", [$slug, $except, ...$params]) !== null;
     }
 
+    /** The type word of a slug made from a number (fromId): table => [id column, word]. */
+    public const array FALLBACK = ['pages' => ['page_id', 'page'], 'news' => ['news_id', 'news'], 'categories' => ['category_id', 'category'], 'collection_items' => ['item_id', 'item']];
+
+    /**
+     * A row just created with slugify's "n-a" (a title with nothing to transliterate - Hebrew, Chinese, emoji) gets its type
+     * and number instead: page-12, news-40, category-3, item-7 (unique in its scope like any slug). Only right after an
+     * insert - an existing slug never changes. Returns the slug the row has now.
+     */
+    public static function fromId(Db $db, string $table, int $id): string
+    {
+        [$key, $word] = self::FALLBACK[$table] ?? throw new \InvalidArgumentException('Unknown table ' . $table);
+        $row = $db->one("SELECT * FROM {{$table}} WHERE {$key} = ?", [$id]) ?? [];
+        $current = (string) ($row['slug'] ?? '');
+        if (preg_match('/^n-a(-\d+)?$/D', $current) !== 1) {
+            return $current;
+        }
+        $isTaken = $table === 'collection_items'
+            ? fn (string $s): bool => $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ? LIMIT 1', [(int) $row['collection_id'], (string) $row['language'], $s, $id]) !== null
+            : fn (string $s): bool => self::taken($db, $table, $s, (string) ($row['language'] ?? ''), $id);
+        $slug = self::makeUnique($word . '-' . $id, $isTaken, 120);
+        $db->update($table, ['slug' => $slug], [$key => $id]);
+
+        return $slug;
+    }
+
     /**
      * Slugs that more than one language version uses: table => slugs (at most $limit per table, trash included, as the global key
      * covers it too). Empty = the global keys can come back.

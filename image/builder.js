@@ -10,6 +10,8 @@
 	const T = window.T || ((s) => s);
 	const root = document.getElementById('builder');
 	const D = JSON.parse(document.getElementById('builder-data').textContent);
+	/* Text fields of a right-to-left page (Arabic) follow what is typed in them (dir="auto"); the builder itself stays left to right. */
+	const contentDir = D.direction === 'rtl' ? 'auto' : null;
 	let csrf = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	const TYPY = Object.fromEntries(D.schema.elements.map((p) => [p.type, p]));
 	const STYLE = D.schema.style;
@@ -1646,11 +1648,11 @@
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });
 				break;
 			case 'lines': case 'code':
-				inputEl = el('textarea', { rows: def.type === 'code' ? 8 : 5, oninput: (e) => change(e.target.value) });
+				inputEl = el('textarea', { rows: def.type === 'code' ? 8 : 5, dir: def.type === 'lines' ? contentDir : null, oninput: (e) => change(e.target.value) });
 				inputEl.value = value || '';
 				break;
 			case 'html': {
-				const ta = el('textarea', { 'data-editor': 'small', oninput: (e) => change(e.target.value) });
+				const ta = el('textarea', { 'data-editor': 'small', dir: contentDir, oninput: (e) => change(e.target.value) });
 				ta.value = value || '';
 				wrapper.append(ta);
 				if (window.taleaCreateEditor) { setTimeout(() => window.taleaCreateEditor(ta), 0); }
@@ -1683,7 +1685,7 @@
 					}, false, true) }, T('Media'))));
 					return wrapper;
 				}
-				inputEl = el('input', { type: 'text', value: value ?? '', placeholder: def.type === 'link' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
+				inputEl = el('input', { type: 'text', value: value ?? '', dir: def.type === 'text' ? contentDir : null, placeholder: def.type === 'link' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
 					list: def.type === 'link' ? 'bd-dl-links' : null, onfocus: def.type === 'link' ? refreshLinks : null, oninput: (e) => change(e.target.value) });
 		}
 		wrapper.append(inputEl);

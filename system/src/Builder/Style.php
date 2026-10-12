@@ -112,8 +112,9 @@ final class Style
         'position' => ['position', 'choice', 'advanced', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
         'top' => ['top', 'space', 'advanced', 'From top', null],
         'bottom' => ['bottom', 'space', 'advanced', 'From bottom', null],
-        'left' => ['left', 'space', 'advanced', 'From left', null],
-        'right' => ['right', 'space', 'advanced', 'From right', null],
+        // the start and end sides (left and right in a left-to-right language, mirrored in Arabic); the stored keys keep their names
+        'left' => ['inset-inline-start', 'space', 'advanced', 'From left', null],
+        'right' => ['inset-inline-end', 'space', 'advanced', 'From right', null],
         'translate' => ['translate', 'choice', 'advanced', 'Offset', ['0 -4px' => 'lift', '0 -0.5rem' => 'lift more', '0 4px' => 'lower', '-50% -50%' => 'centre (with free positioning)']],
         'scale' => ['scale', 'choice', 'advanced', 'Scale', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
         'rotate' => ['rotate', 'choice', 'advanced', 'Rotation', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
@@ -237,7 +238,8 @@ final class Style
         $property = strtolower(trim($property));
         $value = trim((string) preg_replace('/\s*!important$/i', '', trim($value)));
         // common notations the builder knows under a logical name: margin-top → margin-block-start, flex-start → start
-        $property = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end'][$property] ?? $property;
+        $property = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end',
+            'left' => 'inset-inline-start', 'right' => 'inset-inline-end'][$property] ?? $property;
         // the background shorthand with only a color (background: #EFECE5) is the background color
         if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--tl-color-[a-z0-9-]+\)|[a-z]+)$/i', $value)) {
             $property = 'background-color';

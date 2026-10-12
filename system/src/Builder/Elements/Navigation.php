@@ -49,7 +49,7 @@ final class Navigation extends Element
 .tl-nav li > .menu-group { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: var(--tl-nav-padding, 0.5em 0.8em); font-weight: var(--tl-nav-weight, 600); cursor: default; }
 .tl-nav .submenu > a::after, .tl-nav .submenu > .menu-group::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
 .tl-nav .submenu.active > a, .tl-nav .submenu.active > .menu-group { color: var(--tl-color-primary); }
-.tl-nav .submenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--tl-space-2xs); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: var(--tl-color-text); box-shadow: var(--tl-shadow-m); gap: 2px; }
+.tl-nav .submenu > ul { display: none; position: absolute; top: 100%; inset-inline-start: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--tl-space-2xs); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: var(--tl-color-text); box-shadow: var(--tl-shadow-m); gap: 2px; }
 /* a submenu has its own spacing and padding – --tl-nav-space and --tl-nav-padding belong to the items of the main bar */
 .tl-nav .submenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--tl-radius) / 1.5); font-weight: 500; }
 .tl-nav .submenu:hover > ul, .tl-nav .submenu:focus-within > ul { display: flex; }
@@ -81,7 +81,7 @@ final class Navigation extends Element
 	.tl-nav-btn { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--tl-nav-button-border, 1px solid var(--tl-color-line)); border-radius: 50%; background: var(--tl-color-background); color: var(--tl-color-text); cursor: pointer; }
 	.tl-nav-btn span, .tl-nav-btn span::before, .tl-nav-btn span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 	.tl-nav-btn span { position: relative; }
-	.tl-nav-btn span::before, .tl-nav-btn span::after { content: ""; position: absolute; left: 0; }
+	.tl-nav-btn span::before, .tl-nav-btn span::after { content: ""; position: absolute; inset-inline-start: 0; }
 	.tl-nav-btn span::before { top: -6px; }
 	.tl-nav-btn span::after { top: 6px; }
 	.tl-nav-menu[popover] { position: fixed; inset: 4.5rem var(--tl-space-m) auto; flex-direction: column; align-items: stretch; padding: var(--tl-space-s); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: var(--tl-color-text); box-shadow: var(--tl-shadow-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
@@ -91,7 +91,7 @@ final class Navigation extends Element
 	:root:has(:focus-visible) .tl-nav:not(:has(:focus-visible)) > .tl-nav-menu[popover]:popover-open { display: none; }
 	/* the rows of the phone sheet sit close together: --tl-nav-space is the gap of the bar on a wide screen */
 	.tl-nav-menu[popover] ul { flex-direction: column; gap: 2px; }
-	.tl-nav-menu[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+	.tl-nav-menu[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0; padding-inline-start: 1rem; border: 0; box-shadow: none; }
 	.tl-nav-menu[popover] .submenu > a::after, .tl-nav-menu[popover] .submenu > .menu-group::after { display: none; }
 	.tl-nav-menu[popover] .menu-column > ul { padding-inline-start: 1rem; }
 	.tl-nav-menu[popover] .menu-description { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */

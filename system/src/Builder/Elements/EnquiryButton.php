@@ -43,7 +43,7 @@ final class EnquiryButton extends Element
 .tl-enquiry-button-status { flex-basis: 100%; margin: 0; font-size: 0.9em; }
 .tl-enquiry-button-status:empty { display: none; }
 .tl-compare { width: 100%; border-collapse: collapse; }
-.tl-compare th, .tl-compare td { padding: 0.6em 0.8em; border-bottom: 1px solid var(--tl-color-line); text-align: left; vertical-align: top; }
+.tl-compare th, .tl-compare td { padding: 0.6em 0.8em; border-bottom: 1px solid var(--tl-color-line); text-align: start; vertical-align: top; }
 .tl-compare thead img { display: block; width: 100%; max-width: 12rem; height: auto; margin-bottom: 0.5em; }
 .tl-compare-wrap { overflow-x: auto; }
 .tl-system-page { display: grid; gap: var(--tl-space-m); max-width: var(--tl-width); margin-inline: auto; padding: var(--tl-space-xl) var(--tl-space-m); }

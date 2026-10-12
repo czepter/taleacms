@@ -267,6 +267,7 @@
 
 	function provider(ctx) {
 		const { doc, node, p } = ctx;
+		if (doc.documentElement.dir === 'rtl') { return; } // ponytail: the compose grid overlay numbers lines from the left edge; Compose sections still render mirrored, placement is by the style fields
 		const container = p.type === 'section' ? gridOf(node) : C.composeParent(node);
 		if (!container || container.closest('[data-tl-lock]')) { return; }
 		if (!gridOverlay(doc, container)) { return; }

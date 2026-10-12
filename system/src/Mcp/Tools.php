@@ -475,6 +475,7 @@ final class Tools
             $data += ['intro' => '', 'text' => '', 'author_id' => $auth->id(), 'published_at' => date('Y-m-d H:i:s'), 'visible' => 0,
                 'slug' => $this->availableSlug('news', 'news_id', slugify($data['title'], 150), (string) ($data['language'] ?? ''))];
             $id = $db->insert('news', $data);
+            \Talea\Core\Slug::fromId($db, 'news', $id); // a title with nothing to transliterate: news-<id>, not n-a
         } else {
             $id = (int) $previous['news_id'];
             \Talea\Admin\Modules\News::version($db, $previous, $auth->id()); // history is pruned the same way as in the administration
@@ -602,6 +603,7 @@ final class Tools
                 $data['build_draft'] = $original['build_draft'] ?? $original['build'];
             }
             $id = $db->insert('pages', $data + ['text' => '', 'visible' => 0, 'in_menu' => 0]);
+            \Talea\Core\Slug::fromId($db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
             if (!empty($data['in_menu'])) {
                 \Talea\Core\Menu::setPage($db, $id, $language, true);
             }

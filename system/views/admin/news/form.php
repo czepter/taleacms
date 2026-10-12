@@ -22,6 +22,8 @@
  */
 $dt = fn (?string $v): string => $v ? date('Y-m-d\TH:i', strtotime($v)) : '';
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="error-field" role="alert">' . e(t($errors[$field])) . '</span>' : '';
+// the content fields of a news item in a right-to-left version (Arabic) are written from the right
+$contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) ($newsItem['language'] ?? '')));
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 
@@ -35,16 +37,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <div class="article-main">
 	<div class="row span-all">
 		<label for="title"><?= e(t('Title')) ?></label>
-		<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($newsItem['title']) ?>" maxlength="255" required placeholder="<?= e(t('News item title')) ?>"><?= $error('title') ?>
+		<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($newsItem['title']) ?>" maxlength="255" required<?= $contentDir ?> placeholder="<?= e(t('News item title')) ?>"><?= $error('title') ?>
 	</div>
 	<div class="row span-all">
 		<label for="intro"><?= e(t('Lead paragraph')) ?></label>
-		<textarea class="textbox" id="intro" name="intro" rows="5" data-editor="small"><?= e($newsItem['intro']) ?></textarea>
+		<textarea class="textbox" id="intro" name="intro" rows="5" data-editor="small"<?= $contentDir ?>><?= e($newsItem['intro']) ?></textarea>
 		<span class="help"><?= e(t('Shown in lists and at the start of the news item – do not repeat it in the text.')) ?></span>
 	</div>
 	<div class="row span-all">
 		<label for="text"><?= e(t('Text')) ?></label>
-		<textarea class="textbox tall" id="text" name="text" rows="20" data-editor><?= e($newsItem['text']) ?></textarea>
+		<textarea class="textbox tall" id="text" name="text" rows="20" data-editor<?= $contentDir ?>><?= e($newsItem['text']) ?></textarea>
 		<span class="help"><?= e(t('To embed a video, put its address (YouTube, Vimeo) on a line of its own. It loads for the visitor only after a click.')) ?></span>
 	</div>
 </div>
@@ -191,7 +193,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 </div>
 <div class="row">
 	<label for="seo_title"><?= e(t('Search engine title')) ?></label>
-	<div><input class="textfield wide" type="text" id="seo_title" name="seo_title" value="<?= e($newsItem['seo_title']) ?>" maxlength="255" placeholder="<?= e(t('empty = news item title')) ?>"></div>
+	<div><input class="textfield wide" type="text" id="seo_title" name="seo_title" value="<?= e($newsItem['seo_title']) ?>" maxlength="255"<?= $contentDir ?> placeholder="<?= e(t('empty = news item title')) ?>"></div>
 </div>
 <div class="row">
 	<label for="seo_description"><?= e(t('Search engine description')) ?></label>

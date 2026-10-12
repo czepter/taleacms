@@ -61,7 +61,7 @@ final class MemberArea
             . ($notice !== '' ? '<p role="status">' . e($notice) . '</p>' : '')
             . ($limit ? '<p class="tl-form-error" role="alert">' . e(t('Too many attempts. Try again in a few minutes.')) . '</p>' : '')
             . '<form class="tl-form" method="post" action="' . e($this->app->url('member')) . '">'
-            . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>'
+            . '<div style="position:absolute;inset-inline-start:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>'
             . '<input type="hidden" name="return" value="' . e($return) . '">'
             . '<p class="tl-field"><label for="tl-member-email">' . e(t('E-mail address')) . '</label><input type="email" id="tl-member-email" name="email" autocomplete="email" maxlength="190" required></p>'
             . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Send me the link')) . '</button></p></form></div>';

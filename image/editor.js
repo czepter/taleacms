@@ -369,6 +369,7 @@
 		var surface = document.createElement('div');
 		surface.className = 'editor-surface';
 		surface.contentEditable = 'true';
+		if (field.dir) { surface.dir = field.dir; } // the text of a right-to-left page (Arabic) is written from the right; the toolbar stays as it is
 		surface.style.setProperty('--ed-gallery-label', JSON.stringify(T('Photo gallery'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
 		surface.setAttribute('role', 'textbox');
 		surface.setAttribute('aria-multiline', 'true');

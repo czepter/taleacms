@@ -23,6 +23,11 @@
 	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
 	function E(value) { return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 	function A(text) { return E(T(text)); }
+	/* a right-to-left page (<html dir="rtl">, Arabic): the arrow keys and swipes follow the reading direction, and numbers keep
+	   the Western digits the server writes */
+	var rtl = document.documentElement.dir === 'rtl';
+	var forward = rtl ? 'ArrowLeft' : 'ArrowRight', backward = rtl ? 'ArrowRight' : 'ArrowLeft';
+	var locale = function (fallback) { var lang = document.documentElement.lang || fallback; return rtl && lang ? lang + '-u-nu-latn' : lang; };
 	/* an address the script makes a link from: only http(s) or an address on the site, never javascript: or data: (3.3.2);
 	   anything else is '' – the link is left out */
 	function safeUrl(value) {
@@ -57,8 +62,8 @@
 				if (step) { show(position + parseInt(step, 10)); } else if (e.target.tagName !== 'IMG') { modal.close(); }
 			});
 			modal.addEventListener('keydown', function (e) {
-				if (e.key === 'ArrowLeft') { show(position - 1); }
-				if (e.key === 'ArrowRight') { show(position + 1); }
+				if (e.key === backward) { show(position - 1); }
+				if (e.key === forward) { show(position + 1); }
 			});
 			// swipe with a finger, a pen or a mouse (pointer events); a vertical move is left to the browser (touch-action: pan-y)
 			var start = null;
@@ -66,7 +71,7 @@
 			modal.addEventListener('pointerup', function (e) {
 				var offset = start === null ? 0 : e.clientX - start;
 				start = null;
-				if (Math.abs(offset) > 50 && photos.length > 1) { swiped = true; show(position + (offset < 0 ? 1 : -1)); }
+				if (Math.abs(offset) > 50 && photos.length > 1) { swiped = true; show(position + ((offset < 0) !== rtl ? 1 : -1)); }
 			});
 			modal.addEventListener('pointercancel', function () { start = null; });
 			// the focus goes back to the photo that opened the viewer
@@ -199,7 +204,7 @@
 		cards.forEach(function (k, i) {
 			k.addEventListener('click', function () { switchTo(k, false); });
 			k.addEventListener('keydown', function (e) {
-				var additional = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: cards.length - 1 }[e.key];
+				var additional = e.key === forward ? i + 1 : e.key === backward ? i - 1 : { Home: 0, End: cards.length - 1 }[e.key];
 				if (additional === undefined) { return; }
 				e.preventDefault();
 				switchTo(cards[(additional + cards.length) % cards.length], true);
@@ -214,12 +219,13 @@
 	document.querySelectorAll('[data-carousel], [data-slideshow]').forEach(function (k) {
 		var strip = k.querySelector('.tl-carousel-strip, .tl-gallery-strip');
 		var arrows = k.querySelectorAll('[data-step]');
+		// in a right-to-left strip scrollLeft runs from 0 to negative values and "next" scrolls to the left
 		function state() {
-			arrows[0].disabled = strip.scrollLeft <= 2;
-			arrows[1].disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 2;
+			arrows[0].disabled = Math.abs(strip.scrollLeft) <= 2;
+			arrows[1].disabled = Math.abs(strip.scrollLeft) + strip.clientWidth >= strip.scrollWidth - 2;
 		}
 		arrows.forEach(function (b) {
-			b.addEventListener('click', function () { strip.scrollBy({ left: parseInt(b.getAttribute('data-step'), 10) * strip.clientWidth, behavior: 'smooth' }); });
+			b.addEventListener('click', function () { strip.scrollBy({ left: parseInt(b.getAttribute('data-step'), 10) * strip.clientWidth * (rtl ? -1 : 1), behavior: 'smooth' }); });
 		});
 		strip.addEventListener('scroll', state, { passive: true });
 		k.setAttribute('data-enabled', '');
@@ -402,7 +408,7 @@
 	/* ---------- counter and countdown ---------- */
 
 	var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	var numbers = new Intl.NumberFormat(document.documentElement.lang || 'cs');
+	var numbers = new Intl.NumberFormat(locale('cs'));
 	// counter: the number is final in the HTML (it stays visible until it appears), on first appearing on screen it counts up once from zero
 	document.querySelectorAll('[data-counter]').forEach(function (c) {
 		var target = parseInt(c.getAttribute('data-counter'), 10);
@@ -536,7 +542,7 @@
 				if (!el.disabled && !isNaN(n)) { total += n * parseFloat(el.getAttribute('data-price-per')); }
 			});
 			var currency = box.getAttribute('data-currency');
-			box.querySelector('output').textContent = new Intl.NumberFormat(document.documentElement.lang || undefined, { maximumFractionDigits: total % 1 ? 2 : 0 }).format(total) + (currency ? '\u00a0' + currency : '');
+			box.querySelector('output').textContent = new Intl.NumberFormat(locale(undefined), { maximumFractionDigits: total % 1 ? 2 : 0 }).format(total) + (currency ? '\u00a0' + currency : '');
 		});
 	}
 	document.querySelectorAll('form[data-form]').forEach(function (form) {
@@ -767,7 +773,7 @@
 				navigator.geolocation.getCurrentPosition(function (here) {
 					nearest.disabled = false;
 					var me = [here.coords.latitude, here.coords.longitude];
-					var format = new Intl.NumberFormat(document.documentElement.lang || undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+					var format = new Intl.NumberFormat(locale(undefined), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 					var sorted = items.map(function (li) {
 						var at = position(li), km = at ? distance(me, at) : Infinity;
 						var out = li.querySelector('[data-distance]');
@@ -995,7 +1001,7 @@
 	var texts = {};
 	try { var tag = document.querySelector('script[data-texts]'); texts = JSON.parse((tag && tag.getAttribute('data-texts')) || '{}') || {}; } catch (e) { texts = {}; }
 	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
-	var lang = document.documentElement.lang || undefined;
+	var lang = document.documentElement.lang ? document.documentElement.lang + (document.documentElement.dir === 'rtl' ? '-u-nu-latn' : '') : undefined; // Western digits, as the server writes them
 	function pad(n) { return (n < 10 ? '0' : '') + n; }
 	function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 	function load(url, params, done) {

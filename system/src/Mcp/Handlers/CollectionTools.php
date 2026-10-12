@@ -303,6 +303,7 @@ trait CollectionTools
         } else {
             $row += ['collection_id' => $collection['collection_id'], 'created_at' => date('Y-m-d H:i:s'), 'visible' => 0];
             $itemId = $db->insert('collection_items', $row);
+            \Talea\Core\Slug::fromId($db, 'collection_items', $itemId); // a name with nothing to transliterate: item-<id>
         }
         Notices::recordSave($this->app, $collection, $previous, $row, $itemId); // the audit trail of a notice board (2.11)
         \Talea\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)

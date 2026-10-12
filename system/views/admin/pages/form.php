@@ -10,6 +10,8 @@
  * @var list<array{page_id:int, title:string, slug:string}> $parents  possible parent pages
  * @var list<array{revision_id:int, created_at:string, title:string, user_id:?string}> $versions  older versions of the text
  */
+// the content fields of a right-to-left version (Arabic) are written from the right; the administration around them stays as it is
+$contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) ($page['language'] ?? '')));
 $segment = basename((string) $page['slug']);
 $prefix = '';
 foreach ($parents as $r) {
@@ -32,7 +34,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <input type="hidden" name="page_id" value="<?= e($page['public_id']) ?>">
 <div class="row span-all">
 	<label for="title"><?= e(t('Page title')) ?></label>
-	<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($page['title']) ?>" maxlength="200" required><?= $error('title') ?>
+	<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($page['title']) ?>" maxlength="200" required<?= $contentDir ?>><?= $error('title') ?>
 </div>
 <?php if (!$page['page_id']): ?>
 <div class="row">
@@ -53,7 +55,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php else: ?>
 <div class="row span-all">
 	<label for="text"><?= e(t('Content')) ?></label>
-	<textarea class="textbox tall" id="text" name="text" rows="18" data-editor><?= e($page['text']) ?></textarea>
+	<textarea class="textbox tall" id="text" name="text" rows="18" data-editor<?= $contentDir ?>><?= e($page['text']) ?></textarea>
 <?php if ($page['page_id']): ?>
 	<span class="help"><?= e(t('Want to build the page from sections, columns and buttons?')) ?> <a href="<?= e($module->url('builder', ['id' => $page['public_id']])) ?>"><?= e(t('Open in the builder')) ?></a></span>
 <?php endif ?>
@@ -76,11 +78,11 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="row">
 	<label for="seo_title"><?= e(t('Search engine title')) ?></label>
-	<input class="textfield wide" type="text" id="seo_title" name="seo_title" value="<?= e($page['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = page name')) ?>">
+	<input class="textfield wide" type="text" id="seo_title" name="seo_title" value="<?= e($page['seo_title']) ?>" maxlength="200"<?= $contentDir ?> placeholder="<?= e(t('empty = page name')) ?>">
 </div>
 <div class="row">
 	<label for="description"><?= e(t('Search engine description')) ?></label>
-	<div><input class="textfield wide" type="text" id="description" name="description" value="<?= e($page['description']) ?>" maxlength="300">
+	<div><input class="textfield wide" type="text" id="description" name="description" value="<?= e($page['description']) ?>" maxlength="300"<?= $contentDir ?>>
 	<span class="help"><?= e(t('One or two sentences on what visitors will find on the page (up to 160 characters).')) ?></span></div>
 </div>
 <div class="row">
