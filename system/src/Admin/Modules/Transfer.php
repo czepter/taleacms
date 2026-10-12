@@ -240,7 +240,7 @@ final class Transfer extends Module
 
     private function start(string $file): Response
     {
-        WpImport::saveState(WpImport::newState($file));
+        WpImport::saveState(WpImport::newState($file, [Language::defaults($this->app->settings()), ...Language::additional($this->app->settings())]));
 
         return $this->back('', 'progress', ['file' => $file]);
     }
@@ -271,6 +271,7 @@ final class Transfer extends Module
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
             'redirectsEnabled' => \Talea\Core\Extensions::isEnabled($settings, 'redirects'),
+            'missingLanguages' => WpImport::missingLanguages($state, $settings),
         ]);
     }
 
@@ -286,6 +287,7 @@ final class Transfer extends Module
             'language' => in_array($r->post('language'), Language::additional($this->app->settings()), true) ? $r->post('language') : '',
             'drafts' => $r->postBool('drafts'), 'pages' => $r->postBool('pages'), 'builder' => $r->postBool('builder'),
             'redirects' => $r->postBool('redirects'), 'category' => $this->db->internalId('categories', $r->post('category')), 'collections' => $r->postBool('collections'),
+            'add_languages' => $r->postBool('add_languages'),
         ];
         $state['phase'] = 'import';
         $state['position'] = 0;

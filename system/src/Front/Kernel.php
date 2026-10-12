@@ -74,7 +74,7 @@ final class Kernel
         // language version: /en/news/x -> language "en", path "/news/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());
-        if (preg_match('#^/([a-z]{2})(/.*)?$#', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
+        if (preg_match('#^/(' . Language::TAG . ')(/.*)?$#', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
             $language = $m[1];
             $app->languagePrefix = $m[1];
             $app->request->setPath($m[2] ?? '/');
@@ -128,14 +128,16 @@ final class Kernel
             return $oauth;
         }
         if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
-            return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
                 . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
                 . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
-        if ($request->getInt('p') > 0 && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
-            $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', ['?p=' . $request->getInt('p')]);
+        // also Polylang's language home ?lang=en, stored as ?lang=en by the WordPress import
+        $lang = preg_match('/^' . Language::TAG . '$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
+        if (($request->getInt('p') > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
+            $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
             if ($target !== null) {
                 $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
 
@@ -444,7 +446,7 @@ final class Kernel
         $css = \Talea\Builder\DesignSystem::css(\Talea\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Talea\Builder\Build::css($this->app->db(), $k) . '@layer classes {' . $classes . '}';
         $layout = $this->app->url('image/template.css');
 
-        return new Response('<!doctype html><html lang="' . e(Language::code()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
             . '<link rel="stylesheet" href="' . e($layout) . '"><link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '"><style>' . $css . 'body{margin:0}</style></head>'
             . '<body><main class="build">' . $html . '</main></body></html>', 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, max-age=300']);
     }
@@ -635,7 +637,8 @@ final class Kernel
         // the site – with its title; in another language version to its translation (page slugs are unique across
         // languages: /de/vergleich)
         $parentPage = null;
-        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [$collection['slug']]);
+        // with slugs per language the page of the version itself comes first
+        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL ORDER BY language = ? DESC LIMIT 1', [$collection['slug'], Language::siteColumn()]);
         if ($main !== null && $main['language'] === Language::siteColumn()) {
             $parentPage = $main['visible'] ? $main : null;
         } elseif ($main !== null) {
@@ -995,9 +998,18 @@ final class Kernel
             return null;
         }
         $path = trim($path, '/');
-        $plain = (string) preg_replace('#\.html$#', '', $path);
+        // a language version's redirects carry its prefix (en/old: /old may be another page's – with slugs per language, or from a
+        // Polylang or WPML import), so in a language version the prefixed form comes first; the form without it still answers
+        $sources = $this->app->languagePrefix !== '' ? [$this->app->languagePrefix . '/' . $path, $path] : [$path];
+        foreach ($sources as $source) {
+            $plain = (string) preg_replace('#\.html$#', '', $source);
+            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
+            if ($rule !== null) {
+                return $rule;
+            }
+        }
 
-        return $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$path, $plain, $plain . '.html', $path]);
+        return null;
     }
 
     private function notFound(): Response
@@ -1451,7 +1463,7 @@ final class Kernel
             'menu' => $this->menu('main'),
             'menu_footer' => $this->menu('footer'),
             'menu_html' => \Talea\Core\Menu::html(...),
-            'language' => Language::code(),
+            'language' => Language::tag(Language::code()),
             'languages_html' => $languagesHtml,
             'with_news' => Extensions::isEnabled($siteSettings, 'news'), // News extension enabled (RSS links in the template)
             'parts' => $parts,

@@ -73,6 +73,16 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them.
 - Language versions: the column `language` ('' = default) on pages, categories and news; every public query filters by
   `Language::siteColumn()`; `App::url()` adds `/en/` only to addresses without an extension.
+  **Regional versions** (`en-gb`, `de-at`, `pt-br`, `zh-hant`) are ordinary codes in `Language::AVAILABLE`, stored and addressed in lowercase
+  (`/pt-br/`); the shape of a code is `Language::TAG` (use it in every regex, never `[a-z]{2}`). `Language::tag()` prints the canonical case
+  (`pt-BR`) for `<html lang>`, `hreflang`, feeds and structured data; `Language::base()` is the language (`pt`): a regional version uses the
+  dictionary, number format and German register of its base unless it has its own file. Imports fold a regional code into the base language the
+  site already has (`Language::forSite()`, `Language::column()`); `Language::fromForeign()` maps locales and foreign tags (`pt_BR`, `zh-TW`).
+- **Shared slugs** (setting `slugs_per_language`, off by default, Settings → General): a page, news item or category may share its address with the version in
+  another language (`/contact`, `/de/contact`). Language columns are `VARCHAR(35)`; pages, news and categories have a per-language unique key
+  `(language, slug)` next to the global one. `Core\Slug::switchPerLanguage` is the only writer of the setting (drops/restores the global keys; refuses to go
+  off while an address is shared; undoes the keys it already put back when a later table fails). Every "slug taken?" check asks `Slug::taken()` / `Slug::scope()`;
+  redirects of a version carry its prefix (`Slug::redirectPath`) while it is on.
 - Page cache (`Front\Cache`): anonymous visitors only; every admin POST calls `Cache::clear()`; `Auth::user()` must not start a session
   for an anonymous visitor.
 - The site address is the setting `site_url`, not the Host header; absolute addresses come from `$app->request->origin()`.
@@ -110,6 +120,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   properties `grid_column_start/end` (lines 1–13), `grid_row_start/end` (1–40) and `layer` (below|base|above|top); `Build::sanitize` drops them
   (reported) anywhere else, so overlap exists only there. Tablet and phone stack the children in source order (CSS). Editor: `builder-compose.js`
   (column overlay, move grip and eight resize handles snapping to grid lines, Stack ⇄ Compose conversion, tidy up, layers).
+- **No invented content** (#54): starter sections, elements' defaults and templates carry bracketed placeholders (`[Customer’s name]`, `[number]`, `[price]`), never realistic reviews, people, figures or prices. `Builder\SampleContent` finds them (and the demo texts of older starters) in a build, a text, news or a collection item; it warns in the MCP pre-publish `check`, the builder's check, the content check and `site_audit` (kind `sample`), and Claude's guide says to ask the owner. It never blocks publishing. New starter text: use a placeholder, not an invented value.
 - **Looks gallery** (`Builder\Looks`, data in `system/looks/<key>.json`): 14 finished looks = design system (colours with a dark mode incl. optional
   `colors_dark.primary/secondary`, library fonts) + header/footer template (`PartTemplates`) + recommended library sections. Applied with
   `Looks::apply` (admin Appearance → Looks, MCP `list_looks`/`apply_look`, installer field `look`) as a draft look; the part drafts are marked in

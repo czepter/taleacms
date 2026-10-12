@@ -180,6 +180,18 @@ final class Postgres extends Dialect
             . ' WHERE n.nspname = current_schema() AND t.relname = ? AND ix.indisunique ORDER BY i.relname, k.ord';
     }
 
+    public function dropUniqueKeySql(string $table, string $key): string
+    {
+        $this->identifier($table);
+
+        return 'DROP INDEX ' . $this->quote($key);
+    }
+
+    public function addUniqueKeySql(string $table, string $key, array $columns): string
+    {
+        return 'CREATE UNIQUE INDEX ' . $this->quote($key) . ' ON {' . $this->identifier($table) . '} (' . $this->quoteAll($columns) . ')';
+    }
+
     public function sizeSql(): string
     {
         return "SELECT COALESCE(SUM(pg_total_relation_size(c.oid)), 0)::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema() AND c.relkind = 'r' AND c.relname LIKE ?";

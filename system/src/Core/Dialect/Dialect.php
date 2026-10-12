@@ -164,6 +164,16 @@ abstract class Dialect
         return '';
     }
 
+    /** Statement ({table}, no placeholders) that drops a unique key (an index on PostgreSQL, where index names are schema-wide). */
+    abstract public function dropUniqueKeySql(string $table, string $key): string;
+
+    /**
+     * Statement ({table}, no placeholders) that adds a unique key; it fails when rows already break it.
+     *
+     * @param list<string> $columns
+     */
+    abstract public function addUniqueKeySql(string $table, string $key, array $columns): string;
+
     /** The column definition `{pk}` stands for in add-on migrations: an auto-numbered BIGINT primary key. */
     abstract public function autoKeyColumn(): string;
 

@@ -2622,16 +2622,16 @@ $f16Check = fn (array $input): array => array_column(Talea\Core\ContentCheck::ru
 check('2.14 ContentCheck – a good text page: the title is the H1, H2 follows, the keyword from the title is in the description and the first paragraph, images described', $f16Check([
     'title' => 'Kuchyně na míru pro rodinné domy v Brně', 'description' => 'Navrhujeme a vyrábíme kuchyně na míru pro rodinné domy v Brně a okolí – od zaměření po montáž, se zárukou pěti let.', // check-english: allow
     'html' => '<p>Kuchyně na míru stavíme už dvacet let.</p><h2>Jak pracujeme</h2><p>Text</p><h3>Zaměření</h3><img src="/media/a.jpg" alt="Kuchyň">', 'title_is_h1' => true]), // check-english: allow
-    ['title_length' => true, 'description_length' => true, 'single_h1' => true, 'heading_order' => true, 'keyword' => true, 'images_alt' => true]);
+    ['title_length' => true, 'description_length' => true, 'single_h1' => true, 'heading_order' => true, 'keyword' => true, 'images_alt' => true, 'sample_content' => true]);
 check('2.14 ContentCheck – a short title, no description, two H1s, a skipped level, the keyword missing, an image without alt', [$f16Check([
     'title' => 'Kuchyně', 'description' => '', 'html' => '<h1>Nabídka</h1><p>Vyrábíme nábytek.</p><h3>Skok</h3><img src="/media/a.jpg"><img src="/media/b.jpg" alt="">', 'title_is_h1' => true]), // check-english: allow
     array_column(Talea\Core\ContentCheck::run(['title' => 'Kuchyně', 'description' => '', 'html' => '<h1>Nabídka</h1><h3>Skok</h3>', 'title_is_h1' => true]), 'message', 'check')['heading_order']], // check-english: allow
-    [['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => false, 'keyword' => false, 'images_alt' => false],
+    [['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => false, 'keyword' => false, 'images_alt' => false, 'sample_content' => true],
         t('Headings skip a level (%s) – screen readers and search engines read the outline.', 'H1 → H3')]);
 check('2.14 ContentCheck – a build page has its own H1 (none = a warning), a too long title and description are warnings, the keyword search ignores case and diacritics', $f16Check([
     'title' => str_repeat('Dlouhý titulek ', 5), 'description' => str_repeat('Popis stránky pro vyhledávače. ', 6), // check-english: allow
     'html' => '<h2>DLOUHY titulek bez diakritiky</h2><p>dlouhy TITULEK v odstavci</p>', 'title_is_h1' => false]), // check-english: allow
-    ['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => true, 'keyword' => false, 'images_alt' => true]);
+    ['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => true, 'keyword' => false, 'images_alt' => true, 'sample_content' => true]);
 check('2.14 ContentCheck::forPage – a text page is judged with its title as the H1, a build page by its draft', [
     array_column(Talea\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'description' => '', 'text' => '<h2>Tým</h2>', 'build' => null, 'build_draft' => null]), 'ok', 'check')['single_h1'], // check-english: allow
     array_column(Talea\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'description' => '', 'text' => '', 'build' => null, // check-english: allow

@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 use Talea\Builder\Build;
 use Talea\Builder\Check;
+use Talea\Builder\SampleContent;
 
 /**
  * Site audit (1.9): what hurts a site in search engines and for visitors, collected across the whole site – for the
@@ -17,6 +18,8 @@ use Talea\Builder\Check;
  *  - orphan pages (2.14, Core\InternalLinks): published pages, news and items nothing on the site links to;
  *  - pages and item pages without a description, duplicate titles;
  *  - menu items pointing at hidden or deleted pages;
+ *  - sample content (#54, Builder\SampleContent): visible pages that still show the starter sites' placeholders in square
+ *    brackets or the invented reviews, names and prices of earlier starters, and text pages and news with placeholders;
  *  - the builder check of every published build: buttons without a link, images without alt, the heading outline;
  *  - the most frequent addresses that end in 404 and have no redirect;
  *  - accessibility (2.3, the European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, links that
@@ -34,7 +37,7 @@ final class Audit
 {
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
-        'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
+        'sample' => 'Sample content', 'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
         'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
@@ -117,6 +120,13 @@ final class Audit
             if (!$p['visible']) {
                 continue; // a hidden page is not in search engines – only its links matter (it may be published later)
             }
+            $builder = 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']);
+            $sample = $build !== null ? SampleContent::find($build) : [];
+            if ($sample !== []) {
+                $this->add('sample', $where, SampleContent::summary($sample), $builder, $url, $target, $sample[0]['id']);
+            } elseif ($build === null && ($found = SampleContent::inText((string) $p['text'])) !== []) {
+                $this->add('sample', $where, t('The page text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, $target);
+            }
             if ($build !== null) {
                 foreach (Check::builds($build, true, 50) as $c) {
                     $this->add('build', $where, $c['message'], 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']), $url, $target, $c['id']);
@@ -135,6 +145,14 @@ final class Audit
             $edit = 'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']);
             $url = ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'];
             $target = ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']];
+            $values = [];
+            $data = json_decode((string) $p['data'], true) ?: [];
+            array_walk_recursive($data, static function (mixed $v) use (&$values): void {
+                $values[] = is_string($v) ? $v : '';
+            });
+            if (($found = SampleContent::inText(implode(' ', $values))) !== []) {
+                $this->add('sample', $where, t('The item still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, $target);
+            }
             if (trim((string) $p['description']) === '' && !$this->hasLongerText((string) $p['data'], (string) $p['fields'])) {
                 $this->add('description', $where, t('No description for search engines and no longer text to take one from.'), $edit, $url, $target);
             }
@@ -224,8 +242,13 @@ final class Audit
         }
         $db = $this->app->db();
         foreach ($db->all('SELECT news_id, title, slug, language, intro, text FROM {news} WHERE visible = TRUE AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 500') as $c) {
-            $this->links($c['intro'] . ' ' . $c['text'], t('News item “%s”', $c['title']), 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']),
-                $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language'])), ['news' => (int) $c['news_id']]);
+            $where = t('News item “%s”', $c['title']);
+            $edit = 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']);
+            $url = $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language']));
+            $this->links($c['intro'] . ' ' . $c['text'], $where, $edit, $url, ['news' => (int) $c['news_id']]);
+            if (($found = SampleContent::inText($c['intro'] . ' ' . $c['text'])) !== []) {
+                $this->add('sample', $where, t('The text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, ['news' => (int) $c['news_id']]);
+            }
         }
     }
 
@@ -551,35 +574,44 @@ final class Audit
         }
         $db = $this->app->db();
         $segments = $path === '/' ? [] : explode('/', ltrim($path, '/'));
+        $language = '';
         if ($segments !== [] && in_array($segments[0], Language::additional($this->app->settings()), true)) {
-            array_shift($segments);
+            $language = array_shift($segments);
         }
+        // with slugs per language /en/contact and /contact may be two pages: the lookup stays in the link's version, and a
+        // redirect may be stored with the prefix (en/old) or, from before, without it (Front\Kernel looks up both)
+        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
+        [$sameItemLanguage] = Slug::scope($db, $language, 'p.language');
         $rest = '/' . implode('/', $segments);
+        $redirects = array_values(array_unique([trim($path, '/'), ...(Slug::perLanguage($db) ? [trim($rest, '/')] : [])]));
         [$internal] = Routes::internalPath($rest, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
         $ok = match (true) {
             $s === [] => true,
             is_file(TALEA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
             in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
-            $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1)),
-            $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL', [implode('/', $s)]) !== null => true,
-            count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL', [$s[0], $s[1]]) !== null => true,
-            $db->value('SELECT 1 FROM {redirects} WHERE from_path = ?', [trim($path, '/')]) !== null => true,
+            $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1), $sameLanguage, $languageParams),
+            $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,
+            count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,
+            $db->value('SELECT 1 FROM {redirects} WHERE from_path IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', $redirects) !== null => true,
             default => false,
         };
 
         return $this->resolved[$path] = $ok;
     }
 
-    /** @param list<string> $s the path after /news */
-    private function newsPathExists(array $s): bool
+    /**
+     * @param list<string> $s the path after /news
+     * @param list<string> $languageParams
+     */
+    private function newsPathExists(array $s, string $sameLanguage = '', array $languageParams = []): bool
     {
         $db = $this->app->db();
 
         return match (true) {
             $s === [] => true,
             count($s) === 1 => $db->value('SELECT 1 FROM {news} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL', [$s[0]]) !== null,
-            count($s) === 2 && $s[0] === 'category' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?', [$s[1]]) !== null,
+            count($s) === 2 && $s[0] === 'category' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?' . $sameLanguage, [$s[1], ...$languageParams]) !== null,
             count($s) === 2 && $s[0] === 'tag' => $db->value('SELECT 1 FROM {tags} WHERE slug = ?', [$s[1]]) !== null,
             default => false,
         };
