@@ -240,7 +240,7 @@ final class Transfer extends Module
 
     private function start(string $file): Response
     {
-        WpImport::saveState(WpImport::newState($file));
+        WpImport::saveState(WpImport::newState($file, [Language::defaults($this->app->settings()), ...Language::additional($this->app->settings())]));
 
         return $this->back('', 'progress', ['file' => $file]);
     }

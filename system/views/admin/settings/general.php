@@ -31,8 +31,8 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <summary><?= e(t('Name and description in other language versions')) ?></summary>
 <p class="help"><?= e(t('An empty field means the same text as in the default language.')) ?></p>
 <?php foreach ($additionalLanguages as $j): ?>
-<div class="row"><label for="site_name_<?= e($j) ?>"><?= e(t('Site name')) ?> (<?= e(strtoupper($j)) ?>)</label><div><input class="textfield wide" type="text" id="site_name_<?= e($j) ?>" name="site_name_<?= e($j) ?>" value="<?= e($values['site_name_' . $j] ?? '') ?>" maxlength="150" lang="<?= e($j) ?>"></div></div>
-<div class="row"><label for="site_description_<?= e($j) ?>"><?= e(t('Site description')) ?> (<?= e(strtoupper($j)) ?>)</label><div><textarea class="textbox row" id="site_description_<?= e($j) ?>" name="site_description_<?= e($j) ?>" rows="2" cols="60" lang="<?= e($j) ?>"><?= e($values['site_description_' . $j] ?? '') ?></textarea></div></div>
+<div class="row"><label for="site_name_<?= e($j) ?>"><?= e(t('Site name')) ?> (<?= e(strtoupper($j)) ?>)</label><div><input class="textfield wide" type="text" id="site_name_<?= e($j) ?>" name="site_name_<?= e($j) ?>" value="<?= e($values['site_name_' . $j] ?? '') ?>" maxlength="150" lang="<?= e(Talea\Core\Language::tag($j)) ?>"></div></div>
+<div class="row"><label for="site_description_<?= e($j) ?>"><?= e(t('Site description')) ?> (<?= e(strtoupper($j)) ?>)</label><div><textarea class="textbox row" id="site_description_<?= e($j) ?>" name="site_description_<?= e($j) ?>" rows="2" cols="60" lang="<?= e(Talea\Core\Language::tag($j)) ?>"><?= e($values['site_description_' . $j] ?? '') ?></textarea></div></div>
 <?php endforeach ?>
 </details>
 <?php endif ?>
@@ -62,7 +62,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	</select>
 	<span class="help"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span></div>
 </div>
-<?php if (in_array('de', array_merge([$values['site_language']], explode(',', $values['additional_languages'])), true)): ?>
+<?php if (in_array('de', array_map(Talea\Core\Language::base(...), array_merge([$values['site_language']], explode(',', $values['additional_languages']))), true)): ?>
 <div class="row">
 	<label for="german_register"><?= e(t('Form of address in German')) ?></label>
 	<div><select id="german_register" name="german_register">
@@ -82,7 +82,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <?php endforeach ?>
 		</div>
 		<span class="help"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
-<?php $translated = array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Talea\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(TALEA_SYSTEM . '/languages/' . $code . '.php')))); ?>
+<?php $translated = array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Talea\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(TALEA_SYSTEM . '/languages/' . Talea\Core\Language::base($code) . '.php')))); ?>
 		<span class="help"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>

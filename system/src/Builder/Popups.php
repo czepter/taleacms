@@ -66,7 +66,7 @@ final class Popups
             'pages' => array_values(array_unique(array_filter(array_map('intval', is_array($p['pages'] ?? null) ? $p['pages'] : []), fn (int $i): bool => $i > 0))),
             'collections' => array_values(array_unique(array_filter(is_array($p['collections'] ?? null) ? $p['collections'] : [], fn (mixed $k): bool => is_string($k) && preg_match('/^[a-z0-9-]{1,110}$/', $k) === 1))),
             'news' => !empty($p['news']),
-            'language' => is_string($p['language'] ?? null) && preg_match('/^[a-z]{2}$/', $p['language']) ? $p['language'] : '',
+            'language' => is_string($p['language'] ?? null) && preg_match('/^' . \Talea\Core\Language::TAG . '$/D', $p['language']) ? $p['language'] : '',
             'from' => $date($p['from'] ?? ''),
             'to' => $date($p['to'] ?? ''),
             'device' => isset(self::DEVICES[$p['device'] ?? '']) ? $p['device'] : 'all',

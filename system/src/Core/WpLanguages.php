@@ -44,22 +44,17 @@ final class WpLanguages
 
     /**
      * Our language code (a key of Language::AVAILABLE) for a WordPress language: the locale first (cs_CZ – a Polylang
-     * slug may be "cz"), then the code or slug itself (en, pt-br, zh-hans, nb → no); null = a language this site cannot offer.
+     * slug may be "cz"), then the code or slug itself (en, pt-br), each as its longest part this site offers
+     * (zh-hans → zh, nb → no); null = a language this site cannot offer. A regional version the site offers is kept (pt-br, en_GB → en-gb, zh_TW → zh-hant), unless $site has its language but not that version (Language::forSite): an en_GB
+     * export into an English site stays English.
+     *
+     * @param list<string> $site the site's languages (the default one and the additional ones)
      */
-    public static function code(string $raw, string $locale = ''): ?string
+    public static function code(string $raw, string $locale = '', array $site = []): ?string
     {
         foreach ([$locale, $raw] as $value) {
-            $value = strtolower(trim($value));
-            if ($value === '') {
-                continue;
-            }
-            if (isset(Language::AVAILABLE[$value])) {
-                return $value;
-            }
-            $base = (string) preg_split('/[-_]/', $value)[0];
-            $base = in_array($base, ['nb', 'nn'], true) ? 'no' : $base;
-            if (isset(Language::AVAILABLE[$base])) {
-                return $base;
+            if (($code = Language::fromForeign($value)) !== '') {
+                return Language::forSite($code, $site);
             }
         }
 
@@ -95,7 +90,7 @@ final class WpLanguages
     {
         $map = [];
         foreach (self::unserializeArray($serialized) ?? [] as $language => $id) {
-            if (is_string($language) && preg_match('/^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})?$/iD', $language) === 1 && (is_int($id) || (is_string($id) && ctype_digit($id))) && (int) $id > 0) {
+            if (is_string($language) && preg_match('/^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/iD', $language) === 1 && (is_int($id) || (is_string($id) && ctype_digit($id))) && (int) $id > 0) {
                 $map[strtolower($language)] = (int) $id;
             }
         }

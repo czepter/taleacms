@@ -31,7 +31,7 @@ final class Categories extends Module
      */
     public static function listAll(Db $db, ?string $language = null): array
     {
-        $whereParts = $language !== null && preg_match('/^([a-z]{2})?$/', $language) ? " WHERE t.language = '{$language}'" : '';
+        $whereParts = $language !== null && preg_match('/^(' . Language::TAG . ')?$/D', $language) ? " WHERE t.language = '{$language}'" : '';
 
         return $db->all(
             'SELECT t.*, (SELECT COUNT(*) FROM {news} c WHERE c.category_id = t.category_id AND c.deleted_at IS NULL) AS news_count

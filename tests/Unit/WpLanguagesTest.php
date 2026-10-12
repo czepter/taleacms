@@ -24,7 +24,7 @@ final class WpLanguagesTest extends TestCase
         return [
             'a plain code' => ['en', '', 'en'],
             'the locale wins over an odd slug' => ['cz', 'cs_CZ', 'cs'],
-            'a regional code' => ['pt-br', '', 'pt'],
+            'a regional code' => ['pt-br', '', 'pt-br'],
             'Norwegian Bokmål' => ['nb', '', 'no'],
             'a language this site cannot offer' => ['ar', 'ar', null],
             'nothing' => ['', '', null],
@@ -85,11 +85,18 @@ final class WpLanguagesTest extends TestCase
 
     public function testThePreviewCountsLanguagesAndLeavesUnsupportedOnesOut(): void
     {
-        $state = WpImport::newState('wordpress-polylang.xml');
+        $state = WpImport::newState('wordpress-polylang.xml', ['cs', 'en']);
         WpImport::analyze($state, 30, self::fixture('wordpress-polylang.xml'));
-        $this->assertEquals(['cs' => 3, 'en' => 3], $state['languages']['found'], 'items per language');
+        $this->assertEquals(['cs' => 3, 'en' => 3], $state['languages']['found'], 'items per language (the export is en_GB, the site has English)');
         $this->assertSame(['ar' => 1], $state['languages']['unsupported'], 'Arabic cannot be offered');
         $this->assertTrue(WpImport::isMultilingual($state));
+    }
+
+    public function testARegionalLanguageOfTheExportIsKeptWhenTheSiteLacksItsLanguage(): void
+    {
+        $state = WpImport::newState('wordpress-polylang.xml', ['cs']);
+        WpImport::analyze($state, 30, self::fixture('wordpress-polylang.xml'));
+        $this->assertEquals(['cs' => 3, 'en-gb' => 3], $state['languages']['found']);
     }
 
     public function testTermsKeptFromTheHeaderAreCapped(): void

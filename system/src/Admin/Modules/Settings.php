@@ -735,7 +735,7 @@ class Settings extends Module
                 return $field[$key];
             }
         }
-        if (preg_match('/^(.+)_([a-z]{2})$/D', $key, $m) === 1 && in_array($m[1], \Talea\Core\Settings::PER_LANGUAGE, true)) {
+        if (preg_match('/^(.+)_(' . \Talea\Core\Language::TAG . ')$/D', $key, $m) === 1 && in_array($m[1], \Talea\Core\Settings::PER_LANGUAGE, true)) {
             return self::fieldType($m[1]);
         }
 
