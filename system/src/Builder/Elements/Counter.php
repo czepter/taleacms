@@ -25,7 +25,7 @@ final class Counter extends Element
     public static function properties(): array
     {
         return [
-            'number' => ['type' => 'text', 'label' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'default' => '1200', 'max' => 140],
+            'number' => ['type' => 'text', 'label' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'default' => t('[number]'), 'max' => 140],
             'prefix' => ['type' => 'text', 'label' => 'Before the number (e.g. “+”)', 'default' => '', 'max' => 10],
             'suffix' => ['type' => 'text', 'label' => 'After the number (e.g. “ %”, “+”, “ years”)', 'default' => '+', 'max' => 20],
             'caption' => ['type' => 'text', 'label' => 'Label', 'default' => t('satisfied customers'), 'max' => 120],

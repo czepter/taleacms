@@ -45,7 +45,25 @@ $running = in_array($state['phase'], ['analysis', 'import', 'images'], true);
 <?php if (($v['items'] ?? 0) > 0): ?>
 	<div class="tiles-item"><strong><?= (int) $v['items'] ?></strong><span><?= e(t('Collection items (custom post types), in %s new collections', (int) ($v['collections'] ?? 0))) ?></span></div>
 <?php endif ?>
+<?php if (Talea\Core\WpImport::isMultilingual($state)): ?>
+	<div class="tiles-item"><strong><?= (int) ($v['translations'] ?? 0) ?></strong><span><?= e(t('Translations linked to their original')) ?></span></div>
+<?php endif ?>
 </div>
+<?php $languageName = fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0] ?? $code; ?>
+<?php if (($state['languages']['added'] ?? []) !== []): ?>
+<p><?= e(t('Language versions added to the site: %s.', implode(', ', array_map($languageName, array_map('strval', (array) $state['languages']['added']))))) ?></p>
+<?php endif ?>
+<?php if (($state['languages']['left_out'] ?? []) !== []): ?>
+<p class="notice notice-warning"><?= e(t('Left out – the site has no version in these languages: %s. Add the language in Settings and import the file again, or tick the option to add the language versions.', implode(', ', array_map(fn (string $code, int $count): string => $languageName($code) . ' (' . $count . ')', array_map('strval', array_keys($state['languages']['left_out'])), array_map('intval', $state['languages']['left_out']))))) ?></p>
+<?php endif ?>
+<?php if (($state['clashes'] ?? []) !== []): // slugs are unique across languages until they are per language ?>
+<details class="advanced" open><summary><?= e(t('Addresses another language version already had (%s)', (int) ($v['clashes'] ?? count($state['clashes'])))) ?></summary>
+<p class="help"><?= e(t('These got a number at the end; the old address redirects to the new one. Once each language version can have its own addresses, they can get their original address back.')) ?></p><ul>
+<?php foreach ($state['clashes'] as $r): ?>
+	<li><?= e(t('%s instead of %s – %s has it', (string) $r[1], (string) $r[0], (string) $r[2])) ?></li>
+<?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
 <h2><?= e(t('Images from the old site')) ?></h2>

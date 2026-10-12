@@ -190,7 +190,7 @@ final class News extends Module
             return $this->back();
         }
         $copy = array_intersect_key($newsItem, array_flip(['intro', 'text', 'image', 'image_caption', 'image_author', 'category_id', 'keywords', 'seo_description', 'noindex', 'faq', 'language']));
-        $seo = \Talea\Core\Slug::makeUnique($newsItem['slug'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {news} WHERE slug = ?', [$a]) !== null);
+        $seo = \Talea\Core\Slug::makeUnique($newsItem['slug'] . '-kopie', fn (string $a): bool => \Talea\Core\Slug::taken($this->db, 'news', $a, (string) $newsItem['language']));
         $id = $this->db->insert('news', $copy + ['title' => mb_substr(t('%s (copy)', $newsItem['title']), 0, 255), 'slug' => $seo, 'visible' => 0,
             'published_at' => date('Y-m-d H:i:s'), 'author_id' => $this->app->auth()->id(), 'edited_at' => date('Y-m-d H:i:s')]);
         $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
@@ -279,7 +279,7 @@ final class News extends Module
         if ($r->postBool('mark_updated') && $data['visible']) {
             $data['updated_at'] = date('Y-m-d H:i:s');
         }
-        $data['slug'] = $this->findFreeSlug($data['slug'], $id);
+        $data['slug'] = $this->findFreeSlug($data['slug'], $id, $data['language']);
         if ($id > 0) {
             if ([$previous['title'], $previous['intro'], $previous['text']] !== [$data['title'], $data['intro'], $data['text']]) {
                 self::version($this->db, $previous, $this->app->auth()->id());
@@ -287,7 +287,7 @@ final class News extends Module
             $this->db->update('news', $data, ['news_id' => $id]);
             if ($previous['slug'] !== $data['slug'] && $previous['visible']) {
                 // a published news item changed its slug: the old one is redirected so that links and search engines do not lose the page
-                Redirects::add($this->db, 'news/' . $previous['slug'], 'news/' . $data['slug']);
+                Redirects::add($this->db, \Talea\Core\Slug::redirectPath($this->db, 'news/' . $previous['slug'], (string) $previous['language']), \Talea\Core\Slug::redirectPath($this->db, 'news/' . $data['slug'], $data['language']));
             }
         } else {
             $id = $this->db->insert('news', $data);
@@ -538,7 +538,7 @@ final class News extends Module
         foreach ($translation as $field => $value) {
             $data[$field] = $field === 'title' ? mb_substr($value, 0, 255) : $value;
         }
-        $data['slug'] = $this->findFreeSlug(slugify($data['title'], 100), 0);
+        $data['slug'] = $this->findFreeSlug(slugify($data['title'], 100), 0, (string) $language);
         $id = $this->db->insert('news', $data);
         Media::recordUsage($this->db, $id, (string) $data['image'], $data['intro'], $data['text']);
         $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
@@ -751,9 +751,9 @@ final class News extends Module
         return $newsItem === null || ($authors !== null && !in_array((int) $newsItem['author_id'], $authors, true)) ? null : $newsItem;
     }
 
-    private function findFreeSlug(string $seo, int $idc): string
+    private function findFreeSlug(string $seo, int $idc, string $language): string
     {
-        return \Talea\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ? AND news_id <> ?', [$a, $idc]) !== null);
+        return \Talea\Core\Slug::makeUnique($seo, fn (string $a): bool => \Talea\Core\Slug::taken($this->db, 'news', $a, $language, $idc));
     }
 
     /** Value from <input type="datetime-local"> -> DATETIME; empty or invalid = null. */

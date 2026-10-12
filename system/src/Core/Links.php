@@ -231,7 +231,7 @@ final class Links
         $path = str_starts_with($url, '/') && !str_starts_with($url, '//') ? $url : (str_starts_with($url, $custom . '/') ? substr($url, strlen($custom)) : null);
         if ($path !== null) {
             $path = (string) parse_url(substr($path, strlen($app->request->basePath())), PHP_URL_PATH);
-            if (preg_match('#^/(?:[a-z]{2}/)?news/([a-z0-9-]+)$#', $path, $m)) {
+            if (preg_match('#^/(?:' . Language::TAG . '/)?news/([a-z0-9-]+)$#', $path, $m)) {
                 return $app->db()->value('SELECT news_id FROM {news} WHERE slug = ?', [$m[1]]) === null
                     && $app->db()->value('SELECT redirect_id FROM {redirects} WHERE from_path = ?', ['news/' . $m[1]]) === null ? 404 : null;
             }

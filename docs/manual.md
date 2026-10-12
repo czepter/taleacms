@@ -303,7 +303,7 @@ filled-in details of the operator.
 
 **News** is the company blog: categories, tags, scheduled publishing, trash, version history. SEO takes care of itself
 (sitemap, canonical URLs, structured data, `llms.txt` for AI search). Enable further language versions (`/de/…`) under
-**Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages.
+**Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages. British English, Austrian German, Brazilian Portuguese and Traditional Chinese are offered as regional versions (`/pt-br/`; search engines get `pt-BR`): they use the texts and number format of their language. An import keeps a regional language unless the site already has that language without the region (an `en_GB` export into an English site stays English).
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
 Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
 site language separately from the admin language.
@@ -396,6 +396,13 @@ the look and tidy the texts.
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects
 from old addresses. You can run the import again – whatever it already converted is skipped.
+
+An export from a **multilingual site (Polylang or WPML)** arrives as linked language versions: every post, page, category and
+collection item goes to its own language, translations point to their original in your default language, and the old `/en/…`
+and `?lang=en` addresses redirect. A language version your site does not have yet is added only when you tick the option in
+the preview (it then shows in the language switcher at once); otherwise its posts are left out and the report says so. While
+the same address in every language is off (Settings → General), an address another language already has gets a number, and
+the report lists those addresses.
 
 **Moving a Talea site** to another host or starting a new site from an agency's starter kit: on the old site create
 **Import and export → Export of the whole site**, then install Talea on the new host and choose **Start from an export**

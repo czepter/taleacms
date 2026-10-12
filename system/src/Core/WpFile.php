@@ -108,13 +108,26 @@ final class WpFile
     }
 
     /**
+     * At most this many categories and tags (and their languages) are kept from the header: a company site has hundreds; an
+     * export of a Polylang site with millions of translation groups would otherwise take many times its size in memory on
+     * every import batch. Terms past the limit are imported without a language link.
+     */
+    public const int MAX_TERMS = 20000;
+
+    /**
      * Data from the start of the file (before the first post): old site, authors, categories, tags.
      *
-     * @return array{name:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{name:string, predek:string}>, stitky:array<string,string>}
+     * A multilingual site (Core\WpLanguages): Polylang's languages (slug => locale), the language and the translation group of
+     * each category and tag by its term number (Polylang term_translations, WPML termmeta), the terms by number (kind and
+     * slug), the term names by number (Polylang lets two languages share a category slug) and the plugin found
+     * (polylang | wpml | '').
+     *
+     * @return array{name:string, url:string, authors:array<string,string>, categories:array<string,array{name:string, parent:string}>, tags:array<string,string>, languages:array<string,string>, term_language:array<int,string>, term_group:array<int,string>, term_name:array<int,string>, terms:array<int,array{0:string, 1:string}>, plugin:string}
      */
     public function header(): array
     {
-        $h = ['name' => '', 'url' => '', 'authors' => [], 'categories' => [], 'tags' => []];
+        $h = ['name' => '', 'url' => '', 'authors' => [], 'categories' => [], 'tags' => [],
+            'languages' => [], 'term_language' => [], 'term_group' => [], 'term_name' => [], 'terms' => [], 'plugin' => ''];
         $link = '';
         $reader = $this->open();
         try {
@@ -129,16 +142,46 @@ final class WpFile
                 if ($reader->name === 'item') {
                     break;
                 }
-                $field = self::fields($this->node($reader));
+                $node = $this->node($reader);
+                $field = self::fields($node);
+                $term = (int) ($field['wp:term_id'] ?? 0);
                 match ($reader->name) {
                     'title' => $h['name'] = self::plainText($field['title'] ?? ''),
                     'link' => $link = trim($field['link'] ?? ''),
                     'wp:base_site_url' => $h['url'] = trim($field['wp:base_site_url'] ?? ''),
                     'wp:author' => $h['authors'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
-                    'wp:category' => $h['categories'][(string) ($field['wp:category_nicename'] ?? '')] = ['name' => self::plainText($field['wp:cat_name'] ?? ''), 'parent' => (string) ($field['wp:category_parent'] ?? '')],
-                    'wp:tag' => $h['tags'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
+                    'wp:category' => count($h['categories']) >= self::MAX_TERMS ? null : $h['categories'][(string) ($field['wp:category_nicename'] ?? '')] = ['name' => self::plainText($field['wp:cat_name'] ?? ''), 'parent' => (string) ($field['wp:category_parent'] ?? '')],
+                    'wp:tag' => count($h['tags']) >= self::MAX_TERMS ? null : $h['tags'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
                     default => null,
                 };
+                if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true) && count($h['terms']) < self::MAX_TERMS) {
+                    $isCategory = $reader->name === 'wp:category';
+                    $h['terms'][$term] = [$isCategory ? 'category' : 'tag', (string) ($field[$isCategory ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')];
+                    $h['term_name'][$term] = self::plainText($field[$isCategory ? 'wp:cat_name' : 'wp:tag_name'] ?? '');
+                    // WPML Export and Import writes the language and the translation group of a term as its termmeta
+                    $meta = self::termMeta($node);
+                    if (($meta[WpLanguages::WPML_LANGUAGE] ?? '') !== '') {
+                        $h['term_language'][$term] = mb_substr($meta[WpLanguages::WPML_LANGUAGE], 0, 20);
+                        $h['plugin'] = WpLanguages::WPML;
+                    }
+                    if (($meta[WpLanguages::WPML_GROUP] ?? '') !== '') {
+                        $h['term_group'][$term] = 'wpml:' . mb_substr($meta[WpLanguages::WPML_GROUP], 0, 60);
+                    }
+                }
+                if ($reader->name === 'wp:term') {
+                    // Polylang's languages and the translation groups of categories and tags are terms of its own taxonomies
+                    $slug = mb_substr((string) ($field['wp:term_slug'] ?? ''), 0, 60);
+                    $description = (string) ($field['wp:term_description'] ?? '');
+                    if (($field['wp:term_taxonomy'] ?? '') === 'language' && $slug !== '' && count($h['languages']) < 100) {
+                        $h['languages'][$slug] = WpLanguages::locale($description);
+                        $h['plugin'] = WpLanguages::POLYLANG;
+                    } elseif (($field['wp:term_taxonomy'] ?? '') === 'term_translations' && $slug !== '' && count($h['term_language']) < self::MAX_TERMS) {
+                        foreach (WpLanguages::translationMap($description) as $language => $id) {
+                            $h['term_language'][$id] = $language;
+                            $h['term_group'][$id] = 'pll:' . $slug;
+                        }
+                    }
+                }
                 $hasMore = $this->additional($reader);
             }
         } finally {
@@ -193,6 +236,9 @@ final class WpFile
             'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'link' => '', 'url' => '', 'date' => '', 'date_gmt' => '', 'pub_date' => '',
             'author' => '', 'content' => '', 'excerpt' => '', 'password' => '', 'sticky' => false, 'attachment_url' => '', 'preview' => 0,
             'categories' => [], 'tags' => [], 'meta' => [], 'fields' => [],
+            // the language as the plugin names it (a Polylang slug, a WPML code), the translation group (pll:… | wpml:… | dup:<id>)
+            // and the multilingual plugin that left a trace on the post (Core\WpLanguages)
+            'language_wp' => '', 'group' => '', 'language_plugin' => '',
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -216,16 +262,35 @@ final class WpFile
                 case 'wp:is_sticky': $p['sticky'] = trim($text) === '1'; break;
                 case 'wp:attachment_url': $p['attachment_url'] = trim($text); break;
                 case 'category':
-                    $kind = $n->getAttribute('domain') === 'post_tag' ? 'tags' : ($n->getAttribute('domain') === 'category' ? 'categories' : '');
+                    $domain = $n->getAttribute('domain');
+                    $kind = $domain === 'post_tag' ? 'tags' : ($domain === 'category' ? 'categories' : '');
                     if ($kind !== '' && $n->getAttribute('nicename') !== '') {
                         $p[$kind][$n->getAttribute('nicename')] = self::plainText($text);
+                    } elseif ($domain === 'language' && $n->getAttribute('nicename') !== '') {
+                        $p['language_wp'] = mb_substr($n->getAttribute('nicename'), 0, 20); // Polylang
+                        $p['language_plugin'] = WpLanguages::POLYLANG;
+                    } elseif ($domain === 'post_translations' && $n->getAttribute('nicename') !== '') {
+                        $p['group'] = 'pll:' . mb_substr($n->getAttribute('nicename'), 0, 60);
+                        $p['language_plugin'] = WpLanguages::POLYLANG;
+                    } elseif (in_array($domain, WpLanguages::WPML_TAXONOMIES, true) && $p['language_plugin'] === '') {
+                        $p['language_plugin'] = WpLanguages::WPML;
                     }
                     break;
                 case 'wp:postmeta':
                     $meta = self::fields($n);
                     $key = (string) ($meta['wp:meta_key'] ?? '');
+                    $value = trim((string) ($meta['wp:meta_value'] ?? ''));
                     if ($key === '_thumbnail_id') {
                         $p['preview'] = (int) ($meta['wp:meta_value'] ?? 0);
+                    } elseif ($key === WpLanguages::WPML_LANGUAGE && $value !== '') {
+                        $p['language_wp'] = mb_substr($value, 0, 20); // WPML Export and Import
+                        $p['language_plugin'] = WpLanguages::WPML;
+                    } elseif ($key === WpLanguages::WPML_GROUP && $value !== '') {
+                        $p['group'] = 'wpml:' . mb_substr($value, 0, 60);
+                        $p['language_plugin'] = WpLanguages::WPML;
+                    } elseif ($key === WpLanguages::WPML_DUPLICATE && ctype_digit($value) && (int) $value > 0) {
+                        $p['group'] = $p['group'] !== '' ? $p['group'] : 'dup:' . (int) $value; // a WPML duplicate of that post
+                        $p['language_plugin'] = WpLanguages::WPML;
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
                     } elseif (WpTypes::isCustomType($p['type']) && count($p['fields']) < 120) {
@@ -340,6 +405,24 @@ final class WpFile
         }
 
         return $field;
+    }
+
+    /**
+     * The term meta of a category or a tag (<wp:termmeta> with a key and a value) as key => value.
+     *
+     * @return array<string, string>
+     */
+    private static function termMeta(\DOMElement $term): array
+    {
+        $meta = [];
+        foreach ($term->childNodes as $n) {
+            if ($n instanceof \DOMElement && $n->nodeName === 'wp:termmeta' && count($meta) < 100) {
+                $field = self::fields($n);
+                $meta[trim($field['wp:meta_key'] ?? '')] = trim($field['wp:meta_value'] ?? '');
+            }
+        }
+
+        return $meta;
     }
 
     /** Titles and names: without tags, entities converted to characters, without surrounding whitespace. */

@@ -69,15 +69,15 @@ final class Library
                 $s($n('grid', [], array_map(fn (array $d): array => $s($n('container', [], [
                     $s($z($n('heading', ['text' => $d[0]]), 'p'), ['base' => ['font_size' => '4', 'font_weight' => '800']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => '2xs', 'text_align' => 'center']]), [['15+', t('years in business')], [t('1,200'), t('completed projects')], [t('98%'), t('satisfied customers')], ['24 h', t('response time')]])),
+                ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => '2xs', 'text_align' => 'center']]), [[t('[number]'), t('years in business')], [t('[number]'), t('completed projects')], [t('[number]'), t('satisfied customers')], [t('[number]'), t('response time')]])),
                     ['base' => ['display' => 'grid', 'columns' => '4', 'gap' => 'l'], 'tablet' => ['columns' => '2']]),
             ]), ['base' => ['padding_y' => 'xl', 'background' => 'primary', 'color' => 'on-primary']])],
 
             'testimonials' => ['name' => t('Testimonials'), 'description' => t('What customers say about you – quotes with names.'), 'build' => fn (): array => $n('section', [], [
                 $t($n('heading', ['text' => t('What our customers say')]), 'section-heading'),
                 $s($n('grid', [], [
-                    $t($n('testimonial', ['text' => t('Everything went exactly as agreed, on time and on budget. We will gladly come back.'), 'author' => t('David Clarke'), 'position' => t('Managing Director, Clarke Ltd')]), 'card'),
-                    $t($n('testimonial', ['text' => t('We appreciate the fast communication and that they always recommended the best solution.'), 'author' => t('Emma Johnson'), 'position' => t('Operations Director')]), 'card'),
+                    $t($n('testimonial', ['text' => t('[A customer’s words – a real quote, used with their permission]'), 'author' => t('[Customer’s name]'), 'position' => t('[Role, company]')]), 'card'),
+                    $t($n('testimonial', ['text' => t('[A customer’s words – a real quote, used with their permission]'), 'author' => t('[Customer’s name]'), 'position' => t('[Role, company]')]), 'card'),
                 ]), ['base' => ['display' => 'grid', 'columns' => 'auto:20rem', 'gap' => 'l']]),
             ])],
 
@@ -89,7 +89,7 @@ final class Library
             'call-to-action' => ['name' => t('Call to action'), 'description' => t('A coloured box with a heading, a sentence and a button.'), 'build' => fn (): array => $n('section', [], [
                 $s($n('container', [], [
                     $z($n('heading', ['text' => t('Have a project? Let\'s talk.')]), 'h2'),
-                    $n('text', ['html' => '<p>' . t('Get in touch – within 24 hours we will come back with a proposal for next steps.') . '</p>']),
+                    $n('text', ['html' => '<p>' . t('Get in touch – within [number] hours we will come back with a proposal for next steps.') . '</p>']),
                     $n('button', ['text' => t('Write to us'), 'link' => $url('Contact'), 'variant' => 'secondary']),
                 ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'align_items' => 'center', 'gap' => 's', 'text_align' => 'center',
                     'padding_y' => '2xl', 'padding_x' => 'l', 'background' => 'primary', 'color' => 'on-primary', 'radius' => 'l']]),
@@ -129,7 +129,7 @@ final class Library
 
             'hero-centered' => ['name' => t('Centred hero'), 'description' => t('A short label, a big headline and a button – all centred.'), 'build' => fn (): array => $s($n('section', [], [
                 $s($n('container', [], [
-                    $s($z($n('heading', ['text' => t('New: service within 48 hours')]), 'p'), ['base' => ['font_size' => '-1', 'font_weight' => '600', 'color' => 'primary', 'text_transform' => 'uppercase', 'letter_spacing' => '0.06em']]),
+                    $s($z($n('heading', ['text' => t('New: [announcement]')]), 'p'), ['base' => ['font_size' => '-1', 'font_weight' => '600', 'color' => 'primary', 'text_transform' => 'uppercase', 'letter_spacing' => '0.06em']]),
                     $s($z($n('heading', ['text' => t('We take care of everything from design to handover')]), 'h1'), ['base' => ['font_size' => '5', 'line_length' => '20ch']]),
                     $t($n('text', ['html' => '<p>' . t('One company, one contact, a clear price. You focus on your work, we handle the rest.') . '</p>']), 'subtitle'),
                     $n('button', ['text' => t('Book a meeting'), 'link' => $url('Contact')]),
@@ -205,8 +205,8 @@ final class Library
                     $s($n('container', [], [$z($n('heading', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'subtitle')]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => '2xs']]),
                     $s($z($n('heading', ['text' => $d[2]]), 'p'), ['base' => ['font_weight' => '700', 'font_size' => '1']]),
                 ]), ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'baseline', 'gap' => 'm', 'padding_y' => 'm', 'border_bottom' => '1px solid var(--tl-color-line)'], 'mobile' => ['direction' => 'column', 'gap' => 'xs']]), [
-                    [t('Consultation'), t('An hour with an expert at your place or online.'), t('from £40')],
-                    [t('Tailored design'), t('A design including visualisation and budget.'), t('from £190')],
+                    [t('Consultation'), t('An hour with an expert at your place or online.'), t('from [price]')],
+                    [t('Tailored design'), t('A design including visualisation and budget.'), t('from [price]')],
                     [t('Delivery'), t('Complete execution according to the design.'), t('depending on scope')],
                 ])), ['base' => ['display' => 'flex', 'direction' => 'column']]),
             ])],
@@ -219,8 +219,8 @@ final class Library
                     $n('list', ['items' => $d[2], 'style' => 'checks']),
                     $n('button', ['text' => t('I\'m interested'), 'link' => $url('Contact'), 'variant' => $d[3] ? 'primary' : 'outline']),
                 ]), 'card'), $d[3] ? ['base' => ['border' => '2px solid var(--tl-color-primary)', 'shadow' => 'm']] : []), [
-                    [t('Basic'), t('£120'), t('Consultation') . "\n" . t('Solution design'), false],
-                    [t('Standard'), t('£290'), t('Consultation') . "\n" . t('Solution design') . "\n" . t('Delivery') . "\n" . t('A year of free service'), true],
+                    [t('Basic'), t('[price]'), t('Consultation') . "\n" . t('Solution design'), false],
+                    [t('Standard'), t('[price]'), t('Consultation') . "\n" . t('Solution design') . "\n" . t('Delivery') . "\n" . t('A year of free service'), true],
                     [t('Custom'), t('by agreement'), t('Everything in Standard') . "\n" . t('Your own schedule') . "\n" . t('A personal project manager'), false],
                 ])), ['base' => ['display' => 'grid', 'columns' => 'auto:16rem', 'gap' => 'l', 'align_items' => 'stretch']]),
             ])],
@@ -255,7 +255,7 @@ final class Library
                     $z($n('heading', ['text' => $d[0]]), 'h3'),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'subtitle'),
                 ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'xs']]), [
-                    [t('Family house'), t('Manchester, 2026')], [t('Office'), t('London, 2025')], [t('Flat renovation'), t('York, 2025')],
+                    [t('[Project name]'), t('[Place, year]')], [t('[Project name]'), t('[Place, year]')], [t('[Project name]'), t('[Place, year]')],
                 ])), ['base' => ['display' => 'grid', 'columns' => 'auto:18rem', 'gap' => 'l']]),
             ])],
 
@@ -267,7 +267,7 @@ final class Library
             /* ---------- trust ---------- */
 
             'quote' => ['name' => t('Big quote'), 'description' => t('One prominent testimonial in the centre.'), 'build' => fn (): array => $s($n('section', ['width' => 'narrow'], [
-                $s($n('testimonial', ['text' => t('The best company we have ever worked with. They kept every deadline and the result exceeded our expectations.'), 'author' => t('Sarah Miller'), 'position' => t('café owner')]),
+                $s($n('testimonial', ['text' => t('[A customer’s words – a real quote, used with their permission]'), 'author' => t('[Customer’s name]'), 'position' => t('[Role, company]')]),
                     ['base' => ['font_size' => '2', 'text_align' => 'center']]),
             ]), ['base' => ['padding_y' => '2xl', 'background' => 'primary-soft']])],
 
@@ -278,7 +278,7 @@ final class Library
                     $n('text', ['html' => '<p>' . $d[0] . '</p>']),
                     $s($z($n('heading', ['text' => $d[1]]), 'p'), ['base' => ['font_weight' => '600', 'font_size' => '-1']]),
                 ]), 'card'), [
-                    [t('Fast, clean and for the agreed price.'), t('Tom K.')], [t('Helpful people, great communication.'), t('Jane P.')], [t('I recommend them to all my friends.'), t('Paul S.')],
+                    [t('[A short review from a real customer]'), t('[Customer’s name]')], [t('[A short review from a real customer]'), t('[Customer’s name]')], [t('[A short review from a real customer]'), t('[Customer’s name]')],
                 ])), ['base' => ['display' => 'grid', 'columns' => '3', 'gap' => 'l'], 'tablet' => ['columns' => '1']]),
             ])],
 
@@ -293,7 +293,7 @@ final class Library
                     $s($z($n('heading', ['text' => $d[0]]), 'p'), ['base' => ['font_size' => '5', 'font_weight' => '800', 'color' => 'primary']]),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'subtitle'),
                 ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => '2xs']]), [
-                    ['20+', t('years of experience')], ['500+', t('satisfied customers')], [t('5 years'), t('guarantee on work')],
+                    [t('[number]'), t('years of experience')], [t('[number]'), t('satisfied customers')], [t('[number]'), t('guarantee on work')],
                 ])), ['base' => ['display' => 'grid', 'columns' => '3', 'gap' => 'l'], 'mobile' => ['columns' => '1']]),
             ])],
 
@@ -301,7 +301,7 @@ final class Library
                 $s($n('grid', [], array_map(fn (array $d): array => $s($n('container', [], [
                     $s($z($n('heading', ['text' => $d[0]]), 'p'), ['base' => ['font_size' => '1', 'font_weight' => '700']]), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'subtitle'),
                 ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => '2xs']]), [
-                    [t('Free delivery'), t('Within 50 km.')], [t('5-year guarantee'), t('On all work.')], [t('Fixed deadline'), t('Or a discount for every day late.')], [t('Pay after handover'), t('No large deposits.')],
+                    [t('Free delivery'), t('Within [number] km.')], [t('[number]-year guarantee'), t('On all work.')], [t('Fixed deadline'), t('Or a discount for every day late.')], [t('Pay after handover'), t('No large deposits.')],
                 ])), ['base' => ['display' => 'grid', 'columns' => '4', 'gap' => 'l'], 'tablet' => ['columns' => '2']]),
             ]), ['base' => ['padding_y' => 'l', 'background' => 'surface']])],
 
@@ -323,7 +323,7 @@ final class Library
                     $s($n('image', ['alt' => $d[0]]), ['base' => ['width' => '100%', 'aspect_ratio' => '1', 'object_fit' => 'cover', 'radius' => 'full']]),
                     $z($n('heading', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'subtitle'),
                 ]), ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'xs', 'text_align' => 'center', 'align_items' => 'center']]), [
-                    [t('John Smith'), t('owner')], [t('Emily Smith'), t('design and measuring')], [t('Peter Brown'), t('project lead')],
+                    [t('[Name]'), t('[Role]')], [t('[Name]'), t('[Role]')], [t('[Name]'), t('[Role]')],
                 ])), ['base' => ['display' => 'grid', 'columns' => 'auto:12rem', 'gap' => 'l']]),
             ])],
 
@@ -365,7 +365,7 @@ final class Library
                     $z($n('heading', ['text' => $d[0]]), 'h3'),
                     $n('text', ['html' => '<p>' . $d[1] . '<br>' . $d[2] . '</p><p>' . $d[3] . '</p>']),
                 ]), 'card'), [
-                    [t('London'), t('12 High Street'), t('London EC2A 4NE'), t('Mon–Fri 8–17')], [t('Manchester'), t('5 King Street'), t('Manchester M2 5DB'), t('Mon–Fri 9–17')], [t('Leeds'), t('20 Station Road'), t('Leeds LS1 4DY'), t('Mon–Thu 8–16')],
+                    [t('[Branch name]'), t('[Street and number]'), t('[Postcode and city]'), t('[Opening hours]')], [t('[Branch name]'), t('[Street and number]'), t('[Postcode and city]'), t('[Opening hours]')], [t('[Branch name]'), t('[Street and number]'), t('[Postcode and city]'), t('[Opening hours]')],
                 ])), ['base' => ['display' => 'grid', 'columns' => 'auto:16rem', 'gap' => 'l']]),
             ])],
 
