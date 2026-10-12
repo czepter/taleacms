@@ -508,7 +508,7 @@ final class Site
         $fields = array_filter(array_replace($fields, (array) ($this->options['installerFields'] ?? [])), static fn ($v): bool => $v !== null);
         $answer = $visitor->post('/install.php', $fields);
         if (!$answer->contains($this->options['doneText'] ?? 'Done, your website is running')) {
-            throw new \RuntimeException('The installer failed: ' . mb_substr($answer->text(), 0, 1100));
+            throw new \RuntimeException('The installer failed (HTTP ' . $answer->status . ', ' . strlen($answer->text()) . ' bytes' . ($answer->text() === '' ? ', an empty answer: a PHP fatal error, a time-out or a killed worker – see the PHP log of the runner' : '') . '): ' . mb_substr($answer->text(), 0, 1100));
         }
 
         return $answer;
