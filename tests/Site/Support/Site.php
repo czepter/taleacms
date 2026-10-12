@@ -507,8 +507,16 @@ final class Site
         // extra or replaced installer fields (German register, site language, e-mail …); a null value drops the field
         $fields = array_filter(array_replace($fields, (array) ($this->options['installerFields'] ?? [])), static fn ($v): bool => $v !== null);
         $answer = $visitor->post('/install.php', $fields);
+        for ($try = 1; $answer->status === 0 && $try < 3; $try++) {
+            // no answer at all (a connection refused or reset on a busy runner), so nothing was installed: ask again
+            sleep(2);
+            $answer = $visitor->post('/install.php', $fields);
+        }
         if (!$answer->contains($this->options['doneText'] ?? 'Done, your website is running')) {
-            throw new \RuntimeException('The installer failed (HTTP ' . $answer->status . ', ' . strlen($answer->text()) . ' bytes' . ($answer->text() === '' ? ', an empty answer: a PHP fatal error, a time-out or a killed worker – see the PHP log of the runner' : '') . '): ' . mb_substr($answer->text(), 0, 1100));
+            $log = @file_get_contents($this->work . '/server-' . $this->port . '.log');
+            throw new \RuntimeException('The installer failed (HTTP ' . $answer->status . ', ' . strlen($answer->text()) . ' bytes' . ($visitor->lastError !== null ? ', ' . $visitor->lastError : '')
+                . ($answer->text() === '' ? ', an empty answer: a PHP fatal error, a time-out or a killed worker – see the PHP log of the runner' : '') . '): ' . mb_substr($answer->text(), 0, 1100)
+                . ($log !== false && $log !== '' ? "\nServer log: " . mb_substr($log, -1500) : ''));
         }
 
         return $answer;

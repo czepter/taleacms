@@ -174,14 +174,15 @@ trait CollectionTools
 
         $collection = $this->collection((string) ($a['collection'] ?? ''));
 
-        $whereParts = ['collection_id = ?', 'deleted_at IS NULL']; // the trash is in list_trash
+        // the trash is in list_trash; without the Collections section only published items (Auth::collectionItemListScope)
+        $whereParts = ['collection_id = ?', 'deleted_at IS NULL' . $auth->collectionItemListScope()];
         $args = [$collection['collection_id']];
         if (isset($a['language']) && is_string($a['language'])) {
             $whereParts[] = 'language = ?';
             $args[] = $a['language'];
         }
-        if (!empty($a['visible_only']) || !$auth->hasModule('collections')) {
-            $whereParts[] = 'visible = TRUE'; // without the Collections section only published items
+        if (!empty($a['visible_only'])) {
+            $whereParts[] = 'visible = TRUE';
         }
         if (is_string($a['search'] ?? null) && trim($a['search']) !== '') {
             $whereParts[] = '(' . $db->dialect()->likeInsensitive('name') . ' OR ' . $db->dialect()->likeInsensitive('data') . ')';
