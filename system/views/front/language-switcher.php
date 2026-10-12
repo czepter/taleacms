@@ -21,7 +21,7 @@ $attributes ??= '';
 <?php if ($style === 'row' || ($style === 'auto' && count($languages) <= 3)): ?>
 <nav<?= Talea\Builder\Elements\Text::withClass($attributes, 'tl-languages') ?> lang="en" aria-label="Language">
 <?php foreach ($languages as $code => $j): ?>
-	<a href="<?= e($j['url']) ?>" hreflang="<?= e($code) ?>" lang="<?= e($code) ?>" title="<?= e($j['name']) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($code)) ?></a>
+	<a href="<?= e($j['url']) ?>" hreflang="<?= e(Talea\Core\Language::tag($code)) ?>" lang="<?= e(Talea\Core\Language::tag($code)) ?>" title="<?= e($j['name']) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($code)) ?></a>
 <?php endforeach ?>
 </nav>
 <?php else: $id = 'tl-languages-' . bin2hex(random_bytes(3)); ?>
@@ -33,7 +33,7 @@ $attributes ??= '';
 	</button>
 	<ul id="<?= $id ?>" popover style="position-anchor: --<?= $id ?>">
 <?php foreach ($languages as $code => $j): ?>
-		<li><a href="<?= e($j['url']) ?>" hreflang="<?= e($code) ?>" lang="<?= e($code) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><span><?= e($j['name']) ?></span><small><?= e(strtoupper($code)) ?></small></a></li>
+		<li><a href="<?= e($j['url']) ?>" hreflang="<?= e(Talea\Core\Language::tag($code)) ?>" lang="<?= e(Talea\Core\Language::tag($code)) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><span><?= e($j['name']) ?></span><small><?= e(strtoupper($code)) ?></small></a></li>
 <?php endforeach ?>
 	</ul>
 </nav>

@@ -39,7 +39,7 @@ $action = e($app->url('admin.php?action=account'));
 <div class="row"><label for="language"><?= e(t('Administration language')) ?></label><div><select id="language" name="language">
 <?php
 // the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
-$adminLanguage = $username['language'] ?: Talea\Core\Language::defaults($app->settings());
+$adminLanguage = Talea\Core\Language::base($username['language'] ?: Talea\Core\Language::defaults($app->settings()));
 $adminLanguage = isset(Talea\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'en';
 foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
 	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>

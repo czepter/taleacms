@@ -28,7 +28,7 @@ final class SiteExport
     public const int FORMAT_VERSION = 3;
 
     /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
-    public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'dark_mode',
+    public const array SETTINGS = ['slugs_per_language', 'site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'dark_mode',
         'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
         'time_zone', 'site_language', 'additional_languages', 'home_page', 'news_slug', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
@@ -314,7 +314,7 @@ final class SiteExport
         $selection = [];
         foreach ($all as $key => $value) {
             // the site name and description may have a variant for another language (site_name_en)
-            $base = (string) preg_replace('/_[a-z]{2}$/', '', (string) $key);
+            $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', (string) $key);
             if (in_array($key, self::SETTINGS, true) || (in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key)) {
                 $selection[(string) $key] = (string) $value;
             }

@@ -19,8 +19,8 @@ final class Quote extends Element
     public static function properties(): array
     {
         return [
-            'text' => ['type' => 'inline_text', 'label' => 'Text', 'default' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
-            'author' => ['type' => 'text', 'label' => 'Name', 'default' => t('Jane Doe'), 'max' => 120],
+            'text' => ['type' => 'inline_text', 'label' => 'Text', 'default' => t('[A customer’s words – a real quote, used with their permission]'), 'max' => 1500],
+            'author' => ['type' => 'text', 'label' => 'Name', 'default' => t('[Customer’s name]'), 'max' => 120],
             'position' => ['type' => 'text', 'label' => 'Position or company', 'default' => '', 'max' => 160],
         ];
     }

@@ -218,7 +218,7 @@ final class Drupal implements Source, Remote
             featureImageUrl: $image,
             seoDescription: $description,
             oldUrl: $alias !== '' ? $alias : ($nid !== '' ? '/node/' . $nid : ''),
-            language: preg_match('/^[a-z]{2}$/', self::text($a['langcode'] ?? '')) ? (string) $a['langcode'] : '',
+            language: \Talea\Core\Language::fromForeign(self::text($a['langcode'] ?? '')),
         );
     }
 

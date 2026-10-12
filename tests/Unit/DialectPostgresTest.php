@@ -142,4 +142,12 @@ final class DialectPostgresTest extends TestCase
         $this->assertSame('INSERT INTO {t} ("a", "b") SELECT 1, 2 WHERE true ON CONFLICT DO NOTHING', $this->d->insertIgnoreSelect('t', ['a', 'b'], 'SELECT 1, 2 WHERE true'));
         $this->assertSame('CASE n WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END', $this->d->listPosition('n', 2));
     }
+
+    public function testUniqueKeyStatements(): void
+    {
+        $this->assertSame('DROP INDEX "uq_pages_slug"', $this->d->dropUniqueKeySql('pages', 'uq_pages_slug'));
+        $this->assertSame('CREATE UNIQUE INDEX "uq_pages_slug" ON {pages} ("slug")', $this->d->addUniqueKeySql('pages', 'uq_pages_slug', ['slug']));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->d->dropUniqueKeySql('pages; DROP', 'x');
+    }
 }

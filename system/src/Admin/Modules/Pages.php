@@ -135,11 +135,16 @@ final class Pages extends Module
         $language = \Talea\Core\Language::column($this->app->settings(), $this->request->post('language'));
         $done = 0;
         $skipped = 0;
+        $clashes = 0; // with slugs per language a page cannot move where another page of that version has its slug
         foreach (array_unique(array_map(fn (string $uuid): int => $this->db->internalId('pages', $uuid), $this->request->postList('selected'))) as $id) {
             $page = $this->loadPage($id);
             // authors may only touch hidden pages and never publish; the home page stays visible and out of the trash
             if ($page === null || (!$auth->canPublish() && ($page['visible'] || $action === 'visible')) || ($id === $home && in_array($action, ['hide', 'trash'], true))) {
                 $skipped++;
+                continue;
+            }
+            if ($action === 'language' && $language !== $page['language'] && \Talea\Core\Slug::taken($this->db, 'pages', (string) $page['slug'], $language, $id)) {
+                $clashes++;
                 continue;
             }
             match ($action) {
@@ -159,7 +164,8 @@ final class Pages extends Module
             'language' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
         };
 
-        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'error');
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : '')
+            . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'error');
     }
 
     protected function actionEdit(): Response
@@ -265,11 +271,12 @@ final class Pages extends Module
         }
         if ($r->post('slug') === '') {
             // slug from the name: a taken one gets a number (o-nas-2), as with news
-            $data['slug'] = $this->availableSlug($data['slug'], $id);
+            $data['slug'] = $this->availableSlug($data['slug'], $id, $data['language']);
         }
+        $scope = \Talea\Core\Slug::scope($this->db, $data['language']);
         if ($parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
             $errors['slug'] = 'This URL is used by the system, choose another one.';
-        } elseif (($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?', [$data['slug'], $id])) !== null) {
+        } elseif (($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?' . $scope[0], [$data['slug'], $id, ...$scope[1]])) !== null) {
             $errors['slug'] = $other['deleted_at'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
@@ -288,14 +295,14 @@ final class Pages extends Module
             return $this->form(['page_id' => $id] + $data + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
         }
         if ($id > 0) {
-            $previous = $this->db->one('SELECT slug, visible, title, text FROM {pages} WHERE page_id = ?', [$id]);
+            $previous = $this->db->one('SELECT slug, visible, title, text, language FROM {pages} WHERE page_id = ?', [$id]);
             if ($previous !== null && ($previous['text'] !== $data['text'] || $previous['title'] !== $data['title'])) {
                 $this->saveVersion($id, $previous['title'], (string) $previous['text']);
             }
             $this->db->update('pages', $data, ['page_id' => $id]);
             \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
             if ($previous !== null && $previous['slug'] !== $data['slug']) {
-                $this->moveSubpages($previous['slug'], $data['slug'], (bool) $previous['visible']);
+                self::move($this->db, $previous['slug'], $data['slug'], (bool) $previous['visible'], (string) $previous['language']);
             }
         } else {
             $id = $this->db->insert('pages', $data);
@@ -409,22 +416,23 @@ final class Pages extends Module
         $db->run('DELETE FROM {page_revisions} WHERE page_id = ? AND revision_id NOT IN (SELECT revision_id FROM (SELECT revision_id FROM {page_revisions} WHERE page_id = ? ORDER BY revision_id DESC LIMIT 30) t)', [$ids, $ids]);
     }
 
-    /** The page changed its slug: subpages move with it and the old URLs of visible pages are redirected. */
-    private function moveSubpages(string $old, string $newVersion, bool $visible): void
+    /**
+     * The page changed its slug: subpages move with it and the old URLs of visible pages are redirected. With slugs per
+     * language (Core\Slug) only the subpages of its own language version move - /en/services/web is not a subpage of
+     * /services - and the redirects carry the language prefix (Slug::redirectPath).
+     */
+    public static function move(\Talea\Core\Db $db, string $old, string $newVersion, bool $visible, string $language = ''): void
     {
-        self::move($this->db, $old, $newVersion, $visible);
-    }
-
-    public static function move(\Talea\Core\Db $db, string $old, string $newVersion, bool $visible): void
-    {
+        $redirect = fn (string $path): string => \Talea\Core\Slug::redirectPath($db, $path, $language);
         if ($visible) {
-            Redirects::add($db, $old, $newVersion);
+            Redirects::add($db, $redirect($old), $redirect($newVersion));
         }
-        foreach ($db->all('SELECT page_id, slug, visible FROM {pages} WHERE slug LIKE ?', [addcslashes($old, '%_\\') . '/%']) as $p) {
+        [$sameLanguage, $languageParams] = \Talea\Core\Slug::scope($db, $language);
+        foreach ($db->all('SELECT page_id, slug, visible FROM {pages} WHERE slug LIKE ?' . $sameLanguage, [addcslashes($old, '%_\\') . '/%', ...$languageParams]) as $p) {
             $target = $newVersion . substr($p['slug'], strlen($old));
             $db->update('pages', ['slug' => $target], ['page_id' => $p['page_id']]);
             if ($p['visible']) {
-                Redirects::add($db, $p['slug'], $target);
+                Redirects::add($db, $redirect($p['slug']), $redirect($target));
             }
         }
     }
@@ -472,7 +480,7 @@ final class Pages extends Module
             return $this->back('The file is not a page export.', '', [], 'error');
         }
         $title = mb_substr(trim((string) $data['title']), 0, 200);
-        $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'description' => mb_substr((string) ($data['description'] ?? ''), 0, 300),
+        $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0, ''), 'description' => mb_substr((string) ($data['description'] ?? ''), 0, 300),
             'text' => \Talea\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'visible' => 0, 'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s')];
         $created = ['classes' => 0, 'components' => 0];
         if (is_array($data['build'] ?? null)) {
@@ -492,9 +500,9 @@ final class Pages extends Module
     }
 
     /** A free slug derived from $base: o-nas, o-nas-2, o-nas-3… */
-    private function availableSlug(string $base, int $id): string
+    private function availableSlug(string $base, int $id, string $language): string
     {
-        return \Talea\Core\Slug::makeUnique($base, fn (string $a): bool => $this->db->value('SELECT 1 FROM {pages} WHERE slug = ? AND page_id <> ?', [$a, $id]) !== null, 120);
+        return \Talea\Core\Slug::makeUnique($base, fn (string $a): bool => \Talea\Core\Slug::taken($this->db, 'pages', $a, $language, $id), 120);
     }
 
     /** Deleting = moving to the trash: the page disappears from the site, the slug stays reserved and the page can be restored. */
@@ -552,7 +560,7 @@ final class Pages extends Module
         }
         $copy = array_diff_key($page, ['page_id' => 0, 'public_id' => 0, 'deleted_at' => 0]);
         $copy['title'] = mb_substr(t('%s (copy)', $page['title']), 0, 200);
-        $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-copy', 0, 110), 0);
+        $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-copy', 0, 110), 0, (string) $page['language']);
         $copy['visible'] = 0;
         $copy['in_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['translation_of'] = null;

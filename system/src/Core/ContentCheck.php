@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Builder\Build;
+use Talea\Builder\SampleContent;
 
 /**
  * Content check of one page or news item (2.14): a short checklist computed on the server – the title and description
@@ -93,6 +94,10 @@ final class ContentCheck
         preg_match_all('#<img\b[^>]*>#i', $html, $images);
         $withoutAlt = count(array_filter($images[0], fn (string $tag): bool => !preg_match('/\balt\s*=\s*("[^"]*[^\s"][^"]*"|\'[^\']*[^\s\'][^\']*\')/i', $tag)));
         $add('images_alt', $withoutAlt === 0, $withoutAlt === 0 ? t('Every image has a description (alt).') : t('%d images have no description for blind visitors (alt).', $withoutAlt));
+
+        $samples = SampleContent::inText($html);
+        $add('sample_content', $samples === [], $samples === [] ? t('No placeholders in square brackets left.')
+            : t('Placeholders in square brackets are still in the text (%s) – fill them in or delete them before publishing.', implode(', ', array_slice($samples, 0, 3))));
 
         return $results;
     }

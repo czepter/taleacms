@@ -320,6 +320,11 @@ final class SiteImport
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->emptyTables(self::EMPTIED);
+            // an export that shares addresses between language versions needs the per-language keys before its rows arrive
+            $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file']) . '/settings.json'), true);
+            if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
+                Slug::switchPerLanguage($this->db, $this->settings, true);
+            }
             $state['emptied'] = true;
 
             return;
@@ -605,7 +610,7 @@ final class SiteImport
 
     private static function language(mixed $v): string
     {
-        return is_string($v) && preg_match('/^[a-z]{2}$/', $v) ? $v : '';
+        return is_string($v) && preg_match('/^' . Language::TAG . '$/D', $v) ? $v : '';
     }
 
     /** A path of an image or file: from media/, or an https:// address; anything else (javascript:…) is dropped. */
@@ -861,7 +866,7 @@ final class SiteImport
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/settings.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = (string) $key;
-            $base = (string) preg_replace('/_[a-z]{2}$/', '', $key);
+            $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', $key);
             if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && !(in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key))) {
                 continue;
             }
@@ -872,8 +877,10 @@ final class SiteImport
                 'home_page' => (string) $this->ref('pages', $value),
                 'news_per_page' => (string) max(0, (int) $value),
                 'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
+                'slugs_per_language' => null, // switched before the rows are imported (importData)
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
-                'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,
+                // a regional language of the archive keeps the language the new site already has (en-gb into an English site stays English)
+                'site_language' => isset(Language::AVAILABLE[$value]) && Language::forSite($value, [Language::defaults($this->settings)]) === $value ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),
                 'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
                 // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*

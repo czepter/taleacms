@@ -11,7 +11,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<title><?= e($web->get('site_name')) ?></title>
 	<link><?= e($url) ?></link>
 	<description><?= e($web->get('site_description')) ?></description>
-	<language><?= e(\Talea\Core\Language::code()) ?></language>
+	<language><?= e(\Talea\Core\Language::tag(\Talea\Core\Language::code())) ?></language>
 	<generator>Talea <?= e(TALEA_VERSION) ?></generator>
 <?php foreach ($news as $c): ?>
 	<item>

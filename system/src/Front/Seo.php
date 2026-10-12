@@ -133,7 +133,7 @@ final class Seo
 
         return [
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
-            'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Talea\Core\Language::code(),
+            'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Talea\Core\Language::tag(\Talea\Core\Language::code()),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'news-' . $c['public_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
                 'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
@@ -269,7 +269,7 @@ final class Seo
         $defaults = \Talea\Core\Language::defaults($s);
         foreach ($meta['languages'] ?? [] as $code => $j) {
             if ($j['translated'] || ($meta['main'] ?? false)) {
-                $h[] = '<link rel="alternate" hreflang="' . e($code) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
+                $h[] = '<link rel="alternate" hreflang="' . e(\Talea\Core\Language::tag($code)) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
                 if ($code === $defaults) {
                     // a visitor in a language the site does not have gets the default version
                     $h[] = '<link rel="alternate" hreflang="x-default" href="' . e($this->app->request->origin() . $j['url']) . '">';
