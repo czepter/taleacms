@@ -76,7 +76,7 @@ final class AdministrationTest extends SiteTestCase
     public function testSettingsAndLanguageVersions(): void
     {
         $this->assertPage('/admin.php?module=settings&tab=general', 200, 'name="home_page"', message: 'settings: home page choice');
-        $this->assertPage('/admin.php?module=does-not-exist', 403, message: 'unknown module');
+        $this->assertPage('/admin.php?module=does-not-exist', 404, 'This page does not exist.', message: 'an unknown module does not exist');
         $this->assertPage('/api/news', 404, message: '2.0: the public API of 1.x is gone');
 
         $this->site()->exec("INSERT INTO tl_settings VALUES ('additional_languages','cs') ON DUPLICATE KEY UPDATE value='cs'");
