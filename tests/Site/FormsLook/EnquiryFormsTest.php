@@ -54,7 +54,7 @@ final class EnquiryFormsTest extends SiteTestCase
     #[Depends('testContactPageHasTheEnquiryFormAndTheWebhookReceiverIsReady')]
     public function testASubmitThatIsTooFastHasItsOwnResultAndMessage(): void
     {
-        $now = time();
+        $now = time() + 60; // signed in the future: never older than the minimum, however slow the request is
         $secret = $this->site()->settingValue('secret_key');
         $signature = hash_hmac('sha256', 'form|' . self::$source . '|' . self::$element . '|' . $now, $secret);
         $response = $this->site()->client()->post('/form', [
