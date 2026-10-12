@@ -132,6 +132,9 @@ final class Users extends Module
         $this->db->transaction(function () use (&$id, $data, $modules): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
+                if (isset($data['password'])) {
+                    \Talea\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections
+                }
             } else {
                 $id = $this->db->insert('users', $data);
             }

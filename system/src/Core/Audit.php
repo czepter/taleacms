@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 use Talea\Builder\Build;
 use Talea\Builder\Check;
+use Talea\Builder\SampleContent;
 
 /**
  * Site audit (1.9): what hurts a site in search engines and for visitors, collected across the whole site – for the
@@ -17,6 +18,8 @@ use Talea\Builder\Check;
  *  - orphan pages (2.14, Core\InternalLinks): published pages, news and items nothing on the site links to;
  *  - pages and item pages without a description, duplicate titles;
  *  - menu items pointing at hidden or deleted pages;
+ *  - sample content (#54, Builder\SampleContent): visible pages that still show the starter sites' placeholders in square
+ *    brackets or the invented reviews, names and prices of earlier starters, and text pages and news with placeholders;
  *  - the builder check of every published build: buttons without a link, images without alt, the heading outline;
  *  - the most frequent addresses that end in 404 and have no redirect;
  *  - accessibility (2.3, the European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, links that
@@ -34,7 +37,7 @@ final class Audit
 {
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
-        'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
+        'sample' => 'Sample content', 'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
         'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
@@ -117,6 +120,13 @@ final class Audit
             if (!$p['visible']) {
                 continue; // a hidden page is not in search engines – only its links matter (it may be published later)
             }
+            $builder = 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']);
+            $sample = $build !== null ? SampleContent::find($build) : [];
+            if ($sample !== []) {
+                $this->add('sample', $where, SampleContent::summary($sample), $builder, $url, $target, $sample[0]['id']);
+            } elseif ($build === null && ($found = SampleContent::inText((string) $p['text'])) !== []) {
+                $this->add('sample', $where, t('The page text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, $target);
+            }
             if ($build !== null) {
                 foreach (Check::builds($build, true, 50) as $c) {
                     $this->add('build', $where, $c['message'], 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']), $url, $target, $c['id']);
@@ -135,6 +145,14 @@ final class Audit
             $edit = 'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']);
             $url = ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'];
             $target = ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']];
+            $values = [];
+            $data = json_decode((string) $p['data'], true) ?: [];
+            array_walk_recursive($data, static function (mixed $v) use (&$values): void {
+                $values[] = is_string($v) ? $v : '';
+            });
+            if (($found = SampleContent::inText(implode(' ', $values))) !== []) {
+                $this->add('sample', $where, t('The item still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, $target);
+            }
             if (trim((string) $p['description']) === '' && !$this->hasLongerText((string) $p['data'], (string) $p['fields'])) {
                 $this->add('description', $where, t('No description for search engines and no longer text to take one from.'), $edit, $url, $target);
             }
@@ -224,8 +242,13 @@ final class Audit
         }
         $db = $this->app->db();
         foreach ($db->all('SELECT news_id, title, slug, language, intro, text FROM {news} WHERE visible = TRUE AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 500') as $c) {
-            $this->links($c['intro'] . ' ' . $c['text'], t('News item “%s”', $c['title']), 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']),
-                $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language'])), ['news' => (int) $c['news_id']]);
+            $where = t('News item “%s”', $c['title']);
+            $edit = 'admin.php?module=news&action=edit&id=' . $this->app->db()->publicId('news', (int) $c['news_id']);
+            $url = $this->relative($this->app->newsItemUrl((string) $c['slug'], (string) $c['language']));
+            $this->links($c['intro'] . ' ' . $c['text'], $where, $edit, $url, ['news' => (int) $c['news_id']]);
+            if (($found = SampleContent::inText($c['intro'] . ' ' . $c['text'])) !== []) {
+                $this->add('sample', $where, t('The text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, ['news' => (int) $c['news_id']]);
+            }
         }
     }
 

@@ -19,7 +19,7 @@ use Talea\Core\Response;
  *
  * The application gets the permissions of the user who allowed it – all of them, or (chosen on the consent screen, 2.2)
  * only drafts or only reading. The access token is valid for an hour, the
- * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in tl_api_tokens (hashes
+ * refresh token for a year (while used at least once a year), and it is exchanged for a new one on every use. Tokens are stored in tl_api_tokens (hashes
  * only) – disconnecting the application in "My account" deletes them.
  * At the domain root the metadata are at /.well-known/. A site in a subfolder serves them at /folder/.well-known/
  * (openid-configuration included), where MCP clients that follow the current specification look; for others, sign-in with
@@ -28,7 +28,9 @@ use Talea\Core\Response;
 final class OAuth
 {
     public const int ACCESS_LIFETIME = 3600;
-    public const int REFRESH_LIFETIME = 30 * 86400;
+    // a Claude connection stays signed in while it is used at least once a year, like a personal token; the access token still
+    // lasts an hour and every refresh rotates the refresh token. A new password ends the connections (revokeConnections()).
+    public const int REFRESH_LIFETIME = 365 * 86400;
     private const int CODE_LIFETIME = 600;
     private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/';
 
@@ -257,6 +259,16 @@ final class OAuth
     }
 
     /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
+    /**
+     * Disconnects every app a user connected over OAuth (the Claude connector): its access and refresh tokens go. Called when
+     * the password changes – a refresh token lives a year, so a stolen one must not outlive the password. Personal tokens
+     * (kind "token") stay; My account asks about those.
+     */
+    public static function revokeConnections(Db $db, int $userId): int
+    {
+        return $db->run("DELETE FROM {api_tokens} WHERE user_id = ? AND kind <> 'token'", [$userId])->rowCount();
+    }
+
     public static function access(string $access): string
     {
         return isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';

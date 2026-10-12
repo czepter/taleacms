@@ -958,6 +958,13 @@
 		].filter(Boolean));
 	}
 
+	/** The first placeholder in square brackets in the strings of an element's content (arrays and objects included), or null. */
+	function placeholder(value) {
+		if (typeof value === 'string') { const m = value.replace(/<[^>]*>/g, '').match(/\[[^\[\]{}<>\n]{0,60}\p{L}[^\[\]{}<>\n]{0,60}\]/u); return m ? m[0] : null; }
+		if (value && typeof value === 'object') { for (const v of Object.values(value)) { const m = placeholder(v); if (m) { return m; } } }
+		return null;
+	}
+
 	/** What the page lacks for a visitor or a search engine: buttons without a link, images without a file or description, the heading outline. */
 	function check() {
 		const findings = [];
@@ -969,6 +976,9 @@
 				if (p.type === 'button' && (!o.link || o.link === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
 				if (p.type === 'image' && !o.src) { findings.push([p.id, T('No image selected – it will not appear on the site.')]); }
 				if (p.type === 'image' && o.src && !o.alt && !tags(o.src)) { findings.push([p.id, T('The image has no description for blind visitors (alt).')]); }
+				// sample content: a placeholder in square brackets ([number], [Customer’s name]) – the same pattern as Builder\SampleContent::PLACEHOLDER
+				const sample = placeholder(o);
+				if (sample) { findings.push([p.id, T('Sample content “%s” – replace it with your own or delete it.').replace('%s', sample[0])]); }
 				const level = p.type === 'heading' && /^h([1-6])$/.exec(p.tag || 'h2'); // a heading with the p tag (big number, label) is not in the outline
 				if (level) { headings.push([p.id, Number(level[1]), text(o.text)]); }
 				if (p.children) { walk(p.children, inComponent); }

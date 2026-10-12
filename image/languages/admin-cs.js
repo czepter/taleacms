@@ -2977,5 +2977,6 @@ window.TALEA_TRANSLATIONS = {
 	"Send backward (layer)": "Poslat dozadu (vrstva)",
 	"below": "pod",
 	"base": "základní",
-	"above": "nad"
+	"above": "nad",
+	"Sample content “%s” – replace it with your own or delete it.": "Ukázkový obsah „%s“ – nahraďte ho vlastním nebo smažte."
 };
