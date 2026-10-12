@@ -191,6 +191,59 @@ final class Catalog
         'delete_newsletter' => ['destructive', 'newsletter_signup'],
     ];
 
+    /**
+     * Tools that reach outside the site (an upload from an address, an import, the migration report that fetches the old
+     * site) – the MCP openWorldHint, and a reason for run_destructive_tool.
+     */
+    public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report'];
+
+    /**
+     * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
+     * destructive tool – nothing can take a sent e-mail back – although their access is "write".
+     */
+    public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times'];
+
+    /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
+    public const array TOOL_SETS = ['all', 'essentials'];
+
+    /**
+     * The core tools an essentials connection lists: pages, the builder, the menu and the look, collections, media,
+     * requests and enquiries, facts, the audit, the change log and undo_agent_session (the safety net of a Claude session).
+     * tools/list of these plus the meta tools stays far below the list of all tools (tests/Unit/Mcp/DiscoveryTest.php); every
+     * other tool is one runner away (Discovery::runner).
+     */
+    public const array ESSENTIALS = ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema', 'get_build',
+        'edit_build', 'build_from_html', 'save_build', 'insert_section', 'publish_build', 'preview_link', 'list_classes', 'save_classes', 'list_collections',
+        'list_collection_items', 'save_collection_item', 'list_media', 'upload_file', 'update_media', 'list_requests', 'update_request', 'list_enquiries',
+        'list_facts', 'save_fact', 'update_design_system', 'publish_look', 'site_audit', 'list_changes', 'undo_agent_session', 'read_notebook'];
+
+    /**
+     * The meta tools: name => [access, title]. They are listed for an essentials connection and callable on any; they are not
+     * site tools (no Tools method) – Mcp\Server runs them itself. The runners are annotated so that the annotation holds for
+     * everything a runner takes (Discovery::runner): run_read_tool only reads inside the site, run_tool saves drafts or changes
+     * the site, run_destructive_tool takes whatever removes, sends or reaches outside.
+     *
+     * @var array<string, array{0: 'read'|'draft'|'destructive', 1: string}>
+     */
+    public const array META = [
+        'find_tools' => ['read', 'Find more tools'],
+        'run_read_tool' => ['read', 'Run a read-only tool by name'],
+        'run_tool' => ['draft', 'Run a tool that saves or changes'],
+        'run_destructive_tool' => ['destructive', 'Run a destructive or outside tool'],
+    ];
+
+    /** A known tool set; anything else (an old row) is "all". */
+    public static function toolSet(string $set): string
+    {
+        return in_array($set, self::TOOL_SETS, true) ? $set : 'all';
+    }
+
+    /** Does the tool reach outside the site? */
+    public static function isOpenWorld(string $name): bool
+    {
+        return in_array($name, self::OPEN_WORLD, true) || $name === 'run_destructive_tool';
+    }
+
     /** Is this a tool of the system or of an add-on (3.0)? */
     public static function exists(string $name): bool
     {
@@ -199,6 +252,9 @@ final class Catalog
 
     public static function access(string $name): string
     {
+        if (isset(self::META[$name])) {
+            return self::META[$name][0];
+        }
         $addon = \Talea\Extension\Registry::get()->tool($name);
         if ($addon !== null) {
             return $addon['access'];

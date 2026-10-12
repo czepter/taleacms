@@ -15,7 +15,7 @@ $role = t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '');
 	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $username['username'], $role)) ?></p>
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
-		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => 'full']) ?>
+		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => 'drafts', 'recommended' => 'drafts', 'toolSet' => 'essentials']) ?>
 		<p class="help"><?= e(t('After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.', $url)) ?></p>
 		<div class="buttons">
 		<button class="btn" type="submit" name="allow" value="1"><?= e(t('Allow access')) ?></button>

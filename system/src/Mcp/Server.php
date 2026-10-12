@@ -49,7 +49,7 @@ final class Server
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Talea\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
-        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
+        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
             return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
         }
@@ -95,9 +95,9 @@ final class Server
             'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
             'prompts/get' => $this->guarded($id, fn (): array => Prompts::get((string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
-            // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
-            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations($t['name'])],
-                $tools->listAll()), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
+            // only the tools this connection may use (a connection limited to drafts or to reading, 2.2); an essentials connection
+            // lists the core tools, find_tools and the runners it needs (Mcp\Discovery)
+            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools), $this->access()) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -129,6 +129,21 @@ final class Server
      */
     private function call(Tools $tools, string $name, array $arguments): array
     {
+        // the meta tools: callable on any connection, they only find tools and run them through this same method
+        if ($name === 'find_tools') {
+            $available = $this->available($tools);
+            $essentials = $this->toolSet() === 'essentials';
+            try {
+                $found = Discovery::find($available, $essentials ? Catalog::ESSENTIALS : array_column($available, 'name'), $arguments, $essentials ? Discovery::runners($available, $this->access()) : []);
+            } catch (\InvalidArgumentException $e) {
+                return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
+            }
+
+            return ['content' => [['type' => 'text', 'text' => json_encode($found, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
+        }
+        if (isset(Discovery::RUNNERS[$name])) {
+            return $this->runTool($tools, $arguments, $name);
+        }
         if (Catalog::exists($name) && !Catalog::allows($this->access(), $name)) {
             return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
@@ -182,6 +197,74 @@ final class Server
         } catch (\InvalidArgumentException | \DomainException $e) {
             return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
         }
+    }
+
+    /**
+     * The runners: the inner tool goes through call() like a direct tools/call – the connection's access, the guardrails and
+     * the reason, the journal for undo, unknown parameters, the change log and the cache. Each runner takes only its own class
+     * of tools (Discovery::runner), so its annotations hold for whatever it runs; none runs a meta tool, so a call cannot nest.
+     *
+     * @param array<string, mixed> $arguments
+     * @param string $runner run_read_tool | run_tool | run_destructive_tool
+     * @return array<string, mixed>
+     */
+    private function runTool(Tools $tools, array $arguments, string $runner): array
+    {
+        $error = fn (string $text): array => ['content' => [['type' => 'text', 'text' => $text]], 'isError' => true];
+        $name = trim(is_scalar($arguments['name'] ?? null) ? (string) $arguments['name'] : '');
+        if ($name === '') {
+            return $error($runner . ' needs name – the tool to run (find_tools lists them) – and its arguments as an object.');
+        }
+        if (isset(Catalog::META[$name])) {
+            return $error($runner . ' runs the site\'s tools, not ' . $name . ' – call ' . ($name === 'find_tools' ? 'find_tools directly.' : 'the tool you need directly in ' . $runner . '.'));
+        }
+        $inner = $arguments['arguments'] ?? [];
+        if (is_string($inner)) {
+            // a client without the schema may send the object as JSON text
+            $inner = trim($inner) === '' ? [] : json_decode($inner, true);
+        }
+        if (!is_array($inner) || ($inner !== [] && array_is_list($inner))) {
+            return $error($runner . ': arguments must be an object with the tool\'s parameters, e.g. {"id": "…"}. find_tools with names gives them.');
+        }
+        if (!isset($inner['reason']) && is_string($arguments['reason'] ?? null)) {
+            $inner['reason'] = $arguments['reason']; // the reason may come with the runner itself
+        }
+        if (!Catalog::exists($name)) {
+            return $error('Unknown tool: ' . mb_substr($name, 0, 100) . '. Call find_tools for the tools of this site.');
+        }
+        if (Discovery::runner($name) !== $runner) {
+            // a client may "always allow" one runner: it must never reach a tool of a more dangerous class
+            return $error(Discovery::refusal($runner, $name));
+        }
+
+        return $this->call($tools, $name, $inner);
+    }
+
+    /**
+     * One tools/list item: the definition with the optional reason of a changing tool and its annotations.
+     *
+     * @param array<string, mixed> $tool
+     * @return array<string, mixed>
+     */
+    public static function listed(array $tool): array
+    {
+        return self::withReason($tool) + ['annotations' => Tools::annotations((string) $tool['name'])];
+    }
+
+    /**
+     * Every tool this connection may use, as tools/list items (the whole list of an "all" connection, and what find_tools searches).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function available(Tools $tools): array
+    {
+        return array_values(array_filter(array_map(self::listed(...), $tools->listAll()), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])));
+    }
+
+    /** The tool set of this connection: all | essentials. */
+    private function toolSet(): string
+    {
+        return $this->app->auth()->connection()['tool_set'] ?? 'all';
     }
 
     /**
@@ -287,7 +370,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'mcp' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.token_id, t.name AS connection_name, t.access AS connection_access, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
+        $token = $db->one("SELECT t.token_id, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             if (!$limited) {
