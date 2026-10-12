@@ -354,19 +354,19 @@ final class Auth
         $this->modules = null;
     }
 
-    /** @var array{name: string, access: string}|null the Claude connection of this request (MCP, 2.2) */
+    /** @var array{name: string, access: string, tool_set: string}|null the Claude connection of this request (MCP, 2.2) */
     private ?array $connection = null;
 
     /**
      * The request comes through a Claude connection: its name goes to the change log, and a connection limited to drafts
      * or to reading never publishes, whatever the user's role (canPublish).
      */
-    public function useConnection(string $name, string $access): void
+    public function useConnection(string $name, string $access, string $toolSet = 'all'): void
     {
-        $this->connection = ['name' => $name, 'access' => isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read'];
+        $this->connection = ['name' => $name, 'access' => isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read', 'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet)];
     }
 
-    /** @return array{name: string, access: string}|null */
+    /** @return array{name: string, access: string, tool_set: string}|null */
     public function connection(): ?array
     {
         return $this->connection;
@@ -461,6 +461,30 @@ final class Auth
         $authors = $this->managedAuthors();
 
         return $authors === null ? '' : ' AND ' . $alias . 'author_id IN (' . implode(',', array_map(intval(...), $authors)) . ')';
+    }
+
+    /*
+     * What a list may show: list_pages, list_news, list_collection_items and the translation overview (Core\Translations, admin
+     * and translation_status) take their conditions from here, so the rules cannot drift apart. Each is part of a WHERE
+     * condition: it starts with " AND", or is empty.
+     */
+
+    /** Pages: without the Pages section only the published ones – the user can link to those, drafts stay unseen. */
+    public function pageListScope(string $alias = ''): string
+    {
+        return $this->hasModule('pages') ? '' : ' AND ' . $alias . 'visible = TRUE';
+    }
+
+    /** News: an author only their own (articleScope), and without the News section only what visitors see. */
+    public function newsListScope(string $alias = ''): string
+    {
+        return $this->articleScope($alias) . ($this->hasModule('news') ? '' : ' AND ' . $alias . 'visible = TRUE AND ' . $alias . 'published_at <= NOW()');
+    }
+
+    /** Collection items: without the Collections section only the items shown on the site. */
+    public function collectionItemListScope(string $alias = ''): string
+    {
+        return $this->hasModule('collections') ? '' : ' AND ' . $alias . 'visible = TRUE';
     }
 
     /**

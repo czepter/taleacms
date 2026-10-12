@@ -34,6 +34,20 @@ final class OAuth
     private const int CODE_LIFETIME = 600;
     private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/';
 
+    /** One name for each access level: the consent screen, My account, Claude settings and Users say the same (translated with t() where shown). */
+    public const array ACCESS_LABELS = ['drafts' => 'Drafts only – you publish', 'full' => 'Can also publish', 'read' => 'Read only'];
+
+    /**
+     * SQL for an aggregated query over {api_tokens}: the strongest access among the grouped rows (full, then drafts, then read) –
+     * one application can hold several tokens from different consents, and the alphabetically largest value is the weakest.
+     */
+    public static function strongestAccessSql(string $column = 'access'): string
+    {
+        $rank = "CASE $column WHEN 'full' THEN 0 WHEN 'drafts' THEN 1 ELSE 2 END";
+
+        return "CASE MIN($rank) WHEN 0 THEN 'full' WHEN 1 THEN 'drafts' ELSE 'read' END";
+    }
+
     public function __construct(private readonly App $app)
     {
     }
@@ -165,12 +179,14 @@ final class OAuth
      * to the application.
      *
      * @param array<string, mixed> $pending parameters saved in authorize()
+     * @param string $toolSet the tool set chosen on the consent screen (Mcp\Catalog::TOOL_SETS)
      */
-    public function issueCode(array $pending, int $idu, string $access = 'full'): string
+    public function issueCode(array $pending, int $idu, string $access = 'full', string $toolSet = 'all'): string
     {
         $code = bin2hex(random_bytes(32));
         $this->app->db()->insert('oauth_codes', ['code_hash' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'user_id' => $idu, 'redirect_uri' => $pending['redirect_uri'],
-            'code_challenge' => $pending['challenge'], 'access' => self::access($access), 'expires_at' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
+            'code_challenge' => $pending['challenge'], 'access' => self::access($access),
+            'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
 
         return self::withParams((string) $pending['redirect_uri'], ['code' => $code, 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
     }
@@ -204,7 +220,7 @@ final class OAuth
                 return $this->error('invalid_grant', 'The code is invalid, expired, already used, or the return address or PKCE does not match.');
             }
 
-            return $this->issueTokens($db, (int) $code['user_id'], $client, (string) $code['access']);
+            return $this->issueTokens($db, (int) $code['user_id'], $client, (string) $code['access'], (string) $code['tool_set']);
         }
         if ($r->post('grant_type') === 'refresh_token') {
             $refresh = $db->one("SELECT * FROM {api_tokens} WHERE token_hash = ? AND kind = 'refresh'", [hash('sha256', $r->post('refresh_token'))]);
@@ -213,14 +229,14 @@ final class OAuth
             }
             $db->delete('api_tokens', ['token_id' => (int) $refresh['token_id']]); // rotation: the old refresh token ends
 
-            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access']); // the access chosen at consent stays
+            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set']); // the access and the tool set chosen at consent (or switched in My account) stay
         }
 
         return $this->error('unsupported_grant_type', 'Only authorization_code and refresh_token are supported.');
     }
 
     /** @param array<string, mixed> $client */
-    private function issueTokens(Db $db, int $idu, array $client, string $level): Response
+    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet): Response
     {
         $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = FALSE', [$idu]);
         if ($user === null) {
@@ -230,7 +246,7 @@ final class OAuth
         $refresh = 'talea_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'access', self::ACCESS_LIFETIME], [$refresh, 'refresh', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
-                'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
+                'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
         }
         // cleanup of expired tokens and codes
         $db->run("DELETE FROM {api_tokens} WHERE kind <> 'token' AND expires_at < ?", [date('Y-m-d H:i:s')]);
@@ -258,7 +274,6 @@ final class OAuth
         return preg_match(self::CLIENT_PATTERN, $clientId) ? $this->app->db()->one('SELECT * FROM {oauth_clients} WHERE client_id = ?', [$clientId]) : null;
     }
 
-    /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
     /**
      * Disconnects every app a user connected over OAuth (the Claude connector): its access and refresh tokens go. Called when
      * the password changes – a refresh token lives a year, so a stolen one must not outlive the password. Personal tokens
@@ -269,6 +284,7 @@ final class OAuth
         return $db->run("DELETE FROM {api_tokens} WHERE user_id = ? AND kind <> 'token'", [$userId])->rowCount();
     }
 
+    /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */
     public static function access(string $access): string
     {
         return isset(\Talea\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read';

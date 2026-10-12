@@ -43,7 +43,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<option value="<?= e($timeZone) ?>"<?= $values['time_zone'] === $timeZone ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $timeZone)) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="help"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?></span></div>
+	<span class="help"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?> <?= e(t('Changing it does not convert dates already saved: they keep their clock time.')) ?></span></div>
 </div>
 <div class="row">
 	<label for="trusted_proxy"><?= e(t('The site runs behind')) ?></label>

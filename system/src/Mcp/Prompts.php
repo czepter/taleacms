@@ -150,6 +150,10 @@ final class Prompts
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',
             };
+        if (($app->auth()->connection()['tool_set'] ?? 'all') === 'essentials') {
+            $text .= ' THIS CONNECTION LISTS THE ESSENTIAL TOOLS ONLY: every other tool it may use (news, redirects, settings, bookings, newsletters…) is found with find_tools and run by name with run_read_tool (reads), '
+                . 'run_tool (drafts and changes) or run_destructive_tool (removes, sends or reaches outside the site – confirm the exact action with the user first). The runners give exactly what a direct call gives.';
+        }
         $address = \Talea\Core\Language::visitorAddress($app->settings());
         if ($address !== null) {
             $text .= ' GERMAN FORM OF ADDRESS: the German texts for visitors of this site (pages, news, replies to enquiries, e-mails) use the '
