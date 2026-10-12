@@ -100,6 +100,9 @@ final class Site
 
     private const string TEMPLATE_PASSWORD = 'Template-Pw-1';
 
+    /** A template of another code version is dropped only when its marker is older than this: a whole run takes well under it. */
+    private const int STALE_TEMPLATE_SECONDS = 4 * 3600;
+
     /**
      * The installed state for these installer options: a database `talea_tpl_<code>_<options>` plus the installer's answer and config.php.
      * Built under a lock by the first class that needs it (the others wait); templates of older code are dropped.
@@ -123,9 +126,14 @@ final class Site
         try {
             if (!is_file($marker)) {
                 foreach (TestDatabase::find($admin, 'talea\\_tpl\\_%') as $old) {
-                    if (!str_starts_with($old, "talea_tpl_{$code}_")) {
+                    // Only templates of an earlier run go. The fingerprint above changes when a file under system/ or image/ is
+                    // created or touched while the suite runs; a worker that then finds no marker for its new fingerprint used to
+                    // drop the template the other workers were cloning from ("Unknown database 'talea_tpl_…'", 100+ errors).
+                    // A template whose marker is younger than STALE_TEMPLATE_SECONDS may still be in use.
+                    $oldMarker = sys_get_temp_dir() . '/' . $old . '.json';
+                    if (!str_starts_with($old, "talea_tpl_{$code}_") && (!is_file($oldMarker) || filemtime($oldMarker) < time() - self::STALE_TEMPLATE_SECONDS)) {
                         TestDatabase::drop($admin, $old);
-                        @unlink(sys_get_temp_dir() . '/' . $old . '.json');
+                        @unlink($oldMarker);
                     }
                 }
                 TestDatabase::drop($admin, $name);
