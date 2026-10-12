@@ -207,6 +207,7 @@ class Settings extends Module
         $settings = $this->app->settings();
         $errors = [];
         $given = [];
+        $zoneBefore = $settings->get('time_zone');
         $refused = null;
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
@@ -290,6 +291,10 @@ class Settings extends Module
 
         if ($refused !== null) {
             return $this->back($refused, '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
+        }
+        if ($errors === [] && $settings->get('time_zone') !== $zoneBefore) {
+            // stored dates are wall time and are not converted – a scheduled item keeps its clock time
+            return $this->back(t('Settings saved. The time zone changed from %s to %s: dates already saved keep their clock time and are not converted, so check scheduled pages and news.', $zoneBefore, $settings->get('time_zone')), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'info');
         }
 
         return $errors === []
