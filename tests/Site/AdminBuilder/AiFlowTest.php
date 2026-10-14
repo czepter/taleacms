@@ -55,7 +55,7 @@ final class AiFlowTest extends SiteTestCase
         $site->setting('ai_provider', 'anthropic');
         $this->assertSame(0, $this->aiRequests(), 'privacy: no request at the start');
 
-        $this->assertPage('/admin.php?module=wizard', 200, ['name="name"', 'are sent to Anthropic (Claude) when you click'], message: 'wizard: the start screen opens and says what is sent');
+        $this->assertPage('/admin.php?module=wizard&action=ai', 200, ['name="name"', 'are sent to Anthropic (Claude) when you click'], message: 'wizard: the start screen opens and says what is sent');
         $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->pagePublicId(), 200, ['build_ask', '"ai":true'], message: 'builder opens');
         $this->assertSame(0, $this->aiRequests(), 'privacy: opening the screens sends nothing');
     }
@@ -194,7 +194,7 @@ final class AiFlowTest extends SiteTestCase
         $site->exec("DELETE FROM tl_blueprints WHERE bkey = 'craftsman'");
         $lastPage = (int) $site->value('SELECT MAX(page_id) FROM tl_pages');
         $before = $this->aiRequests();
-        $start = $this->assertPage('/admin.php?module=wizard', 200, 'No AI key is set', message: 'no key: the start screen says how to add one');
+        $start = $this->assertPage('/admin.php?module=wizard&action=ai', 200, 'No AI key is set', message: 'no key: the start screen says how to add one');
         $this->assertStringContainsString('module=extensions', $start->body);
 
         $answers = ['name' => 'No Key Ltd', 'blueprint' => 'craftsman', 'type' => '', 'services' => 'Anything', 'tone' => 'friendly', 'language' => 'en'];

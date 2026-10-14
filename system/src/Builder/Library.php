@@ -107,6 +107,12 @@ final class Library
                 $s($n('form'), ['base' => ['margin_top' => 'm']]),
             ])],
 
+            'booking' => ['name' => t('Booking'), 'description' => t('A heading, a sentence and the booking form – appointments arrive in Bookings and by email.'), 'build' => fn (): array => $n('section', ['width' => 'narrow'], [
+                $z($n('heading', ['text' => t('Book an appointment')]), 'h2'),
+                $t($n('text', ['html' => '<p>' . t('Choose a service and a free time – the confirmation arrives by email.') . '</p>']), 'subtitle'),
+                $s($n('booking'), ['base' => ['margin_top' => 'm']]),
+            ])],
+
             'contact' => ['name' => t('Contact'), 'description' => t('Address and contacts on the left, opening hours on the right.'), 'build' => fn (): array => $n('section', [], [
                 $s($n('grid', [], [
                     // details from "Settings → Business details": filled in once, they also apply to the footer and search engines
@@ -597,7 +603,7 @@ final class Library
         'hero' => 'intro', 'hero-image' => 'intro', 'hero-centered' => 'intro', 'hero-dark' => 'intro', 'hero-video' => 'intro', 'page-title' => 'intro', 'imprint' => 'company',
         'testimonials' => 'trust', 'quote' => 'trust', 'reviews' => 'trust', 'logos' => 'trust', 'numbers' => 'trust', 'numbers-light' => 'trust', 'guarantees' => 'trust',
         'story' => 'company', 'team' => 'company', 'values' => 'company', 'history' => 'company', 'careers' => 'company', 'branches' => 'company',
-        'call-to-action' => 'action', 'cta-bar' => 'action', 'enquiry' => 'action', 'contact' => 'action', 'contact-form' => 'action', 'faq' => 'action', 'faq-columns' => 'action',
+        'call-to-action' => 'action', 'cta-bar' => 'action', 'enquiry' => 'action', 'booking' => 'action', 'contact' => 'action', 'contact-form' => 'action', 'faq' => 'action', 'faq-columns' => 'action',
     ];
 
     /**

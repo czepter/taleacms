@@ -248,4 +248,5 @@ Der Link gilt %d Tage.
     'This gallery is too large to download in one piece. Download the images one by one.' => 'Diese Galerie ist zu groß, um sie auf einmal herunterzuladen. Lade die Bilder einzeln herunter.',
     'Mark the images you like with the heart – %d marked.' => 'Markiere die Bilder, die dir gefallen, mit dem Herz – %d markiert.',
     'Get in touch – within [number] hours we will come back with a proposal for next steps.' => 'Melde dich – innerhalb von [Anzahl] Stunden melden wir uns mit einem Vorschlag für das weitere Vorgehen.',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'Wähle eine Leistung und eine freie Zeit – die Bestätigung kommt per E-Mail.',
 ];

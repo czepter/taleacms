@@ -9,6 +9,7 @@
  * @var array<string, array<string, mixed>> $blueprints
  * @var array<string, string> $languages code => name
  * @var array<string, string> $values
+ * @var array{topic: string, features: list<string>} $answers of the onboarding's first steps (#46), carried to the plan
  */
 use Talea\Core\Blueprint;
 use Talea\Core\SiteWizard;
@@ -24,7 +25,7 @@ foreach ($blueprints as $key => $m) {
 <?php else: ?>
 <p class="notice notice-warning"><?= e(t('No AI key is set, so no text can be written. The wizard still applies the blueprint and a look; add a key under Features (Writing assistant) and run it again to get the pages.')) ?> <a href="<?= e($app->url('admin.php?module=extensions')) ?>"><?= e(t('Features')) ?></a></p>
 <?php endif ?>
-<form class="form" method="post" action="<?= e($module->url('plan')) ?>"><?= $csrf ?>
+<form class="form" method="post" action="<?= e($module->url('plan')) ?>"><?= $csrf ?><?= $module->carry($answers) ?>
 <h2><?= e(t('Your business')) ?></h2>
 <div class="row"><label for="w-name"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="w-name" name="name" maxlength="100" required value="<?= e($values['name']) ?>"></div></div>
 <div class="row"><label for="w-blueprint"><?= e(t('Kind of business')) ?></label><div><select id="w-blueprint" name="blueprint">
@@ -37,9 +38,9 @@ foreach ($blueprints as $key => $m) {
 	</optgroup>
 <?php endforeach ?>
 </select></div></div>
-<div class="row"><label for="w-type"><?= e(t('In your own words')) ?></label><div><input class="textfield wide" id="w-type" name="type" maxlength="100" placeholder="<?= e(t('E.g.: family bakery in Leipzig')) ?>"><span class="help"><?= e(t('Used when no kind of business above fits.')) ?></span></div></div>
+<div class="row"><label for="w-type"><?= e(t('In your own words')) ?></label><div><input class="textfield wide" id="w-type" name="type" maxlength="100" placeholder="<?= e(t('E.g.: family bakery in Leipzig')) ?>" value="<?= e($values['type']) ?>"><span class="help"><?= e(t('Used when no kind of business above fits.')) ?></span></div></div>
 <h2><?= e(t('What you offer')) ?></h2>
-<div class="row"><label for="w-services"><?= e(t('Services or products')) ?></label><div><textarea class="textfield wide" id="w-services" name="services" rows="4" maxlength="600" placeholder="<?= e(t('E.g.: kitchens, wardrobes and stairs made to measure; free first consultation.')) ?>"></textarea></div></div>
+<div class="row"><label for="w-services"><?= e(t('Services or products')) ?></label><div><textarea class="textfield wide" id="w-services" name="services" rows="4" maxlength="600" placeholder="<?= e(t('E.g.: kitchens, wardrobes and stairs made to measure; free first consultation.')) ?>"><?= e($values['services']) ?></textarea></div></div>
 <div class="row"><label for="w-tone"><?= e(t('Tone of the texts')) ?></label><div><select id="w-tone" name="tone">
 <?php foreach (array_keys(SiteWizard::TONES) as $tone): ?>
 	<option value="<?= e($tone) ?>"><?= e(t(ucfirst($tone))) ?></option>
@@ -59,5 +60,5 @@ foreach ($blueprints as $key => $m) {
 <div class="row"><label for="w-street"><?= e(t('Street')) ?></label><div><input class="textfield" id="w-street" name="company_street" maxlength="150" value="<?= e($values['company_street']) ?>"></div></div>
 <div class="row"><label for="w-postcode"><?= e(t('Postcode')) ?></label><div><input class="textfield" id="w-postcode" name="company_postcode" maxlength="20" value="<?= e($values['company_postcode']) ?>"></div></div>
 <div class="row"><label for="w-city"><?= e(t('City')) ?></label><div><input class="textfield" id="w-city" name="company_city" maxlength="100" value="<?= e($values['company_city']) ?>"></div></div>
-<p><button class="btn" type="submit"><?= e($ready ? t('Plan the site') : t('Continue')) ?></button></p>
+<p class="navigation-row"><button class="btn" type="submit"><?= e($ready ? t('Plan the site') : t('Continue')) ?></button> <a class="navigation" href="<?= e($module->url('start', $answers)) ?>"><?= e(t('Back')) ?></a></p>
 </form>

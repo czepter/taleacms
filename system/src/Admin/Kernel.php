@@ -300,7 +300,7 @@ final class Kernel
      * First steps after installation: what is already done is recognized from the data. Only the administrator sees them,
      * until they hide or complete them.
      *
-     * @return list<array{nazev:string, popis:string, url:string, hotovo:bool}>
+     * @return array<int, array{name: string, description: string, url: string, done: bool}>
      */
     private function firstSteps(): array
     {
@@ -324,9 +324,9 @@ final class Kernel
             ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',
                 $db->value('SELECT 1 FROM {blueprints} LIMIT 1') !== null],
         ];
-        // #31: the first-run wizard builds a first site as drafts with the owner's own AI key – a suggestion, done once the wizard has run
-        array_unshift($steps, ['Set up with the assistant', 'Answer a few questions and get a look, pages with text and what your kind of business needs – all as drafts. Texts need your own AI key.', 'admin.php?module=wizard',
-            $db->value("SELECT 1 FROM {change_log} WHERE module = 'assistant' AND action = 'wizard' LIMIT 1") !== null]);
+        // #31, #46: setting up the site – three questions, then a look or the AI wizard, all as drafts; done once either has run
+        array_unshift($steps, ['Set up your site', 'Three questions, then a look tried on your own site, the features and first pages you need – all as drafts. With your own AI key the assistant can write the texts.', 'admin.php?module=wizard',
+            $db->value("SELECT 1 FROM {change_log} WHERE (module = 'assistant' AND action = 'wizard') OR (module = 'wizard' AND action = 'onboarding') LIMIT 1") !== null]);
         // 2.2: Claude is the main way to build and edit a Talea site – done once any user has connected it; the first step
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Talea\Core\Extensions::isEnabled($s, 'claude')) {

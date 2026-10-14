@@ -3,6 +3,11 @@
     "key": "launch",
     "name": "Launch",
     "description": "Product-page energy: violet accent, a technical grotesque, rounded cards and a call to action in the footer.",
+    "topics": [
+        "tech",
+        "marketing",
+        "design"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +35,38 @@
         "width": 74,
         "text_width": 44
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#1d4ed8",
+                "secondary": "#be185d"
+            },
+            "colors_dark": {
+                "primary": "#8ab4ff",
+                "secondary": "#f9a8d4"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#047857",
+                "secondary": "#6d28d9"
+            },
+            "colors_dark": {
+                "primary": "#6ee7b7",
+                "secondary": "#c4b5fd"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:outfit",
+            "font_body": "lib:inter"
+        },
+        {
+            "font_heading": "lib:manrope",
+            "font_body": "lib:dm-sans"
+        }
+    ],
     "header": "classic",
     "footer": "cta",
     "sections": [

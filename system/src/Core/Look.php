@@ -27,6 +27,9 @@ final class Look
     /** The draft look applies to this request (a preview or the builder of an administrator). */
     private static ?Settings $active = null;
 
+    /** A look from the gallery tried on (#46): only for this request, never stored – design system and header/footer template keys. */
+    private static ?array $tried = null;
+
     /** Makes the rest of the request render with the draft look. */
     public static function activate(Settings $s): void
     {
@@ -51,10 +54,28 @@ final class Look
         return self::draft($s) !== [];
     }
 
-    /** The draft design system while the draft look is active (DesignSystem::load), otherwise null. */
+    /**
+     * Makes the rest of the request render with a look that is not applied yet: the onboarding previews a look with a chosen
+     * palette and font pair on the real site before anything goes to the draft (Front\Kernel, administrators only).
+     *
+     * @param array<string, mixed> $ds
+     * @param array{header: string, footer: string} $parts template keys (Builder\PartTemplates)
+     */
+    public static function tryOn(array $ds, array $parts): void
+    {
+        self::$tried = ['design_system' => $ds, 'parts' => $parts];
+    }
+
+    /** The template key of a site part of the tried-on look, null without one. */
+    public static function triedPart(string $type): ?string
+    {
+        return self::$tried['parts'][$type] ?? null;
+    }
+
+    /** The tried-on design system, or the draft one while the draft look is active (DesignSystem::load), otherwise null. */
     public static function activeDesignSystem(): ?array
     {
-        return self::$active !== null ? (self::draft(self::$active)['design_system'] ?? null) : null;
+        return self::$tried['design_system'] ?? (self::$active !== null ? (self::draft(self::$active)['design_system'] ?? null) : null);
     }
 
     /** Draft items of a menu while the draft look is active: [whether the draft has the menu, its items or null = automatic]. */

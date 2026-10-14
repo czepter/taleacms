@@ -3,6 +3,13 @@
     "key": "harbor",
     "name": "Harbor",
     "description": "Clean business: blue accent, a friendly geometric sans and generous white space.",
+    "topics": [
+        "consulting",
+        "tech",
+        "marketing",
+        "construction",
+        "real-estate"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +37,38 @@
         "width": 72,
         "text_width": 44
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#0f766e",
+                "secondary": "#1d4ed8"
+            },
+            "colors_dark": {
+                "primary": "#5fd1c4",
+                "secondary": "#8ab4ff"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#be123c",
+                "secondary": "#334155"
+            },
+            "colors_dark": {
+                "primary": "#ff8fa8",
+                "secondary": "#cbd5e1"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:manrope",
+            "font_body": "lib:inter"
+        },
+        {
+            "font_heading": "lib:outfit",
+            "font_body": "lib:dm-sans"
+        }
+    ],
     "header": "classic",
     "footer": "columns",
     "sections": [

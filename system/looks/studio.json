@@ -3,6 +3,12 @@
     "key": "studio",
     "name": "Studio",
     "description": "Bold and flat: heavy headlines, a warm yellow surface, sharp corners and one strong accent.",
+    "topics": [
+        "design",
+        "marketing",
+        "construction",
+        "art"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 76,
         "text_width": 42
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#1d4ed8",
+                "secondary": "#0f172a"
+            },
+            "colors_dark": {
+                "primary": "#93c5fd",
+                "secondary": "#cbd5e1"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#047857",
+                "secondary": "#0f172a"
+            },
+            "colors_dark": {
+                "primary": "#6ee7b7",
+                "secondary": "#cbd5e1"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:bebas-neue",
+            "font_body": "lib:work-sans"
+        },
+        {
+            "font_heading": "lib:space-grotesk",
+            "font_body": "lib:dm-sans"
+        }
+    ],
     "header": "classic",
     "footer": "cta",
     "sections": [

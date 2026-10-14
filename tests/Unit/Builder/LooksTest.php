@@ -71,4 +71,50 @@ final class LooksTest extends TestCase
             $this->assertDoesNotMatchRegularExpression('~https?:|//|url\(|@import~i', $text, basename($file) . ' references nothing external');
         }
     }
+
+    /** #46: topics re-rank the gallery, palettes and font pairs are the look's own variants – every one readable and a library font. */
+    public function testEveryLookHasTopicsAndReadablePalettesAndLibraryFontPairs(): void
+    {
+        foreach ($this->files() as $file) {
+            $raw = json_decode((string) file_get_contents($file), true);
+            $look = Looks::get(basename($file, '.json'));
+            $this->assertNotNull($look, $file);
+            $this->assertNotEmpty($look['topics'], $look['key'] . ': fits at least one topic');
+            $this->assertSame($raw['topics'], $look['topics'], $look['key'] . ': every topic is a known one');
+            $this->assertGreaterThanOrEqual(3, count($look['palettes']), $look['key'] . ': its own colours and at least two palettes');
+            $this->assertGreaterThanOrEqual(3, count($look['fonts']), $look['key'] . ': its own fonts and at least two pairs');
+            foreach ($raw['palettes'] as $i => $p) {
+                $this->assertSame($p['colors'], array_intersect_key($look['palettes'][$i + 1]['colors'], $p['colors']), $look['key'] . ': palette colours survive the sanitizer');
+            }
+            foreach ($look['palettes'] as $i => $p) {
+                $ds = Looks::variant($look['key'], $i);
+                foreach (['light' => DesignSystem::contrasts($ds), 'dark' => DesignSystem::contrastsDark($ds)] as $mode => $pairs) {
+                    foreach ($pairs as $pair) {
+                        $this->assertTrue($pair['ok'], "{$look['key']} palette $i ($mode): {$pair['description']} {$pair['ratio']}:1");
+                    }
+                }
+            }
+            foreach ($raw['fonts'] as $i => $f) {
+                $this->assertSame($f, $look['fonts'][$i + 1], $look['key'] . ': font pair ' . ($i + 1) . ' is library fonts');
+            }
+        }
+        $this->assertNull(Looks::variant('atelier', 99), 'an unknown palette is no variant');
+        $this->assertSame(Looks::get('atelier')['design_system'], Looks::variant('atelier'), 'variant 0 is the look as it is');
+    }
+
+    public function testATopicReranksButNeverFilters(): void
+    {
+        $this->assertSame(array_keys(Looks::all()), array_keys(Looks::ranked('')), 'no topic: the gallery order');
+        $this->assertSame(array_keys(Looks::all()), array_keys(Looks::ranked('nothing')), 'an unknown topic: the gallery order');
+        foreach (array_keys(Looks::TOPICS) as $topic) {
+            $ranked = Looks::ranked($topic);
+            $this->assertEqualsCanonicalizing(array_keys(Looks::all()), array_keys($ranked), $topic . ': every look stays');
+            $places = array_map(fn (array $l): int => ($i = array_search($topic, $l['topics'], true)) === false ? PHP_INT_MAX : $i, array_values($ranked));
+            $sorted = $places;
+            sort($sorted);
+            $this->assertSame($sorted, $places, $topic . ': best fits first');
+        }
+        $this->assertSame('brasserie', array_key_first(Looks::ranked('restaurant')));
+        $this->assertSame(['photography', 'real-estate', ''], [Looks::topic(' Photography '), Looks::topic('real-estate'), Looks::topic('knitting')]);
+    }
 }

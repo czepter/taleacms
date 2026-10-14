@@ -1223,6 +1223,13 @@ final class Kernel
         if ($this->sitePreview || ($r->get('build') === 'draft' && $this->app->auth()->isAdmin())) {
             \Talea\Core\Look::activate($this->app->settings());
         }
+        // #46: the onboarding tries a look from the gallery on (?look=<key>&palette=<n>&fonts=<n>) before it is applied – only for
+        // administrators, nothing is stored
+        $tried = $r->get('look') !== '' && $this->app->auth()->isAdmin() ? \Talea\Builder\Looks::get($r->get('look')) : null;
+        $ds = $tried !== null ? \Talea\Builder\Looks::variant($tried['key'], $r->getInt('palette'), $r->getInt('fonts')) : null;
+        if ($tried !== null && $ds !== null) {
+            \Talea\Core\Look::tryOn($ds, ['header' => $tried['header'], 'footer' => $tried['footer']]);
+        }
     }
 
     /** Draft instead of the published build: the builder and single previews (?build=draft), or the whole-site preview. */
@@ -1268,7 +1275,9 @@ final class Kernel
         $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant, $allDrafts): ?string {
             try {
                 $variant = $preview === $type ? $previewVariant : \Talea\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
-                $build = \Talea\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
+                $tried = \Talea\Core\Look::triedPart($type);
+                $build = $tried !== null ? \Talea\Builder\PartTemplates::build($type, $tried, Language::ofContent($this->app->settings(), $language), \Talea\Core\Extensions::enabled($this->app->settings()))
+                    : \Talea\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
                 error_log('Site parts: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
 

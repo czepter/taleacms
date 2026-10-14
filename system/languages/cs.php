@@ -3350,4 +3350,9 @@ Odkaz platí %d dní.
     '[Name]' => '[Jméno]',
     '[Role]' => '[Funkce]',
     'out of 5 · [number] reviews' => 'z 5 · [počet] recenzí',
+    'A heading, a sentence and the booking form – appointments arrive in Bookings and by email.' => 'Nadpis, věta a rezervační formulář – termíny přijdou do Rezervací a e-mailem.',
+    'Book an appointment' => 'Rezervujte si termín',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'Vyberte službu a volný termín – potvrzení přijde e-mailem.',
+    'Our work' => 'Naše práce',
+    'Bookings' => 'Rezervace',
 ];

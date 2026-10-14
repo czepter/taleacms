@@ -3,6 +3,12 @@
     "key": "journal",
     "name": "Journal",
     "description": "An editorial reading layout: warm paper, a serif text face and a narrow text column. For blogs and magazines.",
+    "topics": [
+        "art",
+        "education",
+        "travel",
+        "music"
+    ],
     "source": "Layout study of a classic blog-theme style: proportions, type scale and section order; tokens and sections written from scratch.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 68,
         "text_width": 40
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#1e4e8c",
+                "secondary": "#8a3b12"
+            },
+            "colors_dark": {
+                "primary": "#8ab8f0",
+                "secondary": "#f0a37a"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#2f5d3a",
+                "secondary": "#8a2e5c"
+            },
+            "colors_dark": {
+                "primary": "#8fd0a4",
+                "secondary": "#f0a0c8"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:merriweather",
+            "font_body": "lib:source-sans-3"
+        },
+        {
+            "font_heading": "lib:eb-garamond",
+            "font_body": "lib:lato"
+        }
+    ],
     "header": "centered",
     "footer": "columns",
     "sections": [
