@@ -300,7 +300,7 @@ final class Kernel
      * First steps after installation: what is already done is recognized from the data. Only the administrator sees them,
      * until they hide or complete them.
      *
-     * @return list<array{nazev:string, popis:string, url:string, hotovo:bool}>
+     * @return array<int, array{name: string, description: string, url: string, done: bool}>
      */
     private function firstSteps(): array
     {

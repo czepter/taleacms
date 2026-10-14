@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method Talea\\Admin\\Kernel\:\:firstSteps\(\) should return list\<array\{nazev\: string, popis\: string, url\: string, hotovo\: bool\}\> but returns array\<0\|1\|2\|3\|4\|5\|6\|7, array\{name\: ''Complete the…''\|''Connect Claude''\|''Fill in company…''\|''Give your site a…''\|''Prepare your pages''\|''Set up e\-mail''\|''Set up with the…''\|''Your kind of…'', description\: ''About us, Services,…''\|''Address, phone and…''\|''Answer a few…''\|''Build and edit the…''\|''Logo, main colour…''\|''The enquiry form…''\|''Twenty blueprints –…''\|''Where the site…'', url\: string, done\: bool\}\>\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Admin/Kernel.php
-
-		-
 			message: '#^Strict comparison using \!\=\= between array\<string, mixed\> and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
