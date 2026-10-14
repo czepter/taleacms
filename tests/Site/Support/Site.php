@@ -124,7 +124,11 @@ final class Site
         $lock = fopen(sys_get_temp_dir() . "/$name.lock", 'c');
         flock($lock, LOCK_EX);
         try {
-            if (!is_file($marker)) {
+            // The marker lives in the host's temp dir, the database on the server. A self-hosted runner keeps the temp dir between
+            // jobs while every job gets a fresh database service; an unchanged fingerprint (same files, same mtimes) then found a
+            // marker whose database was gone and every clone failed with "Unknown database 'talea_tpl_…'". The marker only counts
+            // when the database is there too.
+            if (!is_file($marker) || TestDatabase::find($admin, str_replace('_', '\\_', $name)) === []) {
                 foreach (TestDatabase::find($admin, 'talea\\_tpl\\_%') as $old) {
                     // Only templates of an earlier run go. The fingerprint above changes when a file under system/ or image/ is
                     // created or touched while the suite runs; a worker that then finds no marker for its new fingerprint used to
