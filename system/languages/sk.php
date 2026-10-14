@@ -1148,4 +1148,9 @@ Odkaz platí %d dní.
     '[Name]' => '[Meno]',
     '[Role]' => '[Funkcia]',
     'out of 5 · [number] reviews' => 'z 5 · [počet] recenzií',
+    'A heading, a sentence and the booking form – appointments arrive in Bookings and by email.' => 'Nadpis, veta a rezervačný formulár – termíny prídu do Rezervácií a e-mailom.',
+    'Book an appointment' => 'Rezervujte si termín',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'Vyberte službu a voľný termín – potvrdenie príde e-mailom.',
+    'Our work' => 'Naša práca',
+    'Bookings' => 'Rezervácie',
 ];

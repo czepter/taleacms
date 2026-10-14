@@ -3,6 +3,11 @@
     "key": "boutique",
     "name": "Boutique",
     "description": "Elegant retail: a wine-red accent, a high-contrast serif and soft blush surfaces.",
+    "topics": [
+        "clothing",
+        "beauty",
+        "weddings"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +35,38 @@
         "width": 72,
         "text_width": 42
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#1f3a5f",
+                "secondary": "#7a5a2e"
+            },
+            "colors_dark": {
+                "primary": "#9cc0ea",
+                "secondary": "#d9bb85"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#4a2c6b",
+                "secondary": "#8a4b3b"
+            },
+            "colors_dark": {
+                "primary": "#c7a6ef",
+                "secondary": "#e6a58f"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:cormorant-garamond",
+            "font_body": "lib:work-sans"
+        },
+        {
+            "font_heading": "lib:libre-baskerville",
+            "font_body": "lib:source-sans-3"
+        }
+    ],
     "header": "centered",
     "footer": "columns",
     "sections": [

@@ -3,6 +3,12 @@
     "key": "meadow",
     "name": "Meadow",
     "description": "Calm and natural: sage green, a soft serif and rounded corners. For wellness, care and food.",
+    "topics": [
+        "health",
+        "beauty",
+        "restaurant",
+        "education"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 70,
         "text_width": 44
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#2f5d62",
+                "secondary": "#8a4b5f"
+            },
+            "colors_dark": {
+                "primary": "#7fc4c9",
+                "secondary": "#e8a3b8"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#6b5a2b",
+                "secondary": "#3f6b4f"
+            },
+            "colors_dark": {
+                "primary": "#e0c27a",
+                "secondary": "#8fd0a4"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:libre-baskerville",
+            "font_body": "lib:nunito-sans"
+        },
+        {
+            "font_heading": "lib:outfit",
+            "font_body": "lib:lato"
+        }
+    ],
     "header": "centered",
     "footer": "columns",
     "sections": [

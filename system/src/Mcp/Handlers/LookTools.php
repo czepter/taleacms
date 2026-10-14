@@ -151,8 +151,9 @@ trait LookTools
     {
         return ['looks' => array_values(array_map(fn (array $l): array => ['key' => $l['key'], 'name' => $l['name'], 'description' => $l['description'], 'colors' => $l['design_system']['colors'],
             'colors_dark' => $l['design_system']['colors_dark'], 'font_heading' => $l['design_system']['font_heading'], 'font_body' => $l['design_system']['font_body'],
-            'header' => $l['header'], 'footer' => $l['footer'], 'sections' => $l['sections']], \Talea\Builder\Looks::all())),
-            'note' => 'apply_look puts one into the draft look; the sections are ready-made sections for insert_section.'];
+            'header' => $l['header'], 'footer' => $l['footer'], 'sections' => $l['sections'], 'topics' => $l['topics'], 'palettes' => $l['palettes'], 'fonts' => $l['fonts']],
+            \Talea\Builder\Looks::ranked((string) ($a['topic'] ?? '')))),
+            'note' => 'apply_look puts one into the draft look (palette and fonts: an index in its palettes and fonts, 0 = its own); the sections are ready-made sections for insert_section.'];
     }
 
     /** apply_look */
@@ -161,8 +162,11 @@ trait LookTools
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('Only the site administrator can use this tool.');
         }
-        if (!\Talea\Builder\Looks::apply($this->app, (string) ($a['look'] ?? ''))) {
+        if (\Talea\Builder\Looks::get((string) ($a['look'] ?? '')) === null) {
             throw new \InvalidArgumentException('The look does not exist: ' . implode(', ', array_keys(\Talea\Builder\Looks::all())) . '.');
+        }
+        if (!\Talea\Builder\Looks::apply($this->app, (string) $a['look'], (int) ($a['palette'] ?? 0), (int) ($a['fonts'] ?? 0))) {
+            throw new \InvalidArgumentException('The look has no such palette or font pair – see palettes and fonts in list_looks.');
         }
         $this->app->settings()->set('appearance_saved', '1');
         \Talea\Front\Cache::clear();

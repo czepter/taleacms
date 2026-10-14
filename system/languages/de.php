@@ -1213,4 +1213,9 @@ Der Link gilt %d Tage.
     '[A short review from a real customer]' => '[Eine kurze Bewertung eines echten Kunden]',
     '[Role]' => '[Funktion]',
     'out of 5 · [number] reviews' => 'von 5 · [Anzahl] Bewertungen',
+    'A heading, a sentence and the booking form – appointments arrive in Bookings and by email.' => 'Eine Überschrift, ein Satz und das Buchungsformular – Termine kommen in Buchungen und per E-Mail an.',
+    'Book an appointment' => 'Termin buchen',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'Wählen Sie eine Leistung und eine freie Zeit – die Bestätigung kommt per E-Mail.',
+    'Our work' => 'Unsere Arbeiten',
+    'Bookings' => 'Buchungen',
 ];

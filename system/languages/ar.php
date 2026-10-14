@@ -1221,4 +1221,9 @@ The link works for %d days.
     '[Role]' => '[المنصب]',
     'out of 5 · [number] reviews' => 'من 5 · [الرقم] تقييمات',
     '[Name]' => '[الاسم]',
+    'A heading, a sentence and the booking form – appointments arrive in Bookings and by email.' => 'عنوان وجملة ونموذج الحجز – تصل المواعيد إلى الحجوزات وبالبريد الإلكتروني.',
+    'Book an appointment' => 'احجز موعدًا',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'اختر خدمة ووقتًا متاحًا – يصلك التأكيد بالبريد الإلكتروني.',
+    'Our work' => 'أعمالنا',
+    'Bookings' => 'الحجوزات',
 ];

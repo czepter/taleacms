@@ -22,7 +22,9 @@
     },
     "apply_look": {
         "parameters": {
-            "look": "string"
+            "fonts": "integer",
+            "look": "string",
+            "palette": "integer"
         },
         "required": [
             "look"
@@ -1025,7 +1027,9 @@
         }
     },
     "list_looks": {
-        "parameters": [],
+        "parameters": {
+            "topic": "string"
+        },
         "required": [],
         "annotations": {
             "readOnlyHint": true,

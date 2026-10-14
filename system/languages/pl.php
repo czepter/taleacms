@@ -1156,4 +1156,9 @@ Link jest ważny %d dni.
     '[Name]' => '[Imię i nazwisko]',
     '[Role]' => '[Stanowisko]',
     'out of 5 · [number] reviews' => 'na 5 · [liczba] opinii',
+    'A heading, a sentence and the booking form – appointments arrive in Bookings and by email.' => 'Nagłówek, zdanie i formularz rezerwacji – terminy trafiają do Rezerwacji i na e-mail.',
+    'Book an appointment' => 'Zarezerwuj termin',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'Wybierz usługę i wolny termin – potwierdzenie przyjdzie e-mailem.',
+    'Our work' => 'Nasze realizacje',
+    'Bookings' => 'Rezerwacje',
 ];

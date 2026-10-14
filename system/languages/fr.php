@@ -1153,4 +1153,9 @@ Le lien est valable %d jours.
     '[Name]' => '[Nom]',
     '[Role]' => '[Fonction]',
     'out of 5 · [number] reviews' => 'sur 5 · [nombre] avis',
+    'A heading, a sentence and the booking form – appointments arrive in Bookings and by email.' => 'Un titre, une phrase et le formulaire de réservation : les rendez-vous arrivent dans Réservations et par e-mail.',
+    'Book an appointment' => 'Prendre rendez-vous',
+    'Choose a service and a free time – the confirmation arrives by email.' => 'Choisissez un service et un créneau libre – la confirmation arrive par e-mail.',
+    'Our work' => 'Nos réalisations',
+    'Bookings' => 'Réservations',
 ];

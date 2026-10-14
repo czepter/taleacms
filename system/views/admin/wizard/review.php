@@ -8,6 +8,7 @@
  * @var array{blueprint: string, look: string, pages: list<array{title: string, brief: string}>, generated: bool} $plan
  * @var array<string, array<string, mixed>> $blueprints
  * @var array<string, array<string, mixed>> $looks
+ * @var array{topic: string, features: list<string>} $onboarding the onboarding's answers (#46): the features' extensions are switched on with the drafts
  * @var bool $ready the plan comes with pages (an AI key is set)
  * @var string $provider
  */
@@ -19,6 +20,7 @@ use Talea\Core\Blueprint;
 <?php foreach ($answers as $key => $value): ?>
 <input type="hidden" name="<?= e($key) ?>" value="<?= e($key === 'tone' ? (array_search($value, Talea\Core\SiteWizard::TONES, true) ?: 'friendly') : $value) ?>">
 <?php endforeach ?>
+<?= $module->carry($onboarding) ?>
 <h2><?= e(t('Blueprint')) ?></h2>
 <div class="row"><label for="p-blueprint"><?= e(t('Kind of business')) ?></label><div><select id="p-blueprint" name="plan_blueprint">
 	<option value=""><?= e(t('None')) ?></option>
@@ -45,5 +47,5 @@ use Talea\Core\Blueprint;
 </fieldset>
 <?php endforeach ?>
 <?php endif ?>
-<p class="navigation-row"><button class="btn" type="submit"><?= e(t('Create the drafts')) ?></button> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
+<p class="navigation-row"><button class="btn" type="submit"><?= e(t('Create the drafts')) ?></button> <a class="navigation" href="<?= e($module->url('ai', $onboarding)) ?>"><?= e(t('Back')) ?></a></p>
 </form>

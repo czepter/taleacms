@@ -3,6 +3,12 @@
     "key": "terrace",
     "name": "Terrace",
     "description": "Warm and refined: terracotta, a classic garalde serif and a contact bar. For hotels and real estate.",
+    "topics": [
+        "real-estate",
+        "travel",
+        "restaurant",
+        "weddings"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 72,
         "text_width": 42
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#2f5d62",
+                "secondary": "#9a3b1f"
+            },
+            "colors_dark": {
+                "primary": "#7fc0c6",
+                "secondary": "#f0956f"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#5b4a1f",
+                "secondary": "#7f1d3d"
+            },
+            "colors_dark": {
+                "primary": "#e0c27a",
+                "secondary": "#f08aa8"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:cormorant-garamond",
+            "font_body": "lib:lato"
+        },
+        {
+            "font_heading": "lib:playfair-display",
+            "font_body": "lib:source-sans-3"
+        }
+    ],
     "header": "with-bar",
     "footer": "imprint",
     "sections": [

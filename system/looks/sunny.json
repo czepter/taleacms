@@ -3,6 +3,10 @@
     "key": "sunny",
     "name": "Sunny",
     "description": "Friendly and bright: teal and amber, rounded type and corners. For schools, play and family businesses.",
+    "topics": [
+        "education",
+        "health"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +34,38 @@
         "width": 70,
         "text_width": 44
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#c2410c",
+                "secondary": "#0f766e"
+            },
+            "colors_dark": {
+                "primary": "#fb923c",
+                "secondary": "#5fd1c4"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#6d28d9",
+                "secondary": "#b45309"
+            },
+            "colors_dark": {
+                "primary": "#c4b5fd",
+                "secondary": "#f0b66b"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:outfit",
+            "font_body": "lib:nunito-sans"
+        },
+        {
+            "font_heading": "lib:caveat",
+            "font_body": "lib:nunito-sans"
+        }
+    ],
     "header": "centered",
     "footer": "columns",
     "sections": [

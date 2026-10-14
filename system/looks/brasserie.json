@@ -3,6 +3,10 @@
     "key": "brasserie",
     "name": "Brasserie",
     "description": "Warm hospitality: cream paper, a brick-red accent and a display face for the menu headings.",
+    "topics": [
+        "restaurant",
+        "travel"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +34,38 @@
         "width": 70,
         "text_width": 42
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#1f4d3a",
+                "secondary": "#8a3b12"
+            },
+            "colors_dark": {
+                "primary": "#8fd1b0",
+                "secondary": "#f0a37a"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#6b2f5b",
+                "secondary": "#6e5212"
+            },
+            "colors_dark": {
+                "primary": "#e3a3d2",
+                "secondary": "#e3c27a"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:bebas-neue",
+            "font_body": "lib:lato"
+        },
+        {
+            "font_heading": "lib:lora",
+            "font_body": "lib:open-sans"
+        }
+    ],
     "header": "with-bar",
     "footer": "columns",
     "sections": [

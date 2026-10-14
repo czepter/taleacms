@@ -3,6 +3,12 @@
     "key": "monograph",
     "name": "Monograph",
     "description": "Typographic minimalism: black on white, one family, no ornament and sharp corners.",
+    "topics": [
+        "design",
+        "art",
+        "photography",
+        "consulting"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 64,
         "text_width": 40
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#1e3a8a",
+                "secondary": "#525252"
+            },
+            "colors_dark": {
+                "primary": "#a5b4fc",
+                "secondary": "#a3a3a3"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#991b1b",
+                "secondary": "#525252"
+            },
+            "colors_dark": {
+                "primary": "#fca5a5",
+                "secondary": "#a3a3a3"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:inter",
+            "font_body": "lib:inter"
+        },
+        {
+            "font_heading": "lib:work-sans",
+            "font_body": "lib:work-sans"
+        }
+    ],
     "header": "classic",
     "footer": "compact",
     "sections": [

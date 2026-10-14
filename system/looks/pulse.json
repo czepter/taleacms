@@ -3,6 +3,12 @@
     "key": "pulse",
     "name": "Pulse",
     "description": "High energy: condensed capitals, an orange accent and bold numbers. For fitness, sport and events.",
+    "topics": [
+        "health",
+        "music",
+        "construction",
+        "marketing"
+    ],
     "source": "Layout study of a template family: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 74,
         "text_width": 42
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#be123c",
+                "secondary": "#0f172a"
+            },
+            "colors_dark": {
+                "primary": "#fb7185",
+                "secondary": "#cbd5e1"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#1d4ed8",
+                "secondary": "#0f172a"
+            },
+            "colors_dark": {
+                "primary": "#93c5fd",
+                "secondary": "#cbd5e1"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:bebas-neue",
+            "font_body": "lib:roboto"
+        },
+        {
+            "font_heading": "lib:archivo-black",
+            "font_body": "lib:inter"
+        }
+    ],
     "header": "classic",
     "footer": "cta",
     "sections": [

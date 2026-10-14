@@ -3,6 +3,12 @@
     "key": "atelier",
     "name": "Atelier",
     "description": "A quiet white portfolio: a centred logo, fine serif headings and large images. For photographers and artists.",
+    "topics": [
+        "photography",
+        "art",
+        "weddings",
+        "design"
+    ],
     "source": "Layout study of portfolio and client-gallery layouts: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 80,
         "text_width": 40
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#2f3e46",
+                "secondary": "#6b4f2a"
+            },
+            "colors_dark": {
+                "primary": "#cfd8dc",
+                "secondary": "#d9b991"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#3d405b",
+                "secondary": "#8c4a3a"
+            },
+            "colors_dark": {
+                "primary": "#c9cbe8",
+                "secondary": "#e3a594"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:playfair-display",
+            "font_body": "lib:lato"
+        },
+        {
+            "font_heading": "lib:eb-garamond",
+            "font_body": "lib:dm-sans"
+        }
+    ],
     "header": "centered",
     "footer": "compact",
     "sections": [

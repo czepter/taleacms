@@ -3,6 +3,12 @@
     "key": "noir",
     "name": "Noir",
     "description": "A dark gallery: near-black background, light type and a warm accent. Photos and videos take the stage.",
+    "topics": [
+        "photography",
+        "music",
+        "art",
+        "design"
+    ],
     "source": "Layout study of portfolio and client-gallery layouts: grid, spacing, type scale and colour mood; tokens and sections written from scratch, nothing copied.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +36,38 @@
         "width": 84,
         "text_width": 42
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#f2b8a0",
+                "secondary": "#b8c9e8"
+            },
+            "colors_dark": {
+                "primary": "#f2b8a0",
+                "secondary": "#b8c9e8"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#c8e6b0",
+                "secondary": "#e8c9f0"
+            },
+            "colors_dark": {
+                "primary": "#c8e6b0",
+                "secondary": "#e8c9f0"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:oswald",
+            "font_body": "lib:inter"
+        },
+        {
+            "font_heading": "lib:playfair-display",
+            "font_body": "lib:lato"
+        }
+    ],
     "header": "classic",
     "footer": "compact",
     "sections": [

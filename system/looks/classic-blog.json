@@ -3,6 +3,11 @@
     "key": "classic-blog",
     "name": "Classic blog",
     "description": "A familiar blog layout: a contact bar above the menu, blue links and a calm serif.",
+    "topics": [
+        "education",
+        "marketing",
+        "other"
+    ],
     "source": "Layout study of a classic blog-theme style: proportions, type scale and section order; tokens and sections written from scratch.",
     "assets": "none-third-party",
     "design_system": {
@@ -30,6 +35,38 @@
         "width": 72,
         "text_width": 44
     },
+    "palettes": [
+        {
+            "colors": {
+                "primary": "#0f6b5a",
+                "secondary": "#8a3b5f"
+            },
+            "colors_dark": {
+                "primary": "#6fd6c2",
+                "secondary": "#e8a0c0"
+            }
+        },
+        {
+            "colors": {
+                "primary": "#7a2e8a",
+                "secondary": "#1e5aa8"
+            },
+            "colors_dark": {
+                "primary": "#d9a3e6",
+                "secondary": "#8ab8f0"
+            }
+        }
+    ],
+    "fonts": [
+        {
+            "font_heading": "lib:lora",
+            "font_body": "lib:source-sans-3"
+        },
+        {
+            "font_heading": "lib:libre-baskerville",
+            "font_body": "lib:lato"
+        }
+    ],
     "header": "with-bar",
     "footer": "columns",
     "sections": [
