@@ -1500,6 +1500,7 @@
             "hours": "object",
             "id": "string",
             "name": "string",
+            "service_hours": "array",
             "services": "array",
             "sort_order": "integer"
         },
