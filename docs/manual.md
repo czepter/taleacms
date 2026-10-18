@@ -10,7 +10,7 @@ differently – installation as a container, no updates from the admin, looks, m
 ## 1. Installation and first steps
 
 1. Start the container ([docker/README.md](../docker/README.md)) and open the site; it leads to the installer. Without Docker, as in
-   Kaleta: upload the files to hosting (PHP 8.5+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
+   Kaleta: upload the files to hosting (PHP 8.5+, MySQL 8 or PostgreSQL 18 – not MariaDB, unlike Kaleta), create an empty database and open `/install.php`.
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
