@@ -3,7 +3,7 @@
 A self-hosted website builder for small businesses and freelancers: pages, news/blog, a visual page
 builder, collections, forms, bookings and a connection to language models (MCP). Plain PHP 8.5+ with its own PSR-4 autoloader
 (`system/bootstrap.php`), MySQL 8 through PDO, server-rendered HTML and a little vanilla JS. Composer is used for infrastructure only
-(Phinx migrations, PHPUnit); application code stays framework-free. GPL v2 or later; this is a hard fork of the Czech project Talea
+(Phinx migrations, PHPUnit); application code stays framework-free. GPL v2 or later; this is a hard fork of the Czech project Kaleta
 (see `NOTICE` and `docs/DECISIONS.md`): no upstream merges, no installed base, no compatibility layers.
 
 ## Principles

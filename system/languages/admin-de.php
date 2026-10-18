@@ -2335,7 +2335,6 @@ return [
     'Border colour' => 'Rahmenfarbe',
     'preview shared' => 'Vorschau geteilt',
     'Talea is free and has no ads.' => 'Talea ist kostenlos und werbefrei.',
-    'Support its development on GitHub Sponsors' => 'Unterstützen Sie die Entwicklung auf GitHub Sponsors',
     'Imprint (all details of the operator)' => 'Impressum (alle Angaben zum Betreiber)',
     'Imprint (legal notice)' => 'Impressum (Anbieterkennzeichnung)',
     'Company identification number; in other countries its registration number.' => 'Identifikationsnummer des Unternehmens; in anderen Ländern dessen Registernummer.',
