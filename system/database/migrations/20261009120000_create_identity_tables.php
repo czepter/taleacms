@@ -43,7 +43,7 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('last_login_at', 'datetime', ['null' => true, 'comment' => 'last completed sign-in to the administration'])
             ->addColumn('confirmed_at', 'datetime', ['null' => true, 'comment' => 'created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it'])
             ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'admin language; \'\' = Czech'])
-            ->addColumn('register', 'string', ['limit' => 10, 'null' => false, 'default' => '', 'comment' => 'form of address in the German administration: \'\' = formal (Sie), \'informal\' = du'])
+            ->addColumn('register', 'string', ['limit' => 10, 'null' => false, 'default' => '', 'comment' => 'form of address in the German administration: \'\' or \'informal\' = du, \'formal\' = Sie'])
             ->addColumn('position', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'position in the company (bio of the news author)'])
             ->addColumn('photo', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
             ->addColumn('bio', 'text', ['null' => true, 'comment' => 'a few sentences about the author'])
