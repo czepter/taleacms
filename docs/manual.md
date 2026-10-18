@@ -170,7 +170,9 @@ level under each item. Reorder by dragging or with the arrows. Until you save it
 bar, a discount or an event. Start from a ready-made template, build the content in the builder and publish it; then set
 in **Settings** when and where it shows and turn it on.
 
-- **Type:** a window in the middle, a slide-in panel in the corner, a bar at the top or bottom, or full screen.
+- **Type:** a window in the middle, a slide-in panel in the corner, a bar at the top or bottom, full screen, or a
+  flyout: a pill in the bottom left or right corner that stays on screen (a bar along the bottom on a phone) – the
+  *Contact flyout* template creates it with a contact form panel its button opens; corner panels open on the flyout's side.
 - **Trigger:** after a number of seconds, after scrolling part of the page, when the visitor is about to leave, after
   seconds without activity, after a number of pages in the visit – or only by a link or button to `#popup-<address>`
   (that link opens the pop-up at any time).
