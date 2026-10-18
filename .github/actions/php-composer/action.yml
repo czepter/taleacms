@@ -1,76 +1,53 @@
-# PHP and Composer for the self-hosted runners, in one step. Two jobs failed with "Unable to find Composer at …/_work/_tool/setup-php/tools/composer":
-# the runner's tool cache said "installed" while the file was gone, and ramsey/composer-install does not look anywhere else.
-# So: Composer is requested explicitly, installed again from getcomposer.org when the runner has none, and `composer install` is
-# retried (a registry hiccup or a cache that vanished between two steps must not fail a pull request).
-# The two runners share one host, which setup-php documents as unsupported ("parallel workflows will conflict with each other"):
-# one job rewrites /usr/local/bin/composer while the other runs it ('Class "Composer\Util\PackageSorter" not found in phar://…').
-# So setup-php itself is tried up to three times, with a pause in between, before the job is allowed to fail.
+# PHP and Composer for the self-hosted runners, inside Docker. Nothing is installed on the runner host itself.
+# Why: setup-php installed PHP onto the host that two runners share. Parallel jobs rewrote each other's Composer
+# ('Class "Composer\Util\PackageSorter" not found in phar://…', a tool cache saying "installed" for a missing file), and then a PHP
+# release built against another system broke every job ("php: error while loading shared libraries: libxml2.so.2").
+# How: the step builds the Dockerfile's "ci" stage (PHP with the image's extensions, Composer, Chromium, Node) and writes two small
+# wrapper scripts, php and composer, into a directory on the job's PATH. Each wrapper runs the tool in a fresh container of that
+# image: the runner's user, the host network (services such as MySQL answer on 127.0.0.1:<mapped port>), the workspace and
+# RUNNER_TEMP mounted at the same paths, the working directory kept, and the TALEA_*, CHROME and CI variables passed through.
+# The image is addressed by its ID, never a shared tag, so jobs on the same host do not swap each other's image.
+# `vendor/bin/paratest` and friends start with `#!/usr/bin/env php`, which finds the wrapper; everything they start (PHP's built-in
+# server, node, Chromium) runs inside the same container.
 name: PHP and Composer
-description: Sets up PHP with Composer on a self-hosted runner and installs the dependencies
+description: Runs PHP and Composer in the Dockerfile's ci stage on a self-hosted runner and installs the dependencies
 inputs:
-  php-version:
-    description: PHP version
-    default: '8.5'
-  extensions:
-    description: PHP extensions
-    default: 'pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache'
   install:
     description: Run composer install ('false' for jobs that only need PHP)
     default: 'true'
 runs:
   using: composite
   steps:
-    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-      id: php1
-      continue-on-error: true
-      env:
-        runner: self-hosted
-      with:
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        tools: composer:v2
-        coverage: none
-    - name: Pause before trying setup-php again
-      if: steps.php1.outcome == 'failure'
+    - name: PHP in Docker (image built from the ci stage, php and composer wrappers on PATH)
       shell: bash
-      run: sleep 20
-    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-      id: php2
-      if: steps.php1.outcome == 'failure'
-      continue-on-error: true
-      env:
-        runner: self-hosted
-      with:
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        tools: composer:v2
-        coverage: none
-    - name: Pause before trying setup-php again
-      if: steps.php2.outcome == 'failure'
-      shell: bash
-      run: sleep 45
-    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-      id: php3
-      if: steps.php2.outcome == 'failure'
-      env:
-        runner: self-hosted
-      with:
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        tools: composer:v2
-        coverage: none
-    - name: Composer (installed again when the runner lost it, install retried)
+      run: |
+        set -euo pipefail
+        bin="$RUNNER_TEMP/php-in-docker"
+        cache="${RUNNER_TOOL_CACHE:-$RUNNER_TEMP}/talea-composer-cache"
+        mkdir -p "$bin" "$cache"
+        # with buildx the image must be loaded into Docker explicitly; the classic builder has no --load
+        load=(); docker buildx version >/dev/null 2>&1 && load=(--load)
+        DOCKER_BUILDKIT=1 docker build --quiet "${load[@]}" --iidfile "$bin/image" --target ci . >/dev/null
+        image=$(cat "$bin/image")
+        for tool in php composer; do
+          cat > "$bin/$tool" <<EOF
+        #!/usr/bin/env bash
+        env=()
+        for name in \$(compgen -e); do [[ \$name =~ ^(TALEA_.*|CHROME|CI)\$ ]] && env+=(-e "\$name"); done
+        exec docker run --rm -i --init --network host --shm-size 1g -u $(id -u):$(id -g) \\
+          -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer -e COMPOSER_CACHE_DIR=/composer-cache "\${env[@]}" \\
+          -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v "$cache:/composer-cache" \\
+          -w "\$PWD" --entrypoint $tool $image "\$@"
+        EOF
+          chmod +x "$bin/$tool"
+        done
+        echo "$bin" >> "$GITHUB_PATH"
+        "$bin/php" -v
+    - name: Composer install (retried)
       if: inputs.install == 'true'
       shell: bash
       run: |
         set -euo pipefail
-        if ! command -v composer >/dev/null 2>&1; then
-          echo "::warning::no composer on this runner: installing it from getcomposer.org"
-          mkdir -p "$HOME/.local/bin"
-          curl -fsS https://getcomposer.org/installer | php -- --quiet --install-dir="$HOME/.local/bin" --filename=composer
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.local/bin:$PATH"
-        fi
         composer --version
         for attempt in 1 2 3; do
           if composer install --no-interaction --no-progress --prefer-dist; then exit 0; fi
