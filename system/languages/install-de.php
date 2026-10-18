@@ -136,4 +136,5 @@ return [
     'A familiar blog layout: a contact bar above the menu, blue links and a calm serif.' => 'Ein vertrautes Blog-Layout: Kontaktleiste über dem Menü, blaue Links und eine ruhige Serifenschrift.',
     'Member login' => 'Mitgliederanmeldung',
     'Visitor accounts without passwords: members sign in with a link sent by e-mail, belong to groups, and pages, collection items and news can be restricted to chosen groups. Gated content is never cached, indexed or searchable. Members are invited by you or sign up themselves (your choice). No payments.' => 'Besucherkonten ohne Passwörter: Mitglieder melden sich mit einem per E-Mail gesendeten Link an, gehören zu Gruppen, und Seiten, Sammlungseinträge und News lassen sich auf ausgewählte Gruppen beschränken. Beschränkte Inhalte werden nie zwischengespeichert, indexiert oder durchsucht. Mitglieder werden von Ihnen eingeladen oder melden sich selbst an (Ihre Wahl). Keine Zahlungen.',
+    'Talea needs MariaDB 11.4 or newer (or MySQL 8); this server runs MariaDB %s.' => 'Talea benötigt MariaDB 11.4 oder neuer (oder MySQL 8); dieser Server läuft mit MariaDB %s.',
 ];
