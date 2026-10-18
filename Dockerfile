@@ -38,6 +38,21 @@ ENTRYPOINT ["talea-entrypoint"]
 # nosemgrep: dockerfile.security.missing-user.missing-user -- same: the dev stage is never published; production sets USER www-data
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
 
+# ---- ci: PHP for the GitHub Actions jobs (.github/actions/php-composer): nothing is installed on the self-hosted runners themselves,
+# the jobs run php and composer in this image. Composer, Chromium for the browser walk, Node for Playwright; the code is mounted.
+FROM base AS ci
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends git unzip chromium
+# Debian's Node (18) is too old for current Playwright: Node comes from the official image
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:22-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+# the code changes between runs (opcache revalidates, errors are shown); PHPStan and the suites need more than 256M
+COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zz-talea-dev.ini
+RUN echo 'memory_limit = -1' > /usr/local/etc/php/conf.d/zz-talea-ci.ini
+
 # ---- production (the default target: the last stage)
 FROM base AS production
 

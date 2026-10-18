@@ -15,8 +15,6 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-env:
-  PHP_EXTENSIONS: pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache
 jobs:
   # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
   # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
@@ -115,11 +113,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/php-composer
       - name: Admin, builder, editors and public site in Chrome
-        run: |
-          CHROME=$(command -v google-chrome chromium chromium-browser | head -n1) || { echo "::error::no Chrome on this runner"; exit 1; }
-          export CHROME
-          vendor/bin/phpunit --testsuite browser
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+        # Chromium and Node live in the ci image (.github/actions/php-composer): the path is the one inside the container
+        run: vendor/bin/phpunit --testsuite browser
+        env: { CHROME: /usr/bin/chromium, TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   phpstan:
     # static analysis (phpstan.neon.dist): level 5, the existing findings in phpstan-baseline.neon - new code adds none
@@ -133,8 +129,9 @@ jobs:
       - uses: ./.github/actions/php-composer
       - name: PHPStan
         run: |
-          curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
-          php -d memory_limit=3G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+          # RUNNER_TEMP, not /tmp: PHP runs in a container that sees only the workspace and RUNNER_TEMP
+          curl -sSL -o "$RUNNER_TEMP/phpstan.phar" https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          php -d memory_limit=3G "$RUNNER_TEMP/phpstan.phar" analyse -c phpstan.neon.dist --no-progress
 
   security:
     needs: gate
