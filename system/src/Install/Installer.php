@@ -37,7 +37,7 @@ final class Installer
     private string $language = 'en';
 
     /** Form of address of German (formal | informal): the installer's texts, the first account and the site texts for visitors. */
-    private string $register = 'formal';
+    private string $register = 'informal';
 
     /** The secret part of the cron address (/tasks?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
     private string $tasksToken = '';
@@ -59,10 +59,10 @@ final class Installer
         return 'en';
     }
 
-    /** Form of address: an explicit choice (?register=, hidden form field), only in German. */
+    /** Form of address: informal (du) unless Sie is chosen explicitly (?register=, hidden form field); only German has one. */
     private function chooseRegister(string $language): string
     {
-        return $language === 'de' && ($_POST['register'] ?? $_GET['register'] ?? '') === 'informal' ? 'informal' : 'formal';
+        return $language === 'de' && ($_POST['register'] ?? $_GET['register'] ?? '') === 'formal' ? 'formal' : 'informal';
     }
 
     public function handle(): Response
@@ -275,7 +275,7 @@ final class Installer
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
                 'language' => $this->language === 'en' ? '' : $this->language, // the admin of the first account in the installation language
-                'register' => $this->register === 'informal' ? 'informal' : '',
+                'register' => $this->register,
                 'confirmed_at' => date('Y-m-d H:i:s'),
             ]);
 

@@ -9,7 +9,7 @@ use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
-/** The German admin (formal, then informal "du") of the business starter: the same screens, no Czech. */
+/** The German admin (formal "Sie" by choice, then the default informal "du") of the business starter: the same screens, no Czech. */
 #[Group('site')]
 final class BusinessAdminGermanTest extends SiteTestCase
 {
@@ -18,7 +18,7 @@ final class BusinessAdminGermanTest extends SiteTestCase
 
     public function testFormalGermanAdmin(): void
     {
-        $this->site()->exec("UPDATE tl_users SET language = 'de' WHERE username = 'admin'");
+        $this->site()->exec("UPDATE tl_users SET language = 'de', register = 'formal' WHERE username = 'admin'");
         $last = null;
         foreach ($this->adminScreens() as $query) {
             $last = $this->assertCzechFree("/admin.php?$query", 200, $this->site()->admin(), true, 'German admin');
@@ -30,7 +30,7 @@ final class BusinessAdminGermanTest extends SiteTestCase
     #[Depends('testFormalGermanAdmin')]
     public function testInformalGermanAdmin(): void
     {
-        $this->site()->exec("UPDATE tl_users SET register = 'informal' WHERE username = 'admin'");
+        $this->site()->exec("UPDATE tl_users SET register = '' WHERE username = 'admin'"); // no choice = du
         $last = null;
         foreach ($this->adminScreens() as $query) {
             $last = $this->assertCzechFree("/admin.php?$query", 200, $this->site()->admin(), true, 'German informal admin');

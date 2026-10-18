@@ -877,14 +877,19 @@ check('Deutsch du: the register picks the dictionary (site, admin), is restored 
     Talea\Core\Language::runWith('en', fn (): string => t('Enter at least 3 characters.'), '', 'informal'),
     Talea\Core\Language::runWith('de', fn (): string => Talea\Core\Language::runWith('de', fn (): string => 'x', '', 'informal') . Talea\Core\Language::register(), '', 'formal'),
     Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), '', 'nonsense'),
-], ['Geben Sie mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Enter at least 3 characters.', 'xformal', 'Geben Sie mindestens 3 Zeichen ein.']);
+], ['Geben Sie mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Enter at least 3 characters.', 'xformal', 'Gib mindestens 3 Zeichen ein.']);
 Talea\Core\Language::setSiteRegister('informal');
 Talea\Core\Language::setAdminRegister('formal');
 check('Deutsch du: without an explicit register the site follows german_register and the administration the user’s choice', [
     Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.')),
     Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-'),
 ], ['Gib mindestens 3 Zeichen ein.', 'Geben Sie mindestens 3 Zeichen ein.']);
-Talea\Core\Language::setSiteRegister('formal');
+Talea\Core\Language::setSiteRegister('');
+Talea\Core\Language::setAdminRegister('');
+check('Deutsch du: without a choice (an empty register, no german_register) the site and the administration say du', [
+    Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.')),
+    Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-'),
+], ['Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.']);
 Talea\Core\Language::set('cs', 'admin-');
 // the form of address of the visitors reaches Claude: the connection instructions, site_info and the text copied from the dashboard
 check('Deutsch du: Language::visitorAddress – only a site with a German version has one', [
@@ -893,7 +898,8 @@ check('Deutsch du: Language::visitorAddress – only a site with a German versio
     Talea\Core\Language::visitorAddress($reportSettings(['site_language' => 'cs', 'additional_languages' => 'de', 'german_register' => 'informal', 'extensions' => 'languages'])),
     Talea\Core\Language::visitorAddress($reportSettings(['site_language' => 'en', 'german_register' => 'informal'])),
     Talea\Core\Language::normalizeRegister('x'),
-], ['informal', 'formal', 'informal', null, 'formal']);
+    Talea\Core\Language::visitorAddress($reportSettings(['site_language' => 'de', 'german_register' => 'formal'])),
+], ['informal', 'informal', 'informal', null, 'informal', 'formal']);
 $promptIn = fn (string $language, ?string $address, string $register = 'formal'): string => Talea\Core\Language::runWith($language, fn (): string => Talea\Core\AskClaude::prompt('https://example.com', $address), 'admin-', $register);
 check('Deutsch du: the text copied for Claude names the form of address of the visitors – in the language and register of the administration', [
     str_contains($promptIn('en', 'informal'), 'informal “du”'), str_contains($promptIn('en', 'formal'), 'formal “Sie”'), str_contains($promptIn('en', null), 'German'),
