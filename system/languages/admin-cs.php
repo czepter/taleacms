@@ -5813,4 +5813,5 @@ return [
     'Book an appointment' => 'Rezervujte si termín',
     'Choose a service and a free time – the confirmation arrives by email.' => 'Vyberte službu a volný termín – potvrzení přijde e-mailem.',
     'Our work' => 'Naše práce',
+    'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Nahrávaný soubor je větší, než server dovolí (nejvýše %s), proto nic nedorazilo. Nahrajte menší soubor nebo zvyšte post_max_size na serveru.',
 ];
