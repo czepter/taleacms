@@ -3011,4 +3011,5 @@ return [
     'A corner panel with a contact form, opened by a link or button to it.' => 'Panel v rohu s kontaktním formulářem, otevře ho odkaz nebo tlačítko.',
     '[Short message, e.g. dates still free this year]' => '[Krátká zpráva, např. letos máme ještě volné termíny]',
     'Contact form' => 'Kontaktní formulář',
+    'Talea needs MariaDB 11.4 or newer (or MySQL 8); this server runs MariaDB %s.' => 'Talea potřebuje MariaDB 11.4 nebo novější (nebo MySQL 8); tento server běží na MariaDB %s.',
 ];

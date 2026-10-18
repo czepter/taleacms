@@ -18,7 +18,7 @@ Kaleta release or issue it comes from.
 
 ## Setting up
 
-You need PHP 8.5+ and MySQL 8 or PostgreSQL 18. MariaDB does not work (no `utf8mb4_0900_ai_ci` before 11.4, no MySQL row alias in upserts).
+You need PHP 8.5+ and MySQL 8, MariaDB 11.4+ or PostgreSQL 18.
 
 ```bash
 php -S localhost:8080 system/dev-router.php

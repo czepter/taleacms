@@ -37,7 +37,8 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   exports use the public id, never a row number.
 - **Schema changes are Phinx migrations** in `system/database/migrations/` (timestamped, table DSL, no raw SQL unless unavoidable, no
   `COLLATE`/`CHARSET`: the collation `utf8mb4_0900_ai_ci` is set once on the database). `bin/migrate` applies them (installer, Docker
-  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 or PostgreSQL 18 (`TALEA_DB_DRIVER`).
+  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 (also MariaDB 11.4+, driver `mysql`) or PostgreSQL 18 (`TALEA_DB_DRIVER`). MariaDB has no row
+  alias in upserts: `Db::pdo()` detects it from the server version and `Dialect\MySql(mariaDb: true)` writes `VALUES(col)` instead of `new_row.col`.
 - **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
   (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
   `Dialect::listPosition()`), `GROUP_CONCAT`, `JSON_EXTRACT`, `MATCH … AGAINST` (`Dialect::groupConcat()`, `jsonExtract()`, `fulltextMatch()`), `CURDATE()`

@@ -107,6 +107,28 @@ jobs:
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
+  mariadb:
+    name: Tests on MariaDB 11.4
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
+    services:
+      db:
+        image: mariadb:11.4
+        env: { MARIADB_ROOT_PASSWORD: root }
+        ports: ['3306']
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/php-composer
+      - name: More connections (the default 151 runs out with parallel whole-site tests)
+        run: php -r '(new PDO("mysql:host=127.0.0.1;port=" . getenv("TALEA_TEST_DB_PORT"), "root", "root"))->exec("SET GLOBAL max_connections = 1000");'
+        env: { TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}" }
+      - name: PHPUnit (integration and whole installed sites)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+
   postgres:
     name: Tests on PostgreSQL 18
     needs: gate
