@@ -19,16 +19,27 @@ final class Files
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {
-        $bytes = static function (string $ini): int {
-            $number = (int) $ini;
-
-            return $number <= 0 ? 0 : $number * match (strtolower(substr(trim($ini), -1))) {
-                'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
-            };
-        };
-        $limits = array_filter([$bytes((string) ini_get('upload_max_filesize')), $bytes((string) ini_get('post_max_size'))]);
+        $limits = array_filter([self::iniBytes((string) ini_get('upload_max_filesize')), self::iniBytes((string) ini_get('post_max_size'))]);
 
         return $limits === [] ? 0 : min($limits);
+    }
+
+    /** Whether PHP dropped the request body for being larger than post_max_size: then $_POST and $_FILES are empty, the CSRF token too. */
+    public static function bodyTooLarge(Request $request): bool
+    {
+        $limit = self::iniBytes((string) ini_get('post_max_size'));
+
+        return $request->isPost() && $limit > 0 && (int) ($request->serverValues()['CONTENT_LENGTH'] ?? 0) > $limit;
+    }
+
+    /** "64M" from php.ini → bytes (0 = no limit). */
+    public static function iniBytes(string $ini): int
+    {
+        $number = (int) $ini;
+
+        return $number <= 0 ? 0 : $number * match (strtolower(substr(trim($ini), -1))) {
+            'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
+        };
     }
 
     /** The limit for humans: „2 MB“ instead of the shorthand from php.ini („2M“). */

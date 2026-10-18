@@ -5817,4 +5817,5 @@ return [
     'Our work' => 'Unsere Arbeiten',
     'Beauty' => 'Kosmetik',
     'Palette %d' => 'Palette %d',
+    'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Der Upload ist größer, als der Server erlaubt (höchstens %s), daher ist nichts angekommen. Laden Sie eine kleinere Datei hoch oder erhöhen Sie post_max_size auf dem Server.',
 ];
