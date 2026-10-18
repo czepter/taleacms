@@ -1,7 +1,8 @@
 # Deployment and updates
 
 The product ships as a container image. One installation is one image plus a MySQL 8.4 database and three volumes. The design
-decisions are in `docs/specs/update-and-deployment.md`.
+decisions are in `docs/specs/update-and-deployment.md`. This is where Talea differs most from [Kaleta](https://kaletacms.com),
+which ships a ZIP for PHP hosting and installs its updates from the administration.
 
 ## Install
 

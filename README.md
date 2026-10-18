@@ -6,9 +6,18 @@
 a visual page builder whose output reads like hand-written HTML, forms and enquiries, an AI assistant, Claude over MCP,
 and a WordPress importer. You own the site, the data and the server.
 
+> **Talea is a hard fork of [Kaleta](https://kaletacms.com)**, the open-source CMS by Miroslav Kaleta
+> ([@phprscms](https://github.com/phprscms)) and contributors – source at
+> [phprs-cms/kaletacms](https://github.com/phprs-cms/kaletacms). The page builder, the design system, MCP, the WordPress
+> importer and nearly everything under [Features](#features) are their work. Talea branched off at Kaleta 3.7.0 in
+> October 2026, keeps the whole history and goes its own way since: [What Talea changes](#what-talea-changes).
+> Looking for FTP hosting with updates installed from the admin? Use Kaleta.
+
 ![The Talea builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 
 ## Features
+
+All of these come from Kaleta; Talea keeps and maintains them.
 
 - **Page builder** – the canvas is the real page. Drag elements and ready-made sections into place, style them separately
   for desktop, tablet, mobile and hover. Drafts save continuously and go live only when you publish; older versions can be restored.
@@ -32,18 +41,69 @@ and a WordPress importer. You own the site, the data and the server.
 - **AI** – the assistant drafts a new section from a description, rewrites element text, suggests headlines, SEO
   descriptions, proofreading and translation (Claude, OpenAI, Google Gemini or Mistral). Claude can also build the site
   over **MCP**: it turns HTML into builder content and edits site parts, collections and the design – always as a draft to approve.
-- **News** (blog), sites in around forty languages, SEO and llms.txt, cookie-free analytics, redirects, backups and signed updates,
+- **News** (blog), sites in around forty languages, SEO and llms.txt, cookie-free analytics, redirects, backups,
   **WordPress import** (straight into the builder, too).
+
+## What Talea changes
+
+Kaleta is a CMS for business websites that installs over FTP and updates itself. Talea aims at a self-hosted website builder
+for small businesses and freelancers, runs as a container and adds the pieces that goal needs. The reasoning
+behind each decision is in [docs/DECISIONS.md](docs/DECISIONS.md).
+
+### The foundation
+
+| | Kaleta | Talea |
+|---|---|---|
+| Installation | ZIP upload to PHP hosting, then `install.php` | Docker-first: a container image (FrankenPHP), configuration from environment variables, one install per site |
+| Updates | The site downloads and installs signed packages from the admin | In-app updater switched off; an update is a new image. The admin only shows a notice from a signed release feed |
+| PHP | 8.3+ | 8.5+ |
+| Database | MySQL 8 / MariaDB 10.6+ | MySQL 8 or PostgreSQL 18 – the same code on both, through a small dialect layer |
+| Schema | `schema.sql` | Phinx migrations, applied by `bin/migrate` (installer, container start, tests), never on a page request |
+| Names in code | Czech names in code, tables, routes and stored values | English everywhere; Czech is one of the translations |
+| Ids at the boundary | Integer row ids | UUID v4 `public_id` in admin URLs, MCP, previews, webhooks and exports |
+| Tests | Shell walk (`tools/test.sh`) and a check harness | PHPUnit and ParaTest (unit, integration, whole installed sites), a browser walk, both database engines. Composer is used for these tools only |
+
+### Added in Talea
+
+- **Looks gallery** – 14 finished looks (design system, header and footer, recommended sections), each tried on the real
+  site before it is applied. Kaleta deliberately had no style presets.
+- **Font library** – about 28 open-source families, mirrored and self-hosted (see [docs/FONTS.md](docs/FONTS.md)).
+- **Visual composing on the canvas** – spacing, size and column dividers dragged directly on the page, and a *Compose*
+  section with a 12-column grid and layers ([docs/specs/visual-compose.md](docs/specs/visual-compose.md)).
+- **Onboarding** – three first-run questions (topic, features, how to start) that lead to the looks or to the AI wizard.
+- **AI inside the admin** – a first-run wizard and an *Ask* box in the builder, with the owner's own key; drafts only,
+  every run can be undone.
+- **A/B tests** – variants of pages, sections or elements with goals and a "promote winner" step.
+- **Member login** – visitor accounts with e-mailed links, groups, and pages, collection items and news restricted to them.
+- **Structured data element** – schema.org markup in the builder, checked before publishing.
+- **Add-on API v2** with three bundled add-ons, off by default: domain watch, firewall, client galleries.
+
+### Removed or switched off
+
+- Whistleblowing is removed.
+- The in-app updater is off (see above).
+- The firewall's blocklists, country and network blocks moved from the core into an add-on.
+- The notice board is off by default (offered for the municipality blueprint only).
+
+### Kaleta changes after the fork
+
+Talea merges nothing from upstream. Changes in Kaleta after 3.7.0 are read, filed as issues and re-implemented in Talea's
+style (English names, migrations, public ids, portable SQL). Ported so far, through Kaleta 3.11.0: shared addresses per
+language, WordPress multilingual import, Arabic and right-to-left pages, regional language versions, the MCP Essentials tool
+set, placeholders instead of invented sample content, drafts by default, a server clock check and security fixes. The ideas
+behind them are Kaleta's.
 
 ## Principles
 
-- **No technical debt:** plain PHP 8.5+, no framework, Composer or build step; no third-party plugins.
+The first five are Kaleta's and stay; the last one is Talea's.
+
+- **Simple code:** plain PHP, no framework, no ORM, no build step; no third-party plugins.
 - **Clean output:** one builder element = one HTML tag, CSS only for what the page uses, in cascade layers (`@layer`);
   JavaScript only where it is really needed. Tests enforce it.
 - **Web 2026:** fluid type and spacing, container queries, OKLCH colours (`color-mix`), the Popover API, view transitions.
 - **AI as a first-class user:** whatever works in the editor works over MCP – same schema, validation and permissions.
 - **Privacy and accessibility by default:** no third-party scripts or fonts, colour contrast checks.
-- **FTP installation**, signed updates.
+- **One container per site:** configuration in the environment, updates by image, migrations before the site starts.
 
 ## Quick start (Docker)
 
@@ -74,11 +134,15 @@ architecture notes for contributors and agents: [CLAUDE.md](CLAUDE.md).
 - [Deployment](docs/DEPLOYMENT.md)
 - [Releasing](docs/RELEASING.md) and [release policy](docs/RELEASE-POLICY.md)
 - [Writing add-ons](docs/EXTENSIONS.md)
-- [Where Talea differs from its origin](docs/DECISIONS.md)
+- [Where Talea differs from Kaleta](docs/DECISIONS.md)
+- [Kaleta's roadmap up to the fork](docs/ROADMAP.md) (history)
+- Kaleta itself: [kaletacms.com](https://kaletacms.com) · [guide](https://kaletacms.com/guide) ·
+  [phprs-cms/kaletacms](https://github.com/phprs-cms/kaletacms)
 
-## Licence
+## Licence and credits
 
 GNU GPL version 2 or later; the licence text is in [`LICENSE`](LICENSE).
 
-Talea is a fork of Kaleta by Miroslav Kaleta and contributors. It diverges deliberately and merges nothing from upstream;
-see [`NOTICE`](NOTICE) for the attribution.
+Talea is built on Kaleta by Miroslav Kaleta and the Kaleta contributors, whose commits are kept in this repository's
+history. The attribution and the copyright of both projects are in [`NOTICE`](NOTICE). If Talea is useful to you, consider
+supporting the original project as well: [Kaleta on GitHub](https://github.com/phprs-cms/kaletacms).
