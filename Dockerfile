@@ -52,6 +52,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 # the code changes between runs (opcache revalidates, errors are shown); PHPStan and the suites need more than 256M
 COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zz-talea-dev.ini
 RUN echo 'memory_limit = -1' > /usr/local/etc/php/conf.d/zz-talea-ci.ini
+# the container runs as the runner's user: the base image's /config and /data are not writable for it, and Chromium keeps its
+# profile and crash database there ("chrome_crashpad_handler: --database is required")
+ENV XDG_CONFIG_HOME=/tmp/.config XDG_DATA_HOME=/tmp/.local/share XDG_CACHE_HOME=/tmp/.cache
 
 # ---- production (the default target: the last stage)
 FROM base AS production
