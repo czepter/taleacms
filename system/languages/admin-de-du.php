@@ -906,4 +906,5 @@ return [
     'Three questions, then a look tried on your own site, the features and first pages you need – all as drafts. With your own AI key the assistant can write the texts.' => 'Drei Fragen, dann ein Design auf deiner eigenen Website ausprobiert, die nötigen Funktionen und ersten Seiten – alles als Entwürfe. Mit deinem eigenen KI-Schlüssel schreibt der Assistent auch die Texte.',
     'Choose a service and a free time – the confirmation arrives by email.' => 'Wähle eine Leistung und eine freie Zeit – die Bestätigung kommt per E-Mail.',
     'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Der Upload ist größer, als der Server erlaubt (höchstens %s), daher ist nichts angekommen. Lade eine kleinere Datei hoch oder erhöhe post_max_size auf dem Server.',
+    'This is a Kaleta export. Convert it on the server with php tools/kaleta/convert.php and import the converted archive.' => 'Das ist ein Kaleta-Export. Konvertiere ihn auf dem Server mit php tools/kaleta/convert.php und importiere das konvertierte Archiv.',
 ];

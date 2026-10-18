@@ -2939,7 +2939,7 @@ return [
     'Confirm that the content of this site will be replaced.' => 'Potvrďte, že se obsah tohoto webu nahradí.',
     'The site already has its own content. A Talea export can be imported only into a new, empty site.' => 'Web už má vlastní obsah. Export Talea jde naimportovat jen do nového, prázdného webu.',
     'The file is not a Talea export.' => 'Soubor není export Talea.',
-    'The file is not a Talea export (obsah.json is missing in the archive).' => 'Soubor není export Talea (v archivu chybí obsah.json).',
+    'The file is not a Talea export (content.json is missing in the archive).' => 'Soubor není export Talea (v archivu chybí content.json).',
     'The export comes from a newer version of Talea – update this site first (Settings → Backups and updates).' => 'Export pochází z novější verze Talea – nejdřív aktualizujte tento web (Nastavení → Zálohy a aktualizace).',
     'The PHP zip extension is missing on the server – upload obsah.json from the archive instead.' => 'Na serveru chybí rozšíření PHP zip – nahrajte místo archivu soubor obsah.json z něj.',
     'Collection items' => 'Položky kolekcí',
@@ -5814,4 +5814,5 @@ return [
     'Choose a service and a free time – the confirmation arrives by email.' => 'Vyberte službu a volný termín – potvrzení přijde e-mailem.',
     'Our work' => 'Naše práce',
     'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Nahrávaný soubor je větší, než server dovolí (nejvýše %s), proto nic nedorazilo. Nahrajte menší soubor nebo zvyšte post_max_size na serveru.',
+    'This is a Kaleta export. Convert it on the server with php tools/kaleta/convert.php and import the converted archive.' => 'Toto je export z Kalety. Převeďte ho na serveru příkazem php tools/kaleta/convert.php a importujte převedený archiv.',
 ];
