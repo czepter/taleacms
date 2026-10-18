@@ -29,7 +29,8 @@ RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --opti
 FROM base AS dev
 RUN install-php-extensions xdebug
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
-COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zz-talea-dev.ini
+# "zzz-": PHP reads conf.d in alphabetical order, and these values must override zz-talea.ini of the base stage
+COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zzz-talea-dev.ini
 # the container runs as the host user (compose "user:"), so Caddy keeps its state in /tmp instead of /data and /config
 ENV XDG_DATA_HOME=/tmp/caddy-data XDG_CONFIG_HOME=/tmp/caddy-config
 EXPOSE 8080
