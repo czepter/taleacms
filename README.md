@@ -57,7 +57,7 @@ behind each decision is in [docs/DECISIONS.md](docs/DECISIONS.md).
 | Installation | ZIP upload to PHP hosting, then `install.php` | Docker-first: a container image (FrankenPHP), configuration from environment variables, one install per site |
 | Updates | The site downloads and installs signed packages from the admin | In-app updater switched off; an update is a new image. The admin only shows a notice from a signed release feed |
 | PHP | 8.3+ | 8.5+ |
-| Database | MySQL 8 / MariaDB 10.6+ | MySQL 8 or PostgreSQL 18 – the same code on both, through a small dialect layer |
+| Database | MySQL 8 / MariaDB 10.6+ | MySQL 8 / MariaDB 10.6+ or PostgreSQL 18 – the same code on both dialects, through a small dialect layer |
 | Schema | `schema.sql` | Phinx migrations, applied by `bin/migrate` (installer, container start, tests), never on a page request |
 | Names in code | Czech names in code, tables, routes and stored values | English everywhere; Czech is one of the translations |
 | Ids at the boundary | Integer row ids | UUID v4 `public_id` in admin URLs, MCP, previews, webhooks and exports |
