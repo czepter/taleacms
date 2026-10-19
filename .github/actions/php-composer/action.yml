@@ -10,9 +10,11 @@
 # `vendor/bin/paratest` and friends start with `#!/usr/bin/env php`, which finds the wrapper; everything they start (PHP's built-in
 # server, node, Chromium) runs inside the same container.
 # Memory: the four runners share one host, and on 2026-10-18 four jobs at once (PHPStan, two paratest runs, the browser walk) ran it
-# out of memory; the kernel then killed processes in all of them. So each container is capped at a fifth of the host's memory
-# (MemTotal from /proc/meminfo, read when the job starts; the fifth left over is for the jobs' MySQL/PostgreSQL services and the
-# system), without swap. A container that hits its cap fails alone, and the wrapper says so in the log.
+# out of memory; the kernel then killed processes in all of them. The biggest consumer was PHPStan with one worker per CPU (ci.yml
+# now runs two). Each container is capped at a third of the host's memory (MemTotal from /proc/meminfo, read when the job starts;
+# the VM reports 10-16 GB), without swap: a container that hits its cap fails alone, and the wrapper says so in the log. A fifth
+# (about 2 GB) was tried and is too tight: four paratest workers, each with a PHP server and its opcache, then reclaim memory so
+# constantly that the installer runs past PHP's 60-second limit.
 name: PHP and Composer
 description: Runs PHP and Composer in the Dockerfile's ci stage on a self-hosted runner and installs the dependencies
 inputs:
@@ -34,8 +36,8 @@ runs:
         DOCKER_BUILDKIT=1 docker build --quiet "${load[@]}" --iidfile "$bin/image" --target ci . >/dev/null
         image=$(cat "$bin/image")
         host_mb=$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) / 1024 ))
-        cap_mb=$(( host_mb / 5 ))
-        echo "php and composer run in containers capped at ${cap_mb} MB (a fifth of the host's ${host_mb} MB)"
+        cap_mb=$(( host_mb / 3 ))
+        echo "php and composer run in containers capped at ${cap_mb} MB (a third of the host's ${host_mb} MB)"
         for tool in php composer; do
           cat > "$bin/$tool" <<EOF
         #!/usr/bin/env bash
