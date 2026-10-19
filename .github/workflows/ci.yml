@@ -112,7 +112,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 30
+    timeout-minutes: 45  # the site suite takes about 30 minutes on a busy runner, like on MySQL
     services:
       db:
         image: mariadb:11.4
