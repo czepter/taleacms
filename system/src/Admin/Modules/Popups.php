@@ -10,7 +10,6 @@ use Talea\Core\Language;
 use Talea\Core\Response;
 use Talea\Builder\Popups as Okna;
 use Talea\Builder\Publisher;
-use Talea\Builder\Build;
 
 /**
  * Popups: the content is built in the builder as a site part, the settings define the type, trigger, rules and frequency.
@@ -46,11 +45,7 @@ final class Popups extends Module
             return $this->back('', 'new');
         }
         $name = mb_substr(trim($r->post('name')), 0, 100) ?: t($pattern[0]);
-        $id = $this->db->insert('popups', [
-            'name' => $name, 'slug' => Okna::address($this->db, $name), 'type' => $pattern[2], 'trigger_type' => $pattern[3], 'value' => $pattern[4],
-            'rules' => (string) json_encode(Okna::defaultRules()), 'frequency' => 'session', 'days' => 7, 'active' => 0,
-            'build_draft' => Build::toJson(Okna::libraryBuild((string) $r->post('template'), Language::defaults($this->app->settings()))), 'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        $id = Okna::create($this->db, (string) $r->post('template'), $name, Language::defaults($this->app->settings()));
 
         return Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
     }
