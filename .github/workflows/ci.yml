@@ -131,7 +131,10 @@ jobs:
         run: |
           # RUNNER_TEMP, not /tmp: PHP runs in a container that sees only the workspace and RUNNER_TEMP
           curl -sSL -o "$RUNNER_TEMP/phpstan.phar" https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
-          php -d memory_limit=3G "$RUNNER_TEMP/phpstan.phar" analyse -c phpstan.neon.dist --no-progress
+          # two worker processes, not one per CPU: each worker can take as much memory as the main process, and together they ran
+          # the shared runner host out of memory; one process needs about 500 MB, so two fit the container's cap (php-composer)
+          printf 'includes:\n    - %s/phpstan.neon.dist\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 2\n' "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/phpstan-ci.neon"
+          php "$RUNNER_TEMP/phpstan.phar" analyse -c "$RUNNER_TEMP/phpstan-ci.neon" --no-progress
 
   security:
     needs: gate
