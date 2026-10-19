@@ -125,6 +125,27 @@ final class PopupsTest extends SiteTestCase
         $this->site()->clearPageCache();
     }
 
+    #[Depends('testAFormInsideTheWindowSubmitsWithTheWindowAsSource')]
+    public function testContactFlyoutComesWithItsFormPanelAndStaysOnScreen(): void
+    {
+        $flyout = $this->call('save_popup', ['template' => 'contact_flyout', 'name' => 'Contact flyout']);
+        $id = (string) $this->pick($flyout, 'id');
+        $this->assertSame('flyout|time|always', implode('|', [$this->pick($flyout, 'type'), $this->pick($flyout, 'trigger'), $this->pick($flyout, 'frequency')]), 'a flyout shows on every page by default');
+        $panel = (string) $this->sql("SELECT slug FROM tl_popups WHERE type = 'slide_in' AND trigger_type = 'click' ORDER BY popup_id DESC LIMIT 1");
+        $this->assertStringContainsString("#popup-$panel", (string) $this->sql("SELECT build_draft FROM tl_popups WHERE public_id = '$id'"), 'the flyout button opens the form panel created with it');
+
+        $this->call('publish_build', ['popup' => $id]);
+        $this->call('save_popup', ['id' => $id, 'type' => 'flyout_left', 'active' => true]);
+        $this->site()->clearPageCache();
+        $body = $this->site()->client()->get('/')->body;
+        $start = strpos($body, 'class="tl-popup tl-popup--flyout_left" popover="manual" role="region"');
+        $this->assertNotFalse($start, 'the left flyout is on the site as a manual popover');
+        $this->assertStringNotContainsString('tl-popup-close', substr($body, (int) $start, (int) strpos($body, 'tl-popup-content', (int) $start) - (int) $start), 'a flyout has no close button');
+        $this->assertStringContainsString('WhatsApp', substr($body, (int) $start), 'the flyout carries the WhatsApp link');
+        $this->call('save_popup', ['id' => $id, 'active' => false]);
+        $this->site()->clearPageCache();
+    }
+
     public function testEditingRightOnTheSiteIsOnlyForSignedInUsers(): void
     {
         $this->assertPage('/news/our-new-website-is-live', 200, 'tl-edit-here', message: 'edit in place: link');

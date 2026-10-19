@@ -209,9 +209,23 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 	/* the heading the script moves focus to after opening, for screen readers (tabindex="-1"), has no outline – it cannot be operated */
 	.tl-popup [tabindex="-1"]:focus { outline: none; }
 	.tl-popup--top_bar .tl-popup-close, .tl-popup--bottom_bar .tl-popup-close { top: 50%; translate: 0 -50%; }
+	/* flyout: a pill in a bottom corner that stays on screen; the colours of the content swap like in a bar, so a primary button is light on the dark pill */
+	.tl-popup--flyout, .tl-popup--flyout_left { --tl-flyout-fg: var(--tl-color-on-primary, #fff); --tl-flyout-bg: var(--tl-color-primary, #111); inset-block: auto 1.5rem; inset-inline: auto 1.5rem; width: auto; max-width: calc(100vw - 3rem); margin: 0; padding-block: 0.5rem; padding-inline: 1.5rem 0.5rem; border-radius: 999px; background: var(--tl-flyout-bg); color: var(--tl-flyout-fg); }
+	.tl-popup--flyout_left { inset-inline: 1.5rem auto; }
+	.tl-popup--flyout::backdrop, .tl-popup--flyout_left::backdrop { background: none; }
+	.tl-popup--flyout .tl-popup-content, .tl-popup--flyout_left .tl-popup-content { --tl-color-text: var(--tl-flyout-fg); --tl-color-primary: var(--tl-flyout-fg); --tl-color-on-primary: var(--tl-flyout-bg); }
+	/* a corner panel opens where the flyout is and takes its place while it is open */
+	:root:has(.tl-popup--flyout_left) .tl-popup--slide_in { inset-inline: 1rem auto; }
+	:root:has(.tl-popup--slide_in:popover-open) :is(.tl-popup--flyout, .tl-popup--flyout_left) { visibility: hidden; }
+	@media (max-width: 767px) {
+		.tl-popup--flyout, .tl-popup--flyout_left { inset: auto 0 0; width: 100vw; max-width: none; padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom)); border-radius: 0; }
+		.tl-popup--flyout .tl-popup-content > *, .tl-popup--flyout_left .tl-popup-content > * { justify-content: center; }
+		/* the bar does not cover the end of the page */
+		body:has(.tl-popup--flyout:popover-open, .tl-popup--flyout_left:popover-open) { padding-block-end: 5rem; }
+	}
 	@media (prefers-reduced-motion: no-preference) {
 		.tl-popup:popover-open { animation: tl-popup-appear 0.2s ease-out; }
-		.tl-popup--slide_in:popover-open { animation-name: tl-popup-slide-in; }
+		.tl-popup--slide_in:popover-open, .tl-popup--flyout:popover-open, .tl-popup--flyout_left:popover-open { animation-name: tl-popup-slide-in; }
 		.tl-popup--top_bar:popover-open { animation-name: tl-popup-top; }
 		.tl-popup--bottom_bar:popover-open { animation-name: tl-popup-bottom; }
 	}

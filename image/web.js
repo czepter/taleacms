@@ -398,10 +398,10 @@
 			default: // click – a #popup-<slug> link opens it (links to popups are handled above)
 			}
 		});
-		// Esc also closes a panel and a bar (popover="manual" does not close by itself)
+		// Esc also closes a panel and a bar (popover="manual" does not close by itself); a flyout stays
 		document.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') { return; }
-			document.querySelectorAll('.tl-popup[popover="manual"]:popover-open').forEach(function (o) { o.hidePopover(); });
+			document.querySelectorAll('.tl-popup[popover="manual"]:popover-open:not(.tl-popup--flyout, .tl-popup--flyout_left)').forEach(function (o) { o.hidePopover(); });
 		});
 	}
 
