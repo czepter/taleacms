@@ -211,6 +211,7 @@ final class Installer
             return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];
         }
 
+        @set_time_limit(300); // migrations cut off by max_execution_time (60 s in the image) leave half a schema behind
         try {
             Migrator::migrate($config['db']);
             $this->createDefaultData($db, $d, $password, $extensions);
