@@ -401,23 +401,34 @@ final class Site
     }
 
     /**
-     * Starts `php -S` on a folder with a router script and waits until it answers. Stopped by close().
+     * Starts `php -S` on a folder with a router script and waits until it runs. Stopped by close().
+     *
+     * A free port can be taken by another server before php -S binds it (parallel workers and CI jobs share one network): that
+     * php -S then exits, and a check that only connects would reach the other server, so the test talks to the wrong site. Ready
+     * therefore means: our process still runs and its log says it started. A port the caller did not choose is retried.
      *
      * @param array<string, string> $env
      */
     public function startPhp(string $dir, string $router, array $env = [], ?int $port = null): int
     {
-        $port ??= $this->freePort();
-        $this->ports['php:' . $port] = $port;
-        $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $port, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $this->work . '/server-' . $port . '.log', 'w'], 2 => ['file', $this->work . '/server-' . $port . '.log', 'a']], $pipes, $dir, array_merge(getenv(), $env));
-        $this->processes[] = $process;
-        for ($i = 0; $i < 100; $i++) {
-            if (@fsockopen('127.0.0.1', $port, $errno, $errstr, 0.2) !== false) {
-                return $port;
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $chosen = $port ?? $this->freePort();
+            $log = $this->work . '/server-' . $chosen . '.log';
+            $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $chosen, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $dir, array_merge(getenv(), $env));
+            $this->processes[] = $process;
+            for ($i = 0; $i < 200 && proc_get_status($process)['running']; $i++) {
+                if (str_contains((string) @file_get_contents($log), ') started')) {
+                    $this->ports['php:' . $chosen] = $chosen;
+
+                    return $chosen;
+                }
+                usleep(50_000);
             }
-            usleep(50_000);
+            if ($port !== null) {
+                break;
+            }
         }
-        throw new \RuntimeException("The PHP server on port $port did not start ($router in $dir).");
+        throw new \RuntimeException("The PHP server on port $chosen did not start ($router in $dir): " . trim((string) @file_get_contents($log)));
     }
 
     /**
