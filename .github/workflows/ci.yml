@@ -110,7 +110,7 @@ jobs:
   mariadb:
     name: Tests on MariaDB 11.4
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45  # the site suite takes about 30 minutes on a busy runner, like on MySQL
     services:
