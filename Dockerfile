@@ -50,10 +50,12 @@ COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 COPY --from=node:22-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
-# the code changes between runs (opcache revalidates, errors are shown); PHPStan and the suites need more than 256M.
+# the code changes between runs (opcache revalidates, errors are shown); the suites need more than 256M, but a runaway process
+# stops at 2G with "Allowed memory size exhausted" instead of eating the container's whole cap. No time limit: the test sites'
+# requests (the installer's migrations) run on a shared, busy host, where production's 60 seconds measure the host, not the code.
 # "zzz-": PHP reads conf.d in alphabetical order, and these must override zz-talea.ini of the base stage
 COPY docker/php-dev.ini /usr/local/etc/php/conf.d/zzz-talea-dev.ini
-RUN echo 'memory_limit = -1' > /usr/local/etc/php/conf.d/zzz-talea-ci.ini
+RUN printf 'memory_limit = 2G\nmax_execution_time = 0\n' > /usr/local/etc/php/conf.d/zzz-talea-ci.ini
 # the container runs as the runner's user: the base image's /config and /data are not writable for it, and Chromium keeps its
 # profile and crash database there ("chrome_crashpad_handler: --database is required")
 ENV XDG_CONFIG_HOME=/tmp/.config XDG_DATA_HOME=/tmp/.local/share XDG_CACHE_HOME=/tmp/.cache
