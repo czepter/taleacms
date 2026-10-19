@@ -18,12 +18,15 @@ concurrency:
 jobs:
   # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
   # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
+  # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
+  # test jobs (output tests=false); the repository checks (English, contracts) and the security scan still run.
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 5
     outputs:
       run: ${{ steps.gate.outputs.run }}
+      tests: ${{ steps.gate.outputs.tests }}
     steps:
       - id: gate
         env:
@@ -33,6 +36,10 @@ jobs:
           HEAD: ${{ github.head_ref }}
           SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_FILES: ${{ github.event.pull_request.changed_files }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           run=true
           # a fork's pull request must never run on the self-hosted runners
@@ -45,6 +52,26 @@ jobs:
             [ "${n:-0}" -gt 0 ] && run=false && echo "dev at $SHA already passed CI: skipping the duplicate run"
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
+
+          # the changed files from the API (no checkout here); more than 300, an API error or another event: unknown, so tests run
+          set -o pipefail
+          api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY"
+          files=""
+          if [ "$EVENT" = pull_request ] && [ "${PR_FILES:-0}" -gt 0 ] && [ "${PR_FILES:-0}" -le 300 ]; then
+            for page in 1 2 3; do
+              files+=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$api/pulls/$PR/files?per_page=100&page=$page" | jq -r '.[].filename')$'\n' \
+                || { files=""; break; }
+            done
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "${BEFORE//0/}" != "" ]; then
+            files=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$api/compare/$BEFORE...$AFTER" \
+              | jq -r 'if (.files | length) < 300 then .files[].filename else empty end') || files=""
+          fi
+          tests=true
+          if grep -q . <<<"$files" && ! grep -v -E '(\.md$|^docs/|^NOTICE$|^LICENSE$)' <<<"$files" | grep -q . \
+            && ! grep -q '^docs/examples/' <<<"$files"; then
+            tests=false; echo "documentation only: the test jobs are skipped"
+          fi
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
   checks:
     name: Repository checks
     needs: gate
@@ -62,7 +89,7 @@ jobs:
   mysql:
     name: Tests on MySQL 8.4
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
     services:
@@ -81,7 +108,7 @@ jobs:
   postgres:
     name: Tests on PostgreSQL 18
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     services:
@@ -100,7 +127,7 @@ jobs:
   browser:
     name: Browser walk (Chrome)
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     services:
@@ -121,7 +148,7 @@ jobs:
     # static analysis (phpstan.neon.dist): level 5, the existing findings in phpstan-baseline.neon - new code adds none
     name: Static analysis
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     steps:
