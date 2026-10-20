@@ -183,3 +183,8 @@ and size/time limits, never SVG.
   `tools/screenshots.sh` (screenshots for docs after admin changes), Lighthouse `tools/test-lighthouse.sh`.
 - Releases: `docs/RELEASING.md` (container image, signed feed), `docs/DEPLOYMENT.md` (update, rollback, health, replicas).
   The in-app updater is switched off (`Core\Updater::ENABLED`); `Core\UpdateFeed` only shows a "new version" notice.
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+## Learned rules
+- Run CI tests against a single database engine instead of both MariaDB and MySQL, since they are considered equivalent.
+<!-- end claude-reflect -->
