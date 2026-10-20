@@ -14,10 +14,10 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `<dialog>`, `<details>`, View Transitions. Interaction without JavaScript where possible. No polyfills, no CDN, no foreign fonts
   (fonts are self-hosted).
 - **What nothing emits has no style and no script.** A selector in `image/web.css` or the template CSS that no markup produces, and a
-  script that looks for a `[data-…]` element nobody renders, are bugs (`tools/unit-tests.php` guards it).
+  script that looks for a `[data-…]` element nobody renders, are bugs (`tests/Unit/ScriptsTest.php` guards the scripts).
 - **English everywhere.** Code, identifiers, comments, tests, docs, workflows and file names are English. Czech exists only as a
   selectable translation (`system/languages/*cs*.php`, `image/languages/admin-cs.js`) and in the WordPress import fixtures.
-  `php tools/check-english.php` must exit 0; a line that must keep Czech on purpose says `check-english: allow`.
+  `php tools/check-english.php` must exit 0 (a developer tool: run it locally before you commit, CI does not); a line that must keep Czech on purpose says `check-english: allow`.
 - **UI text through `t('English text')`** (`Core\Language`); the English text is the dictionary key. Dictionaries: site
   `system/languages/<code>.php`, admin `admin-<code>.php`, installer `install-<code>.php`, admin scripts `image/languages/admin-<code>.js`
   (`T()`). Languages: English (source), Czech, German (formal, plus an informal `-du` overlay), Spanish, French, Italian, Polish, Slovak.
@@ -46,7 +46,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   Boolean columns: `= TRUE` / `= FALSE`, `SUM(CASE WHEN … THEN 1 ELSE 0 END)`, and `TRUE`/`FALSE` or a parameter in `INSERT`s; fetched booleans are 1/0 on both
   engines (`Core\PgStatement`). `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are fine (`Postgres::rewrite()` turns them into PostgreSQL syntax). User-facing `LIKE` goes through
   `Dialect::likeInsensitive()`; NULL ordering that shows is made explicit (`col IS NULL, col`). Schema differences live in `Core\MigrationSupport`.
-  `tests/Unit/NoMysqlOnlySqlTest.php` (`php tools/sql-dialect-scan.php`) fails when MySQL-only SQL appears outside `Core\Dialect`. SQL that a site test writes
+  `php tools/sql-dialect-scan.php` lists MySQL-only SQL outside `Core\Dialect`; it must report 0 lines (run it locally before you commit, CI does not). SQL that a site test writes
   (`Site::value/rows/exec`) is translated for PostgreSQL by `tests/Site/Support/TestSql.php`. Run the site suite on both: `TALEA_TEST_DB_DRIVER=pgsql
   vendor/bin/paratest --testsuite site`; `composer test:pg` runs the integration suite on PostgreSQL. Design, decisions and differences met: `docs/specs/postgres.md`.
 - Settings: a new option = a key in `Settings::DEFAULTS` + a type in `Settings::FIELDS` + a row in `views/admin/settings/<tab>.php`.
@@ -154,7 +154,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   (pages and builder, classes, design system, media, settings, redirects, trash, news, collections …). The interface and the code are
   English; the recorded contract is `tools/contracts/mcp-tools.json` (`php tools/contracts.php`). Nothing over MCP may write outside
   content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials** set (`tool_set` on `api_tokens`/`oauth_codes`, chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
-  `tools/unit-tests.php`: read-only, an MCP tool, or "admin: reason".
+  `tests/Unit/Mcp/ParityTest.php`: read-only, an MCP tool, or "admin: reason".
 - **Member login** (`Core\Members`, extension `members`, off by default; public pages `Front\MemberArea` at `/member`; admin `Modules\Members`): visitor accounts
   with e-mailed one-time links only (token stored as sha256, single use, claimed atomically; the GET only shows a button), own session cookie `tl_member`
   (sha256 in `member_sessions`, never a PHP session, never created for anonymous visitors; the cookie bypasses `Front\Cache`). Pages, collection items and news are
@@ -177,9 +177,14 @@ and size/time limits, never SVG.
   see `docker/README.md`), or `php -S 127.0.0.1:8095 system/dev-router.php` with a local MySQL; `config.php` is not in git.
 - **Tests: `composer test`** (PHPUnit with ParaTest): unit tests, integration tests against MySQL 8, and the site tests that install a whole
   site per test class (`tests/Site/Support/Site`) and drive it over HTTP; `composer test:browser` walks the admin and the builder in Chrome
-  (needs Node and Chrome). `php tools/unit-tests.php` is the older check-harness. Needs a MySQL (`TALEA_TEST_DB_*`; the dev stack's
+  (needs Node and Chrome); `composer test:unit` is the unit suite alone (no database, seconds). Needs a MySQL (`TALEA_TEST_DB_*`; the dev stack's
   `db-test` service); every class creates and drops its own database.
 - `php tools/check-english.php` (English everywhere), `php tools/contracts.php` (MCP, design tokens and element contracts),
   `tools/screenshots.sh` (screenshots for docs after admin changes), Lighthouse `tools/test-lighthouse.sh`.
 - Releases: `docs/RELEASING.md` (container image, signed feed), `docs/DEPLOYMENT.md` (update, rollback, health, replicas).
   The in-app updater is switched off (`Core\Updater::ENABLED`); `Core\UpdateFeed` only shows a "new version" notice.
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+## Learned rules
+- Run CI tests against a single database engine instead of both MariaDB and MySQL, since they are considered equivalent.
+<!-- end claude-reflect -->

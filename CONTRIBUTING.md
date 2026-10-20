@@ -32,7 +32,7 @@ Every pull request must pass:
 
 ```bash
 composer install                                # PHPUnit and Phinx (vendor/)
-vendor/bin/phpunit                              # all suites: unit, integration, legacy
+vendor/bin/phpunit                              # all suites: unit, integration, site, browser, e2e
 vendor/bin/phpunit --testsuite unit             # no database, milliseconds
 vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -f docker-compose-dev.yaml up -d db-test
 vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP (admin, builder, MCP, forms, jobs …), one class per
@@ -41,8 +41,7 @@ vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and
 ```
 
 Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Talea\Tests\Support\DatabaseTestCase`: a
-throw-away database built by the real migrations, every test in a rolled-back transaction; skipped when no MySQL is reachable). The older
-`tools/unit-tests.php` (about 930 checks) runs as the `legacy` suite; move checks out of it when you touch the code they cover. Use a
+throw-away database built by the real migrations, every test in a rolled-back transaction; skipped when no MySQL is reachable). Use a
 test in `tests/Site` for anything that needs a running site (see `tests/Site/README.md`).
 
 ## Code
@@ -51,8 +50,8 @@ test in `tests/Site` for anything that needs a running site (see `tests/Site/REA
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.
-- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/check-english.php`
-  checks that no Czech leaks into the English interface.
+- Anything shown to visitors or administrators goes through `t()` and needs an English translation; run `php tools/check-english.php`
+  before you commit: it checks that no Czech leaks into the repository (CI does not run it).
 - Architecture notes for contributors (in Czech) are in [CLAUDE.md](CLAUDE.md).
 
 ## Translations

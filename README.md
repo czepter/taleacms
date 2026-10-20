@@ -126,7 +126,7 @@ docker compose -f docker-compose-dev.yaml up -d --build   # code mounted from th
 composer test                                             # PHPUnit: unit, integration against MySQL, whole installed sites
 ```
 
-`php tools/unit-tests.php` runs the fast checks, `php tools/contracts.php` shows changes of the public contracts (MCP tools,
+`composer test:unit` runs the fast checks (no database), `php tools/contracts.php` shows changes of the public contracts (MCP tools,
 design tokens, builder elements), static analysis is PHPStan. How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md);
 architecture notes for contributors and agents: [CLAUDE.md](CLAUDE.md).
 

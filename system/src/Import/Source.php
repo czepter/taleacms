@@ -11,7 +11,7 @@ namespace Talea\Import;
  * and trusts nothing in the file. Everything else – the preview, the mapping chosen by the administrator, writing news
  * items, pages, categories, tags and redirects, downloading images, re-running without duplicates – is done once in
  * Import\Batch for every source. So a new system needs exactly: one class implementing this interface, its name in
- * Import\Sources::ALL and a fixture with a unit test (tools/fixtures/<key>-export.*, tools/unit-tests.php).
+ * Import\Sources::ALL and a fixture with a unit test (tools/fixtures/<key>-export.*, tests/Unit/Import/ImportersTest.php).
  *
  * The contract:
  *  - the constructor gets the path of the file on disk and the address of the old site as the administrator entered it

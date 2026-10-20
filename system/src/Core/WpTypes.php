@@ -16,7 +16,7 @@ namespace Talea\Core;
  *    address = image, Ymd or Y-m-d = date, an address = link, a number, HTML, several lines, otherwise short text.
  *    Serialized values (repeaters, galleries, relationships) are left out and counted, so the preview can say so.
  *
- * Pure functions, covered by tools/unit-tests.php; Core\WpImport does the writing.
+ * Pure functions, covered by tests/Unit/Import/WordPressTest.php; Core\WpImport does the writing.
  */
 final class WpTypes
 {
