@@ -15,14 +15,14 @@ namespace Talea\Core;
  */
 final class Demo
 {
-    /** @var array{user: string, password: string}|null */
+    /** @var array{username: string, password: string}|null */
     private static ?array $config = null;
 
     /** Called when the app starts, with config.php's 'demo' entry. */
     public static function configure(mixed $config): void
     {
-        self::$config = is_array($config) && is_string($config['username'] ?? null) && is_string($config['password'] ?? null) && $config['username'] !== ''
-            ? ['username' => $config['username'], 'password' => $config['password']] : null;
+        self::$config = is_array($config) && is_string($config['user'] ?? null) && is_string($config['password'] ?? null) && $config['user'] !== ''
+            ? ['username' => $config['user'], 'password' => $config['password']] : null;
     }
 
     public static function active(): bool
@@ -30,7 +30,7 @@ final class Demo
         return self::$config !== null;
     }
 
-    /** @return array{user: string, password: string}|null the shared sign-in, shown on the sign-in screen */
+    /** @return array{username: string, password: string}|null the shared sign-in, shown on the sign-in screen */
     public static function account(): ?array
     {
         return self::$config;
