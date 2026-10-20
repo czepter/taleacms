@@ -17,7 +17,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   script that looks for a `[data-…]` element nobody renders, are bugs (`tools/unit-tests.php` guards it).
 - **English everywhere.** Code, identifiers, comments, tests, docs, workflows and file names are English. Czech exists only as a
   selectable translation (`system/languages/*cs*.php`, `image/languages/admin-cs.js`) and in the WordPress import fixtures.
-  `php tools/check-english.php` must exit 0; a line that must keep Czech on purpose says `check-english: allow`.
+  `php tools/check-english.php` must exit 0 (a developer tool: run it locally before you commit, CI does not); a line that must keep Czech on purpose says `check-english: allow`.
 - **UI text through `t('English text')`** (`Core\Language`); the English text is the dictionary key. Dictionaries: site
   `system/languages/<code>.php`, admin `admin-<code>.php`, installer `install-<code>.php`, admin scripts `image/languages/admin-<code>.js`
   (`T()`). Languages: English (source), Czech, German (formal, plus an informal `-du` overlay), Spanish, French, Italian, Polish, Slovak.
@@ -46,7 +46,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   Boolean columns: `= TRUE` / `= FALSE`, `SUM(CASE WHEN … THEN 1 ELSE 0 END)`, and `TRUE`/`FALSE` or a parameter in `INSERT`s; fetched booleans are 1/0 on both
   engines (`Core\PgStatement`). `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are fine (`Postgres::rewrite()` turns them into PostgreSQL syntax). User-facing `LIKE` goes through
   `Dialect::likeInsensitive()`; NULL ordering that shows is made explicit (`col IS NULL, col`). Schema differences live in `Core\MigrationSupport`.
-  `tests/Unit/NoMysqlOnlySqlTest.php` (`php tools/sql-dialect-scan.php`) fails when MySQL-only SQL appears outside `Core\Dialect`. SQL that a site test writes
+  `php tools/sql-dialect-scan.php` lists MySQL-only SQL outside `Core\Dialect`; it must report 0 lines (run it locally before you commit, CI does not). SQL that a site test writes
   (`Site::value/rows/exec`) is translated for PostgreSQL by `tests/Site/Support/TestSql.php`. Run the site suite on both: `TALEA_TEST_DB_DRIVER=pgsql
   vendor/bin/paratest --testsuite site`; `composer test:pg` runs the integration suite on PostgreSQL. Design, decisions and differences met: `docs/specs/postgres.md`.
 - Settings: a new option = a key in `Settings::DEFAULTS` + a type in `Settings::FIELDS` + a row in `views/admin/settings/<tab>.php`.
