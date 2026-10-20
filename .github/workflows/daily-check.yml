@@ -1,9 +1,8 @@
 # Daily security check. It releases and signs nothing - it only says in time that a patch (a fix release) is needed:
 #  1) the update channel on taleacms.com is signed with our key and the package matches its hash (catches forgery),
-#  2) the tests on PHP 8.5 in the ci image (no nightly PHP: PHP runs only in Docker and there is no image for nightly builds),
-#  3) static security analysis with daily updated rules - findings go to Security → Code scanning,
+#  2) static security analysis with daily updated rules - findings go to Security → Code scanning,
 #     visible to repository admins only (the public run log is deliberately quiet),
-#  4) the project website and the demo send security headers and do not expose files they should not.
+#  3) the project website and the demo send security headers and do not expose files they should not.
 # When something fails, an issue "Daily check failed" is created (or revived) and GitHub sends an e-mail.
 name: Daily check
 on:
@@ -22,21 +21,6 @@ jobs:
       - uses: ./.github/actions/php-composer
         with: { install: 'false' }
       - run: php tools/check-channel.php
-
-  tests:
-    name: Tests on PHP 8.5
-    runs-on: [self-hosted, Linux, X64]
-    services:
-      mysql:
-        image: mysql:8.4
-        env: { MYSQL_ROOT_PASSWORD: root }
-        ports: ['3306']
-        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: ./.github/actions/php-composer
-      - run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.mysql.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   analysis:
     name: Static analysis
@@ -86,7 +70,7 @@ jobs:
 
   report:
     name: Issue on failure
-    needs: [channel, tests, analysis, websites]
+    needs: [channel, analysis, websites]
     if: ${{ failure() }}
     runs-on: [self-hosted, Linux, X64]
     permissions:

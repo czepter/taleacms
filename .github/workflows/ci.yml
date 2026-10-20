@@ -81,12 +81,11 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
-      - run: php tools/check-english.php
       - run: php tools/contracts.php
-      - run: php tools/sql-dialect-scan.php
-      - run: php tools/unit-tests.php
-      - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
-        run: vendor/bin/phpunit --testsuite unit
+      - name: PHPUnit unit and legacy suites (no database, so they run here once and not in every database job)
+        # they also run tools/check-english.php (EnglishOnlyTest), tools/sql-dialect-scan.php (NoMysqlOnlySqlTest)
+        # and tools/unit-tests.php (LegacySuiteTest)
+        run: vendor/bin/phpunit --testsuite unit,legacy
 
   mysql:
     name: Tests on MySQL 8.4
