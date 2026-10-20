@@ -211,18 +211,6 @@ parameters:
 			path: system/src/Core/Db.php
 
 		-
-			message: '#^Static property Talea\\Core\\Demo\:\:\$config \(array\{user\: string, password\: string\}\|null\) does not accept array\{username\: non\-empty\-string, password\: string\}\|null\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: system/src/Core/Demo.php
-
-		-
-			message: '#^Static property Talea\\Core\\Demo\:\:\$config \(array\{user\: string, password\: string\}\|null\) is never assigned array\{user\: string, password\: string\} so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: system/src/Core/Demo.php
-
-		-
 			message: '#^Method Talea\\Core\\Diff\:\:html\(\) should return array\{html\: string, added\: int, deleted\: int\} but returns array\{html\: string, added\: int, deleted_at\: int\}\.$#'
 			identifier: return.type
 			count: 1
