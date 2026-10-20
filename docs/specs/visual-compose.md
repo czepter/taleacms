@@ -116,7 +116,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
 3. A phone-width edit does not change the desktop layout, and the reverse; "reset to inherited" removes the override.
 4. In a Compose section, two elements can overlap on desktop; at phone width they stack in source order with no overlap.
 5. Undo reverts one gesture at a time; a failed save mid-gesture never corrupts the tree.
-6. `Build::sanitize` rejects out-of-range grid lines and unknown z-index values; `php tools/unit-tests.php` has cases for
+6. `Build::sanitize` rejects out-of-range grid lines and unknown z-index values; `tests/Unit/Builder/ComposeTest.php` has cases for
    each new property; the Vocabulary round-trip test passes; `php tools/contracts.php` shows only additions.
 7. The saved page's output weight does not grow for pages that do not use Compose (Lighthouse budget in
    `tools/test-lighthouse.sh` still 99–100 on the starter sites).

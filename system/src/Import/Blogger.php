@@ -147,7 +147,7 @@ final class Blogger implements Source
         }
     }
 
-    /* ---------- one entry (covered by tools/unit-tests.php through the fixture) ---------- */
+    /* ---------- one entry (covered by tests/Unit/Import/ImportersTest.php through the fixture) ---------- */
 
     /** post | page | comment | settings | template | '' from the #kind category. */
     private static function kind(\DOMElement $entry): string

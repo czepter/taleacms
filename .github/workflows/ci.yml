@@ -17,7 +17,7 @@ jobs:
   # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
   # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
   # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
-  # test jobs (output tests=false); the repository checks (unit and legacy suites) and the security scan still run.
+  # test jobs (output tests=false); the repository checks (unit suite) and the security scan still run.
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
@@ -79,10 +79,10 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
-      - name: PHPUnit unit and legacy suites (no database, so they run here once and not in every database job)
-        # the legacy suite runs tools/unit-tests.php, which checks the public contracts of tools/contracts.php;
-        # tools/check-english.php and tools/sql-dialect-scan.php are developer tools, run locally, not here
-        run: vendor/bin/phpunit --testsuite unit,legacy
+      - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
+        # it checks the public contracts (ContractsTest); tools/check-english.php and tools/sql-dialect-scan.php
+        # are developer tools, run locally, not here
+        run: vendor/bin/phpunit --testsuite unit
 
   mysql:
     name: Tests on MySQL 8.4
@@ -99,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
-      - name: PHPUnit (integration and whole installed sites; the unit suite and tools/unit-tests.php run in Repository checks)
+      - name: PHPUnit (integration and whole installed sites; the unit suite runs in Repository checks)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 

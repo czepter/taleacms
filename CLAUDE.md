@@ -14,7 +14,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `<dialog>`, `<details>`, View Transitions. Interaction without JavaScript where possible. No polyfills, no CDN, no foreign fonts
   (fonts are self-hosted).
 - **What nothing emits has no style and no script.** A selector in `image/web.css` or the template CSS that no markup produces, and a
-  script that looks for a `[data-…]` element nobody renders, are bugs (`tools/unit-tests.php` guards it).
+  script that looks for a `[data-…]` element nobody renders, are bugs (`tests/Unit/ScriptsTest.php` guards the scripts).
 - **English everywhere.** Code, identifiers, comments, tests, docs, workflows and file names are English. Czech exists only as a
   selectable translation (`system/languages/*cs*.php`, `image/languages/admin-cs.js`) and in the WordPress import fixtures.
   `php tools/check-english.php` must exit 0; a line that must keep Czech on purpose says `check-english: allow`.
@@ -154,7 +154,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   (pages and builder, classes, design system, media, settings, redirects, trash, news, collections …). The interface and the code are
   English; the recorded contract is `tools/contracts/mcp-tools.json` (`php tools/contracts.php`). Nothing over MCP may write outside
   content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials** set (`tool_set` on `api_tokens`/`oauth_codes`, chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
-  `tools/unit-tests.php`: read-only, an MCP tool, or "admin: reason".
+  `tests/Unit/Mcp/ParityTest.php`: read-only, an MCP tool, or "admin: reason".
 - **Member login** (`Core\Members`, extension `members`, off by default; public pages `Front\MemberArea` at `/member`; admin `Modules\Members`): visitor accounts
   with e-mailed one-time links only (token stored as sha256, single use, claimed atomically; the GET only shows a button), own session cookie `tl_member`
   (sha256 in `member_sessions`, never a PHP session, never created for anonymous visitors; the cookie bypasses `Front\Cache`). Pages, collection items and news are
@@ -177,7 +177,7 @@ and size/time limits, never SVG.
   see `docker/README.md`), or `php -S 127.0.0.1:8095 system/dev-router.php` with a local MySQL; `config.php` is not in git.
 - **Tests: `composer test`** (PHPUnit with ParaTest): unit tests, integration tests against MySQL 8, and the site tests that install a whole
   site per test class (`tests/Site/Support/Site`) and drive it over HTTP; `composer test:browser` walks the admin and the builder in Chrome
-  (needs Node and Chrome). `php tools/unit-tests.php` is the older check-harness. Needs a MySQL (`TALEA_TEST_DB_*`; the dev stack's
+  (needs Node and Chrome); `composer test:unit` is the unit suite alone (no database, seconds). Needs a MySQL (`TALEA_TEST_DB_*`; the dev stack's
   `db-test` service); every class creates and drops its own database.
 - `php tools/check-english.php` (English everywhere), `php tools/contracts.php` (MCP, design tokens and element contracts),
   `tools/screenshots.sh` (screenshots for docs after admin changes), Lighthouse `tools/test-lighthouse.sh`.
