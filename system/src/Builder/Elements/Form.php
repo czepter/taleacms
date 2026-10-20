@@ -67,7 +67,8 @@ final class Form extends Element
             ]],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
-            'recipient' => ['type' => 'text', 'label' => 'Notification email (empty = site email from Settings)', 'default' => '', 'max' => 190],
+            'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
+            'bcc' => ['type' => 'text', 'label' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'default' => '', 'max' => 190],
             'thank_you_page' => ['type' => 'link', 'label' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'default' => ''],
             'confirmation' => ['type' => 'boolean', 'label' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'default' => false],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
