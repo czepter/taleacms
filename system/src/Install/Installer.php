@@ -203,10 +203,15 @@ final class Installer
         } catch (\PDOException $e) {
             return self::connectionError($e);
         }
+        // MariaDB before 11.4 has no utf8mb4_0900_ai_ci, the collation of the schema: say so before half the tables exist
+        if (preg_match('/^(\d+\.\d+\.\d+)-MariaDB/', (string) $db->pdo()->getAttribute(\PDO::ATTR_SERVER_VERSION), $m) === 1 && version_compare($m[1], '11.4.0', '<')) {
+            return ['db_host' => sprintf(t('Talea needs MariaDB 11.4 or newer (or MySQL 8); this server runs MariaDB %s.'), $m[1])];
+        }
         if ($db->tableExists('users')) {
             return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];
         }
 
+        @set_time_limit(300); // migrations cut off by max_execution_time (60 s in the image) leave half a schema behind
         try {
             Migrator::migrate($config['db']);
             $this->createDefaultData($db, $d, $password, $extensions);

@@ -1,13 +1,26 @@
 # Decisions of the hard fork
 
-The fork no longer follows the Kaleta roadmap (`ROADMAP.md` is history, not a plan). This file records where it differs.
+Talea is a hard fork of [Kaleta](https://kaletacms.com) by Miroslav Kaleta ([@phprscms](https://github.com/phprscms)) and
+contributors ([phprs-cms/kaletacms](https://github.com/phprs-cms/kaletacms)). It branched off at Kaleta 3.7.0 in October 2026
+and no longer follows the Kaleta roadmap (`ROADMAP.md` is Kaleta's history, not a plan). This file records where Talea differs
+and why; a short overview is in the README ("What Talea changes").
 Goal: a self-hosted website builder for small businesses and freelancers, without e-commerce.
+
+## Starting point
+
+- Base: Kaleta 3.7.0, with its full history (commits by Miroslav Kaleta and KaletaCMS) kept in this repository.
+- The hard-fork issues (HF-…, #5–#20) changed the foundation before any new feature: English names in code, tables, routes and
+  stored values; UUID `public_id` at every boundary; Phinx migrations instead of `schema.sql`; PostgreSQL 18 next to MySQL 8;
+  PHPUnit test suites; a container image with a signed release feed instead of the in-app updater; the Talea name.
+- Upstream changes: nothing is merged. Each Kaleta release after 3.7.0 is read (`gh api repos/phprs-cms/kaletacms/compare/…`),
+  what fits is filed as an issue and re-implemented in Talea's style. Ported through Kaleta 3.11.0 (issues #40–#58). Skipped on
+  purpose: the hardening of the update manifest (the updater is off) and Kaleta's support link.
 
 ## Product
 
 - Self-install software plus an agency tool (fleet console). Docker-first, one install per site. Not a hosted SaaS.
 - Market: small businesses and freelancers, English-first, EU-hosted.
-- GPL v2 or later, with a NOTICE crediting Kaleta. `upstream` stays a read-only remote for security cherry-picks.
+- GPL v2 or later, with a NOTICE crediting Kaleta. Kaleta stays the reference for security fixes: they are ported first.
 - Revenue: everything free for now; decided again when an add-on marketplace comes back (after the dedicated update mechanism, #17).
 
 ## Order

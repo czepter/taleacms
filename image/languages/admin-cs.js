@@ -2349,7 +2349,6 @@ window.TALEA_TRANSLATIONS = {
 	"preview shared": "sdílení náhledu",
 	"Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.": "Vlastní PHP šablony se už nevyvíjejí – vzhled webu nastavíte tady ve Vzhledu webu a v builderu. Stávající vlastní šablona dál funguje, doporučujeme ale přejít na výchozí.",
 	"Talea is free and has no ads.": "Talea je zdarma a bez reklam.",
-	"Support its development on GitHub Sponsors": "Podpořte její vývoj na GitHub Sponsors",
 	"Imprint (all details of the operator)": "Tiráž (všechny údaje o provozovateli)",
 	"Imprint (legal notice)": "Tiráž (Impressum)",
 	"Company identification number; in other countries its registration number.": "Identifikační číslo firmy; v jiné zemi její registrační číslo.",

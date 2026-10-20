@@ -6,6 +6,7 @@ namespace Talea\Tests\Support;
 
 use PDO;
 use Talea\Core\Dialect\Dialect;
+use Talea\Core\Dialect\MySql;
 
 /**
  * The database server the suites run against: MySQL 8 (default) or PostgreSQL, chosen with TALEA_TEST_DB_DRIVER=mysql|pgsql.
@@ -27,7 +28,13 @@ final class TestDatabase
 
     public static function dialect(): Dialect
     {
-        return Dialect::forDriver(self::driver());
+        static $mariaDb = null;
+        if (self::isPostgres()) {
+            return Dialect::forDriver('pgsql');
+        }
+        $mariaDb ??= str_contains((string) self::admin()->getAttribute(PDO::ATTR_SERVER_VERSION), 'MariaDB');
+
+        return new MySql($mariaDb);
     }
 
     /** @return array{driver: string, host: string, port: int, username: string, password: string} */
