@@ -566,12 +566,13 @@ final class SiteImport
     {
         $ranges = Booking::parseHours([(int) ($r['weekday'] ?? 0) => (string) ($r['time_from'] ?? '') . '-' . (string) ($r['time_to'] ?? '')]);
         $staff = $this->ref('booking_staff', $r['staff_id'] ?? null);
-        if ($staff <= 0 || $ranges === null || $ranges === []) {
-            return null;
+        $service = ($r['service_id'] ?? null) === null ? null : $this->ref('booking_services', $r['service_id']);
+        if ($staff <= 0 || $service === 0 || $ranges === null || $ranges === []) {
+            return null; // hours of a service that did not come along are left out, never turned into the general hours
         }
         [$from, $to] = $ranges[(int) $r['weekday']][0];
 
-        return ['staff_id' => $staff, 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
+        return ['staff_id' => $staff, 'service_id' => $service, 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
     }
 
     /** @param array<string, mixed> $r */

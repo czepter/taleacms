@@ -58,7 +58,7 @@ trait BookingTools
         $staff = Booking::staff($db);
         $out = ['services' => array_map(fn (array $s): array => ['id' => $s['id'], 'name' => $s['name'], 'duration_min' => $s['duration_min'], 'buffer_min' => $s['buffer_min'], 'price_text' => $s['price_text'], 'requires_confirmation' => $s['requires_confirmation'], 'staff' => $s['staff']], $services),
             'staff' => array_map(fn (array $m): array => ['id' => $m['id'], 'name' => $m['name'], 'services' => $m['services'],
-                'hours' => array_map(fn (array $ranges): string => implode(', ', array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges)), Booking::hours($db, $m['id'])) ?: 'the site\'s opening hours',
+                'hours' => $this->hoursText(Booking::hours($db, $m['id'])) ?: 'the site\'s opening hours', 'service_hours' => $this->serviceHoursOut($m['id']),
                 'days_off' => array_map(fn (array $o): array => ['from' => $o['from'], 'to' => $o['to'], 'note' => $o['note']], Booking::offs($db, $m['id']))], $staff),
             'settings' => ['lead_hours' => $this->app->settings()->int('booking_lead_hours'), 'horizon_days' => $this->app->settings()->int('booking_horizon_days'), 'cancel_hours' => $this->app->settings()->int('booking_cancel_hours'), 'reminder_hours' => $this->app->settings()->int('booking_reminder_hours'), 'hold_hours' => $this->app->settings()->int('booking_hold_hours')]];
         $serviceId = (int) ($a['service'] ?? 0);
@@ -97,14 +97,39 @@ trait BookingTools
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The booking set-up is changed by administrators.');
         }
-        $result = Booking::saveStaff($this->app, array_intersect_key($a, array_flip(['name', 'email', 'active', 'user_id', 'sort_order', 'services', 'hours', 'days_off'])), (int) ($a['id'] ?? 0));
+        $data = array_intersect_key($a, array_flip(['name', 'email', 'active', 'user_id', 'sort_order', 'services', 'hours', 'days_off']));
+        if (isset($a['service_hours'])) { // [{service, hours}] (the service by public id, translated by PublicIds) => service id => hours
+            $data['service_hours'] = [];
+            foreach (is_array($a['service_hours']) ? $a['service_hours'] : [] as $entry) {
+                $entry = is_array($entry) ? $entry : [];
+                $data['service_hours'][(int) ($entry['service'] ?? 0)] = $entry['hours'] ?? [];
+            }
+        }
+        $result = Booking::saveStaff($this->app, $data, (int) ($a['id'] ?? 0));
         if (is_string($result)) {
             throw new \InvalidArgumentException($result);
         }
         $db = $this->app->db();
 
-        return ['staff' => $result + ['hours' => Booking::hours($db, $result['id']) ?: 'the site\'s opening hours', 'days_off' => Booking::offs($db, $result['id'])],
+        return ['staff' => $result + ['hours' => Booking::hours($db, $result['id']) ?: 'the site\'s opening hours', 'service_hours' => $this->serviceHoursOut($result['id']), 'days_off' => Booking::offs($db, $result['id'])],
             'next' => $result['services'] === [] ? 'The person offers no service yet – pass services (ids from booking_availability).' : null];
+    }
+
+    /** @param array<int, list<array{0: string, 1: string}>> $hours @return array<int, string> weekday => "09:00-12:00, 13:00-17:00" */
+    private function hoursText(array $hours): array
+    {
+        return array_map(fn (array $ranges): string => implode(', ', array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges)), $hours);
+    }
+
+    /** @return list<array{service: int, hours: array<int, string>}> the hours a person keeps per service (the service id becomes its public id in the result) */
+    private function serviceHoursOut(int $staffId): array
+    {
+        $out = [];
+        foreach (Booking::serviceHours($this->app->db(), $staffId) as $serviceId => $hours) {
+            $out[] = ['service' => $serviceId, 'hours' => $this->hoursText($hours)];
+        }
+
+        return $out;
     }
 
     /** cancel_booking */
