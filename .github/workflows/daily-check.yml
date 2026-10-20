@@ -18,7 +18,7 @@ jobs:
     if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
     runs-on: [self-hosted, Linux, X64]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
         with: { install: 'false' }
       - run: php tools/check-channel.php
@@ -33,7 +33,7 @@ jobs:
         ports: ['3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
       - run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
         env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.mysql.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
@@ -45,14 +45,14 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with: { fetch-depth: 0 }
       - name: Semgrep (results to Code scanning only)
         run: |
           docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --quiet --metrics=off \
             --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --config p/security-audit \
             --sarif --output /src/semgrep.sarif /src || true
-      - uses: github/codeql-action/upload-sarif@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with: { sarif_file: semgrep.sarif, category: semgrep-daily }
       - name: New high-severity findings stop the run (no details in the log)
         run: |
