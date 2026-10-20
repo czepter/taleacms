@@ -7,4 +7,4 @@ useDefault = true
 
 [allowlist]
 description = "made-up test values in tests/, tools/fixtures/ and the test harness scripts (including their history)"
-paths = ['''^tests/''', '''^tools/fixtures/''', '''^tools/(test|test-demo|unit-tests)\.(sh|php)$''']
+paths = ['''^tests/''', '''^tools/fixtures/''', '''^tools/(test|unit-tests)\.(sh|php)$''']
