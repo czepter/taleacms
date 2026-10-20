@@ -85,6 +85,8 @@ jobs:
       - run: php tools/contracts.php
       - run: php tools/sql-dialect-scan.php
       - run: php tools/unit-tests.php
+      - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
+        run: vendor/bin/phpunit --testsuite unit
 
   mysql:
     name: Tests on MySQL 8.4
@@ -101,9 +103,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/php-composer
-      - name: PHPUnit (unit, integration and whole installed sites, in parallel)
-        run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+      - name: PHPUnit (integration and whole installed sites; the unit suite and tools/unit-tests.php run in Repository checks)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   postgres:
     name: Tests on PostgreSQL 18
@@ -122,7 +124,7 @@ jobs:
       - uses: ./.github/actions/php-composer
       - name: PHPUnit (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
-        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_TEST_PG_HOST: 127.0.0.1, TALEA_TEST_PG_PORT: "${{ job.services.db.ports['5432'] }}", TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
+        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_PG_HOST: db, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
 
   browser:
     name: Browser walk (Chrome)
@@ -142,7 +144,7 @@ jobs:
       - name: Admin, builder, editors and public site in Chrome
         # Chromium and Node live in the ci image (.github/actions/php-composer): the path is the one inside the container
         run: vendor/bin/phpunit --testsuite browser
-        env: { CHROME: /usr/bin/chromium, TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+        env: { CHROME: /usr/bin/chromium, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   phpstan:
     # static analysis (phpstan.neon.dist): level 5, the existing findings in phpstan-baseline.neon - new code adds none

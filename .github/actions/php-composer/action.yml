@@ -4,8 +4,12 @@
 # release built against another system broke every job ("php: error while loading shared libraries: libxml2.so.2").
 # How: the step builds the Dockerfile's "ci" stage (PHP with the image's extensions, Composer, Chromium, Node) and writes two small
 # wrapper scripts, php and composer, into a directory on the job's PATH. Each wrapper runs the tool in a fresh container of that
-# image: the runner's user, the host network (services such as MySQL answer on 127.0.0.1:<mapped port>), the workspace and
-# RUNNER_TEMP mounted at the same paths, the working directory kept, and the TALEA_*, CHROME and CI variables passed through.
+# image: the runner's user, the network named by TALEA_CI_NETWORK (else the host network), the workspace and RUNNER_TEMP mounted
+# at the same paths, the working directory kept, and the TALEA_*, CHROME and CI variables passed through.
+# Network: a job with a database service sets TALEA_CI_NETWORK to the job's own Docker network (job.services.db.network) and reaches
+# the database as db:<its port>. The test sites' PHP servers then listen inside that job's container only. On the host network the
+# four runners' jobs shared one port space: a free port picked by one job was taken by another, and a request reached another
+# job's test site (2026-10-19: "Address already in use", the firewall and rate-limit tests getting 404 instead of 403/429).
 # The image is addressed by its ID, never a shared tag, so jobs on the same host do not swap each other's image.
 # `vendor/bin/paratest` and friends start with `#!/usr/bin/env php`, which finds the wrapper; everything they start (PHP's built-in
 # server, node, Chromium) runs inside the same container.
@@ -54,7 +58,7 @@ runs:
         }
         trap finish EXIT
         trap 'exit 143' TERM INT
-        docker run --cidfile "\$cid" -i --init --network host --shm-size 1g --memory ${cap_mb}m --memory-swap ${cap_mb}m \\
+        docker run --cidfile "\$cid" -i --init --network "\${TALEA_CI_NETWORK:-host}" --shm-size 1g --memory ${cap_mb}m --memory-swap ${cap_mb}m \\
           -u $(id -u):$(id -g) -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer -e COMPOSER_CACHE_DIR=/composer-cache "\${env[@]}" \\
           -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v "$cache:/composer-cache" \\
           -w "\$PWD" --entrypoint $tool $image "\$@"
