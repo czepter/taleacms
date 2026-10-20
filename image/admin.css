@@ -290,9 +290,6 @@ h3.center {
 	padding-top: 14px;
 	border-top: 1px solid var(--line);
 }
-.version-support { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: inherit; }
-.version-support svg { color: #d93a1c; flex: none; }
-.version-support:hover { color: var(--text); }
 /* page heading and the Help menu: manual pages for the currently open screen */
 .header-pages {
 	display: flex;

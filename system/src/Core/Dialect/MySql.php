@@ -8,6 +8,11 @@ use PDO;
 
 final class MySql extends Dialect
 {
+    /** @param bool $mariaDb the server is MariaDB (Db::pdo() tells after connecting): the same dialect except the upsert */
+    public function __construct(public readonly bool $mariaDb = false)
+    {
+    }
+
     public function name(): string
     {
         return 'mysql';
@@ -59,11 +64,12 @@ final class MySql extends Dialect
 
     public function upsert(string $table, array $columns, array $keys, array $update): string
     {
-        $sets = $this->assignments($table, $update, fn (string $c): string => 'new_row.' . $this->quote($c));
+        // MySQL 8 deprecates VALUES(col) in favour of a row alias, which MariaDB does not have
+        $sets = $this->assignments($table, $update, fn (string $c): string => $this->mariaDb ? 'VALUES(' . $this->quote($c) . ')' : 'new_row.' . $this->quote($c));
         $own = '{' . $this->identifier($table) . '}.' . $this->quote($keys[0]);
         $sets = $sets === [] ? [$own . ' = ' . $own] : $sets; // nothing to update: keep the row
 
-        return sprintf('INSERT INTO {%s} (%s) VALUES (%s) AS new_row ON DUPLICATE KEY UPDATE %s', $this->identifier($table), $this->quoteAll($columns), implode(', ', array_fill(0, count($columns), '?')), implode(', ', $sets));
+        return sprintf('INSERT INTO {%s} (%s) VALUES (%s)%s ON DUPLICATE KEY UPDATE %s', $this->identifier($table), $this->quoteAll($columns), implode(', ', array_fill(0, count($columns), '?')), $this->mariaDb ? '' : ' AS new_row', implode(', ', $sets));
     }
 
     public function insertIgnoreSelect(string $table, array $columns, string $select): string

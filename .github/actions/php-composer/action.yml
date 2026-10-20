@@ -4,11 +4,21 @@
 # release built against another system broke every job ("php: error while loading shared libraries: libxml2.so.2").
 # How: the step builds the Dockerfile's "ci" stage (PHP with the image's extensions, Composer, Chromium, Node) and writes two small
 # wrapper scripts, php and composer, into a directory on the job's PATH. Each wrapper runs the tool in a fresh container of that
-# image: the runner's user, the host network (services such as MySQL answer on 127.0.0.1:<mapped port>), the workspace and
-# RUNNER_TEMP mounted at the same paths, the working directory kept, and the TALEA_*, CHROME and CI variables passed through.
+# image: the runner's user, the network named by TALEA_CI_NETWORK (else the host network), the workspace and RUNNER_TEMP mounted
+# at the same paths, the working directory kept, and the TALEA_*, CHROME and CI variables passed through.
+# Network: a job with a database service sets TALEA_CI_NETWORK to the job's own Docker network (job.services.db.network) and reaches
+# the database as db:<its port>. The test sites' PHP servers then listen inside that job's container only. On the host network the
+# four runners' jobs shared one port space: a free port picked by one job was taken by another, and a request reached another
+# job's test site (2026-10-19: "Address already in use", the firewall and rate-limit tests getting 404 instead of 403/429).
 # The image is addressed by its ID, never a shared tag, so jobs on the same host do not swap each other's image.
 # `vendor/bin/paratest` and friends start with `#!/usr/bin/env php`, which finds the wrapper; everything they start (PHP's built-in
 # server, node, Chromium) runs inside the same container.
+# Memory: the four runners share one host, and on 2026-10-18 four jobs at once (PHPStan, two paratest runs, the browser walk) ran it
+# out of memory; the kernel then killed processes in all of them. The biggest consumer was PHPStan with one worker per CPU (ci.yml
+# now runs two). Each container is capped at a third of the host's memory (MemTotal from /proc/meminfo, read when the job starts;
+# the VM reports 10-16 GB), without swap: a container that hits its cap fails alone, and the wrapper says so in the log. A fifth
+# (about 2 GB) was tried and is too tight: four paratest workers, each with a PHP server and its opcache, then reclaim memory so
+# constantly that the installer runs past PHP's 60-second limit.
 name: PHP and Composer
 description: Runs PHP and Composer in the Dockerfile's ci stage on a self-hosted runner and installs the dependencies
 inputs:
@@ -29,15 +39,30 @@ runs:
         load=(); docker buildx version >/dev/null 2>&1 && load=(--load)
         DOCKER_BUILDKIT=1 docker build --quiet "${load[@]}" --iidfile "$bin/image" --target ci . >/dev/null
         image=$(cat "$bin/image")
+        host_mb=$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) / 1024 ))
+        cap_mb=$(( host_mb / 3 ))
+        echo "php and composer run in containers capped at ${cap_mb} MB (a third of the host's ${host_mb} MB)"
         for tool in php composer; do
           cat > "$bin/$tool" <<EOF
         #!/usr/bin/env bash
         env=()
         for name in \$(compgen -e); do [[ \$name =~ ^(TALEA_.*|CHROME|CI)\$ ]] && env+=(-e "\$name"); done
-        exec docker run --rm -i --init --network host --shm-size 1g -u $(id -u):$(id -g) \\
-          -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer -e COMPOSER_CACHE_DIR=/composer-cache "\${env[@]}" \\
+        cid=\$(mktemp -u "$RUNNER_TEMP/php-in-docker/cid.XXXXXX")
+        # the container is removed here, not by --rm, so that one stopped at its memory cap can still be recognised; also on cancel
+        finish() {
+          [ -s "\$cid" ] || return 0
+          [ "\$(docker inspect -f '{{.State.OOMKilled}}' "\$(cat "\$cid")" 2>/dev/null)" = true ] \\
+            && echo "::error::$tool ran out of memory: its container reached the cap of ${cap_mb} MB (.github/actions/php-composer)" >&2
+          docker rm -f "\$(cat "\$cid")" >/dev/null 2>&1
+          rm -f "\$cid"
+        }
+        trap finish EXIT
+        trap 'exit 143' TERM INT
+        docker run --cidfile "\$cid" -i --init --network "\${TALEA_CI_NETWORK:-host}" --shm-size 1g --memory ${cap_mb}m --memory-swap ${cap_mb}m \\
+          -u $(id -u):$(id -g) -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer -e COMPOSER_CACHE_DIR=/composer-cache "\${env[@]}" \\
           -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v "$cache:/composer-cache" \\
           -w "\$PWD" --entrypoint $tool $image "\$@"
+        exit \$?
         EOF
           chmod +x "$bin/$tool"
         done

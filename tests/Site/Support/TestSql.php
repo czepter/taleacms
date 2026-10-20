@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\Support;
 
+use Talea\Core\Dialect\MySql;
 use Talea\Core\Dialect\Postgres;
 use Talea\Tests\Support\TestDatabase;
 
 /**
  * The SQL a site test writes to look at or prepare the database (`Site::value/rows/exec`) is MySQL SQL: GROUP_CONCAT, IF(), IFNULL, JSON_EXTRACT,
- * `visible = 1`. On PostgreSQL this turns it into the equivalent, so a test keeps saying what it checks and not how the engine spells it.
+ * `visible = 1`. On PostgreSQL this turns it into the equivalent (on MariaDB only `->>`), so a test keeps saying what it checks and not how the engine spells it.
  * Not a general translator: the constructs the tests use, nothing more. What cannot be translated (a boolean printed inside CONCAT, REPLACE INTO,
  * a multi-table DELETE) is written portable in the test, or branches on TestDatabase::isPostgres() with a comment.
  * (The product's own SQL never goes through this: it is portable by itself, see tests/Unit/NoMysqlOnlySqlTest.php.)
@@ -22,7 +23,10 @@ final class TestSql
     public static function forEngine(string $sql, ?\PDO $pdo = null): string
     {
         if (!TestDatabase::isPostgres()) {
-            return $sql;
+            // MariaDB has no ->> operator
+            return TestDatabase::dialect() instanceof MySql && TestDatabase::dialect()->mariaDb
+                ? preg_replace('/(\b(?:\w+\.)?\w+)\s*->>\s*\'(\$[^\']*)\'/', 'JSON_UNQUOTE(JSON_EXTRACT($1, \'$2\'))', $sql) ?? $sql
+                : $sql;
         }
         $sql = self::insertBooleans($sql);
         $sql = self::duplicateKey($sql, $pdo);
