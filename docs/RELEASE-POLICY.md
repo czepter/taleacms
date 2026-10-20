@@ -1,6 +1,6 @@
 # Release and support policy
 
-This is what you can rely on when you build sites on Talea – for yourself or for clients. It applies from Talea 2.1.
+This is what you can rely on when you build sites on Talea – for yourself or for clients. The policy was written for Kaleta 2.1 and Talea keeps it, with one difference: Talea releases are container images, and a site never updates itself (docs/DEPLOYMENT.md).
 
 ## Versions and pace
 
@@ -10,19 +10,19 @@ Talea versions are `MAJOR.MINOR.PATCH`.
 | --- | --- | --- |
 | **Minor** (2.1, 2.2…) | New features and improvements. Nothing you use stops working. | About once a month |
 | **Patch** (2.1.1…) | Fixes only. | When needed |
-| **Security** (a patch marked as security) | A fix for a vulnerability. Installs itself unless the administrator turned that off. | When needed, as fast as possible |
+| **Security** (a patch marked as security) | A fix for a vulnerability. Flagged in the admin notice; the operator pulls the new image (Kaleta installs it on its own). | When needed, as fast as possible |
 | **Major** (3.0…) | Removes what was deprecated earlier (see below). No surprise removals. | At most once a year |
 
 Every release is announced in the GitHub releases of the project (TODO: and a changelog on the project site once its domain is registered, see NAME-CHECK.md).
 
 ## Which versions are supported
 
-**The latest release.** A site on any earlier version reaches it in one step from **Settings → Backups and updates** –
-there are no required stops in between. Every release is tested by updating real installations of older releases
-(from 1.2 onward) on MySQL and MariaDB.
+**The latest release.** A site on any earlier version reaches it in one step by pulling the newest image – there are no
+required stops in between; the container applies the migrations before it starts serving. `composer test:e2e` builds the
+image and updates a real installation (docs/DEPLOYMENT.md).
 
-Security releases install themselves by default: the site backs up its database, verifies the publisher's signature and
-the checksum, and replaces the system files. The administrator gets an e-mail. How vulnerabilities are reported and fixed
+Security releases are flagged in the admin notice; the operator pulls the image. Unlike Kaleta, a Talea site never installs
+anything on its own. How vulnerabilities are reported and fixed
 is in [SECURITY.md](../SECURITY.md).
 
 ## Deprecation
@@ -48,7 +48,7 @@ any of them is removed or changed outside a deprecation:
 - **Addresses of your content:** an update never changes the address of a page, news item, collection item or feed.
   When you change the address of a page, news item or category yourself, Talea adds a redirect from the old one
   (Redirects extension).
-- **The update channel and its signatures**, so installed sites keep receiving updates.
+- **The release feed and its signatures**, so installed sites keep seeing new versions.
 
 ## What is not a contract
 

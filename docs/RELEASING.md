@@ -1,10 +1,9 @@
 # Releasing and signing keys
 
-> **Status in the fork.** The in-app updater is switched off (`Core\Updater::ENABLED = false`, issue HF-12): no site asks an
-> update channel for a version and no site installs a package from the administration. A new release channel (versioned
-> container images, a release feed) comes with HF-13 and replaces most of this page. Until then a release is a tagged commit,
-> and a site is updated by image or by uploading the files and running `bin/migrate`. The signing tooling below is kept
-> working so HF-13 can reuse it.
+> **Different from Kaleta.** Kaleta sites download and install signed packages from the administration. In Talea that
+> updater is switched off (`Core\Updater::ENABLED = false`, HF-12): a release is a container image plus a signed release feed
+> (HF-13, "A regular release" below), and a site only shows a notice. The signing keys and tooling come from Kaleta and sign
+> the feed.
 
 ## Two signing keys
 

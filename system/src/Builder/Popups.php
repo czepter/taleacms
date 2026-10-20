@@ -24,7 +24,12 @@ final class Popups
         'top_bar' => ['Bar at the top', 'manual'],
         'bottom_bar' => ['Bar at the bottom', 'manual'],
         'fullscreen' => ['Full screen', 'auto'],
+        'flyout' => ['Flyout in the bottom right corner', 'manual'],
+        'flyout_left' => ['Flyout in the bottom left corner', 'manual'],
     ];
+
+    /** A flyout is a pill that stays on screen (no close button, Esc leaves it); on a phone it is a bar along the bottom. */
+    public const array FLYOUTS = ['flyout', 'flyout_left'];
 
     /** trigger => [name, value unit ('' = without a value)] */
     public const array TRIGGERS = [
@@ -157,7 +162,7 @@ final class Popups
 
         return '<div id="' . e($id) . '" class="tl-popup tl-popup--' . e($type) . '" popover="' . self::TYPES[$type][1] . '" role="' . ($dialog ? 'dialog' : 'region') . '"'
             . ' aria-label="' . e($p['name']) . '"' . implode('', array_map(fn (string $k, string $v): string => ' data-' . $k . '="' . e($v) . '"', array_keys($data), $data)) . '>'
-            . '<button type="button" class="tl-popup-close" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>'
+            . (in_array($type, self::FLYOUTS, true) ? '' : '<button type="button" class="tl-popup-close" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>')
             . '<div class="tl-popup-content build">' . $content . '</div></div>';
     }
 
@@ -176,13 +181,31 @@ final class Popups
         'announcement_bar' => ['Announcement bar', 'A slim bar at the top with a short message and a link.', 'top_bar', 'time', 1],
         'discount' => ['Discount or offer', 'A bold offer with a code and a button.', 'window', 'time', 15],
         'event' => ['Event invitation', 'A corner panel with the date, the place and a registration link.', 'slide_in', 'time', 8],
+        'contact_flyout' => ['Contact flyout', 'A pill in the corner with a short message, a button that opens a contact form and a WhatsApp link – the form panel is created with it.', 'flyout', 'time', 0],
+        'contact_panel' => ['Contact form panel', 'A corner panel with a contact form, opened by a link or button to it.', 'slide_in', 'click', 0],
         'blank' => ['Blank pop-up', 'A heading and a text – build the rest in the builder.', 'window', 'click', 0],
     ];
 
-    /** Build of a ready-made popup in the content language. */
-    public static function libraryBuild(string $key, string $language = 'en'): array
+    /**
+     * A new popup from a ready-made pattern: draft build in the content language, switched off. The contact flyout first creates
+     * its form panel and links its button to it. Returns the popup id.
+     */
+    public static function create(Db $db, string $key, string $name, string $language): int
     {
-        return \Talea\Core\Language::runWith($language, function () use ($key): array {
+        $pattern = self::LIBRARY[$key];
+        $panel = $key === 'contact_flyout' ? (string) $db->value('SELECT slug FROM {popups} WHERE popup_id = ?', [self::create($db, 'contact_panel', t(self::LIBRARY['contact_panel'][0]), $language)]) : '';
+
+        return $db->insert('popups', [
+            'name' => $name, 'slug' => self::address($db, $name), 'type' => $pattern[2], 'trigger_type' => $pattern[3], 'value' => $pattern[4],
+            'rules' => (string) json_encode(self::defaultRules()), 'frequency' => in_array($pattern[2], self::FLYOUTS, true) ? 'always' : 'session', 'days' => 7, 'active' => 0,
+            'build_draft' => Build::toJson(self::libraryBuild($key, $language, $panel)), 'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /** Build of a ready-made popup in the content language; $panel = slug of the popup the contact flyout's button opens. */
+    public static function libraryBuild(string $key, string $language = 'en', string $panel = ''): array
+    {
+        return \Talea\Core\Language::runWith($language, function () use ($key, $panel): array {
             $n = Build::fresh(...);
             $h = fn (string $text, string $htmlTag = 'h2'): array => ['tag' => $htmlTag] + $n('heading', ['text' => $text]);
             $children = match ($key) {
@@ -193,9 +216,21 @@ final class Popups
                             ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => '']]])],
                 'announcement_bar' => [$n('container', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('button', ['text' => t('More information'), 'link' => '#', 'variant' => 'link'])])],
                 'discount' => [$h(t('10% off your first order')), $n('text', ['html' => '<p>' . e(t('Enter the code')) . ' <strong>' . e(t('WELCOME10')) . '</strong>.</p>']), $n('button', ['text' => t('Get the discount'), 'link' => '#'])],
+                'contact_flyout' => [$n('container', [], [
+                    ['style' => ['mobile' => ['display' => 'none']]] + $n('text', ['html' => '<p>' . e(t('[Short message, e.g. dates still free this year]')) . '</p>']),
+                    $n('button', ['text' => t('Write to us'), 'link' => $panel !== '' ? '#popup-' . $panel : '#', 'icon' => 'email', 'icon_left' => true]),
+                    $n('button', ['text' => 'WhatsApp', 'link' => '#', 'variant' => 'outline', 'icon' => 'whatsapp', 'icon_left' => true, 'new_window' => true]),
+                ])],
+                'contact_panel' => [$h(t('Write to us'), 'h3'), $n('form', ['name' => t('Contact form'), 'button_text' => t('Send'),
+                    'fields' => [['label' => t('Your name'), 'type' => 'text', 'required' => true, 'options' => ''], ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+                        ['label' => t('How can we help you?'), 'type' => 'textarea', 'required' => true, 'options' => ''],
+                        ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => '']]])],
                 'event' => [$h(t('Open day'), 'h3'), $n('text', ['html' => '<p>' . e(t('Saturday 12 October, 10 am – 4 pm. Come and see how we work.')) . '</p>']), $n('button', ['text' => t('I want to come'), 'link' => '#'])],
                 default => [$h(t('Window heading')), $n('text', ['html' => '<p>' . e(t('A short text for the window.')) . '</p>'])],
             };
+            if ($key === 'contact_flyout') {
+                $children[0]['style'] = ['base' => ['display' => 'flex', 'direction' => 'row', 'align_items' => 'center', 'gap' => 's']];
+            }
             if ($key === 'announcement_bar') {
                 $children[0]['style'] = ['base' => ['display' => 'flex', 'direction' => 'row', 'align_items' => 'center', 'justify_content' => 'center', 'gap' => 's']];
             }

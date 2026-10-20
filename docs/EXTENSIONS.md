@@ -1,6 +1,6 @@
 # Add-ons for Talea – the extension API
 
-Talea 3.0 opens up to code from other developers. This guide is for developers who write an add-on. It is also for site owners who want to know what an add-on can do.
+The extension API comes from Kaleta, which opened up to code from other developers in its 3.0 release; Talea added version 2 of the API (early-request hook, health rows, own tables, uninstall). This guide is for developers who write an add-on. It is also for site owners who want to know what an add-on can do.
 
 ## Trust first
 

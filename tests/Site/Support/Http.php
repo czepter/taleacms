@@ -10,6 +10,12 @@ final class Http
     /** The cURL error of the last request (a refused or reset connection, a timeout); null when it got an answer. */
     public ?string $lastError = null;
 
+    /** Its cURL error number (CURLE_OPERATION_TIMEDOUT …); 0 when it got an answer. */
+    public int $lastErrno = 0;
+
+    /** Seconds a request may take; the installer runs every migration in one request and gets longer. */
+    public int $timeout = 60;
+
     private readonly string $jar;
 
     public function __construct(private readonly string $base, string $jarDir, string $name = 'session')
@@ -80,7 +86,7 @@ final class Http
         $ch = curl_init(str_starts_with($path, 'http') ? $path : $this->base . $path);
         $responseHeaders = [];
         curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 60, CURLOPT_USERAGENT => $userAgent,
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => $this->timeout, CURLOPT_USERAGENT => $userAgent,
             CURLOPT_COOKIEJAR => $this->jar, CURLOPT_COOKIEFILE => $this->jar, CURLOPT_HTTPHEADER => $headers,
             CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$responseHeaders): int {
                 if (str_contains($line, ':')) {
@@ -96,7 +102,8 @@ final class Http
             curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($data) && !$multipart ? $this->encode($data) : ($data ?? ''));
         }
         $body = (string) curl_exec($ch);
-        $this->lastError = curl_errno($ch) !== 0 ? curl_error($ch) : null;
+        $this->lastErrno = curl_errno($ch);
+        $this->lastError = $this->lastErrno !== 0 ? curl_error($ch) : null;
         $response = new Response((int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE), $body, (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL), $responseHeaders);
 
         return $response;
