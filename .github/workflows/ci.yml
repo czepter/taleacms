@@ -84,7 +84,6 @@ jobs:
       - run: php tools/check-english.php
       - run: php tools/contracts.php
       - run: php tools/sql-dialect-scan.php
-      - run: php tools/unit-tests.php
       - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
         run: vendor/bin/phpunit --testsuite unit
 
@@ -103,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/php-composer
-      - name: PHPUnit (integration and whole installed sites; the unit suite and tools/unit-tests.php run in Repository checks)
+      - name: PHPUnit (integration and whole installed sites; the unit suite runs in Repository checks)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 

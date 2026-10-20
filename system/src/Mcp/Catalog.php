@@ -15,7 +15,7 @@ namespace Talea\Mcp;
  * connection limited to drafts (2.2) may use "read" and "draft" tools and never publishes; a read-only one only "read". The
  * annotations, the change log, the extension gate and tools/list all come from here. The tool itself is the method
  * Tools::tool<Name> (toolSiteInfo for site_info) and its definition (description, parameters and their types) is in
- * Tools::definitions(); tools/unit-tests.php checks that all three agree.
+ * Tools::definitions(); tests/Unit/Mcp/CatalogTest.php checks that all three agree.
  */
 final class Catalog
 {

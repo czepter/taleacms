@@ -294,7 +294,7 @@ final class WpImport
         return array_values(array_diff(array_map('strval', array_keys((array) ($state['languages']['found'] ?? []))), $have));
     }
 
-    /* ---------- pure conversions (covered by tools/unit-tests.php) ---------- */
+    /* ---------- pure conversions (covered by tests/Unit/Import/WordPressTest.php) ---------- */
 
     /**
      * Post status in WordPress → our news item; null = not imported (private, trash, auto-drafts, revisions).

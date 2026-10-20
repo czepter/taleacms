@@ -509,7 +509,7 @@ class Assistant
      */
     /**
      * Calls the model. Both the request and the answer have the shape of the Claude API ({model, max_tokens, system, messages} → {content, stop_reason});
-     * for other providers they are converted. Protected because of tests that replace it (tools/unit-tests.php).
+     * for other providers they are converted. Protected because of tests that replace it (tests/Unit/AssistantTest.php).
      */
     protected function call(array $body): array
     {

@@ -11,7 +11,7 @@ use Talea\Admin\Modules\Media;
  * and images without a description for blind visitors. The site finds them and proposes; a person (or Claude, as a
  * reviewable batch) decides – nothing is deleted or rewritten on its own.
  *
- * The pure helpers (paths, unused, duplicates, isOversized) work on arrays, so tools/unit-tests.php can check them
+ * The pure helpers (paths, unused, duplicates, isOversized) work on arrays, so a unit test can check them
  * without a database; report() puts them together over the media table.
  */
 final class MediaHygiene
