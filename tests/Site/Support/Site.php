@@ -401,23 +401,34 @@ final class Site
     }
 
     /**
-     * Starts `php -S` on a folder with a router script and waits until it answers. Stopped by close().
+     * Starts `php -S` on a folder with a router script and waits until it runs. Stopped by close().
+     *
+     * A free port can be taken by another server before php -S binds it (parallel workers and CI jobs share one network): that
+     * php -S then exits, and a check that only connects would reach the other server, so the test talks to the wrong site. Ready
+     * therefore means: our process still runs and its log says it started. A port the caller did not choose is retried.
      *
      * @param array<string, string> $env
      */
     public function startPhp(string $dir, string $router, array $env = [], ?int $port = null): int
     {
-        $port ??= $this->freePort();
-        $this->ports['php:' . $port] = $port;
-        $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $port, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $this->work . '/server-' . $port . '.log', 'w'], 2 => ['file', $this->work . '/server-' . $port . '.log', 'a']], $pipes, $dir, array_merge(getenv(), $env));
-        $this->processes[] = $process;
-        for ($i = 0; $i < 100; $i++) {
-            if (@fsockopen('127.0.0.1', $port, $errno, $errstr, 0.2) !== false) {
-                return $port;
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $chosen = $port ?? $this->freePort();
+            $log = $this->work . '/server-' . $chosen . '.log';
+            $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $chosen, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $dir, array_merge(getenv(), $env));
+            $this->processes[] = $process;
+            for ($i = 0; $i < 200 && proc_get_status($process)['running']; $i++) {
+                if (str_contains((string) @file_get_contents($log), ') started')) {
+                    $this->ports['php:' . $chosen] = $chosen;
+
+                    return $chosen;
+                }
+                usleep(50_000);
             }
-            usleep(50_000);
+            if ($port !== null) {
+                break;
+            }
         }
-        throw new \RuntimeException("The PHP server on port $port did not start ($router in $dir).");
+        throw new \RuntimeException("The PHP server on port $chosen did not start ($router in $dir): " . trim((string) @file_get_contents($log)));
     }
 
     /**
@@ -509,6 +520,8 @@ final class Site
     private function install(array $server): Response
     {
         $visitor = $this->client('installer');
+        // on a busy CI host the migrations took 85 seconds once: the default 60 cut the request off while the server went on installing
+        $visitor->timeout = 300;
         $fields = [
             'db_driver' => $server['driver'], 'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
             'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
@@ -519,8 +532,9 @@ final class Site
         // extra or replaced installer fields (German register, site language, e-mail …); a null value drops the field
         $fields = array_filter(array_replace($fields, (array) ($this->options['installerFields'] ?? [])), static fn ($v): bool => $v !== null);
         $answer = $visitor->post('/install.php', $fields);
-        for ($try = 1; $answer->status === 0 && $try < 3; $try++) {
-            // no answer at all (a connection refused or reset on a busy runner), so nothing was installed: ask again
+        for ($try = 1; $answer->status === 0 && $visitor->lastErrno !== CURLE_OPERATION_TIMEDOUT && $try < 3; $try++) {
+            // no answer at all (a connection refused or reset on a busy runner), so nothing was installed: ask again. Not after a
+            // timeout: the server may still be installing, and a second request would meet a finished site (404)
             sleep(2);
             $answer = $visitor->post('/install.php', $fields);
         }

@@ -1,76 +1,78 @@
-# PHP and Composer for the self-hosted runners, in one step. Two jobs failed with "Unable to find Composer at …/_work/_tool/setup-php/tools/composer":
-# the runner's tool cache said "installed" while the file was gone, and ramsey/composer-install does not look anywhere else.
-# So: Composer is requested explicitly, installed again from getcomposer.org when the runner has none, and `composer install` is
-# retried (a registry hiccup or a cache that vanished between two steps must not fail a pull request).
-# The two runners share one host, which setup-php documents as unsupported ("parallel workflows will conflict with each other"):
-# one job rewrites /usr/local/bin/composer while the other runs it ('Class "Composer\Util\PackageSorter" not found in phar://…').
-# So setup-php itself is tried up to three times, with a pause in between, before the job is allowed to fail.
+# PHP and Composer for the self-hosted runners, inside Docker. Nothing is installed on the runner host itself.
+# Why: setup-php installed PHP onto the host that two runners share. Parallel jobs rewrote each other's Composer
+# ('Class "Composer\Util\PackageSorter" not found in phar://…', a tool cache saying "installed" for a missing file), and then a PHP
+# release built against another system broke every job ("php: error while loading shared libraries: libxml2.so.2").
+# How: the step builds the Dockerfile's "ci" stage (PHP with the image's extensions, Composer, Chromium, Node) and writes two small
+# wrapper scripts, php and composer, into a directory on the job's PATH. Each wrapper runs the tool in a fresh container of that
+# image: the runner's user, the network named by TALEA_CI_NETWORK (else the host network), the workspace and RUNNER_TEMP mounted
+# at the same paths, the working directory kept, and the TALEA_*, CHROME and CI variables passed through.
+# Network: a job with a database service sets TALEA_CI_NETWORK to the job's own Docker network (job.services.db.network) and reaches
+# the database as db:<its port>. The test sites' PHP servers then listen inside that job's container only. On the host network the
+# four runners' jobs shared one port space: a free port picked by one job was taken by another, and a request reached another
+# job's test site (2026-10-19: "Address already in use", the firewall and rate-limit tests getting 404 instead of 403/429).
+# The image is addressed by its ID, never a shared tag, so jobs on the same host do not swap each other's image.
+# `vendor/bin/paratest` and friends start with `#!/usr/bin/env php`, which finds the wrapper; everything they start (PHP's built-in
+# server, node, Chromium) runs inside the same container.
+# Memory: the four runners share one host, and on 2026-10-18 four jobs at once (PHPStan, two paratest runs, the browser walk) ran it
+# out of memory; the kernel then killed processes in all of them. The biggest consumer was PHPStan with one worker per CPU (ci.yml
+# now runs two). Each container is capped at a third of the host's memory (MemTotal from /proc/meminfo, read when the job starts;
+# the VM reports 10-16 GB), without swap: a container that hits its cap fails alone, and the wrapper says so in the log. A fifth
+# (about 2 GB) was tried and is too tight: four paratest workers, each with a PHP server and its opcache, then reclaim memory so
+# constantly that the installer runs past PHP's 60-second limit.
 name: PHP and Composer
-description: Sets up PHP with Composer on a self-hosted runner and installs the dependencies
+description: Runs PHP and Composer in the Dockerfile's ci stage on a self-hosted runner and installs the dependencies
 inputs:
-  php-version:
-    description: PHP version
-    default: '8.5'
-  extensions:
-    description: PHP extensions
-    default: 'pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache'
   install:
     description: Run composer install ('false' for jobs that only need PHP)
     default: 'true'
 runs:
   using: composite
   steps:
-    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-      id: php1
-      continue-on-error: true
-      env:
-        runner: self-hosted
-      with:
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        tools: composer:v2
-        coverage: none
-    - name: Pause before trying setup-php again
-      if: steps.php1.outcome == 'failure'
+    - name: PHP in Docker (image built from the ci stage, php and composer wrappers on PATH)
       shell: bash
-      run: sleep 20
-    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-      id: php2
-      if: steps.php1.outcome == 'failure'
-      continue-on-error: true
-      env:
-        runner: self-hosted
-      with:
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        tools: composer:v2
-        coverage: none
-    - name: Pause before trying setup-php again
-      if: steps.php2.outcome == 'failure'
-      shell: bash
-      run: sleep 45
-    - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-      id: php3
-      if: steps.php2.outcome == 'failure'
-      env:
-        runner: self-hosted
-      with:
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        tools: composer:v2
-        coverage: none
-    - name: Composer (installed again when the runner lost it, install retried)
+      run: |
+        set -euo pipefail
+        bin="$RUNNER_TEMP/php-in-docker"
+        cache="${RUNNER_TOOL_CACHE:-$RUNNER_TEMP}/talea-composer-cache"
+        mkdir -p "$bin" "$cache"
+        # with buildx the image must be loaded into Docker explicitly; the classic builder has no --load
+        load=(); docker buildx version >/dev/null 2>&1 && load=(--load)
+        DOCKER_BUILDKIT=1 docker build --quiet "${load[@]}" --iidfile "$bin/image" --target ci . >/dev/null
+        image=$(cat "$bin/image")
+        host_mb=$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) / 1024 ))
+        cap_mb=$(( host_mb / 3 ))
+        echo "php and composer run in containers capped at ${cap_mb} MB (a third of the host's ${host_mb} MB)"
+        for tool in php composer; do
+          cat > "$bin/$tool" <<EOF
+        #!/usr/bin/env bash
+        env=()
+        for name in \$(compgen -e); do [[ \$name =~ ^(TALEA_.*|CHROME|CI)\$ ]] && env+=(-e "\$name"); done
+        cid=\$(mktemp -u "$RUNNER_TEMP/php-in-docker/cid.XXXXXX")
+        # the container is removed here, not by --rm, so that one stopped at its memory cap can still be recognised; also on cancel
+        finish() {
+          [ -s "\$cid" ] || return 0
+          [ "\$(docker inspect -f '{{.State.OOMKilled}}' "\$(cat "\$cid")" 2>/dev/null)" = true ] \\
+            && echo "::error::$tool ran out of memory: its container reached the cap of ${cap_mb} MB (.github/actions/php-composer)" >&2
+          docker rm -f "\$(cat "\$cid")" >/dev/null 2>&1
+          rm -f "\$cid"
+        }
+        trap finish EXIT
+        trap 'exit 143' TERM INT
+        docker run --cidfile "\$cid" -i --init --network "\${TALEA_CI_NETWORK:-host}" --shm-size 1g --memory ${cap_mb}m --memory-swap ${cap_mb}m \\
+          -u $(id -u):$(id -g) -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer -e COMPOSER_CACHE_DIR=/composer-cache "\${env[@]}" \\
+          -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v "$cache:/composer-cache" \\
+          -w "\$PWD" --entrypoint $tool $image "\$@"
+        exit \$?
+        EOF
+          chmod +x "$bin/$tool"
+        done
+        echo "$bin" >> "$GITHUB_PATH"
+        "$bin/php" -v
+    - name: Composer install (retried)
       if: inputs.install == 'true'
       shell: bash
       run: |
         set -euo pipefail
-        if ! command -v composer >/dev/null 2>&1; then
-          echo "::warning::no composer on this runner: installing it from getcomposer.org"
-          mkdir -p "$HOME/.local/bin"
-          curl -fsS https://getcomposer.org/installer | php -- --quiet --install-dir="$HOME/.local/bin" --filename=composer
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.local/bin:$PATH"
-        fi
         composer --version
         for attempt in 1 2 3; do
           if composer install --no-interaction --no-progress --prefer-dist; then exit 0; fi

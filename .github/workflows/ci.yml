@@ -15,17 +15,18 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-env:
-  PHP_EXTENSIONS: pdo_mysql, pdo_pgsql, mbstring, gd, zip, sodium, intl, exif, opcache
 jobs:
   # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
   # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
+  # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
+  # test jobs (output tests=false); the repository checks (English, contracts) and the security scan still run.
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 5
     outputs:
       run: ${{ steps.gate.outputs.run }}
+      tests: ${{ steps.gate.outputs.tests }}
     steps:
       - id: gate
         env:
@@ -35,6 +36,10 @@ jobs:
           HEAD: ${{ github.head_ref }}
           SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_FILES: ${{ github.event.pull_request.changed_files }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           run=true
           # a fork's pull request must never run on the self-hosted runners
@@ -47,6 +52,26 @@ jobs:
             [ "${n:-0}" -gt 0 ] && run=false && echo "dev at $SHA already passed CI: skipping the duplicate run"
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
+
+          # the changed files from the API (no checkout here); more than 300, an API error or another event: unknown, so tests run
+          set -o pipefail
+          api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY"
+          files=""
+          if [ "$EVENT" = pull_request ] && [ "${PR_FILES:-0}" -gt 0 ] && [ "${PR_FILES:-0}" -le 300 ]; then
+            for page in 1 2 3; do
+              files+=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$api/pulls/$PR/files?per_page=100&page=$page" | jq -r '.[].filename')$'\n' \
+                || { files=""; break; }
+            done
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "${BEFORE//0/}" != "" ]; then
+            files=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$api/compare/$BEFORE...$AFTER" \
+              | jq -r 'if (.files | length) < 300 then .files[].filename else empty end') || files=""
+          fi
+          tests=true
+          if grep -q . <<<"$files" && ! grep -v -E '(\.md$|^docs/|^NOTICE$|^LICENSE$)' <<<"$files" | grep -q . \
+            && ! grep -q '^docs/examples/' <<<"$files"; then
+            tests=false; echo "documentation only: the test jobs are skipped"
+          fi
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
   checks:
     name: Repository checks
     needs: gate
@@ -60,11 +85,13 @@ jobs:
       - run: php tools/contracts.php
       - run: php tools/sql-dialect-scan.php
       - run: php tools/unit-tests.php
+      - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
+        run: vendor/bin/phpunit --testsuite unit
 
   mysql:
     name: Tests on MySQL 8.4
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
     services:
@@ -76,14 +103,36 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/php-composer
-      - name: PHPUnit (unit, integration and whole installed sites, in parallel)
-        run: vendor/bin/paratest --processes 4 --exclude-group browser --exclude-group e2e
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+      - name: PHPUnit (integration and whole installed sites; the unit suite and tools/unit-tests.php run in Repository checks)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+
+  mariadb:
+    name: Tests on MariaDB 11.4
+    needs: gate
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 45  # the site suite takes about 30 minutes on a busy runner, like on MySQL
+    services:
+      db:
+        image: mariadb:11.4
+        env: { MARIADB_ROOT_PASSWORD: root }
+        ports: ['3306']
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/php-composer
+      - name: More connections (the default 151 runs out with parallel whole-site tests)
+        run: php -r '(new PDO("mysql:host=db;port=3306", "root", "root"))->exec("SET GLOBAL max_connections = 1000");'
+        env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}" }
+      - name: PHPUnit (integration and whole installed sites)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   postgres:
     name: Tests on PostgreSQL 18
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     services:
@@ -97,12 +146,12 @@ jobs:
       - uses: ./.github/actions/php-composer
       - name: PHPUnit (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
-        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_TEST_PG_HOST: 127.0.0.1, TALEA_TEST_PG_PORT: "${{ job.services.db.ports['5432'] }}", TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
+        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_PG_HOST: db, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
 
   browser:
     name: Browser walk (Chrome)
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     services:
@@ -115,17 +164,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/php-composer
       - name: Admin, builder, editors and public site in Chrome
-        run: |
-          CHROME=$(command -v google-chrome chromium chromium-browser | head -n1) || { echo "::error::no Chrome on this runner"; exit 1; }
-          export CHROME
-          vendor/bin/phpunit --testsuite browser
-        env: { TALEA_TEST_DB_HOST: 127.0.0.1, TALEA_TEST_DB_PORT: "${{ job.services.db.ports['3306'] }}", TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
+        # Chromium and Node live in the ci image (.github/actions/php-composer): the path is the one inside the container
+        run: vendor/bin/phpunit --testsuite browser
+        env: { CHROME: /usr/bin/chromium, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
   phpstan:
     # static analysis (phpstan.neon.dist): level 5, the existing findings in phpstan-baseline.neon - new code adds none
     name: Static analysis
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     steps:
@@ -133,8 +180,12 @@ jobs:
       - uses: ./.github/actions/php-composer
       - name: PHPStan
         run: |
-          curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
-          php -d memory_limit=3G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+          # RUNNER_TEMP, not /tmp: PHP runs in a container that sees only the workspace and RUNNER_TEMP
+          curl -sSL -o "$RUNNER_TEMP/phpstan.phar" https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          # two worker processes, not one per CPU: each worker can take as much memory as the main process, and together they ran
+          # the shared runner host out of memory; one process needs about 500 MB, so two fit the container's cap (php-composer)
+          printf 'includes:\n    - %s/phpstan.neon.dist\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 2\n' "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/phpstan-ci.neon"
+          php "$RUNNER_TEMP/phpstan.phar" analyse -c "$RUNNER_TEMP/phpstan-ci.neon" --no-progress
 
   security:
     needs: gate

@@ -114,6 +114,14 @@ final class DialectMySqlTest extends TestCase
         );
     }
 
+    public function testMariaDbUpsertUsesValuesInsteadOfTheRowAlias(): void
+    {
+        $this->assertSame(
+            'INSERT INTO {s} (`day`, `visits`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `visits` = {s}.`visits` + VALUES(`visits`), `day` = VALUES(`day`)',
+            (new MySql(mariaDb: true))->upsert('s', ['day', 'visits'], ['day'], ['visits' => '{old.visits} + {new.visits}', 'day']),
+        );
+    }
+
     public function testInsertIgnoreSelect(): void
     {
         $this->assertSame('INSERT IGNORE INTO {t} (`a`, `b`) SELECT 1, 2', $this->d->insertIgnoreSelect('t', ['a', 'b'], 'SELECT 1, 2'));

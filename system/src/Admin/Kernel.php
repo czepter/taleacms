@@ -76,6 +76,11 @@ final class Kernel
         \Talea\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Talea\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Talea\Core\Language::set(isset(\Talea\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'en', 'admin-');
+        if (\Talea\Core\Files::bodyTooLarge($request)) {
+            return $this->page('Invalid request', $app->view->render('admin/error', [
+                'text' => t('The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.', \Talea\Core\Files::size(\Talea\Core\Files::iniBytes((string) ini_get('post_max_size')))),
+            ]), 413);
+        }
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Invalid request', $app->view->render('admin/error', [
                 'text' => 'The form has expired. Go back, reload the page and submit it again.',

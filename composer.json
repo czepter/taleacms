@@ -1,6 +1,6 @@
 {
     "name": "talea/talea",
-    "description": "Self-hosted website builder (a fork of Talea).",
+    "description": "Self-hosted website builder (a fork of Kaleta).",
     "type": "project",
     "license": "GPL-2.0-or-later",
     "require": {

@@ -113,8 +113,7 @@ if ($username !== null) {
 <?php endif ?>
 <?= $content ?>
 <?= $app->view->render('admin/agency', ['app' => $app, 'withLogo' => false]) ?>
-<footer class="version">Talea <?= e(TALEA_VERSION) ?> · <?= e(t('Talea is free and has no ads.')) ?>
-	<a class="version-support" href="https://github.com/sponsors/phprscms" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><?= e(t('Support its development on GitHub Sponsors')) ?></a></footer>
+<footer class="version">Talea <?= e(TALEA_VERSION) ?> · <?= e(t('Talea is free and has no ads.')) ?></footer>
 </main>
 <?php if (is_file(TALEA_ROOT . '/image/languages/admin-' . Talea\Core\Language::code() . '.js')): ?>
 <script src="<?= e($app->url('image/languages/admin-' . Talea\Core\Language::code() . '.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
