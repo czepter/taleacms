@@ -17,7 +17,7 @@ jobs:
   # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
   # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
   # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
-  # test jobs (output tests=false); the repository checks (English, contracts) and the security scan still run.
+  # test jobs (output tests=false); the repository checks (unit and legacy suites: English, contracts) and the security scan still run.
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
@@ -79,10 +79,9 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
-      - run: php tools/contracts.php
       - name: PHPUnit unit and legacy suites (no database, so they run here once and not in every database job)
         # they also run tools/check-english.php (EnglishOnlyTest), tools/sql-dialect-scan.php (NoMysqlOnlySqlTest)
-        # and tools/unit-tests.php (LegacySuiteTest)
+        # and tools/unit-tests.php (LegacySuiteTest), which checks the public contracts of tools/contracts.php
         run: vendor/bin/phpunit --testsuite unit,legacy
 
   mysql:
