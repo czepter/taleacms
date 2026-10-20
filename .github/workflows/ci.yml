@@ -1,13 +1,11 @@
 # Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
-# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning. Also runs once a week without changes.
+# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning.
 name: CI
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
-  schedule:
-    - cron: '17 4 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
