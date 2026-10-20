@@ -175,7 +175,7 @@ final class Joomla implements Source, Remote
         }
     }
 
-    /* ---------- one article (covered by tools/unit-tests.php through the fake's data) ---------- */
+    /* ---------- one article (covered by tests/Unit/Import/ImportersTest.php through the fake's data) ---------- */
 
     /**
      * @param array<string, mixed> $a attributes

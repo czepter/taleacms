@@ -172,7 +172,7 @@ final class Drupal implements Source, Remote
         }
     }
 
-    /* ---------- one node (covered by tools/unit-tests.php through the fake's data) ---------- */
+    /* ---------- one node (covered by tests/Unit/Import/ImportersTest.php through the fake's data) ---------- */
 
     /** @param array<string, mixed> $node */
     private function post(array $node, string $type): Post

@@ -11,7 +11,7 @@ use Talea\Tests\Site\Support\SiteTestCase;
  * Domain watch as a bundled add-on (issue #28; was Core\DomainWatch with calls in Health, Audit, Scheduler and Settings). Off by default:
  * nothing of it exists. Switched on: the job, the System status rows, the hand-over findings, the settings page, the tools for Claude,
  * the alert e-mail. The checks themselves are fed fixtures (a fake resolver, a fake certificate and registry), as in the add-on's unit tests
- * (extensions/domain_watch/tests/unit.php). The tests of the class run in order.
+ * (tests/Unit/Addons/DomainWatchTest.php). The tests of the class run in order.
  */
 #[Group('site')]
 final class DomainWatchAddonTest extends SiteTestCase

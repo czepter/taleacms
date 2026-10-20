@@ -36,7 +36,7 @@ docker compose -f docker-compose-dev.yaml up -d --build
 The suites run on either engine: `composer test` (MySQL) and `composer test:pg` (integration suite on PostgreSQL, `TALEA_TEST_PG_HOST/_PORT/_USER/_PASSWORD`; set `TALEA_TEST_PG_PORT=33062` for the service above).
 
 Xdebug: `XDEBUG_MODE=debug docker compose -f docker-compose-dev.yaml up -d` (the IDE listens on 9003). Commands inside the container:
-`docker compose -f docker-compose-dev.yaml exec web php bin/migrate` · `… exec web php tools/unit-tests.php` · `… exec web composer require …`.
+`docker compose -f docker-compose-dev.yaml exec web php bin/migrate` · `… exec web composer test:unit` · `… exec web composer require …`.
 `docker compose -f docker-compose-dev.yaml down -v` removes the database, mails and uploads (delete `storage/.installed` to see the installer again).
 
 Docker CLI without the buildx plugin (Colima/Lima on macOS): the Dockerfile uses BuildKit, so run compose in the VM, which has buildx and sees your
