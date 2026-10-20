@@ -26,7 +26,7 @@ final class Build
      * Custom attributes of an element: only harmless ones – no on…, style, href or src, and none of the hooks the site's scripts read
      * (image/web.js, image/vitals.js, the cookie bar and accessibility toolbar scripts, image/editor.js on the page): a hook such as
      * data-leaflet, data-attribution or data-basket makes a script load a file or build a link from the value (3.3.2, N25). The list is
-     * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
+     * checked by tests/Unit/SecurityReleaseTest.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
     public const string ATTRIBUTE_PATTERN = '/^(data-(?!tl-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|experiment|file|form|frequency|fullscreen|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slideshow|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|variant|variants|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 

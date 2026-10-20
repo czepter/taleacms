@@ -1,7 +1,7 @@
 <?php
 /**
  * Talea – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
- * and checked by tools/unit-tests.php: an MCP tool or parameter, a design token or a builder element (and its content
+ * and checked by tests/Unit/ContractsTest.php: an MCP tool or parameter, a design token or a builder element (and its content
  * properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
  * deliberate addition, record it:
  *

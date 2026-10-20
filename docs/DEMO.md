@@ -44,4 +44,4 @@ To change the starting state later, edit the site and run `snapshot` again.
   - code fields (head code, marketing code, page head code) and secret keys.
 - Everything else – pages, the builder, collections, the look, menus, pop-ups, forms, media – works and is reset every hour.
 
-`tools/test-demo.sh` checks all of this on a fresh installation.
+`tests/Site/SiteMoveSecurity/DemoModeTest.php` checks all of this on a fresh installation (part of the site suite, on MySQL and PostgreSQL).

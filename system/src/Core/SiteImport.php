@@ -193,7 +193,9 @@ final class SiteImport
             }
             $zip = new \ZipArchive();
             if ($zip->open($path, \ZipArchive::RDONLY) !== true || ($in = $zip->getStream('content.json')) === false) {
-                throw new \RuntimeException('The file is not a Talea export (content.json is missing in the archive).');
+                throw new \RuntimeException($zip->locateName('obsah.json') !== false
+                    ? 'This is a Kaleta export. Convert it on the server with php tools/kaleta/convert.php and import the converted archive.'
+                    : 'The file is not a Talea export (content.json is missing in the archive).');
             }
             $out = fopen($json, 'wb');
             stream_copy_to_stream($in, $out);
@@ -348,8 +350,11 @@ final class SiteImport
                     $line = trim((string) $f->current());
                     $f->next();
                     $state['position']++;
+                    if ($line === '') {
+                        continue; // the end of the file is not a skipped row
+                    }
                     $done++;
-                    $row = $line === '' ? null : json_decode($line, true);
+                    $row = json_decode($line, true);
                     $ok = is_array($row) && $this->insert($table, $row, (int) $state['position']);
                     $state['result'][$table][$ok ? 'ok' : 'skipped'] = ($state['result'][$table][$ok ? 'ok' : 'skipped'] ?? 0) + 1;
                 }
