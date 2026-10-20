@@ -51,8 +51,8 @@ test in `tests/Site` for anything that needs a running site (see `tests/Site/REA
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.
-- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/check-english.php`
-  checks that no Czech leaks into the English interface.
+- Anything shown to visitors or administrators goes through `t()` and needs an English translation; run `php tools/check-english.php`
+  before you commit: it checks that no Czech leaks into the repository (CI does not run it).
 - Architecture notes for contributors (in Czech) are in [CLAUDE.md](CLAUDE.md).
 
 ## Translations

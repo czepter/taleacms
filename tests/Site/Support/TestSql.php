@@ -13,7 +13,7 @@ use Talea\Tests\Support\TestDatabase;
  * `visible = 1`. On PostgreSQL this turns it into the equivalent (on MariaDB only `->>`), so a test keeps saying what it checks and not how the engine spells it.
  * Not a general translator: the constructs the tests use, nothing more. What cannot be translated (a boolean printed inside CONCAT, REPLACE INTO,
  * a multi-table DELETE) is written portable in the test, or branches on TestDatabase::isPostgres() with a comment.
- * (The product's own SQL never goes through this: it is portable by itself, see tests/Unit/NoMysqlOnlySqlTest.php.)
+ * (The product's own SQL never goes through this: it is portable by itself, see tools/sql-dialect-scan.php.)
  */
 final class TestSql
 {
