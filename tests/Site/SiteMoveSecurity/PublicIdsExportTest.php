@@ -78,6 +78,7 @@ final class PublicIdsExportTest extends SiteTestCase
         $service = (int) $site->value("SELECT id FROM tl_booking_services WHERE name = 'Ids service'");
         $staff = (int) $site->value("SELECT id FROM tl_booking_staff WHERE name = 'Ids person'");
         $site->exec('INSERT INTO tl_booking_staff_services (staff_id, service_id) VALUES (?, ?)', [$staff, $service]);
+        $site->exec("INSERT INTO tl_booking_hours (staff_id, service_id, weekday, time_from, time_to) VALUES (?, NULL, 1, '09:00', '17:00'), (?, ?, 6, '13:00', '15:00')", [$staff, $staff, $service]);
         $heading = fn (string $id, string $text): array => ['id' => $id, 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => $text]];
         $site->exec("INSERT INTO tl_components (name, properties, build, updated_at) VALUES ('Ids card', '[]', ?, NOW())", [json_encode(['v' => 1, 'children' => [$heading('idc1', 'Card')]])]);
         $component = (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Ids card'");
@@ -120,6 +121,7 @@ final class PublicIdsExportTest extends SiteTestCase
         $this->assertStringContainsString(self::$ids['child'], (string) $popup['rules'], 'the pages of a pop-up are public ids');
         $this->assertStringContainsString(self::$ids['child'], (string) $content['menus'][0]['items'] . (string) ($content['menus'][1]['items'] ?? ''), 'a menu page is a public id');
         $this->assertContains(self::$ids['staff'], array_column($content['booking_staff_services'], 'staff_id'), 'a link table is public ids');
+        $this->assertSame([null, self::$ids['service']], array_column($content['booking_hours'], 'service_id'), 'booking hours: general (null) first, then the hours of a service by its public id');
         $this->assertDoesNotMatchRegularExpression('/"(page_id|category_id|news_id|tag_id|component_id|popup_id|item_id|media_id|folder_id|collection_id)":\d/', $content['_raw'], 'no integer key of a public-id table anywhere in content.json');
     }
 
@@ -161,6 +163,9 @@ final class PublicIdsExportTest extends SiteTestCase
         $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_news_tags nt JOIN tl_tags t ON t.tag_id = nt.tag_id WHERE t.slug = ?', ['ids-tag']), 'a tag link of a news item is kept');
         $this->assertSame('1', (string) $new->value("SELECT COUNT(*) FROM tl_media m JOIN tl_media_folders f ON f.folder_id = m.folder_id WHERE f.name = 'Ids folder'"), 'a media folder relation is kept');
         $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_booking_staff_services'), 'the person and the service stay linked');
+        $this->assertSame([['service_id' => null, 'weekday' => 1], ['service_id' => $new->internalId('booking_services', self::$ids['service']), 'weekday' => 6]],
+            array_map(fn (array $r): array => ['service_id' => $r['service_id'] === null ? null : (int) $r['service_id'], 'weekday' => (int) $r['weekday']], $new->rows('SELECT service_id, weekday FROM tl_booking_hours ORDER BY weekday')),
+            'booking hours: the general ones stay general, the ones of a service point at the new service');
         $this->assertSame(200, $new->client()->get('/' . $new->value('SELECT slug FROM tl_pages WHERE page_id = ?', [$child]))->status, 'the moved child page is served');
     }
 

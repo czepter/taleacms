@@ -151,7 +151,7 @@ final class SiteExport
         self::fields($f, 'booking_services', $all('booking_services', 'SELECT id, public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order FROM {booking_services} ORDER BY id'));
         self::fields($f, 'booking_staff', $all('booking_staff', 'SELECT id, public_id, name, email, active, sort_order FROM {booking_staff} ORDER BY id'));
         self::fields($f, 'booking_staff_services', $all('booking_staff_services', 'SELECT staff_id, service_id FROM {booking_staff_services} ORDER BY staff_id, service_id', ['staff_id' => 'booking_staff', 'service_id' => 'booking_services']));
-        self::fields($f, 'booking_hours', $all('booking_hours', 'SELECT staff_id, weekday, time_from, time_to FROM {booking_hours} ORDER BY staff_id, weekday, time_from', ['staff_id' => 'booking_staff']));
+        self::fields($f, 'booking_hours', $all('booking_hours', 'SELECT staff_id, service_id, weekday, time_from, time_to FROM {booking_hours} ORDER BY staff_id, service_id IS NOT NULL, service_id, weekday, time_from', ['staff_id' => 'booking_staff', 'service_id' => 'booking_services']));
         self::fields($f, 'booking_off', $all('booking_off', 'SELECT staff_id, off_from, off_to, note FROM {booking_off} WHERE off_to >= NOW() ORDER BY off_from', ['staff_id' => 'booking_staff']));
         self::fields($f, 'blueprints', $db->all('SELECT bkey, name, manifest FROM {blueprints} ORDER BY applied_at'));
         // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
@@ -395,7 +395,7 @@ final class SiteExport
             . "hours_exceptions exceptions to the opening hours still to come: date_from, date_to, closed, hours, note, notice_days\n"
             . "booking_services online booking (3.0): services – public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order\n"
             . "booking_staff    people who take bookings: public_id, name, email, active, sort_order; booking_staff_services links them (staff_id, service_id: public ids)\n"
-            . "booking_hours    weekly hours of a person: staff_id (public id), weekday (1–7), time_from, time_to; booking_off days off still to come (staff_id or null = everyone, off_from, off_to, note). The bookings themselves never travel – personal data.\n"            . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
+            . "booking_hours    weekly hours of a person: staff_id (public id), service_id (public id; null = the general hours, else only for that service), weekday (1–7), time_from, time_to; booking_off days off still to come (staff_id or null = everyone, off_from, off_to, note). The bookings themselves never travel – personal data.\n"            . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
             . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author\n"
             . "notice_log       audit trail of official notice boards (2.11): item_id (public id of the collection item), action, at, by, fields (JSON) – append-only\n"
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
