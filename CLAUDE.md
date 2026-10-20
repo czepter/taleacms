@@ -3,7 +3,7 @@
 A self-hosted website builder for small businesses and freelancers: pages, news/blog, a visual page
 builder, collections, forms, bookings and a connection to language models (MCP). Plain PHP 8.5+ with its own PSR-4 autoloader
 (`system/bootstrap.php`), MySQL 8 through PDO, server-rendered HTML and a little vanilla JS. Composer is used for infrastructure only
-(Phinx migrations, PHPUnit); application code stays framework-free. GPL v2 or later; this is a hard fork of the Czech project Talea
+(Phinx migrations, PHPUnit); application code stays framework-free. GPL v2 or later; this is a hard fork of the Czech project Kaleta
 (see `NOTICE` and `docs/DECISIONS.md`): no upstream merges, no installed base, no compatibility layers.
 
 ## Principles
@@ -37,7 +37,8 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   exports use the public id, never a row number.
 - **Schema changes are Phinx migrations** in `system/database/migrations/` (timestamped, table DSL, no raw SQL unless unavoidable, no
   `COLLATE`/`CHARSET`: the collation `utf8mb4_0900_ai_ci` is set once on the database). `bin/migrate` applies them (installer, Docker
-  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 or PostgreSQL 18 (`TALEA_DB_DRIVER`).
+  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 (also MariaDB 11.4+, driver `mysql`) or PostgreSQL 18 (`TALEA_DB_DRIVER`). MariaDB has no row
+  alias in upserts: `Db::pdo()` detects it from the server version and `Dialect\MySql(mariaDb: true)` writes `VALUES(col)` instead of `new_row.col`.
 - **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
   (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
   `Dialect::listPosition()`), `GROUP_CONCAT`, `JSON_EXTRACT`, `MATCH … AGAINST` (`Dialect::groupConcat()`, `jsonExtract()`, `fulltextMatch()`), `CURDATE()`

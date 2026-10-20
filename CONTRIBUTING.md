@@ -2,6 +2,12 @@
 
 Thank you for helping. Talea is a small project, so a short, focused change with a test is the easiest to accept.
 
+## Talea and Kaleta
+
+Talea is a hard fork of [Kaleta](https://github.com/phprs-cms/kaletacms) by Miroslav Kaleta and contributors. Nothing is merged
+in either direction. If a bug you found also exists in Kaleta, please report it there too; a fix ported from Kaleta names the
+Kaleta release or issue it comes from.
+
 ## Before you start
 
 - **Bugs:** open an issue in the project's GitHub repository with the Talea version (Admin → Updates), what
@@ -12,7 +18,7 @@ Thank you for helping. Talea is a small project, so a short, focused change with
 
 ## Setting up
 
-You need PHP 8.5+ and MySQL 8 or MariaDB 10.6+.
+You need PHP 8.5+ and MySQL 8, MariaDB 11.4+ or PostgreSQL 18.
 
 ```bash
 php -S localhost:8080 system/dev-router.php

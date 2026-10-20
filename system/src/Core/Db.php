@@ -7,6 +7,7 @@ namespace Talea\Core;
 use PDO;
 use PDOStatement;
 use Talea\Core\Dialect\Dialect;
+use Talea\Core\Dialect\MySql;
 
 /**
  * A thin layer over PDO.
@@ -72,6 +73,9 @@ final class Db
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
             $this->dialect()->setTimeZone($this->pdo, date('P'));
+            if ($this->dialect() instanceof MySql && str_contains((string) $this->pdo->getAttribute(PDO::ATTR_SERVER_VERSION), 'MariaDB')) {
+                $this->dialect = new MySql(mariaDb: true);
+            }
         }
 
         return $this->pdo;
@@ -167,6 +171,7 @@ final class Db
     public function upsert(string $table, array $data, array $keys, ?array $update = null): void
     {
         $columns = array_keys($data);
+        $this->pdo(); // connected first: the upsert differs on MariaDB
         $this->run($this->dialect()->upsert($table, $columns, $keys, $update ?? array_values(array_diff($columns, $keys))), array_values($data));
     }
 

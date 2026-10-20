@@ -2,6 +2,9 @@
 
 ## Reporting a vulnerability
 
+Talea is a hard fork of [Kaleta](https://github.com/phprs-cms/kaletacms). If the problem also exists in Kaleta, please report it
+to the Kaleta project as well, through its own security policy.
+
 Please **do not report security issues publicly** in Issues. Use GitHub's private reporting
 (*Security → Report a vulnerability*). Describe the version, the steps
 and the impact. We reply within 3 working days and usually release a fix within 14 days; critical issues
@@ -9,12 +12,12 @@ are fixed as soon as possible.
 
 ## How a fix reaches users
 
-1. The fix ships as a new version marked **security release**.
-2. Every installation checks for new versions twice a day. Unless the administrator has turned it off,
-   it **installs a security release on its own**: it backs up the database, verifies the checksum and the
-   publisher's signature, and replaces the system files.
-3. The administrator gets an email and a notice in the admin. Sites with automatic updates turned off
-   update with one button.
+1. The fix ships as a new container image, and the signed release feed marks it as a **security release**.
+2. Every installation reads the feed at most once a day (unless the operator turned the check off) and shows
+   a notice in the admin, flagged as a security release, with the command to pull the new image.
+3. The operator updates: `docker compose pull && docker compose up -d`. The container backs up the database
+   and applies the migrations before it serves the new version (docs/DEPLOYMENT.md).
+   This differs from Kaleta, where a site installs a security release on its own; Talea never updates itself.
 4. After the fix is released we publish a security advisory (GitHub Security Advisory) with a description
    and credit to the reporter.
 
@@ -24,5 +27,5 @@ what stays compatible: [docs/RELEASE-POLICY.md](docs/RELEASE-POLICY.md).
 ## What the system protects
 
 Prepared statements everywhere, `password_hash` passwords, CSRF protection on every admin action, escaped
-output, re-encoded uploaded images, `system/` and `storage/` not reachable from the web, and updates only
-with an Ed25519 signature. The system uses no third-party libraries at runtime.
+output, re-encoded uploaded images, `system/` and `storage/` not reachable from the web, a release feed only
+with an Ed25519 signature and images signed with cosign. The system uses no third-party libraries at runtime.

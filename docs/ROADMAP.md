@@ -1,6 +1,9 @@
-> Kaleta history: this roadmap was written for Kaleta, the project Talea was forked from. It is kept for reference and is not a plan for Talea.
+> **Kaleta history.** This roadmap was written by the Kaleta project ([kaletacms.com](https://kaletacms.com),
+> [phprs-cms/kaletacms](https://github.com/phprs-cms/kaletacms)) up to version 3.7.0, where Talea was forked. The scripted rename
+> replaced "Kaleta" with "Talea" in it; every release below is a Kaleta release. It is kept for reference and is not a plan for
+> Talea: see [DECISIONS.md](DECISIONS.md). Kaleta's current roadmap is in its own repository.
 
-# Talea roadmap
+# Kaleta roadmap
 
 What is planned next. Dates are not promised; releases ship when they are tested.
 
