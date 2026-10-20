@@ -48,8 +48,8 @@ final class Account
                     $db->update('users', ['name' => mb_substr($r->post('name'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'position' => mb_substr($r->post('position'), 0, 100), 'photo' => mb_substr($r->post('photo'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
                         'language' => isset(\Talea\Core\Language::ADMIN_LANGUAGES[$r->post('language')]) ? $r->post('language') : '',
-                        // form of address in the German administration: '' = formal
-                        'register' => $r->post('register') === 'informal' ? 'informal' : ''], ['user_id' => $user['user_id']]);
+                        // form of address in the German administration: '' = informal (du), only an explicit choice is formal
+                        'register' => $r->post('register') === 'formal' ? 'formal' : ''], ['user_id' => $user['user_id']]);
                     if ($emailChanged) {
                         ChangeLog::write($app, 'account', 'email_change');
                         $this->noticeOfNewEmail($user, $email);

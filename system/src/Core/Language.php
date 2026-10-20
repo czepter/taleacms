@@ -99,16 +99,16 @@ final class Language
 
     /**
      * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/languages/<set>de-du.php with only the
-     * strings that contain a form of address). The register is a setting, not a language: the code stays "de".
+     * strings that contain a form of address). The register is a setting, not a language: the code stays "de". Informal is the default: Sie only by choice.
      */
     public const array REGISTERS = ['formal', 'informal'];
 
-    private static string $register = 'formal';
+    private static string $register = 'informal';
 
     /** Register of the administration texts (the user's choice) and of the site texts (setting german_register), for code that switches language. */
-    private static string $adminRegister = 'formal';
+    private static string $adminRegister = 'informal';
 
-    private static string $siteRegister = 'formal';
+    private static string $siteRegister = 'informal';
 
     /** The language has no dictionary of its own, texts come from the English one (the date in words then comes from the intl extension, if the server has it). */
     private static bool $baseOnly = false;
@@ -264,10 +264,10 @@ final class Language
         return $code;
     }
 
-    /** Any value to formal | informal (anything unknown, empty included, is formal). */
+    /** Any value to formal | informal (anything but an explicit "formal", empty included, is informal). */
     public static function normalizeRegister(string $register): string
     {
-        return in_array($register, self::REGISTERS, true) ? $register : 'formal';
+        return $register === 'formal' ? 'formal' : 'informal';
     }
 
     /** Register of the administration of the person using it (My account); texts of the administration, installer and e-mails to staff follow it. */

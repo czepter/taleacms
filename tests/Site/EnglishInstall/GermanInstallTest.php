@@ -8,7 +8,7 @@ use Talea\Tests\Site\Support\CzechCheck;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** German installation through the web installer (2.5): German site, admin (du) and the Claude address. */
+/** German installation through the web installer (2.5): German site, admin (du without a choice) and the Claude address. */
 #[Group('site')]
 final class GermanInstallTest extends SiteTestCase
 {
@@ -17,7 +17,7 @@ final class GermanInstallTest extends SiteTestCase
     protected static function siteOptions(): array
     {
         return ['freshInstall' => true, 'web' => 'business', 'language' => 'de', 'siteName' => 'Acme GmbH', 'doneText' => 'Fertig, deine Website läuft', 'extensions' => ['claude'], 'enabledExtensions' => 'claude',
-            'installerFields' => ['register' => 'informal', 'site_language' => 'de', 'email' => 'office@example.com', 'name' => null]];
+            'installerFields' => ['site_language' => 'de', 'email' => 'office@example.com', 'name' => null]];
     }
 
     public function testFinishedScreen(): void
@@ -33,7 +33,7 @@ final class GermanInstallTest extends SiteTestCase
     {
         $site = $this->site();
         $this->assertSame('admin:de:de', $site->value("SELECT CONCAT(u.username, ':', u.language, ':', n.value) FROM tl_users u, tl_settings n WHERE n.name = 'site_language'"), 'the admin and the site are German');
-        $this->assertSame('informal:informal', $site->value("SELECT CONCAT(u.register, ':', n.value) FROM tl_users u, tl_settings n WHERE n.name = 'german_register'"), 'the form of address (du) is saved for the admin and the site');
+        $this->assertSame('informal:informal', $site->value("SELECT CONCAT(u.register, ':', n.value) FROM tl_users u, tl_settings n WHERE n.name = 'german_register'"), 'without a choice the form of address is du for the admin and the site');
         $home = $site->client('visitor')->get('/');
         $this->assertStringContainsString('lang="de"', $home->body, 'the German home page is there');
         $this->assertStringContainsString('Acme GmbH', $home->body, 'the site name is on the home page');
