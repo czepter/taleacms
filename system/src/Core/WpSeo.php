@@ -16,7 +16,7 @@ namespace Talea\Core;
  * Canonical URLs are only counted for the preview; Open Graph and Twitter fields are ignored. Redirects of these plugins live in
  * options or their own tables, not in the export, so they are out of scope here.
  *
- * Pure functions, covered by tools/unit-tests.php.
+ * Pure functions, covered by tests/Unit/Import/WordPressTest.php.
  */
 final class WpSeo
 {

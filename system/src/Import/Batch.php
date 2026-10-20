@@ -166,7 +166,7 @@ final class Batch
         return (string) ($state['web']['url'] !== '' ? $state['web']['url'] : ($state['mapping']['site_url'] ?? ''));
     }
 
-    /* ---------- pure conversions (covered by tools/unit-tests.php) ---------- */
+    /* ---------- pure conversions (covered by tests/Unit/Import/ImportersTest.php) ---------- */
 
     /**
      * Status in the source → our record; null = not imported. A scheduled post is published with its future date; the site

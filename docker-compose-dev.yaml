@@ -13,7 +13,7 @@
 # Xdebug is installed but off; start with XDEBUG_MODE=debug (IDE listens on 9003). Run Composer or PHP in the container:
 #   docker compose -f docker-compose-dev.yaml exec web php bin/migrate
 #   docker compose -f docker-compose-dev.yaml exec web composer install
-#   docker compose -f docker-compose-dev.yaml exec web php tools/unit-tests.php
+#   docker compose -f docker-compose-dev.yaml exec web composer test:unit
 # Tests against the throw-away database:
 #   composer test        (uses 127.0.0.1:33061 root/root by default; set TALEA_TEST_DB_* to use another server)
 #   composer test:pg     (the integration suite on PostgreSQL: TALEA_TEST_DB_DRIVER=pgsql, TALEA_TEST_PG_* = 127.0.0.1:33062 postgres/postgres)

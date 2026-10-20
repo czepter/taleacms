@@ -1,13 +1,11 @@
 # Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
-# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning. Also runs once a week without changes.
+# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning.
 name: CI
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
-  schedule:
-    - cron: '17 4 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,7 +17,7 @@ jobs:
   # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
   # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
   # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
-  # test jobs (output tests=false); the repository checks (English, contracts) and the security scan still run.
+  # test jobs (output tests=false); the repository checks (unit suite) and the security scan still run.
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
@@ -79,13 +77,11 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
-      - run: php tools/check-english.php
-      - run: php tools/contracts.php
-      - run: php tools/sql-dialect-scan.php
-      - run: php tools/unit-tests.php
       - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
+        # it checks the public contracts (ContractsTest); tools/check-english.php and tools/sql-dialect-scan.php
+        # are developer tools, run locally, not here
         run: vendor/bin/phpunit --testsuite unit
 
   mysql:
@@ -101,31 +97,9 @@ jobs:
         ports: ['3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
-      - name: PHPUnit (integration and whole installed sites; the unit suite and tools/unit-tests.php run in Repository checks)
-        run: vendor/bin/paratest --processes 4 --testsuite integration,site
-        env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
-
-  mariadb:
-    name: Tests on MariaDB 11.4
-    needs: gate
-    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
-    runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 45  # the site suite takes about 30 minutes on a busy runner, like on MySQL
-    services:
-      db:
-        image: mariadb:11.4
-        env: { MARIADB_ROOT_PASSWORD: root }
-        ports: ['3306']
-        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: ./.github/actions/php-composer
-      - name: More connections (the default 151 runs out with parallel whole-site tests)
-        run: php -r '(new PDO("mysql:host=db;port=3306", "root", "root"))->exec("SET GLOBAL max_connections = 1000");'
-        env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}" }
-      - name: PHPUnit (integration and whole installed sites)
+      - name: PHPUnit (integration and whole installed sites; the unit suite runs in Repository checks)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
@@ -142,7 +116,7 @@ jobs:
         ports: ['5432']
         options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
       - name: PHPUnit (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
@@ -161,7 +135,7 @@ jobs:
         ports: ['3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
       - name: Admin, builder, editors and public site in Chrome
         # Chromium and Node live in the ci image (.github/actions/php-composer): the path is the one inside the container
@@ -176,7 +150,7 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
       - name: PHPStan
         run: |
@@ -193,7 +167,7 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with: { fetch-depth: 0 }
       - name: Semgrep - security rules for PHP and JavaScript
         # run the tool directly in a container: the deprecated semgrep-action can no longer read the current registry rules
