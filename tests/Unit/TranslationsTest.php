@@ -134,7 +134,7 @@ final class TranslationsTest extends TestCase
             }
         }
         $this->assertSame([], $suggestionsLeft, 'Deutsch du: the Claude panel suggestions have no Sie in the informal administration');
-        $this->assertSame(['Geben Sie mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Enter at least 3 characters.', 'xformal', 'Geben Sie mindestens 3 Zeichen ein.'], [
+        $this->assertSame(['Geben Sie mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Enter at least 3 characters.', 'xformal', 'Gib mindestens 3 Zeichen ein.'], [
             \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), '', 'formal'),
             \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), '', 'informal'),
             \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-', 'informal'),
@@ -148,15 +148,21 @@ final class TranslationsTest extends TestCase
             \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.')),
             \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-'),
         ], 'Deutsch du: without an explicit register the site follows german_register and the administration the user’s choice');
-        \Talea\Core\Language::setSiteRegister('formal');
+        \Talea\Core\Language::setSiteRegister('');
+        \Talea\Core\Language::setAdminRegister('');
+        $this->assertSame(['Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.'], [
+            \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.')),
+            \Talea\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-'),
+        ], 'Deutsch du: without a choice (an empty register, no german_register) the site and the administration say du');
         \Talea\Core\Language::set('cs', 'admin-');
         // the form of address of the visitors reaches Claude: the connection instructions, site_info and the text copied from the dashboard
-        $this->assertSame(['informal', 'formal', 'informal', null, 'formal'], [
+        $this->assertSame(['informal', 'informal', 'informal', null, 'informal', 'formal'], [
             \Talea\Core\Language::visitorAddress(FakeSettings::site(['site_language' => 'de', 'german_register' => 'informal'])),
             \Talea\Core\Language::visitorAddress(FakeSettings::site(['site_language' => 'de'])),
             \Talea\Core\Language::visitorAddress(FakeSettings::site(['site_language' => 'cs', 'additional_languages' => 'de', 'german_register' => 'informal', 'extensions' => 'languages'])),
             \Talea\Core\Language::visitorAddress(FakeSettings::site(['site_language' => 'en', 'german_register' => 'informal'])),
             \Talea\Core\Language::normalizeRegister('x'),
+            \Talea\Core\Language::visitorAddress(FakeSettings::site(['site_language' => 'de', 'german_register' => 'formal'])),
         ], 'Deutsch du: Language::visitorAddress – only a site with a German version has one');
         $promptIn = fn (string $language, ?string $address, string $register = 'formal'): string => \Talea\Core\Language::runWith($language, fn (): string => \Talea\Core\AskClaude::prompt('https://example.com', $address), 'admin-', $register);
         $this->assertSame([true, true, false, true, true], [

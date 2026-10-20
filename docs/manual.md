@@ -316,10 +316,10 @@ Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, 
 Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
 site language separately from the admin language.
 
-German has two forms of address, formal (Sie) and informal (du), chosen separately for the admin and for the site. The admin
-follows each person's choice (**My account → Form of address in German**; the installer asks too). The texts for visitors
-follow **Settings → General → Form of address in German**, so you can use "du" in the admin and still address your customers
-with "Sie". Claude writes German texts for visitors in the form of address of the site, whatever the admin speaks to you.
+German has two forms of address, informal (du) and formal (Sie), chosen separately for the admin and for the site; both are
+"du" unless you choose "Sie". The admin follows each person's choice (**My account → Form of address in German**; the installer
+asks too). The texts for visitors follow **Settings → General → Form of address in German**, so you can use "du" in the admin and
+still address your customers with "Sie". Claude writes German texts for visitors in the form of address of the site, whatever the admin speaks to you.
 
 System addresses are the same in every language: `/news`, `/news/category/…`, `/news/tag/…` and `/search`. With a custom
 news address (**Settings → General → News URL**) `/news` redirects permanently to it, so old links and search rankings keep working.

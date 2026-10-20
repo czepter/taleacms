@@ -47,8 +47,8 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </select><span class="help">Language · Jazyk</span></div></div>
 <?php if ($adminLanguage === 'de'): ?>
 <div class="row"><label for="register"><?= e(t('Form of address in German')) ?></label><div><select id="register" name="register">
-	<option value="formal"<?= ($username['register'] ?? '') !== 'informal' ? ' selected' : '' ?>><?= e(t('Formal (Sie)')) ?></option>
-	<option value="informal"<?= ($username['register'] ?? '') === 'informal' ? ' selected' : '' ?>><?= e(t('Informal (du)')) ?></option>
+	<option value="formal"<?= ($username['register'] ?? '') === 'formal' ? ' selected' : '' ?>><?= e(t('Formal (Sie)')) ?></option>
+	<option value="informal"<?= ($username['register'] ?? '') !== 'formal' ? ' selected' : '' ?>><?= e(t('Informal (du)')) ?></option>
 </select><span class="help"><?= e(t('How the German administration addresses you. The texts for visitors have their own setting in Settings.')) ?></span></div></div>
 <?php endif ?>
 </fieldset>

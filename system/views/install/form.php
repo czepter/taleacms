@@ -36,8 +36,8 @@ $n = function () use (&$step): int {
 </nav>
 <?php if ($language === 'de'): ?>
 <nav class="languages" aria-label="<?= e(t('Form of address')) ?>">
-	<a href="?language=de&amp;register=formal"<?= $register !== 'informal' ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Formal (Sie)')) ?></a>
-	<a href="?language=de&amp;register=informal"<?= $register === 'informal' ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Informal (du)')) ?></a>
+	<a href="?language=de&amp;register=formal"<?= $register === 'formal' ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Formal (Sie)')) ?></a>
+	<a href="?language=de&amp;register=informal"<?= $register !== 'formal' ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Informal (du)')) ?></a>
 </nav>
 <?php endif ?>
 <header class="intro">
@@ -65,7 +65,7 @@ $n = function () use (&$step): int {
 <?php endif ?>
 <form method="post" autocomplete="off">
 <input type="hidden" name="language" value="<?= e($language) ?>">
-<input type="hidden" name="register" value="<?= e($register ?? 'formal') ?>">
+<input type="hidden" name="register" value="<?= e($register ?? 'informal') ?>">
 <?php if (empty($envDb)): ?>
 <section class="step">
 	<h2><span><?= $n() ?></span> <?= e(t('Database')) ?></h2>
