@@ -2333,7 +2333,6 @@ window.TALEA_TRANSLATIONS = {
 	"preview shared": "Vorschau geteilt",
 	"Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.": "Eigene PHP-Themes werden nicht mehr weiterentwickelt – das Erscheinungsbild der Website stellen Sie hier unter „Erscheinungsbild der Website“ und im Builder ein. Ein vorhandenes eigenes Theme funktioniert weiter, wir empfehlen aber den Wechsel zum Standard-Theme.",
 	"Talea is free and has no ads.": "Talea ist kostenlos und werbefrei.",
-	"Support its development on GitHub Sponsors": "Unterstützen Sie die Entwicklung auf GitHub Sponsors",
 	"Imprint (all details of the operator)": "Impressum (alle Angaben zum Betreiber)",
 	"Imprint (legal notice)": "Impressum (Anbieterkennzeichnung)",
 	"Company identification number; in other countries its registration number.": "Firmenidentifikationsnummer; in einem anderen Land deren Registrierungsnummer.",

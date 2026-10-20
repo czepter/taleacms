@@ -2,9 +2,15 @@
 
 For whoever runs the site: from installation through the page builder to connecting AI.
 
+Talea is a hard fork of [Kaleta](https://kaletacms.com) by Miroslav Kaleta and contributors, and this guide started as Kaleta's.
+Version numbers in brackets, such as (1.9) or (2.6), are the Kaleta releases in which a feature arrived. Where Talea works
+differently – installation as a container, no updates from the admin, looks, member login, A/B tests – see the README
+("What Talea changes").
+
 ## 1. Installation and first steps
 
-1. Upload the files to hosting (PHP 8.5+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
+1. Start the container ([docker/README.md](../docker/README.md)) and open the site; it leads to the installer. Without Docker, as in
+   Kaleta: upload the files to hosting (PHP 8.5+, MySQL 8, MariaDB 11.4+ or PostgreSQL 18; Kaleta also runs on MariaDB 10.6), create an empty database and open `/install.php`.
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
@@ -442,7 +448,7 @@ what it finds.
 target) or **Ignore** (nothing replaces it, or it is a bot); **Ignore all** dismisses the warning until a new address
 appears. Probes of bots looking for other systems are not recorded, and an address that works again drops out by itself.
 
-**Talea 2.0** is one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
+**Kaleta 2.0** (history, before the fork) made one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
 became a site pop-up during the update – same content, trigger and frequency, shown only where it was, and its button
 opens it (Appearance → Pop-ups). Old admin addresses of 1.3 lead to the start screen, old class names and helpers of
 1.3 no longer exist, and the settings answer only to their current names – the Claude connection still accepts the old
@@ -450,7 +456,8 @@ ones, so no connection breaks.
 
 ## 13. Backups, updates, export
 
-**Settings → Backups and updates:** signed updates and automatic database backups – every day something changed on the
+**Settings → Backups and updates:** a notice when a new version is out (in Talea an update is a new container image, see
+[DEPLOYMENT.md](DEPLOYMENT.md); Kaleta installs updates from here) and automatic database backups – every day something changed on the
 site, otherwise once a week; the last 10 are kept. **Off-site copies** upload each backup to an FTPS server or S3 storage
 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) and copy the `media/` folder to the same place – only new and changed
 files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
@@ -462,5 +469,5 @@ latest database backup over FTP into `storage/backups/`, copy the `media/` folde
 **Import and export → Export of the whole site** creates an open package with the content and media – for moving (see
 above) or keeping your content outside Talea. Enquiries, subscribers and accounts are not exported.
 
-The public read-only API of 1.x (`/api/news`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
+Kaleta's public read-only API of 1.x (`/api/news`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
 Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.

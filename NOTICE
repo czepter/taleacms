@@ -4,8 +4,11 @@ Talea
 Talea is licensed under the GNU General Public License, version 2 or (at your option) any later
 version. The licence text is in LICENSE.
 
-Talea is a fork of Kaleta by Miroslav Kaleta and contributors, https://github.com/phprs-cms/kaletacms.
-This fork diverges deliberately and merges nothing from upstream.
+Talea is a hard fork of Kaleta, the open-source CMS by Miroslav Kaleta (GitHub: phprscms) and
+contributors: https://kaletacms.com, source at https://github.com/phprs-cms/kaletacms.
+Talea branched off at Kaleta 3.7.0 in October 2026. It diverges deliberately and merges nothing from
+upstream; later Kaleta changes are re-implemented, not copied. What differs: README.md ("What Talea
+changes") and docs/DECISIONS.md.
 
 Original work: Copyright (C) Miroslav Kaleta and the contributors of Kaleta (committed as
 "Miroslav Kaleta" and "KaletaCMS" in the project history, which this repository keeps).
