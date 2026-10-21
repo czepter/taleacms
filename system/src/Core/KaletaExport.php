@@ -316,7 +316,7 @@ final class KaletaExport
 
         /* ---------- rows ---------- */
 
-        $convert = function (string $table, array $r) use ($v, $rename, $ref, $uuid, $decode, $encode, $build, $element, $fields, $menu, $style, $css, $strings): array {
+        $convert = function (string $table, array $r) use ($v, $rename, $ref, $uuid, $decode, $encode, $build, $element, $fields, $menu, $style, $css): array {
             $r = $rename($r, $v['columns'][$table] ?? []);
             if (isset(self::KEYS[$table])) {
                 $id = (int) ($r[self::KEYS[$table]] ?? 0);
