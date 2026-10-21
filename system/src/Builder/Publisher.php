@@ -99,6 +99,20 @@ final class Publisher
         return $build === null ? null : (string) $build;
     }
 
+    /**
+     * What changed since an older version: its content against $current (the draft or the published build), compared as text –
+     * layout, styles and images are not compared. Null when the version does not exist.
+     *
+     * @param array{page_id?: int|string, part?: string} $target
+     * @return array{html:string, added:int, deleted:int}|null
+     */
+    public static function compare(Db $db, array $target, int $idr, ?string $current): ?array
+    {
+        $old = self::load($db, $target, $idr);
+
+        return $old === null ? null : \Talea\Core\Diff::html(Build::asText(Build::fromJson($old) ?? []), Build::asText(Build::fromJson($current) ?? []));
+    }
+
     /** @return array{0: string, 1: int|string} */
     private static function whereClause(array $target): array
     {

@@ -172,7 +172,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <summary><?= e(t('Text history (%s)', count($versions))) ?></summary>
 <ul class="revisions">
 <?php foreach ($versions as $v): ?>
-	<li><?= e(format_date($v['created_at'], true)) ?><?= $v['user_id'] ? ' · ' . e($v['user_id']) : '' ?> · <?= e($v['title']) ?>
+	<li><?= e(format_date($v['created_at'], true)) ?><?= $v['user_id'] ? ' · ' . e($v['user_id']) : '' ?> · <?= e($v['title']) ?> · <a href="<?= e($module->url('compare', ['id' => $page['public_id'], 'revision' => (int) $v['revision_id']])) ?>"><?= e(t('what changed')) ?></a>
 		<form class="inline" method="post" action="<?= e($module->url('restore_version')) ?>" data-confirm="<?= e(t('Restore this version of the text? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="revision_id" value="<?= (int) $v['revision_id'] ?>"><button class="navigation" type="submit"><?= e(t('Restore')) ?></button></form></li>
 <?php endforeach ?>
 </ul>

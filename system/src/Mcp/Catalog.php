@@ -42,6 +42,7 @@ final class Catalog
         'insert_section' => ['draft', ''],
         'publish_build' => ['write', ''],
         'list_build_versions' => ['read', ''],
+        'compare_build_version' => ['read', ''],
         'restore_build_version' => ['destructive', ''],
         'discard_draft' => ['destructive', ''],
         'save_section' => ['draft', ''],

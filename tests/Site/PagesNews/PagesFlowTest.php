@@ -181,6 +181,9 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertSame('our-services/kitchens', (string) $site->value('SELECT slug FROM tl_pages WHERE parent_id = ?', [$idr]), 'changing the parent address moves the subpage');
         $this->assertRedirect('/company-services/kitchens', '/our-services/kitchens', 'the old address of a subpage redirects');
         $this->assertSame('<p>S</p>', (string) $site->value('SELECT text FROM tl_page_revisions WHERE page_id = ? ORDER BY revision_id DESC LIMIT 1', [$idr]), 'a text change saves the previous version');
+        $revision = (int) $site->value('SELECT revision_id FROM tl_page_revisions WHERE page_id = ? ORDER BY revision_id DESC LIMIT 1', [$idr]);
+        $this->assertPage('/admin.php?module=pages&action=compare&id=' . $site->publicId('pages', $idr) . '&revision=' . $revision, 200, '<p><del>S</del><ins>S2</ins></p>', message: 'the text history shows what changed since a version');
+        $this->assertPage('/admin.php?module=pages&action=compare&id=' . $site->publicId('pages', $idr) . '&revision=0', 404, message: 'an unknown version is not found');
         self::$services = $idr;
 
         $this->savePage(['page_id' => 0, 'title' => 'Event', 'in_menu' => 0, 'text' => '<p>A</p>', 'publish_at' => date('Y-m-d\TH:i', strtotime('+1 day'))]);
