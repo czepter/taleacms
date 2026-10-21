@@ -19,11 +19,13 @@ COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/talea-entrypoint
 WORKDIR /app
 
 # ---- vendor: Composer packages (Phinx, the database migrations) – production dependencies only
-FROM composer:2 AS vendor
+# PHP files are the same on every architecture: the stage runs once on the build machine ($BUILDPLATFORM), not again under emulation
+FROM --platform=$BUILDPLATFORM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 # the PHP extensions (pdo_mysql …) live in the base stage, not in the composer image: platform checks are skipped here
-RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader --ignore-platform-reqs
+RUN --mount=type=cache,target=/tmp/composer-cache \
+    COMPOSER_CACHE_DIR=/tmp/composer-cache composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
 # ---- dev: the code is mounted from the host (docker-compose-dev.yaml), Composer and Xdebug are inside
 FROM base AS dev
@@ -67,9 +69,10 @@ FROM base AS production
 RUN mkdir -p storage/cache storage/log storage/import media extensions /data/caddy /config/caddy \
     && chown -R www-data:www-data /app/storage /app/media /app/extensions /data /config
 
-# application code last; .dockerignore keeps config.php, .env and the like out
-COPY . /app
+# the packages change less often than the code: they come first. Application code last; .dockerignore keeps config.php, .env, a
+# local vendor/ and the like out
 COPY --from=vendor /app/vendor /app/vendor
+COPY . /app
 RUN chown -R www-data:www-data /app/storage /app/media /app/extensions
 # declared last: later changes to these paths would be discarded
 VOLUME ["/app/storage", "/app/media", "/app/extensions"]

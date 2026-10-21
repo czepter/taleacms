@@ -27,3 +27,4 @@ image/ukazka
 system/nginx.example.conf
 system/dev-router.php
 .env*
+vendor
