@@ -10,7 +10,7 @@
  * @var array{html:string, added:int, deleted:int} $text
  */
 $added = $title['added'] + $home['added'] + $text['added'];
-$deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];
+$deleted = $title['deleted'] + $home['deleted'] + $text['deleted'];
 ?>
 <p class="navigation-row">
 	<a class="navigation" href="<?= e($module->url('edit', ['id' => $newsItem['public_id']])) ?>"><?= e(t('Back to the news item')) ?></a>
