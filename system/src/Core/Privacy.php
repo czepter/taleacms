@@ -332,7 +332,7 @@ final class Privacy
         $forms = [];
         foreach (self::forms($app) as $f) {
             $forms[] = t('Form “%s” on %s: fields %s; notification to %s%s', $f['name'], $f['where'], implode(', ', array_map(fn (array $field): string => $field['label'] . ' (' . t($field['type']) . ')', $f['fields'])),
-                $f['recipient'] !== '' ? $f['recipient'] : t('the site e-mail'), $f['confirmation'] ? '; ' . t('the sender gets a confirmation e-mail') : '');
+                ($f['recipient'] !== '' ? $f['recipient'] : t('the site e-mail')) . ($f['bcc'] !== '' ? ' ' . t('(hidden copy to %s)', $f['bcc']) : ''), $f['confirmation'] ? '; ' . t('the sender gets a confirmation e-mail') : '');
         }
         $months = $s->int('enquiries_months');
         $sections[] = ['heading' => t('Enquiries and form messages'), 'lines' => array_merge($forms !== [] ? $forms : [t('No form on the published site.')], [
@@ -419,7 +419,7 @@ final class Privacy
     /**
      * The Form elements of the published site with their fields.
      *
-     * @return list<array{name: string, where: string, fields: list<array{label: string, type: string}>, recipient: string, confirmation: bool}>
+     * @return list<array{name: string, where: string, fields: list<array{label: string, type: string}>, recipient: string, bcc: string, confirmation: bool}>
      */
     public static function forms(App $app): array
     {
@@ -438,7 +438,7 @@ final class Privacy
                                 $fields[] = ['label' => (string) ($field['label'] ?? ''), 'type' => \Talea\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
-                        $forms[] = ['name' => (string) ($n['content']['name'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['content']['recipient'] ?? ''), 'confirmation' => !empty($n['content']['confirmation'])];
+                        $forms[] = ['name' => (string) ($n['content']['name'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['content']['recipient'] ?? ''), 'bcc' => (string) ($n['content']['bcc'] ?? ''), 'confirmation' => !empty($n['content']['confirmation'])];
                     }
                     $walk((array) ($n['children'] ?? []));
                 }
