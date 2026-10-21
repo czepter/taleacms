@@ -30,6 +30,19 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($state['phase'] === 'preview'): ?>
 <p><?= e(t('Export of the site “%s” from Talea %s, created %s.', $h['name'], $h['talea'], $h['created_at'] !== '' ? format_date(date('Y-m-d H:i:s', (int) strtotime($h['created_at'])), true) : '–')) ?></p>
+<?php if (($h['converted_from'] ?? '') !== ''): ?>
+<p class="notice"><?= e(t('The uploaded file was a %s export and has been converted into a Talea export automatically.', $h['converted_from'])) ?></p>
+<?php if (($h['conversion_warnings'] ?? []) !== []): ?>
+<details>
+	<summary><?= e(t('Conversion notes (%d)', count($h['conversion_warnings']))) ?></summary>
+	<ul>
+<?php foreach ($h['conversion_warnings'] as $message => $count): ?>
+		<li><?= e((string) $message) ?><?= $count > 1 ? ' (' . (int) $count . '×)' : '' ?></li>
+<?php endforeach ?>
+	</ul>
+</details>
+<?php endif ?>
+<?php endif ?>
 <div class="tiles">
 <?php foreach ($labels as $table => $label): if (($counts[$table] ?? 0) === 0) { continue; } ?>
 	<div class="tiles-item"><strong><?= (int) $counts[$table] ?></strong><span><?= e(t($label)) ?></span></div>

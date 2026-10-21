@@ -2,9 +2,9 @@
 
 /**
  * Kaleta (the Czech upstream) => Talea: the words a Kaleta site export (obsah.json, format version 2) stores and their Talea names.
- * Read by tools/kaleta/convert.php. The builder part is Kaleta's own MCP vocabulary (Kaleta\Mcp\Vocabulary as of 3.7, the source
+ * Read by Talea\Core\KaletaExport. The builder part is Kaleta's own MCP vocabulary (Kaleta\Mcp\Vocabulary as of 3.7, the source
  * of the Talea builder names); the rest comes from the hard-fork rename map (tables, columns, stored values) and the classes it
- * renamed (menus, pop-ups, site parts, collections, components, design system). Czech on purpose: tools/kaleta/ is a dictionary.
+ * renamed (menus, pop-ups, site parts, collections, components, design system). Czech on purpose: this file is a dictionary.
  */
 
 return [
