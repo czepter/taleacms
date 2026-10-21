@@ -1,8 +1,7 @@
 # Daily security check. It releases and signs nothing - it only says in time that a patch (a fix release) is needed:
-#  1) the update channel on taleacms.com is signed with our key and the package matches its hash (catches forgery),
-#  2) static security analysis with daily updated rules - findings go to Security → Code scanning,
+#  1) static security analysis with daily updated rules - findings go to Security → Code scanning,
 #     visible to repository admins only (the public run log is deliberately quiet),
-#  3) the project website and the demo send security headers and do not expose files they should not.
+#  2) the project website and the demo send security headers and do not expose files they should not.
 # When something fails, an issue "Daily check failed" is created (or revived) and GitHub sends an e-mail.
 name: Daily check
 on:
@@ -12,16 +11,6 @@ on:
 permissions:
   contents: read
 jobs:
-  channel:
-    name: Update channel
-    if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
-    runs-on: [self-hosted, Linux, X64]
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: ./.github/actions/php-composer
-        with: { install: 'false' }
-      - run: php tools/check-channel.php
-
   analysis:
     name: Static analysis
     runs-on: [self-hosted, Linux, X64]
@@ -65,12 +54,12 @@ jobs:
           # the admin: CSP and HSTS
           for h in content-security-policy strict-transport-security; do header https://taleacms.com/admin.php "$h"; done
           code https://taleacms.com/update.json "200 302"
-          for path in .htaccess config.php system/bootstrap.php system/files.json storage/log/errors.log .git/config tools/release.php; do code "https://taleacms.com/$path" "403 404"; done
+          for path in .htaccess config.php system/bootstrap.php storage/log/errors.log .git/config; do code "https://taleacms.com/$path" "403 404"; done
           exit "$errors"
 
   report:
     name: Issue on failure
-    needs: [channel, analysis, websites]
+    needs: [analysis, websites]
     if: ${{ failure() }}
     runs-on: [self-hosted, Linux, X64]
     permissions:

@@ -16,7 +16,7 @@ Open the site and walk through the installer. Configuration is environment varia
 
 ## Update
 
-1. Read the notice in the administration (or the release notes): a new version, and whether it is a security release.
+1. Read the release notes on GitHub: what changed, and whether it is a security release (watch the repository's releases to hear of them).
 2. Pull and restart:
 
    ```bash
@@ -30,14 +30,8 @@ On start the entrypoint
    several replicas, so two containers never apply the same migration,
 3. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
 
-Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release.
-
-## The "new version" notice
-
-Once a day the site reads the signed release feed (`update.json`, the address in `TALEA_UPDATE_FEED`) and shows a notice to
-administrators. No identifier and no query string are sent; the feed is verified against `system/update.pub` and ignored when the
-signature does not match. Nothing is ever installed by the site. Switch the check off with `TALEA_UPDATE_CHECK=0` or in
-Settings → Backups and updates. Without `TALEA_UPDATE_FEED` nothing is requested at all.
+Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release;
+`edge` follows `main` and is meant for a staging site. All tags: docs/RELEASING.md, "Image tags".
 
 ## Health
 
@@ -51,7 +45,7 @@ Migrations only move forward, and a release never drops what the previous releas
 release). To go back:
 
 1. stop the containers,
-2. restore the dump from `storage/backups/` taken before the update (Settings → Backups and updates → restore, or the SQL file with
+2. restore the dump from `storage/backups/` taken before the update (Settings → Backups → restore, or the SQL file with
    your MySQL client),
 3. start the previous image tag.
 
@@ -83,4 +77,4 @@ cosign verify ghcr.io/<owner>/talea:1.4.2 \
   --certificate-identity-regexp 'https://github.com/<owner>/.*' --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-The feed lists the image digest; the publisher signs it locally with `php tools/release.php X.Y.Z --feed ...` (docs/RELEASING.md).
+Each GitHub release names the digest of its image.

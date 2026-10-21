@@ -9,35 +9,31 @@ use Talea\Core\Db;
 use Talea\Core\Events;
 use Talea\Core\Response;
 use Talea\Core\Settings;
-use Talea\Core\Updater;
 
 /**
  * The console's side (2.9): a Talea install with the extension "fleet" keeps the sites paired with it.
  *
  *  - Pairing: the console makes a one-time code (24 hours); the site sends it with its public key, signed by that key.
  *  - Heartbeat: each site reports every hour, signed; an older or repeated heartbeat is refused. The console stores the
- *    last one and answers – signed by its own key – which version the site may install.
- *  - Staged updates: canary sites get a new version at once; the rest when every canary has run it for UPDATE_WAIT without
- *    errors, without being down and without a failed update (without canaries: UPDATE_WAIT after the console first saw
- *    the version). Security releases go to everyone at once. An administrator can allow a version by hand.
+ *    last one and answers, signed by its own key (and announces the newest design kit, Fleet\Kit).
+ *  - Versions: the console shows which version each site runs; sites update by pulling a new image, never through the console.
  *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down.
  * The console never calls into a site and holds no credentials for it: it only answers the sites.
  */
 final class Console
 {
     public const int CODE_HOURS = 24;
-    public const int UPDATE_WAIT = 48 * 3600;
     public const int SILENT_AFTER = 26 * 3600;
     public const int DOWN_AFTER = 2;
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
     private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'schema_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
-        'update_available', 'update_problem', 'auto_updates', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
+        'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [
-        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'update_failed' => 50, 'jobs_failing' => 40, 'no_backup' => 30,
-        'no_heartbeat' => 20, 'warnings' => 10, 'no_cron' => 5, 'enquiries' => 5, 'update_available' => 5, 'audit' => 2,
+        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'jobs_failing' => 40, 'no_backup' => 30,
+        'no_heartbeat' => 20, 'warnings' => 10, 'no_cron' => 5, 'enquiries' => 5, 'audit' => 2,
     ];
 
     /** A new one-time pairing key (shown once). */
@@ -68,11 +64,10 @@ final class Console
         if ($db->value('SELECT 1 FROM {fleet_pairing} WHERE code_hash = ? AND used_at IS NULL AND expires_at > NOW()', [$hash]) === null) {
             return Response::json(['error' => 'The pairing key is unknown, used or expired – make a new one on the console.'], 403);
         }
-        $row = ['name' => mb_substr((string) ($d['name'] ?? ''), 0, 150), 'url' => mb_substr(rtrim($d['url'], '/'), 0, 255), 'manage_updates' => !empty($d['manage_updates']) ? 1 : 0,
-            'version' => mb_substr((string) ($d['version'] ?? ''), 0, 30)];
+        $row = ['name' => mb_substr((string) ($d['name'] ?? ''), 0, 150), 'url' => mb_substr(rtrim($d['url'], '/'), 0, 255), 'version' => mb_substr((string) ($d['version'] ?? ''), 0, 30)];
         $existing = $db->value('SELECT id FROM {fleet_sites} WHERE public_key = ?', [$d['public_key']]);
         if ($existing !== null) {
-            $id = (int) $existing; // the same site paired again (e.g. after it disconnected): its ring and history stay
+            $id = (int) $existing; // the same site paired again (e.g. after it disconnected): its history stays
             $db->update('fleet_sites', $row + ['last_ts' => 0], ['id' => $id]);
         } else {
             $id = $db->insert('fleet_sites', $row + ['public_key' => $d['public_key'], 'paired_at' => date('Y-m-d H:i:s'), 'version_since' => date('Y-m-d H:i:s')]);
@@ -102,8 +97,7 @@ final class Console
         $beat = self::clean($d);
         $version = (string) ($beat['version'] ?? '');
         $update = ['last_seen' => date('Y-m-d H:i:s'), 'last_ts' => $ts, 'heartbeat' => (string) json_encode($beat, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'status' => in_array($beat['status'] ?? '', ['ok', 'warning', 'error'], true) ? $beat['status'] : '', 'silent_reported' => 0,
-            'manage_updates' => !empty($d['manage_updates']) ? 1 : 0, 'version' => $version];
+            'status' => in_array($beat['status'] ?? '', ['ok', 'warning', 'error'], true) ? $beat['status'] : '', 'silent_reported' => 0, 'version' => $version];
         if (($beat['name'] ?? '') !== '') {
             $update['name'] = $beat['name'];
         }
@@ -116,18 +110,12 @@ final class Console
                 Events::record($db, 'fleet.site_updated', 'info', t('%s runs version %s.', (string) ($update['url'] ?? $site['url']), $version), ['site' => (int) $site['id'], 'version' => $version]);
             }
         }
-        if ($version !== '' && (string) $site['update_allowed'] !== '' && !version_compare((string) $site['update_allowed'], $version, '>')) {
-            $update['update_allowed'] = ''; // the version allowed by hand is installed
-        }
         $db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
-        $site = array_merge($site, $update);
-        [$latest, $security, $firstSeen] = self::latest($app);
-        $allowed = self::allowedVersion(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time());
 
         // 2.16: the newest shared design kit is only announced here – a site that wants it asks /fleet/kit itself (Fleet\Kit)
         $kit = Kit::announcement($db);
 
-        return self::signed($app->settings(), ['ok' => true, 'update_allowed' => $allowed] + ($kit !== null ? ['kit' => $kit] : []));
+        return self::signed($app->settings(), ['ok' => true] + ($kit !== null ? ['kit' => $kit] : []));
     }
 
     /** POST /fleet/unpair – the site ended the pairing. */
@@ -154,72 +142,6 @@ final class Console
     }
 
     /**
-     * Allows the newest version now: one site, or every site that lets the console decide. Each picks it up with its next
-     * heartbeat (within an hour). Returns how many sites.
-     */
-    public static function allowNow(App $app, ?int $siteId = null): int
-    {
-        [$latest] = self::latest($app);
-        $count = 0;
-        foreach (self::sites($app->db()) as $site) {
-            if (($siteId === null || (int) $site['id'] === $siteId) && (int) $site['manage_updates'] === 1 && version_compare($latest, (string) $site['version'], '>')) {
-                $app->db()->update('fleet_sites', ['update_allowed' => $latest], ['id' => (int) $site['id']]);
-                $count++;
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * The newest version the console knows (its own, or the newer one its update channel offers), whether it is a security
-     * release, and when the console first saw it (setting fleet_versions, JSON version => [time, security]).
-     *
-     * @return array{0: string, 1: bool, 2: int}
-     */
-    public static function latest(App $app): array
-    {
-        $s = $app->settings();
-        $new = (new Updater($s))->state()['available'];
-        $version = $new !== null ? (string) $new['version'] : TALEA_VERSION;
-        $seen = json_decode($s->get('fleet_versions'), true);
-        $seen = is_array($seen) ? $seen : [];
-        if (!isset($seen[$version])) {
-            $seen[$version] = [time(), $new !== null && !empty($new['security'])];
-            $s->set('fleet_versions', (string) json_encode(array_slice($seen, -20, null, true)));
-        }
-
-        return [$version, (bool) $seen[$version][1], (int) $seen[$version][0]];
-    }
-
-    /**
-     * Which version a site may install now ('' = none). Pure – see the class description.
-     *
-     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool} $site
-     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}> $sites
-     */
-    public static function allowedVersion(array $site, array $sites, string $latest, bool $security, int $firstSeen, int $now): string
-    {
-        if (!$site['manage_updates'] || $latest === '' || ($site['version'] !== '' && !version_compare($latest, $site['version'], '>'))) {
-            return '';
-        }
-        if ($site['update_allowed'] === $latest || $security || $site['ring'] === 'canary') {
-            return $latest;
-        }
-        $canaries = array_filter($sites, fn (array $c): bool => $c['ring'] === 'canary' && $c['manage_updates'] && $c['id'] !== $site['id']);
-        if ($canaries === []) {
-            return $firstSeen > 0 && $now - $firstSeen >= self::UPDATE_WAIT ? $latest : '';
-        }
-        foreach ($canaries as $c) {
-            if ($c['version'] !== $latest || $c['version_since'] === null || $now - $c['version_since'] < self::UPDATE_WAIT || $c['status'] === 'error' || $c['up'] === false || $c['update_problem']) {
-                return '';
-            }
-        }
-
-        return $latest;
-    }
-
-    /**
      * Why a site needs attention, by weight (REASONS). Pure.
      *
      * @param array<string, mixed> $site a row of tl_fleet_sites
@@ -242,9 +164,6 @@ final class Console
         if (($site['status'] ?? '') === 'error') {
             $reasons[] = 'errors';
         }
-        if (!empty($beat['update_problem'])) {
-            $reasons[] = 'update_failed';
-        }
         if (!empty($beat['jobs_failing'])) {
             $reasons[] = 'jobs_failing';
         }
@@ -259,9 +178,6 @@ final class Console
         }
         if ((int) ($beat['enquiries_unanswered'] ?? 0) > 0) {
             $reasons[] = 'enquiries';
-        }
-        if (!empty($beat['update_available'])) {
-            $reasons[] = 'update_available';
         }
         if (is_array($beat['audit'] ?? null) && array_sum($beat['audit']) > 0) {
             $reasons[] = 'audit';
@@ -326,21 +242,6 @@ final class Console
     public static function sites(Db $db): array
     {
         return $db->all('SELECT * FROM {fleet_sites} ORDER BY name, id');
-    }
-
-    /**
-     * A row in the shape allowedVersion() reads.
-     *
-     * @param array<string, mixed> $site
-     * @return array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}
-     */
-    public static function row(array $site): array
-    {
-        $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
-
-        return ['id' => (int) $site['id'], 'version' => (string) $site['version'], 'ring' => (string) $site['ring'], 'manage_updates' => (int) $site['manage_updates'] === 1,
-            'update_allowed' => (string) $site['update_allowed'], 'status' => (string) $site['status'], 'up' => $site['up'] === null ? null : (int) $site['up'] === 1,
-            'version_since' => $site['version_since'] !== null ? (int) strtotime((string) $site['version_since']) : null, 'update_problem' => is_array($beat) && !empty($beat['update_problem'])];
     }
 
     /**

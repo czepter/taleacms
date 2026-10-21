@@ -29,9 +29,9 @@ trait FleetTools
         return [
             'sites' => array_map(fn (array $s): array => ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'url' => (string) $s['url'], 'version' => (string) $s['version'],
                 'attention' => $s['reasons'], 'score' => $s['score'], 'last_report' => $s['last_seen'], 'up' => $s['up'] === null ? null : (int) $s['up'] === 1,
-                'ring' => (string) $s['ring'], 'console_decides_updates' => (int) $s['manage_updates'] === 1, 'enquiries_waiting' => $s['beat']['enquiries_unanswered'] ?? null,
+                'enquiries_waiting' => $s['beat']['enquiries_unanswered'] ?? null,
                 'kit_version' => $s['beat']['kit_version'] ?? null], $sites),
-            'newest_version' => Console::latest($this->app)[0],
+            'console_version' => TALEA_VERSION, // sites update by pulling a new image; a site behind this version has not been updated yet
             // the shared design kit (2.16, Fleet\Kit): the newest version the console published; kit_version says which one each site applied
             'kit' => ($kit = Kit::latest($this->app->db())) !== null ? ['version' => $kit['version'], 'published' => $kit['created_at'], 'contents' => $kit['summary']] : null,
             'next' => 'get_site for the full report of one site. To change something on a site, use that site\'s own Claude connection – the console has no access to the sites.',
@@ -53,7 +53,6 @@ trait FleetTools
 
         return ['id' => (int) $site['id'], 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'attention' => $attention['reasons'], 'score' => $attention['score'],
             'up' => $site['up'] === null ? null : (int) $site['up'] === 1, 'up_checked' => $site['up_checked'], 'last_report' => $site['last_seen'], 'paired' => $site['paired_at'],
-            'ring' => (string) $site['ring'], 'console_decides_updates' => (int) $site['manage_updates'] === 1, 'update_allowed' => (string) $site['update_allowed'],
             'kit_version' => is_array($beat) ? ($beat['kit_version'] ?? null) : null, 'report' => is_array($beat) ? $beat : null];
     }
 }

@@ -336,14 +336,6 @@ final class Kernel
 
             return new Response($pending ? "migrations pending\n" : "ok\n", $pending ? 503 : 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
         }
-        if ($path === '/tasks' && $request->get('probe') !== '') {
-            // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
-            $probe = $this->app->settings()->get('update_probe');
-
-            return $probe !== '' && hash_equals($probe, $request->get('probe'))
-                ? new Response('TALEA-PROBE ' . TALEA_VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'])
-                : new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
-        }
         if ($path === '/tasks') {
             // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
             $token = $this->app->settings()->get('tasks_token');

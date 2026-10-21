@@ -31,30 +31,6 @@ parameters:
 			path: system/src/Admin/Modules/Popups.php
 
 		-
-			message: '#^Left side of && is always false\.$#'
-			identifier: booleanAnd.leftAlwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Settings.php
-
-		-
-			message: '#^Negated boolean expression is always true\.$#'
-			identifier: booleanNot.alwaysTrue
-			count: 1
-			path: system/src/Admin/Modules/Settings.php
-
-		-
-			message: '#^Result of \|\| is always true\.$#'
-			identifier: booleanOr.alwaysTrue
-			count: 1
-			path: system/src/Admin/Modules/Settings.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
-			count: 1
-			path: system/src/Admin/Modules/Settings.php
-
-		-
 			message: '#^Strict comparison using \=\=\= between ''parts'' and ''pages'' will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
@@ -217,40 +193,10 @@ parameters:
 			path: system/src/Core/Diff.php
 
 		-
-			message: '#^If condition is always false\.$#'
-			identifier: if.alwaysFalse
-			count: 1
-			path: system/src/Core/Health.php
-
-		-
-			message: '#^Offset ''status'' does not exist on array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: system/src/Core/Health.php
-
-		-
 			message: '#^Offset ''username'' on array\{scheme\?\: string, host\?\: string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\} in isset\(\) does not exist\.$#'
 			identifier: isset.offset
 			count: 1
 			path: system/src/Core/ImageDownloader.php
-
-		-
-			message: '#^Method Talea\\Core\\Integrity\:\:check\(\) should return array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\} but returns array\{changed\: array\{\}, missing\: array\{\}, extra\: array\{\}, status\: ''error'', info\: string\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Core/Integrity.php
-
-		-
-			message: '#^Method Talea\\Core\\Integrity\:\:check\(\) should return array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\} but returns array\{changed\: array\{\}, missing\: array\{\}, extra\: array\{\}, status\: ''ok'', info\: string\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Core/Integrity.php
-
-		-
-			message: '#^Method Talea\\Core\\Integrity\:\:check\(\) should return array\{stav\: string, info\: string, zmenene\: list\<string\>, chybi\: list\<string\>, navic\: list\<string\>\} but returns array\{status\: ''ok''\|''warning'', info\: string, changed\: list\<\(int\|string\)\>, missing\: list\<\(int\|string\)\>, extra\: list\<string\>\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Core/Integrity.php
 
 		-
 			message: '#^Method Talea\\Core\\Links\:\:broken\(\) should return list\<array\{kind\: string, id\: int, title\: string, url\: string, element\: string, status\: int, found\: string, edit\: string, \.\.\.\}\> but returns list\<array\{kind\: string, id\: string, title\: string, url\: string, element\: string, status\: int, found\: string, edit\: string, \.\.\.\}\>\.$#'
@@ -371,66 +317,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: system/src/Core/SiteWizard.php
-
-		-
-			message: '#^Empty array passed to foreach\.$#'
-			identifier: foreach.emptyArray
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Method Talea\\Core\\Updater\:\:download\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Method Talea\\Core\\Updater\:\:extract\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Method Talea\\Core\\Updater\:\:probe\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Method Talea\\Core\\Updater\:\:releaseFiles\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Method Talea\\Core\\Updater\:\:releaseHashes\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Method Talea\\Core\\Updater\:\:restore\(\) is unused\.$#'
-			identifier: method.unused
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Negated boolean expression is always true\.$#'
-			identifier: booleanNot.alwaysTrue
-			count: 2
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Property Talea\\Core\\Updater\:\:\$keyFile is never read, only written\.$#'
-			identifier: property.onlyWritten
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
-			count: 2
-			path: system/src/Core/Updater.php
 
 		-
 			message: '#^Offset ''username'' on array\{scheme\?\: string, host\: non\-empty\-string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\} in isset\(\) does not exist\.$#'

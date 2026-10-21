@@ -252,6 +252,6 @@ $phase = [
 </tbody>
 </table>
 </div>
-<p class="small-text"><?= e(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups and updates.')) ?></p>
+<p class="small-text"><?= e(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups.')) ?></p>
 <?php endif ?>
 </details>

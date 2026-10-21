@@ -181,8 +181,8 @@ and size/time limits, never SVG.
   `db-test` service); every class creates and drops its own database.
 - `php tools/check-english.php` (English everywhere), `php tools/contracts.php` (MCP, design tokens and element contracts),
   `tools/screenshots.sh` (screenshots for docs after admin changes), Lighthouse `tools/test-lighthouse.sh`.
-- Releases: `docs/RELEASING.md` (container image, signed feed), `docs/DEPLOYMENT.md` (update, rollback, health, replicas).
-  The in-app updater is switched off (`Core\Updater::ENABLED`); `Core\UpdateFeed` only shows a "new version" notice.
+- Releases: `docs/RELEASING.md` (a tag builds the container image: tags, build cache), `docs/DEPLOYMENT.md` (update, rollback, health, replicas).
+  There is no in-app updater and no update check: a site is updated only by pulling a new image.
 
 <!-- claude-reflect: learned rules (saved from the band; edit freely) -->
 ## Learned rules
