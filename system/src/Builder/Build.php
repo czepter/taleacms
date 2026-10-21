@@ -908,7 +908,7 @@ final class Build
     private const array TEXT_PROPERTIES = ['text', 'link', 'lines', 'html', 'inline_text', 'long_text', 'items', 'consent'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['collection', 'sort_field', 'filter_field', 'location_field', 'component', 'category', 'recipient', 'target', 'value'];
+    private const array TECHNICAL_PROPERTIES = ['collection', 'sort_field', 'filter_field', 'location_field', 'component', 'category', 'recipient', 'bcc', 'target', 'value'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles

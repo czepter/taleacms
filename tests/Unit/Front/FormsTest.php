@@ -16,6 +16,17 @@ final class FormsTest extends TestCase
         $this->assertSame('', \Talea\Front\Forms::campaign('https://jiny.cz/?utm_source=x', 'https://example.com'), 'Enquiry: campaign only from the own site');
     }
 
+    /** Several visible recipients and a hidden copy (Bcc) for the notification (upstream 3.15.2, #92) */
+    public function testRecipients(): void
+    {
+        $this->assertSame([['admin@example.com', 'info@example.com'], ['hidden@example.com']], \Talea\Front\Forms::recipients('admin@example.com, info@example.com;Info@example.com', 'hidden@example.com admin@example.com', 'web@example.com'), 'commas, semicolons and spaces; duplicates ignoring case; a visible recipient gets no second hidden copy');
+        $this->assertSame([['web@example.com'], []], \Talea\Front\Forms::recipients('someone, @x', '', 'web@example.com'), 'invalid addresses are skipped; none valid = the site e-mail');
+        $this->assertSame([['a@example.com'], []], \Talea\Front\Forms::recipients('', 'a@example.com', ''), 'without a recipient and a site e-mail the hidden recipients become the visible ones');
+        $this->assertSame([[], []], \Talea\Front\Forms::recipients('', '', ''), 'nobody to notify');
+        $six = implode(',', array_map(fn (int $i): string => "p{$i}@example.com", range(1, 6)));
+        $this->assertSame([5, 5], array_map('count', \Talea\Front\Forms::recipients($six, str_replace('@', '@b.', $six), '')), 'at most five visible and five hidden recipients');
+    }
+
     /** 2.12: multi-step forms, conditions and the price estimate (Builder\Elements\Form) */
     public function testMultiStepConditionsAndEstimate(): void
     {
