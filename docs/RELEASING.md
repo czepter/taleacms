@@ -39,13 +39,46 @@ php tools/release.php --new-key=backup
 Everything that goes to GitHub and into the installations is English: commit, tag, release notes and the change description.
 
 0. Run `composer test` and `composer test:browser` (PHPUnit, including the English installation and the walk in Chrome).
-1. Raise `TALEA_VERSION` in `system/bootstrap.php`, commit, tag `vX.Y.Z` and push (the release workflow runs the tests and
-   creates a draft release).
-2. CI builds, tests and pushes the multi-arch image to GHCR (`ghcr.io/<owner>/talea:X.Y.Z`, `X.Y`, `X`), signs it with cosign and
-   prints its digest in the job summary.
+1. Raise `TALEA_VERSION` in `system/bootstrap.php` on `main`, push, and wait for CI. Then tag that commit `vX.Y.Z` and push the tag
+   (`git tag vX.Y.Z && git push origin vX.Y.Z`). A tag that does not match `TALEA_VERSION` fails the release.
+2. The release workflow (`.github/workflows/release.yml`) runs the tests again only when CI has not passed for the tagged commit,
+   builds and pushes the multi-arch image (amd64, arm64) to GHCR with the tags below, signs it with cosign and creates a draft
+   release whose text carries the digest and the feed command (also in the job summary).
 3. Sign the release feed locally: `php tools/release.php X.Y.Z --feed --image=ghcr.io/<owner>/talea:X.Y.Z --digest=sha256:<digest> --change="…" [--security]`.
    Upload `dist/update.json` to the draft release as the asset `update.json` and publish the release as **latest**; sites read
    `.../releases/latest/download/update.json` (`TALEA_UPDATE_FEED`, docs/DEPLOYMENT.md).
+
+A pre-release is the same with a tag `vX.Y.Z-rc.N` (and `TALEA_VERSION = 'X.Y.Z-rc.N'`): it gets only its own image tag and a draft
+marked as pre-release, which GitHub never serves as `latest`, so the feed of the sites stays where it is.
+
+## Image tags
+
+| tag | moves on | from |
+| --- | --- | --- |
+| `X.Y.Z`, `X.Y.Z-rc.N` | never | the release tag |
+| `X.Y` | the newest stable release of that minor line | a stable release tag |
+| `X` (not for 0.x) | the newest stable release of that major line | a stable release tag |
+| `latest` | the newest stable release | a stable release tag |
+| `edge`, `sha-<commit>` | every push to `main` that passed CI | `main` |
+
+A patch of an older line (`3.6.2` after `3.7.0`) moves `3.6` but leaves `3` and `latest` alone; `tools/image-tags.sh` decides
+(tested in `tests/Unit/ImageTagsTest.php`). `edge` is for a staging site, never for production. Every image is signed and carries
+provenance and an SBOM (docs/DEPLOYMENT.md, "Verify an image").
+
+## Build cache
+
+The images build on the self-hosted runners, which share one host. Two caches keep a release to the changed layers:
+
+- **The builder `talea-release`** (a BuildKit container on the runner host) is created by the first run and kept afterwards. Its
+  state holds every layer of both architectures and the apt and Composer cache mounts; BuildKit's own garbage collection keeps it
+  within its default share of the disk. The arm64 half runs under QEMU, so the PHP extensions are the slow step: they are cached
+  in the base stage, and the Composer stage runs natively once for both architectures (`--platform=$BUILDPLATFORM`).
+- **The registry cache `ghcr.io/<owner>/talea-buildcache:main`** (every layer, `mode=max`) refills a builder that starts empty: a
+  new host, or after `docker buildx rm talea-release`.
+
+To give the builder a newer BuildKit, remove it on the host with `docker buildx rm --keep-state talea-release`; the next run creates
+it again with its state. `docker buildx du --builder talea-release` shows its size, `docker buildx prune --builder talea-release`
+empties it.
 4. Package mode (`php tools/release.php X.Y.Z --url=… --change=…`) still builds a signed zip for the switched-off in-app updater; it is not part of a release.
 
 Use `--security` only for real security fixes. Sign **locally**, never in CI: anyone who may change a workflow could sign

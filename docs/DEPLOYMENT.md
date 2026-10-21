@@ -30,7 +30,8 @@ On start the entrypoint
    several replicas, so two containers never apply the same migration,
 3. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
 
-Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release.
+Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release;
+`edge` follows `main` and is meant for a staging site. All tags: docs/RELEASING.md, "Image tags".
 
 ## The "new version" notice
 
