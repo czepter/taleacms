@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\SiteMoveSecurity;
 
+use Talea\Core\KaletaExport;
 use Talea\Tests\Site\Support\Site;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * Moving a Kaleta site: tools/kaleta/convert.php turns a Kaleta export (obsah.json, tests/Fixtures/kaleta) into a Talea export,
- * and the normal "Import from Talea" brings it into a new, empty installation with every reference and word in place.
+ * Moving a Kaleta site: uploading a Kaleta export (obsah.json, tests/Fixtures/kaleta) to "Import from Talea" converts it into a
+ * Talea export (Core\KaletaExport) and imports it into a new, empty installation with every reference and word in place.
  */
 #[Group('site')]
 final class KaletaImportTest extends SiteTestCase
@@ -24,7 +25,7 @@ final class KaletaImportTest extends SiteTestCase
         parent::tearDownAfterClass();
     }
 
-    public function testAConvertedKaletaExportImportsWithItsReferences(): void
+    public function testAKaletaExportIsConvertedOnUploadAndImportsWithItsReferences(): void
     {
         $dir = $this->site()->workDir('kaleta');
         $zip = new \ZipArchive();
@@ -32,17 +33,15 @@ final class KaletaImportTest extends SiteTestCase
         $zip->addFile(dirname(__DIR__, 2) . '/Fixtures/kaleta/obsah.json', 'obsah.json');
         $zip->addFromString('media/2026/10/fixture.png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
         $zip->close();
-        exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(dirname(__DIR__, 3) . '/tools/kaleta/convert.php') . ' ' . escapeshellarg($dir . '/kaleta.zip') . ' ' . escapeshellarg($dir . '/talea.zip') . ' 2>&1', $output, $code);
-        $this->assertSame(0, $code, implode("\n", $output));
-        $this->assertSame([], preg_grep('/^warning:/', $output), 'the converter knows every word of the fixture');
+        $this->assertSame([], KaletaExport::convert($dir . '/kaleta.zip', $dir . '/talea.zip'), 'the converter knows every word of the fixture');
 
         $new = self::$new = Site::boot(['web' => 'export', 'siteName' => 'New site', 'extensions' => ['news']]);
         $admin = $new->admin();
-        $raw = $admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['file' => $dir . '/kaleta.zip']);
-        $this->assertStringContainsString('This is a Kaleta export', $admin->get(str_replace($new->base, '', $raw->redirect))->body, 'an unconverted Kaleta export names the converter');
-        $upload =$admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['file' => $dir . '/talea.zip']);
+        $upload = $admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['file' => $dir . '/kaleta.zip']);
         $file = substr($upload->redirect, (int) strrpos($upload->redirect, 'file=') + 5);
-        $this->assertStringContainsString('name="confirmation"', $admin->get(str_replace($new->base, '', $upload->redirect))->body, 'the converted archive is a Talea export: ' . $upload->redirect);
+        $preview = $admin->get(str_replace($new->base, '', $upload->redirect))->body;
+        $this->assertStringContainsString('name="confirmation"', $preview, 'the Kaleta export is converted on upload: ' . $upload->redirect);
+        $this->assertStringContainsString('was a Kaleta 3.7.0 export', $preview, 'the preview says it was converted');
         $admin->post('/admin.php?module=transfer&action=talea_run', ['_csrf' => $new->csrf(), 'file' => $file, 'confirmation' => 1]);
         for ($i = 0; $i < 40 && ($result = $admin->post('/admin.php?module=transfer&action=talea', ['_csrf' => $new->csrf(), 'file' => $file]))->contains('data-auto-submit'); $i++) {
             // one batch per request

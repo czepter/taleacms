@@ -425,6 +425,10 @@ and the import points it at the new site's own keys. Every build goes through th
 so the new site keeps its own; imported news belong to you. The import works only on an empty site – a fresh install,
 optionally with a starter site.
 
+**Moving a Kaleta site** works the same way: upload Kaleta's export (`export-….zip` with `obsah.json`) to **Import from
+Talea**. It is converted into a Talea export on upload – Czech names become Talea's, every row gets a public id – and the
+preview says so and lists anything that did not convert cleanly. The trash does not move.
+
 **One page** travels too: **Pages → Export** downloads a JSON file with the page's build, the shared classes it uses and
 its components (including components inside components). **Pages → Import** on another site creates the page hidden,
 adds the missing classes (a class the site already has keeps its own look) and the components, and reuses a component
