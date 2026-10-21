@@ -5733,7 +5733,6 @@ return [
     'Choose a service and a free time – the confirmation arrives by email.' => 'Vyberte službu a volný termín – potvrzení přijde e-mailem.',
     'Our work' => 'Naše práce',
     'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Nahrávaný soubor je větší, než server dovolí (nejvýše %s), proto nic nedorazilo. Nahrajte menší soubor nebo zvyšte post_max_size na serveru.',
-    'This is a Kaleta export. Convert it on the server with php tools/kaleta/convert.php and import the converted archive.' => 'Toto je export z Kalety. Převeďte ho na serveru příkazem php tools/kaleta/convert.php a importujte převedený archiv.',
     'Flyout in the bottom right corner' => 'Plovoucí lišta v pravém dolním rohu',
     'Flyout in the bottom left corner' => 'Plovoucí lišta v levém dolním rohu',
     'Contact flyout' => 'Kontaktní plovoucí lišta',
@@ -5745,6 +5744,10 @@ return [
     'Hours for %s' => 'Hodiny pro %s',
     'Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.' => 'Jen pro tuto službu: když jsou vyplněné, nahradí pro ni týdenní hodiny výše. Vše prázdné = týdenní hodiny výše. Rezervace všech služeb sdílejí jeden kalendář osoby, takže se časy nikdy nepřekrývají.',
     'Hours per service need an existing service.' => 'Hodiny pro službu potřebují existující službu.',
+    'This Kaleta export has a format version Talea does not know – export the site again with Kaleta 3.7 or newer.' => 'Tento export z Kalety má verzi formátu, kterou Talea nezná – exportujte web znovu z Kalety 3.7 nebo novější.',
+    'Cannot write the converted export.' => 'Převedený export nelze zapsat.',
+    'The uploaded file was a %s export and has been converted into a Talea export automatically.' => 'Nahraný soubor byl export z %s a byl automaticky převeden na export Talea.',
+    'Conversion notes (%d)' => 'Poznámky k převodu (%d)',
     'Back to the page' => 'Zpět na stránku',
     'This version of the page does not exist.' => 'Tato verze stránky neexistuje.',
 ];

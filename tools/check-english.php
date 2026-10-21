@@ -88,7 +88,7 @@ function czechWords(string $text): array
 const STATIC_EXTENSIONS = ['php', 'js', 'mjs', 'css', 'md', 'json', 'yml', 'yaml', 'sh', 'txt', 'xml', 'html', 'neon', 'toml', 'conf', 'ini', 'example'];
 const STATIC_ALLOWED = [
     '#^system/languages/#', '#^image/languages/#', '#^tools/fixtures/#', // the dictionaries are in many languages (French é, Spanish á …): Czech is one of them
-    '#^tools/check-english\.php$#', '#^tools/kaleta/#', // the Kaleta converter maps Czech words to Talea ones
+    '#^tools/check-english\.php$#', '#^system/data/kaleta-vocabulary\.php$#', '#^system/src/Core/KaletaExport\.php$#', // the Kaleta converter maps Czech words to Talea ones
     '#^(vendor|node_modules|\.git|\.claude|\.phpunit\.cache|dist|storage|media)/#', '#^docs/screenshots/#', '#^tests/Fixtures/#',
 ];
 
