@@ -174,6 +174,7 @@ final class SiteImport
 
     /**
      * Reads the header and splits content.json into files per table (one JSON row per line); counts rows and media files.
+     * A Kaleta export (obsah.json) is converted into a Talea export first (KaletaExport), replacing the uploaded file.
      *
      * @param array<string, mixed> $state
      * @throws \RuntimeException the file is not a Talea export or comes from a newer Talea
@@ -187,15 +188,22 @@ final class SiteImport
         }
         $json = $work . '/content.json';
         $mediaCount = 0;
+        $warnings = [];
+        if (KaletaExport::is($path)) {
+            // a Kaleta export becomes a Talea export in place; everything below reads only the converted file
+            $converted = $work . '/converted.' . strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $warnings = KaletaExport::convert($path, $converted);
+            if (!rename($converted, $path)) {
+                throw new \RuntimeException('Cannot write the converted export.');
+            }
+        }
         if (str_ends_with(strtolower($path), '.zip')) {
             if (!class_exists(\ZipArchive::class)) {
                 throw new \RuntimeException('The PHP zip extension is missing on the server – upload content.json from the archive instead.');
             }
             $zip = new \ZipArchive();
             if ($zip->open($path, \ZipArchive::RDONLY) !== true || ($in = $zip->getStream('content.json')) === false) {
-                throw new \RuntimeException($zip->locateName('obsah.json') !== false
-                    ? 'This is a Kaleta export. Convert it on the server with php tools/kaleta/convert.php and import the converted archive.'
-                    : 'The file is not a Talea export (content.json is missing in the archive).');
+                throw new \RuntimeException('The file is not a Talea export (content.json is missing in the archive).');
             }
             $out = fopen($json, 'wb');
             stream_copy_to_stream($in, $out);
@@ -223,7 +231,8 @@ final class SiteImport
             throw new \RuntimeException('The export comes from a newer version of Talea – update this site first (pull the newer image).');
         }
         $state['header'] = ['talea' => (string) ($header['talea'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
-            'name' => (string) ($header['settings']['site_name'] ?? ''), 'format_version' => (int) ($header['format_version'] ?? 1)];
+            'name' => (string) ($header['settings']['site_name'] ?? ''), 'format_version' => (int) ($header['format_version'] ?? 1),
+            'converted_from' => (string) ($header['converted_from'] ?? ''), 'conversion_warnings' => $warnings];
         $state['counts'] = $counts;
         $state['media_total'] = $mediaCount;
         $state['phase'] = 'preview';

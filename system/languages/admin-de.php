@@ -5737,7 +5737,6 @@ return [
     'Beauty' => 'Kosmetik',
     'Palette %d' => 'Palette %d',
     'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Der Upload ist größer, als der Server erlaubt (höchstens %s), daher ist nichts angekommen. Laden Sie eine kleinere Datei hoch oder erhöhen Sie post_max_size auf dem Server.',
-    'This is a Kaleta export. Convert it on the server with php tools/kaleta/convert.php and import the converted archive.' => 'Das ist ein Kaleta-Export. Konvertieren Sie ihn auf dem Server mit php tools/kaleta/convert.php und importieren Sie das konvertierte Archiv.',
     'Flyout in the bottom right corner' => 'Flyout unten rechts',
     'Flyout in the bottom left corner' => 'Flyout unten links',
     'Contact flyout' => 'Kontakt-Flyout',
@@ -5749,6 +5748,10 @@ return [
     'Hours for %s' => 'Zeiten für %s',
     'Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.' => 'Nur für diese Leistung: Wenn ausgefüllt, ersetzen diese Zeiten für sie die Wochenstunden oben. Alles leer = die Wochenstunden oben. Buchungen aller Leistungen teilen sich den einen Kalender der Person, Termine überschneiden sich also nie.',
     'Hours per service need an existing service.' => 'Zeiten pro Leistung brauchen eine vorhandene Leistung.',
+    'This Kaleta export has a format version Talea does not know – export the site again with Kaleta 3.7 or newer.' => 'Dieser Kaleta-Export hat eine Formatversion, die Talea nicht kennt – exportieren Sie die Website erneut mit Kaleta 3.7 oder neuer.',
+    'Cannot write the converted export.' => 'Der konvertierte Export kann nicht geschrieben werden.',
+    'The uploaded file was a %s export and has been converted into a Talea export automatically.' => 'Die hochgeladene Datei war ein %s-Export und wurde automatisch in einen Talea-Export konvertiert.',
+    'Conversion notes (%d)' => 'Hinweise zur Konvertierung (%d)',
     'Back to the page' => 'Zurück zur Seite',
     'This version of the page does not exist.' => 'Diese Version der Seite existiert nicht.',
 ];
