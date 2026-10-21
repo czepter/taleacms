@@ -107,7 +107,7 @@ trait BuilderActions
             'back' => $e['back'],
             'urls' => array_map(fn (string $action): string => $this->url($action, $target['params']), [
                 'save' => 'build_save', 'publish' => 'build_publish', 'discard' => 'build_discard', 'section' => 'build_section', 'class' => 'build_class',
-                'versions' => 'build_versions', 'restore' => 'build_restore', 'ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',
+                'versions' => 'build_versions', 'compare' => 'build_compare', 'restore' => 'build_restore','ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',
                 'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve',
             ]) + ['delete_section' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['params']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
                 'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
@@ -445,6 +445,18 @@ trait BuilderActions
 
         // date in the admin format (format_date()), not the browser's – in English it otherwise came out as the American 9/25/2026, 9:43:45 AM
         return Response::json(['revisions' => $target === null ? [] : array_map(fn (array $r): array => ['revision_id' => (int) $r['revision_id'], 'when' => format_date($r['created_at'], true), 'who' => $r['user_name']], Publisher::listAll($this->db, $target['revisions']))]);
+    }
+
+    /** What changed since a published version: its text against the current draft (JSON for the Versions dialog). */
+    protected function actionBuildCompare(): Response
+    {
+        $target = $this->loadBuildTarget();
+        $diff = $target !== null ? Publisher::compare($this->db, $target['revisions'], $this->request->getInt('revision_id'), $target['draft'] ?? $target['build']) : null;
+        if ($diff === null) {
+            return Response::json(['ok' => false, 'error' => t('The version does not exist.')], 404);
+        }
+
+        return Response::json(['ok' => true] + $diff);
     }
 
     /** An older version is loaded into the draft; it is published only with the Publish button. */
