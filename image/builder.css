@@ -128,6 +128,7 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-dialog > div, .bd-dialog > form > div { padding: 16px 18px; }
 .bd-dialog h2 { margin: 0 0 12px; font-size: 17px; }
 .bd-dialog ul { margin: 0; padding: 0; list-style: none; max-height: 50vh; overflow: auto; }
+.bd-compare { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); max-height: 40vh; overflow: auto; }
 .bd-dialog li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .bd-share-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .bd-share-row input { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }

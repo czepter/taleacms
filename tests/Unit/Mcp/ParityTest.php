@@ -20,7 +20,7 @@ final class ParityTest extends TestCase
             'build_ask' => 'admin: the Ask box edits the draft with the operations of edit_build under the same guardrails (#31) – Claude uses edit_build itself',
             'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
             'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
-            'build_share' => 'preview_link', 'build_versions' => $readOnly, 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
+            'build_share' => 'preview_link', 'build_versions' => $readOnly, 'build_compare' => 'compare_build_version', 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
             'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Talea site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
         ];
         $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
@@ -39,7 +39,7 @@ final class ParityTest extends TestCase
             'pages' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
                 'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
-                'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page',
+                'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page', 'compare' => $readOnly,
                 'translations' => 'translation_status', 'bulk' => 'update_page'],
             'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
                 'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',

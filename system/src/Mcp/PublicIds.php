@@ -26,7 +26,7 @@ final class PublicIds
         'create_page' => ['parent' => 'pages', 'translation_of' => 'pages'],
         'update_page' => ['id' => 'pages', 'parent' => 'pages', 'translation_of' => 'pages'],
         'save_menu' => ['items.*.page_id' => 'pages', 'items.*.children.*.page_id' => 'pages', 'items.*.children.*.children.*.page_id' => 'pages'],
-        'get_build' => self::PAGE, 'edit_build' => self::PAGE, 'save_build' => self::PAGE, 'publish_build' => self::PAGE, 'list_build_versions' => self::PAGE,
+        'get_build' => self::PAGE, 'edit_build' => self::PAGE, 'save_build' => self::PAGE, 'publish_build' => self::PAGE, 'list_build_versions' => self::PAGE, 'compare_build_version' => self::PAGE,
         'restore_build_version' => self::PAGE, 'discard_draft' => self::PAGE, 'preview_link' => self::PAGE, 'save_section' => self::PAGE,
         'insert_section' => self::PAGE + ['saved_section' => 'sections'],
         'build_from_html' => ['id' => 'pages', 'popup' => 'popups'],

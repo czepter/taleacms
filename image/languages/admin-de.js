@@ -2941,5 +2941,6 @@ window.TALEA_TRANSLATIONS = {
 	"below": "darunter",
 	"base": "Standard",
 	"above": "darüber",
-	"Sample content “%s” – replace it with your own or delete it.": "Beispielinhalt „%s“ – ersetzen Sie ihn durch Ihren eigenen oder löschen Sie ihn."
+	"Sample content “%s” – replace it with your own or delete it.": "Beispielinhalt „%s“ – ersetzen Sie ihn durch Ihren eigenen oder löschen Sie ihn.",
+	"current draft": "aktueller Entwurf"
 };
