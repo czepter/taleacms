@@ -1,9 +1,7 @@
 # Container images (docs/RELEASING.md). A tag vX.Y.Z (or a pre-release vX.Y.Z-rc.N) builds the release image: tests unless CI already
 # passed for the tagged commit, the multi-arch image to GHCR with the tags of tools/image-tags.sh, a cosign signature (keyless, GitHub
-# OIDC) and a DRAFT release. Every push to main that passed CI builds the image `edge` (and `sha-<commit>`) the same way.
-# The release feed (update.json) is signed by the publisher on their own computer, never here:
-#   php tools/release.php X.Y.Z --feed --image=ghcr.io/<owner>/talea:X.Y.Z --digest=sha256:<digest in the draft and the job summary> --change="…"
-# then upload dist/update.json to the draft as the asset update.json and publish it (docs/RELEASING.md, docs/DEPLOYMENT.md).
+# OIDC) and the GitHub release with generated notes. Every push to main that passed CI builds the image `edge` (and `sha-<commit>`)
+# the same way, without a release.
 # Cache: one BuildKit builder kept on the runner host (talea-release) holds every layer and the apt and Composer cache mounts between
 # runs; the registry cache talea-buildcache refills it when the builder is new. A code change rebuilds only the last COPY layers.
 name: Release
@@ -69,6 +67,7 @@ jobs:
     outputs:
       image: ${{ steps.tags.outputs.image }}
       version: ${{ steps.tags.outputs.version }}
+      latest: ${{ steps.tags.outputs.latest }}
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -92,7 +91,8 @@ jobs:
           fi
           # shellcheck disable=SC2001
           tags=$(sed "s|^|$image:|" <<<"$tags")
-          printf 'image=%s\nversion=%s\nsha=%s\ntags<<EOF\n%s\nEOF\n' "$image" "$version" "$SHA" "$tags" >> "$GITHUB_OUTPUT"
+          latest=false; grep -qx "$image:latest" <<<"$tags" && latest=true
+          printf 'image=%s\nversion=%s\nsha=%s\nlatest=%s\ntags<<EOF\n%s\nEOF\n' "$image" "$version" "$SHA" "$latest" "$tags" >> "$GITHUB_OUTPUT"
           echo "$tags"
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -130,13 +130,13 @@ jobs:
           provenance: true
           sbom: true
       - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
-      - name: Sign the image (keyless) and print its digest for the signed feed
+      - name: Sign the image (keyless) and print its digest
         env: { IMAGE: '${{ steps.tags.outputs.image }}', DIGEST: '${{ steps.build.outputs.digest }}', TAGS: '${{ steps.tags.outputs.tags }}' }
         run: |
           cosign sign --yes "$IMAGE@$DIGEST"
           { echo "image digest $DIGEST"; echo; echo '```'; echo "$TAGS"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
 
-  draft:
+  release:
     needs: image
     if: github.event_name == 'push'
     runs-on: [self-hosted, Linux, X64]
@@ -144,10 +144,12 @@ jobs:
     steps:
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+          # GitHub's "latest release" follows the image tag latest: a patch of an older line does not take it
+          make_latest: ${{ needs.image.outputs.latest }}
           generate_release_notes: true
           body: |
-            Image: `${{ needs.image.outputs.image }}:${{ needs.image.outputs.version }}` (digest `${{ needs.image.outputs.digest }}`, signed with cosign)
-
-            Feed: `php tools/release.php ${{ needs.image.outputs.version }} --feed --image=${{ needs.image.outputs.image }}:${{ needs.image.outputs.version }} --digest=${{ needs.image.outputs.digest }} --change="…"`
+            ```
+            docker pull ${{ needs.image.outputs.image }}:${{ needs.image.outputs.version }}
+            ```
+            Digest `${{ needs.image.outputs.digest }}`, signed with cosign (docs/DEPLOYMENT.md, "Verify an image").
