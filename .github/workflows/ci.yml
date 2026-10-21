@@ -14,8 +14,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  # A pull request dev -> main whose head commit already passed CI (the push to dev) would run every job a second time on the
-  # same code: this gate skips them. Anything else, and any doubt (API error), runs everything.
+  # Content that already passed CI runs nothing again: a pull request whose head passed (dev -> main after the push to dev), or
+  # the merge commit of an up-to-date pull request (same tree as the tested head). Anything else, and any doubt (API error), runs
+  # everything.
   # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
   # test jobs (output tests=false); the repository checks (unit suite) and the security scan still run.
   gate:
@@ -30,8 +31,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
-          BASE: ${{ github.base_ref }}
-          HEAD: ${{ github.head_ref }}
           SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           PR: ${{ github.event.pull_request.number }}
@@ -39,15 +38,29 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
+          # CI already passed for exactly this content: the commit itself, or a parent with the same tree (the merge commit of an
+          # up-to-date pull request, whose head was tested). A run counts only when the named job succeeded: the run of a fork's
+          # pull request skips every job. Any API error: not tested. The same function is in release.yml.
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/$1"; }
+          tested() {
+            local commit tree c run
+            commit=$(api "commits/$1") || return 1
+            tree=$(jq -r .commit.tree.sha <<<"$commit")
+            for c in "$1" $(jq -r '.parents[].sha' <<<"$commit"); do
+              [ "$c" = "$1" ] || [ "$(api "commits/$c" | jq -r .commit.tree.sha)" = "$tree" ] || continue
+              for run in $(api "actions/workflows/ci.yml/runs?head_sha=$c&status=success&per_page=5" | jq -r '.workflow_runs[].id'); do
+                api "actions/runs/$run/jobs?per_page=50" | jq -e --arg job "$2" '.jobs[] | select(.name == $job and .conclusion == "success")' >/dev/null \
+                  && { echo "$c"; return 0; }
+              done
+            done
+            return 1
+          }
           run=true
           # a fork's pull request must never run on the self-hosted runners
           if [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
             run=false; echo "pull request from a fork: not run on self-hosted runners"
-          elif [ "$EVENT" = pull_request ] && [ "$BASE" = main ] && [ "$HEAD" = dev ]; then
-            n=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&status=success&per_page=1" \
-              | jq -r '.total_count' 2>/dev/null || echo 0)
-            [ "${n:-0}" -gt 0 ] && run=false && echo "dev at $SHA already passed CI: skipping the duplicate run"
+          elif by=$(tested "${SHA:-$AFTER}" 'Repository checks'); then
+            run=false; echo "the content of ${SHA:-$AFTER} already passed CI at $by: nothing runs again"
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
@@ -90,12 +103,14 @@ jobs:
     if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
+    # the data directory lives in memory (--tmpfs): every test class installs and drops whole sites, and on disk each commit and
+    # each CREATE/DROP TABLE waited for fsync – the suite took 18 minutes against 5 on PostgreSQL. The test data is thrown away anyway.
     services:
       db:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root }
         ports: ['3306']
-        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+        options: --tmpfs /var/lib/mysql --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
@@ -133,7 +148,7 @@ jobs:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root }
         ports: ['3306']
-        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+        options: --tmpfs /var/lib/mysql --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/php-composer
