@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Talea\Fleet;
 
 use Talea\Core\Settings;
-use Talea\Core\Signature;
 
 /**
- * The site's own key pair (2.9): Ed25519 like the publisher's update signatures (Core\Signature). A site signs its
+ * The site's own key pair (2.9): Ed25519. A site signs its
  * heartbeat and its pairing with it; a console signs its answers and commands with its own. The secret key never leaves
  * the site: it is not in the site export (an allowlist), not in MCP settings and not in System status.
  */
@@ -38,12 +37,12 @@ final class Keys
             && sodium_crypto_sign_verify_detached($sig, $message, $key);
     }
 
-    /** A short fingerprint to compare by eye (the first 8 characters, like the publisher's key ids). */
+    /** A short fingerprint to compare by eye (the first 8 characters of the key's sha256). */
     public static function fingerprint(string $publicKey): string
     {
         $key = base64_decode($publicKey, true);
 
-        return $key === false ? '' : Signature::id($key);
+        return $key === false ? '' : substr(hash('sha256', $key), 0, 8);
     }
 
     public static function isPublicKey(string $publicKey): bool

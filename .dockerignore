@@ -8,7 +8,6 @@ config.php
 config.sample.php
 docs
 tools
-dist
 phpstan*
 CLAUDE.md
 CONTRIBUTING.md

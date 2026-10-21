@@ -1,41 +1,6 @@
 <?php
-/** The "Backups and updates" tab. */
+/** The "Backups" tab. */
 ?>
-<?php if (!\Talea\Core\Updater::ENABLED): ?>
-<fieldset>
-<legend><?= e(t('New versions')) ?></legend>
-<p><?= e(t('Installed version:')) ?> <strong><?= e(TALEA_VERSION) ?></strong></p>
-<?php $field('update_check', 'Tell me when a new version is available', 'flag', 'Once a day the site reads the project\'s signed release feed (no identifier is sent). It only shows a notice: you update by pulling the new image and restarting. Needs the address of the feed in TALEA_UPDATE_FEED; TALEA_UPDATE_CHECK=0 switches the check off for good.') ?>
-</fieldset>
-<?php endif ?>
-<?php if (\Talea\Core\Updater::ENABLED): ?>
-<fieldset>
-<legend><?= e(t('System update')) ?></legend>
-<p><?= e(t('Installed version:')) ?> <strong><?= e($update['current']) ?></strong></p>
-<?php if (!$update['configured']): ?>
-<p class="notice"><?= e(t('No update source is set yet. Upload a new version via FTP (overwrite all files except config.php, media/ and storage/); the database will be adjusted automatically.')) ?></p>
-<?php elseif ($update['error'] !== null): ?>
-<p class="notice notice-error"><?= e($update['error']) ?></p>
-<?php elseif ($update['available'] !== null): ?>
-<div class="notice notice-ok">
-	<p><strong><?= e(t(!empty($update['available']['security']) ? 'Security update: version %s' : 'Version %s is available', (string) $update['available']['version'])) ?></strong><?= !empty($update['available']['released']) ? ' (' . e(format_date((string) $update['available']['released'])) . ')' : '' ?></p>
-<?php if ($update['available']['changes'] !== []): ?>
-	<ul><?php foreach ($update['available']['changes'] as $change): ?><li><?= e($change) ?></li><?php endforeach ?></ul>
-<?php endif ?>
-	<p><button class="btn" type="submit" name="version" value="<?= e((string) $update['available']['version']) ?>" formaction="<?= e($module->url('update')) ?>" data-confirm="<?= e(t('Update the system? A database backup will be created first. The site will be unavailable for a few seconds.')) ?>"><?= e(t('Update to %s', $update['available']['version'])) ?></button></p>
-</div>
-<p class="help"><?= e(t('The database is backed up before the update. The package is accepted only with a valid publisher signature. config.php, uploaded media and a custom PHP theme are not overwritten.')) ?></p>
-<?php else: ?>
-<p><?= e(t('You have the latest version.')) ?><?= $update['checked'] ? ' <small>' . e(t('Checked %s.', format_date((new DateTimeImmutable())->setTimestamp((int) $update['checked']), true))) . '</small>' : '' ?></p>
-<?php endif ?>
-<?php if ($update['configured']): ?>
-<p><button class="navigation" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button></p>
-<?php endif ?>
-<?php $field('auto_updates', 'Install security updates automatically', 'flag', 'Recommended. Applies only to releases marked as security releases; you install regular versions yourself. The system checks for updates twice a day, backs up the database before installing and e-mails the result to the site e-mail.'); ?>
-<?php $field('update_url', 'Custom update source', 'url', 'Leave empty. Enter a different address of the update.json file only if you manage versions yourself.', 'placeholder="https://"'); ?>
-</fieldset>
-<?php endif ?>
-
 <fieldset>
 <legend><?= e(t('Database backups')) ?></legend>
 <details class="advanced"<?= $values['remote_backup'] !== 'off' ? ' open' : '' ?>>

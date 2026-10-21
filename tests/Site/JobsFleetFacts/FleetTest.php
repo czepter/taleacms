@@ -51,10 +51,6 @@ final class FleetTest extends SiteTestCase
     public function testConsoleGivesAOneTimePairingKey(): void
     {
         $console = $this->console();
-        // the console's own update channel is not reachable here: it "knows" a newer version 9.9.9 from its cache
-        $console->setting('update_url', 'http://127.0.0.1:1/update.json');
-        $console->setting('update_cache', json_encode(['url' => 'http://127.0.0.1:1/update.json', 'checked' => time(), 'manifest' => ['version' => '9.9.9', 'changes' => []], 'error' => null]));
-
         $this->postAs($console, '/admin.php?module=fleet&action=pairing_key', [], '/admin.php?module=fleet');
         $page = $console->admin()->get('/admin.php?module=fleet');
         preg_match('/talea-console:[A-Za-z0-9_-]*/', $page->body, $m);
@@ -70,17 +66,17 @@ final class FleetTest extends SiteTestCase
         $console = $this->console();
         $tab = $site->admin()->get('/admin.php?module=settings&tab=console');
         $this->assertStringContainsString('name="pairing_key"', $tab->body, 'Settings → Fleet console offers pairing');
-        $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey, 'fleet_updates' => '1'], '/admin.php?module=settings&tab=console');
+        $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey], '/admin.php?module=settings&tab=console');
 
-        $this->sameValue($console->base . '|1|1', $site->value("SELECT CONCAT((SELECT value FROM tl_settings WHERE name = 'fleet_console_url'), '|', (SELECT value <> '' FROM tl_settings WHERE name = 'fleet_site_id'), '|', (SELECT value FROM tl_settings WHERE name = 'fleet_updates'))"), 'pairing: the site knows its console and its number there');
-        $this->sameValue('1|1|1|1|1', $console->value("SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM tl_fleet_sites"), 'pairing: the console has the site with its first report');
+        $this->sameValue($console->base . '|1', $site->value("SELECT CONCAT((SELECT value FROM tl_settings WHERE name = 'fleet_console_url'), '|', (SELECT value <> '' FROM tl_settings WHERE name = 'fleet_site_id'))"), 'pairing: the site knows its console and its number there');
+        $this->sameValue('1|1|1|1', $console->value("SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM tl_fleet_sites"), 'pairing: the console has the site with its first report');
         $this->sameValue('1', $console->value('SELECT COUNT(*) FROM tl_fleet_pairing WHERE used_at IS NOT NULL'), 'pairing: the code works only once');
         $this->assertStringNotContainsString('@', (string) $console->value('SELECT heartbeat FROM tl_fleet_sites'), 'the report carries no e-mail addresses');
 
         $name = $site->settingValue('site_name');
         $this->assertStringContainsString($name, $console->admin()->get('/admin.php?module=fleet&show=all')->body, 'console: the site is in the list');
         self::$fleetId = (int) $console->value('SELECT id FROM tl_fleet_sites LIMIT 1');
-        $this->assertStringContainsString('name="ring"', $console->admin()->get('/admin.php?module=fleet&action=detail&id=' . $console->publicId('fleet_sites', self::$fleetId))->body, 'console: the detail of a site with its update ring');
+        $this->assertStringContainsString('Last report', $console->admin()->get('/admin.php?module=fleet&action=detail&id=' . $console->publicId('fleet_sites', self::$fleetId))->body, 'console: the detail of a site with its last report');
     }
 
     public function testForgedAndRepeatedReportsAreRefused(): void
@@ -108,21 +104,6 @@ final class FleetTest extends SiteTestCase
         $this->assertGreaterThan($before, $after, 'the background job sends the report');
     }
 
-    public function testStagedUpdatesAndTakingTheDecisionBack(): void
-    {
-        $site = $this->site();
-        $console = $this->console();
-        $this->sameValue('', $site->value("SELECT value FROM tl_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: a normal site waits for the test sites');
-        $this->postAs($console, '/admin.php?module=fleet&action=ring', ['id' => $console->publicId('fleet_sites', self::$fleetId), 'ring' => 'canary'], '/admin.php?module=fleet&action=detail&id=' . $console->publicId('fleet_sites', self::$fleetId));
-        sleep(1);
-        $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        // HF-12: the in-app updater is off, so a site reports no available update and the console has nothing to allow (the staging returns with HF-13)
-        $this->sameValue('', $site->value("SELECT value FROM tl_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: the updater is off, no version is allowed');
-        $this->assertStringNotContainsString('9.9.9', $site->admin()->get('/admin.php?module=settings&tab=console')->body, 'the site shows no update');
-        $this->postAs($site, '/admin.php?module=settings&action=fleet_updates', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('0|', $site->value("SELECT CONCAT((SELECT value FROM tl_settings WHERE name = 'fleet_updates'), '|', (SELECT value FROM tl_settings WHERE name = 'fleet_update_allowed'))"), 'the site takes the decision about updates back');
-    }
-
     public function testUptimeAndSilentSites(): void
     {
         $site = $this->site();
@@ -145,10 +126,9 @@ final class FleetTest extends SiteTestCase
         $console->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', self::$consoleToken)]);
 
         $list = $this->consoleMcp('list_sites');
-        $this->assertStringContainsString('console_decides_updates', $list, 'MCP list_sites on the console: who decides updates');
-        $this->assertStringContainsString('newest_version', $list, 'MCP list_sites on the console: the newest version');
+        $this->assertStringContainsString('console_version', $list, 'MCP list_sites on the console: the version the console runs');
         $this->assertStringContainsString('jobs_failing', $this->consoleMcp('get_site', ['id' => $this->console()->publicId('fleet_sites', self::$fleetId)]), 'MCP get_site: the last report');
-        $this->assertStringNotContainsString('newest_version', $this->mcpText('list_sites'), 'list_sites exists only on a console');
+        $this->assertStringNotContainsString('console_version', $this->mcpText('list_sites'), 'list_sites exists only on a console');
     }
 
     // ---- 2.16 shared design kit
@@ -233,7 +213,7 @@ final class FleetTest extends SiteTestCase
         $site = $this->site();
         $this->postAs($site, '/admin.php?module=settings&action=fleet_unpair', [], '/admin.php?module=settings&tab=console');
         $this->sameValue('0|', $this->console()->value('SELECT COUNT(*) FROM tl_fleet_sites') . '|' . $site->value("SELECT value FROM tl_settings WHERE name = 'fleet_console_url'"), 'disconnecting removes the site from the console and the console from the site');
-        $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey, 'fleet_updates' => '1'], '/admin.php?module=settings&tab=console');
+        $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey], '/admin.php?module=settings&tab=console');
         $this->sameValue('', $site->value("SELECT value FROM tl_settings WHERE name = 'fleet_console_url'"), 'a used pairing key does not pair again');
     }
 

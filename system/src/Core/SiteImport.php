@@ -220,7 +220,7 @@ final class SiteImport
             throw new \RuntimeException('This export is from before public ids (format version 2 or older) – export the site again with a current Talea.');
         }
         if ((int) ($header['format_version'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['talea'] ?? '0'), TALEA_VERSION, '>')) {
-            throw new \RuntimeException('The export comes from a newer version of Talea – update this site first (Settings → Backups and updates).');
+            throw new \RuntimeException('The export comes from a newer version of Talea – update this site first (pull the newer image).');
         }
         $state['header'] = ['talea' => (string) ($header['talea'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
             'name' => (string) ($header['settings']['site_name'] ?? ''), 'format_version' => (int) ($header['format_version'] ?? 1)];

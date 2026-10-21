@@ -10,7 +10,7 @@ Talea versions are `MAJOR.MINOR.PATCH`.
 | --- | --- | --- |
 | **Minor** (2.1, 2.2…) | New features and improvements. Nothing you use stops working. | About once a month |
 | **Patch** (2.1.1…) | Fixes only. | When needed |
-| **Security** (a patch marked as security) | A fix for a vulnerability. Flagged in the admin notice; the operator pulls the new image (Kaleta installs it on its own). | When needed, as fast as possible |
+| **Security** (a patch marked as security) | A fix for a vulnerability. Marked in its release notes; the operator pulls the new image (Kaleta installs it on its own). | When needed, as fast as possible |
 | **Major** (3.0…) | Removes what was deprecated earlier (see below). No surprise removals. | At most once a year |
 
 Every release is announced in the GitHub releases of the project (TODO: and a changelog on the project site once its domain is registered, see NAME-CHECK.md).
@@ -21,8 +21,8 @@ Every release is announced in the GitHub releases of the project (TODO: and a ch
 required stops in between; the container applies the migrations before it starts serving. `composer test:e2e` builds the
 image and updates a real installation (docs/DEPLOYMENT.md).
 
-Security releases are flagged in the admin notice; the operator pulls the image. Unlike Kaleta, a Talea site never installs
-anything on its own. How vulnerabilities are reported and fixed
+Security releases are marked in their release notes; the operator pulls the image. Unlike Kaleta, a Talea site never installs
+anything on its own and never asks for new versions. How vulnerabilities are reported and fixed
 is in [SECURITY.md](../SECURITY.md).
 
 ## Deprecation
@@ -48,7 +48,7 @@ any of them is removed or changed outside a deprecation:
 - **Addresses of your content:** an update never changes the address of a page, news item, collection item or feed.
   When you change the address of a page, news item or category yourself, Talea adds a redirect from the old one
   (Redirects extension).
-- **The release feed and its signatures**, so installed sites keep seeing new versions.
+- **The image tags** (docs/RELEASING.md, "Image tags"): `X.Y.Z` never moves; `X.Y`, `X` and `latest` follow the newest stable release.
 
 ## What is not a contract
 

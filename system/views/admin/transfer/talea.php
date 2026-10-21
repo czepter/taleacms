@@ -25,7 +25,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php if ($error !== ''): ?>
 <p class="notice notice-error"><?= e(t('The import has stopped:')) ?> <?= e($error) ?></p>
 <?php if ($state['backup'] !== ''): ?>
-<p><?= e(t('The state before the import is in backup %s (Settings → Backups and updates).', $state['backup'])) ?></p>
+<p><?= e(t('The state before the import is in backup %s (Settings → Backups).', $state['backup'])) ?></p>
 <?php endif ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($state['phase'] === 'preview'): ?>
@@ -78,6 +78,6 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>
-<p><?= e(t('The state before the import is in backup %s (Settings → Backups and updates). Check the site, then delete the export file – it is no longer needed.', $state['backup'])) ?></p>
+<p><?= e(t('The state before the import is in backup %s (Settings → Backups). Check the site, then delete the export file – it is no longer needed.', $state['backup'])) ?></p>
 <p class="navigation-row"><a class="navigation" href="<?= e($app->url('')) ?>"><?= e(t('View site')) ?></a> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php endif ?>

@@ -662,7 +662,6 @@ return [
     'The database is back in its state before the restore.' => 'Databáza je späť v stave pred obnovou.',
     'The state before the restore is in backup %s – please restore it.' => 'Stav pred obnovou je v zálohe %s – obnovte ju, prosím.',
     'The backup is incomplete or damaged (the end of the file is missing) – the restore was stopped.' => 'Záloha je neúplná alebo poškodená (chýba koniec súboru) – obnova bola zastavená.',
-    'The website files have been returned to their state before the update.' => 'Súbory webu sú vrátené do stavu pred aktualizáciou.',
     'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Server nepodporuje šifrované FTP (FTPS). Zálohu posielajte do úložiska S3 alebo si ju sťahujte ručne.',
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'na FTP server so šifrovaním FTPS (iný hosting, domáci NAS)',
     'The builder needs a larger screen.' => 'Builder potrebuje väčšiu obrazovku.',

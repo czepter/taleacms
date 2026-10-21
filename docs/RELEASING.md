@@ -1,7 +1,7 @@
 # Releasing
 
 A release is a container image. Sites are deployed and updated by pulling a new image (docs/DEPLOYMENT.md); nothing is signed
-by hand and no package is uploaded anywhere. The in-app updater is switched off (`Core\Updater::ENABLED = false`).
+by hand, no package is uploaded anywhere and a site never updates itself or asks for new versions.
 
 ## A release
 

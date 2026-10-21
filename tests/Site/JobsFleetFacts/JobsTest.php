@@ -72,17 +72,6 @@ final class JobsTest extends SiteTestCase
         $this->sameValue('1', $site->value($problems), 'alerts: at most one an hour');
     }
 
-    public function testTheUpdateCheckNeedsTheOneTimeCode(): void
-    {
-        $site = $this->site();
-        $this->assertSame(403, $site->client()->get('/tasks?probe=abc')->status, 'update check without the code is refused');
-        $site->setting('update_probe', 'probe123');
-        $version = trim($site->php('echo TALEA_VERSION;'));
-        $this->assertNotSame('', $version);
-        $this->assertSame("TALEA-PROBE $version", trim($site->client()->get('/tasks?probe=probe123')->body),'update check with the code answers the running version');
-        $site->setting('update_probe', '');
-    }
-
     public function testClaudeReadsHealthAndEvents(): void
     {
         $health = $this->mcpText('get_health');

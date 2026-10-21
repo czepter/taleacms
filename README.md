@@ -55,7 +55,7 @@ behind each decision is in [docs/DECISIONS.md](docs/DECISIONS.md).
 | | Kaleta | Talea |
 |---|---|---|
 | Installation | ZIP upload to PHP hosting, then `install.php` | Docker-first: a container image (FrankenPHP), configuration from environment variables, one install per site |
-| Updates | The site downloads and installs signed packages from the admin | In-app updater switched off; an update is a new image. The admin only shows a notice from a signed release feed |
+| Updates | The site downloads and installs signed packages from the admin | No in-app updater and no update check; an update is a new image (`docker compose pull`) |
 | PHP | 8.3+ | 8.5+ |
 | Database | MySQL 8 / MariaDB 10.6+ | MySQL 8, MariaDB 11.4+ or PostgreSQL 18 – the same code on all three, through a small dialect layer |
 | Schema | `schema.sql` | Phinx migrations, applied by `bin/migrate` (installer, container start, tests), never on a page request |
@@ -83,7 +83,7 @@ MariaDB needs version 11.4 or newer: 10.x lacks the collation `utf8mb4_0900_ai_c
 ### Removed or switched off
 
 - Whistleblowing is removed.
-- The in-app updater is off (see above).
+- The in-app updater, its signing keys and the fleet console's staged updates are removed (see above).
 - The firewall's blocklists, country and network blocks moved from the core into an add-on.
 - The notice board is off by default (offered for the municipality blueprint only).
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
-use Talea\Core\Updater;
 use Talea\Core\Response;
 use Talea\Core\Extensions;
 use Talea\Core\Health;
@@ -28,7 +27,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (choice:…). */
@@ -83,7 +82,7 @@ class Settings extends Module
             'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
-            'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'update_check' => 'flag', 'backup_media' => 'flag', 'auto_updates' => 'flag', 'update_url' => 'url'],
+            'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'backup_media' => 'flag'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
         'health' => ['health_token' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'flag', 'alerts_email' => 'email'],
     ];
@@ -176,7 +175,6 @@ class Settings extends Module
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
-            'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Talea\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'hoursExceptions' => $tab === 'company' ? \Talea\Core\Hours::exceptions($this->db) : [],
@@ -184,7 +182,6 @@ class Settings extends Module
             'fleet' => $tab === 'console' ? [
                 'paired' => \Talea\Fleet\Link::isPaired($settings), 'url' => $settings->get('fleet_console_url'), 'name' => $settings->get('fleet_console_name'),
                 'fingerprint' => \Talea\Fleet\Keys::fingerprint($settings->get('fleet_console_key')), 'own' => \Talea\Fleet\Keys::fingerprint(\Talea\Fleet\Keys::publicKey($settings)),
-                'updates' => $settings->bool('fleet_updates'), 'allowed' => $settings->get('fleet_update_allowed'),
                 'sent' => $settings->int('fleet_last_sent'), 'error' => $settings->get('fleet_last_error'),
                 // the shared design kit (2.16, Fleet\Kit): opt-in, the version that arrived as drafts, and whether those drafts still wait
                 'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
@@ -414,7 +411,7 @@ class Settings extends Module
             return $this->back('', '', ['tab' => 'console']);
         }
         try {
-            \Talea\Fleet\Link::pair($this->app, $this->request->post('pairing_key'), $this->request->postBool('fleet_updates'));
+            \Talea\Fleet\Link::pair($this->app, $this->request->post('pairing_key'));
         } catch (\RuntimeException $e) {
             return $this->back($e->getMessage(), '', ['tab' => 'console'], 'error');
         }
@@ -436,14 +433,6 @@ class Settings extends Module
         return $this->back('The report has been sent to the console.', '', ['tab' => 'console']);
     }
 
-    protected function actionFleetUpdates(): Response
-    {
-        if ($this->request->isPost()) {
-            \Talea\Fleet\Link::setManageUpdates($this->app, $this->request->postBool('fleet_updates'));
-        }
-
-        return $this->back('The choice about updates is saved.', '', ['tab' => 'console']);
-    }
 
     protected function actionFleetUnpair(): Response
     {
@@ -520,33 +509,6 @@ class Settings extends Module
         \Talea\Front\Cache::clear();
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
-    }
-
-    /** Checks again whether a newer version is available. */
-    protected function actionCheck(): Response
-    {
-        if (Updater::ENABLED && $this->request->isPost()) {
-            (new Updater($this->app->settings()))->state(true);
-        }
-
-        return $this->back('', '', ['tab' => 'backups']);
-    }
-
-    /** Downloads, verifies and installs the new version. Before that it backs up the database. */
-    protected function actionUpdate(): Response
-    {
-        if (!Updater::ENABLED || !$this->request->isPost()) {
-            return $this->back();
-        }
-        try {
-            Backup::create($this->db, 'before_update');
-            // the version the administrator saw on the button (3.3.2): another one offered meanwhile is not installed
-            $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('version') !== '' ? $this->request->post('version') : null);
-        } catch (\Throwable $e) {
-            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'error');
-        }
-
-        return $this->back(t('The system has been updated to version %s.', $version), '', ['tab' => 'backups']); // the database is migrated during the update (2.8)
     }
 
     /**
