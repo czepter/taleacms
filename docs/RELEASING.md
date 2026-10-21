@@ -76,6 +76,12 @@ The images build on the self-hosted runners, which share one host. Two caches ke
 - **The registry cache `ghcr.io/<owner>/talea-buildcache:main`** (every layer, `mode=max`) refills a builder that starts empty: a
   new host, or after `docker buildx rm talea-release`.
 
+Trust: the builder's state lives on the host that also runs CI. CI builds with the Docker daemon's own builder, not this one, and
+its PHP containers get no Docker socket; pull requests from forks never run on the self-hosted runners. Whoever can change a
+workflow in this repository could still reach the host, and with it the builder, but could change `release.yml` just as well. If
+people outside that circle ever get CI on these runners, give the release jobs their own runner group, or remove `name` and
+`cleanup: false` from the buildx step (a fresh builder per run, only the registry cache, which only this workflow can write).
+
 To give the builder a newer BuildKit, remove it on the host with `docker buildx rm --keep-state talea-release`; the next run creates
 it again with its state. `docker buildx du --builder talea-release` shows its size, `docker buildx prune --builder talea-release`
 empties it.
