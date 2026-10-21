@@ -1,6 +1,7 @@
 # Updates and deployment (HF-13)
 
-Status: plan, to be approved by the maintainer; implementation follows in the same issue.
+Status: partly superseded (October 2026). The image, the migrations on start and the health probe stand; the signed feed, the
+"new version" notice, the publisher keys and the in-app updater were removed – a release is the image alone (docs/RELEASING.md).
 
 ## Goal
 

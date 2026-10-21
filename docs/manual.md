@@ -456,15 +456,15 @@ ones, so no connection breaks.
 
 ## 13. Backups, updates, export
 
-**Settings → Backups and updates:** a notice when a new version is out (in Talea an update is a new container image, see
-[DEPLOYMENT.md](DEPLOYMENT.md); Kaleta installs updates from here) and automatic database backups – every day something changed on the
+**Settings → Backups:** automatic database backups (updates are not made here: in Talea an update is a new container image, see
+[DEPLOYMENT.md](DEPLOYMENT.md)) – every day something changed on the
 site, otherwise once a week; the last 10 are kept. **Off-site copies** upload each backup to an FTPS server or S3 storage
 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) and copy the `media/` folder to the same place – only new and changed
 files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
 
 To **restore a site after losing the hosting**: install Talea on the new hosting with the same table prefix, upload the
 latest database backup over FTP into `storage/backups/`, copy the `media/` folder back from the FTPS or S3 copy, then click
-**Restore** at that backup in Settings → Backups and updates and sign in with the accounts from the backup.
+**Restore** at that backup in Settings → Backups and sign in with the accounts from the backup.
 
 **Import and export → Export of the whole site** creates an open package with the content and media – for moving (see
 above) or keeping your content outside Talea. Enquiries, subscribers and accounts are not exported.

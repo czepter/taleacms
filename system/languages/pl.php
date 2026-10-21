@@ -682,7 +682,6 @@ return [
     'The database is back in its state before the restore.' => 'Baza danych wróciła do stanu sprzed przywracania.',
     'The state before the restore is in backup %s – please restore it.' => 'Stan sprzed przywracania znajduje się w kopii zapasowej %s – przywróć ją.',
     'The backup is incomplete or damaged (the end of the file is missing) – the restore was stopped.' => 'Kopia zapasowa jest niekompletna lub uszkodzona (brak końca pliku) – przywracanie zostało przerwane.',
-    'The website files have been returned to their state before the update.' => 'Pliki witryny zostały przywrócone do stanu sprzed aktualizacji.',
     'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Serwer nie obsługuje szyfrowanego FTP (FTPS). Wysyłaj kopie zapasowe do magazynu S3 lub pobieraj je ręcznie.',
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'na serwer FTP z szyfrowaniem FTPS (inny hosting, domowy NAS)',
     'The builder needs a larger screen.' => 'Builder wymaga większego ekranu.',

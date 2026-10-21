@@ -43,7 +43,6 @@ final class Scheduler
         'search_data' => [86400, 'any', 'Search Console and Bing data'],
         'gbp' => [86400, 'any', 'Google Business Profile: hours out, reviews in'],
         'notices' => [3600, 'any', 'Official notice board: postings and takedowns'],
-        'updates' => [0, 'any', 'Updates'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
@@ -116,7 +115,6 @@ final class Scheduler
             'search_data' => fn (App $app): string => SearchData::run($app),
             'gbp' => fn (App $app): string => GoogleBusiness::run($app),
             'notices' => fn (App $app): string => Notices::run($app),
-            'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Talea\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Talea\Fleet\Console::checkUptime($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),

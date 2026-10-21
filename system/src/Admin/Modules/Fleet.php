@@ -12,7 +12,7 @@ use Talea\Fleet\Kit;
 
 /**
  * The fleet console (2.9, extension "fleet", Fleet\Console): every paired site on one screen, the ones that need attention
- * first; a site's last report; pairing keys; the update ring of each site and allowing a new version by hand. Since 2.16
+ * first; a site's last report and version; pairing keys. Since 2.16
  * also the shared design kit (Fleet\Kit) the sites receive as drafts.
  */
 final class Fleet extends Module
@@ -37,7 +37,7 @@ final class Fleet extends Module
         $this->app->session->set('fleet_pairing_key', null); // shown once
 
         return $this->view('list', 'Fleet', ['sites' => $listed, 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
-            'latest' => Console::latest($this->app)[0], 'pairingKey' => is_string($key) ? $key : '']);
+            'latest' => TALEA_VERSION, 'pairingKey' => is_string($key) ? $key : '']);
     }
 
     protected function actionDetail(): Response
@@ -48,7 +48,7 @@ final class Fleet extends Module
         }
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND " . $this->db->dialect()->jsonExtract('data', '$.site') . " = ? ORDER BY id DESC LIMIT 20", [(string) (int) $site['id']]);
 
-        return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events, 'latest' => Console::latest($this->app)[0]]);
+        return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events]);
     }
 
     protected function actionPairingKey(): Response
@@ -62,32 +62,6 @@ final class Fleet extends Module
         }
 
         return $this->back();
-    }
-
-    protected function actionRing(): Response
-    {
-        $site = $this->site();
-        if ($this->request->isPost() && $site !== null) {
-            $ring = $this->request->post('ring') === 'canary' ? 'canary' : 'normal';
-            $this->db->update('fleet_sites', ['ring' => $ring], ['id' => (int) $site['id']]);
-            ChangeLog::write($this->app, 'fleet', 'ring', $site['url'] . ': ' . $ring);
-        }
-
-        return $this->back('Saved.', $site !== null ? 'detail' : '', $site !== null ? ['id' => (string) $site['public_id']] : []);
-    }
-
-    /** Allows the newest version now – one site (id) or every site that lets the console decide. */
-    protected function actionAllow(): Response
-    {
-        if (!$this->request->isPost()) {
-            return $this->back();
-        }
-        $id = $this->idParam();
-        $count = Console::allowNow($this->app, $id > 0 ? $id : null);
-        ChangeLog::write($this->app, 'fleet', 'allow_update', ($id > 0 ? (string) $this->db->value('SELECT url FROM {fleet_sites} WHERE id = ?', [$id]) : 'all') . ': ' . $count);
-
-        return $this->back($count > 0 ? t('The new version is allowed on %d sites; each installs it with its next report (within an hour).', $count) : 'No site waits for a new version it may install.',
-            $id > 0 ? 'detail' : '', $id > 0 ? ['id' => $this->publicId($id)] : []);
     }
 
     protected function actionCheck(): Response

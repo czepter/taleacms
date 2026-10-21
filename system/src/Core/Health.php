@@ -55,12 +55,6 @@ final class Health
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
-        if (is_file(TALEA_ROOT . '/.htaccess.talea-nova')) {
-            // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
-            $add(t('Security'), '.htaccess', 'warning', t('An update left a newer .htaccess.talea-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
-        }
-        $core = Integrity::check();
-        $add(t('Security'), t('Core files'), $core['status'], $core['info']);
 
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it
         $hygiene = SecurityHygiene::findings($app);
@@ -105,7 +99,7 @@ final class Health
         $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
         $last = Backup::listAll()[0]['time'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-        $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+        $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $media = 0;
         if (is_dir(TALEA_ROOT . '/media')) {
@@ -118,7 +112,7 @@ final class Health
         if ($app->settings()->get('remote_backup') !== 'off') {
             $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'warning', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
         } else {
-            $add(t('Operation'), t('Off-site backups'), 'warning', t('off – backups are stored only on the same server as the site (Settings → Backups and updates)'));
+            $add(t('Operation'), t('Off-site backups'), 'warning', t('off – backups are stored only on the same server as the site (Settings → Backups)'));
         }
         $smtp = $app->settings()->get('mail_mode') === 'smtp' && $app->settings()->get('smtp_host') !== '';
         // background tasks (scheduled news items, mail queue, push, newsletter) are run by site visits or cron
@@ -152,15 +146,6 @@ final class Health
             $cronMinutes <= Mailing::CRON_MINUTES => t('last run %d min ago', $cronMinutes),
             default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
         });
-        if (Updater::ENABLED) {
-            $update = (new Updater($siteSettings))->state();
-            $add(t('Operation'), t('Updates'), !$update['configured'] || $update['error'] !== null || $update['available'] !== null ? 'warning' : 'ok', match (true) {
-                !$update['configured'] => t('no update source is set'),
-                $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
-                $update['available'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['available']['version']),
-                default => t('the system is up to date (%s)', TALEA_VERSION) . ($update['checked'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['checked']), true)) : ''),
-            });
-        }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'warning'),

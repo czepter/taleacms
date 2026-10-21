@@ -6,7 +6,7 @@ namespace Talea\Core;
 
 /**
  * Monthly report by e-mail (2.9): once a month the site tells its owner what happened in the previous calendar month –
- * traffic, the top searches (2.13, Core\SearchData), enquiries and sign-ups, updates, backups, who changed what (people
+ * traffic, the top searches (2.13, Core\SearchData), enquiries and sign-ups, backups, who changed what (people
  * and Claude), the problems right now and what needs a decision. With the agency's branding (agency_* settings, 2.4) when it is set, otherwise the site's name.
  *
  * Counts and page paths only: no names, no e-mail addresses, no enquiry contents – the report may be forwarded.
@@ -23,7 +23,6 @@ final class MonthlyReport
     /** Month names in the nominative – the subject says "September 2026", not "5 September" (format_date_long uses the genitive keys). */
     public const array MONTHS = [1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    private const array UPDATE_EVENTS = ['update.applied', 'update.rolled_back', 'update.failed'];
 
     /** The first day of the month before the given moment, in its time zone – January goes to December of the previous year. */
     public static function previousMonth(\DateTimeImmutable $now): \DateTimeImmutable
@@ -83,8 +82,6 @@ final class MonthlyReport
         }
         $signups = Extensions::isEnabled($s, 'newsletter_signup') ? $count('SELECT COUNT(*) FROM {subscribers} WHERE status = 1 AND created_at >= ? AND created_at < ?', [$from, $to]) : null;
 
-        $updates = array_map(fn (array $e): array => ['type' => (string) $e['type'], 'date' => (string) $e['created_at'], 'message' => (string) $e['message']],
-            $db->all('SELECT type, created_at, message FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));
         $lastBackup = Backup::listAll()[0]['time'] ?? null;
         $backups = [
             'created' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.created', $from, $to]),
@@ -115,7 +112,6 @@ final class MonthlyReport
             'search' => SearchData::topQueries($db, $fromDay, $toDay),
             'enquiries' => $enquiries,
             'signups' => $signups,
-            'updates' => $updates,
             'backups' => $backups,
             'changes' => $changes,
             'problems' => $problems,
@@ -245,18 +241,9 @@ final class MonthlyReport
                 $section(t('Enquiries and sign-ups'), $table($rows), $plainRows($pairs));
             }
 
-            // care of the site: updates, backups, changes
+            // care of the site: backups, changes
             $rows = [];
             $pairs = [];
-            $updates = (array) ($data['updates'] ?? []);
-            if ($updates === []) {
-                $rows[] = $row(e(t('Updates')), e(t('none this month')));
-                $pairs[] = [t('Updates'), t('none this month')];
-            }
-            foreach ($updates as $u) {
-                $rows[] = $row(e(format_date((string) $u['date'])) . ' · ' . $safe((string) $u['message']), '');
-                $pairs[] = [format_date((string) $u['date']), (string) $u['message']];
-            }
             $backups = (array) ($data['backups'] ?? []);
             $backupText = t('%d made, %d failed', (int) ($backups['created'] ?? 0), (int) ($backups['failed'] ?? 0))
                 . (($backups['last'] ?? null) !== null ? ', ' . t('the last one %s', format_date((string) $backups['last'])) : '');

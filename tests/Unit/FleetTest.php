@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 final class FleetTest extends TestCase
 {
-    /** 2.9: fleet console – keys, pairing key, staged updates, attention */
+    /** 2.9: fleet console – keys, pairing key, attention */
     public function testConsole(): void
     {
         $fleetPair = sodium_crypto_sign_keypair();
@@ -27,32 +27,13 @@ final class FleetTest extends TestCase
             \Talea\Fleet\Link::parseKey(" \n" . chunk_split($fleetKey, 40, "\n")), \Talea\Fleet\Link::parseKey('talea-console:junk'), \Talea\Fleet\Link::parseKey(str_repeat('ab', 16)),
             \Talea\Fleet\Link::parseKey(\Talea\Fleet\Link::makeKey('http://console.example.com', str_repeat('ab', 16), $fleetPub, 'x'))], '2.9: Fleet\Link – the pairing key carries the console address, the one-time code and the console key');
         $fleetNow = 1_800_000_000;
-        $fleetSite = fn (int $id, string $version, string $ring = 'normal', array $more = []): array => $more + ['id' => $id, 'version' => $version, 'ring' => $ring, 'manage_updates' => true,
-            'update_allowed' => '', 'status' => 'ok', 'up' => true, 'version_since' => $fleetNow - 50 * 3600, 'update_problem' => false];
-        $allowed = fn (array $site, array $sites, bool $security = false, int $firstSeen = 0): string => \Talea\Fleet\Console::allowedVersion($site, $sites, '2.9.0', $security, $firstSeen, $fleetNow);
-        $canaryNew = $fleetSite(1, '2.9.0', 'canary');
-        $this->assertSame(['', '', '2.9.0', '2.9.0', '', '', '', '', '', '2.9.0', '2.9.0', '', '2.9.0'], [
-            $allowed($fleetSite(2, '2.8.0', 'normal', ['manage_updates' => false]), [$canaryNew]),
-            $allowed($fleetSite(2, '2.9.0'), [$canaryNew]),
-            $allowed($fleetSite(1, '2.8.0', 'canary'), []),
-            $allowed($fleetSite(2, '2.8.0'), [$canaryNew]),
-            $allowed($fleetSite(2, '2.8.0'), [$fleetSite(1, '2.9.0', 'canary', ['version_since' => $fleetNow - 10 * 3600])]),
-            $allowed($fleetSite(2, '2.8.0'), [$fleetSite(1, '2.9.0', 'canary', ['status' => 'error'])]),
-            $allowed($fleetSite(2, '2.8.0'), [$fleetSite(1, '2.9.0', 'canary', ['up' => false])]),
-            $allowed($fleetSite(2, '2.8.0'), [$fleetSite(1, '2.9.0', 'canary', ['update_problem' => true])]),
-            $allowed($fleetSite(2, '2.8.0'), [$fleetSite(1, '2.8.0', 'canary')]),
-            $allowed($fleetSite(2, '2.8.0'), [$fleetSite(1, '2.8.0', 'canary')], true),
-            $allowed($fleetSite(2, '2.8.0', 'normal', ['update_allowed' => '2.9.0']), [$fleetSite(1, '2.8.0', 'canary')]),
-            $allowed($fleetSite(2, '2.8.0'), [], false, $fleetNow - 10 * 3600),
-            $allowed($fleetSite(2, '2.8.0'), [], false, $fleetNow - 49 * 3600),
-        ], '2.9: staged updates – canaries first, the rest after 48 hours without problems, security releases at once');
         $fleetRow = fn (array $more, array $beat = []): array => $more + ['up' => 1, 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600), 'status' => 'ok', 'heartbeat' => (string) json_encode($beat + ['last_backup' => $fleetNow - 3600, 'cron_last_run' => $fleetNow - 300])];
-        $this->assertSame([['score' => 0, 'reasons' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['update_failed', 'jobs_failing', 'no_backup', 'enquiries']], [
+        $this->assertSame([['score' => 0, 'reasons' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['jobs_failing', 'no_backup', 'enquiries']], [
             \Talea\Fleet\Console::attention($fleetRow([]), $fleetNow),
             \Talea\Fleet\Console::attention($fleetRow(['up' => 0, 'status' => 'error']), $fleetNow)['reasons'],
             \Talea\Fleet\Console::attention($fleetRow(['last_seen' => date('Y-m-d H:i:s', $fleetNow - 30 * 3600)]), $fleetNow)['reasons'],
             \Talea\Fleet\Console::attention($fleetRow(['last_seen' => null, 'heartbeat' => null]), $fleetNow)['reasons'],
-            \Talea\Fleet\Console::attention($fleetRow([], ['last_backup' => $fleetNow - 9 * 86400, 'enquiries_unanswered' => 2, 'jobs_failing' => ['mail'], 'update_problem' => 'Version 2.9.0 did not work']), $fleetNow)['reasons'],
+            \Talea\Fleet\Console::attention($fleetRow([], ['last_backup' => $fleetNow - 9 * 86400, 'enquiries_unanswered' => 2, 'jobs_failing' => ['mail']]), $fleetNow)['reasons'],
         ], '2.9: attention – what is wrong with a site, weighted');
         $fleetClean = \Talea\Fleet\Console::clean(['version' => '2.9.0', 'name' => str_repeat('x', 400), 'secret' => 'drop me', 'problems' => [['check' => 'Mail', 'status' => 'warning', 'detail' => ['deep' => ['deeper' => ['deepest' => 1]]]]], 'visits_7_days' => 12.7]);
         $this->assertSame([false, 255, '2.9.0', 12, 'Mail'], [isset($fleetClean['secret']), mb_strlen($fleetClean['name']), $fleetClean['version'], $fleetClean['visits_7_days'], $fleetClean['problems'][0]['check']], '2.9: a heartbeat keeps only the known keys with sane values');

@@ -401,6 +401,6 @@ final class SiteExport
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
             . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"
             . "subscribers and visit statistics. Another Talea site imports this file in Import and export -> Import from Talea.\n"
-            . "To restore this same site, use the database backup (Settings -> Backups and updates).\n";
+            . "To restore this same site, use the database backup (Settings -> Backups).\n";
     }
 }
