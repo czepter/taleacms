@@ -84,4 +84,4 @@ cosign verify ghcr.io/<owner>/talea:1.4.2 \
   --certificate-identity-regexp 'https://github.com/<owner>/.*' --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-The feed lists the image digest; the publisher signs it locally with `php tools/release.php X.Y.Z --feed ...` (docs/RELEASING.md).
+Each GitHub release names the digest of its image.
