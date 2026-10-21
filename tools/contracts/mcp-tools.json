@@ -114,6 +114,26 @@
             "openWorldHint": false
         }
     },
+    "compare_build_version": {
+        "parameters": {
+            "collection": "string",
+            "component": "string",
+            "id": "string",
+            "language": "string",
+            "part": "string",
+            "popup": "string",
+            "variant": "string",
+            "version_id": "integer"
+        },
+        "required": [
+            "version_id"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "confirm_booking": {
         "parameters": {
             "confirm": "boolean",

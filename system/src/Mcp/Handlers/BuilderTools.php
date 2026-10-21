@@ -140,6 +140,16 @@ trait BuilderTools
             Publisher::listAll($db, $target['revision']))];
     }
 
+    /** compare_build_version */
+    private function toolCompareBuildVersion(string $name, array $a): mixed
+    {
+        $target = $this->loadBuildTarget($a);
+        $diff = Publisher::compare($this->app->db(), $target['revision'], (int) ($a['version_id'] ?? 0), $target['draft'] ?? $target['build'])
+            ?? throw new \InvalidArgumentException('The version does not exist. Use list_build_versions.');
+
+        return $this->describeTarget($target) + ['against' => $target['draft'] !== null ? 'draft' : 'published'] + $diff;
+    }
+
     /** restore_build_version */
     private function toolRestoreBuildVersion(string $name, array $a): mixed
     {

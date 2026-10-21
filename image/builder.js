@@ -1124,14 +1124,24 @@
 		query(D.urls.versions).then((j) => {
 			if (j.ok === false) { setState(j.error, true); return; }
 			const list = el('ul');
+			const changes = el('div', { class: 'bd-compare', hidden: true });
+			// what changed: the text of the version against the current draft (the server compares, layout is not compared)
+			const compare = (r) => save().then(() => query(D.urls.compare + '&revision_id=' + r.revision_id)).then((o) => {
+				if (!o.ok) { setState(o.error, true); return; }
+				changes.replaceChildren(el('p', {}, T('Version from %s').replace('%s', r.when), ' → ', T('current draft'), '. ', el('ins', {}, T('added') + ': ' + o.added), ' · ', el('del', {}, T('deleted') + ': ' + o.deleted)),
+					o.added + o.deleted === 0 ? el('p', { class: 'bd-empty' }, T('The text has not changed since this version (formatting and image changes are not compared).'))
+						: el('div', { html: o.html })); // Core\Diff escapes the text itself: only <p>, <ins> and <del> are markup
+				changes.hidden = false;
+			});
 			(j.revisions || []).forEach((r) => list.append(el('li', {}, el('span', {}, r.when, r.who ? ' · ' + r.who : ''),
+				el('button', { type: 'button', class: 'bd-btn', onclick: () => compare(r) }, T('what changed')),
 				el('button', { type: 'button', class: 'bd-btn', onclick: () => { d.close(); stopSaving().then(() => query(D.urls.restore, { revision_id: r.revision_id })).then((o) => {
 					if (!o.ok) { setState(o.error, true); return; }
 					state.undo.push(JSON.stringify(state.build)); state.build = o.build; state.saved = JSON.stringify(o.build); state.version = o.version; state.conflict = false;
 					state.changed = true; state.selected = null;
 					setState(T('The older version is in the draft – publish it when ready')); redraw(); refreshPreview();
 				}); } }, T('Load into draft')))));
-			const d = el('dialog', { class: 'bd-dialog' }, el('div', {}, el('h2', {}, T('Published versions')), j.revisions && j.revisions.length ? list : el('p', { class: 'bd-empty' }, T('No older versions yet.'))),
+			const d = el('dialog', { class: 'bd-dialog' }, el('div', {}, el('h2', {}, T('Published versions')), j.revisions && j.revisions.length ? list : el('p', { class: 'bd-empty' }, T('No older versions yet.')), changes),
 				el('footer', {}, el('button', { type: 'button', class: 'bd-btn', onclick: () => d.close() }, T('Close'))));
 			d.addEventListener('close', () => d.remove());
 			document.body.append(d);
