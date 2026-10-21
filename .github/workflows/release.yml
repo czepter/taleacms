@@ -41,10 +41,10 @@ jobs:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root }
         ports: ['3306']
-        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+        options: --tmpfs /var/lib/mysql --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - id: gate
-        name: Already tested? (a successful CI run of a push of this commit)
+        name: Already tested? (CI passed for this content)
         # edge builds github.sha, the head of main now, never a ref from the event: when main has moved past the tested commit,
         # the newer commit gets its own edge build after its own CI run
         env:
@@ -55,10 +55,24 @@ jobs:
           if [ -n "$TESTED" ] && [ "$TESTED" != "$SHA" ]; then
             echo "main moved on from $TESTED to $SHA: no edge build for the older commit"; echo "stale=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          n=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&status=success&per_page=1" \
-            | jq -r '.total_count' 2>/dev/null || echo 0)
-          if [ "${n:-0}" -gt 0 ]; then echo "CI passed for $SHA: the tests are not run again"; echo "tested=true" >> "$GITHUB_OUTPUT"; fi
+          # CI already passed for exactly this content: the commit itself, or a parent with the same tree (the merge commit of an
+          # up-to-date pull request, whose head was tested). A run counts only when the named job succeeded: the run of a fork's
+          # pull request skips every job. Any API error: not tested. The same function is in ci.yml.
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/$1"; }
+          tested() {
+            local commit tree c run
+            commit=$(api "commits/$1") || return 1
+            tree=$(jq -r .commit.tree.sha <<<"$commit")
+            for c in "$1" $(jq -r '.parents[].sha' <<<"$commit"); do
+              [ "$c" = "$1" ] || [ "$(api "commits/$c" | jq -r .commit.tree.sha)" = "$tree" ] || continue
+              for run in $(api "actions/workflows/ci.yml/runs?head_sha=$c&status=success&per_page=5" | jq -r '.workflow_runs[].id'); do
+                api "actions/runs/$run/jobs?per_page=50" | jq -e --arg job "$2" '.jobs[] | select(.name == $job and .conclusion == "success")' >/dev/null \
+                  && { echo "$c"; return 0; }
+              done
+            done
+            return 1
+          }
+          if by=$(tested "$SHA" 'Tests on MySQL 8.4'); then echo "CI passed for the content of $SHA (at $by): the tests are not run again"; echo "tested=true" >> "$GITHUB_OUTPUT"; fi
       - if: steps.gate.outputs.tested != 'true'
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - if: steps.gate.outputs.tested != 'true'
