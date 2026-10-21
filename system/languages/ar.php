@@ -682,7 +682,6 @@ return [
     'The database is back in its state before the restore.' => 'عادت قاعدة البيانات إلى حالتها قبل الاستعادة.',
     'The state before the restore is in backup %s – please restore it.' => 'الحالة قبل الاستعادة موجودة في النسخة الاحتياطية %s – يرجى استعادتها.',
     'The backup is incomplete or damaged (the end of the file is missing) – the restore was stopped.' => 'النسخة الاحتياطية غير مكتملة أو تالفة (نهاية الملف مفقودة) – أُوقفت الاستعادة.',
-    'The website files have been returned to their state before the update.' => 'أُعيدت ملفات الموقع إلى حالتها قبل التحديث.',
     'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'لا يستطيع الخادم استخدام FTP المشفّر (FTPS). أرسل النسخ الاحتياطية إلى تخزين S3 أو نزّلها يدويًا.',
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'إلى خادم FTP بتشفير FTPS (استضافة أخرى، جهاز NAS منزلي)',
     'The builder needs a larger screen.' => 'يحتاج المحرر إلى شاشة أكبر.',

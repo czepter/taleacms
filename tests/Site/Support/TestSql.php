@@ -17,7 +17,7 @@ use Talea\Tests\Support\TestDatabase;
  */
 final class TestSql
 {
-    private const string BOOLEANS = 'active|blocked|breakpoint|closed|detail|in_menu|manage_updates|noindex|ok|pinned|proposed|requires_confirmation|silent_reported|up|visible';
+    private const string BOOLEANS = 'active|blocked|breakpoint|closed|detail|in_menu|noindex|ok|pinned|proposed|requires_confirmation|silent_reported|up|visible';
 
     /** @param ?\PDO $pdo the connection of the site: INSERT … ON DUPLICATE KEY UPDATE and REPLACE INTO look up the table's unique key there */
     public static function forEngine(string $sql, ?\PDO $pdo = null): string

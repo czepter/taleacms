@@ -145,17 +145,13 @@ final class Settings
         'report_recipients' => '',     // where to, comma or line separated (at most 10); empty = the site e-mail
         'report_last_month' => '',     // the month (Y-m) whose report went out last (internal)
         'trusted_proxy' => '',         // '' | cloudflare – where the visitor's address comes from (Core\Antispam::visitorIp)
-        'update_probe' => '',          // one-time code while an update checks that the new version runs (internal, 2.8)
         'site_key_secret' => '',       // this site's Ed25519 key (2.9, Fleet\Keys) – internal, never exported or shown
         'fleet_console_url' => '',     // the fleet console this site reports to (2.9, Fleet\Link)
         'fleet_console_key' => '',     // its public key: the console's answers must be signed by it
         'fleet_console_name' => '',
         'fleet_site_id' => '',         // this site's public id on the console
-        'fleet_updates' => '0',        // the console decides when new versions install here
-        'fleet_update_allowed' => '',  // the version the console allowed in its last answer
         'fleet_last_sent' => '',
         'fleet_last_error' => '',
-        'fleet_versions' => '',        // console: versions it has seen and when (JSON, staged updates)
         'fleet_kit' => '0',            // receive the console's shared design kit as drafts (2.16, Fleet\Kit) – off by default
         'fleet_kit_version' => '0',    // the kit version applied here
         'fleet_kit_applied_at' => '',
@@ -171,12 +167,6 @@ final class Settings
         'backup_media' => '1',         // copy media/ to the off-site target too, incrementally (1.8)
         'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
         'media_sync_check' => '0',     // when the background media copy last ran
-        'update_url' => '',      // URL of the update.json file; empty = the project's default source
-        'update_cache' => '',
-        'update_check' => '1',    // ask the release feed (TALEA_UPDATE_FEED) once a day for a new version; only a notice, nothing is installed (Core\UpdateFeed)
-        'update_feed_cache' => '',
-        'auto_updates' => '1',    // install security releases automatically
-        'update_attempt' => '',    // the version the background maintenance has already tried / announced
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set
         'mail_mode' => 'mail',      // mail = the server's mail() function | smtp = own SMTP server
         'mail_from' => '',             // sender address; empty = the site e-mail
@@ -196,7 +186,6 @@ final class Settings
         'ai_model' => 'claude-sonnet-5',
         'first_steps_hidden' => '0',      // the administrator hid the first steps on the dashboard
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)
-        'cleaned_version' => '',       // the version after whose deployment the one-time cleanup of removed files has already run
     ];
 
     /**

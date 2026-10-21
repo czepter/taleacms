@@ -12,10 +12,9 @@ use Talea\Core\Extensions;
 use Talea\Core\Health;
 use Talea\Core\Language;
 use Talea\Core\Scheduler;
-use Talea\Core\Updater;
 
 /**
- * What a site tells its console (2.9): version, health, background jobs, backups, updates, enquiries waiting for an answer,
+ * What a site tells its console (2.9): version, health, background jobs, backups, enquiries waiting for an answer,
  * visits, the site audit and errors. Counts and states only – never names, e-mail addresses or the content of enquiries.
  * Texts are English (the console translates its own screens, not the site's sentences).
  */
@@ -30,8 +29,6 @@ final class Heartbeat
         $problems = array_values(array_map(fn (array $c): array => ['group' => $c['group'], 'check' => $c['name'], 'status' => $c['status'] === 'error' ? 'error' : 'warning',
             'detail' => mb_substr(trim(strip_tags((string) $c['info'])), 0, 200)], array_filter($checks, fn (array $c): bool => $c['status'] !== 'ok')));
         $backup = Backup::listAll()[0] ?? null;
-        $update = (new Updater($s))->state();
-        $rolledBack = $db->one("SELECT created_at, message FROM {events} WHERE type IN ('update.rolled_back', 'update.failed') ORDER BY id DESC LIMIT 1");
         $audit = [];
         try {
             foreach (Language::runWith('en', fn (): array => (new Audit($app))->run()) as $finding) {
@@ -53,9 +50,6 @@ final class Heartbeat
             'cron_last_run' => $s->int('tasks_last_run') ?: null,
             'last_backup' => $backup !== null ? (int) $backup['time'] : null,
             'offsite_backup' => $s->get('remote_backup') !== 'off',
-            'update_available' => $update['available']['version'] ?? null,
-            'update_problem' => $rolledBack !== null && strtotime((string) $rolledBack['created_at']) > time() - 14 * 86400 ? mb_substr((string) $rolledBack['message'], 0, 200) : null,
-            'auto_updates' => $s->bool('auto_updates'),
             'enquiries_unanswered' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0') : null,
             'enquiries_7_days' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > NOW() - INTERVAL 7 DAY') : null,
             'visits_7_days' => \Talea\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(visits), 0) FROM {stats_days} WHERE day > CURRENT_DATE - INTERVAL 7 DAY') : null,

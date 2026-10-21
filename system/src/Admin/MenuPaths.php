@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Talea\Admin;
 
 /**
- * Menu paths as links. Messages, the system health page and field hints say "Settings → Backups and updates"
+ * Menu paths as links. Messages, the system health page and field hints say "Settings → Backups"
  * - instead of the user looking for the path in the menu, it becomes a link. The texts
  * stay plain sentences (and plain dictionary keys); the link is added only when rendering, in the language the text is
  * currently shown in.
@@ -19,7 +19,7 @@ final class MenuPaths
      * @var list<array{0: list<string>, 1: string, 2: string}>
      */
     private const array PATHS = [
-        [['Settings', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Settings', 'Backups'], 'settings', 'module=settings&tab=backups'],
         [['Settings', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
         [['Settings', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
         [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
@@ -27,7 +27,7 @@ final class MenuPaths
         [['Settings', 'Mail'], 'settings', 'module=settings&tab=mail'],
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
-        [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Backups'], 'settings', 'module=settings&tab=backups'],
         [['News', 'Trash'], 'news', 'module=news&status=trash'],
         [['Site appearance'], 'appearance', 'module=appearance'],
         [['System status'], 'status', 'module=status'],

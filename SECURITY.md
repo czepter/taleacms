@@ -12,9 +12,8 @@ are fixed as soon as possible.
 
 ## How a fix reaches users
 
-1. The fix ships as a new container image, and the signed release feed marks it as a **security release**.
-2. Every installation reads the feed at most once a day (unless the operator turned the check off) and shows
-   a notice in the admin, flagged as a security release, with the command to pull the new image.
+1. The fix ships as a new container image (signed with cosign); its GitHub release is marked as a **security release**.
+2. Operators hear of it through the repository's releases (watch → releases) or the advisory below.
 3. The operator updates: `docker compose pull && docker compose up -d`. The container backs up the database
    and applies the migrations before it serves the new version (docs/DEPLOYMENT.md).
    This differs from Kaleta, where a site installs a security release on its own; Talea never updates itself.
@@ -27,5 +26,5 @@ what stays compatible: [docs/RELEASE-POLICY.md](docs/RELEASE-POLICY.md).
 ## What the system protects
 
 Prepared statements everywhere, `password_hash` passwords, CSRF protection on every admin action, escaped
-output, re-encoded uploaded images, `system/` and `storage/` not reachable from the web, a release feed only
-with an Ed25519 signature and images signed with cosign. The system uses no third-party libraries at runtime.
+output, re-encoded uploaded images, `system/` and `storage/` not reachable from the web, and images signed
+with cosign. The system uses no third-party libraries at runtime.

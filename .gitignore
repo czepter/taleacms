@@ -7,9 +7,6 @@
 /image/ukazka/
 /media/*
 !/media/.htaccess
-/dist/
-/tools/keys/
-/tools/keys
 /storage/backups/
 /storage/import/*
 !/storage/import/.htaccess

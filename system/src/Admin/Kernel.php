@@ -108,12 +108,6 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
 
-        // after moving to a new version, clean up the known removed files once (see Updater::REMOVED_FILES)
-        if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== TALEA_VERSION) {
-            \Talea\Core\Updater::cleanUpRemoved(TALEA_ROOT);
-            $app->settings()->set('cleaned_version', TALEA_VERSION);
-        }
-
         // migrations never run on a page request (bin/migrate does, e.g. in the Docker entrypoint); the administrator is told when some wait
         if ($app->auth()->isAdmin() && Migrator::pending($app->db()) !== []) {
             $app->session->flash('error', t('The database is behind the code: run "php bin/migrate" on the server.'));
@@ -156,14 +150,6 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $newVersion = $app->auth()->isAdmin() ? (new \Talea\Core\UpdateFeed($app->settings()))->available() : null;
-            if ($newVersion !== null) {
-                // a notice only: the update is the operator's act (docker compose pull && up -d), see docs/DEPLOYMENT.md
-                $app->session->flash(!empty($newVersion['security']) ? 'error' : 'info', !empty($newVersion['security'])
-                    ? t('A SECURITY update %s is available – update by pulling the new image and restarting.', (string) $newVersion['version'])
-                    : t('A new version %s is available – update by pulling the new image and restarting.', (string) $newVersion['version']));
-            }
-
             return $this->page('', $app->view->render('admin/dashboard', $this->desktop()));
         }
         $class = $this->modules()[$ident] ?? null;

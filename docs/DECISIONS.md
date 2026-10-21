@@ -11,7 +11,8 @@ Goal: a self-hosted Squarespace alternative for small businesses and freelancers
 - Base: Kaleta 3.7.0, with its full history (commits by Miroslav Kaleta and KaletaCMS) kept in this repository.
 - The hard-fork issues (HF-…, #5–#20) changed the foundation before any new feature: English names in code, tables, routes and
   stored values; UUID `public_id` at every boundary; Phinx migrations instead of `schema.sql`; PostgreSQL 18 next to MySQL 8;
-  PHPUnit test suites; a container image with a signed release feed instead of the in-app updater; the Talea name.
+  PHPUnit test suites; a container image instead of the in-app updater (the signed release feed, the publisher keys, the updater
+  and the fleet console's staged updates were removed in October 2026: deployment is the image alone); the Talea name.
 - Upstream changes: nothing is merged. Each Kaleta release after 3.7.0 is read (`gh api repos/phprs-cms/kaletacms/compare/…`),
   what fits is filed as an issue and re-implemented in Talea's style. Ported through Kaleta 3.11.0 (issues #40–#58). Skipped on
   purpose: the hardening of the update manifest (the updater is off) and Kaleta's support link.

@@ -10,7 +10,6 @@
  * @var string $siteUrl
  * @var list<string> $enabledExtensions
  * @var list<array{file:string, size:int, time:int}> $backups
- * @var array<string, mixed>|null $update
  * @var list<array{categories:string, count:int}> $consents
  * @var list<string> $errorLog  last lines of the error log
  * @var string $remoteStatus  result of the last backup upload off the server
