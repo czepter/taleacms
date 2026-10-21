@@ -15,7 +15,7 @@ final class PublicIdsMcpTest extends SiteTestCase
 
     /** Integer ids that name no row of a public table (journal sessions, versions, notes, drafts, runs, exceptions) – they stay numbers. */
     private const array NOT_ROWS = ['resolve_draft_comment.id', 'update_social_draft.id', 'undo_agent_session.id', 'report_agent_run.id', 'save_hours_exception.id',
-        'delete_hours_exception.id', 'restore_look_version.id', 'write_notebook.id', 'delete_notebook_entry.id', 'restore_build_version.version_id', 'list_events.since_id', 'list_events.next_since_id'];
+        'delete_hours_exception.id', 'restore_look_version.id', 'write_notebook.id', 'delete_notebook_entry.id', 'restore_build_version.version_id', 'compare_build_version.version_id', 'list_events.since_id', 'list_events.next_since_id'];
 
     /** @return array<string, mixed> */
     private function answer(string $tool, array $arguments = []): array
