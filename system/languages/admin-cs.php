@@ -5748,4 +5748,6 @@ return [
     'Cannot write the converted export.' => 'Převedený export nelze zapsat.',
     'The uploaded file was a %s export and has been converted into a Talea export automatically.' => 'Nahraný soubor byl export z %s a byl automaticky převeden na export Talea.',
     'Conversion notes (%d)' => 'Poznámky k převodu (%d)',
+    'Back to the page' => 'Zpět na stránku',
+    'This version of the page does not exist.' => 'Tato verze stránky neexistuje.',
 ];

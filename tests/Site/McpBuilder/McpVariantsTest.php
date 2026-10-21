@@ -54,6 +54,10 @@ final class McpVariantsTest extends SiteTestCase
         $site->mcp('build_from_html', ['id' => $site->publicId('pages', self::$idv), 'html' => '<section><h1>Version B</h1></section>', 'publish' => true]);
 
         $versionId = $this->mcpData('list_build_versions', ['id' => $this->site()->publicId('pages', self::$idv)])['versions'][0]['version_id'];
+        $diff = $this->mcpData('compare_build_version', ['id' => $site->publicId('pages', self::$idv), 'version_id' => $versionId]);
+        $this->assertSame(['published', '<p>Version <del>A</del><ins>B</ins></p>', 1, 1], [$diff['against'], $diff['html'], $diff['added'], $diff['deleted']], 'compare_build_version shows what changed in the text');
+        $editor = json_decode($site->admin()->get('/admin.php?module=pages&action=build_compare&id=' . $site->publicId('pages', self::$idv) . '&revision_id=' . $versionId)->body, true);
+        $this->assertSame([true, $diff['html']], [$editor['ok'] ?? null, $editor['html'] ?? null], 'the Versions dialog of the builder gets the same comparison');
         $site->mcp('restore_build_version', ['id' => $site->publicId('pages', self::$idv), 'version_id' => $versionId]);
         $this->assertSame('11', (string) $site->value("SELECT CONCAT(build_draft LIKE '%Version A%', build LIKE '%Version B%') FROM tl_pages WHERE page_id = ?", [self::$idv]), 'the older version is in the draft, the published one stays');
 

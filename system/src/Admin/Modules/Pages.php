@@ -468,6 +468,26 @@ final class Pages extends Module
         return $this->back(t('Version from %s restored.', format_date($version['created_at'], true)), 'edit', ['id' => (string) $page['public_id']]);
     }
 
+    /** What changed since a saved version: comparison of an older version of the text with the current one. */
+    protected function actionCompare(): Response
+    {
+        $page = $this->loadPage($this->idParam());
+        $version = $page === null ? null : $this->db->one(
+            "SELECT r.*, CASE WHEN u.name = '' OR u.name IS NULL THEN u.username ELSE u.name END AS user_name FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.revision_id = ? AND r.page_id = ?",
+            [$this->request->getInt('revision'), $page['page_id']],
+        );
+        if ($version === null) {
+            return $this->error('This version of the page does not exist.', 404);
+        }
+
+        return $this->view('compare', 'Compare versions', [
+            'page' => $page,
+            'version' => $version,
+            'title' => \Talea\Core\Diff::html((string) $version['title'], (string) $page['title']),
+            'text' => \Talea\Core\Diff::html((string) $version['text'], (string) $page['text']),
+        ]);
+    }
+
     /**
      * The page as a JSON file – for transfer to another site running Talea. Version 2 (1.8) also carries the shared
      * classes and the components the build uses (Builder\PagePackage), so the page looks the same there.

@@ -2933,5 +2933,6 @@ window.TALEA_TRANSLATIONS = {
 	"below": "pod",
 	"base": "základní",
 	"above": "nad",
-	"Sample content “%s” – replace it with your own or delete it.": "Ukázkový obsah „%s“ – nahraďte ho vlastním nebo smažte."
+	"Sample content “%s” – replace it with your own or delete it.": "Ukázkový obsah „%s“ – nahraďte ho vlastním nebo smažte.",
+	"current draft": "aktuální koncept"
 };

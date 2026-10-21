@@ -5752,4 +5752,6 @@ return [
     'Cannot write the converted export.' => 'Der konvertierte Export kann nicht geschrieben werden.',
     'The uploaded file was a %s export and has been converted into a Talea export automatically.' => 'Die hochgeladene Datei war ein %s-Export und wurde automatisch in einen Talea-Export konvertiert.',
     'Conversion notes (%d)' => 'Hinweise zur Konvertierung (%d)',
+    'Back to the page' => 'Zurück zur Seite',
+    'This version of the page does not exist.' => 'Diese Version der Seite existiert nicht.',
 ];
