@@ -187,12 +187,6 @@ parameters:
 			path: system/src/Core/Db.php
 
 		-
-			message: '#^Method Talea\\Core\\Diff\:\:html\(\) should return array\{html\: string, added\: int, deleted\: int\} but returns array\{html\: string, added\: int, deleted_at\: int\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Core/Diff.php
-
-		-
 			message: '#^Offset ''username'' on array\{scheme\?\: string, host\?\: string, port\?\: int\<0, 65535\>, user\?\: string, pass\?\: string, path\?\: string, query\?\: string, fragment\?\: string\} in isset\(\) does not exist\.$#'
 			identifier: isset.offset
 			count: 1
@@ -381,7 +375,7 @@ parameters:
 		-
 			message: '#^Offset ''revision'' does not exist on array\{kind\: string, row\: array\<string, mixed\>, build\: string\|null, draft\: string\|null, language\: string\}\.$#'
 			identifier: offsetAccess.notFound
-			count: 2
+			count: 3
 			path: system/src/Mcp/Tools.php
 
 		-
