@@ -45,23 +45,31 @@ final class Redirects extends Module
 
     protected function actionList(): Response
     {
-        $search = mb_substr(trim($this->request->get('search')), 0, 100);
+        // one redirect on its own page: new, edited, or prefilled with an address visitors could not find (?from=)
+        $r = $this->request;
+        if ($r->get('new') !== '' || $r->get('edit') !== '' || $r->get('from') !== '') {
+            $edit = $r->get('edit') !== '' ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$this->idParam('edit')]) : null;
+            if ($r->get('edit') !== '' && $edit === null) {
+                return $this->error('The redirect does not exist.', 404);
+            }
+
+            return $this->view('edit', $edit !== null ? 'Edit redirect' : 'New redirect', ['edit' => $edit, 'fromUrl' => mb_substr($r->get('from'), 0, 255)]);
+        }
+        $search = mb_substr(trim($r->get('search')), 0, 100);
         $whereParts = $search !== '' ? 'WHERE ' . $this->db->dialect()->likeInsensitive('from_path') . ' OR ' . $this->db->dialect()->likeInsensitive('to_path') : '';
         $params = $search !== '' ? array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%') : [];
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {redirects} ' . $whereParts, $params);
-        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));
+        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $r->getInt('page', 1)));
 
         $notFound = \Talea\Core\NotFound::pending($this->app, 60, 50);
 
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {redirects} ' . $whereParts . ' ORDER BY redirect_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
-            'edit' => ($editId = $this->idParam('edit')) > 0 ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$editId]) : null,
             'notFound' => $notFound,
             'suggestions' => \Talea\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
             'threshold' => \Talea\Core\RedirectMatcher::threshold($this->app->settings()),
-            'fromUrl' => mb_substr($this->request->get('from'), 0, 255),
         ]);
     }
 
@@ -86,11 +94,13 @@ final class Redirects extends Module
         }
         $z = (string) parse_url($this->request->post('from_path'), PHP_URL_PATH);
         $commandName = $this->request->post('to_path');
+        // a refused save goes back to the form it came from
+        $form = $this->request->post('redirect_id') !== '' ? ['edit' => $this->request->post('redirect_id')] : ['new' => 1, 'from' => $this->request->post('from_path')];
         if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#', $commandName))) {
-            return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'error');
+            return $this->back('Enter the old address and the target. The target is a path on this site or a full https://… address.', '', array_filter($form), 'error');
         }
         $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
-        if (($guard = $this->refuseUnknownId('redirect_id', 'Enter the old address (a path on this site) and the target – a path or a full https://… URL')) !== null) {
+        if (($guard = $this->refuseUnknownId('redirect_id', 'Enter the old address and the target. The target is a path on this site or a full https://… address.')) !== null) {
             return $guard;
         }
         $idp = $this->idParam('redirect_id');

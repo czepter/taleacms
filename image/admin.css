@@ -1030,6 +1030,8 @@ form.center.small-text .btn {
 	padding-top: 20px;
 	border-top: 1px solid var(--line);
 }
+/* Delete on an edit page sits apart from Save and Cancel, at the end of the row */
+.form .buttons .buttons-end { margin-left: auto; }
 .form .buttons .btn + .btn {
 	background: var(--surface);
 	border-color: var(--line-field);
