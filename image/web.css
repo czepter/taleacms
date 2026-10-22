@@ -30,7 +30,7 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 .tl-lightbox [hidden] { display: none; }
 
 /* the step arrows point along the line of text: mirrored on a right-to-left page */
-:root[dir="rtl"] :is(.tl-lightbox, .tl-carousel-arrows, .tl-gallery-arrows) [data-step] { scale: -1 1; }
+:root[dir="rtl"] :is(.tl-lightbox, .tl-slider-arrows) [data-step] { scale: -1 1; }
 
 /* ---------- buttons ---------- */
 .tl-form button, .tl-btn { display: inline-block; justify-self: start; padding: 10px 18px; border: 1px solid var(--tl-accent, #1f4fe0); border-radius: 4px; background: var(--tl-accent, #1f4fe0); color: #fff; font: 600 15px/1.2 system-ui, sans-serif; text-decoration: none; cursor: pointer; }

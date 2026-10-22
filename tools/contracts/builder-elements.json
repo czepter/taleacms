@@ -26,7 +26,9 @@
         "variant"
     ],
     "carousel": [
+        "arrow_position",
         "description",
+        "navigation",
         "per_view"
     ],
     "collection_list": [
@@ -100,10 +102,12 @@
         "who_replies"
     ],
     "gallery": [
+        "arrow_position",
         "caption",
         "folder",
         "label",
         "layout",
+        "navigation",
         "photos",
         "ratio"
     ],

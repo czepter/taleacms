@@ -2942,5 +2942,15 @@ window.TALEA_TRANSLATIONS = {
 	"base": "Standard",
 	"above": "darüber",
 	"Sample content “%s” – replace it with your own or delete it.": "Beispielinhalt „%s“ – ersetzen Sie ihn durch Ihren eigenen oder löschen Sie ihn.",
-	"current draft": "aktueller Entwurf"
+	"current draft": "aktueller Entwurf",
+	"Arrow position": "Position der Pfeile",
+	"arrows and dots": "Pfeile und Punkte",
+	"dots": "Punkte",
+	"arrows": "Pfeile",
+	"scrollbar and arrows": "Scrollleiste und Pfeile",
+	"beside the slides": "neben den Folien",
+	"on the slides": "auf den Folien",
+	"below, at the end": "darunter, am Ende",
+	"Slideshow navigation": "Navigation der Diashow",
+	"Slideshow arrow position": "Position der Pfeile in der Diashow"
 };

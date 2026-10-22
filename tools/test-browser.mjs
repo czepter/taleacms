@@ -713,7 +713,7 @@ await step('galleries: justified rows, slideshow, viewer by keyboard and swipe, 
   if (rows.rights.length > 1 && Math.abs(rows.rights[0] - rows.width) > 2) { throw new Error('the first justified row does not fill the width: ' + JSON.stringify(rows)); }
   // slideshow: the arrows are shown by the script and move the strip
   const strip = page.locator('.tl-gallery-strip').first();
-  await page.locator('.tl-gallery--slideshow[data-enabled] .tl-gallery-arrows [data-step="1"]').click();
+  await page.locator('.tl-gallery--slideshow[data-enabled] .tl-slider-arrows [data-step="1"]').click();
   await page.waitForTimeout(700);
   if ((await strip.evaluate((s) => s.scrollLeft)) < 10) { throw new Error('the slideshow arrow did not scroll the strip'); }
   // viewer: open with the keyboard from a gallery photo, arrows, swipe, Esc, focus back
