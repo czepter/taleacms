@@ -33,10 +33,10 @@ final class AdministrationTest extends SiteTestCase
     #[Depends('testSignInProtections')]
     public function testOverviewAndScreens(): void
     {
-        $this->assertPage('/admin.php', 200, 'Dashboard', message: 'overview');
-        $overview = $this->assertPage('/admin.php', 200, '<h1>Dashboard</h1>', message: 'overview: the screen heading is h1');
-        $this->assertStringContainsString('<li class=""><a href="/admin.php?module=appearance">', $overview->body, 'first steps do not count the appearance of the starter site as done');
-        $this->assertStringContainsString('<li class=""><a href="/admin.php?module=pages"><strong>Prepare your pages', $overview->body, 'nor the pages of the starter site');
+        $overview = $this->assertPage('/admin.php', 200, '<h1>Welcome, Tester</h1>', message: 'Home: the welcome is the screen heading (h1)');
+        $this->assertStringContainsString('<li><a href="/admin.php?module=appearance"><strong>Give your site a face', $overview->body, 'first steps do not count the appearance of the starter site as done');
+        $this->assertStringContainsString('<li><a href="/admin.php?module=pages"><strong>Prepare your pages', $overview->body, 'nor the pages of the starter site');
+        $this->assertStringContainsString('<details class="home-step-group" open><summary><span class="home-step-name">Build your website</span>', $overview->body, 'Home: the first group with something left to do is open');
         $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-wrap" aria-label="Main menu">', message: 'administration: main menu in <nav>');
 
         foreach (['pages', 'pages&action=new', 'enquiries', 'parts', 'components', 'components&action=new', 'collections', 'collections&action=new', 'news', 'news&action=new', 'news&action=links', 'categories', 'categories&action=new', 'tags', 'media', 'stats', 'appearance', 'users', 'users&action=new', 'redirects', 'changelog', 'transfer', 'extensions'] as $module) {

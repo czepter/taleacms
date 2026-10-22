@@ -76,6 +76,13 @@ final class Kernel
         'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
+    /** Home: the first steps in collapsible groups (step name => group); a step not listed belongs to the first group. */
+    private const array FIRST_STEP_GROUPS = [
+        'Set up your site' => 'Build your website', 'Give your site a face' => 'Build your website', 'Prepare your pages' => 'Build your website',
+        'Complete the privacy policy' => 'Build your website', 'Fill in company details' => 'Describe your business', 'Your kind of business' => 'Describe your business',
+        'Connect Claude' => 'Connect Claude and e-mail', 'Set up e-mail' => 'Connect Claude and e-mail',
+    ];
+
     /**
      * The menu entries of each section: section => [ident => class], without the modules that sit under a parent.
      *
@@ -251,7 +258,6 @@ final class Kernel
     {
         $data = ['app' => $this->app, 'modules' => $this->modules()];
         $db = $this->app->db();
-        $scope = ' AND deleted_at IS NULL' . $this->app->auth()->articleScope();      // for queries without an alias (news in the trash are not counted)
         $aliasedScope = ' AND c.deleted_at IS NULL' . $this->app->auth()->articleScope('c.');  // for queries with the alias c
 
         $modules = $this->modules();
@@ -303,20 +309,14 @@ final class Kernel
             'pending' => \Talea\Core\PendingReview::all($this->app, $modules),
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
-            // traffic for 14 days (own measurement without cookies)
-            'traffic' => Extensions::isEnabled($this->app->settings(), 'stats') && isset($modules['stats'])
-                ? $db->all('SELECT day, visits, views FROM {stats_days} WHERE day > CURRENT_DATE - INTERVAL 14 DAY ORDER BY day') : [],
-            'counts' => array_filter([
-                // drafts of news authors wait for an editor – the tile only when there are some
-                'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=awaiting_publication'] : null,
-                'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0'), 'admin.php?module=enquiries'] : null,
-                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=published'] : null,
-                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = FALSE{$scope}"), 'admin.php?module=news&status=drafts'] : null,
-            ]),
-            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, public_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
-            'edited' => array_slice($edited, 0, 8),
+            // the site card: what the site is called, where it lives and what waits for publishing
+            'site' => [
+                'name' => $this->app->settings()->get('site_name'),
+                'url' => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'),
+                'drafts' => isset($modules['pages']) ? (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL') : 0,
+                'look' => $this->app->auth()->isAdmin() && \Talea\Core\Look::hasDraft($this->app->settings()),
+            ],
+            'edited' => array_slice($edited, 0, 6),
         ];
     }
 
@@ -324,7 +324,7 @@ final class Kernel
      * First steps after installation: what is already done is recognized from the data. Only the administrator sees them,
      * until they hide or complete them.
      *
-     * @return array<int, array{name: string, description: string, url: string, done: bool}>
+     * @return array<int, array{name: string, description: string, url: string, done: bool, group: string}>
      */
     private function firstSteps(): array
     {
@@ -357,7 +357,7 @@ final class Kernel
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
         }
-        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3]], $steps);
+        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3], 'group' => self::FIRST_STEP_GROUPS[$k[0]] ?? 'Build your website'], $steps);
 
         return array_filter($result, fn (array $k): bool => !$k['done']) === [] ? [] : $result;
     }

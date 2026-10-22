@@ -6,7 +6,7 @@ namespace Talea\Core;
 
 /**
  * "Waiting for you" (3.2): everything on the site that waits for a person – drafts and proposals from Claude and from
- * colleagues. The dashboard shows it above the counters (Admin\Kernel::desktop, views/admin/pending_review.php) and
+ * colleagues. Home shows it (Admin\Kernel::desktop, views/admin/dashboard.php) and
  * Claude reads the same list with the MCP tool list_pending_review. Only the kinds the person may open are listed, and
  * only kinds with something in them.
  */

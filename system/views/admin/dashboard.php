@@ -1,109 +1,111 @@
 <?php
 /**
- * The admin start screen.
- * Site overview: first steps, warnings, counts, traffic, new enquiries and recently edited content.
+ * Home, the admin start screen: a welcome with the way into the website, the first steps in groups, the site card,
+ * what waits for the person, Ask Claude and what was edited last. Figures and charts live in Analytics.
  *
  * @var Talea\Core\App $app
  * @var array<string, class-string<Talea\Admin\Module>> $modules
- * @var array<string, array{0: int, 1: string}> $counts  label => [count, url]
  * @var list<array{0: string, 1: string, 2?: string, 3?: string}> $warnings  [text, url, link text, action that dismisses it]
- * @var list<array<string, mixed>> $enquiries
- * @var list<array{kind: string, title: string, edited: string, url: string}> $edited
+ * @var list<array{kind: string, title: string, edited: string, url: string, status: string}> $edited
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
+ * @var list<array{name: string, description: string, url: string, done: bool, group: string}> $firstSteps
+ * @var array{name: string, url: string, drafts: int, look: bool} $site
  */
+$user = $app->auth()->user() ?? [];
+$firstName = explode(' ', trim((string) (($user['name'] ?? '') ?: ($user['username'] ?? ''))))[0];
+$groups = [];
+foreach ($firstSteps as $step) {
+    $groups[$step['group']][] = $step;
+}
+$openGroup = null; // the first group with something left to do is open
+foreach ($groups as $name => $steps) {
+    if ($openGroup === null && array_filter($steps, fn (array $k): bool => !$k['done']) !== []) {
+        $openGroup = $name;
+    }
+}
+$waiting = $warnings !== [] || $pending !== [];
 ?>
-<div class="overview-header">
-	<h1><?= e(t('Dashboard')) ?></h1>
+<div class="home-header">
+	<h1><?= e(t('Welcome, %s', $firstName)) ?></h1>
 	<p class="navigation-row">
-<?php if (isset($modules['pages'])): ?>
-		<a class="btn" href="<?= e($app->url('admin.php?module=pages&action=new')) ?>"><?= e(t('New page')) ?></a>
-<?php endif ?>
-<?php if (isset($modules['news'])): ?>
-		<a class="navigation" href="<?= e($app->url('admin.php?module=news&action=new')) ?>"><?= e(t('Write a news item')) ?></a>
-<?php endif ?>
 		<a class="navigation" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('View site')) ?></a>
-		<?= $app->view->render('admin/guide_link', ['url' => Talea\Admin\Guide::forScreen('', '', '', Talea\Core\Language::code())]) ?>
+<?php if (isset($modules['pages'])): ?>
+		<a class="btn" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Edit website')) ?></a>
+<?php endif ?>
 	</p>
 </div>
-<?php foreach ($warnings as $w): [$text, $url] = $w; ?>
-<div class="notice notice-warning notice-actions"><p><?= e($text) ?></p>
-	<p class="navigation-row"><a class="navigation" href="<?= e($url) ?>"><?= e($w[2] ?? t('Fix')) ?></a><?php if (isset($w[3])): ?>
-		<form class="inline" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="back" value="overview"><button class="navigation" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
-</div>
+<?php if ($firstSteps !== [] || isset($modules['pages'])): ?>
+<section class="home-start" aria-labelledby="home-start-heading">
+	<div class="home-section-head">
+		<h2 id="home-start-heading"><?= e(t('Get started')) ?></h2>
+<?php if ($firstSteps !== []): ?>
+		<form method="post" action="<?= e($app->url('admin.php?action=hide_first_steps')) ?>"><?= $app->session->csrfField() ?><button class="navigation" type="submit"><?= e(t('Hide')) ?></button></form>
+<?php endif ?>
+	</div>
+	<div class="home-start-grid">
+<?php if ($firstSteps !== []): ?>
+		<div class="home-steps">
+<?php foreach ($groups as $name => $steps): $done = count(array_filter($steps, fn (array $k): bool => $k['done'])); ?>
+			<details class="home-step-group"<?= $name === $openGroup ? ' open' : '' ?>>
+				<summary><span class="home-step-name"><?= e(t($name)) ?></span> <span class="home-step-count"><?= $done ?> / <?= count($steps) ?></span> <progress max="<?= count($steps) ?>" value="<?= $done ?>"><?= $done ?> / <?= count($steps) ?></progress></summary>
+				<ul>
+<?php foreach ($steps as $step): ?>
+					<li<?= $step['done'] ? ' class="done"' : '' ?>><a href="<?= e($step['url']) ?>"><strong><?= e(t($step['name'])) ?></strong><span><?= e(t($step['description'])) ?></span></a></li>
 <?php endforeach ?>
+				</ul>
+			</details>
+<?php endforeach ?>
+		</div>
+<?php endif ?>
+		<div class="home-site">
+			<a class="home-site-preview" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener" aria-label="<?= e(t('View site')) ?>"><iframe src="<?= e($app->url('')) ?>" title="<?= e(t('Home page preview')) ?>" loading="lazy" tabindex="-1" inert></iframe></a>
+			<div class="home-site-body">
+				<h3><?= e($site['name']) ?></h3>
+				<a class="home-site-url" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(preg_replace('#^https?://#', '', $site['url'])) ?></a>
+<?php if ($site['drafts'] > 0 || $site['look']): ?>
+				<p class="home-site-state"><?= e($site['look'] ? t('%d pages and the look have unpublished changes.', $site['drafts']) : t('%d pages have unpublished changes.', $site['drafts'])) ?></p>
+				<a class="navigation" href="<?= e($app->url($site['look'] ? 'admin.php?module=appearance' : 'admin.php?module=pages')) ?>"><?= e(t('Review and publish')) ?></a>
+<?php else: ?>
+				<p class="home-site-state home-site-live"><?= e(t('Everything is published.')) ?></p>
+<?php endif ?>
+<?php if (isset($modules['appearance'])): ?>
+				<a class="navigation" href="<?= e($app->url('admin.php?module=appearance&action=looks')) ?>"><?= e(t('Try on another look')) ?></a>
+<?php endif ?>
+			</div>
+		</div>
+	</div>
+</section>
+<?php endif ?>
+<?php if ($waiting): ?>
+<section class="awaiting-you" aria-labelledby="awaiting-you-heading">
+	<h2 id="awaiting-you-heading"><?= e(t('Waiting for you')) ?></h2>
+	<ul>
+<?php foreach ($warnings as $w): [$text, $url] = $w; ?>
+		<li class="home-warning"><span><?= e($text) ?></span>
+			<span class="navigation-row"><a href="<?= e($url) ?>"><?= e($w[2] ?? t('Fix')) ?></a><?php if (isset($w[3])): ?>
+				<form class="inline" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="back" value="overview"><button class="navigation" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></span></li>
+<?php endforeach ?>
+<?php foreach ($pending as $p): ?>
+		<li data-kind="<?= e($p['kind']) ?>"><a href="<?= e($app->url($p['url'])) ?>"><strong><?= format_count($p['count']) ?></strong> <?= e(t($p['label'])) ?></a>
+<?php if ($p['examples'] !== []): ?>
+			<span class="small-text"><?= e(implode(' · ', $p['examples'])) ?><?= $p['count'] > count($p['examples']) && $p['kind'] !== 'draft_comments' ? ' …' : '' ?></span>
+<?php endif ?>
+		</li>
+<?php endforeach ?>
+	</ul>
+</section>
+<?php endif ?>
 <?php if ($ask !== null): ?>
 <?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
 <?php endif ?>
-<?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['done'])); ?>
-<section class="wizard" aria-label="<?= e(t('First steps')) ?>">
-	<div class="wizard-head">
-		<h2><?= e(t('First steps')) ?> <small><?= $finished ?> / <?= count($firstSteps) ?></small></h2>
-		<form method="post" action="<?= e($app->url('admin.php?action=hide_first_steps')) ?>"><?= $app->session->csrfField() ?><button class="navigation" type="submit"><?= e(t('Hide')) ?></button></form>
-	</div>
-	<ol class="wizard-steps">
-<?php foreach ($firstSteps as $k): ?>
-		<li class="<?= $k['done'] ? 'done' : '' ?>"><a href="<?= e($k['url']) ?>"><strong><?= e(t($k['name'])) ?></strong><span><?= e(t($k['description'])) ?></span></a></li>
-<?php endforeach ?>
-	</ol>
-</section>
-<?php endif ?>
-<?php if ($pending !== []): ?>
-<?= $app->view->render('admin/pending_review', ['app' => $app, 'pending' => $pending]) ?>
-<?php endif ?>
-<div class="tiles">
-<?php foreach ($counts as $description => [$count, $url]): ?>
-	<a class="tiles-item" href="<?= e($app->url($url)) ?>"><strong><?= format_count($count) ?></strong><span><?= e(t($description)) ?></span></a>
-<?php endforeach ?>
-</div>
-<?php if (count($traffic) >= 2):
-    // bar chart in plain SVG: one bar per day, height by visits
-    $days = [];
-    for ($i = 13; $i >= 0; $i--) { $days[date('Y-m-d', strtotime("-{$i} day"))] = 0; }
-    foreach ($traffic as $n) { $days[$n['day']] = (int) $n['visits']; }
-    $max = max(1, ...array_values($days));
-?>
-<section class="overview-chart" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
-	<h2><?= e(t('Visits in the last 14 days')) ?> <small><?= e(t('%s visits', format_count(array_sum($days)))) ?></small></h2>
-	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
-<?php $x = 0; foreach ($days as $day => $count): $v = max(1, (int) round($count / $max * 62)); ?>
-		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e(t('%s: %s visits', format_date($day), $count)) ?>" aria-label="<?= e(t('%s: %s visits', format_date($day), $count)) ?>" tabindex="0"></rect>
-<?php $x++; endforeach ?>
-	</svg>
-	<p class="small-text"><a href="<?= e($app->url('admin.php?module=stats')) ?>"><?= e(t('Full statistics')) ?></a></p>
-</section>
-<?php endif ?>
-<?php if ($enquiries !== []): ?>
-<h2><?= e(t('Latest enquiries')) ?></h2>
-<div class="tab-wrap">
-<table class="listing">
-<thead><tr><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
-<tbody>
-<?php foreach ($enquiries as $p): ?>
-<tr<?= (int) $p['status'] === 0 ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . $p['public_id'])) ?>"><?= e($p['form'] !== '' ? $p['form'] : t('Enquiry')) ?></a><?= (int) $p['status'] === 0 ? ' <span class="badge badge-draft">' . e(t('new')) . '</span>' : '' ?></td>
-	<td><?= e($p['email']) ?></td>
-	<td class="number"><?= e(format_date($p['created_at'], true)) ?></td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
-</div>
-<?php endif ?>
 <?php if ($edited !== []): ?>
-<h2><?= e(t('Recently edited')) ?></h2>
-<div class="tab-wrap">
-<table class="listing">
-<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Type')) ?></th><th scope="col"><?= e(t('Edited')) ?></th></tr></thead>
-<tbody>
+<section class="home-edited" aria-labelledby="home-edited-heading">
+	<h2 id="home-edited-heading"><?= e(t('Recently edited')) ?></h2>
+	<ul>
 <?php foreach ($edited as $u): ?>
-<tr>
-	<td><a href="<?= e($u['url']) ?>"><?= e($u['title']) ?></a><?= $u['status'] !== '' ? ' <span class="badge badge-draft">' . e($u['status']) . '</span>' : '' ?></td>
-	<td><?= e($u['kind']) ?></td>
-	<td class="number"><?= e(format_date($u['edited'], true)) ?></td>
-</tr>
+		<li><a href="<?= e($u['url']) ?>"><?= e($u['title']) ?></a> <span class="small-text"><?= e($u['kind']) ?> · <?= e(format_date($u['edited'], true)) ?></span><?= $u['status'] !== '' ? ' <span class="badge badge-draft">' . e($u['status']) . '</span>' : '' ?></li>
 <?php endforeach ?>
-</tbody>
-</table>
-</div>
+	</ul>
+</section>
 <?php endif ?>

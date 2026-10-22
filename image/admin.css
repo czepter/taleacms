@@ -1113,20 +1113,7 @@ input[type="radio"] {
 
 /* block editing (the canvas with zones is in editor.css) */
 
-/* dashboard (home screen) */
-
-.overview-header {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: space-between;
-	align-items: center;
-	gap: 12px;
-	margin-bottom: 20px;
-}
-.overview-header h1 {
-	margin: 0;
-}
-/* number tiles: dashboard, stats, newsletter */
+/* number tiles: stats, newsletter */
 /* Income: four source cards side by side, stacked on a narrower screen */
 
 .tiles {
@@ -1160,7 +1147,6 @@ a.tiles-item { color: var(--text); text-decoration: none; transition: border-col
 .presets-collections-grid button[hidden], [data-filter-group][hidden] { display: none; } /* the card search (3.3) – the flex above would beat the hidden attribute */
 .presets-collections-grid span { font-size: 13px; color: var(--text-weak); }
 a.tiles-item:hover { border-color: var(--accent); }
-.overview-header .navigation-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
 
 /* sign-in */
 
@@ -1353,21 +1339,6 @@ body.login {
 	}
 }
 
-/* ---------- first steps after installation (dashboard) ---------- */
-.wizard { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.wizard-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.wizard-head h2 { margin: 0; font-size: 16px; }
-.wizard-head small { margin-left: 6px; font-weight: 400; color: var(--text-weak); }
-.wizard-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
-.wizard-steps li { counter-increment: step; }
-.wizard-steps a { display: grid; align-content: start; gap: 3px; height: 100%; padding: 12px 14px 12px 44px; position: relative; border: 1px solid var(--line); border-radius: 8px; color: inherit; text-decoration: none; }
-.wizard-steps a::before { content: counter(step); position: absolute; left: 12px; top: 12px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--accent); color: var(--accent); font-size: 12px; font-weight: 600; }
-.wizard-steps a:hover { border-color: var(--accent); }
-.wizard-steps span { font-size: 12.5px; line-height: 1.4; color: var(--text-weak); }
-/* a completed step: muted with a color of AA contrast (opacity would lighten the text below 4.5 : 1) */
-.wizard-steps .done a { background: var(--base); }
-.wizard-steps .done a::before { content: "✓"; background: var(--accent); color: var(--on-accent); }
-.wizard-steps .done strong { font-weight: 500; color: var(--text-weak); text-decoration: line-through; }
 /* a task folded into a panel (3.2: Import and export): the heading is the summary, the content opens below */
 .panel-collapsed { margin: 0 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .panel-collapsed > summary { display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; list-style: none; }
@@ -1407,26 +1378,60 @@ body.login {
 .log-errors { max-height: 320px; overflow: auto; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--base); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
 
 /* ---------- dashboard: waiting for you (3.2, views/admin/pending_review.php) ---------- */
-.awaiting-you { margin: 0 0 24px; padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.awaiting-you h2 { margin: 0 0 6px; font-size: 16px; }
-.awaiting-you ul { margin: 0; padding: 0; list-style: none; }
-.awaiting-you li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.awaiting-you ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.awaiting-you li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 12px 18px; border-top: 1px solid var(--line); }
 .awaiting-you li:first-child { border-top: 0; }
 .awaiting-you li > a { color: var(--text); font-weight: 600; text-decoration: none; }
 .awaiting-you li > a:hover { text-decoration: underline; }
 .awaiting-you li > a strong { display: inline-block; min-width: 2ch; margin-right: 4px; font-variant-numeric: tabular-nums; }
 .awaiting-you li > .small-text { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
-@media (max-width: 720px) {
-	.awaiting-you { padding: 14px; }
-}
 
-/* ---------- dashboard: traffic chart ---------- */
-.overview-chart { margin: 0 0 24px; padding: 16px 20px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.overview-chart h2 { margin: 0 0 10px; font-size: 15px; }
-.overview-chart h2 small { margin-left: 8px; font-weight: 400; color: var(--text-weak); }
-.overview-chart svg { display: block; width: 100%; height: 90px; }
-.overview-chart rect { fill: var(--accent); opacity: 0.85; }
-.overview-chart rect:hover { opacity: 1; }
+/* ---------- Home (views/admin/dashboard.php): welcome, first steps in groups, the site card, what waits, recently edited ---------- */
+.home-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: 0 0 32px; }
+.home-header h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.01em; }
+.home-header .navigation-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
+.home-header .btn, .home-header .navigation { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: var(--radius); }
+.home-start, .awaiting-you, .home-edited { margin: 0 0 40px; }
+.home-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+.home-start h2, .awaiting-you h2, .home-edited h2 { margin: 0 0 14px; font-size: 20px; font-weight: 600; }
+.home-section-head h2 { margin: 0; }
+.home-start-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; }
+.home-steps { flex: 3 1 460px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.home-step-group + .home-step-group { border-top: 1px solid var(--line); }
+.home-step-group > summary { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 4px 14px; cursor: pointer; list-style: none; }
+.home-step-group > summary::-webkit-details-marker { display: none; }
+.home-step-group > summary::before { content: ""; width: 8px; height: 8px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(-45deg); transition: transform .15s; }
+.home-step-group[open] > summary::before { transform: rotate(45deg); }
+.home-step-name { flex: 1; font-size: 16px; font-weight: 600; }
+.home-step-count { font-size: 12px; font-weight: 600; color: var(--text-weak); font-variant-numeric: tabular-nums; }
+.home-step-group progress { width: 72px; height: 6px; border: 0; border-radius: 99px; overflow: hidden; background: var(--accent-light); appearance: none; }
+.home-step-group progress::-webkit-progress-bar { background: var(--accent-light); }
+.home-step-group progress::-webkit-progress-value { background: var(--accent); }
+.home-step-group progress::-moz-progress-bar { background: var(--accent); }
+.home-step-group ul { margin: 0 6px 8px; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); }
+.home-step-group li + li { border-top: 1px solid var(--line); }
+.home-step-group li a { display: grid; gap: 2px; padding: 12px 16px 12px 48px; position: relative; color: var(--text); text-decoration: none; }
+.home-step-group li a::before { content: ""; position: absolute; left: 16px; top: 13px; width: 18px; height: 18px; border: 1.5px solid var(--line-field); border-radius: 50%; }
+.home-step-group li a:hover strong { text-decoration: underline; }
+.home-step-group li span { font-size: 13px; line-height: 1.4; color: var(--text-weak); }
+/* a completed step: struck through with a color of AA contrast (opacity would lighten the text below 4.5 : 1) */
+.home-step-group li.done strong { font-weight: 500; color: var(--text-weak); text-decoration: line-through; }
+.home-step-group li.done a::before { content: "✓"; display: grid; place-items: center; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-size: 11px; }
+.home-site { flex: 2 1 300px; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.home-site-preview { display: block; position: relative; height: 220px; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--base); }
+.home-site-preview iframe { position: absolute; top: 0; left: 0; width: 400%; height: 400%; border: 0; transform: scale(.25); transform-origin: 0 0; pointer-events: none; }
+.home-site-body { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px 20px; }
+.home-site-body h3 { margin: 0; font-size: 20px; font-weight: 600; }
+.home-site-url { align-self: flex-start; margin-top: -8px; font-size: 14px; }
+.home-site-state { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 14px; }
+.home-site-live { color: var(--ok); }
+.home-site-body .navigation { display: flex; justify-content: center; align-items: center; min-height: 44px; border-radius: var(--radius); }
+.home-edited ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.home-edited li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 12px 18px; }
+.home-edited li + li { border-top: 1px solid var(--line); }
+.home-edited li > a { font-weight: 600; text-decoration: none; }
+.awaiting-you li.home-warning { justify-content: space-between; }
+.awaiting-you li.home-warning > span:first-child { flex: 1 1 320px; }
 
 /* empty state of a listing (views/admin/empty.php) */
 .empty-state {
