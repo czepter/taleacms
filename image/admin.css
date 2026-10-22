@@ -1351,8 +1351,8 @@ body.login {
 /* the tabs of a hub (3.2, Admin\Hubs) sit above the screen's own content */
 .tabs-hub { margin-bottom: 18px; }
 /* "Ask Claude" on the dashboard (3.1): the box, example requests as pills, the person's latest requests */
-.ask-claude { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.ask-claude h2 { margin: 0 0 4px; font-size: 16px; }
+.ask-claude { margin: 0 0 32px; padding: 22px 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.ask-claude h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
 .ask-claude h3 { margin: 14px 0 6px; font-size: 14px; }
 .ask-claude > .small-text { margin: 0 0 10px; }
 .ask-claude textarea { width: 100%; min-height: 76px; resize: vertical; }
@@ -1823,3 +1823,4 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .stats-experiments li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 18px; }
 .stats-experiments li + li { border-top: 1px solid var(--line); }
 .stats-experiments a { text-decoration: none; }
+

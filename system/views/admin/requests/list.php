@@ -9,13 +9,18 @@
  * @var string $status the filter ('' = all)
  * @var int $open new and in progress together
  * @var bool $claudeOn the Claude connection extension is on
+ * @var array<string, mixed>|null $ask the Ask Claude box (Kernel::askClaude), null without the Claude connection
  */
 use Talea\Core\Requests;
 
 $kinds = ['done' => 'live', 'new' => 'hidden', 'declined' => 'off'];
 echo $app->view->render('admin/list/head', ['count' => t('%d open', $open), 'primary' => [$module->url('new'), t('New request')]]);
 ?>
+<?php if ($ask !== null): ?>
+<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
+<?php else: ?>
 <p class="notice"><?= e(t('Write what should change on the site – "change the opening hours on Monday", "add this PDF to the price list" – and Claude does it as drafts the next time it works on the site. Its notes and the links to the drafts appear in the request; a person reviews and publishes them.')) ?></p>
+<?php endif ?>
 <?php if (!$claudeOn): ?>
 <p class="notice error"><?= e(t('The Claude connection is switched off (Features) – requests are saved, but nobody reads them until it is on.')) ?></p>
 <?php endif ?>

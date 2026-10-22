@@ -54,7 +54,8 @@ final class RequestsToClaudeTest extends SiteTestCase
             $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM tl_media WHERE image_path LIKE 'media/%pricelist-f19%' AND CONCAT(media_id, '') = CONCAT(JSON_EXTRACT(r.attachments, '\$[0]'), '')), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'request.created' AND data LIKE '%\"id\":$id,%'), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'manager-f19@example.cz' AND subject LIKE '%New price list for the Services page%')) FROM tl_requests r WHERE r.id = ?", [$id]),
             'requests: saved as new, the PDF is a Media upload, the event is recorded, the administrator got the title by e-mail',
         );
-        $this->assertPage('/admin.php?module=requests', 200, 'New price list for the Services page', as: self::$staff, message: 'requests: the list opens with the new request first');
+        $list = $this->assertPage('/admin.php?module=requests', 200, 'New price list for the Services page', as: self::$staff, message: 'requests: the list opens with the new request first');
+        $this->assertStringContainsString('name="from" value="requests"', $list->body, '#113: the Ask Claude box stands above the requests');
     }
 
     public function testClaudeReadsAnswersAndFinishesTheRequest(): void

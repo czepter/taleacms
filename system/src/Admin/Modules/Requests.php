@@ -29,7 +29,9 @@ final class Requests extends Module
 
         return $this->view('list', 'Ask Claude', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
-            'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
+            'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
+            // the same box as on Home above the list (#113); the list below already shows the person's requests
+            'ask' => ($ask = $this->kernel->askClaude()) === null ? null : ['from' => 'requests', 'recent' => []] + $ask]);
     }
 
     protected function actionNew(): Response

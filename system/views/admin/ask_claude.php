@@ -5,7 +5,7 @@
  * latest requests. "Copy for the Claude app" copies the text with the site's address and opens Claude in a new tab.
  *
  * @var Talea\Core\App $app
- * @var array{connected: bool, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool} $ask
+ * @var array{connected: bool, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool, from?: string} $ask  from: where the box is ('dashboard' = Home)
  */
 use Talea\Core\AgentSchedules;
 use Talea\Core\Requests;
@@ -24,7 +24,7 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 	<form method="post" action="<?= e($requestsUrl('save')) ?>" enctype="multipart/form-data">
 		<?= $app->session->csrfField() ?>
 		<input type="hidden" name="quick" value="1">
-		<input type="hidden" name="from" value="dashboard">
+		<input type="hidden" name="from" value="<?= e($ask['from'] ?? 'dashboard') ?>">
 		<label class="guide-hidden" for="ask-claude-text"><?= e(t('What should Claude do?')) ?></label>
 		<textarea class="textbox" id="ask-claude-text" name="text" rows="3" required maxlength="<?= Requests::MAX_TEXT ?>" placeholder="<?= e(t('e.g. Add the new opening hours to the contact page')) ?>"></textarea>
 		<div class="ask-claude-buttons">
