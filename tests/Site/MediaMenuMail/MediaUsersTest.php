@@ -125,6 +125,9 @@ final class MediaUsersTest extends SiteTestCase
     {
         $this->site()->client()->get('/contact');
         $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) > 0 FROM tl_stats_pages'), 'statistics by page');
+        $views = (string) $this->site()->value('SELECT SUM(views) FROM tl_stats_pages');
+        $this->site()->admin()->get('/about-us');
+        $this->assertSame($views, (string) $this->site()->value('SELECT SUM(views) FROM tl_stats_pages'), 'a signed-in user is not counted');
 
         // a phone number or e-mail anywhere on the page keeps web.js for the click counter while the statistics are on – off, the page does without it
         $this->statsFeature(false);

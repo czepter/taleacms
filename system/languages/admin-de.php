@@ -5889,4 +5889,5 @@ return [
     'Permanent tells search engines that the page has moved for good. Temporary suits a promotion or a seasonal offer.' => 'Dauerhaft sagt Suchmaschinen, dass die Seite endgültig umgezogen ist. Vorübergehend passt zu einer Aktion oder einem Saisonangebot.',
     'Opens a new redirect with this old address filled in. You add the page that replaced it.' => 'Öffnet eine neue Weiterleitung mit dieser alten Adresse. Sie ergänzen die Seite, die sie ersetzt hat.',
     'Enter the old address and the target. The target is a path on this site or a full https://… address.' => 'Geben Sie die alte Adresse und das Ziel ein. Das Ziel ist ein Pfad auf dieser Website oder eine vollständige https://…-Adresse.',
+    'Undo' => 'Rückgängig',
 ];

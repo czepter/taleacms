@@ -34,10 +34,11 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-status { color: var(--text-weak); font-size: 12px; }
 .bd-status.error { color: var(--error); }
 .bd-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.bd-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); text-decoration: none; cursor: pointer; white-space: nowrap; }
-.bd-btn:hover { border-color: var(--accent); }
+.bd-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); text-decoration: none; cursor: pointer; white-space: nowrap; }
+/* also a link (Done, the guide): the admin's a:hover would underline it and turn it accent */
+.bd-btn:hover { border-color: var(--text-weak); background: var(--accent-light); color: var(--text); text-decoration: none; }
 .bd-btn-main { border-color: var(--accent); background: var(--accent); color: var(--on-accent) !important; font-weight: 600; }
-.bd-btn-main:hover { background: var(--accent-dark); }
+.bd-btn-main:hover { border-color: var(--accent-dark); background: var(--accent-dark); }
 .bd-btn:disabled { opacity: 0.45; cursor: default; }
 
 /* left and right panel */

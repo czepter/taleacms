@@ -5882,4 +5882,5 @@ return [
     'Permanent tells search engines that the page has moved for good. Temporary suits a promotion or a seasonal offer.' => 'Trvalé říká vyhledávačům, že se stránka natrvalo přestěhovala. Dočasné se hodí na akci nebo sezónní nabídku.',
     'Opens a new redirect with this old address filled in. You add the page that replaced it.' => 'Otevře nové přesměrování s vyplněnou starou adresou. Doplníte stránku, která ji nahradila.',
     'Enter the old address and the target. The target is a path on this site or a full https://… address.' => 'Vyplňte starou adresu a cíl. Cíl je cesta na tomto webu, nebo celá adresa https://….',
+    'Undo' => 'Zpět',
 ];
