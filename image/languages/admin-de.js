@@ -2954,5 +2954,8 @@ window.TALEA_TRANSLATIONS = {
 	"Slideshow navigation": "Navigation der Diashow",
 	"Slideshow arrow position": "Position der Pfeile in der Diashow",
 	"More": "Mehr",
-	"Add elements and sections": "Elemente und Abschnitte hinzufügen"
+	"Add elements and sections": "Elemente und Abschnitte hinzufügen",
+	"Edit site header": "Website-Kopf bearbeiten",
+	"Edit site footer": "Website-Fuß bearbeiten",
+	"Shared by every page": "Gilt für alle Seiten"
 };

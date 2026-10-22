@@ -359,7 +359,7 @@
 			'[data-tl-id]{cursor:default} .tl-bd-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .tl-bd-selected{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
 			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .tl-edit-here,.cookies-bar,.cookies-reopen{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]') || e.target.closest('#tl-bd-overlay')) { return; }
+			if (e.target.closest('[contenteditable]') || e.target.closest('#tl-bd-overlay, #tl-bd-part')) { return; } // the overlay and the site part link (#116) handle their own clicks
 			e.preventDefault();
 			e.stopPropagation(); // page scripts do not run on the canvas (player, popups, sharing) – a click only selects
 			if (state.placing) {
