@@ -40,7 +40,7 @@ final class GalleryLayoutsTest extends SiteTestCase
         $body = $this->visit('/z-html');
 
         $this->assertStringContainsString('<figure class="tl-gallery"><img', $body, 'the grid is unchanged: no modifier, no role, no script hook');
-        foreach (['tl-gallery tl-gallery--masonry', 'tl-gallery tl-gallery--justified', 'tl-gallery tl-gallery--slideshow', 'data-slideshow', 'class="tl-gallery-strip"', 'tl-gallery tl-gallery--fullscreen" data-fullscreen',
+        foreach (['tl-gallery tl-gallery--masonry', 'tl-gallery tl-gallery--justified', 'tl-gallery tl-gallery--slideshow tl-slider tl-slider--no-scrollbar tl-slider--overlay', 'data-slideshow', 'class="tl-slider-dots"', 'class="tl-gallery-strip"', 'tl-gallery tl-gallery--fullscreen" data-fullscreen',
             'aria-label="Masonry work"', 'aria-label="Slides"', 'aria-label="Photo gallery"', 'aria-label="From a folder"', 'alt="From the folder"'] as $pattern) {
             $this->assertStringContainsString($pattern, $body, $pattern);
         }

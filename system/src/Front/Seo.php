@@ -327,7 +327,7 @@ final class Seo
      */
     public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close',
         'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.', 'Back', 'Next', 'Step',
-        'Previous month', 'Next month', 'No free times on this day.', 'Choose a service first.', 'Loading…', 'Chosen time: %s'];
+        'Previous month', 'Next month', 'No free times on this day.', 'Choose a service first.', 'Loading…', 'Chosen time: %s', 'Slide %s of %s'];
 
     /**
      * The data-texts attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)

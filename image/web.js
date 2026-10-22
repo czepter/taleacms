@@ -214,22 +214,47 @@
 		if (cards.length) { switchTo(cards[0], false); }
 	});
 
-	/* ---------- carousel: arrows scroll the strip by the width of the visible slides ---------- */
+	/* ---------- carousel: arrows scroll the strip by the width of the visible slides, a dot stands for one such page ---------- */
 
 	document.querySelectorAll('[data-carousel], [data-slideshow]').forEach(function (k) {
 		var strip = k.querySelector('.tl-carousel-strip, .tl-gallery-strip');
 		var arrows = k.querySelectorAll('[data-step]');
+		var dots = k.querySelector('.tl-slider-dots');
+		// one page = the visible width plus the gap to the next slide; the last page may be shorter (it ends at the end of the strip)
+		function page() { return strip.clientWidth + (parseFloat(getComputedStyle(strip).columnGap) || 0); }
+		function pages() { return Math.max(1, Math.ceil((strip.scrollWidth - strip.clientWidth) / page() - 0.05) + 1); }
 		// in a right-to-left strip scrollLeft runs from 0 to negative values and "next" scrolls to the left
 		function state() {
-			arrows[0].disabled = Math.abs(strip.scrollLeft) <= 2;
-			arrows[1].disabled = Math.abs(strip.scrollLeft) + strip.clientWidth >= strip.scrollWidth - 2;
+			var x = Math.abs(strip.scrollLeft), end = x + strip.clientWidth >= strip.scrollWidth - 2;
+			if (arrows.length) {
+				arrows[0].disabled = x <= 2;
+				arrows[1].disabled = end;
+			}
+			if (dots) {
+				var current = end ? dots.children.length - 1 : Math.round(x / page());
+				Array.prototype.forEach.call(dots.children, function (b, i) { b.setAttribute('aria-current', i === current ? 'true' : 'false'); });
+			}
+		}
+		// the number of pages follows the width (several slides side by side on a desktop, one on a phone)
+		function build() {
+			if (!dots || dots.children.length === pages()) { return; }
+			dots.textContent = '';
+			for (var i = 0, n = pages(); i < n; i++) {
+				var b = document.createElement('button');
+				b.type = 'button';
+				b.setAttribute('aria-label', T('Slide %s of %s').replace('%s', i + 1).replace('%s', n));
+				b.addEventListener('click', function (to) { return function () { strip.scrollTo({ left: Math.min(to * page(), strip.scrollWidth - strip.clientWidth) * (rtl ? -1 : 1), behavior: 'smooth' }); }; }(i));
+				dots.appendChild(b);
+			}
 		}
 		arrows.forEach(function (b) {
 			b.addEventListener('click', function () { strip.scrollBy({ left: parseInt(b.getAttribute('data-step'), 10) * strip.clientWidth * (rtl ? -1 : 1), behavior: 'smooth' }); });
 		});
 		strip.addEventListener('scroll', state, { passive: true });
 		k.setAttribute('data-enabled', '');
+		build();
 		state();
+		new ResizeObserver(function () { build(); state(); }).observe(strip);
 	});
 
 	/* ---------- before and after: the range input moves the divider (the clip of the after image); without the script both photos stand side by side ---------- */
