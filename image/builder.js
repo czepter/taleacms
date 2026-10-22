@@ -359,7 +359,7 @@
 			'[data-tl-id]{cursor:default} .tl-bd-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .tl-bd-selected{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
 			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .tl-edit-here,.cookies-bar,.cookies-reopen{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]') || e.target.closest('#tl-bd-overlay, #tl-bd-part')) { return; } // the overlay and the site part link (#116) handle their own clicks
+			if (e.target.closest('[contenteditable]') || e.target.closest('#tl-bd-overlay, #tl-bd-part, #tl-bd-add')) { return; } // the overlay, the site part link and Add section (#116) handle their own clicks
 			e.preventDefault();
 			e.stopPropagation(); // page scripts do not run on the canvas (player, popups, sharing) – a click only selects
 			if (state.placing) {
@@ -2072,6 +2072,8 @@
 		D, T, TYPY, state, el, icon, on, find, contains, newElement, withNewIds, applyChange, writeStyle, selection, selectMany, toggleSelected, selectedIds, topSelected,
 		remove: removeSelected, duplicate: duplicateSelected, group, ungroup, nudge, placeElements, dropAt, canvasSpot, showSpot, startPlacing, endPlacing, editOnCanvas,
 		redrawPanels, redrawRight, setState, askName, labelText, query, refreshPreview, markInPreview, save,
+		/** Opens the Add panel (elements and sections), which inserts after the selected element ("Add section" on the canvas, #116). */
+		openAdd: () => { state.leftOpen = true; state.leftTab = 'add'; redrawLeft(); },
 		previewDoc: () => (preview && preview.contentDocument) || null,
 		scale: () => (preview && parseFloat(preview.dataset.scale)) || 1,
 		/** After a gesture: the canvas may be swapped again (a refresh that came during it runs now). */

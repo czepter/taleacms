@@ -45,6 +45,8 @@
 #tl-bd-part a{pointer-events:auto;display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 20px;border-radius:8px;background:#fff;color:#121212;font:700 13px/1 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;box-shadow:0 6px 24px rgb(0 0 0/.25)}
 #tl-bd-part a:focus-visible{outline:3px solid #ff4f2e;outline-offset:2px}
 #tl-bd-part small{position:absolute;left:16px;bottom:10px;color:#fff;font:12px/1.2 system-ui,sans-serif}
+#tl-bd-add{position:absolute;z-index:2147483644;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 16px;border:0;border-radius:999px;background:#ff4f2e;color:#121212;font:700 13px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgb(0 0 0/.2)}
+#tl-bd-add:focus-visible{outline:3px solid #121212;outline-offset:2px}
 @media (pointer:coarse){#tl-bd-overlay .bdo-h::after{inset:calc(-13px*var(--s))}#tl-bd-overlay .bdo-b{min-width:calc(38px*var(--s));height:calc(38px*var(--s))}}
 `;
 
@@ -625,9 +627,33 @@
 		doc.addEventListener('pointerleave', hide);
 	}
 
+	/* ---------- "Add section" below a section of the page (#116) ---------- */
+
+	/** Hovering a top-level section shows "+ Add section" on its lower edge: it selects the section and opens Add, which inserts after it. */
+	function addSection(doc) {
+		let shown = null;
+		const hide = () => { const b = doc.getElementById('tl-bd-add'); if (b) { b.remove(); } shown = null; };
+		doc.addEventListener('pointermove', (e) => {
+			if (e.target.closest && e.target.closest('#tl-bd-add')) { return; }
+			const top = new Set((state.build.children || []).map((p) => p.id));
+			let node = e.target.closest ? e.target.closest('[data-tl-id]') : null;
+			while (node && !top.has(node.getAttribute('data-tl-id'))) { node = node.parentElement && node.parentElement.closest('[data-tl-id]'); }
+			if (!node || state.gesture || state.editingCanvas || state.placing) { if (shown && !node) { hide(); } return; }
+			const id = node.getAttribute('data-tl-id');
+			if (shown === id) { return; }
+			hide();
+			const box = C.page(node);
+			const button = mk(doc, 'button', { type: 'button', id: 'tl-bd-add', style: 'left:' + (box.left + box.width / 2) + 'px;top:' + box.bottom + 'px' }, '+ ' + T('Add section'));
+			button.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); hide(); B.selection(id); B.openAdd(); });
+			doc.body.append(button);
+			shown = id;
+		});
+		doc.addEventListener('pointerleave', hide);
+	}
+
 	/* ---------- wiring ---------- */
 
-	B.on('preview', (doc) => { C.ensure(doc); marquee(doc); fileDrop(doc); siteParts(doc); new doc.defaultView.ResizeObserver(() => { if (!state.gesture) { C.later(); } }).observe(doc.documentElement); });
+	B.on('preview', (doc) => { C.ensure(doc); marquee(doc); fileDrop(doc); siteParts(doc); addSection(doc); new doc.defaultView.ResizeObserver(() => { if (!state.gesture) { C.later(); } }).observe(doc.documentElement); });
 	B.on('mark', () => C.render());
 	B.on('resize', () => C.later());
 	B.on('edit', () => C.later());
