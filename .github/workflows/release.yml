@@ -2,8 +2,10 @@
 # passed for the tagged commit, the multi-arch image to GHCR with the tags of tools/image-tags.sh, a cosign signature (keyless, GitHub
 # OIDC) and the GitHub release with generated notes. Every push to main that passed CI builds the image `edge` (and `sha-<commit>`)
 # the same way, without a release.
-# Cache: one BuildKit builder kept on the runner host (talea-release) holds every layer and the apt and Composer cache mounts between
-# runs; the registry cache talea-buildcache refills it when the builder is new. A code change rebuilds only the last COPY layers.
+# Each architecture builds natively: amd64 on the self-hosted runners, arm64 on a GitHub-hosted arm64 runner; the job image joins them.
+# Cache: amd64 keeps one BuildKit builder on the runner host (talea-release) with every layer and the apt and Composer cache mounts
+# between runs; arm64 starts a fresh builder each run. The registry cache talea-buildcache:main-<arch> fills a builder that is new.
+# A code change rebuilds only the last COPY layers.
 name: Release
 
 on:
@@ -82,16 +84,17 @@ jobs:
         run: vendor/bin/paratest --processes 4 --testsuite unit,integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
-  image:
+  meta:
     needs: test
     if: needs.test.outputs.stale != 'true'
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 90
+    timeout-minutes: 5
     outputs:
       image: ${{ steps.tags.outputs.image }}
       version: ${{ steps.tags.outputs.version }}
+      sha: ${{ steps.tags.outputs.sha }}
       latest: ${{ steps.tags.outputs.latest }}
-      digest: ${{ steps.build.outputs.digest }}
+      tags: ${{ steps.tags.outputs.tags }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with: { fetch-depth: 0 }
@@ -117,12 +120,26 @@ jobs:
           latest=false; grep -qx "$image:latest" <<<"$tags" && latest=true
           printf 'image=%s\nversion=%s\nsha=%s\nlatest=%s\ntags<<EOF\n%s\nEOF\n' "$image" "$version" "$SHA" "$latest" "$tags" >> "$GITHUB_OUTPUT"
           echo "$tags"
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+  build:
+    # one native build per architecture, pushed by digest only; the job image puts them under one index with the tags.
+    # arm64 runs on a GitHub-hosted arm64 runner (free for a public repository): no QEMU, and no load on the self-hosted host
+    needs: meta
+    strategy:
+      matrix:
+        include:
+          - { arch: amd64, runner: '["self-hosted", "Linux", "X64"]', builder: talea-release }
+          - { arch: arm64, runner: '"ubuntu-24.04-arm"', builder: '' }
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          # one builder per runner host, kept after the job: its state is the layer cache, shared by the runners on the host
-          name: talea-release
-          cleanup: false
+          # self-hosted: one builder per runner host, kept after the job: its state is the layer cache, shared by the runners on
+          # the host. Hosted: a fresh builder per run, filled from the registry cache
+          name: ${{ matrix.builder }}
+          cleanup: ${{ matrix.builder == '' }}
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
       - id: build
@@ -130,31 +147,65 @@ jobs:
         with:
           context: .
           target: production
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ needs.meta.outputs.image }},push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.title=Talea
             org.opencontainers.image.description=Self-hosted website builder
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.licenses=GPL-2.0-or-later
-            org.opencontainers.image.version=${{ steps.tags.outputs.version }}
-            org.opencontainers.image.revision=${{ steps.tags.outputs.sha }}
-          # GHCR reads the description and the repository of a multi-arch image from the index
-          annotations: |
-            index:org.opencontainers.image.description=Self-hosted website builder
-            index:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            index:org.opencontainers.image.licenses=GPL-2.0-or-later
-            index:org.opencontainers.image.version=${{ steps.tags.outputs.version }}
-            index:org.opencontainers.image.revision=${{ steps.tags.outputs.sha }}
-          # every layer of both architectures (mode=max), for a builder that starts empty; the builder's own state comes first
-          cache-from: type=registry,ref=${{ steps.tags.outputs.image }}-buildcache:main
-          cache-to: type=registry,ref=${{ steps.tags.outputs.image }}-buildcache:main,mode=max,image-manifest=true,oci-mediatypes=true
+            org.opencontainers.image.version=${{ needs.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.meta.outputs.sha }}
+          # every layer of the architecture (mode=max), for a builder that starts empty; the builder's own state comes first
+          cache-from: type=registry,ref=${{ needs.meta.outputs.image }}-buildcache:main-${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ needs.meta.outputs.image }}-buildcache:main-${{ matrix.arch }},mode=max,image-manifest=true,oci-mediatypes=true
           provenance: true
           sbom: true
+      - name: Keep the digest for the index
+        env: { DIGEST: '${{ steps.build.outputs.digest }}' }
+        run: mkdir -p "$RUNNER_TEMP/digests" && touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: 'digest-${{ matrix.arch }}', path: '${{ runner.temp }}/digests/*', retention-days: 1 }
+
+  image:
+    needs: [meta, build]
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    outputs:
+      image: ${{ needs.meta.outputs.image }}
+      version: ${{ needs.meta.outputs.version }}
+      latest: ${{ needs.meta.outputs.latest }}
+      digest: ${{ steps.index.outputs.digest }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { pattern: 'digest-*', merge-multiple: true, path: '${{ runner.temp }}/digests' }
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - id: index
+        name: Tag both architectures under one index
+        # GHCR reads the description and the repository of a multi-arch image from the index
+        env:
+          IMAGE: ${{ needs.meta.outputs.image }}
+          TAGS: ${{ needs.meta.outputs.tags }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          SHA: ${{ needs.meta.outputs.sha }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          args=()
+          while read -r tag; do args+=(-t "$tag"); done <<<"$TAGS"
+          for digest in "$RUNNER_TEMP"/digests/*; do args+=("$IMAGE@sha256:${digest##*/}"); done
+          docker buildx imagetools create "${args[@]}" \
+            --annotation "index:org.opencontainers.image.description=Self-hosted website builder" \
+            --annotation "index:org.opencontainers.image.source=$SOURCE" \
+            --annotation "index:org.opencontainers.image.licenses=GPL-2.0-or-later" \
+            --annotation "index:org.opencontainers.image.version=$VERSION" \
+            --annotation "index:org.opencontainers.image.revision=$SHA"
+          digest=$(docker buildx imagetools inspect "$(head -n1 <<<"$TAGS")" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
       - name: Sign the image (keyless) and print its digest
-        env: { IMAGE: '${{ steps.tags.outputs.image }}', DIGEST: '${{ steps.build.outputs.digest }}', TAGS: '${{ steps.tags.outputs.tags }}' }
+        env: { IMAGE: '${{ needs.meta.outputs.image }}', DIGEST: '${{ steps.index.outputs.digest }}', TAGS: '${{ needs.meta.outputs.tags }}' }
         run: |
           cosign sign --yes "$IMAGE@$DIGEST"
           { echo "image digest $DIGEST"; echo; echo '```'; echo "$TAGS"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"

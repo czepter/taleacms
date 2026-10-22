@@ -12,7 +12,9 @@ Everything that goes to GitHub is English: commit, tag and release notes.
    the release.
 3. The release workflow (`.github/workflows/release.yml`) runs the tests again only when CI has not passed for the tagged commit,
    builds the multi-arch image (amd64, arm64), pushes it to GHCR with the tags below, signs it with cosign and publishes the GitHub
-   release with generated notes, the `docker pull` line and the digest.
+   release with generated notes, the `docker pull` line and the digest. Each architecture builds natively: amd64 on the self-hosted
+   runners, arm64 on a GitHub-hosted `ubuntu-24.04-arm` runner (free while the repository is public); the job `image` joins both
+   digests under one index with the tags and signs that.
 
 A pre-release is the same with a tag `vX.Y.Z-rc.N` (and `TALEA_VERSION = 'X.Y.Z-rc.N'`): it gets only its own image tag and a GitHub
 release marked as pre-release.
@@ -35,20 +37,21 @@ Every image is signed with cosign (keyless: no key to keep) and carries provenan
 
 ## Build cache
 
-The images build on the self-hosted runners, which share one host. Two caches keep a release to the changed layers:
+The amd64 image builds on the self-hosted runners, which share one host; the arm64 image builds on a GitHub-hosted runner. Two
+caches keep a release to the changed layers:
 
-- **The builder `talea-release`** (a BuildKit container on the runner host) is created by the first run and kept afterwards. Its
-  state holds every layer of both architectures and the apt and Composer cache mounts; BuildKit's own garbage collection keeps it
-  within its default share of the disk. The arm64 half runs under QEMU, so the PHP extensions are the slow step: they are cached
-  in the base stage, and the Composer stage runs natively once for both architectures (`--platform=$BUILDPLATFORM`).
-- **The registry cache `ghcr.io/<owner>/talea-buildcache:main`** (every layer, `mode=max`) refills a builder that starts empty: a
-  new host, or after `docker buildx rm talea-release`.
+- **The builder `talea-release`** (a BuildKit container on the runner host, amd64 only) is created by the first run and kept
+  afterwards. Its state holds every layer and the apt and Composer cache mounts; BuildKit's own garbage collection keeps it within
+  its default share of the disk.
+- **The registry cache `ghcr.io/<owner>/talea-buildcache:main-<arch>`** (every layer, `mode=max`) fills a builder that starts empty:
+  the arm64 builder on every run, the amd64 one on a new host or after `docker buildx rm talea-release`.
 
 Trust: the builder's state lives on the host that also runs CI. CI builds with the Docker daemon's own builder, not this one, and
-its PHP containers get no Docker socket; pull requests from forks never run on the self-hosted runners. Whoever can change a
-workflow in this repository could still reach the host, and with it the builder, but could change `release.yml` just as well. If
-people outside that circle ever get CI on these runners, give the release jobs their own runner group, or remove `name` and
-`cleanup: false` from the buildx step (a fresh builder per run, only the registry cache, which only this workflow can write).
+its PHP containers get no Docker socket; pull requests from forks never run on the self-hosted runners. The arm64 build runs on a
+GitHub-hosted runner, a fresh machine per job. Whoever can change a workflow in this repository could still reach the host, and
+with it the builder, but could change `release.yml` just as well. If people outside that circle ever get CI on these runners, give
+the release jobs their own runner group, or set `builder` of amd64 in the build matrix to `''` (a fresh builder per run, only the
+registry cache, which only this workflow can write).
 
 To give the builder a newer BuildKit, remove it on the host with `docker buildx rm --keep-state talea-release`; the next run creates
 it again with its state. `docker buildx du --builder talea-release` shows its size, `docker buildx prune --builder talea-release`
