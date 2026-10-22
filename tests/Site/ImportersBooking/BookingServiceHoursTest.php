@@ -63,19 +63,28 @@ final class BookingServiceHoursTest extends SiteTestCase
         $site = $this->site();
         $staff = $site->publicId('booking_staff', self::$staff);
         $shoot = $site->publicId('booking_services', self::$shoot);
-        $form = '/admin.php?module=bookings&action=staff_edit&id=' . $staff;
-        $page = $this->assertPage($form, 200, 'Hours for Family shoot', message: "service hours: the person's form has a fieldset for the service");
-        $this->assertMatchesRegularExpression('/name="hours_' . $shoot . '_' . $this->weekdayNumber() . '" maxlength="100" value="13:00.15:00"/u', $page->body, "service hours: the form shows the service's hours");
-        $fields = ['id' => $staff, 'name' => 'Jane Booking', 'email' => 'jana-bk@example.cz', 'active' => '1', 'services' => [$site->publicId('booking_services', self::$service), $shoot]];
+        $form = '/admin.php?module=bookings&action=services&id=' . $shoot;
+        $page = $this->assertPage($form, 200, 'value="own" checked', message: 'service hours: the service has its own page, with "Only at certain times" chosen');
+        $this->assertMatchesRegularExpression('/name="hours_' . $staff . '_' . $this->weekdayNumber() . '" maxlength="100" value="13:00.15:00"/u', $page->body, "service hours: the service's page shows the person's times for it");
+        $this->assertStringNotContainsString('name="hours_' . $shoot . '_', $this->assertPage('/admin.php?module=bookings&action=staff_edit&id=' . $staff, 200, 'Family shoot')->body, "service hours: the person's form only links to the service");
+        $fields = ['id' => $shoot, 'name' => 'Family shoot', 'duration_min' => '60', 'buffer_min' => '0', 'active' => '1', 'staff' => [$staff], 'hours_mode' => 'own'];
         foreach (range(1, 7) as $d) {
-            $fields['hours_' . $d] = '9:00-17:00';
-            $fields['hours_' . $shoot . '_' . $d] = $d === 6 ? '10:00-12:00' : '';
+            $fields['hours_' . $staff . '_' . $d] = $d === 6 ? '10:00-12:00' : '';
         }
-        $this->adminPost('/admin.php?module=bookings&action=staff_save', $fields, $form);
-        $this->assertSame('6|10:00|12:00', $this->q('SELECT CONCAT(weekday, \'|\', time_from, \'|\', time_to) FROM tl_booking_hours WHERE service_id = ' . self::$shoot), 'service hours: the form replaces the hours of the service');
-        $fields['hours_' . $shoot . '_6'] = '';
-        $this->adminPost('/admin.php?module=bookings&action=staff_save', $fields, $form);
-        $this->assertSame('0|7', $this->hourRows(), 'service hours: all empty takes the service back to the general hours');
+        $this->adminPost('/admin.php?module=bookings&action=service_save', $fields, $form);
+        $this->assertSame('6|10:00|12:00', $this->q('SELECT CONCAT(weekday, \'|\', time_from, \'|\', time_to) FROM tl_booking_hours WHERE service_id = ' . self::$shoot), "service hours: the service's form replaces its times");
+        $person = ['id' => $staff, 'name' => 'Jane Booking', 'email' => 'jana-bk@example.cz', 'active' => '1', 'services' => [$site->publicId('booking_services', self::$service), $shoot]];
+        foreach (range(1, 7) as $d) {
+            $person['hours_' . $d] = '9:00-17:00';
+        }
+        $this->adminPost('/admin.php?module=bookings&action=staff_save', $person, '/admin.php?module=bookings&action=staff_edit&id=' . $staff);
+        $this->assertSame('1|7', $this->hourRows(), "service hours: saving the person keeps the service's times");
+        $fields['hours_' . $staff . '_6'] = '';
+        $this->adminPost('/admin.php?module=bookings&action=service_save', $fields, $form);
+        $this->assertSame('1|7', $this->hourRows(), 'service hours: "Only at certain times" without any time is refused');
+        $fields['hours_mode'] = 'person';
+        $this->adminPost('/admin.php?module=bookings&action=service_save', $fields, $form);
+        $this->assertSame('0|7', $this->hourRows(), 'service hours: "When the person works" takes the service back to the weekly hours');
         $this->assertStringContainsString('"09:00"', $this->shootSlots(self::$day), 'service hours: ... and the service is offered in the general hours again');
     }
 

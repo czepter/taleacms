@@ -8,7 +8,7 @@
  * @var array<string, mixed> $m the person ([] = a new one)
  * @var list<array<string, mixed>> $services
  * @var array<int, string> $hours weekday => ranges as text
- * @var array<int, array<int, string>> $serviceHours service id => weekday => ranges as text (only services with hours of their own)
+ * @var list<int> $ownHours the services with times of their own for this person (kept on the service's page)
  * @var list<array<string, mixed>> $offs
  * @var array<string, list<array{0: string, 1: string}>> $siteWeek the site's opening hours
  * @var array<int, string> $users
@@ -39,15 +39,11 @@ $isNew = $m === [];
 <?php foreach (Booking::WEEKDAYS as $d => $dayName): ?>
 <div class="row"><label for="hours_<?= $d ?>"><?= e(t($dayName)) ?></label><div><input class="textfield" id="hours_<?= $d ?>" name="hours_<?= $d ?>" maxlength="100" value="<?= e($hours[$d] ?? '') ?>" placeholder="<?= e(Hours::rangesText($siteWeek[$dayName] ?? [])) ?>"></div></div>
 <?php endforeach ?>
+<?php $own = array_filter($services, fn (array $s): bool => in_array($s['id'], $ownHours, true)) ?>
+<?php if ($own !== []): ?>
+<p class="help"><?= e(t('These services have times of their own:')) ?> <?= implode(', ', array_map(fn (array $s): string => '<a href="' . e($module->url('services', ['id' => $s['public_id']])) . '">' . e($s['name']) . '</a>', $own)) ?></p>
+<?php endif ?>
 </fieldset>
-<?php foreach ($services as $s): if (!in_array($s['id'], $m['services'] ?? [], true)): continue; endif ?>
-<fieldset><legend><?= e(t('Hours for %s', $s['name'])) ?></legend>
-<p class="help"><?= e(t('Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.')) ?></p>
-<?php foreach (Booking::WEEKDAYS as $d => $dayName): $field = 'hours_' . $s['public_id'] . '_' . $d ?>
-<div class="row"><label for="<?= e($field) ?>"><?= e(t($dayName)) ?></label><div><input class="textfield" id="<?= e($field) ?>" name="<?= e($field) ?>" maxlength="100" value="<?= e($serviceHours[$s['id']][$d] ?? '') ?>"></div></div>
-<?php endforeach ?>
-</fieldset>
-<?php endforeach ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <?php if (!$isNew): ?>
