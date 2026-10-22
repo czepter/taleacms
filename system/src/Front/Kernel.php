@@ -904,7 +904,7 @@ final class Kernel
         if ($raw !== null && ($form = $this->editInPlace('news', $raw, 'news/' . $newsItem['slug'])) !== null) {
             return $this->page($newsItem['title'], $form, ['noindex' => true]);
         }
-        if (!$preview) {
+        if (!$preview && $this->app->auth()->user() === null) {
             $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['news_id']]);
         }
 

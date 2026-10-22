@@ -5900,4 +5900,5 @@ return [
     '%s hidden' => '%s verborgen',
     'Most viewed' => 'Meistbesucht',
     'All figures in Analytics' => 'Alle Zahlen in Analyse',
+    'Undo' => 'Rückgängig',
 ];

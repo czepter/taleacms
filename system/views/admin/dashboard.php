@@ -10,7 +10,7 @@
  * @var list<array{kind: string, title: string, edited: string, url: string, status: string}> $edited
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
- * @var list<array{name: string, description: string, url: string, done: bool, group: string}> $firstSteps
+ * @var list<array{name: string, description: string, url: string, done: bool, skipped: bool, group: string}> $firstSteps
  * @var array{name: string, url: string, drafts: int, look: bool} $site
  * @var array<string, mixed>|null $glance "At a glance" (Kernel::glance): days, parts, report (Core\Report::glance), unread, bookings, pages
  */
@@ -149,7 +149,8 @@ $waiting = $warnings !== [] || $pending !== [];
 				<summary><span class="home-step-name"><?= e(t($name)) ?></span> <span class="home-step-count"><?= $done ?> / <?= count($steps) ?></span> <progress max="<?= count($steps) ?>" value="<?= $done ?>"><?= $done ?> / <?= count($steps) ?></progress></summary>
 				<ul>
 <?php foreach ($steps as $step): ?>
-					<li<?= $step['done'] ? ' class="done"' : '' ?>><a href="<?= e($step['url']) ?>"><strong><?= e(t($step['name'])) ?></strong><span><?= e(t($step['description'])) ?></span></a></li>
+					<li<?= $step['done'] ? ' class="done"' : '' ?>><a href="<?= e($step['url']) ?>"><strong><?= e(t($step['name'])) ?></strong><span><?= e(t($step['description'])) ?></span></a><?php if (!$step['done'] || $step['skipped']): ?>
+						<form method="post" action="<?= e($app->url('admin.php?action=skip_first_step')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="step" value="<?= e($step['name']) ?>"><button class="navigation" type="submit"><?= e(t($step['skipped'] ? 'Undo' : 'Skip')) ?><span class="visually-hidden">: <?= e(t($step['name'])) ?></span></button></form><?php endif ?></li>
 <?php endforeach ?>
 				</ul>
 			</details>

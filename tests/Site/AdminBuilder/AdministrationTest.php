@@ -37,6 +37,13 @@ final class AdministrationTest extends SiteTestCase
         $this->assertStringContainsString('<li><a href="/admin.php?module=appearance"><strong>Give your site a face', $overview->body, 'first steps do not count the appearance of the starter site as done');
         $this->assertStringContainsString('<li><a href="/admin.php?module=pages"><strong>Prepare your pages', $overview->body, 'nor the pages of the starter site');
         $this->assertMatchesRegularExpression('#<details class="home-step-group" open>\s*<summary><span class="home-step-name">Build your website</span>#', $overview->body, 'Home: the first group with something left to do is open');
+        $skip = ['_csrf' => $overview->csrf(), 'step' => 'Give your site a face'];
+        $this->site()->admin()->post('/admin.php?action=skip_first_step', $skip);
+        $skipped = $this->site()->admin()->get('/admin.php');
+        $this->assertStringContainsString('<li class="done"><a href="/admin.php?module=appearance"><strong>Give your site a face', $skipped->body, 'Home: a skipped first step counts as done');
+        $this->assertStringContainsString('>Undo<span class="visually-hidden">: Give your site a face</span>', $skipped->body, 'Home: a skipped first step can be brought back');
+        $this->site()->admin()->post('/admin.php?action=skip_first_step', $skip);
+        $this->assertStringContainsString('<li><a href="/admin.php?module=appearance"><strong>Give your site a face', $this->site()->admin()->get('/admin.php')->body, 'Home: Undo opens the step again');
         $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-wrap" aria-label="Main menu">', message: 'administration: main menu in <nav>');
         $website = $this->assertPage('/admin.php?module=pages&action=website', 200, 'class="website-preview"', message: 'Website mode: a live preview of the home page');
         $this->assertStringContainsString('<span class="menu-heading">Main navigation</span>', $website->body, 'Website mode: the sidebar groups the pages by the menu');

@@ -195,6 +195,15 @@ final class Kernel
 
             return Response::redirect($app->url('admin.php'));
         }
+        // one step skipped (not wanted, or done elsewhere) or brought back
+        if ($action === 'skip_first_step' && $request->isPost() && $app->auth()->isAdmin() && array_key_exists($request->post('step'), self::FIRST_STEP_GROUPS)) {
+            $step = $request->post('step');
+            $skipped = $this->skippedFirstSteps();
+            $skipped = in_array($step, $skipped, true) ? array_diff($skipped, [$step]) : [...$skipped, $step];
+            $app->settings()->set('first_steps_skipped', (string) json_encode(array_values($skipped)));
+
+            return Response::redirect($app->url('admin.php'));
+        }
         if ($ident === '') {
             return $this->page('', $app->view->render('admin/dashboard', $this->desktop()));
         }
@@ -378,10 +387,10 @@ final class Kernel
     }
 
     /**
-     * First steps after installation: what is already done is recognized from the data. Only the administrator sees them,
-     * until they hide or complete them.
+     * First steps after installation: what is already done is recognized from the data, a step the administrator skipped
+     * counts as done. Only the administrator sees them, until they hide or complete them.
      *
-     * @return array<int, array{name: string, description: string, url: string, done: bool, group: string}>
+     * @return array<int, array{name: string, description: string, url: string, done: bool, skipped: bool, group: string}>
      */
     private function firstSteps(): array
     {
@@ -414,12 +423,22 @@ final class Kernel
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
         }
-        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3], 'group' => self::FIRST_STEP_GROUPS[$k[0]]], $steps);
+        $skipped = $this->skippedFirstSteps();
+        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3] || in_array($k[0], $skipped, true),
+            'skipped' => !$k[3] && in_array($k[0], $skipped, true), 'group' => self::FIRST_STEP_GROUPS[$k[0]]], $steps);
         // Home shows the groups in the order of FIRST_STEP_GROUPS, the steps keep their order within a group
         $order = array_flip(array_values(array_unique(self::FIRST_STEP_GROUPS)));
         usort($result, fn (array $a, array $b): int => $order[$a['group']] <=> $order[$b['group']]);
 
         return array_filter($result, fn (array $k): bool => !$k['done']) === [] ? [] : $result;
+    }
+
+    /** @return list<string> names of the first steps the administrator skipped */
+    private function skippedFirstSteps(): array
+    {
+        $skipped = json_decode($this->app->settings()->get('first_steps_skipped'), true);
+
+        return is_array($skipped) ? array_values(array_filter($skipped, 'is_string')) : [];
     }
 
     /** Where to go after sign-in: if an app connection via OAuth (the Claude connector) is waiting, straight to the consent, otherwise to the overview. */

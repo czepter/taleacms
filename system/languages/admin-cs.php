@@ -5893,4 +5893,5 @@ return [
     '%s hidden' => '%s skrytých',
     'Most viewed' => 'Nejnavštěvovanější',
     'All figures in Analytics' => 'Všechna čísla v sekci Měření',
+    'Undo' => 'Zpět',
 ];

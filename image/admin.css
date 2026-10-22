@@ -623,7 +623,8 @@ table.listing td a {
 	font-size: 15px;
 }
 table.listing:has(td.cell-main) td { vertical-align: middle; }
-table.listing .cell-select { width: 52px; padding-inline: 0; text-align: center; }
+/* the main cell's width: 100% shrinks the other columns to their content, so the padding (not a width) makes this column 52px */
+table.listing .cell-select { padding-inline: 17px; text-align: center; }
 table.listing .cell-select input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 /* max-width: 0 lets the title cut itself with an ellipsis inside an auto-sized table */
 table.listing td.cell-main { width: 100%; min-width: 180px; max-width: 0; height: 64px; }
@@ -642,6 +643,7 @@ table.listing .cell-title {
 	text-decoration: none;
 }
 table.listing a.cell-title:hover { text-decoration: underline; }
+table.listing .cell-title.cell-code { font-size: 14px; font-weight: 400; }
 .cell-sub { color: var(--text-weak); font-size: 13px; }
 table.listing a.cell-sub { font-weight: 400; color: var(--text-weak); text-decoration: none; }
 table.listing a.cell-sub:hover { color: var(--text); }
@@ -1430,13 +1432,18 @@ body.login {
 .home-step-group progress::-webkit-progress-value { background: var(--accent); }
 .home-step-group progress::-moz-progress-bar { background: var(--accent); }
 .home-step-group ul { margin: 0 6px 8px; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--radius); background: var(--base); }
+.home-step-group li { display: flex; align-items: center; }
 .home-step-group li + li { border-top: 1px solid var(--line); }
-.home-step-group li a { display: grid; gap: 2px; padding: 12px 16px 12px 48px; position: relative; color: var(--text); text-decoration: none; }
+.home-step-group li a { flex: 1; display: grid; gap: 2px; padding: 12px 16px 12px 48px; position: relative; color: var(--text); text-decoration: none; }
 .home-step-group li a::before { content: ""; position: absolute; left: 16px; top: 13px; width: 18px; height: 18px; border: 1.5px solid var(--line-field); border-radius: 50%; }
 .home-step-group li a:hover strong { text-decoration: underline; }
 .home-step-group li span { font-size: 13px; line-height: 1.4; color: var(--text-weak); }
 /* a completed step: struck through with a color of AA contrast (opacity would lighten the text below 4.5 : 1) */
 .home-step-group li.done strong { font-weight: 500; color: var(--text-weak); text-decoration: line-through; }
+/* Skip / Undo of a step: quiet until the row is pointed at or focused, always shown on touch screens */
+.home-step-group li form { margin-inline-end: 12px; }
+.home-step-group li button { padding: 4px 10px; font-size: 13px; }
+@media (hover: hover) { .home-step-group li:not(:hover, :focus-within) button { opacity: 0; } }
 .home-step-group li.done a::before { content: "✓"; display: grid; place-items: center; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-size: 11px; }
 .home-site { flex: 2 1 300px; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
 .home-site-preview { display: block; position: relative; height: 220px; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--base); }
