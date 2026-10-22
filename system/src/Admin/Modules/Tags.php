@@ -23,20 +23,28 @@ final class Tags extends Module
 
     protected function actionList(): Response
     {
+        $tags = $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {news_tags} cs WHERE cs.tag_id = s.tag_id) AS count FROM {tags} s ORDER BY (s.description IS NOT NULL AND s.description <> \'\') DESC, count DESC, s.name LIMIT 500');
+        if ($this->request->get('edit') === '') {
+            return $this->view('list', 'Tags and topics', ['tags' => $tags]);
+        }
+        // one tag on its own page
         $edit = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ?', [$this->idParam('edit')]);
+        if ($edit === null) {
+            return $this->error('The tag does not exist.', 404);
+        }
 
-        return $this->view('list', 'Tags and topics', [
-            'tags' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {news_tags} cs WHERE cs.tag_id = s.tag_id) AS count FROM {tags} s ORDER BY (s.description IS NOT NULL AND s.description <> \'\') DESC, count DESC, s.name LIMIT 500'),
-            'edit' => $edit,
-        ]);
+        return $this->view('edit', '#' . $edit['name'], ['tags' => $tags, 'edit' => $edit]);
     }
 
     protected function actionSave(): Response
     {
         $tag = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ?', [$this->idParam('tag_id')]);
         $name = mb_substr(trim($this->request->post('name')), 0, 80);
-        if (!$this->request->isPost() || $tag === null || $name === '') {
-            return $this->back('Enter the tag name.', type: 'error');
+        if (!$this->request->isPost() || $tag === null) {
+            return $this->back();
+        }
+        if ($name === '') {
+            return $this->back('Enter the tag name.', '', ['edit' => $tag['public_id']], 'error');
         }
         $this->db->update('tags', ['name' => $name, 'description' => \Talea\Core\Html::forUser(trim($this->request->post('description')), $this->app->auth()), 'image' => mb_substr($this->request->post('image'), 0, 255)], ['tag_id' => $tag['tag_id']]);
 
