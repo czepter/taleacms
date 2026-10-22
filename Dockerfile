@@ -4,7 +4,7 @@
 # Layers run from the least to the most often changed, so a code change rebuilds only the last COPY.
 
 # ---- base: PHP, extensions, web server config (shared by dev and production)
-FROM dunglas/frankenphp:1.13-php8.5.11-bookworm AS base
+FROM dunglas/frankenphp:1.13.2-php8.5.12-bookworm AS base
 
 # PHP extensions: the slowest step; the apt downloads are kept in a BuildKit cache between builds
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
