@@ -2957,5 +2957,6 @@ window.TALEA_TRANSLATIONS = {
 	"Add elements and sections": "Elemente und Abschnitte hinzufügen",
 	"Edit site header": "Website-Kopf bearbeiten",
 	"Edit site footer": "Website-Fuß bearbeiten",
-	"Shared by every page": "Gilt für alle Seiten"
+	"Shared by every page": "Gilt für alle Seiten",
+	"Add section": "Abschnitt hinzufügen"
 };

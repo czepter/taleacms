@@ -172,6 +172,17 @@ await step('builder: element tree and search', async () => {
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
 
+await step('builder: Add section below a section of the page (#116)', async () => {
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await page.waitForTimeout(1500);
+  await canvas().locator('[data-tl-id]').first().hover();
+  const add = canvas().locator('#tl-bd-add');
+  await add.waitFor({ timeout: 5000 });
+  await add.click();
+  const ok = await page.evaluate(() => { const s = window.taleaBuilder.state; return s.leftOpen && s.leftTab === 'add' && s.build.children.some((c) => c.id === s.selected); });
+  if (!ok) { throw new Error('Add section does not select the section and open Add'); }
+});
+
 await step('builder: dialogs, classes, library and clipboard', async () => {
   await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);

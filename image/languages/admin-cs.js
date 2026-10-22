@@ -2949,5 +2949,6 @@ window.TALEA_TRANSLATIONS = {
 	"Add elements and sections": "Přidat prvky a sekce",
 	"Edit site header": "Upravit hlavičku webu",
 	"Edit site footer": "Upravit patičku webu",
-	"Shared by every page": "Společné pro všechny stránky"
+	"Shared by every page": "Společné pro všechny stránky",
+	"Add section": "Přidat sekci"
 };
