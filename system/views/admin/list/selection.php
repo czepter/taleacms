@@ -7,7 +7,7 @@
  * @var string $action
  * @var string $csrf
  * @var array<string, string> $hidden
- * @var list<array{value: string, label: string, kind?: string, confirm?: string}> $actions  kind: primary | danger | ''
+ * @var list<array{value?: string, label: string, kind?: string, confirm?: string, formaction?: string}> $actions  kind: primary | danger | ''; value → name="bulk"
  * @var string $extra      raw HTML placed before the buttons (e.g. a category select)
  */
 $icon = require __DIR__ . '/../icons.php';
@@ -21,7 +21,7 @@ $extra ??= '';
 <span class="selection-count"><span class="selection-number"></span> <?= e(t('selected')) ?></span>
 <?= $extra ?>
 <?php foreach ($actions as $a): $kind = $a['kind'] ?? ''; ?>
-<button class="<?= $kind === 'primary' ? 'btn' : 'navigation' . ($kind === 'danger' ? ' danger' : '') ?>" type="submit" name="bulk" value="<?= e($a['value']) ?>"<?= isset($a['confirm']) ? ' data-confirm="' . e($a['confirm']) . '"' : '' ?>><?= e($a['label']) ?></button>
+<button class="<?= $kind === 'primary' ? 'btn' : 'navigation' . ($kind === 'danger' ? ' danger' : '') ?>" type="submit"<?= isset($a['value']) ? ' name="bulk" value="' . e($a['value']) . '"' : '' ?><?= isset($a['formaction']) ? ' formaction="' . e($a['formaction']) . '"' : '' ?><?= isset($a['confirm']) ? ' data-confirm="' . e($a['confirm']) . '"' : '' ?>><?= e($a['label']) ?></button>
 <?php endforeach ?>
 <button class="icon-btn" type="reset" aria-label="<?= e(t('Clear selection')) ?>" title="<?= e(t('Clear selection')) ?>"><?= $icon('close') ?></button>
 </form>

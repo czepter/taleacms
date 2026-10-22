@@ -100,6 +100,10 @@ final class News extends Module
             'category' => Categories::listAll($this->db),
             'filter' => ['category' => $colorScheme > 0 ? $this->request->get('category') : '', 'language' => $language, 'search' => $search, 'status' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {news} c WHERE c.deleted_at IS NOT NULL' . $auth->articleScope('c.')),
+            // the status tabs (docs/specs/admin-lists.md): one pass over the signed-in user's news
+            'counts' => array_map('intval', ($this->db->one('SELECT COUNT(*) AS total, SUM(CASE WHEN c.visible = TRUE AND c.published_at <= NOW() THEN 1 ELSE 0 END) AS published,'
+                . ' SUM(CASE WHEN c.visible = TRUE AND c.published_at > NOW() THEN 1 ELSE 0 END) AS scheduled, SUM(CASE WHEN c.visible = FALSE THEN 1 ELSE 0 END) AS drafts'
+                . ' FROM {news} c WHERE c.deleted_at IS NULL' . $auth->articleScope('c.')) ?? []) + ['total' => 0, 'published' => 0, 'scheduled' => 0, 'drafts' => 0]),
             'toPublish' => self::countAwaitingPublication($this->app),
             'siteLanguages' => $siteLanguages,
         ]);
@@ -613,7 +617,7 @@ final class News extends Module
             return $this->back();
         }
         $moved = 0;
-        foreach ($this->request->postList('delete') as $id) {
+        foreach ([...$this->request->postList('delete'), ...$this->request->postList('selected')] as $id) {
             $newsItem = $this->load($this->db->internalId('news', $id));
             if ($newsItem === null || ($newsItem['visible'] && !$this->app->auth()->canPublish())) {
                 continue;
@@ -633,7 +637,7 @@ final class News extends Module
             return $this->back();
         }
         $restored = 0;
-        foreach ($this->request->postList('delete') as $id) {
+        foreach ([...$this->request->postList('delete'), ...$this->request->postList('selected')] as $id) {
             $newsItem = $this->load($this->db->internalId('news', $id), true);
             if ($newsItem === null) {
                 continue;
@@ -652,7 +656,7 @@ final class News extends Module
             return $this->back();
         }
         $deleted = 0;
-        foreach ($this->request->postList('delete') as $id) {
+        foreach ([...$this->request->postList('delete'), ...$this->request->postList('selected')] as $id) {
             $newsItem = $this->load($this->db->internalId('news', $id), true);
             if ($newsItem !== null) {
                 $deleted += $this->db->delete('news', ['news_id' => $newsItem['news_id']]);

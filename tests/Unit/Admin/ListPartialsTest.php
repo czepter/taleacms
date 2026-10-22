@@ -130,4 +130,23 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('type="reset"', $html);
         $this->assertStringContainsString('aria-label="Clear selection"', $html);
     }
+
+    public function testSwitchReflectsState(): void
+    {
+        $html = $this->view->render('admin/list/switch', ['action' => '?toggle', 'fields' => ['popup_id' => 'p1'], 'on' => false, 'label' => 'Newsletter on', 'csrf' => '<input type="hidden" name="csrf" value="x">']);
+        $this->assertStringContainsString('<form class="inline" method="post" action="?toggle">', $html);
+        $this->assertStringContainsString('name="csrf"', $html);
+        $this->assertStringContainsString('<input type="hidden" name="popup_id" value="p1">', $html);
+        $this->assertStringContainsString('<button class="switch" type="submit" role="switch" aria-checked="false" aria-label="Newsletter on">', $html);
+        $this->assertStringContainsString('aria-checked="true"', $this->view->render('admin/list/switch', ['action' => '?t', 'fields' => [], 'on' => true, 'label' => 'x', 'csrf' => '']));
+    }
+
+    public function testSelectionButtonsCanPostElsewhere(): void
+    {
+        $html = $this->view->render('admin/list/selection', ['form' => 'bulk', 'action' => '?restore', 'csrf' => '', 'actions' => [
+            ['label' => 'Restore', 'kind' => 'primary'], ['label' => 'Delete permanently', 'kind' => 'danger', 'formaction' => '?delete_permanently', 'confirm' => 'Sure?'],
+        ]]);
+        $this->assertStringContainsString('<button class="btn" type="submit">Restore</button>', $html, 'an action without a value posts no bulk field');
+        $this->assertStringContainsString('<button class="navigation danger" type="submit" formaction="?delete_permanently" data-confirm="Sure?">Delete permanently</button>', $html);
+    }
 }
