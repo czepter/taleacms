@@ -255,6 +255,18 @@ async function savedBuild(p, kind) {
   await openBuilder(p, kind);
   return p.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build);
 }
+/**
+ * Switch the canvas to a device. The bar is rebuilt when the draft state changes (an autosave finishing), and a click that lands
+ * while it is rebuilt is lost: wait for the save, click, and click again until the builder is on that breakpoint.
+ */
+async function device(p, name, bp) {
+  await p.waitForFunction(() => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries; }, null, { timeout: 15000 });
+  for (let attempt = 0; attempt < 3 && await p.evaluate(() => window.taleaBuilder.state.bp) !== bp; attempt++) {
+    await p.getByRole('button', { name }).first().click();
+    await p.waitForFunction((x) => window.taleaBuilder.state.bp === x, bp, { timeout: 3000 }).catch(() => {});
+  }
+  expect(await p.evaluate(() => window.taleaBuilder.state.bp) === bp, `the canvas did not switch to ${name}`);
+}
 async function pick(p, id, corner = false) {
   const b = await node(p, id).boundingBox();
   await p.mouse.click(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2);
@@ -584,12 +596,13 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
   expect((await cell('cfb')).layer === 'above', 'the layer button did not set "above"');
 
   // phone: the canvas stacks the section in source order, no overlap
-  await page.getByRole('button', { name: 'Mobile' }).first().click();
-  await page.waitForTimeout(1500);
+  await device(page, 'Mobile', 'mobile');
+  // the canvas narrows and the grid re-lays out after the switch: wait for the stack
+  await page.waitForFunction(() => { const d = window.taleaBuilder.previewDoc(); const [a, b] = ['cfa', 'cfb'].map((x) => d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect()); return a.bottom <= b.top + 1; }, null, { timeout: 15000 }).catch(() => {});
   const boxes = await page.evaluate(() => { const d = window.taleaBuilder.previewDoc(); return ['cfa', 'cfb'].map((x) => { const r = d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect(); return [r.top, r.bottom]; }); });
   expect(boxes[0][1] <= boxes[1][0] + 1, `at phone width the elements still overlap: ${JSON.stringify(boxes)}`);
   expect(await page.evaluate(() => window.taleaBuilder.previewDoc().defaultView.getComputedStyle(window.taleaBuilder.previewDoc().querySelector('.tl-compose')).display) === 'flex', 'the compose section does not stack on a phone');
-  await page.getByRole('button', { name: 'Desktop' }).first().click();
+  await device(page, 'Desktop', 'base');
   await page.waitForTimeout(1500);
 
   // tidy up: one clean column in reading order, no overlap
