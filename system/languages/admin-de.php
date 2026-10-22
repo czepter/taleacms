@@ -5764,4 +5764,8 @@ return [
     'below, at the end' => 'darunter, am Ende',
     'Slideshow navigation' => 'Navigation der Diashow',
     'Slideshow arrow position' => 'Position der Pfeile in der Diashow',
+    'just now' => 'gerade eben',
+    '%d min ago' => 'vor %d Min.',
+    '%d h ago' => 'vor %d Std.',
+    'yesterday' => 'gestern',
 ];

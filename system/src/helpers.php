@@ -97,6 +97,28 @@ function format_date(string|\DateTimeInterface|null $value, bool $withTime = fal
     return $dt->format($withTime ? $format . ' H:i' : $format);
 }
 
+/** Age for lists: "just now", "45 min ago", "5 h ago", "yesterday", "3 days ago", then format_date() (docs/specs/admin-lists.md). */
+function format_ago(string|\DateTimeInterface|null $value, ?int $now = null): string
+{
+    if ($value === null || $value === '') {
+        return '—';
+    }
+    $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value);
+    $now ??= time();
+    $seconds = $now - $dt->getTimestamp();
+    $today = (new \DateTimeImmutable('@' . $now))->setTimezone($dt->getTimezone())->setTime(0, 0);
+    $days = (int) $today->diff($dt->setTime(0, 0))->days;
+
+    return match (true) {
+        $seconds < 60 => t('just now'),
+        $seconds < 3600 => t('%d min ago', intdiv($seconds, 60)),
+        $days === 0 => t('%d h ago', intdiv($seconds, 3600)),
+        $days === 1 => t('yesterday'),
+        $days < 7 => t('%d days ago', $days),
+        default => format_date($dt),
+    };
+}
+
 /** Date in words: "Friday, 18. September 2026". */
 function format_date_long(string|\DateTimeInterface|null $value = null): string
 {
