@@ -37,7 +37,7 @@ final class NewElementsTest extends SiteTestCase
         $this->assertStringContainsString('class="tl-carousel tl-slider tl-slider--below"', $body);
         $this->assertSame(1, substr_count($body, 'class="tl-slider-dots"'), 'dots only where chosen');
         $this->assertSame(2, substr_count($body, 'class="tl-slider-arrows"'));
-        $this->assertSame(1, substr_count($body, '.tl-slider-dots button::before'), 'the slider CSS once per page, in the builder layer');
+        $this->assertSame(1, substr_count($body, '.tl-slider-dots button::before { content'), 'the slider CSS once per page, in the builder layer');
         $this->assertStringContainsString('var(--tl-slider-dot-active-color, var(--tl-color-primary))', $body, 'the look can be set with --tl-slider-* properties');
         $this->assertStringContainsString('"BreadcrumbList"', $body, 'breadcrumbs for search engines too');
         $this->assertStringNotContainsString('"FAQPage"', $body, 'an accordion with faq off has no FAQPage data');
