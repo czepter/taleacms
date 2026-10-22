@@ -9,13 +9,15 @@
  * @var int $current the page shown in the preview
  * @var array<string, class-string<Talea\Admin\Module>> $modules what the person may open
  * @var int $inTrash pages in the trash
+ * @var bool $seo the SEO tab is open (the page links keep it)
  */
 $tabs = array_filter([
-    ['Pages', $module->url('website'), true],
+    ['Pages', $module->url('website'), !$seo],
     isset($modules['appearance']) ? ['Style', $app->url('admin.php?module=appearance'), false] : null,
-    isset($modules['audit']) ? ['SEO', $app->url('admin.php?module=audit'), false] : null,
+    ['SEO', $module->url('website', ['view' => 'seo']), $seo],
 ]);
-$more = array_filter([
+$more = $seo ? array_filter(['audit' => 'Site audit', 'redirects' => 'Redirects'], fn (string $ident): bool => isset($modules[$ident]), ARRAY_FILTER_USE_KEY) : null;
+$more ??= array_filter([
     'parts' => 'Header, footer and system pages', 'menu' => 'Menu', 'components' => 'Components', 'popups' => 'Pop-ups', 'redirects' => 'Redirects',
 ], fn (string $ident): bool => isset($modules[$ident]), ARRAY_FILTER_USE_KEY);
 ?>
@@ -33,7 +35,7 @@ $more = array_filter([
 		<li><span class="website-group"><span class="menu-heading"><?= e(t($heading)) ?></span><a class="website-add" href="<?= e($module->url('new')) ?>" title="<?= e(t('New page')) ?>" aria-label="<?= e(t('New page')) ?>"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a></span>
 			<ul class="menu-sub">
 <?php foreach ($groups[$key] as $page): $isCurrent = (int) $page['page_id'] === $current; ?>
-				<li class="website-page<?= $isCurrent ? ' active' : '' ?><?= $page['visible'] ? '' : ' website-hidden' ?>" style="--level: <?= (int) $page['level'] ?>"><a href="<?= e($module->url('website', ['id' => $page['public_id']])) ?>"<?= $isCurrent ? ' aria-current="page"' : '' ?>><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><?= $page['home'] ? '<path d="M3 11 12 4l9 7v9H3z"/>' : '<path d="M6 3h9l4 4v14H6z"/>' ?></svg><span><?= e($page['title']) ?></span><?php if ($page['has_draft']): ?><span class="website-draft" title="<?= e(t('unpublished changes')) ?>"><span class="guide-hidden"><?= e(t('unpublished changes')) ?></span></span><?php endif ?><?php if (!$page['visible']): ?> <span class="badge badge-draft"><?= e(t('hidden')) ?></span><?php endif ?></a></li>
+				<li class="website-page<?= $isCurrent ? ' active' : '' ?><?= $page['visible'] ? '' : ' website-hidden' ?>" style="--level: <?= (int) $page['level'] ?>"><a href="<?= e($module->url('website', array_filter(['view' => $seo ? 'seo' : '', 'id' => $page['public_id']]))) ?>"<?= $isCurrent ? ' aria-current="page"' : '' ?>><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><?= $page['home'] ? '<path d="M3 11 12 4l9 7v9H3z"/>' : '<path d="M6 3h9l4 4v14H6z"/>' ?></svg><span><?= e($page['title']) ?></span><?php if ($page['has_draft']): ?><span class="website-draft" title="<?= e(t('unpublished changes')) ?>"><span class="guide-hidden"><?= e(t('unpublished changes')) ?></span></span><?php endif ?><?php if (!$page['visible']): ?> <span class="badge badge-draft"><?= e(t('hidden')) ?></span><?php endif ?></a></li>
 <?php endforeach ?>
 			</ul>
 		</li>
@@ -43,5 +45,9 @@ $more = array_filter([
 <?php foreach ($more as $ident => $label): ?>
 		<li><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"><?= e(t($label)) ?></a></li>
 <?php endforeach ?>
+<?php if ($seo && $app->auth()->isAdmin()): ?>
+		<li><a href="<?= e($app->url('admin.php?module=settings&tab=seo')) ?>"><?= e(t('Site-wide SEO and GEO')) ?></a></li>
+<?php else: ?>
 		<li><a href="<?= e($module->url()) ?>"><?= e(t('All pages')) ?><?= $inTrash > 0 ? ' · ' . e(t('Trash (%d)', $inTrash)) : '' ?></a></li>
+<?php endif ?>
 	</ul>

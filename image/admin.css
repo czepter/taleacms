@@ -1515,6 +1515,27 @@ body.login {
 .website-devices label:has(input:focus-visible) { outline: 2px solid var(--signal); }
 .website-preview { flex: 1; width: 100%; margin: 0 auto; border: 0; background: #fff; transition: width .2s; }
 .website-frame:has(#website-phone:checked) .website-preview { width: 390px; max-width: 100%; border-inline: 1px solid var(--line); }
+.website-seo { height: auto; min-height: calc(100vh - 56px); }
+.website-seo-body { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 32px; padding: 28px clamp(16px, 3vw, 40px); background: var(--base); }
+.website-seo-form { flex: 1 1 320px; max-width: 460px; display: grid; gap: 16px; }
+.website-seo-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.website-seo-form .textfield { width: 100%; font-weight: 400; }
+.website-seo-form .website-seo-check { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 14px; }
+.website-seo-form .navigation-row { display: flex; gap: 8px; margin: 0; }
+.website-seo-preview { flex: 2 1 380px; min-width: 0; display: grid; gap: 22px; }
+.website-seo-preview h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-weak); }
+.seo-result { display: grid; gap: 2px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: #202124; font-family: Arial, sans-serif; }
+.seo-result span { font-size: 13px; color: #4d5156; }
+.seo-result strong { font-size: 20px; font-weight: 400; color: #1a0dab; }
+.seo-result p { margin: 0; font-size: 14px; color: #4d5156; }
+.seo-share { display: grid; max-width: 440px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.seo-share img, .seo-share-empty { width: 100%; aspect-ratio: 1.91; object-fit: cover; background: var(--accent-light); }
+.seo-share span { padding: 10px 16px 0; font-size: 12px; color: var(--text-weak); }
+.seo-share strong { padding: 2px 16px 12px; }
+.seo-checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.seo-checks li { padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 14px; }
+.seo-checks .seo-ok { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); color: var(--ok); }
+.seo-checks .seo-todo { box-shadow: inset 3px 0 0 var(--warning); }
 @media (max-width: 860px) { .website-frame { height: 80vh; } }
 
 /* empty state of a listing (views/admin/empty.php) */

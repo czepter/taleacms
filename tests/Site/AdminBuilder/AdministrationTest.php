@@ -38,6 +38,16 @@ final class AdministrationTest extends SiteTestCase
         $this->assertStringContainsString('<li><a href="/admin.php?module=pages"><strong>Prepare your pages', $overview->body, 'nor the pages of the starter site');
         $this->assertMatchesRegularExpression('#<details class="home-step-group" open>\s*<summary><span class="home-step-name">Build your website</span>#', $overview->body, 'Home: the first group with something left to do is open');
         $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-wrap" aria-label="Main menu">', message: 'administration: main menu in <nav>');
+        $website = $this->assertPage('/admin.php?module=pages&action=website', 200, 'class="website-preview"', message: 'Website mode: a live preview of the home page');
+        $this->assertStringContainsString('<span class="menu-heading">Main navigation</span>', $website->body, 'Website mode: the sidebar groups the pages by the menu');
+        $this->assertStringContainsString('action=builder&amp;id=', $website->body, 'Website mode: Edit opens the builder of the shown page');
+        $homeId = $this->site()->publicId('pages', (int) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'home_page'"));
+        $this->assertPage('/admin.php?module=pages&action=website&view=seo&id=' . $homeId, 200, 'class="seo-result"', message: 'Website mode, SEO: the search result of the page');
+        $installed = (array) $this->site()->rows('SELECT seo_title, description, image FROM tl_pages WHERE public_id = ?', [$homeId])[0];
+        $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
+        $this->site()->admin()->post('/admin.php?module=pages&action=seo_save', ['_csrf' => $csrf, 'id' => $homeId, 'seo_title' => 'Search title', 'description' => 'A description for search', 'image' => '', 'noindex' => '']);
+        $this->assertSame('Search title|A description for search|0', (string) $this->site()->value("SELECT CONCAT(seo_title, '|', description, '|', noindex) FROM tl_pages WHERE public_id = ?", [$homeId]), 'Website mode, SEO: the tab saves only the search appearance');
+        $this->site()->admin()->post('/admin.php?module=pages&action=seo_save', ['_csrf' => $csrf, 'id' => $homeId, 'noindex' => ''] + $installed); // the later tests see the home page as installed
 
         foreach (['pages', 'pages&action=new', 'enquiries', 'parts', 'components', 'components&action=new', 'collections', 'collections&action=new', 'news', 'news&action=new', 'news&action=links', 'categories', 'categories&action=new', 'tags', 'media', 'stats', 'appearance', 'users', 'users&action=new', 'redirects', 'changelog', 'transfer', 'extensions'] as $module) {
             $this->assertPage("/admin.php?module=$module", 200, message: "module $module");

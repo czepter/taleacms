@@ -901,4 +901,5 @@ return [
     'Your newsletters' => 'Deine Newsletter',
     'Your SMTP server sends in batches. Every e-mail carries a one-click unsubscribe link. Send yourself a test before it goes out.' => 'Dein SMTP-Server versendet in Etappen. Jede E-Mail enthält einen Abmeldelink mit einem Klick. Sende dir vorher einen Test.',
     'Create the first page of your site.' => 'Lege die erste Seite deiner Website an.',
+    'How this page appears outside your site' => 'So erscheint diese Seite außerhalb deiner Website',
 ];
