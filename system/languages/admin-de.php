@@ -5864,4 +5864,6 @@ return [
     'All requests (%d)' => 'Alle Anfragen (%d)',
     'Bookings by day' => 'Buchungen nach Tag',
     'Booking settings' => 'Buchungseinstellungen',
+    'Counted without cookies' => 'Gezählt ohne Cookies',
+    'Running experiments' => 'Laufende Experimente',
 ];

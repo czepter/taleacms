@@ -24,6 +24,9 @@ final class Stats extends Module
         $days = in_array($this->request->getInt('days'), \Talea\Core\Report::PERIODS, true) ? $this->request->getInt('days') : 30;
 
         // the module is there only while the Statistics feature is on – the one switch since 3.2, so no "turned off" notice
-        return $this->view('list', 'Statistics', ['report' => \Talea\Core\Report::build($this->db, $days)]);
+        return $this->view('list', 'Statistics', ['report' => \Talea\Core\Report::build($this->db, $days),
+            // the running experiments, shown below the chart (#113) – only for whoever may open Experiments
+            'experiments' => isset($this->kernel->modules()['experiments'])
+                ? array_values(array_filter(\Talea\Builder\Experiments::all($this->db), fn (array $x): bool => $x['status'] === 'running')) : []]);
     }
 }
