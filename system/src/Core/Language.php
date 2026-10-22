@@ -264,6 +264,32 @@ final class Language
         return $code;
     }
 
+    /**
+     * Language of a user's administration: their choice (My account), otherwise the site's default language – a regional code gives the
+     * administration of its language (de-at → de), one the administration is not translated into gives English.
+     *
+     * @param array<string, mixed>|null $user
+     */
+    public static function adminCode(?array $user, Settings $s): string
+    {
+        $language = self::base((string) ($user['language'] ?? '') ?: self::defaults($s));
+
+        return isset(self::ADMIN_LANGUAGES[$language]) ? $language : 'en';
+    }
+
+    /**
+     * The admin script dictionaries of the loaded language that exist (image/languages/admin-<code>.js, then for the informal register its
+     * -du overlay), in the order a page loads them: every page with admin scripts (T()) prints all of them.
+     *
+     * @return list<string>
+     */
+    public static function scriptDictionaries(): array
+    {
+        $files = ['image/languages/admin-' . self::$code . '.js', ...(self::$register === 'informal' ? ['image/languages/admin-' . self::$code . '-du.js'] : [])];
+
+        return array_values(array_filter($files, fn (string $file): bool => is_file(TALEA_ROOT . '/' . $file)));
+    }
+
     /** Any value to formal | informal (anything but an explicit "formal", empty included, is informal). */
     public static function normalizeRegister(string $register): string
     {
