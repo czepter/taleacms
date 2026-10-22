@@ -5768,4 +5768,8 @@ return [
     '%d min ago' => 'vor %d Min.',
     '%d h ago' => 'vor %d Std.',
     'yesterday' => 'gestern',
+    'Edit: %s' => 'Bearbeiten: %s',
+    'More actions for %s' => 'Weitere Aktionen für %s',
+    'selected' => 'ausgewählt',
+    'Clear selection' => 'Auswahl aufheben',
 ];

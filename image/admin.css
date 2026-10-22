@@ -23,6 +23,7 @@
 	--warning: #F79009;
 	--warning-text: #945800;  /* badge text and outline – orange with a 5.2 : 1 contrast on Paper (WCAG AA) */
 	--handover-text: #6B3FD0;  /* the "awaiting publication" badge on an author's draft */
+	--planned: #1F5FBF;        /* scheduled items in lists (docs/specs/admin-lists.md) */
 	--radius: 10px;
 	--on-accent: #F6F4EE;
 
@@ -62,6 +63,7 @@
 		--ok-base: #10291D;
 		--warning-text: #FDB022;
 		--handover-text: #B69CFF;
+		--planned: #8FB8FF;
 		--on-accent: #121212;
 	}
 }
@@ -81,6 +83,7 @@
 	--ok-base: #10291D;
 	--warning-text: #FDB022;
 	--handover-text: #B69CFF;
+	--planned: #8FB8FF;
 	--on-accent: #121212;
 }
 
@@ -345,7 +348,8 @@ h3.center {
 	text-decoration: underline;
 }
 .guide-link svg { flex: none; }
-.guide-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.guide-hidden,
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* buttons */
 
@@ -462,7 +466,7 @@ table.listing {
 }
 table.listing th,
 table.listing td {
-	padding: 12px 18px;
+	padding: 10px 16px;
 	text-align: left;
 	vertical-align: top;
 	border-bottom: 1px solid var(--line);
@@ -471,14 +475,13 @@ table.listing tbody tr:last-child td {
 	border-bottom: 0;
 }
 table.listing th {
-	font-size: 12.5px;
-	font-weight: 600;
+	font-size: 13px;
+	font-weight: 500;
 	color: var(--text-weak);
-	background: color-mix(in srgb, var(--text) 4%, var(--surface));
 	white-space: nowrap;
 }
 table.listing tbody tr:hover {
-	background: var(--accent-light);
+	background: color-mix(in oklch, var(--text) 3%, transparent);
 }
 table.listing tr.unpublished td:first-child {
 	box-shadow: inset 3px 0 0 var(--warning);
@@ -515,6 +518,260 @@ table.listing td a {
 	table.listing-cards td.number, table.listing-cards td.center, table.listing-cards td.actions { text-align: left; white-space: normal; }
 	table.listing-cards tr.unpublished td:first-child { box-shadow: none; }
 	table.listing-cards tr.unpublished { box-shadow: inset 3px 0 0 var(--warning); }
+}
+
+/* lists: the shared building blocks of every admin overview (docs/specs/admin-lists.md, views admin/list/*) */
+.page-actions .btn,
+.page-actions .navigation {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 44px;
+	padding: 0 16px;
+	border-radius: var(--radius);
+}
+.page-actions .icon { width: 16px; height: 16px; }
+.list-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 16px;
+}
+.list-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 4px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--surface);
+}
+.list-tabs a {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 36px;
+	padding: 0 12px;
+	border-radius: 8px;
+	color: var(--text-weak);
+	font-size: 14px;
+	font-weight: 500;
+	text-decoration: none;
+}
+.list-tabs a:hover { color: var(--text); }
+.list-tabs a[aria-current] { background: var(--accent-light); color: var(--text); }
+.list-tab-count { color: var(--text-weak); font-size: 13px; }
+.list-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+.list-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: min(280px, 100%);
+}
+.list-search .icon {
+	position: absolute;
+	inset-inline-start: 12px;
+	color: var(--text-weak);
+	pointer-events: none;
+}
+.list-search input {
+	width: 100%;
+	min-height: 44px;
+	padding-block: 0;
+	padding-inline: 40px 12px;
+	border: 1px solid var(--line-field);
+	border-radius: var(--radius);
+	background: var(--surface);
+	color: var(--text);
+	font: inherit;
+	font-size: 15px;
+}
+table.listing:has(td.cell-main) td { vertical-align: middle; }
+table.listing .cell-select { width: 52px; padding-inline: 0; text-align: center; }
+table.listing .cell-select input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+/* max-width: 0 lets the title cut itself with an ellipsis inside an auto-sized table */
+table.listing td.cell-main { width: 100%; max-width: 0; height: 64px; }
+.cell-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cell-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cell-title,
+.cell-sub {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+table.listing .cell-title {
+	color: var(--text);
+	font-size: 15px;
+	font-weight: 600;
+	text-decoration: none;
+}
+table.listing a.cell-title:hover { text-decoration: underline; }
+.cell-sub { color: var(--text-weak); font-size: 13px; }
+table.listing a.cell-sub { font-weight: 400; color: var(--text-weak); text-decoration: none; }
+table.listing a.cell-sub:hover { color: var(--text); }
+.cell-sub .icon { width: 12px; height: 12px; vertical-align: -1px; }
+.cell-icon {
+	flex: none;
+	display: inline-grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 8px;
+	background: var(--accent-light);
+}
+.cell-icon .icon { width: 16px; height: 16px; }
+.cell-tree { flex: none; color: var(--line-field); }
+table.listing td.cell-weak { color: var(--text-weak); white-space: nowrap; }
+table.listing td.cell-actions { width: 1%; white-space: nowrap; }
+.tag {
+	display: inline-block;
+	padding: 1px 7px;
+	border: 1px solid var(--line-field);
+	border-radius: 6px;
+	color: var(--text-weak);
+	font-size: 12px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.status {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+.status::before {
+	content: "";
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--dot, var(--text-weak));
+}
+.status-live { --dot: var(--ok); }
+.status-hidden { --dot: var(--warning-text); }
+.status-draft { --dot: var(--text-weak); }
+.status-planned { --dot: var(--planned); }
+.status-review { --dot: var(--handover-text); }
+.status-error { --dot: var(--error); }
+.status-off { --dot: var(--line-field); }
+.status-note {
+	display: block;
+	margin-top: 3px;
+	padding-inline-start: 16px;
+	font-size: 13px;
+	text-decoration: none;
+}
+table.listing a.status-note { font-weight: 400; }
+.status-note-warning { color: var(--warning-text); }
+.status-note-error { color: var(--error); }
+.row-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 6px;
+}
+.icon-btn {
+	display: inline-grid;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 1px solid var(--line-field);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text);
+	cursor: pointer;
+	text-decoration: none;
+}
+.icon-btn:hover { border-color: var(--text-weak); background: var(--accent-light); color: var(--text); }
+.icon-btn.filled { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.icon-btn.filled:hover { background: var(--accent-dark); color: var(--on-accent); }
+/* the "⋯" menu: a popover; where anchor positioning exists it hangs below its button, elsewhere the browser centres it */
+.row-menu {
+	width: 248px;
+	padding: 6px;
+	border: 1px solid var(--line-field);
+	border-radius: 12px;
+	background: var(--surface);
+	color: var(--text);
+	box-shadow: 0 16px 40px color-mix(in srgb, #000 30%, transparent);
+}
+@supports (position-area: block-end) {
+	.row-menu {
+		inset: auto;
+		margin: 4px 0 0;
+		position-area: block-end span-inline-start;
+		position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+	}
+}
+.row-menu form { margin: 0; }
+.row-menu a,
+.row-menu button {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 40px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 8px;
+	background: none;
+	color: var(--text);
+	font: inherit;
+	font-size: 14px;
+	font-weight: 400;
+	text-align: start;
+	text-decoration: none;
+	cursor: pointer;
+}
+.row-menu a:hover,
+.row-menu button:hover { background: var(--accent-light); color: var(--text); }
+.row-menu button.danger,
+.row-menu button.danger:hover { color: var(--error); }
+.row-menu button.danger:hover { background: var(--error-base); }
+.row-menu .icon { flex: none; width: 16px; height: 16px; }
+.row-menu hr { margin: 6px 4px; border: 0; border-top: 1px solid var(--line); }
+.row-menu-note { margin: 0; padding: 8px 10px; color: var(--text-weak); font-size: 13px; }
+/* the selection bar shows while a row is selected and counts the selection – no script needed */
+.content { counter-reset: selected; }
+input[name="selected[]"]:checked { counter-increment: selected; }
+.selection-number::before { content: counter(selected); }
+.selection-bar {
+	display: none;
+	position: sticky;
+	bottom: 24px;
+	z-index: 5;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	width: fit-content;
+	max-width: 100%;
+	margin: 16px auto 0;
+	padding: 8px 8px 8px 18px;
+	border: 1px solid var(--line-field);
+	border-radius: 14px;
+	background: var(--accent-light);
+	box-shadow: 0 16px 40px color-mix(in srgb, #000 25%, transparent);
+}
+.content:has(input[name="selected[]"]:checked) .selection-bar { display: flex; }
+.selection-count { margin-inline-end: 10px; font-weight: 600; }
+.selection-bar select { min-height: 40px; }
+@media (max-width: 640px) {
+	table.listing-cards tr:has(> td.cell-main) { position: relative; }
+	table.listing-cards td.cell-select { position: absolute; top: 12px; inset-inline-end: 12px; width: auto; padding: 0; }
+	table.listing-cards td.cell-main { max-width: none; height: auto; padding-left: 14px; padding-inline-end: 48px; }
+	table.listing-cards td.cell-main::before { display: none; }
+	table.listing-cards td.cell-actions { padding-left: 14px; }
+	table.listing-cards td.cell-actions::before { display: none; }
+	table.listing-cards .row-actions { justify-content: flex-start; }
 }
 .tab-wrap + p.center,
 form > p.center {

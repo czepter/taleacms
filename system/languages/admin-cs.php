@@ -5764,4 +5764,8 @@ return [
     '%d min ago' => 'před %d min',
     '%d h ago' => 'před %d h',
     'yesterday' => 'včera',
+    'Edit: %s' => 'Upravit: %s',
+    'More actions for %s' => 'Další akce pro %s',
+    'selected' => 'vybráno',
+    'Clear selection' => 'Zrušit výběr',
 ];
