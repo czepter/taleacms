@@ -1125,12 +1125,13 @@ final class Kernel
             return null;
         }
 
-        return $this->view->render('edit', [
+        // the form and the editor's toolbar speak the language and form of address of the user's administration, the page around it the site's
+        return Language::runWith(Language::adminCode($auth->user(), $this->app->settings()), fn (): string => $this->view->render('edit', [
             'app' => $this->app, 'type' => $type, 'record' => $record,
             'back' => $url . ($this->app->request->get('preview') === '1' ? '?preview=1' : ''),
             'action' => $this->app->url('admin.php?module=' . ($type === 'news' ? 'news' : 'pages') . '&action=save_text'),
             'error' => $this->app->request->get('error') === '1',
-        ]);
+        ]), 'admin-', Language::normalizeRegister((string) ($auth->user()['register'] ?? '')));
     }
 
     /** @var list<array{title:string, slug:string, intro:bool}>|null */

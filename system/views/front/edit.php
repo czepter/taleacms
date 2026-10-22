@@ -1,6 +1,7 @@
 <?php
 /**
- * Editing a page or news item directly on the site: the same editor as in the admin, embedded in the site template.
+ * Editing a page or news item directly on the site: the same editor as in the admin, embedded in the site template. It is rendered in
+ * the language and form of address of the user's administration (Front\Kernel::editInPlace), the page around it in the site's.
  * It is saved with a normal form to the admin (action uloz_text), so the same permissions and versions apply.
  *
  * @var Talea\Core\App $app
@@ -13,7 +14,7 @@
 $recordId = $app->db()->publicId($type === 'news' ? 'news' : 'pages', (int) ($record['news_id'] ?? $record['page_id']));
 ?>
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
-<article class="article article-full tl-edit-text tl-ui">
+<article class="article article-full tl-edit-text tl-ui" lang="<?= e(Talea\Core\Language::tag(Talea\Core\Language::code())) ?>"<?= Talea\Core\Language::dirAttribute(Talea\Core\Language::code()) ?>>
 	<form method="post" action="<?= e($action) ?>">
 		<input type="hidden" name="_csrf" value="<?= e($app->session->csrfToken()) ?>">
 		<input type="hidden" name="id" value="<?= e($recordId) ?>">
@@ -36,4 +37,7 @@ $recordId = $app->db()->publicId($type === 'news' ? 'news' : 'pages', (int) ($re
 		</div>
 	</form>
 </article>
+<?php foreach (Talea\Core\Language::scriptDictionaries() as $dictionary): ?>
+<script src="<?= e($app->url($dictionary)) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
+<?php endforeach ?>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" defer></script>
