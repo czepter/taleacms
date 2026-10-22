@@ -12,3 +12,5 @@
 322b371a3b2fb69666832dac5f9417bc081e5d61
 # English identifiers, step 6: UI source texts in English
 8cce769442d14ad436d6757cdc24c3aa257fdea3
+# translation dictionaries sorted by key (tools/add-translations.py --sort)
+cc56adf575598890d41e4c1a414acbb8ee326b24

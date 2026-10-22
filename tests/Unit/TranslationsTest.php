@@ -110,7 +110,7 @@ final class TranslationsTest extends TestCase
         $needsOverlay = static fn (string $english, string $german): bool => $addressForms($german) > 0
             || (preg_match('/\byou(r|rs|rself)?\b/i', $english) === 1 && preg_match('/\b(Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres|Ihnen)\b/u', $german) === 1);
         $scriptDictionary = static function (string $file): array {
-            return json_decode(rtrim(preg_replace('/^[^{]*/', '', (string) file_get_contents($file), 1), " \n;)"), true) ?? [];
+            return json_decode((string) preg_replace('/,\s*\}$/', '}', rtrim(preg_replace('/^[^{]*/', '', (string) file_get_contents($file), 1), " \n;)")), true) ?? [];
         };
         foreach (['admin-de', 'de', 'install-de'] as $set) {
             $base = require TALEA_ROOT . '/system/languages/' . $set . '.php';
@@ -185,7 +185,7 @@ final class TranslationsTest extends TestCase
         preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-en.js'), $enJsDictionary);
         $enJsKeys = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsDictionary[1] ?? '{}'), true));
         preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-cs.js'), $csJsDictionary);
-        $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode($csJsDictionary[1] ?? '{}', true))];
+        $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode((string) preg_replace('/,\s*\}$/', '}', $csJsDictionary[1] ?? '{}'), true))];
         $this->assertSame([], array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu'])), 'Builder: all editor texts have an English translation');
         $enAdmin = (require TALEA_ROOT . '/system/languages/admin-en.php') + (require TALEA_ROOT . '/system/languages/admin-cs.php');
         $enSchema = \Talea\Builder\Build::schema(true, 'cs', true);
