@@ -17,7 +17,7 @@ final class Subscribers extends Module
     public const string IDENT = 'subscribers';
     public const string EXTENSION = 'newsletter_signup';
     public const string NAME = 'Subscribers';
-    public const string GROUP = 'Customers';
+    public const string GROUP = 'E-mail';
     public const string ICON = 'newsletter_signup';
     public const string TABLE = 'subscribers';
 

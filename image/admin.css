@@ -6,26 +6,26 @@
 @import url("fonts.css");
 
 :root {
-	--base: #F6F4EE;        /* Paper – Talea brand colors (manual, 06 Colour palette) */
+	--base: #FDFDFD;        /* near white; the admin is neutral, colour only marks a state */
 	--surface: #FFFFFF;
-	--line: #E4E1D8;
-	--line-field: #CFCBC0;
+	--line: #E5E5E5;
+	--line-field: #D4D4D4;
 	--text: #121212;           /* Ink */
-	--text-weak: #5C5A55;
+	--text-weak: #5C5C5C;
 	--accent: #121212;         /* primary buttons and links: Ink */
 	--accent-dark: #000000;
-	--accent-light: #ECE8DE;
+	--accent-light: #F0F0F0;
 	--signal: #FF4F2E;         /* Signal: only the logo dot and small accents (focus, active item) – never small text */
 	--error: #C4281C;
 	--error-base: #FEF3F2;
 	--ok: #067647;
 	--ok-base: #ECFDF3;
 	--warning: #F79009;
-	--warning-text: #945800;  /* badge text and outline – orange with a 5.2 : 1 contrast on Paper (WCAG AA) */
+	--warning-text: #945800;  /* badge text and outline – orange with a 5.4 : 1 contrast on the base (WCAG AA) */
 	--handover-text: #6B3FD0;  /* the "awaiting publication" badge on an author's draft */
 	--planned: #1F5FBF;        /* scheduled items in lists (docs/specs/admin-lists.md) */
 	--radius: 10px;
-	--on-accent: #F6F4EE;
+	--on-accent: #FFFFFF;
 
 	/* editor and gallery (image/editor.css) */
 	--ed-line: var(--line-field);
@@ -49,14 +49,14 @@
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
 		--base: #121212;
-		--surface: #1C1C1B;
-		--line: #33322F;
-		--line-field: #4A4843;
-		--text: #F6F4EE;
-		--text-weak: #B8B5AD;
-		--accent: #F6F4EE;
+		--surface: #1C1C1C;
+		--line: #333333;
+		--line-field: #4A4A4A;
+		--text: #F5F5F5;
+		--text-weak: #B5B5B5;
+		--accent: #F5F5F5;
 		--accent-dark: #FFFFFF;
-		--accent-light: #2A2926;
+		--accent-light: #2A2A2A;
 		--error: #FF8A80;
 		--error-base: #3A1B19;
 		--ok: #6CE9A6;
@@ -69,14 +69,14 @@
 }
 :root[data-theme="dark"] {
 	--base: #121212;
-	--surface: #1C1C1B;
-	--line: #33322F;
-	--line-field: #4A4843;
-	--text: #F6F4EE;
-	--text-weak: #B8B5AD;
-	--accent: #F6F4EE;
+	--surface: #1C1C1C;
+	--line: #333333;
+	--line-field: #4A4A4A;
+	--text: #F5F5F5;
+	--text-weak: #B5B5B5;
+	--accent: #F5F5F5;
 	--accent-dark: #FFFFFF;
-	--accent-light: #2A2926;
+	--accent-light: #2A2A2A;
 	--error: #FF8A80;
 	--error-base: #3A1B19;
 	--ok: #6CE9A6;
@@ -113,120 +113,134 @@ a:hover {
 	border-radius: 4px;
 }
 
-/* layout: side menu + top bar + content */
+/* layout: the sidebar (sections, the screens of the open one, account and tools) + content */
 
 body:not(.login) {
 	display: grid;
-	grid-template-columns: 256px minmax(0, 1fr);
-	grid-template-rows: 64px 1fr;
+	grid-template-columns: 248px minmax(0, 1fr);
 	min-height: 100vh;
 }
 .header {
 	grid-column: 1;
-	grid-row: 1 / 3;
 	position: sticky;
 	top: 0;
 	align-self: start;
 	height: 100vh;
 	overflow-y: auto;
-	padding: 0 12px 16px;
-	border-right: 1px solid var(--line);
+	padding: 20px 16px 16px 20px;
+}
+.header-top {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 28px;
 }
 .brand {
 	display: flex;
 	align-items: center;
-	height: 64px;
-	padding: 0 8px;
+	height: 40px;
+	margin-right: auto;
+	padding: 0 2px;
 	color: var(--text); /* the logo letters have the text color, the dot is always Signal */
 }
 .talea-logo { display: block; }
-/* keyboard users jump past the 30 menu links (3.1.1); visible only when it has the focus */
+/* keyboard users jump past the menu links (3.1.1); visible only when it has the focus */
 .skip { position: absolute; left: 12px; top: -48px; z-index: 50; padding: 8px 14px; border-radius: 8px; background: var(--accent); color: var(--on-accent); text-decoration: none; }
 .skip:focus { top: 12px; }
 .content:focus { outline: none; }
 .menu-switch {
 	display: none;
 }
+.menu-wrap {
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100vh - 104px);
+}
 .menu {
 	list-style: none;
-	margin: 4px 0 0;
+	margin: 0;
 	padding: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
 }
-.menu-group {
-	margin-top: 18px;
-	padding: 0 10px 6px;
-	font-size: 11px;
+.menu a {
+	display: inline-block;
+	padding: 6px 2px;
+	font-size: 16px;
+	font-weight: 450;
+	color: color-mix(in oklch, var(--text) 82%, var(--base));
+	text-decoration: none;
+}
+.menu a:hover {
+	color: var(--text);
+	text-decoration: underline;
+	text-underline-offset: 6px;
+}
+.menu-section.active > a {
+	color: var(--text);
 	font-weight: 600;
-	letter-spacing: 0.07em;
-	text-transform: uppercase;
+	text-decoration: underline;
+	text-decoration-color: currentColor;
+	text-decoration-thickness: 2px;
+	text-underline-offset: 6px;
+}
+.menu-claude {
+	margin-top: 18px;
+}
+.menu-sub {
+	list-style: none;
+	margin: 4px 0 10px;
+	padding: 0 0 0 12px;
+	display: flex;
+	flex-direction: column;
+}
+.menu-sub a {
+	padding: 4px 2px;
+	font-size: 14px;
 	color: var(--text-weak);
 }
-.menu a,
-.menu button {
-	text-decoration: none;
+.menu-sub li.active a {
+	color: var(--text);
+	font-weight: 600;
+}
+.menu-foot {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	width: 100%;
-	padding: 9px 10px;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: auto;
+	padding-top: 24px;
+}
+.menu-tools {
+	display: flex;
+	align-items: center;
+}
+.menu-tools form {
+	margin: 0;
+}
+.palette-start,
+.menu-tool {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
 	border: 0;
 	border-radius: 8px;
 	background: none;
-	font: inherit;
-	font-size: 14.5px;
-	font-weight: 500;
-	text-align: left;
 	color: var(--text);
 	cursor: pointer;
 }
-.menu .icon {
-	flex: none;
+.palette-start:hover,
+.menu-tool:hover,
+.menu-tool.active {
+	background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+.palette-start .icon,
+.menu-tool .icon {
 	width: 19px;
 	height: 19px;
-	opacity: 0.8;
-}
-.menu a:hover,
-.menu button:hover {
-	background: color-mix(in srgb, var(--text) 6%, transparent);
-	text-decoration: none;
-}
-.menu li.active a {
-	background: var(--accent-light);
-	color: var(--accent);
-	font-weight: 600;
-}
-.menu li.active .icon {
-	opacity: 1;
-}
-.menu form {
-	margin: 0;
-}
-.menu .menu-site {
-	margin-top: 18px;
-	padding-top: 12px;
-	border-top: 1px solid var(--line);
-}
-
-.login-strip {
-	grid-column: 2;
-	grid-row: 1;
-	display: flex;
-	justify-content: flex-end;
-	align-items: center;
-	gap: 14px;
-	min-height: 64px;
-	padding: 0 32px;
-	border-bottom: 1px solid var(--line);
-	background: color-mix(in srgb, var(--base) 88%, transparent);
-	backdrop-filter: blur(8px);
-	font-size: 13px;
-	color: var(--text-weak);
-	position: sticky;
-	top: 0;
-	z-index: 5;
 }
 .avatar {
 	display: grid;
@@ -239,28 +253,12 @@ body:not(.login) {
 	font-size: 14px;
 	font-weight: 700;
 }
-.theme-switch {
-	display: grid;
-	place-items: center;
-	width: 38px;
-	height: 38px;
-	border: 0;
-	border-radius: 50%;
-	background: none;
-	color: var(--text);
-	cursor: pointer;
-}
-.theme-switch:hover {
-	background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-.theme-switch .icon {
-	width: 21px;
-	height: 21px;
+.signed-in {
+	text-decoration: none;
 }
 
 .content {
 	grid-column: 2;
-	grid-row: 2;
 	width: 100%;
 	max-width: 1320px;
 	padding: 28px 32px 60px;
@@ -1196,16 +1194,17 @@ body.login {
 		position: sticky;
 		z-index: 10;
 		height: auto;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
+		overflow: visible;
 		padding: 0 12px;
-		border-right: 0;
 		border-bottom: 1px solid var(--line);
+	}
+	.header-top {
+		min-height: 64px;
+		margin: 0;
 	}
 	.menu-switch {
 		display: block;
+		margin-left: 6px;
 		padding: 6px 14px;
 		border: 1px solid var(--line-field);
 		border-radius: 6px;
@@ -1216,23 +1215,12 @@ body.login {
 		cursor: pointer;
 	}
 	.menu-wrap {
-		width: 100%;
-	}
-	.menu {
 		display: none;
-		width: 100%;
-		margin: 0;
-		padding: 4px 0 12px;
-	}
-	.menu-open .menu {
-		display: flex;
-	}
-	.login-strip {
-		position: static;
 		min-height: 0;
-		justify-content: flex-end;
-		padding: 8px 16px;
-		font-size: 12px;
+		padding: 4px 4px 16px;
+	}
+	.menu-open .menu-wrap {
+		display: flex;
 	}
 	.content {
 		padding: 20px 16px 48px;
@@ -1435,21 +1423,7 @@ body.login {
 .empty-state p:last-child { margin-bottom: 0; }
 
 /* command palette (Ctrl/⌘+K) */
-.palette-start {
-	display: inline-flex;
-	align-items: center;
-	gap: 10px;
-	padding: 6px 8px 6px 12px;
-	border: 1px solid var(--line-field);
-	border-radius: 8px;
-	background: var(--surface);
-	color: var(--text-weak);
-	font: inherit;
-	font-size: 13px;
-	cursor: pointer;
-}
-.palette-start:hover { border-color: var(--accent); color: var(--text); }
-.palette-start kbd, .palette-help kbd {
+.palette-help kbd {
 	padding: 1px 6px;
 	border: 1px solid var(--line-field);
 	border-radius: 5px;
@@ -1497,7 +1471,6 @@ body.login {
 .palette-list [aria-selected="true"] small { color: inherit; opacity: 0.8; }
 .palette-none { padding: 14px 12px; color: var(--text-weak); }
 .palette-help { margin: 0; padding: 8px 14px; border-top: 1px solid var(--line); color: var(--text-weak); font-size: 12px; }
-@media (max-width: 720px) { .palette-start kbd { display: none; } } /* on a phone a keyboard shortcut means nothing, "Search…" stays */
 
 /* the admin on a phone: Save is always at hand, the title fits, taking photos straight into the article */
 .gallery-take-photo { display: none; }
@@ -1732,24 +1705,10 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .social-post .buttons { margin-block-end: 0; }
 .social-post--done .textbox { opacity: .7; }
 
-/* phones (2.17): search, the light/dark switch and the account sit in the header row next to Menu instead of a second
-   row – the form starts higher; the search button shows only its magnifier */
-@media (max-width: 720px) {
-	.login-strip { position: fixed; top: 0; right: 96px; z-index: 11; height: 64px; padding: 0; gap: 6px; background: none; border: 0; }
-	.palette-start { width: 38px; height: 38px; padding: 0; justify-content: center; }
-	.palette-start span, .palette-start kbd { display: none; }
-	.palette-start::before { content: ""; width: 18px; height: 18px; background: currentColor;
-		-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E") center / contain no-repeat;
-		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E") center / contain no-repeat; }
-	.header { min-height: 64px; }
-}
-/* phones (2.17): the open menu is a sheet under the header row – two columns within each group, scrolled on its own,
+/* phones (2.17): the open menu is a sheet under the header row, scrolled on its own,
    the page underneath stays where it was (no long column pushing the form down) */
 @media (max-width: 720px) {
 	body.menu-open { overflow: hidden; }
 	.menu-open .menu-wrap { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; z-index: 12; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 32px; background: var(--base); border-top: 1px solid var(--line); }
-	.menu-open .menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; padding: 0; }
-	.menu-open .menu > .menu-group, .menu-open .menu > .menu-overview { grid-column: 1 / -1; }
-	.menu-open .menu > .menu-group { margin-top: 14px; }
-	.menu-open .menu a, .menu-open .menu button { min-height: 44px; padding: 8px; gap: 8px; overflow-wrap: anywhere; text-decoration: none; }
+	.menu-open .menu a { display: flex; align-items: center; min-height: 44px; overflow-wrap: anywhere; }
 }

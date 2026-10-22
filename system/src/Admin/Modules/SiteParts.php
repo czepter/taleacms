@@ -23,7 +23,7 @@ final class SiteParts extends Module
 
     public const string IDENT = 'parts';
     public const string NAME = 'Site parts';
-    public const string GROUP = 'Appearance';
+    public const string GROUP = 'Website';
     public const string ICON = 'parts';
     public const bool ADMIN_ONLY = true;
 

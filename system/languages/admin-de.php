@@ -5827,4 +5827,5 @@ return [
     'bookable' => 'buchbar',
     'you' => 'Sie',
     'Elsewhere' => 'Woandershin',
+    'E-mail' => 'E-Mail',
 ];

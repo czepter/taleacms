@@ -22,7 +22,7 @@ final class Pages extends Module
     public const string IDENT = 'pages';
     public const string TABLE = 'pages';
     public const string NAME = 'Pages';
-    public const string GROUP = 'Content';
+    public const string GROUP = 'Website';
     public const string ICON = 'pages';
 
     /** Slugs that belong to the system and a page cannot have. */

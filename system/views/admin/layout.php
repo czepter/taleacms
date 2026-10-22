@@ -1,6 +1,6 @@
 <?php
 /**
- * The admin frame: menu, login strip, section heading, messages, content.
+ * The admin frame: the sidebar (sections, the screens of the open one, account and tools), section heading, messages, content.
  *
  * @var Talea\Core\App $app
  * @var string $heading
@@ -17,7 +17,7 @@ $onDashboard = $active === '' && (string) $app->request->get('action') === ''; /
 $statements = [];
 if ($username !== null) {
     $adminUrl = fn (string $query = ''): string => $app->url('admin.php' . ($query !== '' ? '?' . $query : ''));
-    $statements[] = ['n' => t('Dashboard'), 'u' => $adminUrl(), 's' => ''];
+    $statements[] = ['n' => t('Home'), 'u' => $adminUrl(), 's' => ''];
     foreach ($modules as $ident => $class) {
         $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('module=' . $ident), 's' => t($class::GROUP)];
     }
@@ -61,29 +61,48 @@ if ($username !== null) {
 <body>
 <?php if ($username !== null): ?>
 <a class="skip" href="#main"><?= e(t('Skip to content')) ?></a>
+<?php
+$sections = Talea\Admin\Kernel::sections($modules);
+$inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active;
+$current = $onDashboard ? 'Home' : (isset($modules[$active]) ? $modules[$active]::GROUP : '');
+// the settings are the gear at the bottom; while one of their screens is open they are listed last, so their other screens stay one click away
+$listed = array_values(array_filter([...Talea\Admin\Kernel::SECTIONS, ...($current === 'Settings' ? ['Settings'] : [])], fn (string $section): bool => isset($sections[$section])));
+$userName = $username['name'] ?: $username['username'];
+?>
 <header class="header">
-	<a class="brand" href="<?= e($app->url('admin.php')) ?>" aria-label="Talea – <?= e(t('Dashboard')) ?>"><?= $app->view->render('admin/logo', ['height' => 28]) ?></a>
-	<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
+	<div class="header-top">
+		<a class="brand" href="<?= e($app->url('admin.php')) ?>" aria-label="Talea – <?= e(t('Home')) ?>"><?= $app->view->render('admin/logo', ['height' => 26]) ?></a>
+		<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?> (Ctrl K)" aria-label="<?= e(t('Quick search and commands')) ?>"><?= $icon('b-search') ?></button>
+		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
+	</div>
 	<nav class="menu-wrap" aria-label="<?= e(t('Main menu')) ?>">
 	<ul class="menu" id="menu">
-		<li class="menu-overview<?= $onDashboard ? ' active' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $onDashboard ? ' aria-current="page"' : '' ?>><?= $icon('overview') ?><?= e(t('Dashboard')) ?></a></li>
-<?php $group = ''; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
-<?php foreach ($modules as $ident => $class): if ($class::PARENT !== '' && isset($modules[$class::PARENT])) { continue; } ?>
-<?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
-		<li class="menu-group" aria-hidden="true"><?= e(t($group)) ?></li>
-<?php endif ?>
-		<li<?= $ident === $inMenu ? ' class="active"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
+		<li class="menu-section<?= $current === 'Home' ? ' active' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $current === 'Home' ? ' aria-current="page"' : '' ?>><?= e(t('Home')) ?></a></li>
+<?php foreach ($listed as $section): $open = $section === $current; $entries = $sections[$section]; ?>
+		<li class="menu-section<?= $open ? ' active' : '' ?><?= $section === 'Claude' ? ' menu-claude' : '' ?>"><a href="<?= e($app->url('admin.php?module=' . array_key_first($entries))) ?>"<?= $open ? ' aria-current="true"' : '' ?>><?= e(t($section)) ?></a>
+<?php if ($open && count($entries) > 1): ?>
+			<ul class="menu-sub">
+<?php foreach ($entries as $ident => $class): ?>
+				<li<?= $ident === $inMenu ? ' class="active"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= e(t($class::NAME)) ?></a></li>
 <?php endforeach ?>
-		<li class="menu-site"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('site') ?><?= e(t('View site')) ?></a></li>
-		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('logout') ?><?= e(t('Sign out')) ?></button></form></li>
+			</ul>
+<?php endif ?>
+		</li>
+<?php endforeach ?>
 	</ul>
+	<div class="menu-foot">
+		<a class="signed-in" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . $userName) ?>"><span class="avatar" title="<?= e($userName . ' – ' . t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($userName, 0, 1))) ?></span></a>
+		<span class="menu-tools">
+			<button class="menu-tool theme-switch" type="button" data-theme-switch title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('theme') ?></button>
+			<a class="menu-tool" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener" title="<?= e(t('View site')) ?>" aria-label="<?= e(t('View site')) ?>"><?= $icon('site') ?></a>
+<?php if (isset($sections['Settings'])): ?>
+			<a class="menu-tool<?= $current === 'Settings' ? ' active' : '' ?>" href="<?= e($app->url('admin.php?module=' . array_key_first($sections['Settings']))) ?>" title="<?= e(t('Settings')) ?>" aria-label="<?= e(t('Settings')) ?>"<?= $current === 'Settings' ? ' aria-current="true"' : '' ?>><?= $icon('settings') ?></a>
+<?php endif ?>
+			<form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button class="menu-tool" type="submit" title="<?= e(t('Sign out')) ?>" aria-label="<?= e(t('Sign out')) ?>"><?= $icon('logout') ?></button></form>
+		</span>
+	</div>
 	</nav>
 </header>
-<section class="login-strip" aria-label="<?= e(t('Account and tools')) ?>">
-	<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?>"><span><?= e(t('Search…')) ?></span> <kbd>Ctrl K</kbd></button>
-	<button class="theme-switch" type="button" data-theme-switch title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('theme') ?></button>
-	<a class="signed-in" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($username['name'] ?: $username['username'])) ?>"><span class="avatar" title="<?= e(($username['name'] ?: $username['username']) . ' – ' . t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($username['name'] ?: $username['username'], 0, 1))) ?></span></a>
-</section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
 <dialog class="palette" id="palette" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-articles="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?>>

@@ -18,7 +18,7 @@ final class Experiments extends Module
 {
     public const string IDENT = 'experiments';
     public const string NAME = 'Experiments';
-    public const string GROUP = 'Customers';
+    public const string GROUP = 'Analytics';
     public const string ICON = 'experiments';
     public const string EXTENSION = 'stats';
     public const string TABLE = 'experiments';
