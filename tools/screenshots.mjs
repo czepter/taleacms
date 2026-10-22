@@ -37,7 +37,7 @@ if (SITE === 'business') {
 
   // admin: sign in with the throwaway account of this install
   await page.goto(`${BASE}/admin.php`);
-  await page.fill('input[name="user"]', 'admin');
+  await page.fill('input[name="username"]', 'admin');
   await page.fill('input[name="password"]', PASSWORD);
   await Promise.all([page.waitForNavigation(), page.press('input[name="password"]', 'Enter')]);
 

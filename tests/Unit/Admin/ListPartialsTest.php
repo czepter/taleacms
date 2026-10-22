@@ -73,6 +73,12 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('<span class="status-note status-note-error">2 comments</span>', $html);
     }
 
+    public function testNeutralNoteIsNotAWarning(): void
+    {
+        $html = $this->view->render('admin/list/status', ['kind' => 'live', 'label' => 'Sent', 'notes' => [['text' => '22.10.2026', 'kind' => 'neutral']]]);
+        $this->assertStringContainsString('<span class="status-note status-note-neutral">22.10.2026</span>', $html);
+    }
+
     public function testActionsMenuHasPopoverAndDangerLast(): void
     {
         $html = $this->view->render('admin/list/actions', [
@@ -139,6 +145,17 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('<input type="hidden" name="popup_id" value="p1">', $html);
         $this->assertStringContainsString('<button class="switch" type="submit" role="switch" aria-checked="false" aria-label="Newsletter on">', $html);
         $this->assertStringContainsString('aria-checked="true"', $this->view->render('admin/list/switch', ['action' => '?t', 'fields' => [], 'on' => true, 'label' => 'x', 'csrf' => '']));
+    }
+
+    public function testAttentionRendersTitleAndRows(): void
+    {
+        $html = $this->view->render('admin/list/attention', ['id' => 'not-found', 'title' => '3 addresses <not> found', 'meta' => 'last 60 days',
+            'rows' => '<div class="attention-row">row</div>', 'aside' => '<form>ignore all</form>']);
+        $this->assertStringContainsString('<section class="attention" aria-labelledby="not-found">', $html);
+        $this->assertStringContainsString('<h2 id="not-found">3 addresses &lt;not&gt; found</h2>', $html);
+        $this->assertStringContainsString('<span class="attention-meta">last 60 days</span>', $html);
+        $this->assertStringContainsString('<div class="attention-row">row</div>', $html, 'rows stay raw HTML');
+        $this->assertStringContainsString('<form>ignore all</form>', $html);
     }
 
     public function testSelectionButtonsCanPostElsewhere(): void
