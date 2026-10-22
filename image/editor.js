@@ -10,7 +10,8 @@
 (function () {
 	'use strict';
 
-	var T = window.T || function (s) { return s; }; // translation of admin texts (image/languages/admin-*.js)
+	// translation of admin texts (image/languages/admin-*.js); on the site (edit in place) there is no admin.js, the dictionary is read directly
+	var T = window.T || function (s) { return (window.TALEA_TRANSLATIONS || {})[s] || s; };
 
 	var SCRIPT = document.querySelector('script[data-admin-url]');
 	var ADMIN = SCRIPT.getAttribute('data-admin-url');
