@@ -758,7 +758,6 @@ return [
     'Services that need confirmation: the requested time is held this long. Then it is free again and you get a reminder; the customer hears nothing until you answer.' => 'Leistungen mit Bestätigung: Die gewünschte Zeit wird so lange reserviert. Danach ist sie wieder frei und du erhältst eine Erinnerung; der Kunde hört nichts, bis du antwortest.',
     'The opening text of the e-mail; the details follow. Write it in your own tone and form of address; {name} is the customer\'s name.' => 'Der Anfangstext der E-Mail, danach folgen die Einzelheiten. Schreibe ihn in deinem Ton und mit deiner Anrede (du, ihr oder „Sie“); {name} ist der Name des Kunden.',
     'The opening text; your personal message from the request follows it.' => 'Der Anfangstext; danach folgt deine persönliche Nachricht.',
-    'A request, not a booking: the time is held, you accept it, decline it or propose other times. The customer is told by e-mail.' => 'Eine Anfrage, keine Buchung: Die Zeit wird reserviert, du nimmst sie an, lehnst sie ab oder schlägst andere Zeiten vor. Der Kunde erfährt es per E-Mail.',
     'This time has been taken meanwhile – propose other times or decline the request.' => 'Die Zeit wurde inzwischen vergeben – schlage andere Zeiten vor oder lehne die Anfrage ab.',
     'The customer left no e-mail address – call them, or decline the request.' => 'Der Kunde hat keine E-Mail-Adresse hinterlassen – ruf ihn an oder lehne die Anfrage ab.',
     'Propose one to three times.' => 'Schlage ein bis drei Zeiten vor.',
@@ -902,4 +901,7 @@ return [
     'Your SMTP server sends in batches. Every e-mail carries a one-click unsubscribe link. Send yourself a test before it goes out.' => 'Dein SMTP-Server versendet in Etappen. Jede E-Mail enthält einen Abmeldelink mit einem Klick. Sende dir vorher einen Test.',
     'Create the first page of your site.' => 'Lege die erste Seite deiner Website an.',
     'How this page appears outside your site' => 'So erscheint diese Seite außerhalb deiner Website',
+    'The visitor sends a request instead of a booking. Talea holds the time until you accept, decline or propose other times, and tells the customer by e-mail.' => 'Der Besucher schickt eine Anfrage statt einer Buchung. Talea hält die Zeit frei, bis du annimmst, ablehnst oder andere Zeiten vorschlägst, und informiert den Kunden per E-Mail.',
+    'Enter times for at least one day, or choose "When the person works".' => 'Gib Zeiten für mindestens einen Tag ein oder wähle „Wenn die Person arbeitet“.',
+    'Write the times as ranges, e.g. 9:00-12:00, 13:00-17:00.' => 'Schreib die Zeiten als Zeiträume, z. B. 9:00-12:00, 13:00-17:00.',
 ];

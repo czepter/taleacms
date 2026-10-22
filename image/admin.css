@@ -1014,6 +1014,13 @@ form.center.small-text .btn {
 .form .options-stacked label {
 	margin-right: 0;
 }
+/* a service's own bookable times: the weekday table shows only with "Only at certain times" */
+.service-hours-own { margin-top: 16px; }
+.service-hours:not(:has(input[name="hours_mode"][value="own"]:checked)) .service-hours-own { display: none; }
+.service-hours-own .textfield { width: 100%; min-width: 160px; }
+.service-hours-own table.listing :is(th, td) { vertical-align: middle; }
+.service-hours .options-stacked .help { margin-left: 24px; }
+.form .buttons .service-delete { margin-left: auto; }
 .form .buttons {
 	display: flex;
 	flex-wrap: wrap;
