@@ -5807,4 +5807,12 @@ return [
     'no properties' => 'bez vlastností',
     'no views yet' => 'zatím bez zobrazení',
     'nowhere – can be deleted' => 'nikde – lze smazat',
+    '%d waiting' => '%d čeká',
+    'Confirm' => 'Potvrdit',
+    'Delete the enquiry including attachments? This cannot be undone.' => 'Smazat poptávku včetně příloh? Nelze to vrátit.',
+    'Name, e-mail or text' => 'Jméno, e-mail nebo text',
+    'Open' => 'Otevřít',
+    'Search enquiries' => 'Hledat poptávky',
+    'Sign-in' => 'Přihlášení',
+    'password only' => 'jen heslo',
 ];
