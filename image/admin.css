@@ -687,6 +687,7 @@ table.listing td.cell-actions { width: 1%; white-space: nowrap; }
 table.listing a.status-note { font-weight: 400; }
 .status-note-warning { color: var(--warning-text); }
 .status-note-error { color: var(--error); }
+.status-note-neutral { color: var(--text-weak); }
 .row-actions {
 	display: flex;
 	justify-content: flex-end;
@@ -1667,7 +1668,6 @@ a.look-card:hover { border-color: var(--accent); }
 .menu-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 60rem; padding: 12px; border: 1px dashed var(--line-field); border-radius: var(--radius); }
 .menu-add legend { padding: 0 4px; font-weight: 600; }
 .help-inline { margin-inline-end: 2px; color: var(--text-weak); font-size: 14px; }
-.padding-tree { display: inline-block; color: var(--text-weak); }
 
 /* Media: crop focal point – a tap in the preview */
 .focal { position: relative; display: inline-block; max-width: 320px; margin-bottom: 8px; cursor: crosshair; }
@@ -1712,9 +1712,7 @@ a.look-card:hover { border-color: var(--accent); }
 .options-below-stacked label { display: block; margin-bottom: 6px; }
 input[type="number"].textfield.number-short { width: 4.5em; }
 
-/* content hygiene (2.14): bulk actions under lists, the content check in the editor, the media clean-up and the translation overview */
-.bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
-.bulk label { display: flex; align-items: center; gap: 6px; }
+/* content hygiene (2.14): the content check in the editor, the media clean-up and the translation overview */
 .check-list { list-style: none; margin: 0; padding: 0; }
 .check-list li { margin-block-end: 6px; padding-inline-start: 1.6em; position: relative; }
 .check-list li > span[aria-hidden] { position: absolute; left: 0; font-weight: 700; }

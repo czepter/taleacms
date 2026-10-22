@@ -25,11 +25,12 @@ $editing = $u !== null || $fromUrl !== '' || $app->request->get('new') !== '';
     ob_start();
     foreach ($notFound as $n): $tip = $suggestions[$n['path']] ?? null; ?>
 <div class="attention-row">
-	<code class="attention-path">/<?= e($n['path']) ?></code>
+	<code class="attention-path" title="/<?= e($n['path']) ?>">/<?= e($n['path']) ?></code>
 	<span class="cell-sub"><?= e(t('%d hits', (int) $n['count'])) ?> · <?= e(format_ago($n['last_seen_at'])) ?></span>
-	<span class="attention-tip"><?php if ($tip !== null): ?><?= $icon('out') ?> <code>/<?= e($tip['to']) ?></code> <span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="cell-sub"><?= e(t('no similar page')) ?></span><?php endif ?></span>
+	<span class="attention-tip"><?php if ($tip !== null): ?><?= $icon('out') ?> <code title="/<?= e($tip['to']) ?>">/<?= e($tip['to']) ?></code> <span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="cell-sub"><?= e(t('no similar page')) ?></span><?php endif ?></span>
 	<span class="row-actions">
-		<?php if ($tip !== null): ?><form class="inline" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="from_path" value="<?= e('/' . $n['path']) ?>"><input type="hidden" name="to_path" value="<?= e('/' . $tip['to']) ?>"><input type="hidden" name="type" value="301"><button class="btn" type="submit"><?= e(t('Create redirect')) ?></button></form><?php else: ?><a class="navigation" href="<?= e($module->url('', ['z' => $n['path']])) ?>#edit"><?= e(t('Redirect')) ?></a><?php endif ?>
+		<?php if ($tip !== null): ?><form class="inline" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="from_path" value="<?= e('/' . $n['path']) ?>"><input type="hidden" name="to_path" value="<?= e('/' . $tip['to']) ?>"><input type="hidden" name="type" value="301"><button class="btn" type="submit"><?= e(t('Create redirect')) ?></button></form><?php endif ?>
+		<a class="<?= $tip !== null ? 'quiet-link' : 'navigation' ?>" href="<?= e($module->url('', ['z' => $n['path']])) ?>#edit" title="<?= e(t('Redirect – the old address leads to the page that replaced it (the form above is filled in, add the target).')) ?>"><?= e(t($tip !== null ? 'Elsewhere' : 'Redirect')) ?></a>
 		<form class="inline" method="post" action="<?= e($module->url('ignore')) ?>"><?= $csrf ?><input type="hidden" name="path" value="<?= e($n['path']) ?>"><button class="icon-btn" type="submit" aria-label="<?= e(t('Ignore: %s', '/' . $n['path'])) ?>" title="<?= e(t('Ignore – nothing replaces it, or it is a bot probing for other systems. It will not come back.')) ?>"><?= $icon('close') ?></button></form>
 	</span>
 </div>
@@ -65,8 +66,8 @@ endif ?>
 <tbody>
 <?php foreach ($records as $z): $editUrl = $module->url('', ['edit' => $z['public_id']]) . '#edit'; ?>
 <tr>
-	<td class="cell-main"><div class="cell-row"><a class="cell-title cell-code" href="<?= e($editUrl) ?>">/<?= e($z['from_path']) ?></a><?= $z['auto_score'] !== null ? ' <span class="tag" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></div></td>
-	<td><span class="cell-row"><?= $icon('out') ?><code class="cell-sub"><?= e($path($z['to_path'])) ?></code><?= (int) ($z['type'] ?? 301) === 302 ? ' <span class="tag">302</span>' : '' ?></span></td>
+	<td class="cell-main"><div class="cell-row"><a class="cell-title cell-code" href="<?= e($editUrl) ?>" title="/<?= e($z['from_path']) ?>">/<?= e($z['from_path']) ?></a><?= $z['auto_score'] !== null ? ' <span class="tag" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></div></td>
+	<td><span class="cell-row"><?= $icon('out') ?><code class="cell-sub" title="<?= e($path($z['to_path'])) ?>"><?= e($path($z['to_path'])) ?></code><?= (int) ($z['type'] ?? 301) === 302 ? ' <span class="tag">302</span>' : '' ?></span></td>
 	<td class="number"><?= (int) $z['hits'] ?>×</td>
 	<td class="cell-weak"><?= e(format_ago($z['created_at'])) ?></td>
 	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $z['public_id'], 'name' => '/' . $z['from_path'], 'edit' => $editUrl, 'csrf' => $csrf, 'menu' => [
