@@ -598,7 +598,7 @@ table.listing:has(td.cell-main) td { vertical-align: middle; }
 table.listing .cell-select { width: 52px; padding-inline: 0; text-align: center; }
 table.listing .cell-select input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 /* max-width: 0 lets the title cut itself with an ellipsis inside an auto-sized table */
-table.listing td.cell-main { width: 100%; max-width: 0; height: 64px; }
+table.listing td.cell-main { width: 100%; min-width: 180px; max-width: 0; height: 64px; }
 .cell-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .cell-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cell-title,
@@ -687,6 +687,7 @@ table.listing td.cell-actions { width: 1%; white-space: nowrap; }
 table.listing a.status-note { font-weight: 400; }
 .status-note-warning { color: var(--warning-text); }
 .status-note-error { color: var(--error); }
+.status-note-neutral { color: var(--text-weak); }
 .row-actions {
 	display: flex;
 	justify-content: flex-end;
@@ -806,6 +807,52 @@ table.listing a.status-note { font-weight: 400; }
 .effect { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
 .effect-head { display: flex; justify-content: space-between; gap: 8px; }
 .effect meter { width: 100%; height: 6px; }
+/* the box above a list for what waits for the user (admin/list/attention) */
+.attention {
+	margin: 0 0 20px;
+	border: 1px solid var(--line-field);
+	border-radius: 14px;
+	background: var(--surface);
+}
+.attention-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 14px 16px; }
+.attention-head h2 { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-size: 16px; }
+.attention-head h2::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--warning-text); }
+.attention-meta { color: var(--text-weak); font-size: 14px; }
+.attention-aside { margin-inline-start: auto; }
+.attention-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px 16px;
+	min-height: 60px;
+	padding: 8px 16px;
+	border-top: 1px solid var(--line);
+}
+.attention-path, .cell-code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 14px; }
+.attention-tip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.attention-tip .icon, .listing td .cell-row > .icon { flex: none; width: 14px; height: 14px; color: var(--text-weak); }
+@media (max-width: 640px) {
+	.attention-row { grid-template-columns: minmax(0, 1fr) auto; }
+}
+/* rows grouped by day (bookings) */
+table.listing tr.list-group > th {
+	padding: 14px 16px 8px;
+	border-bottom: 1px solid var(--line);
+	background: color-mix(in oklch, var(--text) 3%, transparent);
+	color: var(--text);
+	font-size: 14px;
+	font-weight: 600;
+	text-align: start;
+}
+table.listing .cell-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* a blocked user, a cancelled booking */
+table.listing tr.inactive > td { opacity: 0.6; }
+/* an enquiry nobody opened yet: a signal dot and a bolder sender */
+.unread-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
+table.listing tr.unread .cell-title { font-weight: 700; }
+table.listing tr.unread .cell-preview { color: var(--text); }
+.tag-warning { border-color: var(--warning-text); color: var(--warning-text); }
+.cell-row.nowrap { white-space: nowrap; }
 /* the selection bar shows while a row is selected and counts the selection – no script needed */
 .content { counter-reset: selected; }
 input[name="selected[]"]:checked { counter-increment: selected; }
@@ -833,7 +880,7 @@ input[name="selected[]"]:checked { counter-increment: selected; }
 @media (max-width: 640px) {
 	table.listing-cards tr:has(> td.cell-main) { position: relative; }
 	table.listing-cards td.cell-select { position: absolute; top: 12px; inset-inline-end: 12px; width: auto; padding: 0; }
-	table.listing-cards td.cell-main { max-width: none; height: auto; padding-left: 14px; padding-inline-end: 48px; }
+	table.listing-cards td.cell-main { min-width: 0; max-width: none; height: auto; padding-left: 14px; padding-inline-end: 48px; }
 	table.listing-cards td.cell-main::before { display: none; }
 	table.listing-cards td.cell-actions { width: auto; padding-left: 14px; }
 	table.listing-cards td.cell-actions::before { display: none; }
@@ -1621,7 +1668,6 @@ a.look-card:hover { border-color: var(--accent); }
 .menu-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 60rem; padding: 12px; border: 1px dashed var(--line-field); border-radius: var(--radius); }
 .menu-add legend { padding: 0 4px; font-weight: 600; }
 .help-inline { margin-inline-end: 2px; color: var(--text-weak); font-size: 14px; }
-.padding-tree { display: inline-block; color: var(--text-weak); }
 
 /* Media: crop focal point – a tap in the preview */
 .focal { position: relative; display: inline-block; max-width: 320px; margin-bottom: 8px; cursor: crosshair; }
@@ -1666,9 +1712,7 @@ a.look-card:hover { border-color: var(--accent); }
 .options-below-stacked label { display: block; margin-bottom: 6px; }
 input[type="number"].textfield.number-short { width: 4.5em; }
 
-/* content hygiene (2.14): bulk actions under lists, the content check in the editor, the media clean-up and the translation overview */
-.bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
-.bulk label { display: flex; align-items: center; gap: 6px; }
+/* content hygiene (2.14): the content check in the editor, the media clean-up and the translation overview */
 .check-list { list-style: none; margin: 0; padding: 0; }
 .check-list li { margin-block-end: 6px; padding-inline-start: 1.6em; position: relative; }
 .check-list li > span[aria-hidden] { position: absolute; left: 0; font-weight: 700; }
