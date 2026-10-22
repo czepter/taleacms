@@ -623,7 +623,8 @@ table.listing td a {
 	font-size: 15px;
 }
 table.listing:has(td.cell-main) td { vertical-align: middle; }
-table.listing .cell-select { width: 52px; padding-inline: 0; text-align: center; }
+/* the main cell's width: 100% shrinks the other columns to their content, so the padding (not a width) makes this column 52px */
+table.listing .cell-select { padding-inline: 17px; text-align: center; }
 table.listing .cell-select input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 /* max-width: 0 lets the title cut itself with an ellipsis inside an auto-sized table */
 table.listing td.cell-main { width: 100%; min-width: 180px; max-width: 0; height: 64px; }
@@ -642,6 +643,7 @@ table.listing .cell-title {
 	text-decoration: none;
 }
 table.listing a.cell-title:hover { text-decoration: underline; }
+table.listing .cell-title.cell-code { font-size: 14px; font-weight: 400; }
 .cell-sub { color: var(--text-weak); font-size: 13px; }
 table.listing a.cell-sub { font-weight: 400; color: var(--text-weak); text-decoration: none; }
 table.listing a.cell-sub:hover { color: var(--text); }
