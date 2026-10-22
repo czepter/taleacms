@@ -19,7 +19,7 @@ final class Addons extends Module
     public const string HUB = 'features';
     public const string PARENT = 'extensions';
     public const string NAME = 'Add-ons';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'extensions';
     public const bool ADMIN_ONLY = true;
 

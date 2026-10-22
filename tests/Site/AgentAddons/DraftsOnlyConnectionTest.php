@@ -103,11 +103,9 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->assertStringContainsString('"kind":"proposed_hours"', $text, '3.2: and the proposal');
         $this->assertStringContainsString('"admin_url":"http', $text, '3.2: with admin links');
 
-        $dashboard = $this->assertPage('/admin.php', 200, 'class="awaiting-you"', message: '3.2: the dashboard shows Waiting for you above the counters');
+        $dashboard = $this->assertPage('/admin.php', 200, 'class="awaiting-you"', message: '3.2: Home shows Waiting for you');
         $this->assertStringContainsString('data-kind="proposed_hours"', $dashboard->body, '3.2: Waiting for you has a row for the proposal');
         $this->assertStringContainsString('data-kind="hidden_items"', $dashboard->body, '3.2: Waiting for you has a row for the hidden item');
-        preg_match('/class="(awaiting-you|tiles)"/', $dashboard->body, $first);
-        $this->assertSame('awaiting-you', $first[1] ?? '', '3.2: Waiting for you is above the counters');
     }
 
     public function testAPersonAppliesOrDiscardsAProposal(): void

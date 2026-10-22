@@ -589,7 +589,7 @@ window.TALEA_TRANSLATIONS = {
 	"Keyboard shortcuts": "Klávesové zkratky",
 	"Editor tour": "Prohlídka editoru",
 	"Elements and ready-made sections": "Prvky a hotové sekce",
-	"On the left you pick an element or a whole ready-made section. Click to insert it after the selected element, drag it anywhere on the page. The Structure tab shows the page as a tree.": "Vlevo vyberete prvek nebo celou hotovou sekci. Klepnutím ho vložíte za vybraný prvek, přetažením kamkoli na stránku. Záložka Struktura ukáže stavbu stránky jako strom.",
+	"The + on the left opens the elements and ready-made sections. Click to insert one after the selected element, drag it anywhere on the page. The button below it shows the page as a tree.": "Plus vlevo otevře prvky a hotové sekce. Klepnutím vložíte prvek za vybraný, přetažením kamkoli na stránku. Tlačítko pod ním ukáže stránku jako strom.",
 	"The page as visitors will see it": "Stránka, jak ji uvidí návštěvník",
 	"Click to select an element, double-click to edit text. At the top you switch the preview to tablet and mobile – the style then changes only for that width.": "Klepnutím prvek vyberete, dvojklikem upravíte text. Nahoře přepnete náhled pro tablet a mobil – styl se pak mění jen pro danou šířku.",
 	"Content, style and advanced": "Obsah, styl a pokročilé",
@@ -2944,5 +2944,11 @@ window.TALEA_TRANSLATIONS = {
 	"on the slides": "na snímcích",
 	"below, at the end": "pod nimi, na konci",
 	"Slideshow navigation": "Navigace prezentace",
-	"Slideshow arrow position": "Umístění šipek prezentace"
+	"Slideshow arrow position": "Umístění šipek prezentace",
+	"More": "Další",
+	"Add elements and sections": "Přidat prvky a sekce",
+	"Edit site header": "Upravit hlavičku webu",
+	"Edit site footer": "Upravit patičku webu",
+	"Shared by every page": "Společné pro všechny stránky",
+	"Add section": "Přidat sekci"
 };

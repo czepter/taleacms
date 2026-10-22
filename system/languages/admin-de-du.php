@@ -895,4 +895,11 @@ return [
     'This Kaleta export has a format version Talea does not know – export the site again with Kaleta 3.7 or newer.' => 'Dieser Kaleta-Export hat eine Formatversion, die Talea nicht kennt – exportiere die Website erneut mit Kaleta 3.7 oder neuer.',
     'Move the news item to the trash? You can restore it for 30 days.' => 'Den Beitrag in den Papierkorb verschieben? Du kannst ihn 30 Tage lang wiederherstellen.',
     'you' => 'du',
+    'Add the Newsletter sign-up element to a page. Only people who confirm by the link in the e-mail count as subscribers.' => 'Füge das Element „Newsletter-Anmeldung“ auf einer Seite ein. Als Abonnenten zählen nur Personen, die über den Link in der E-Mail bestätigen.',
+    'What do you want to send?' => 'Was möchtest du versenden?',
+    'Choose the news items yourself – for a monthly review or a theme.' => 'Du wählst die Beiträge selbst aus – für einen Monatsrückblick oder ein Thema.',
+    'Your newsletters' => 'Deine Newsletter',
+    'Your SMTP server sends in batches. Every e-mail carries a one-click unsubscribe link. Send yourself a test before it goes out.' => 'Dein SMTP-Server versendet in Etappen. Jede E-Mail enthält einen Abmeldelink mit einem Klick. Sende dir vorher einen Test.',
+    'Create the first page of your site.' => 'Lege die erste Seite deiner Website an.',
+    'How this page appears outside your site' => 'So erscheint diese Seite außerhalb deiner Website',
 ];

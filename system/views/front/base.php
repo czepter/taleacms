@@ -21,6 +21,7 @@
  * @var list<array<string, mixed>> $menu_footer  footer menu (empty until the administrator builds it)
  * @var callable(list<array<string, mixed>>, string, string): string $menu_html  menu items as <li> (Core\Menu::html: items, page path, home page url)
  * @var array{header: ?string, footer: ?string} $parts  header and footer from the builder (Appearance → Site parts); null = the layout draws them
+ * @var array<string, array{0: string, 1: string}> $part_marks  only on a page's builder canvas: comments around the header and the footer with the address of their builder (#116)
  */
 $siteName = $web->get('site_name');
 $path = (string) parse_url($canonical, PHP_URL_PATH);
@@ -61,6 +62,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <body>
 <a class="skip" href="#main"><?= e(t('Skip to content')) ?></a>
 <?= $notice ?? '' ?>
+<?= $part_marks['header'][0] ?? '' ?>
 <?php if (($parts['header'] ?? null) !== null): ?>
 <?= $parts['header'] ?>
 <?php else: ?>
@@ -77,9 +79,11 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 	</div>
 </header>
 <?php endif ?>
+<?= $part_marks['header'][1] ?? '' ?>
 <main id="main" class="<?= empty($meta['build']) ? 'wrap content' : 'build' ?>">
 <?= $content ?>
 </main>
+<?= $part_marks['footer'][0] ?? '' ?>
 <?php if (($parts['footer'] ?? null) !== null): ?>
 <?= $parts['footer'] ?>
 <?php else: ?>
@@ -110,6 +114,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 	</div>
 </footer>
 <?php endif ?>
+<?= $part_marks['footer'][1] ?? '' ?>
 <?= $foot ?>
 </body>
 </html>

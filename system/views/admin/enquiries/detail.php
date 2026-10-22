@@ -9,11 +9,25 @@
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
  * @var array<string, string> $users  public id => name
+ * @var list<array<string, mixed>> $inbox the latest enquiries (not spam) for the column beside this one
  */
 use Talea\Admin\Modules\Enquiries;
 
 ?>
-<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('All enquiries')) ?></a></p>
+<div class="inbox">
+<nav class="inbox-list" aria-label="<?= e(t('Latest enquiries')) ?>">
+	<p><a href="<?= e($module->url()) ?>"><?= e(t('All enquiries')) ?></a></p>
+	<ul>
+<?php foreach ($inbox as $row): $first = array_values(array_filter(array_map(fn (array $d): string => (string) $d[1], json_decode((string) $row['data'], true) ?: []), fn (string $v): bool => mb_strlen($v) > 1)); ?>
+		<li<?= $row['public_id'] === $p['public_id'] ? ' class="active"' : '' ?>><a href="<?= e($module->url('detail', ['id' => $row['public_id']])) ?>"<?= $row['public_id'] === $p['public_id'] ? ' aria-current="page"' : '' ?>>
+			<span class="inbox-who"><strong><?= e($row['email'] !== '' ? $row['email'] : ($row['form'] !== '' ? $row['form'] : t('Enquiry'))) ?></strong><span><?= e(format_date($row['created_at'])) ?></span></span>
+			<span class="inbox-text"><?= e(mb_strimwidth(implode(' · ', $first), 0, 90, '…')) ?></span>
+			<span class="small-text"><?= e($row['form']) ?><?= (int) $row['status'] === 0 ? ' · ' . e(t('new')) : ((int) $row['status'] === 2 ? ' · ' . e(t('Resolved')) : '') ?></span>
+		</a></li>
+<?php endforeach ?>
+	</ul>
+</nav>
+<div class="inbox-open">
 <div class="form">
 <dl class="enquiry">
 	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date($p['created_at'], true)) ?> · <?= e($p['form']) ?><?php if ($p['page'] !== ''): ?> · <a href="<?= e($p['page']) ?>" target="_blank" rel="noopener"><?= e($p['page']) ?></a><?php endif ?></dd>
@@ -86,5 +100,7 @@ use Talea\Admin\Modules\Enquiries;
 	<form class="inline" method="post" action="<?= e($module->url('anonymise')) ?>" data-confirm="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button class="navigation" type="submit"><?= e(t('Anonymise')) ?></button></form>
 <?php endif ?>
 	<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
+</div>
+</div>
 </div>
 </div>

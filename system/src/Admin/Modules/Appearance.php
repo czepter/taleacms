@@ -21,7 +21,7 @@ final class Appearance extends Module
 {
     public const string IDENT = 'appearance';
     public const string NAME = 'Site appearance';
-    public const string GROUP = 'Appearance';
+    public const string GROUP = 'Website';
     public const string ICON = 'identity';
     public const bool ADMIN_ONLY = true;
 

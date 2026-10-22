@@ -1,20 +1,37 @@
 /* Talea – page builder (admin.php?module=pages&action=builder). Colors from the admin variables (image/admin.css) – both light and dark mode. */
 
 body.builder-body { display: block; margin: 0; padding: 0; max-width: none; overflow: hidden; background: var(--base); font: 14px/1.45 var(--font); color: var(--text); }
-.bd { display: grid; grid-template: "lista lista lista" auto "levy platno pravy" 1fr / 272px 1fr 320px; height: 100vh; height: 100dvh; }
+/* focus mode (#115): the bar, the page and the properties column; Add/Structure float over the canvas from the rail. Nothing opens or
+   closes beside the canvas, so its width never changes (the page would rescale under the pointer in the middle of a gesture). */
+.bd { display: grid; grid-template: "lista lista" auto "platno pravy" 1fr / 1fr 320px; height: 100vh; height: 100dvh; }
+.bd:not(.bd-left-open) > .bd-left { display: none; }
 .bd[hidden] { display: none; }
 .bd button, .bd input, .bd select, .bd textarea { font: inherit; color: inherit; }
 
 /* top bar */
-.bd-bar { grid-area: lista; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
-.bd-bar .bd-name { display: flex; flex-direction: column; min-width: 0; margin-right: auto; line-height: 1.2; }
+.bd-bar { grid-area: lista; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.bd-bar-start, .bd-bar-end { flex: 1 1 0; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bd-bar-end { justify-content: flex-end; }
+.bd-bar .bd-name { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 40%; line-height: 1.25; text-align: center; }
+.bd-bar .bd-name .bd-status { min-width: 0; text-align: center; }
+.bd-icon-btn { position: relative; width: 36px; padding: 0; justify-content: center; border-color: transparent; }
+.bd-icon-btn:hover { border-color: var(--line-field); }
+.bd-count { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-size: 10px; line-height: 16px; }
+.bd-more-field { display: grid; gap: 4px; padding: 8px 10px; font-size: 12px; color: var(--text-weak); }
+.bd-more-field select { padding: 6px 8px; border: 1px solid var(--line-field); border-radius: 6px; background: var(--surface); }
+/* the rail: + (Add) and Structure, floating at the left edge of the canvas */
+.bd-rail { position: absolute; left: 12px; top: 50%; z-index: 3; display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); transform: translateY(-50%); }
+.bd-rail button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer; }
+.bd-rail button:hover { background: var(--base); }
+.bd-rail button:first-child { background: var(--accent); color: var(--on-accent); }
+.bd-rail button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--signal); }
 .bd-bar .bd-name h1 { margin: 0; overflow: hidden; font-size: inherit; font-weight: 700; letter-spacing: normal; white-space: nowrap; text-overflow: ellipsis; }
 .bd-bar .bd-name small { color: var(--text-weak); }
 .bd-group { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--base); }
 .bd-group button { display: grid; place-items: center; min-width: 34px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; }
 .bd-group button[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
 .bd-group button:disabled { opacity: 0.35; cursor: default; }
-.bd-status { min-width: 150px; color: var(--text-weak); font-size: 12px; text-align: right; }
+.bd-status { color: var(--text-weak); font-size: 12px; }
 .bd-status.error { color: var(--error); }
 .bd-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .bd-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); text-decoration: none; cursor: pointer; white-space: nowrap; }
@@ -25,8 +42,9 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 
 /* left and right panel */
 .bd-left, .bd-right { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
-.bd-left { grid-area: levy; border-right: 1px solid var(--line); }
+.bd-left { grid-area: platno; justify-self: start; z-index: 5; width: 272px; border-right: 1px solid var(--line); box-shadow: 8px 0 24px rgb(0 0 0 / 0.08); }
 .bd-right { grid-area: pravy; border-left: 1px solid var(--line); }
+.bd-left-open .bd-rail { left: 284px; }
 .bd-tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--line); }
 .bd-tabs button { flex: 1; padding: 8px 6px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-weak); font-weight: 600; cursor: pointer; }
 .bd-tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--text); }
@@ -60,7 +78,7 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-node.target-inside { background: var(--accent-light); border-color: var(--accent); border-style: dashed; }
 
 /* canvas */
-.bd-canvas { grid-area: platno; position: relative; display: flex; justify-content: center; min-width: 0; overflow: auto; padding: 16px; background: color-mix(in srgb, var(--base) 70%, var(--line)); }
+.bd-canvas { grid-area: platno; position: relative; display: flex; justify-content: center; min-width: 0; overflow: auto; padding: 16px 16px 16px 68px; background: color-mix(in srgb, var(--base) 70%, var(--line)); }
 .bd-frame { position: relative; width: 100%; height: 100%; overflow: hidden; }
 /* the iframe width and scale are computed by builder.js: desktop renders at 1280 px wide and is scaled down so the real breakpoints apply */
 .bd-frame iframe { position: absolute; top: 0; left: 0; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1), 0 8px 30px rgb(0 0 0 / 0.08); transform-origin: 0 0; }
@@ -145,6 +163,7 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 @media (max-width: 640px) {
 	.builder-body { overflow: auto; }
 	.bd { grid-template: "lista" auto "platno" 70vh "pravy" auto "levy" auto / 1fr; height: auto; }
+	.bd-left { grid-area: levy; justify-self: stretch; width: auto; box-shadow: none; }
 }
 
 /* help for collection placeholders */

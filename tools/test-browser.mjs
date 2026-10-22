@@ -162,10 +162,25 @@ await step('builder: select the parent element', async () => {
 });
 
 await step('builder: element tree and search', async () => {
+  // focus mode (#115): Add and Structure open from the rail on the left of the canvas
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
   const search = page.locator('input.bd-search').first();
   if (await search.count()) { await search.fill('text'); await page.waitForTimeout(400); await search.fill(''); }
+  await page.locator('.bd-rail button[aria-label="Structure"]').click();
+  if (!(await page.locator('.bd-tree').count())) { throw new Error('the Structure button of the rail does not open the element tree'); }
   const tree = page.locator('.bd-tree [role="treeitem"], .bd-tree li').nth(1);
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
+});
+
+await step('builder: Add section below a section of the page (#116)', async () => {
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await page.waitForTimeout(1500);
+  await canvas().locator('[data-tl-id]').first().hover();
+  const add = canvas().locator('#tl-bd-add');
+  await add.waitFor({ timeout: 5000 });
+  await add.click();
+  const ok = await page.evaluate(() => { const s = window.taleaBuilder.state; return s.leftOpen && s.leftTab === 'add' && s.build.children.some((c) => c.id === s.selected); });
+  if (!ok) { throw new Error('Add section does not select the section and open Add'); }
 });
 
 await step('builder: dialogs, classes, library and clipboard', async () => {
@@ -180,6 +195,7 @@ await step('builder: dialogs, classes, library and clipboard', async () => {
     await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
     await page.waitForTimeout(200);
   }
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
   await page.locator('.bd-library button').first().click(); // a ready-made section is inserted
   await page.waitForTimeout(1200);
   await canvas().locator('h1').first().click();
@@ -204,6 +220,7 @@ await step('builder: structured data (Product), preview, checklist, publish, JSO
   await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
   const pageUrl = await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).page.url);
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
   await page.locator('.bd-library button, .bd-panel button', { hasText: 'Structured data' }).first().click(); // the element is inserted and selected
   await page.waitForTimeout(1200);
   const control = page.locator('.bd-sd');
@@ -499,8 +516,9 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await tp.waitForTimeout(350);
   };
-  const centre = async (locator) => { const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
-  const tap = async (id, corner) => { const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
+  // the focus mode's canvas is wider (#115), so a target may lie below the fold: it is scrolled into view before the finger goes down
+  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const tap = async (id, corner) => { await node(tp, id).scrollIntoViewIfNeeded().catch(() => {}); const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
   await openBuilder(tp, 'touch');
 
   await tap('cs1', true);
@@ -531,6 +549,7 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
   await tp.touchscreen.tap(grip.x, grip.y);
   await tp.waitForFunction(() => !!window.taleaBuilder.state.placing);
   await tp.waitForTimeout(400);
+  await node(tp, 'txt5').scrollIntoViewIfNeeded().catch(() => {});
   const right = await node(tp, 'txt5').boundingBox();
   await tp.touchscreen.tap(right.x + right.width / 2, right.y + right.height * 0.8);
   await tp.waitForTimeout(500);

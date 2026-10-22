@@ -41,6 +41,12 @@
 #tl-bd-overlay .bdo-b svg{width:calc(18px*var(--s));height:calc(18px*var(--s));fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #tl-bd-overlay .bdo-sep{width:calc(1px*var(--s));margin:calc(4px*var(--s)) calc(2px*var(--s));background:rgb(255 255 255/.3)}
 #tl-bd-overlay .bdo-b[data-bdo="move"]{cursor:grab}
+#tl-bd-part{position:absolute;z-index:2147483644;display:grid;place-items:center;background:rgb(18 18 18/.42);pointer-events:none}
+#tl-bd-part a{pointer-events:auto;display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 20px;border-radius:8px;background:#fff;color:#121212;font:700 13px/1 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;box-shadow:0 6px 24px rgb(0 0 0/.25)}
+#tl-bd-part a:focus-visible{outline:3px solid #ff4f2e;outline-offset:2px}
+#tl-bd-part small{position:absolute;left:16px;bottom:10px;color:#fff;font:12px/1.2 system-ui,sans-serif}
+#tl-bd-add{position:absolute;z-index:2147483644;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 16px;border:0;border-radius:999px;background:#ff4f2e;color:#121212;font:700 13px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgb(0 0 0/.2)}
+#tl-bd-add:focus-visible{outline:3px solid #121212;outline-offset:2px}
 @media (pointer:coarse){#tl-bd-overlay .bdo-h::after{inset:calc(-13px*var(--s))}#tl-bd-overlay .bdo-b{min-width:calc(38px*var(--s));height:calc(38px*var(--s))}}
 `;
 
@@ -580,9 +586,74 @@
 		});
 	}
 
+	/* ---------- the site header and footer on a page's canvas (#116) ---------- */
+
+	/**
+	 * Front\Kernel marks the header and the footer with two comments (<!--tl-part header URL-->…<!--/tl-part-->) on a page's canvas.
+	 * Hovering one dims it and offers its builder ("Edit site header – shared by every page"); the way back leads to this page.
+	 */
+	function siteParts(doc) {
+		const parts = [];
+		const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_COMMENT);
+		for (let c = walker.nextNode(); c; c = walker.nextNode()) {
+			const m = /^tl-part (header|footer) (\S+)$/.exec(c.data.trim());
+			if (!m) { continue; }
+			const nodes = [];
+			for (let n = c.nextSibling; n && !(n.nodeType === 8 && n.data.trim() === '/tl-part'); n = n.nextSibling) { if (n.nodeType === 1) { nodes.push(n); } }
+			if (nodes.length) { parts.push({ type: m[1], url: m[2], nodes }); }
+		}
+		if (!parts.length) { return; }
+		const box = (part) => {
+			const r = part.nodes.map(C.page);
+			return { left: Math.min(...r.map((x) => x.left)), top: Math.min(...r.map((x) => x.top)), right: Math.max(...r.map((x) => x.right)), bottom: Math.max(...r.map((x) => x.bottom)) };
+		};
+		let shown = null;
+		const hide = () => { const o = doc.getElementById('tl-bd-part'); if (o) { o.remove(); } shown = null; };
+		const show = (part) => {
+			if (shown === part || state.gesture || state.editingCanvas) { return; }
+			hide();
+			const b = box(part);
+			const back = window.location.pathname + window.location.search; // the part builder only takes an address of this administration
+			const label = part.type === 'header' ? T('Edit site header') : T('Edit site footer');
+			const link = mk(doc, 'a', { href: part.url + '&back=' + encodeURIComponent(back), target: '_top' }, label);
+			const o = mk(doc, 'div', { id: 'tl-bd-part', style: 'left:' + b.left + 'px;top:' + b.top + 'px;width:' + (b.right - b.left) + 'px;height:' + (b.bottom - b.top) + 'px' }, link, mk(doc, 'small', {}, T('Shared by every page')));
+			doc.body.append(o);
+			shown = part;
+		};
+		doc.addEventListener('pointermove', (e) => {
+			const hit = parts.find((part) => part.nodes.some((n) => n.contains(e.target)));
+			if (hit) { show(hit); } else if (shown && !(e.target.closest && e.target.closest('#tl-bd-part'))) { hide(); }
+		});
+		doc.addEventListener('pointerleave', hide);
+	}
+
+	/* ---------- "Add section" below a section of the page (#116) ---------- */
+
+	/** Hovering a top-level section shows "+ Add section" on its lower edge: it selects the section and opens Add, which inserts after it. */
+	function addSection(doc) {
+		let shown = null;
+		const hide = () => { const b = doc.getElementById('tl-bd-add'); if (b) { b.remove(); } shown = null; };
+		doc.addEventListener('pointermove', (e) => {
+			if (e.target.closest && e.target.closest('#tl-bd-add')) { return; }
+			const top = new Set((state.build.children || []).map((p) => p.id));
+			let node = e.target.closest ? e.target.closest('[data-tl-id]') : null;
+			while (node && !top.has(node.getAttribute('data-tl-id'))) { node = node.parentElement && node.parentElement.closest('[data-tl-id]'); }
+			if (!node || state.gesture || state.editingCanvas || state.placing) { if (shown && !node) { hide(); } return; }
+			const id = node.getAttribute('data-tl-id');
+			if (shown === id) { return; }
+			hide();
+			const box = C.page(node);
+			const button = mk(doc, 'button', { type: 'button', id: 'tl-bd-add', style: 'left:' + (box.left + box.width / 2) + 'px;top:' + box.bottom + 'px' }, '+ ' + T('Add section'));
+			button.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); hide(); B.selection(id); B.openAdd(); });
+			doc.body.append(button);
+			shown = id;
+		});
+		doc.addEventListener('pointerleave', hide);
+	}
+
 	/* ---------- wiring ---------- */
 
-	B.on('preview', (doc) => { C.ensure(doc); marquee(doc); fileDrop(doc); new doc.defaultView.ResizeObserver(() => { if (!state.gesture) { C.later(); } }).observe(doc.documentElement); });
+	B.on('preview', (doc) => { C.ensure(doc); marquee(doc); fileDrop(doc); siteParts(doc); addSection(doc); new doc.defaultView.ResizeObserver(() => { if (!state.gesture) { C.later(); } }).observe(doc.documentElement); });
 	B.on('mark', () => C.render());
 	B.on('resize', () => C.later());
 	B.on('edit', () => C.later());

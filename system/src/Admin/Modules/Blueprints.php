@@ -19,7 +19,7 @@ final class Blueprints extends Module
     public const string HUB = 'business';
     public const string PARENT = 'business';
     public const string NAME = 'Blueprints';
-    public const string GROUP = 'Company';
+    public const string GROUP = 'Settings';
     public const string ICON = 'templates';
     public const bool ADMIN_ONLY = true;
 

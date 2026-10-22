@@ -19,14 +19,18 @@ final class Newsletters extends Module
     public const string IDENT = 'newsletters';
     public const string EXTENSION = 'newsletter_signup';
     public const string NAME = 'Newsletters';
-    public const string GROUP = 'Content';
+    public const string GROUP = 'E-mail';
     public const string ICON = 'mailing';
     public const string TABLE = 'newsletters';
 
     protected function actionList(): Response
     {
-        return $this->view('list', 'Newsletters', [
+        // the overview of the E-mail section: the list, the kinds of newsletter, the newsletters, how they are sent
+        return $this->view('list', 'E-mail', [
             'newsletters' => Mailing::all($this->db), 'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app),
+            'awaiting' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 0'),
+            'service' => \Talea\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
+            'openModules' => array_keys($this->kernel->modules()),
         ]);
     }
 
@@ -35,8 +39,14 @@ final class Newsletters extends Module
         $last = $this->db->one('SELECT subject, preheader, intro, news_mode, news_count, button_label, button_url, language FROM {newsletters} ORDER BY id DESC LIMIT 1');
 
         // a new one starts from the previous one's settings (the intro and button often repeat), with an empty subject
-        return $this->form(['id' => 0, 'public_id' => '', 'subject' => '', 'preheader' => '', 'status' => 'draft', 'news_ids' => '', 'scheduled_at' => null]
-            + ($last ?? ['intro' => '', 'news_mode' => 'latest', 'news_count' => 3, 'button_label' => '', 'button_url' => '', 'language' => '']));
+        $n = ['id' => 0, 'public_id' => '', 'subject' => '', 'preheader' => '', 'status' => 'draft', 'news_ids' => '', 'scheduled_at' => null]
+            + ($last ?? ['intro' => '', 'news_mode' => 'latest', 'news_count' => 3, 'button_label' => '', 'button_url' => '', 'language' => '']);
+        // a kind chosen on the overview (latest news, hand-picked news, message only) presets which news go in
+        if (in_array($this->request->get('mode'), ['latest', 'chosen', 'none'], true)) {
+            $n['news_mode'] = $this->request->get('mode');
+        }
+
+        return $this->form($n);
     }
 
     protected function actionEdit(): Response
