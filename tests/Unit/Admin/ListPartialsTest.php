@@ -64,6 +64,15 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('<a class="status-note status-note-error" href="?links">2 broken links</a>', $linked);
     }
 
+    public function testStatusRendersSeveralNotes(): void
+    {
+        $html = $this->view->render('admin/list/status', ['kind' => 'live', 'label' => 'Published', 'notes' => [
+            ['text' => 'Changes not published', 'url' => '?builder'], ['text' => '2 comments', 'kind' => 'error'],
+        ]]);
+        $this->assertStringContainsString('<a class="status-note status-note-warning" href="?builder">Changes not published</a>', $html);
+        $this->assertStringContainsString('<span class="status-note status-note-error">2 comments</span>', $html);
+    }
+
     public function testActionsMenuHasPopoverAndDangerLast(): void
     {
         $html = $this->view->render('admin/list/actions', [
