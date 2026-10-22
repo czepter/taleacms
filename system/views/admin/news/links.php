@@ -2,6 +2,7 @@
 /**
  * Broken links across the site: news items, page builds and collection items (Core\Links).
  *
+ * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\News $module
  * @var string $csrf
  * @var list<array<string, mixed>> $links
@@ -9,8 +10,8 @@
  * @var int $total
  * @var bool $isEnabled
  */
+echo $app->view->render('admin/list/head', ['count' => (string) count($links), 'links' => [[$module->url(), t('Back to the news list')]]]);
 ?>
-<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 <?php if (!$isEnabled): ?>
 <p class="notice"><?= e(t('Link checking is off (Settings → General → More options).')) ?></p>
 <?php endif ?>
@@ -19,15 +20,15 @@
 <p><?= e(t('No broken links found.')) ?></p>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Where')) ?></th><th scope="col"><?= e(t('Link')) ?></th><th scope="col"><?= e(t('Problem')) ?></th><th scope="col"><?= e(t('Found')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Link')) ?></th><th scope="col"><?= e(t('Problem')) ?></th><th scope="col"><?= e(t('Found')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
 <?php $kinds = ['news' => 'News item', 'page' => 'Page', 'item' => 'Item']; foreach ($links as $o): ?>
 <tr>
-	<td><span class="small-text"><?= e(t($kinds[$o['kind']] ?? 'Page')) ?>:</span> <a href="<?= e($o['edit']) ?>"><?= e($o['title']) ?></a><?= $o['element'] !== '' ? ' <span class="small-text">(' . e(t('element %s', $o['element'])) . ')</span>' : '' ?></td>
-	<td style="word-break:break-all"><a href="<?= e($o['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(mb_strimwidth($o['url'], 0, 90, '…')) ?></a></td>
-	<td><?= e($o['status'] === 0 ? t('server does not respond') : ($o['status'] === 404 ? t('page does not exist (404)') : t('error %s', $o['status']))) ?></td>
-	<td class="number"><?= e(format_date($o['found'])) ?></td>
-	<td class="actions"><form class="inline" method="post" action="<?= e($module->url('links')) ?>"><?= $csrf ?><input type="hidden" name="kind" value="<?= e($o['kind']) ?>"><input type="hidden" name="id" value="<?= e($o['id']) ?>"><button class="navigation" type="submit"><?= e(t('Check again')) ?></button></form></td>
+	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($o['url']) ?>" target="_blank" rel="noopener noreferrer" title="<?= e($o['url']) ?>"><?= e($o['url']) ?></a><span class="cell-sub"><?= e(t($kinds[$o['kind']] ?? 'Page')) ?>: <?= e($o['title']) ?><?= $o['element'] !== '' ? ' · ' . e(t('element %s', $o['element'])) : '' ?></span></div></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => 'error', 'label' => $o['status'] === 0 ? t('server does not respond') : ($o['status'] === 404 ? t('page does not exist (404)') : t('error %s', $o['status']))]) ?></td>
+	<td class="cell-weak"><?= e(format_ago($o['found'])) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => 'link-' . md5($o['kind'] . $o['id'] . $o['url']), 'name' => $o['title'], 'edit' => $o['edit'], 'csrf' => $csrf,
+        'quick' => ['action' => $module->url('links'), 'fields' => ['kind' => $o['kind'], 'id' => (string) $o['id']], 'label' => t('Check again'), 'icon' => 'restore'], 'menu' => []]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

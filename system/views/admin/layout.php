@@ -99,9 +99,12 @@ if ($username !== null) {
 <?php endif ?>
 <?php if ($heading !== ''): $guide = $username !== null ? Talea\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Talea\Core\Language::code()) : null; ?>
 <div class="header-pages">
-<h1><?= e($heading) ?></h1>
-<?php if ($guide !== null): ?>
-<?= $app->view->render('admin/guide_link', ['url' => $guide]) ?>
+<div class="page-title"><h1><?= e($heading) ?></h1><?php if (($count = $app->view->slot('count')) !== ''): ?> <span class="page-count"><?= $count ?></span><?php endif ?></div>
+<?php $actions = $app->view->slot('actions'); if ($guide !== null || $actions !== ''): ?>
+<div class="page-actions">
+<?= $guide !== null ? $app->view->render('admin/guide_link', ['url' => $guide]) : '' ?>
+<?= $actions ?>
+</div>
 <?php endif ?>
 </div>
 <?php endif ?>
