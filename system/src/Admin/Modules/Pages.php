@@ -33,7 +33,9 @@ final class Pages extends Module
 
     protected function actionList(): Response
     {
-        $trash = $this->request->get('status') === 'trash';
+        $status = $this->request->get('status');
+        $status = in_array($status, ['published', 'hidden', 'changes', 'trash'], true) ? $status : '';
+        $trash = $status === 'trash';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $where = [$trash ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'];
@@ -42,6 +44,15 @@ final class Pages extends Module
             $where[] = 'language = ?';
             $params[] = $column;
         }
+        // the status tabs count within the language filter, before the search (docs/specs/admin-lists.md)
+        $counts = $this->db->one('SELECT COUNT(*) AS total, SUM(CASE WHEN visible = TRUE THEN 1 ELSE 0 END) AS published, SUM(CASE WHEN visible = FALSE THEN 1 ELSE 0 END) AS hidden,'
+            . ' SUM(CASE WHEN build_draft IS NOT NULL THEN 1 ELSE 0 END) AS changes FROM {pages} WHERE deleted_at IS NULL' . ($column !== null ? ' AND language = ?' : ''), $column !== null ? [$column] : []) ?? [];
+        $where[] = match ($status) {
+            'published' => 'visible = TRUE',
+            'hidden' => 'visible = FALSE',
+            'changes' => 'build_draft IS NOT NULL',
+            default => 'TRUE',
+        };
         if ($search !== '') {
             $where[] = '(' . $this->db->dialect()->likeInsensitive('title') . ' OR ' . $this->db->dialect()->likeInsensitive('slug') . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
@@ -57,10 +68,11 @@ final class Pages extends Module
         unset($s);
 
         return $this->view('list', 'Pages', [
-            'pages' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
-            'trash' => $trash, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'pages' => $status !== '' || $search !== '' ? $pages : self::sortAsTree($pages),
+            'trash' => $trash, 'status' => $status, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'comments' => $trash ? [] : \Talea\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
+            'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
         ]);
     }
 

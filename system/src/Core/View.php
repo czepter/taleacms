@@ -10,6 +10,9 @@ namespace Talea\Core;
  */
 final class View
 {
+    /** @var array<string, string> */
+    private array $slots = [];
+
     /** @param list<string> $dirs directories searched in the given order (e.g. the site layout, then the system templates) */
     public function __construct(private readonly array $dirs)
     {
@@ -32,6 +35,20 @@ final class View
                 throw $e;
             }
         })($file, $data, $this);
+    }
+
+    /**
+     * A piece of HTML a template hands to a template rendered later (a list fills the count and the
+     * buttons next to the admin heading): with $html it stores and returns '', without it returns what is stored.
+     */
+    public function slot(string $name, ?string $html = null): string
+    {
+        if ($html === null) {
+            return $this->slots[$name] ?? '';
+        }
+        $this->slots[$name] = $html;
+
+        return '';
     }
 
     public function exists(string $template): bool

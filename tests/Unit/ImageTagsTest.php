@@ -31,7 +31,8 @@ final class ImageTagsTest extends TestCase
     {
         $process = proc_open(['bash', TALEA_ROOT . '/tools/image-tags.sh', $version], [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes);
         $this->assertIsResource($process);
-        fwrite($pipes[0], $existing);
+        // the script may exit before it reads (not a version, a pre-release): a broken pipe is not a failure here
+        @fwrite($pipes[0], $existing);
         fclose($pipes[0]);
         $out = (string) stream_get_contents($pipes[1]);
         stream_get_contents($pipes[2]);

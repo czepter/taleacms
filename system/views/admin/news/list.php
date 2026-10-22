@@ -1,5 +1,7 @@
 <?php
 /**
+ * The news overview (docs/specs/admin-lists.md).
+ *
  * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\News $module
  * @var string $csrf
@@ -12,59 +14,52 @@
  * @var list<string> $siteLanguages  language versions of the site (empty = the site has only one language)
  * @var int $inTrash  number of news items in the trash (within the signed-in user's scope)
  * @var int $toPublish  authors' drafts waiting to be published (seen by editors and administrators)
+ * @var array{total: int, published: int, scheduled: int, drafts: int} $counts
  */
 $trash = $filter['status'] === 'trash';
 $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['page' => $s]);
+$auth = $app->auth();
+$keep = array_filter(['category' => $filter['category'], 'language' => $filter['language']]);
+$tab = fn (string $value, string $label, int $count): array => ['label' => $label, 'count' => $count, 'url' => $module->url('', array_filter(['status' => $value]) + $keep), 'active' => $filter['status'] === $value];
+$initials = fn (string $name): string => mb_strtoupper(mb_substr(trim($name), 0, 2));
+
+echo $app->view->render('admin/list/head', [
+    'count' => (string) $counts['total'],
+    'links' => array_values(array_filter([
+        $auth->hasModule('categories') ? [$app->url('admin.php?module=categories'), t('Categories')] : null,
+        $auth->hasModule('tags') ? [$app->url('admin.php?module=tags'), t('Tags')] : null,
+        [$module->url('links'), t('Broken links')],
+    ])),
+    'primary' => [$module->url('new'), t('New news item')],
+]);
+
+$filters = '';
+if (count($category) > 1) {
+    $filters .= '<select name="category" aria-label="' . e(t('Category')) . '" data-submit-on-change><option value="">' . e(t('All categories')) . '</option>';
+    foreach ($category as $k) {
+        $filters .= '<option value="' . e($k['public_id']) . '"' . ($filter['category'] === $k['public_id'] ? ' selected' : '') . '>' . e($k['name']) . '</option>';
+    }
+    $filters .= '</select>';
+}
+if ($siteLanguages !== []) {
+    $filters .= '<select name="language" aria-label="' . e(t('Language')) . '" data-submit-on-change><option value="">' . e(t('All languages')) . '</option>';
+    foreach ($siteLanguages as $code) {
+        $filters .= '<option value="' . e($code) . '"' . ($filter['language'] === $code ? ' selected' : '') . '>' . e(\Talea\Core\Language::AVAILABLE[$code][0]) . '</option>';
+    }
+    $filters .= '</select>';
+}
+$tabs = [$tab('', t('All'), $counts['total']), $tab('published', t('Published'), $counts['published']), $tab('scheduled', t('Scheduled'), $counts['scheduled']), $tab('drafts', t('Drafts'), $counts['drafts'])];
+if ($toPublish > 0 || $filter['status'] === 'awaiting_publication') {
+    $tabs[] = $tab('awaiting_publication', t('Awaiting publication'), $toPublish);
+}
+$tabs[] = $tab('trash', t('Trash'), $inTrash);
 ?>
-<p class="navigation-row"><a class="btn" href="<?= e($module->url('new')) ?>"><?= e(t('New news item')) ?></a>
-<?php if ($app->auth()->hasModule('categories')): ?>
-	<a class="navigation" href="<?= e($app->url('admin.php?module=categories')) ?>"><?= e(t('Categories')) ?></a>
-<?php endif ?>
-<?php if ($app->auth()->hasModule('tags')): ?>
-	<a class="navigation" href="<?= e($app->url('admin.php?module=tags')) ?>"><?= e(t('Tags')) ?></a>
-<?php endif ?>
-	<a class="navigation" href="<?= e($module->url('links')) ?>"><?= e(t('Broken links')) ?></a></p>
-
-<nav class="tabs" aria-label="<?= e(t('News status')) ?>">
-<?php foreach (['' => 'All', 'published' => 'Published', 'scheduled' => 'Scheduled', 'drafts' => 'Drafts'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $filter['status'] === $key ? ' class="active" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
-<?php endforeach ?>
-<?php if ($toPublish > 0 || $filter['status'] === 'awaiting_publication'): ?>
-	<a href="<?= e($module->url('', ['status' => 'awaiting_publication'])) ?>"<?= $filter['status'] === 'awaiting_publication' ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Awaiting publication')) ?> (<?= $toPublish ?>)</a>
-<?php endif ?>
-<?php if ($inTrash > 0 || $trash): ?>
-	<a href="<?= e($module->url('', ['status' => 'trash'])) ?>"<?= $trash ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
-<?php endif ?>
-</nav>
-<form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text">
-	<input type="hidden" name="module" value="news">
-	<input type="hidden" name="status" value="<?= e($filter['status']) ?>">
-<?php if (count($category) > 1): ?>
-	<label><?= e(t('Category:')) ?>
-		<select name="category">
-			<option value="0"><?= e(t('all')) ?></option>
-<?php foreach ($category as $k): ?>
-			<option value="<?= e($k['public_id']) ?>"<?= $filter['category'] === $k['public_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
-<?php endforeach ?>
-		</select>
-	</label>
-<?php endif ?>
-<?php if ($siteLanguages !== []): ?>
-	<label><?= e(t('Language:')) ?>
-		<select name="language">
-			<option value=""><?= e(t('all')) ?></option>
-<?php foreach ($siteLanguages as $code): ?>
-			<option value="<?= e($code) ?>"<?= $filter['language'] === $code ? ' selected' : '' ?>><?= e(\Talea\Core\Language::AVAILABLE[$code][0]) ?></option>
-<?php endforeach ?>
-		</select>
-	</label>
-<?php endif ?>
-	<label><?= e(t('Headline contains:')) ?> <input class="textfield" type="search" name="search" value="<?= e($filter['search']) ?>" size="20"></label>
-	<input class="btn" type="submit" value="<?= e(t('Filter')) ?>">
-	(<?= e(t('Total:')) ?> <?= $total ?>)
-</form>
-<br>
-
+<?= $app->view->render('admin/list/toolbar', [
+    'tabsLabel' => t('News status'), 'tabs' => $tabs, 'action' => $app->url('admin.php'),
+    'hidden' => ['module' => 'news'] + array_filter(['status' => $filter['status']]),
+    'filters' => $trash ? '' : $filters,
+    'search' => $trash ? null : ['name' => 'search', 'value' => $filter['search'], 'placeholder' => t('Search titles'), 'label' => t('Search news')],
+]) ?>
 <?php if ($news === [] && $trash): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'article', 'heading' => t('The trash is empty.'), 'text' => t('Deleted news items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url(), t('Back to news')]]) ?>
 <?php elseif ($news === []): ?>
@@ -75,86 +70,84 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <?php endif ?>
 <?php elseif ($trash): ?>
 <p class="small-text"><?= e(t('News items in the trash are not on the site. A restored news item comes back as a draft; after 30 days it is permanently deleted from the trash.')) ?></p>
-<form method="post" id="restore-one" action="<?= e($module->url('restore')) ?>"><?= $csrf ?></form>
-<form method="post" action="<?= e($module->url('restore')) ?>">
-<?= $csrf ?>
 <div class="tab-wrap">
 <table class="listing">
-<thead>
-<tr><th scope="col"><?= e(t('Title')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col" class="center"><?= e(t('Select')) ?></th></tr>
-</thead>
+<thead><tr><th scope="col" class="cell-select"><input type="checkbox" data-select-all="bulk" form="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('News item')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
 <?php foreach ($news as $c): ?>
-<tr class="unpublished">
-	<td><?= bdi($c['title']) ?></td>
-	<td><?= bdi($c['category_name']) ?></td>
-	<td class="number"><?= e(format_date($c['deleted_at'], true)) ?></td>
-	<td class="actions"><button class="navigation" type="submit" form="restore-one" name="delete[]" value="<?= e($c['public_id']) ?>"><?= e(t('Restore')) ?></button></td>
-	<td class="center"><input type="checkbox" name="delete[]" value="<?= e($c['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
+<tr>
+	<td class="cell-select"><input type="checkbox" name="selected[]" value="<?= e($c['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $c['title'])) ?>"></td>
+	<td class="cell-main"><div class="cell-text"><span class="cell-title" title="<?= e($c['title']) ?>"><?= bdi($c['title']) ?></span><span class="cell-sub"><?= bdi($c['category_name']) ?></span></div></td>
+	<td class="cell-weak"><?= e(format_date($c['deleted_at'], true)) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', [
+        'id' => $c['public_id'], 'name' => $c['title'], 'edit' => null, 'csrf' => $csrf,
+        'quick' => ['action' => $module->url('restore'), 'fields' => ['delete[]' => $c['public_id']], 'label' => t('Restore'), 'icon' => 'restore'],
+        'menu' => $auth->canPublish() ? [['post' => $module->url('delete_permanently'), 'fields' => ['delete[]' => $c['public_id']], 'label' => t('Delete permanently'), 'confirm' => t('Delete the news item permanently? This cannot be undone.'), 'danger' => true]] : [],
+    ]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
-<p class="media-bulk">
-	<?= e(t('With selected:')) ?>
-	<input class="btn" type="submit" value="<?= e(t('Restore')) ?>">
-<?php if ($app->auth()->canPublish()): ?>
-	<button class="navigation danger" type="submit" formaction="<?= e($module->url('delete_permanently')) ?>" data-confirm="<?= e(t('Delete the selected news items permanently? This cannot be undone.')) ?>"><?= e(t('Delete permanently')) ?></button>
-<?php endif ?>
-</p>
-</form>
+<?= $app->view->render('admin/list/selection', ['form' => 'bulk', 'action' => $module->url('restore'), 'csrf' => $csrf, 'actions' => array_merge(
+    [['label' => t('Restore'), 'kind' => 'primary']],
+    $auth->canPublish() ? [['label' => t('Delete permanently'), 'kind' => 'danger', 'formaction' => $module->url('delete_permanently'), 'confirm' => t('Delete the selected news items permanently? This cannot be undone.')]] : [],
+)]) ?>
 <?php else: ?>
-<form method="post" action="<?= e($module->url('delete')) ?>">
-<?= $csrf ?>
 <div class="tab-wrap">
 <table class="listing">
-<thead>
-<tr><th scope="col"><?= e(t('Title')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Publish date')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col"><?= e(t('Select')) ?></th></tr>
-</thead>
+<thead><tr><th scope="col" class="cell-select"><input type="checkbox" data-select-all="bulk" form="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('News item')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Date')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($news as $c): ?>
-<tr<?= $c['visible'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>"><?= bdi($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('visible until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
-	<td><?= bdi($c['category_name']) ?></td>
-	<td><?= bdi($c['author_name'] ?: $c['author_login']) ?></td>
-	<td class="number"><?= e(format_date($c['published_at'], true)) ?></td>
-<?php if (!$c['visible'] && (int) $c['author_level'] === 0 && $app->auth()->canPublish()): // an author's draft: waiting for an editor to publish it ?>
-	<td><span class="badge badge-pending" title="<?= e(t('News authors cannot publish – review this news item and publish it.')) ?>"><?= e(t('awaiting publication')) ?></span></td>
-<?php else: ?>
-	<td><span class="badge badge-<?= !$c['visible'] ? 'draft' : (strtotime($c['published_at']) > time() ? 'plan' : 'published') ?>"><?= e(t(!$c['visible'] ? 'draft' : (strtotime($c['published_at']) > time() ? 'scheduled' : 'published'))) ?></span></td>
-<?php endif ?>
-	<td class="actions"><a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('news/' . $c['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
-<?php if ((int) $c['social_open'] > 0): // social post drafts not posted yet (2.13) ?>
-		<a href="<?= e($module->url('edit', ['id' => $c['public_id']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
-<?php endif ?>
-		<button class="navigation" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="news_id" value="<?= e($c['public_id']) ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
-	<td class="center"><input type="checkbox" name="delete[]" value="<?= e($c['public_id']) ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
+<?php foreach ($news as $c):
+    $edit = $module->url('edit', ['id' => $c['public_id']]);
+    $author = (string) ($c['author_name'] ?: $c['author_login']);
+    $planned = $c['visible'] && strtotime((string) $c['published_at']) > time();
+    [$kind, $label] = match (true) {
+        !$c['visible'] && (int) $c['author_level'] === 0 && $auth->canPublish() => ['review', t('Awaiting publication')],
+        !$c['visible'] => ['draft', t('Draft')],
+        $planned => ['planned', t('Scheduled')],
+        default => ['live', t('Published')],
+    };
+    $notes = [];
+    if ($c['valid_until']) {
+        $notes[] = ['text' => t('visible until %s', format_date($c['valid_until']))];
+    }
+    if ($c['review_by']) {
+        $notes[] = ['text' => t('review by %s', format_date($c['review_by']))];
+    }
+    if ((int) $c['social_open'] > 0) { // social post drafts not posted yet (2.13)
+        $notes[] = ['text' => t('Social posts') . ' (' . (int) $c['social_open'] . ')', 'url' => $edit . '#social-posts'];
+    }
+    $fields = ['delete[]' => $c['public_id']];
+?>
+<tr>
+	<td class="cell-select"><input type="checkbox" name="selected[]" value="<?= e($c['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $c['title'])) ?>"></td>
+	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($edit) ?>" title="<?= e($c['title']) ?>"><?= bdi($c['title']) ?></a><span class="cell-sub"><?= bdi($c['category_name']) ?></span></div></td>
+	<td><span class="cell-row"><span class="cell-icon avatar" aria-hidden="true"><?= e($initials($author)) ?></span><?= bdi($author) ?></span></td>
+	<td class="cell-weak"><?= e($planned ? t('from %s', format_date($c['published_at'], true)) : format_date($c['published_at'], true)) ?></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => $kind, 'label' => $label, 'notes' => $notes]) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $c['public_id'], 'name' => $c['title'], 'edit' => $edit, 'csrf' => $csrf, 'menu' => [
+        ['url' => $app->url('news/' . $c['slug'] . '?preview=1'), 'label' => t('Preview'), 'icon' => 'eye', 'external' => true],
+        ['post' => $module->url('duplicate'), 'fields' => ['news_id' => $c['public_id']], 'label' => t('Duplicate'), 'icon' => 'copy'], '-',
+        ['post' => $module->url('delete'), 'fields' => $fields, 'label' => t('Move to trash'), 'confirm' => t('Move the news item to the trash? You can restore it for 30 days.'), 'danger' => true],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
-<p class="media-bulk bulk">
-	<label><?= e(t('With selected:')) ?>
-	<select name="bulk">
-<?php if ($app->auth()->canPublish()): ?>
-		<option value="publish"><?= e(t('Publish')) ?></option>
-<?php endif ?>
-		<option value="draft"><?= e(t('Back to draft')) ?></option>
-		<option value="category"><?= e(t('Category…')) ?></option>
-		<option value="trash"><?= e(t('Move to trash')) ?></option>
-	</select></label>
-	<select name="category" aria-label="<?= e(t('Category')) ?>">
-<?php foreach ($category as $t): ?>
-		<option value="<?= e($t['public_id']) ?>"><?= e($t['name']) ?><?= $t['language'] !== '' ? ' (' . e(strtoupper($t['language'])) . ')' : '' ?></option>
-<?php endforeach ?>
-	</select>
-	<button class="navigation" type="submit" formaction="<?= e($module->url('bulk')) ?>" data-confirm="<?= e(t('Apply the action to the selected items?')) ?>"><?= e(t('Apply')) ?></button>
-	<button class="navigation danger" type="submit"><?= e(t('Delete selected')) ?></button>
-</p>
-</form>
-
+<?php
+$categorySelect = '<select name="category" aria-label="' . e(t('Category')) . '">';
+foreach ($category as $k) {
+    $categorySelect .= '<option value="' . e($k['public_id']) . '">' . e($k['name']) . ($k['language'] !== '' ? ' (' . e(strtoupper($k['language'])) . ')' : '') . '</option>';
+}
+$categorySelect .= '</select>';
+?>
+<?= $app->view->render('admin/list/selection', ['form' => 'bulk', 'action' => $module->url('bulk'), 'csrf' => $csrf, 'extra' => $categorySelect, 'actions' => array_merge(
+    $auth->canPublish() ? [['value' => 'publish', 'label' => t('Publish'), 'kind' => 'primary']] : [],
+    [['value' => 'draft', 'label' => t('Back to draft')], ['value' => 'category', 'label' => t('Move to this category')],
+        ['value' => 'trash', 'label' => t('Move to trash'), 'kind' => 'danger', 'confirm' => t('Move the selected news items to the trash?')]],
+)]) ?>
 <?php if ($pageCount > 1): ?>
 <p class="pagination">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>

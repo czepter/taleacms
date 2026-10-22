@@ -13,8 +13,8 @@
  */
 use Talea\Core\AgentSchedules;
 
-$tag = fn (?string $status): string => $status === null ? '<span class="small-text">' . e(t('no run yet')) . '</span>'
-    : '<span class="badge' . match ($status) { 'ok' => ' badge-published', 'running' => ' badge-draft', 'failed', 'missed' => ' badge-error', default => '' } . '">' . e(t(AgentSchedules::STATUSES[$status] ?? $status)) . '</span>';
+$last = fn (?string $status): array => $status === null ? ['kind' => 'draft', 'label' => t('no run yet')]
+    : ['kind' => match ($status) { 'ok' => 'live', 'running' => 'planned', 'failed', 'missed' => 'error', default => 'draft' }, 'label' => t(AgentSchedules::STATUSES[$status] ?? $status)];
 $when = fn (array $s): string => match ((string) $s['cadence']) {
     'weekly' => t('every %s at %s', t(AgentSchedules::WEEKDAYS[(int) $s['day']] ?? ''), (string) $s['time']),
     'monthly' => t('every month on day %d at %s', (int) $s['day'], (string) $s['time']),
@@ -25,21 +25,25 @@ $when = fn (array $s): string => match ((string) $s['cadence']) {
 <?php if (!$claudeOn): ?>
 <p class="notice error"><?= e(t('The Claude connection is switched off (Features) – the schedules are kept, but no routine can pick the runs up until it is on.')) ?></p>
 <?php endif ?>
-<p><a class="btn" href="<?= e($module->url('edit')) ?>"><?= e(t('New schedule')) ?></a></p>
+<?= $app->view->render('admin/list/head', ['count' => (string) count($schedules), 'primary' => [$module->url('edit'), t('New schedule')]]) ?>
 <?php if ($schedules === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'log', 'heading' => t('No schedules yet.'), 'text' => t('Typical ones: a site review every Monday, a report on the first of the month, a triage of new enquiries every morning, the open requests from staff every day.'), 'action' => [$module->url('edit'), t('New schedule')]]) ?>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Schedule')) ?></th><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Next due')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('On')) ?></th><th scope="col"><?= e(t('Schedule')) ?></th><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Next due')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($schedules as $s): ?>
-<tr<?= (int) $s['active'] === 1 ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => (int) $s['id']])) ?>"><strong><?= e((string) $s['name']) ?></strong></a><?= (int) $s['active'] === 1 ? '' : ' <span class="badge">' . e(t('paused')) . '</span>' ?><br><span class="small-text"><?= e(t(AgentSchedules::TASKS[(string) $s['task']][0] ?? (string) $s['task'])) ?></span></td>
-	<td><?= e($when($s)) ?></td>
-	<td><?= (int) $s['active'] === 1 && $s['next_due'] !== null ? e(format_date((string) $s['next_due'], true)) : '—' ?></td>
-	<td><?= $tag($s['last_status'] !== null ? (string) $s['last_status'] : null) ?><?= $s['last_finished'] !== null ? ' <span class="small-text">' . e(format_date((string) $s['last_finished'], true)) . '</span>' : '' ?><?= $s['last_summary'] !== null && $s['last_summary'] !== '' ? '<br><span class="small-text">' . e(mb_strimwidth((string) $s['last_summary'], 0, 140, '…')) . '</span>' : '' ?></td>
-	<td class="center"><a class="navigation" href="<?= e($module->url('history', ['id' => (int) $s['id']])) ?>"><?= e(t('History')) ?></a>
-		<form class="inline" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="navigation" type="submit"><?= e((int) $s['active'] === 1 ? t('Pause') : t('Resume')) ?></button></form></td>
+<?php foreach ($schedules as $s): $active = (int) $s['active'] === 1; $edit = $module->url('edit', ['id' => (int) $s['id']]); ?>
+<tr<?= $active ? '' : ' class="inactive"' ?>>
+	<td><?= $app->view->render('admin/list/switch', ['action' => $module->url('toggle'), 'fields' => ['id' => (string) $s['id']], 'on' => $active, 'label' => t('%s on', (string) $s['name']), 'csrf' => $csrf]) ?></td>
+	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($edit) ?>"><?= e((string) $s['name']) ?></a><span class="cell-sub"><?= e(t(AgentSchedules::TASKS[(string) $s['task']][0] ?? (string) $s['task'])) ?></span></div></td>
+	<td class="cell-weak"><?= e($when($s)) ?></td>
+	<td class="cell-weak"><?= $active && $s['next_due'] !== null ? e(format_date((string) $s['next_due'], true)) : '—' ?></td>
+	<td><?= $app->view->render('admin/list/status', $last($s['last_status'] !== null ? (string) $s['last_status'] : null) + ['notes' => array_values(array_filter([
+        $s['last_finished'] !== null ? ['text' => format_ago((string) $s['last_finished']), 'kind' => 'neutral'] : null,
+    ]))]) ?><?= $s['last_summary'] !== null && $s['last_summary'] !== '' ? '<span class="cell-sub" title="' . e((string) $s['last_summary']) . '">' . e(mb_strimwidth((string) $s['last_summary'], 0, 80, '…')) . '</span>' : '' ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => 'schedule-' . $s['id'], 'name' => (string) $s['name'], 'edit' => $edit, 'csrf' => $csrf, 'menu' => [
+        ['url' => $module->url('history', ['id' => (int) $s['id']]), 'label' => t('History'), 'icon' => 'restore'],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
