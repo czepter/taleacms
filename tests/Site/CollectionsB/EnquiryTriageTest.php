@@ -38,7 +38,7 @@ final class EnquiryTriageTest extends SiteTestCase
         $this->assertStringContainsString('draft_reply', $list, 'triage: list_enquiries carries the triage');
         $this->assertStringNotContainsString('first page of Google', $list, 'triage: list_enquiries leaves spam out');
 
-        $admin = $this->assertPage('/admin.php?module=enquiries', 200, 'category=spam', message: 'triage: the admin list has the spam filter');
+        $admin = $this->assertPage('/admin.php?module=enquiries', 200, '<option value="spam"', message: 'triage: the admin list has the spam filter');
         $this->assertStringNotContainsString('first page of Google', $admin->body, 'triage: spam is not in the default list');
 
         $this->assertPage("/admin.php?module=enquiries&action=detail&id=" . $this->site()->publicId('enquiries', (int) $id), 200, 'body=Hello%2C%20thank', message: 'triage: the detail has the kind, the priority and the draft in the e-mail reply');

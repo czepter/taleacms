@@ -598,7 +598,7 @@ table.listing:has(td.cell-main) td { vertical-align: middle; }
 table.listing .cell-select { width: 52px; padding-inline: 0; text-align: center; }
 table.listing .cell-select input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 /* max-width: 0 lets the title cut itself with an ellipsis inside an auto-sized table */
-table.listing td.cell-main { width: 100%; max-width: 0; height: 64px; }
+table.listing td.cell-main { width: 100%; min-width: 180px; max-width: 0; height: 64px; }
 .cell-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .cell-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cell-title,
@@ -806,6 +806,25 @@ table.listing a.status-note { font-weight: 400; }
 .effect { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
 .effect-head { display: flex; justify-content: space-between; gap: 8px; }
 .effect meter { width: 100%; height: 6px; }
+/* rows grouped by day (bookings) */
+table.listing tr.list-group > th {
+	padding: 14px 16px 8px;
+	border-bottom: 1px solid var(--line);
+	background: color-mix(in oklch, var(--text) 3%, transparent);
+	color: var(--text);
+	font-size: 14px;
+	font-weight: 600;
+	text-align: start;
+}
+table.listing .cell-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* a blocked user, a cancelled booking */
+table.listing tr.inactive > td { opacity: 0.6; }
+/* an enquiry nobody opened yet: a signal dot and a bolder sender */
+.unread-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
+table.listing tr.unread .cell-title { font-weight: 700; }
+table.listing tr.unread .cell-preview { color: var(--text); }
+.tag-warning { border-color: var(--warning-text); color: var(--warning-text); }
+.cell-row.nowrap { white-space: nowrap; }
 /* the selection bar shows while a row is selected and counts the selection – no script needed */
 .content { counter-reset: selected; }
 input[name="selected[]"]:checked { counter-increment: selected; }
@@ -833,7 +852,7 @@ input[name="selected[]"]:checked { counter-increment: selected; }
 @media (max-width: 640px) {
 	table.listing-cards tr:has(> td.cell-main) { position: relative; }
 	table.listing-cards td.cell-select { position: absolute; top: 12px; inset-inline-end: 12px; width: auto; padding: 0; }
-	table.listing-cards td.cell-main { max-width: none; height: auto; padding-left: 14px; padding-inline-end: 48px; }
+	table.listing-cards td.cell-main { min-width: 0; max-width: none; height: auto; padding-left: 14px; padding-inline-end: 48px; }
 	table.listing-cards td.cell-main::before { display: none; }
 	table.listing-cards td.cell-actions { width: auto; padding-left: 14px; }
 	table.listing-cards td.cell-actions::before { display: none; }
