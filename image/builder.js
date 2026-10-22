@@ -76,6 +76,7 @@
 		eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', close: '<path d="M6 6l12 12M18 6 6 18"/>',
 		share: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
 		comment: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+		edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
 		clipboard: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5a3 3 0 0 1 6 0"/><path d="M9 12h6M9 16h4"/>',
 	};
 
@@ -390,7 +391,12 @@
 			const t = e.target.closest('[data-tl-id]');
 			if (t) { t.classList.add('tl-bd-hover'); }
 		});
-		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-tl-id]'); if (t && !t.hasAttribute('data-tl-lock')) { editOnCanvas(t); } });
+		doc.addEventListener('dblclick', (e) => {
+			const t = e.target.closest('[data-tl-id]');
+			if (!t || t.hasAttribute('data-tl-lock')) { return; }
+			const n = find(t.getAttribute('data-tl-id'));
+			if (n && n.p.type === 'component') { openComponent(n.p, true); } else { editOnCanvas(t); } // a component is edited in its own builder, around it this page
+		});
 		doc.addEventListener('keydown', keys);
 		doc.addEventListener('paste', onPaste);
 		emit('preview', doc, frame);
@@ -928,6 +934,7 @@
 	function createBar() {
 		stateText = el('span', { class: 'bd-status', role: 'status' }, state.changed ? T('Draft in progress') : T("Published"));
 		tabList = el('header', { class: 'bd-bar' });
+		root.classList.toggle('bd-in-component', !!D.context); // a component opened from a page's canvas
 		root.append(tabList);
 		redrawBar();
 	}
@@ -957,7 +964,8 @@
 				el('div', { class: 'bd-group', role: 'group', 'aria-label': T('History') },
 					el('button', { type: 'button', title: T('Undo (Ctrl+Z)'), disabled: !state.undo.length, onclick: back }, icon('undo')),
 					el('button', { type: 'button', title: T('Redo (Ctrl+Shift+Z)'), disabled: !state.redo.length, onclick: forward }, icon('redo')))),
-			el('div', { class: 'bd-name' }, el('h1', {}, D.page.title), el('small', {}, state.changed ? T('draft in progress – visitors see the published version') : T('no changes against the live site')), stateText),
+			el('div', { class: 'bd-name' }, el('h1', {}, D.page.title), D.context ? el('small', { class: 'bd-context' }, sharedBy(D.context.places)) : null,
+				el('small', {}, state.changed ? T('draft in progress – visitors see the published version') : T('no changes against the live site')), stateText),
 			el('div', { class: 'bd-bar-end' },
 				el('div', { class: 'bd-group', role: 'group', 'aria-label': T("Device") }, bpTl),
 				el('button', { type: 'button', class: 'bd-btn bd-icon-btn', title: T('Published versions'), 'aria-label': T('Versions'), onclick: versionsDialog }, icon('version')),
@@ -970,6 +978,12 @@
 				el('button', { type: 'button', class: 'bd-btn bd-btn-main', disabled: (!state.changed && D.page.published) || D.page.can_publish === false,
 					title: D.page.can_publish === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish'))),
 		].filter(Boolean));
+	}
+
+	/** Where a component opened from a page is used: its changes apply there too. */
+	function sharedBy(places) {
+		if (!places.length) { return T('Not used anywhere yet'); }
+		return T('Changes apply to: %s').replace('%s', places.slice(0, 3).join(', ') + (places.length > 3 ? ' ' + T('and %d more').replace('%d', String(places.length - 3)) : ''));
 	}
 
 	/** The first placeholder in square brackets in the strings of an element's content (arrays and objects included), or null. */
@@ -1627,6 +1641,18 @@
 		});
 	}
 
+	/**
+	 * A component use leads into the component's builder (administrator): "Edit here" keeps this page around it on the canvas (only a
+	 * page's builder has one), "Open" shows the component alone. Both lead back here; the draft of this page is saved first.
+	 */
+	function openComponent(p, here) {
+		const component = (D.components || []).find((k) => String(k.id) === String(p.content.component));
+		if (!component || !D.urls.component) { return; }
+		const back = window.location.pathname + window.location.search; // the component builder only takes an address of this administration
+		const url = D.urls.admin + '?module=components&action=builder&id=' + component.public_id + (here && D.page.id ? '&page=' + D.page.id + '&use=' + p.id : '') + '&back=' + encodeURIComponent(back);
+		save().then((ok) => { if (ok) { window.location.href = url; } });
+	}
+
 	/** Property values of a component use: fields according to the selected component, empty = default value. */
 	function valueField(p) {
 		const component = (D.components || []).find((k) => String(k.id) === String(p.content.component));
@@ -1638,6 +1664,12 @@
 		}
 		if (!p.content.values || Array.isArray(p.content.values)) { p.content.values = {}; }
 		component.properties.forEach((v) => {
+			if (v.type === 'radio') {
+				// a choice: its options, or empty = the default value of the component
+				const options = Object.fromEntries([['', T('Default') + (v.default ? ' (' + v.default + ')' : '')], ...(v.options || []).map((o) => [o, o])]);
+				wrapper.append(field({ type: 'choice', label: v.label + ' {{' + v.key + '}}', options }, p.content.values[v.key] || '', (h) => applyChange(() => { p.content.values[v.key] = h; }, 'values:' + p.id + ':' + v.key)));
+				return;
+			}
 			const def = { type: v.type === 'lines' || v.type === 'html' ? 'lines' : (v.type === 'image' ? 'image' : 'text'), label: v.label + ' {{' + v.key + '}}' };
 			const inputEl = field(def, p.content.values[v.key] || '', (h) => applyChange(() => { p.content.values[v.key] = h; }, 'values:' + p.id + ':' + v.key));
 			const input = inputEl.querySelector('input, textarea');
@@ -1649,6 +1681,12 @@
 
 	function contentPanel(panel, p, s) {
 		if (p.type === 'component') {
+			if (p.content.component && D.urls.component) {
+				panel.append(el('div', { class: 'bd-component-card' },
+					el('p', {}, T('A shared template: what you change in it applies everywhere it is used.')),
+					D.page.id ? el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => openComponent(p, true) }, icon('edit'), T('Edit here on the page')) : null,
+					el('button', { type: 'button', class: 'bd-btn', onclick: () => openComponent(p, false) }, icon('component'), T('Open in the component builder'))));
+			}
 			panel.append(field(s.properties.component, p.content.component, (h) => { applyChange(() => { p.content.component = h; p.content.values = {}; }); redrawRight(); }));
 			const values = valueField(p);
 			if (values) { panel.append(values); }

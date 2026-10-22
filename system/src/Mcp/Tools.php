@@ -184,7 +184,7 @@ final class Tools
             ['list_components', 'Components of the site: a reusable block with properties (name, button text…) placed on pages with the component element. Edit the build with the *_build tools and the component parameter.', $s([])],
             ['save_component', 'Creates a component (without id – it starts with an empty section) or renames it and changes its properties (administrators). Properties: [{"key":"title","label":"Title","type":"text","default":"…"}].',
                 $s(['id' => $pid('component ID – only when changing it'), 'name' => $text('component name'),
-                    'properties' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the whole list of properties: key, label, type (text | lines | html | image | link), default']])],
+                    'properties' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the whole list of properties: key, label, type (text | lines | html | image | link | choice), default; a choice needs "options": ["…", "…"] and its default is one of them']])],
             ['delete_component', 'Deletes a component for good (administrators; only when the username explicitly asks). Places where it is used become empty.', $s(['id' => $pid('component ID')], ['id'])],
             ['delete_section', 'Deletes a saved section (administrators; only when the user explicitly asks). Pages where it was inserted keep their copy.', $s(['id' => $pid('saved section ID')], ['id'])],
             ['update_media', 'Changes the description of a file in Media: alt (the text for screen readers, also the name), caption and author. Only the owner or an administrator.',
@@ -717,7 +717,7 @@ final class Tools
         $library = Library::listAll(\Talea\Core\Extensions::enabled($siteSettings));
 
         return $out + [
-            'components' => array_map(fn (array $k): array => ['id' => $this->pid('components', $k['component_id']), 'name' => $k['name'], 'properties' => $k['properties']], \Talea\Builder\Components::all($db))
+            'components' => array_map(fn (array $k): array => ['id' => $this->pid('components', $k['component_id']), 'name' => $k['name'], 'properties' => self::fieldTypes($k['properties'], false)], \Talea\Builder\Components::all($db))
                 + ['note' => 'Use: {"type":"component","content":{"component":"<id>","values":{"<key>":"value"}}}; an empty value = the default. Edit a component with the *_build tools and component: <id>.'],
             'site_parts' => ['header' => 'the header of every page', 'footer' => 'the footer of every page', 'news_item' => 'the wrapper of a news item', 'news_list' => 'the wrapper of the news list',
                 'not_found' => 'the wrapper of the 404 page', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found) must contain exactly one page_content element.'],

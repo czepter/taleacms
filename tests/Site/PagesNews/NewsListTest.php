@@ -41,6 +41,11 @@ final class NewsListTest extends SiteTestCase
         $site = $this->site();
         $category = (string) $site->value('SELECT public_id FROM tl_categories ORDER BY category_id LIMIT 1');
         $this->assertPage('/admin.php?module=categories', 200, ['class="page-count"', 'popovertarget="row-menu-' . $category . '"', 'class="cell-sub"'], message: 'categories list');
-        $this->assertPage('/admin.php?module=tags', 200, 'class="page-count"', message: 'tags list');
+        $tag = '7c1e9a52-3b4d-4f6e-9a8b-0c1d2e3f4a5b';
+        $site->exec("INSERT INTO tl_tags (public_id, name, slug) VALUES (?, 'Own page', 'own-page')", [$tag]);
+        $list = $this->assertPage('/admin.php?module=tags', 200, ['class="page-count"', 'module=tags&amp;edit=' . $tag . '"'], message: 'tags list');
+        $this->assertStringNotContainsString('id="name"', $list->body, 'the list carries no form');
+        $this->assertPage('/admin.php?module=tags&edit=' . $tag, 200, ['class="navigation-row"', 'value="Own page"', 'form="tag-delete"', 'data-confirm=', '<form id="tag-delete"'], message: 'a tag is edited on its own page');
+        $this->assertPage('/admin.php?module=tags&edit=00000000-0000-4000-8000-000000000000', 404, message: 'an unknown tag');
     }
 }

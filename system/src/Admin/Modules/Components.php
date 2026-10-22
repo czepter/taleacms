@@ -112,10 +112,10 @@ final class Components extends Module
         return Response::json(['ok' => true, 'id' => $id, 'components' => self::listForEditor($this->db)]);
     }
 
-    /** @return list<array{id: int, name: string, properties: list<array<string, string>>}> */
+    /** @return list<array{id: int, public_id: string, name: string, properties: list<array<string, mixed>>}> */
     public static function listForEditor(\Talea\Core\Db $db): array
     {
-        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => $k['properties']], KomponentyStavby::all($db));
+        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'public_id' => (string) $k['public_id'], 'name' => $k['name'], 'properties' => $k['properties']], KomponentyStavby::all($db));
     }
 
     /* ---------- editing in the builder ---------- */
@@ -149,10 +149,17 @@ final class Components extends Module
     {
         $k = $target['row'];
         $url = $this->app->url('_component/' . $k['public_id']);
+        $back = $this->backToBuilder();
+        // "Edit here" on a page's canvas: the canvas is that page, the chosen use shows the draft and the rest is dimmed (Front\Kernel)
+        $page = $back !== null ? $this->db->byPublicId('pages', $this->request->get('page')) : null;
+        $use = $this->request->get('use');
+        $here = $page !== null && $page['deleted_at'] === null && preg_match('/^[a-z0-9]{3,16}$/', $use) === 1;
 
         return [
-            'url' => $url . '?build=draft', 'preview' => $url . '?build=draft&editor=1', 'visible' => true, 'parts' => false,
-            'back' => ['url' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => $k['public_id']]),
+            'url' => $url . '?build=draft', 'visible' => true, 'parts' => false,
+            'preview' => $here ? Pages::address($this->app, $page) . '?build=draft&editor=1&component=' . $k['public_id'] . '&use=' . $use : $url . '?build=draft&editor=1',
+            'back' => $back ?? ['url' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => $k['public_id']]),
+            'context' => $back === null ? null : ['page' => $here ? (string) $page['title'] : null, 'places' => $this->usages((int) $k['component_id'])],
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
             'collection' => ['slug' => '', 'name' => $k['name'], 'fields' => $k['properties'], 'detail' => false, 'builtin' => false],
         ];

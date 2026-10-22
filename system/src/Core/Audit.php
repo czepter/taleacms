@@ -486,7 +486,7 @@ final class Audit
         foreach (NotFound::pending($this->app, 30, 25) as $n) {
             $path = trim($n['path'], '/');
             $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['count']),
-                'admin.php?module=redirects&from=' . rawurlencode('/' . $path) . '#edit', null, ['redirect_from' => '/' . $path]);
+                'admin.php?module=redirects&from=' . rawurlencode('/' . $path), null, ['redirect_from' => '/' . $path]);
         }
     }
 

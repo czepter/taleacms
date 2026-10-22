@@ -64,6 +64,11 @@ final class MediaUsersTest extends SiteTestCase
         $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/summer-event', 'to_path' => '/contacts', 'type' => 302], '/admin.php?module=redirects');
         $this->assertSame(302, $this->site()->client()->get('/summer-event')->status, 'a temporary redirect answers 302');
         $this->assertPage('/admin.php?module=redirects&search=summer-event', 200, 'summer-event', message: 'searching the redirects');
+        $redirect = (string) $this->site()->value("SELECT public_id FROM tl_redirects WHERE from_path = 'summer-event'");
+        $this->assertPage('/admin.php?module=redirects&edit=' . $redirect, 200, ['value="/summer-event"', 'value="/contacts"', 'value="302" selected', '<form id="redirect-delete"'], message: 'a redirect is edited on its own page');
+        $refused = $this->adminPost('/admin.php?module=redirects&action=save', ['redirect_id' => $redirect, 'from_path' => '/summer-event', 'to_path' => 'not a path'], '/admin.php?module=redirects&edit=' . $redirect);
+        $this->assertStringContainsString('edit=' . $redirect, $refused->redirect, 'a refused save goes back to the form');
+        $this->assertSame('contacts', $this->site()->value("SELECT to_path FROM tl_redirects WHERE from_path = 'summer-event'"), 'a refused save changes nothing');
         $this->assertPage('/admin.php?module=changelog&area=pages', 200, 'Change log', message: 'changelog with a filter');
     }
 

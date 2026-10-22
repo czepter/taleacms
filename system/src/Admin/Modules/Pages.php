@@ -449,14 +449,21 @@ final class Pages extends Module
     protected function describeTarget(array $target): array
     {
         $page = $target['row'];
-        $home = $this->app->settings()->int('home_page') === (int) $page['page_id'];
-        $url = $this->app->url(($page['language'] !== '' ? $page['language'] . '/' : '') . ($home ? '' : $page['slug']));
+        $url = self::address($this->app, $page);
 
         return [
-            'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true, 'description' => (string) $page['description'], 'image' => (string) $page['image'],
+            'id' => (string) $page['public_id'], 'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true, 'description' => (string) $page['description'], 'image' => (string) $page['image'],
             'back' => ['url' => $this->url('website', ['id' => (string) $page['public_id']]), 'text' => t('Website')], 'settings' => $this->url('edit', ['id' => (string) $page['public_id']]),
             'signature' => 'page:' . (int) $page['page_id'],
         ];
+    }
+
+    /** The page's address on the site (the home page is the root, a language version has its prefix). */
+    public static function address(\Talea\Core\App $app, array $page): string
+    {
+        $home = $app->settings()->int('home_page') === (int) $page['page_id'];
+
+        return $app->url(($page['language'] !== '' ? $page['language'] . '/' : '') . ($home ? '' : $page['slug']));
     }
 
     /** Publishes the page draft (from MCP too). */

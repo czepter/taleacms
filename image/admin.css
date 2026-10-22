@@ -23,6 +23,8 @@
 	--warning: #F79009;
 	--warning-text: #945800;  /* badge text and outline – orange with a 5.4 : 1 contrast on the base (WCAG AA) */
 	--handover-text: #6B3FD0;  /* the "awaiting publication" badge on an author's draft */
+	--component: #6B3FD0;      /* a shared component in the builder (the card of a use, the bar of a component opened from a page) */
+	--component-base: #F7F4FD;
 	--planned: #1F5FBF;        /* scheduled items in lists (docs/specs/admin-lists.md) */
 	--radius: 10px;
 	--on-accent: #FFFFFF;
@@ -63,6 +65,10 @@
 		--ok-base: #10291D;
 		--warning-text: #FDB022;
 		--handover-text: #B69CFF;
+	--component: #B69CFF;
+	--component-base: #231C33;
+		--component: #B69CFF;
+		--component-base: #231C33;
 		--planned: #8FB8FF;
 		--on-accent: #121212;
 	}
@@ -1024,6 +1030,8 @@ form.center.small-text .btn {
 	padding-top: 20px;
 	border-top: 1px solid var(--line);
 }
+/* Delete on an edit page sits apart from Save and Cancel, at the end of the row */
+.form .buttons .buttons-end { margin-left: auto; }
 .form .buttons .btn + .btn {
 	background: var(--surface);
 	border-color: var(--line-field);

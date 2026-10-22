@@ -30,7 +30,8 @@ $properties = array_merge($k['properties'], array_fill(0, 3, ['key' => '', 'labe
 		<option value="<?= e($type) ?>"<?= $v['type'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></td>
-	<td><input class="textfield" name="properties[<?= $i ?>][default]" value="<?= e($v['default']) ?>" maxlength="500" aria-label="<?= e(t('Default value')) ?>"></td>
+	<td><input class="textfield" name="properties[<?= $i ?>][default]" value="<?= e($v['default']) ?>" maxlength="500" aria-label="<?= e(t('Default value')) ?>">
+	<textarea class="textbox low" name="properties[<?= $i ?>][options]" rows="2" aria-label="<?= e(t('Options of a choice (one per line)')) ?>" placeholder="<?= e(t('Options of a choice (one per line)')) ?>"><?= e(implode("\n", (array) ($v['options'] ?? []))) ?></textarea></td>
 	<td><?= $v['key'] !== '' ? '<code>{{' . e($v['key']) . '}}</code>' : '<span class="help">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>
 <?php endforeach ?>
