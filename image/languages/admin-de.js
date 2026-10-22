@@ -2958,5 +2958,11 @@ window.TALEA_TRANSLATIONS = {
 	"Edit site header": "Website-Kopf bearbeiten",
 	"Edit site footer": "Website-Fuß bearbeiten",
 	"Shared by every page": "Gilt für alle Seiten",
-	"Add section": "Abschnitt hinzufügen"
+	"Add section": "Abschnitt hinzufügen",
+	"A shared template: what you change in it applies everywhere it is used.": "Eine gemeinsame Vorlage: Was Sie daran ändern, gilt überall, wo sie verwendet wird.",
+	"Edit here on the page": "Hier auf der Seite bearbeiten",
+	"Open in the component builder": "Im Komponenten-Builder öffnen",
+	"Default": "Standard",
+	"Not used anywhere yet": "Noch nirgends verwendet",
+	"Changes apply to: %s": "Änderungen gelten für: %s"
 };

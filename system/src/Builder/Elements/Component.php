@@ -38,22 +38,28 @@ final class Component extends Element
             $k->components[$id] = $id > 0 ? Components::byId($k->app->db(), $id) : null;
         }
         $component = $k->components[$id];
-        $build = $component === null ? null : \Talea\Builder\Build::fromJson($component['build'] ?? $component['build_draft']);
+        // "Edit here" (Admin\Modules\Components): the chosen use shows the component's draft with editor markers – only once, ids stay unique
+        $focused = $k->focus !== null && $k->focus[0] === $id && $k->focus[1] === (string) ($p['id'] ?? '');
+        if ($focused) {
+            $k->focus = null;
+        }
+        $build = $component === null ? null : \Talea\Builder\Build::fromJson($focused ? ($component['build_draft'] ?? $component['build']) : ($component['build'] ?? $component['build_draft']));
         if ($build === null) {
             return $k->editor ? '<p>' . e(t('Choose a component in the Content panel.')) . '</p>' : '';
         }
         if (in_array($id, $k->nesting, true) || count($k->nesting) >= Components::MAX_NESTING) {
             return ''; // a component inside itself would render forever
         }
-        // inside, only the published version is used, without editor markers (the component is selected as a whole);
+        // inside, only the published version is used, without editor markers (the component is selected as a whole), except the focused use;
         // a component can be on a page several times, hence the style through a class as in a collection list
         [$item, $editor, $loop] = [$k->item, $k->editor, $k->inLoop];
         $k->nesting[] = $id;
         $k->item = Components::values($component, is_array($p['content']['values'] ?? null) ? $p['content']['values'] : []);
-        $k->editor = false;
+        $k->editor = $focused;
         $k->inLoop++;
         try {
-            return $render($build);
+            // the canvas dims everything around the focused use (image/builder-overlay.js)
+            return $focused ? '<div data-tl-focus style="display:contents">' . $render($build) . '</div>' : $render($build);
         } finally {
             array_pop($k->nesting);
             [$k->item, $k->editor, $k->inLoop] = [$item, $editor, $loop];

@@ -2950,5 +2950,11 @@ window.TALEA_TRANSLATIONS = {
 	"Edit site header": "Upravit hlavičku webu",
 	"Edit site footer": "Upravit patičku webu",
 	"Shared by every page": "Společné pro všechny stránky",
-	"Add section": "Přidat sekci"
+	"Add section": "Přidat sekci",
+	"A shared template: what you change in it applies everywhere it is used.": "Sdílená šablona: co v ní změníte, platí všude, kde je použitá.",
+	"Edit here on the page": "Upravit tady na stránce",
+	"Open in the component builder": "Otevřít v editoru komponenty",
+	"Default": "Výchozí",
+	"Not used anywhere yet": "Zatím nikde nepoužito",
+	"Changes apply to: %s": "Změny platí pro: %s"
 };

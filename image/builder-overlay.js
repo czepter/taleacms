@@ -45,6 +45,7 @@
 #tl-bd-part a{pointer-events:auto;display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 20px;border-radius:8px;background:#fff;color:#121212;font:700 13px/1 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;box-shadow:0 6px 24px rgb(0 0 0/.25)}
 #tl-bd-part a:focus-visible{outline:3px solid #ff4f2e;outline-offset:2px}
 #tl-bd-part small{position:absolute;left:16px;bottom:10px;color:#fff;font:12px/1.2 system-ui,sans-serif}
+#tl-bd-focus{position:absolute;z-index:2147483640;pointer-events:none;box-shadow:0 0 0 var(--spread) rgb(18 18 18/.4);outline:2px dashed #6b3fd0;outline-offset:6px}
 #tl-bd-add{position:absolute;z-index:2147483644;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 16px;border:0;border-radius:999px;background:#ff4f2e;color:#121212;font:700 13px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgb(0 0 0/.2)}
 #tl-bd-add:focus-visible{outline:3px solid #121212;outline-offset:2px}
 @media (pointer:coarse){#tl-bd-overlay .bdo-h::after{inset:calc(-13px*var(--s))}#tl-bd-overlay .bdo-b{min-width:calc(38px*var(--s));height:calc(38px*var(--s))}}
@@ -627,6 +628,32 @@
 		doc.addEventListener('pointerleave', hide);
 	}
 
+	/* ---------- a component edited on its page ("Edit here") ---------- */
+
+	/**
+	 * The component builder opened from a page shows that page around the component: Front\Kernel wraps the component's draft in
+	 * [data-tl-focus] (the only part with markers), the rest of the page is dimmed and scrolled so that the component is in view.
+	 */
+	let focusSeen = false;
+	function focusedComponent(doc) {
+		const focus = doc.querySelector('[data-tl-focus]');
+		if (!focus) { return; }
+		const veil = mk(doc, 'div', { id: 'tl-bd-focus' });
+		doc.body.append(veil);
+		const place = () => {
+			const r = [...focus.querySelectorAll(':scope > *')].map(C.page).filter((x) => x.width || x.height);
+			if (!r.length) { veil.hidden = true; return; }
+			const b = { left: Math.min(...r.map((x) => x.left)), top: Math.min(...r.map((x) => x.top)), right: Math.max(...r.map((x) => x.right)), bottom: Math.max(...r.map((x) => x.bottom)) };
+			veil.hidden = false;
+			// the shade reaches the ends of the page and no further: a far larger box-shadow is not painted at all
+			const spread = Math.max(doc.documentElement.scrollHeight, doc.documentElement.scrollWidth);
+			veil.style.cssText = 'left:' + b.left + 'px;top:' + b.top + 'px;width:' + (b.right - b.left) + 'px;height:' + (b.bottom - b.top) + 'px;--spread:' + spread + 'px';
+		};
+		place();
+		new doc.defaultView.ResizeObserver(place).observe(doc.documentElement);
+		if (!focusSeen && focus.firstElementChild) { focusSeen = true; focus.firstElementChild.scrollIntoView({ block: 'center' }); } // later canvases keep their scroll
+	}
+
 	/* ---------- "Add section" below a section of the page (#116) ---------- */
 
 	/** Hovering a top-level section shows "+ Add section" on its lower edge: it selects the section and opens Add, which inserts after it. */
@@ -653,7 +680,7 @@
 
 	/* ---------- wiring ---------- */
 
-	B.on('preview', (doc) => { C.ensure(doc); marquee(doc); fileDrop(doc); siteParts(doc); addSection(doc); new doc.defaultView.ResizeObserver(() => { if (!state.gesture) { C.later(); } }).observe(doc.documentElement); });
+	B.on('preview', (doc) => { C.ensure(doc); marquee(doc); fileDrop(doc); siteParts(doc); addSection(doc); focusedComponent(doc); new doc.defaultView.ResizeObserver(() => { if (!state.gesture) { C.later(); } }).observe(doc.documentElement); });
 	B.on('mark', () => C.render());
 	B.on('resize', () => C.later());
 	B.on('edit', () => C.later());

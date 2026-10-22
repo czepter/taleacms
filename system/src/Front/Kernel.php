@@ -755,7 +755,11 @@ final class Kernel
         $build = \Talea\Builder\Build::fromJson($draft ? ($page['build_draft'] ?? $page['build']) : $page['build']);
         if ($build !== null) {
             $k = $this->context();
-            $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('part') === '';
+            $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('part') === '' && $this->app->request->get('component') === '';
+            // "Edit here" on a component (Admin\Modules\Components): the page around it without markers, the chosen use shows the component's draft with them
+            if ($draft && $this->app->request->get('editor') === '1' && $this->app->request->get('component') !== '' && $this->app->auth()->isAdmin()) {
+                $k->focus = [$this->app->db()->internalId('components', $this->app->request->get('component')), $this->app->request->get('use')];
+            }
             // comment mode (2.15, Core\DraftComments): a shared link whose key allows comments marks the elements and adds the widget
             $previewKey = $this->app->request->get('preview_key');
             $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Talea\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'page:' . (int) $page['page_id'], $previewKey);
@@ -776,6 +780,7 @@ final class Kernel
             $html = \Talea\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
+            $k->focus = null;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
                 $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $page['page_id']));
             }
@@ -1259,7 +1264,7 @@ final class Kernel
         $k->languages = $languageSwitcher;
         $preview = isset(\Talea\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'draft'
             && ($this->app->auth()->isAdmin() || $this->canSeeDraft('part:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
-        $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'draft' && $r->get('part') === ''));
+        $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'draft' && $r->get('part') === '' && $r->get('component') === ''));
         $language = Language::siteColumn();
         // a site page can have its own header and footer variant; in the variant editor the ?variant= parameter decides
         $ids = ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null;
