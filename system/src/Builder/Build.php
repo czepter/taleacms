@@ -654,6 +654,9 @@ final class Build
         if ($k->compose) {
             $base .= Elements\Section::composeCss() . "\n";
         }
+        if ($k->slider) {
+            $base .= Elements\Carousel::sliderCss() . "\n";
+        }
         $classes = '';
         if ($k->classes !== []) {
             $names = array_keys($k->classes);

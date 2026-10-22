@@ -12,7 +12,7 @@ use Talea\Builder\Element;
 /**
  * Photo gallery: a tap opens the photo full screen (the viewer from image/web.js, arrows, swipe, Esc). Layouts: grid (the default, no script
  * needed; the number of columns is set by the style, on a phone it narrows by itself), masonry (CSS columns), justified rows (flex rows that
- * image/web.js evens out from the width/height attributes), slideshow (a scroll-snap strip with arrows) and full-screen (a grid whose viewer
+ * image/web.js evens out from the width/height attributes), slideshow (a scroll-snap strip with the carousel's arrows and dots) and full-screen (a grid whose viewer
  * asks the browser for real full screen). Photos come from the list and/or from a Media folder (by its public id), newest last.
  */
 final class Gallery extends Element
@@ -37,6 +37,8 @@ final class Gallery extends Element
             'ratio' => ['type' => 'choice', 'label' => 'Thumbnail shape', 'default' => '4 / 3', 'options' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'square', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
             'caption' => ['type' => 'text', 'label' => 'Gallery caption', 'default' => '', 'max' => 300],
             'label' => ['type' => 'text', 'label' => 'Name for screen readers (e.g. Our workshop)', 'default' => '', 'max' => 120],
+            'navigation' => ['type' => 'choice', 'label' => 'Slideshow navigation', 'default' => 'arrows-dots', 'options' => Carousel::NAVIGATION],
+            'arrow_position' => ['type' => 'choice', 'label' => 'Slideshow arrow position', 'default' => 'overlay', 'options' => Carousel::ARROW_POSITIONS],
         ];
     }
 
@@ -56,10 +58,6 @@ final class Gallery extends Element
 .tl-gallery--slideshow { position: relative; display: block; }
 .tl-gallery-strip { display: flex; gap: var(--tl-space-s); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; }
 .tl-gallery-strip img { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; }
-.tl-gallery-arrows { display: flex; justify-content: flex-end; gap: var(--tl-space-2xs); margin-block-start: var(--tl-space-xs); }
-.tl-gallery-arrows button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--tl-color-line); border-radius: 50%; background: var(--tl-color-background); color: var(--tl-color-text); font-size: 1.2em; cursor: pointer; }
-.tl-gallery-arrows button:disabled { opacity: 0.35; cursor: default; }
-.tl-gallery--slideshow:not([data-enabled]) .tl-gallery-arrows { display: none; }
 @media (prefers-reduced-motion: reduce) { .tl-gallery-strip { scroll-behavior: auto; } }';
     }
 
@@ -107,9 +105,9 @@ final class Gallery extends Element
         $label = $o['label'] !== '' ? $o['label'] : ($layout === 'grid' ? '' : ($o['caption'] !== '' ? $o['caption'] : t('Photo gallery')));
         $name = $label !== '' ? ' role="group" aria-label="' . e($label) . '"' : '';
         if ($layout === 'slideshow') {
-            return '<' . $p['tag'] . Text::withClass($a, 'tl-gallery tl-gallery--slideshow') . ' data-slideshow aria-roledescription="' . e(t('carousel')) . '"' . $name . '>'
+            return '<' . $p['tag'] . Text::withClass($a, 'tl-gallery tl-gallery--slideshow ' . Carousel::sliderClass($o)) . ' data-slideshow aria-roledescription="' . e(t('carousel')) . '"' . $name . '>'
                 . '<div class="tl-gallery-strip" tabindex="0" role="group" aria-label="' . e($label) . '">' . $html . '</div>'
-                . '<div class="tl-gallery-arrows"><button type="button" data-step="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-step="1" aria-label="' . e(t('Next')) . '">›</button></div>'
+                . Carousel::controls($o, $k)
                 . $caption . '</' . $p['tag'] . '>';
         }
         $class = $layout === 'grid' ? 'tl-gallery' : 'tl-gallery tl-gallery--' . $layout;

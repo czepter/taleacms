@@ -2934,5 +2934,15 @@ window.TALEA_TRANSLATIONS = {
 	"base": "základní",
 	"above": "nad",
 	"Sample content “%s” – replace it with your own or delete it.": "Ukázkový obsah „%s“ – nahraďte ho vlastním nebo smažte.",
-	"current draft": "aktuální koncept"
+	"current draft": "aktuální koncept",
+	"Arrow position": "Umístění šipek",
+	"arrows and dots": "šipky a tečky",
+	"dots": "tečky",
+	"arrows": "šipky",
+	"scrollbar and arrows": "posuvník a šipky",
+	"beside the slides": "vedle snímků",
+	"on the slides": "na snímcích",
+	"below, at the end": "pod nimi, na konci",
+	"Slideshow navigation": "Navigace prezentace",
+	"Slideshow arrow position": "Umístění šipek prezentace"
 };
