@@ -18,14 +18,16 @@ $staffNames = array_column($staff, 'name', 'id');
 <p><?= e(t('Nobody takes bookings yet. Add the people (or just one entry for the whole business) and tick the services each offers.')) ?></p>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('E-mail for notifications')) ?></th><th scope="col"><?= e(t('Services')) ?></th><th scope="col"></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('Services')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($staff as $m): ?>
-<tr<?= $m['active'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('staff_edit', ['id' => $m['public_id']])) ?>"><strong><?= e($m['name']) ?></strong></a><?= $m['active'] ? '' : ' <span class="small-text">(' . e(t('switched off')) . ')</span>' ?></td>
-	<td><?= $m['email'] !== '' ? e($m['email']) : '<span class="small-text">' . e(t('the site e-mail')) . '</span>' ?></td>
-	<td><?= $m['services'] === [] ? '<span class="small-text">' . e(t('none yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '–'), $m['services']))) ?></td>
-	<td class="center"><form method="post" action="<?= e($module->url('staff_delete')) ?>" data-confirm="<?= e(t('Remove the person?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($m['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Remove')) ?></button></form></td>
+<?php foreach ($staff as $m): $editUrl = $module->url('staff_edit', ['id' => $m['public_id']]); ?>
+<tr>
+	<td class="cell-main"><div class="cell-row"><span class="cell-icon avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) $m['name'], 0, 2))) ?></span><div class="cell-text"><a class="cell-title" href="<?= e($editUrl) ?>"><?= e($m['name']) ?></a><span class="cell-sub"><?= $m['email'] !== '' ? e($m['email']) : e(t('the site e-mail')) ?></span></div></div></td>
+	<td><?= $m['services'] === [] ? '<span class="status-note-warning">' . e(t('none yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '–'), $m['services']))) ?></td>
+	<td><?= $app->view->render('admin/list/status', $m['active'] ? ['kind' => 'live', 'label' => t('bookable')] : ['kind' => 'off', 'label' => t('switched off')]) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $m['public_id'], 'name' => (string) $m['name'], 'edit' => $editUrl, 'csrf' => $csrf, 'menu' => [
+        ['post' => $module->url('staff_delete'), 'fields' => ['id' => $m['public_id']], 'label' => t('Remove'), 'confirm' => t('Remove the person?'), 'danger' => true],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

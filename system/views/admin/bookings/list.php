@@ -19,45 +19,61 @@
 use Talea\Core\Booking;
 
 $query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' => $filter['staff_public'], 'service' => $filter['service_public']]);
+$icon = require __DIR__ . '/../icons.php';
+echo $app->view->render('admin/list/head', ['count' => $waiting > 0 ? t('%d waiting', $waiting) : null,
+    'links' => $isAdmin ? [[$module->url('services'), t('Services') . ' · ' . count($services)], [$module->url('staff'), t('People') . ' · ' . count($staff)]] : [],
+    'primary' => [$module->url('new'), t('New booking')]]);
+$filters = '<select name="staff" aria-label="' . e(t('Person')) . '" data-submit-on-change><option value="0">' . e(t('everyone')) . '</option>';
+foreach ($staff as $m) {
+    $filters .= '<option value="' . e($m['public_id']) . '"' . ($filter['staff'] === $m['id'] ? ' selected' : '') . '>' . e($m['name']) . '</option>';
+}
+$filters .= '</select><select name="service" aria-label="' . e(t('Service')) . '" data-submit-on-change><option value="0">' . e(t('all services')) . '</option>';
+foreach ($services as $sv) {
+    $filters .= '<option value="' . e($sv['public_id']) . '"' . ($filter['service'] === $sv['id'] ? ' selected' : '') . '>' . e($sv['name']) . '</option>';
+}
+$filters .= '</select><select name="status" aria-label="' . e(t('Status')) . '" data-submit-on-change><option value="">' . e($shown === 'upcoming' ? t('confirmed and waiting') : t('any')) . '</option>';
+foreach (Booking::STATUSES as $key => $label) {
+    $filters .= '<option value="' . e($key) . '"' . ($filter['status'] === $key && $shown !== 'upcoming' ? ' selected' : '') . '>' . e(t($label)) . '</option>';
+}
+$filters .= '</select>';
+echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Bookings'),
+    'tabs' => array_map(fn (string $key, string $name): array => ['label' => t($name), 'url' => $module->url('', array_filter(['view' => $key === 'upcoming' ? '' : $key]) + array_diff_key($query, ['view' => 1])), 'active' => $shown === $key],
+        ['upcoming', 'today', 'past', 'all'], ['Upcoming', 'Today', 'Last 30 days', 'All']),
+    'action' => $app->url('admin.php'), 'hidden' => ['module' => 'bookings'] + array_filter(['view' => $shown === 'upcoming' ? '' : $shown]), 'filters' => $filters]);
+$kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'declined' => 'off', 'cancelled' => 'off', 'no_show' => 'error'];
 ?>
-<nav class="tabs" aria-label="<?= e(t('Bookings')) ?>">
-<?php foreach (['upcoming' => 'Upcoming', 'today' => 'Today', 'past' => 'Last 30 days', 'all' => 'All'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['view' => $key === 'upcoming' ? '' : $key]) + array_diff_key($query, ['view' => 1]))) ?>"<?= $shown === $key ? ' class="active" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
-<?php endforeach ?>
-</nav>
-<form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text">
-	<input type="hidden" name="module" value="bookings"><input type="hidden" name="view" value="<?= e($shown === 'upcoming' ? '' : $shown) ?>">
-	<label><?= e(t('Person')) ?> <select name="staff"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= e($m['public_id']) ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
-	<label><?= e(t('Service')) ?> <select name="service"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= e($s['public_id']) ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
-	<label><?= e(t('Status')) ?> <select name="status"><option value=""><?= e($shown === 'upcoming' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'upcoming' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
-	<input class="btn" type="submit" value="<?= e(t('Filter')) ?>">
-</form>
 <?php if ($waiting > 0): ?>
-<p class="notice notice-warning"><a href="<?= e($module->url('', ['status' => 'pending', 'view' => 'vse'])) ?>"><?= e(t('%d requests are waiting for your answer.', $waiting)) ?></a></p>
+<p class="notice notice-warning"><a href="<?= e($module->url('', ['status' => 'pending', 'view' => 'all'])) ?>"><?= e(t('%d requests are waiting for your answer.', $waiting)) ?></a></p>
 <?php endif ?>
-<p><a class="btn" href="<?= e($module->url('new')) ?>"><?= e(t('New booking')) ?></a>
-<?php if ($isAdmin): ?> <a class="navigation" href="<?= e($module->url('services')) ?>"><?= e(t('Services')) ?> (<?= count($services) ?>)</a> <a class="navigation" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?> (<?= count($staff) ?>)</a><?php endif ?></p>
 <?php if ($services === [] || $staff === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('Set up the booking first.'), 'text' => t('Add a service (what and how long) and a person who offers it. Then put the Booking element on a page – visitors pick a service, a person, a day and a free time.'), 'action' => $isAdmin ? [$module->url('services', ['new' => 1]), t('Add a service')] : null]) ?>
 <?php elseif ($byDay === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('No bookings here.'), 'text' => t('Nothing booked for these days and filters.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php else: ?>
-<?php foreach ($byDay as $day => $rows): ?>
-<h2><?= e(format_date_long($day)) ?></h2>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Time')) ?></th><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('Status')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Time')) ?></th><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
+<?php foreach ($byDay as $day => $rows): ?>
 <tbody>
-<?php foreach ($rows as $b): ?>
-<tr<?= !in_array($b['status'], ['confirmed', 'pending'], true) ? ' class="unpublished"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => $b['public_id']])) ?>"><strong><?= e(substr((string) $b['starts_at'], 11, 5)) ?>–<?= e(substr((string) $b['ends_at'], 11, 5)) ?></strong></a></td>
-	<td><?= e((string) ($b['service'] ?? '')) ?></td>
-	<td><?= e((string) ($b['staff'] ?? '')) ?></td>
-	<td><?= $b['anonymised_at'] !== null ? '<span class="small-text">' . e(t('anonymised')) . '</span>' : e((string) $b['name']) . ((string) $b['phone'] !== '' ? ' · ' . e((string) $b['phone']) : '') ?></td>
-	<td><?= e(t(Booking::STATUSES[$b['status']] ?? $b['status'])) ?></td>
+<tr class="list-group"><th scope="rowgroup" colspan="6"><?= e(format_date_long($day)) ?></th></tr>
+<?php foreach ($rows as $b):
+    $detail = $module->url('detail', ['id' => $b['public_id']]);
+    $closed = !in_array($b['status'], ['confirmed', 'pending'], true);
+    $who = $b['anonymised_at'] !== null ? t('anonymised') : (string) $b['name'];
+?>
+<tr<?= $closed ? ' class="inactive"' : '' ?>>
+	<td><a class="cell-title cell-time" href="<?= e($detail) ?>"><?= e(substr((string) $b['starts_at'], 11, 5)) ?>–<?= e(substr((string) $b['ends_at'], 11, 5)) ?></a></td>
+	<td class="cell-main"><div class="cell-text"><span class="cell-title"><?= e((string) ($b['service'] ?? '')) ?></span></div></td>
+	<td><span class="cell-row"><span class="cell-icon avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) ($b['staff'] ?? ''), 0, 2))) ?></span><?= e((string) ($b['staff'] ?? '')) ?></span></td>
+	<td><div class="cell-text"><span><?= e($who) ?></span><?= $b['anonymised_at'] === null && (string) $b['phone'] !== '' ? '<span class="cell-sub">' . e((string) $b['phone']) . '</span>' : '' ?></div></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => $kinds[$b['status']] ?? 'draft', 'label' => t(Booking::STATUSES[$b['status']] ?? $b['status'])]) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $b['public_id'], 'name' => $who, 'edit' => null, 'csrf' => $csrf,
+        'quick' => $b['status'] === 'pending' ? ['action' => $module->url('confirm'), 'fields' => ['id' => $b['public_id']], 'label' => t('Confirm'), 'icon' => 'check', 'filled' => true] : null,
+        'menu' => [['url' => $detail, 'label' => t('Open'), 'icon' => 'eye']]]) ?></td>
 </tr>
 <?php endforeach ?>
-</tbody></table></div>
+</tbody>
 <?php endforeach ?>
+</table></div>
 <?php endif ?>
 <?php if ($isAdmin): ?>
 <h2><?= e(t('Settings')) ?></h2>
