@@ -8,18 +8,14 @@
  * @var array<string, array{to: string, score: int}> $suggestions  the page each missing address most likely meant (Core\RedirectMatcher)
  * @var bool $autoOn  the daily job creates the sure redirects by itself
  * @var int $threshold  the score a candidate needs for that
- * @var string $fromUrl  pre-filled old url
- * @var ?array<string, mixed> $edit  the record being edited
  * @var int $total
  * @var int $pageNumber
  * @var int $pageCount
  * @var string $search
  */
-$u = $edit;
 $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $a;
 $icon = require __DIR__ . '/../icons.php';
-echo $app->view->render('admin/list/head', ['count' => (string) $total, 'primary' => [$module->url('', ['new' => 1]) . '#edit', t('New redirect')]]);
-$editing = $u !== null || $fromUrl !== '' || $app->request->get('new') !== '';
+echo $app->view->render('admin/list/head', ['count' => (string) $total, 'primary' => [$module->url('', ['new' => 1]), t('New redirect')]]);
 ?>
 <?php if ($notFound !== []):
     ob_start();
@@ -30,7 +26,7 @@ $editing = $u !== null || $fromUrl !== '' || $app->request->get('new') !== '';
 	<span class="attention-tip"><?php if ($tip !== null): ?><?= $icon('out') ?> <code title="/<?= e($tip['to']) ?>">/<?= e($tip['to']) ?></code> <span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="cell-sub"><?= e(t('no similar page')) ?></span><?php endif ?></span>
 	<span class="row-actions">
 		<?php if ($tip !== null): ?><form class="inline" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="from_path" value="<?= e('/' . $n['path']) ?>"><input type="hidden" name="to_path" value="<?= e('/' . $tip['to']) ?>"><input type="hidden" name="type" value="301"><button class="btn" type="submit"><?= e(t('Create redirect')) ?></button></form><?php endif ?>
-		<a class="<?= $tip !== null ? 'quiet-link' : 'navigation' ?>" href="<?= e($module->url('', ['z' => $n['path']])) ?>#edit" title="<?= e(t('Redirect – the old address leads to the page that replaced it (the form above is filled in, add the target).')) ?>"><?= e(t($tip !== null ? 'Elsewhere' : 'Redirect')) ?></a>
+		<a class="<?= $tip !== null ? 'quiet-link' : 'navigation' ?>" href="<?= e($module->url('', ['from' => $n['path']])) ?>" title="<?= e(t('Opens a new redirect with this old address filled in. You add the page that replaced it.')) ?>"><?= e(t($tip !== null ? 'Elsewhere' : 'Redirect')) ?></a>
 		<form class="inline" method="post" action="<?= e($module->url('ignore')) ?>"><?= $csrf ?><input type="hidden" name="path" value="<?= e($n['path']) ?>"><button class="icon-btn" type="submit" aria-label="<?= e(t('Ignore: %s', '/' . $n['path'])) ?>" title="<?= e(t('Ignore – nothing replaces it, or it is a bot probing for other systems. It will not come back.')) ?>"><?= $icon('close') ?></button></form>
 	</span>
 </div>
@@ -39,22 +35,6 @@ $editing = $u !== null || $fromUrl !== '' || $app->request->get('new') !== '';
     echo $app->view->render('admin/list/attention', ['id' => 'not-found', 'title' => t('Addresses visitors could not find (404)') . ' · ' . count($notFound), 'meta' => t('last 60 days'), 'rows' => $rows,
         'aside' => '<form class="inline attention-aside" method="post" action="' . e($module->url('ignore_all')) . '" data-confirm="' . e(t('Ignore all these addresses? The warning on the start screen goes away until a new address appears.')) . '">' . $csrf . '<button class="navigation" type="submit">' . e(t('Ignore all')) . '</button></form>']);
 endif ?>
-<?php if ($editing): ?>
-<details class="panel-collapsed" id="edit" open>
-<summary><?= e(t($u !== null ? 'Edit redirect' : 'New redirect')) ?></summary>
-<form class="form" method="post" action="<?= e($module->url('save')) ?>">
-<?= $csrf ?>
-<input type="hidden" name="redirect_id" value="<?= e($u['public_id'] ?? '') ?>">
-<div class="row"><label for="from_path"><?= e(t('Old address')) ?></label><div><input class="textfield wide" type="text" id="from_path" name="from_path" value="<?= e($u !== null ? '/' . $u['from_path'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="help"><?= e(t('A path on this site that no longer exists.')) ?></span></div></div>
-<div class="row"><label for="to_path"><?= e(t('Redirect to')) ?></label><div><input class="textfield wide" type="text" id="to_path" name="to_path" value="<?= e($u !== null ? $path($u['to_path']) : '') ?>" maxlength="255" required placeholder="<?= e(t('/new-address or https://…')) ?>"></div></div>
-<div class="row"><label for="typ"><?= e(t('Type')) ?></label><select id="typ" name="type">
-	<option value="301"><?= e(t('permanent (301) – the page has moved')) ?></option>
-	<option value="302"<?= (int) ($u['type'] ?? 301) === 302 ? ' selected' : '' ?>><?= e(t('temporary (302) – a promotion or seasonal offer')) ?></option>
-</select></div>
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t($u !== null ? 'Save changes' : 'Add redirect')) ?>"><?= $u !== null ? ' <a class="navigation" href="' . e($module->url()) . '">' . e(t('Cancel')) . '</a>' : '' ?></p>
-</form>
-</details>
-<?php endif ?>
 <?= $app->view->render('admin/list/toolbar', ['tabs' => [], 'tabsLabel' => '', 'action' => $app->url('admin.php'), 'hidden' => ['module' => 'redirects'],
     'search' => ['name' => 'search', 'value' => $search, 'placeholder' => t('Address contains'), 'label' => t('Search redirects')]]) ?>
 <?php if ($records === []): ?>
@@ -64,7 +44,7 @@ endif ?>
 <table class="listing">
 <thead><tr><th scope="col"><?= e(t('Old address')) ?></th><th scope="col"><?= e(t('Target')) ?></th><th scope="col"><?= e(t('Used')) ?></th><th scope="col"><?= e(t('Created')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($records as $z): $editUrl = $module->url('', ['edit' => $z['public_id']]) . '#edit'; ?>
+<?php foreach ($records as $z): $editUrl = $module->url('', ['edit' => $z['public_id']]); ?>
 <tr>
 	<td class="cell-main"><div class="cell-row"><a class="cell-title cell-code" href="<?= e($editUrl) ?>" title="/<?= e($z['from_path']) ?>">/<?= e($z['from_path']) ?></a><?= $z['auto_score'] !== null ? ' <span class="tag" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></div></td>
 	<td><span class="cell-row"><?= $icon('out') ?><code class="cell-sub" title="<?= e($path($z['to_path'])) ?>"><?= e($path($z['to_path'])) ?></code><?= (int) ($z['type'] ?? 301) === 302 ? ' <span class="tag">302</span>' : '' ?></span></td>

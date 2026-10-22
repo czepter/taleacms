@@ -73,6 +73,37 @@ final class ComponentsTest extends SiteTestCase
         $this->assertStringContainsString('data-confirm="The component “Service card” is used on: page “', $list->body, 'deleting asks and names where it is used');
     }
 
+    /** "Edit here" on a page's canvas: the component builder shows the page around the chosen use, "Open" the component alone */
+    public function testComponentIsEditedOnItsPage(): void
+    {
+        $component = $this->site()->publicId('components', self::$idm);
+        $page = $this->site()->publicId('pages', $this->zPage());
+        $this->site()->mcp('save_build', ['id' => $page, 'build' => ['v' => 1, 'children' => [
+            ['id' => 'txt1', 'type' => 'text', 'content' => ['text' => '<p>Around the component</p>']],
+            ['id' => 'use1', 'type' => 'component', 'content' => ['component' => $component]],
+            ['id' => 'use2', 'type' => 'component', 'content' => ['component' => $component]],
+        ]]]);
+        $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'section', 'children' => [
+            ['id' => 'kna1', 'type' => 'heading', 'tag' => 'h3', 'content' => ['text' => 'Draft {{heading}}']]]]]], JSON_UNESCAPED_UNICODE)]);
+        $back = rawurlencode('/admin.php?module=pages&action=builder&id=' . $page);
+
+        $here = $this->assertPage("/admin.php?module=components&action=builder&id=$component&page=$page&use=use1&back=$back", 200, 'Back to the page', message: 'Edit here leads back to the page');
+        $this->assertStringContainsString('/z-html?build=draft\u0026editor=1\u0026component=' . $component . '\u0026use=use1"', $here->body, 'the canvas is the page around the chosen use');
+        $this->assertStringContainsString('"places":["page “Z HTML”"]', $here->body, 'the bar names where the changes apply');
+        $open = $this->assertPage("/admin.php?module=components&action=builder&id=$component&back=$back", 200, 'Back to the page', message: 'Open leads back to the page too');
+        $this->assertStringContainsString('/_component/' . $component . '?build=draft\u0026editor=1"', $open->body, 'Open shows the component alone');
+        $this->assertStringNotContainsString('"places"', $this->site()->admin()->get("/admin.php?module=components&action=builder&id=$component")->body, 'opened from the list: no page context');
+
+        $canvas = $this->site()->admin()->get("/z-html?build=draft&editor=1&component=$component&use=use1")->body;
+        $this->assertSame(1, substr_count($canvas, 'data-tl-focus'), 'only the chosen use is edited');
+        $this->assertStringContainsString('data-tl-id="kna1"', $canvas, 'the component draft carries the editor markers');
+        $this->assertStringContainsString('Draft Default heading', $canvas, 'the chosen use shows the draft');
+        $this->assertStringContainsString('>Default heading<', $canvas, 'the other use shows the published component');
+        $this->assertStringNotContainsString('data-tl-id="txt1"', $canvas, 'the page around it cannot be selected');
+        $this->assertStringNotContainsString('<!--tl-part', $canvas, 'no "Edit site header" while a component is edited');
+        $this->assertStringNotContainsString('data-tl-focus', $this->site()->client('focus-visitor')->get("/z-html?build=draft&editor=1&component=$component&use=use1")->body, 'a visitor never gets the draft');
+    }
+
     public function testFormInsideAComponentCanBeSubmitted(): void
     {
         $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'section', 'children' => [['id' => 'kfo1', 'type' => 'form', 'content' => ['name' => 'Enquiry from a component']]]]]], JSON_UNESCAPED_UNICODE)]);

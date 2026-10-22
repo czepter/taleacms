@@ -18,8 +18,11 @@ final class ToolListsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=redirects', 200, [
             '<section class="attention" aria-labelledby="not-found">', '/gone-for-good', 'aria-label="Ignore: /gone-for-good"', 'action=ignore_all',
         ], message: 'redirects: the 404 addresses wait above the list');
-        $this->assertPageLacks('/admin.php?module=redirects', 'id="edit"', message: 'the form shows only when adding or editing');
-        $this->assertPage('/admin.php?module=redirects&new=1', 200, '<details class="panel-collapsed" id="edit" open>', message: 'New redirect opens the form');
+        $this->assertPageLacks('/admin.php?module=redirects', ['id="from_path"', '#edit'], message: 'the list carries no form');
+        $this->assertPage('/admin.php?module=redirects&new=1', 200, ['class="navigation-row"', 'id="from_path"'], message: 'New redirect opens its own page');
+        $this->assertPage('/admin.php?module=redirects&from=gone-for-good', 200, 'value="/gone-for-good"', message: 'an address from the 404 list fills in the old address');
+        $this->assertPageLacks('/admin.php?module=redirects&new=1', 'form="redirect-delete"', message: 'nothing to delete yet');
+        $this->assertPage('/admin.php?module=redirects&edit=00000000-0000-4000-8000-000000000000', 404, message: 'an unknown redirect');
     }
 
     public function testSchedulesHaveASwitch(): void
@@ -34,6 +37,6 @@ final class ToolListsTest extends SiteTestCase
         $page = (string) $site->value('SELECT slug FROM tl_pages WHERE deleted_at IS NULL AND visible = TRUE AND slug <> \'\' ORDER BY page_id DESC LIMIT 1');
         $site->exec('INSERT INTO tl_not_found (path, count, last_seen_at) VALUES (?, 3, NOW())', [$page . '.html']);
         $list = $this->assertPage('/admin.php?module=redirects', 200, ['title="/' . $page . '.html"', 'Create redirect'], message: 'the 404 row shows the full path and the suggestion');
-        $this->assertStringContainsString('z=' . rawurlencode($page . '.html'), $list->body, 'a wrong suggestion can still be redirected by hand');
+        $this->assertStringContainsString('from=' . rawurlencode($page . '.html'), $list->body, 'a wrong suggestion can still be redirected by hand');
     }
 }

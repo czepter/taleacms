@@ -60,6 +60,9 @@ final class Context
     /** @var array<int, array<string, mixed>|null> loaded components (one component is often on a page several times) */
     public array $components = [];
 
+    /** @var array{0: int, 1: string}|null "Edit here" on a component (Kernel, ?component=…&use=…): its id and the id of the use that shows the draft with markers */
+    public ?array $focus = null;
+
     /** @var list<int> components being rendered right now (protection against a component inside itself) */
     public array $nesting = [];
 
