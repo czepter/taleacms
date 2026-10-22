@@ -19,7 +19,7 @@ final class Roles extends Module
 {
     public const string IDENT = 'roles';
     public const string NAME = 'Roles';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'users';
     public const bool ADMIN_ONLY = true;
     public const string PARENT = 'users';

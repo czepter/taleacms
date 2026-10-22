@@ -1298,6 +1298,15 @@ final class Kernel
             $k->content = '';
         }
         $parts = ['header' => $render('header'), 'footer' => $render('footer')];
+        // on a page's canvas the site header and footer (a part or the built-in one) are marked by two comments with the address
+        // of their builder: the canvas overlay (image/builder-overlay.js) offers "Edit site header" on hover; the layout is not touched
+        if ($editor && $preview === '' && $this->app->auth()->hasModule('parts')) {
+            foreach (['header', 'footer'] as $type) {
+                $variant = \Talea\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
+                $edit = $this->app->url('admin.php?module=parts&action=builder&type=' . $type . '&language=' . rawurlencode($language) . ($variant !== '' ? '&variant=' . rawurlencode($variant) : ''));
+                $meta['part_marks'][$type] = ['<!--tl-part ' . $type . ' ' . $edit . '-->', '<!--/tl-part-->'];
+            }
+        }
         $meta['popups'] = $this->popups($k, in_array($wrapper, ['news_item', 'list'], true));
         if ($r->get('popup') !== '' || $this->previewPopup > 0) {
             $meta['noindex'] = true; // preview of a popup draft
@@ -1449,7 +1458,8 @@ final class Kernel
         [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, (string) parse_url($canonicalUrl, PHP_URL_PATH));
         $popups = (string) ($meta['popups'] ?? '');
         $commentWidget = (string) ($meta['comments'] ?? ''); // the comment widget of a shared preview (2.15)
-        unset($meta['popups'], $meta['comments']);
+        $partMarks = (array) ($meta['part_marks'] ?? []);
+        unset($meta['popups'], $meta['comments'], $meta['part_marks']);
         $html = $this->view->render('base', [
             'web' => $siteSettings,
             'title' => $title,
@@ -1469,6 +1479,7 @@ final class Kernel
             'languages_html' => $languagesHtml,
             'with_news' => Extensions::isEnabled($siteSettings, 'news'), // News extension enabled (RSS links in the template)
             'parts' => $parts,
+            'part_marks' => $partMarks,
             'url' => $this->app->url(...),
             'canonical' => $canonicalUrl,
             'notice' => \Talea\Core\Hours::noticeBar($this->app), // exceptions to the opening hours, a few days ahead (2.10)

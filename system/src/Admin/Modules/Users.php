@@ -16,7 +16,7 @@ final class Users extends Module
 {
     public const string IDENT = 'users';
     public const string NAME = 'Users';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'users';
     public const bool ADMIN_ONLY = true;
     public const string TABLE = 'users';

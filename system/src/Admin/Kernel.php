@@ -15,50 +15,94 @@ use Talea\Core\Extensions;
 final class Kernel
 {
     /**
-     * Modules in the order they appear in the menu (by the groups Content, Appearance, Administration).
+     * Modules in the order they appear in the menu, section by section (Module::GROUP); the first module of a section the
+     * person may open is where the section's link goes.
      *
      * @var list<class-string<Module>>
      */
     public const array MODULES = [
         Modules\Pages::class,
-        Modules\News::class,
-        Modules\Collections::class,
-        Modules\Media::class,
-        Modules\Newsletters::class,
-        Modules\Categories::class,
-        Modules\Tags::class,
-        Modules\Business::class,
-        Modules\Facts::class,
-        Modules\Blueprints::class,
-        Modules\Wizard::class,
-        Modules\Bookings::class,
-        Modules\Enquiries::class,
-        Modules\Subscribers::class,
-        Modules\Stats::class,
-        Modules\Experiments::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
         Modules\Components::class,
         Modules\Popups::class,
+        Modules\Audit::class,
+        Modules\Redirects::class,
+        Modules\News::class,
+        Modules\Categories::class,
+        Modules\Tags::class,
+        Modules\Collections::class,
+        Modules\Media::class,
+        Modules\Bookings::class,
+        Modules\Enquiries::class,
+        Modules\Members::class,
+        Modules\Newsletters::class,
+        Modules\Subscribers::class,
+        Modules\Stats::class,
+        Modules\Experiments::class,
         Modules\Requests::class,
         Modules\ClaudeSettings::class,
         Modules\Schedules::class,
         Modules\Notebook::class,
-        Modules\Audit::class,
-        Modules\Redirects::class,
-        Modules\ChangeLog::class,
-        Modules\Status::class,
+        Modules\Settings::class,
+        Modules\Business::class,
+        Modules\Facts::class,
+        Modules\Blueprints::class,
+        Modules\Wizard::class,
         Modules\Users::class,
         Modules\Roles::class,
-        Modules\Members::class,
-        Modules\Settings::class,
         Modules\Connectors::class,
         Modules\Extensions::class,
         Modules\Addons::class,
         Modules\Transfer::class,
+        Modules\ChangeLog::class,
+        Modules\Status::class,
         Modules\Fleet::class,
     ];
+
+    /** Sections of the sidebar in their order (Module::GROUP); Settings is the gear at the bottom, not a section of the list. */
+    public const array SECTIONS = ['Website', 'Content', 'Bookings', 'Customers', 'E-mail', 'Analytics', 'Claude'];
+
+    /**
+     * The sidebar of the Settings area (the gear): heading => list of [module ident, settings tab ('' = the module's own
+     * screen), label]. An entry shows only when the person may open its module.
+     */
+    public const array SETTINGS_MENU = [
+        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies']],
+        'People' => [['users', '', 'Users and roles']],
+        'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
+        'Features' => [['extensions', '', 'Features and add-ons']],
+        'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
+    ];
+
+    /** Home: the first steps in collapsible groups (step name => group); every step of firstSteps() is listed. */
+    private const array FIRST_STEP_GROUPS = [
+        'Set up your site' => 'Build your website', 'Give your site a face' => 'Build your website', 'Prepare your pages' => 'Build your website',
+        'Complete the privacy policy' => 'Build your website', 'Fill in company details' => 'Describe your business', 'Your kind of business' => 'Describe your business',
+        'Connect Claude' => 'Connect Claude and e-mail', 'Set up e-mail' => 'Connect Claude and e-mail',
+    ];
+
+    /**
+     * The menu entries of each section: section => [ident => class], without the modules that sit under a parent.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open (modules())
+     * @return array<string, array<string, class-string<Module>>>
+     */
+    public static function sections(array $modules): array
+    {
+        $sections = [];
+        foreach ($modules as $ident => $class) {
+            if ($class::PARENT === '' || !isset($modules[$class::PARENT])) {
+                $sections[$class::GROUP][$ident] = $class;
+            }
+        }
+
+        return $sections;
+    }
+
+    /** HTML a screen puts into the sidebar instead of the menu (Website mode: the page tree); '' = the menu. */
+    public string $sidebar = '';
 
     public function __construct(public readonly App $app)
     {
@@ -205,6 +249,7 @@ final class Kernel
             'active' => $app->request->get('module'),
             'username' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),
+            'sidebar' => $this->sidebar,
         ]), $status);
     }
 
@@ -217,7 +262,6 @@ final class Kernel
     {
         $data = ['app' => $this->app, 'modules' => $this->modules()];
         $db = $this->app->db();
-        $scope = ' AND deleted_at IS NULL' . $this->app->auth()->articleScope();      // for queries without an alias (news in the trash are not counted)
         $aliasedScope = ' AND c.deleted_at IS NULL' . $this->app->auth()->articleScope('c.');  // for queries with the alias c
 
         $modules = $this->modules();
@@ -252,9 +296,43 @@ final class Kernel
         }
         usort($edited, fn (array $a, array $b): int => strcmp($b['edited'], $a['edited']));
 
-        // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
-        // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
-        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
+        $ask = $this->askClaude();
+
+        return $data + [
+            'ask' => $ask,
+            // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
+            'pending' => [
+                // drafts of news authors wait for an editor – a row only when there are some
+                ...(isset($modules['news']) && ($awaiting = Modules\News::countAwaitingPublication($this->app)) > 0
+                    ? [['kind' => 'news_awaiting', 'label' => 'News from authors awaiting publication', 'count' => $awaiting, 'url' => 'admin.php?module=news&status=awaiting_publication', 'examples' => []]] : []),
+                ...\Talea\Core\PendingReview::all($this->app, $modules),
+            ],
+            'firstSteps' => $this->firstSteps(),
+            'warnings' => $warnings,
+            // the site card: what the site is called, where it lives and what waits for publishing
+            'site' => [
+                'name' => $this->app->settings()->get('site_name'),
+                'url' => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'),
+                'drafts' => isset($modules['pages']) ? (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL') : 0,
+                'look' => $this->app->auth()->isAdmin() && \Talea\Core\Look::hasDraft($this->app->settings()),
+            ],
+            'edited' => array_slice($edited, 0, 6),
+        ];
+    }
+
+    /**
+     * "Ask Claude" (3.1): a front door to the requests inbox, on Home and above the requests (#113) – only with the section and the
+     * Claude connection on (not in the public demo, where the Claude connection is refused); it knows whether Claude was
+     * connected at all (3.1.1). null = no box.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function askClaude(): ?array
+    {
+        $modules = $this->modules();
+        $db = $this->app->db();
+
+        return isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
             'connected' => \Talea\Core\AskClaude::connected($db),
             'examples' => \Talea\Core\AskClaude::examples($modules),
             'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
@@ -262,35 +340,13 @@ final class Kernel
             'prompt' => \Talea\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'), \Talea\Core\Language::visitorAddress($this->app->settings())),
             'admin' => $this->app->auth()->isAdmin(),
         ] : null;
-
-        return $data + [
-            'ask' => $ask,
-            // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
-            'pending' => \Talea\Core\PendingReview::all($this->app, $modules),
-            'firstSteps' => $this->firstSteps(),
-            'warnings' => $warnings,
-            // traffic for 14 days (own measurement without cookies)
-            'traffic' => Extensions::isEnabled($this->app->settings(), 'stats') && isset($modules['stats'])
-                ? $db->all('SELECT day, visits, views FROM {stats_days} WHERE day > CURRENT_DATE - INTERVAL 14 DAY ORDER BY day') : [],
-            'counts' => array_filter([
-                // drafts of news authors wait for an editor – the tile only when there are some
-                'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=awaiting_publication'] : null,
-                'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0'), 'admin.php?module=enquiries'] : null,
-                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = TRUE AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=published'] : null,
-                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = FALSE{$scope}"), 'admin.php?module=news&status=drafts'] : null,
-            ]),
-            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, public_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
-            'edited' => array_slice($edited, 0, 8),
-        ];
     }
 
     /**
      * First steps after installation: what is already done is recognized from the data. Only the administrator sees them,
      * until they hide or complete them.
      *
-     * @return array<int, array{name: string, description: string, url: string, done: bool}>
+     * @return array<int, array{name: string, description: string, url: string, done: bool, group: string}>
      */
     private function firstSteps(): array
     {
@@ -323,7 +379,10 @@ final class Kernel
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
         }
-        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3]], $steps);
+        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3], 'group' => self::FIRST_STEP_GROUPS[$k[0]]], $steps);
+        // Home shows the groups in the order of FIRST_STEP_GROUPS, the steps keep their order within a group
+        $order = array_flip(array_values(array_unique(self::FIRST_STEP_GROUPS)));
+        usort($result, fn (array $a, array $b): int => $order[$a['group']] <=> $order[$b['group']]);
 
         return array_filter($result, fn (array $k): bool => !$k['done']) === [] ? [] : $result;
     }

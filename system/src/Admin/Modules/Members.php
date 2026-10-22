@@ -21,7 +21,7 @@ final class Members extends Module
     public const string TABLE = 'members';
     public const string EXTENSION = 'members';
     public const string NAME = 'Members';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Customers';
     public const string ICON = 'readers';
     public const bool ADMIN_ONLY = true;
 

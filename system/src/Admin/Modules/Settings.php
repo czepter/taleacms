@@ -18,7 +18,7 @@ class Settings extends Module
 {
     public const string IDENT = 'settings';
     public const string NAME = 'Settings';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
 
@@ -158,7 +158,7 @@ class Settings extends Module
         $this->app->session->set('settings_invalid', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['fields' => [], 'values' => []];
 
-        return $this->view('list', 'Settings', [
+        return $this->view('list', static::IDENT === 'settings' ? (self::TABS[$tab] ?? 'Settings') : 'Settings', [
             'tab' => $tab,
             'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,

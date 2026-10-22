@@ -21,7 +21,7 @@ final class Popups extends Module
 
     public const string IDENT = 'popups';
     public const string NAME = 'Pop-ups';
-    public const string GROUP = 'Appearance';
+    public const string GROUP = 'Website';
     public const string ICON = 'popups';
     public const bool ADMIN_ONLY = true;
     public const string TABLE = 'popups';

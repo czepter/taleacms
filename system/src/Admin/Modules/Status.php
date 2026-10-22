@@ -11,7 +11,7 @@ final class Status extends Settings
 {
     public const string IDENT = 'status';
     public const string NAME = 'System status';
-    public const string GROUP = 'Site care';
+    public const string GROUP = 'Settings';
     public const string ICON = 'pulse';
 
     protected function tab(string $tab): string

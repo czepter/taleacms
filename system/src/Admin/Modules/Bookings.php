@@ -20,7 +20,7 @@ final class Bookings extends Module
 {
     public const string IDENT = 'bookings';
     public const string NAME = 'Bookings';
-    public const string GROUP = 'Company';
+    public const string GROUP = 'Bookings';
     public const string ICON = 'booking';
     public const string TABLE = 'bookings';
     public const string EXTENSION = 'bookings'; // a feature (3.2): off on new installs, switched on by 0073 where a site uses it
@@ -55,6 +55,8 @@ final class Bookings extends Module
             'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours'), 'hold' => $s->int('booking_hold_hours'),
                 'pendingThanks' => $s->get('booking_pending_thanks'), 'pendingMail' => $s->get('booking_pending_mail'), 'declinedMail' => $s->get('booking_declined_mail')],
             'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()"),
+            // the requests to confirm beside the agenda: the next ones that still lie ahead
+            'requests' => Booking::list($this->db, ['from' => date('Y-m-d'), 'status' => 'pending', 'limit' => 8]),
             'months' => $s->int('enquiries_months'), 'expiry' => $s->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete', 'isAdmin' => $this->app->auth()->isAdmin()]);
     }
 
