@@ -130,4 +130,13 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('type="reset"', $html);
         $this->assertStringContainsString('aria-label="Clear selection"', $html);
     }
+
+    public function testSelectionButtonsCanPostElsewhere(): void
+    {
+        $html = $this->view->render('admin/list/selection', ['form' => 'bulk', 'action' => '?restore', 'csrf' => '', 'actions' => [
+            ['label' => 'Restore', 'kind' => 'primary'], ['label' => 'Delete permanently', 'kind' => 'danger', 'formaction' => '?delete_permanently', 'confirm' => 'Sure?'],
+        ]]);
+        $this->assertStringContainsString('<button class="btn" type="submit">Restore</button>', $html, 'an action without a value posts no bulk field');
+        $this->assertStringContainsString('<button class="navigation danger" type="submit" formaction="?delete_permanently" data-confirm="Sure?">Delete permanently</button>', $html);
+    }
 }

@@ -628,6 +628,8 @@ table.listing a.cell-sub:hover { color: var(--text); }
 	background: var(--accent-light);
 }
 .cell-icon .icon { width: 16px; height: 16px; }
+/* initials of a person (author, user, booked person) */
+.cell-icon.avatar { border-radius: 50%; font-size: 11px; font-weight: 600; }
 .cell-tree { flex: none; color: var(--line-field); }
 table.listing td.cell-weak { color: var(--text-weak); white-space: nowrap; }
 table.listing td.cell-actions { width: 1%; white-space: nowrap; }
