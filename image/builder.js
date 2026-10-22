@@ -70,6 +70,8 @@
 		mobile: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>', version: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 		lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', unlocked: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>',
 		hidden: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.4-1"/>',
+		plus: '<path d="M12 5v14M5 12h14"/>',
+		structure: '<path d="M4 6h16M8 12h12M8 18h12"/>',
 		more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
 		eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', close: '<path d="M6 6l12 12M18 6 6 18"/>',
 		share: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
@@ -79,7 +81,7 @@
 
 	const state = {
 		build: D.build && Array.isArray(D.build.children) ? D.build : { v: 1, children: [] },
-		selected: null, bp: 'base', elementState: '', leftTab: 'add', rightTab: 'content', undo: [], redo: [], lastKey: null, lastTime: 0,
+		selected: null, bp: 'base', elementState: '', leftTab: 'add', leftOpen: false, rightTab: 'content', undo: [], redo: [], lastKey: null, lastTime: 0,
 		changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null, multi: [], gesture: false, keepEditing: false, refreshAfterGesture: false,
 	};
 
@@ -911,6 +913,7 @@
 		else if (e.key === '?' && !mod) { e.preventDefault(); hint(); }
 		else if (e.key === 'Escape' && state.placing) { const doc = preview && preview.contentDocument; if (doc) { showSpot(doc, null); } endPlacing(); }
 		else if (e.key === 'Escape' && state.selected) { const n = find(state.selected); selection(n && n.parent ? n.parent.id : null); }
+		else if (e.key === 'Escape' && state.leftOpen) { state.leftOpen = false; redrawLeft(); }
 	}
 
 	/* ---------- top bar ---------- */
@@ -936,25 +939,36 @@
 		barLook = look;
 		const bpTl = Object.entries({ base: 'desktop', tablet: 'tablet', mobile: 'mobile' }).map(([bp, ik]) =>
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => { state.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); } }, icon(ik)));
+		// less frequent things of the page sit in the "…" menu, so the bar stays short (focus mode, #115)
+		const pageMore = el('div', { id: 'bd-page-more', class: 'bd-more', popover: 'auto' },
+			el('label', { class: 'bd-more-field' }, el('span', {}, T('Preview size')), el('select', { class: 'bd-magnifier', onchange: (e) => { state.zoom = e.target.value; previewSize(preview); } },
+				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.zoom === k }, n)))),
+			D.page.published && state.changed ? el('button', { type: 'button', onclick: () => { pageMore.hidePopover(); discard(); } }, icon('undo'), el('span', {}, T('Discard changes'))) : null);
+		const pageMoreButton = el('button', { type: 'button', class: 'bd-btn bd-icon-btn', title: T('More'), 'aria-label': T('More'), popovertarget: 'bd-page-more' }, icon('more'));
+		pageMore.addEventListener('toggle', (e) => {
+			if (e.newState !== 'open') { return; }
+			const r = pageMoreButton.getBoundingClientRect();
+			pageMore.style.top = (r.bottom + 4) + 'px';
+			pageMore.style.left = Math.max(8, r.right - pageMore.offsetWidth) + 'px';
+		});
 		tabList.replaceChildren(...[
-			el('a', { class: 'bd-btn', href: D.back.url, title: D.back.text }, icon('parent'), el('span', { class: 'bd-text' }, D.back.text)),
-			el('div', { class: 'bd-name' }, el('h1', {}, D.page.title), el('small', {}, state.changed ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
-			el('div', { class: 'bd-group', role: 'group', 'aria-label': T("Device") }, bpTl),
-			el('select', { class: 'bd-magnifier', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.zoom = e.target.value; previewSize(preview); } },
-				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.zoom === k }, n))),
-			el('div', { class: 'bd-group', role: 'group', 'aria-label': T('History') },
-				el('button', { type: 'button', title: T('Undo (Ctrl+Z)'), disabled: !state.undo.length, onclick: back }, icon('undo')),
-				el('button', { type: 'button', title: T('Redo (Ctrl+Shift+Z)'), disabled: !state.redo.length, onclick: forward }, icon('redo'))),
-			stateText,
-			el('button', { type: 'button', class: 'bd-btn', title: T('Published versions'), onclick: versionsDialog }, icon('version'), el('span', { class: 'bd-text' }, T('Versions'))),
-			D.urls.share ? el('button', { type: 'button', class: 'bd-btn', title: T('Share a link to the draft preview'), onclick: shareDialog }, icon('share'), el('span', { class: 'bd-text' }, T('Share'))) : null,
-			D.comments ? el('button', { type: 'button', class: 'bd-btn', title: T('Comments from people with a preview link'), onclick: commentsDialog }, icon('comment'),
-				el('span', { class: 'bd-text' }, T('Comments') + (openComments().length ? ' (' + openComments().length + ')' : ''))) : null,
-			el('a', { class: 'bd-btn', href: D.page.url, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('eye')),
-			el('button', { type: 'button', class: 'bd-btn', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('placeholder')),
-			D.page.published && state.changed ? el('button', { type: 'button', class: 'bd-btn', onclick: discard }, T('Discard changes')) : null,
-			el('button', { type: 'button', class: 'bd-btn bd-btn-main', disabled: (!state.changed && D.page.published) || D.page.can_publish === false,
-				title: D.page.can_publish === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish')),
+			el('div', { class: 'bd-bar-start' },
+				el('a', { class: 'bd-btn', href: D.back.url, title: D.back.text }, T('Done')),
+				el('div', { class: 'bd-group', role: 'group', 'aria-label': T('History') },
+					el('button', { type: 'button', title: T('Undo (Ctrl+Z)'), disabled: !state.undo.length, onclick: back }, icon('undo')),
+					el('button', { type: 'button', title: T('Redo (Ctrl+Shift+Z)'), disabled: !state.redo.length, onclick: forward }, icon('redo')))),
+			el('div', { class: 'bd-name' }, el('h1', {}, D.page.title), el('small', {}, state.changed ? T('draft in progress – visitors see the published version') : T('no changes against the live site')), stateText),
+			el('div', { class: 'bd-bar-end' },
+				el('div', { class: 'bd-group', role: 'group', 'aria-label': T("Device") }, bpTl),
+				el('button', { type: 'button', class: 'bd-btn bd-icon-btn', title: T('Published versions'), 'aria-label': T('Versions'), onclick: versionsDialog }, icon('version')),
+				D.urls.share ? el('button', { type: 'button', class: 'bd-btn bd-icon-btn', title: T('Share a link to the draft preview'), 'aria-label': T('Share'), onclick: shareDialog }, icon('share')) : null,
+				D.comments ? el('button', { type: 'button', class: 'bd-btn bd-icon-btn', title: T('Comments from people with a preview link'), 'aria-label': T('Comments'), onclick: commentsDialog }, icon('comment'),
+					openComments().length ? el('span', { class: 'bd-count' }, String(openComments().length)) : null) : null,
+				el('a', { class: 'bd-btn bd-icon-btn', href: D.page.url, target: '_blank', rel: 'noopener', title: T('Open the published page'), 'aria-label': T('Open the published page') }, icon('eye')),
+				el('button', { type: 'button', class: 'bd-btn bd-icon-btn', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('placeholder')),
+				pageMoreButton, pageMore,
+				el('button', { type: 'button', class: 'bd-btn bd-btn-main', disabled: (!state.changed && D.page.published) || D.page.can_publish === false,
+					title: D.page.can_publish === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish'))),
 		].filter(Boolean));
 	}
 
@@ -1056,7 +1070,7 @@
 	/** Intro tour: four stops, each highlighting a part of the editor. The first time it starts by itself, then from the help. */
 	function tour(step) {
 		const stops = [
-			[left, T('Elements and ready-made sections'), T('On the left you pick an element or a whole ready-made section. Click to insert it after the selected element, drag it anywhere on the page. The Structure tab shows the page as a tree.')],
+			[left, T('Elements and ready-made sections'), T('The + on the left opens the elements and ready-made sections. Click to insert one after the selected element, drag it anywhere on the page. The button below it shows the page as a tree.')],
 			[frame2, T('The page as visitors will see it'), T('Click to select an element, double-click to edit text. At the top you switch the preview to tablet and mobile – the style then changes only for that width.')],
 			[right, T('Content, style and advanced'), T('On the right you change the text, links, colours, spacing and behaviour of the selected element. Take colours and sizes from the list – they keep the website consistent.')],
 			[tabList, T('Saving and publishing'), T('Changes save automatically as a draft. Visitors see them only after Publish – before that we warn you about missing links, descriptions and low contrast.')],
@@ -1065,6 +1079,8 @@
 		try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* private mode */ }
 		if (step >= stops.length) { return; }
 		const [target, heading, text] = stops[step];
+		if (target === left && !state.leftOpen) { state.leftOpen = true; state.leftTab = 'add'; redrawLeft(); }
+		if (target === right && !root.classList.contains('bd-right-open')) { tour(step + 1); return; }
 		target.classList.add('bd-highlighted');
 		const d = el('dialog', { class: 'bd-dialog bd-tour' },
 			el('div', {}, el('small', {}, (step + 1) + ' / ' + stops.length), el('h2', {}, heading), el('p', {}, text)),
@@ -1211,8 +1227,16 @@
 
 	/* ---------- left panel: Add and Structure ---------- */
 
-	let left, leftContent, right;
+	let left, leftContent, right, rail;
+	/** Focus mode (#115): only the page and the bar; the rail on the left opens Add or Structure, the properties open with a selection. */
+	function redrawRail() {
+		root.classList.toggle('bd-left-open', state.leftOpen);
+		const item = (key, ik, name) => el('button', { type: 'button', title: name, 'aria-label': name, 'aria-pressed': String(state.leftOpen && state.leftTab === key),
+			onclick: () => { state.leftOpen = !(state.leftOpen && state.leftTab === key); state.leftTab = key; redrawLeft(); } }, icon(ik));
+		rail.replaceChildren(item('add', 'plus', T('Add elements and sections')), item('structure', 'structure', T('Structure')));
+	}
 	function redrawLeft() {
+		if (rail) { redrawRail(); }
 		const tabItem = (key, name) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(state.leftTab === key), onclick: () => { state.leftTab = key; redrawLeft(); } }, name);
 		leftContent = el('div', { class: 'bd-panel' });
 		left.replaceChildren(el('div', { class: 'bd-tabs', role: 'tablist' }, tabItem('add', T("Add")), tabItem('structure', T('Structure'))), leftContent);
@@ -1454,6 +1478,7 @@
 	function redraw() { redrawBar(); redrawLeft(); redrawRight(); }
 
 	function redrawRight() {
+		root.classList.toggle('bd-right-open', !!(state.editedClass !== null || (state.selected && find(state.selected))));
 		if (state.editedClass !== null) { classesPanel(); return; }
 		const n = state.selected && find(state.selected);
 		if (!n) {
@@ -2060,7 +2085,8 @@
 	right = el('aside', { class: 'bd-right', 'aria-label': T('Properties') });
 	frame2 = el('div', { class: 'bd-frame', 'data-bp': 'base' });
 	scale = el('span', { class: 'bd-scale', 'aria-hidden': 'true' });
-	root.append(left, el('main', { class: 'bd-canvas' }, frame2, scale), right, datalists);
+	rail = el('nav', { class: 'bd-rail', 'aria-label': T('Elements and structure') });
+	root.append(left, el('main', { class: 'bd-canvas' }, rail, frame2, scale), right, datalists);
 	new ResizeObserver(() => previewSize(preview)).observe(frame2);
 	root.hidden = false;
 	redraw();
