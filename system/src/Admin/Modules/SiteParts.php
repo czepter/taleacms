@@ -173,8 +173,21 @@ final class SiteParts extends Module
         return [
             'url' => $url, 'preview' => $url . '?part=' . $type . '&build=draft&editor=1' . ($target['row']['variant'] !== '' ? '&variant=' . rawurlencode($target['row']['variant']) : ''),
             'visible' => true, 'parts' => true,
-            'back' => ['url' => $this->url(), 'text' => t('Site parts')], 'settings' => null, 'signature' => 'part:' . $type . ':' . $language . ($target['row']['variant'] !== '' ? ':' . $target['row']['variant'] : ''),
+            'back' => $this->backToPage() ?? ['url' => $this->url(), 'text' => t('Site parts')], 'settings' => null, 'signature' => 'part:' . $type . ':' . $language . ($target['row']['variant'] !== '' ? ':' . $target['row']['variant'] : ''),
         ];
+    }
+
+    /**
+     * Opened from a page's canvas ("Edit site header", #116): the way back leads to that page's builder. Only an address of
+     * this administration's page builder is taken – never another site.
+     *
+     * @return array{url: string, text: string}|null
+     */
+    private function backToPage(): ?array
+    {
+        $back = $this->request->get('back');
+
+        return str_starts_with($back, $this->app->url('admin.php?module=pages&action=builder&id=')) && !preg_match('/[\s"<>]/', $back) ? ['url' => $back, 'text' => t('Back to the page')] : null;
     }
 
     /** @return array{0: ?string, 1: string, 2: string} type, language and variant of the part from the request URL */

@@ -53,6 +53,11 @@ final class AdministrationTest extends SiteTestCase
             $this->assertPage("/admin.php?module=$module", 200, message: "module $module");
         }
         $this->assertPage('/admin.php?module=users', 200, 'May do everything', message: 'users with a summary of permissions');
+        // #116: on a page's canvas the header and footer carry the address of their builder; a visitor never gets the marks
+        $this->assertPage('/?build=draft&editor=1', 200, '<!--tl-part header /admin.php?module=parts&action=builder&type=header', message: 'canvas: the site header is marked for "Edit site header"');
+        $this->assertStringNotContainsString('<!--tl-part', $this->site()->client('canvas-visitor')->get('/?build=draft&editor=1')->body, 'canvas marks are for people who may edit the site parts only');
+        $this->assertPage('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('/admin.php?module=pages&action=builder&id=x'), 200, 'Back to the page', message: 'a part opened from a page canvas leads back to it');
+        $this->assertStringNotContainsString('evil.example', $this->site()->admin()->get('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('https://evil.example/admin.php?module=pages&action=builder&id='))->body, 'the way back never leads to another site');
         foreach (['general', 'seo', 'analytics', 'cookies', 'mail', 'webhooks', 'backups'] as $tab) {
             $this->assertPage("/admin.php?module=settings&tab=$tab", 200, message: "settings/$tab");
         }

@@ -2946,5 +2946,8 @@ window.TALEA_TRANSLATIONS = {
 	"Slideshow navigation": "Navigace prezentace",
 	"Slideshow arrow position": "Umístění šipek prezentace",
 	"More": "Další",
-	"Add elements and sections": "Přidat prvky a sekce"
+	"Add elements and sections": "Přidat prvky a sekce",
+	"Edit site header": "Upravit hlavičku webu",
+	"Edit site footer": "Upravit patičku webu",
+	"Shared by every page": "Společné pro všechny stránky"
 };
