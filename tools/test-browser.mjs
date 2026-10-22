@@ -162,8 +162,12 @@ await step('builder: select the parent element', async () => {
 });
 
 await step('builder: element tree and search', async () => {
+  // focus mode (#115): Add and Structure open from the rail on the left of the canvas
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
   const search = page.locator('input.bd-search').first();
   if (await search.count()) { await search.fill('text'); await page.waitForTimeout(400); await search.fill(''); }
+  await page.locator('.bd-rail button[aria-label="Structure"]').click();
+  if (!(await page.locator('.bd-tree').count())) { throw new Error('the Structure button of the rail does not open the element tree'); }
   const tree = page.locator('.bd-tree [role="treeitem"], .bd-tree li').nth(1);
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
@@ -180,6 +184,7 @@ await step('builder: dialogs, classes, library and clipboard', async () => {
     await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
     await page.waitForTimeout(200);
   }
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
   await page.locator('.bd-library button').first().click(); // a ready-made section is inserted
   await page.waitForTimeout(1200);
   await canvas().locator('h1').first().click();
@@ -204,6 +209,7 @@ await step('builder: structured data (Product), preview, checklist, publish, JSO
   await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
   await page.waitForTimeout(1500);
   const pageUrl = await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).page.url);
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
   await page.locator('.bd-library button, .bd-panel button', { hasText: 'Structured data' }).first().click(); // the element is inserted and selected
   await page.waitForTimeout(1200);
   const control = page.locator('.bd-sd');

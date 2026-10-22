@@ -586,7 +586,7 @@ window.TALEA_TRANSLATIONS = {
 	"Keyboard shortcuts": "Tastenkürzel",
 	"Editor tour": "Editor-Rundgang",
 	"Elements and ready-made sections": "Elemente und fertige Abschnitte",
-	"On the left you pick an element or a whole ready-made section. Click to insert it after the selected element, drag it anywhere on the page. The Structure tab shows the page as a tree.": "Links wählen Sie ein Element oder einen ganzen fertigen Abschnitt aus. Mit einem Klick fügen Sie ihn nach dem ausgewählten Element ein, per Ziehen an eine beliebige Stelle der Seite. Der Tab „Struktur“ zeigt die Seite als Baum.",
+	"The + on the left opens the elements and ready-made sections. Click to insert one after the selected element, drag it anywhere on the page. The button below it shows the page as a tree.": "Das + links öffnet die Elemente und fertigen Abschnitte. Mit einem Klick fügen Sie eines nach dem ausgewählten Element ein, per Ziehen an eine beliebige Stelle der Seite. Die Schaltfläche darunter zeigt die Seite als Baum.",
 	"The page as visitors will see it": "Die Seite, wie Besucher sie sehen werden",
 	"Click to select an element, double-click to edit text. At the top you switch the preview to tablet and mobile – the style then changes only for that width.": "Klicken Sie, um ein Element auszuwählen, doppelklicken Sie, um Text zu bearbeiten. Oben schalten Sie die Vorschau auf Tablet und Smartphone um – der Stil ändert sich dann nur für diese Breite.",
 	"Content, style and advanced": "Inhalt, Stil und Erweitert",
@@ -2952,5 +2952,7 @@ window.TALEA_TRANSLATIONS = {
 	"on the slides": "auf den Folien",
 	"below, at the end": "darunter, am Ende",
 	"Slideshow navigation": "Navigation der Diashow",
-	"Slideshow arrow position": "Position der Pfeile in der Diashow"
+	"Slideshow arrow position": "Position der Pfeile in der Diashow",
+	"More": "Mehr",
+	"Add elements and sections": "Elemente und Abschnitte hinzufügen"
 };
