@@ -1391,7 +1391,28 @@ body.login {
 .home-header h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.01em; }
 .home-header .navigation-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
 .home-header .btn, .home-header .navigation { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: var(--radius); }
-.home-start, .awaiting-you, .home-edited { margin: 0 0 40px; }
+.home-start, .awaiting-you, .home-edited, .home-glance { margin: 0 0 40px; }
+/* At a glance: the key figures of a period; visits take two columns with their line, a phone stacks them */
+.home-glance h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.home-glance .home-section-head { flex-wrap: wrap; }
+.home-glance .tabs { margin: 0 0 0 auto; }
+.home-glance-tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 0; }
+.home-glance-tiles .tiles-item { display: flex; flex-direction: column; gap: 4px; }
+.home-glance-tiles .tiles-item strong { font-size: 32px; line-height: 1.1; }
+.home-glance-tiles .home-glance-visits { grid-column: span 2; flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.home-glance-tiles .home-glance-figures { display: flex; flex-direction: column; gap: 4px; color: var(--text); }
+.home-glance-visits svg { flex: 1 1 220px; max-width: 420px; height: 64px; overflow: visible; }
+.home-glance-visits polygon { fill: var(--accent-light); }
+.home-glance-visits polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.home-glance-delta { font-weight: 600; color: var(--text-weak); }
+.home-glance-delta.up { color: var(--ok); }
+.home-glance-delta.down { color: var(--warning-text); }
+.home-glance-tiles .badge-draft { color: var(--warning-text); } /* .tiles-item span would grey it */
+.home-glance-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; }
+.home-glance-more { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 12px 0 0; }
+.home-glance-more strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.home-glance-more a { margin-left: auto; color: var(--text); font-weight: 600; }
+@media (max-width: 560px) { .home-glance-tiles .home-glance-visits { grid-column: auto; } }
 .home-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
 .home-start h2, .awaiting-you h2, .home-edited h2 { margin: 0 0 14px; font-size: 20px; font-weight: 600; }
 .home-section-head h2 { margin: 0; }

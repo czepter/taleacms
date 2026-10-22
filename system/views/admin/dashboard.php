@@ -1,7 +1,8 @@
 <?php
 /**
- * Home, the admin start screen: a welcome with the way into the website, the first steps in groups, the site card,
- * what waits for the person, Ask Claude and what was edited last. Figures and charts live in Analytics.
+ * Home, the admin start screen: a welcome with the way into the website, the key figures of a period ("At a glance"), the
+ * first steps in groups, the site card, what waits for the person, Ask Claude and what was edited last. The full figures
+ * and charts live in Analytics.
  *
  * @var Talea\Core\App $app
  * @var array<string, class-string<Talea\Admin\Module>> $modules
@@ -11,6 +12,7 @@
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
  * @var list<array{name: string, description: string, url: string, done: bool, group: string}> $firstSteps
  * @var array{name: string, url: string, drafts: int, look: bool} $site
+ * @var array<string, mixed>|null $glance "At a glance" (Kernel::glance): days, parts, report (Core\Report::glance), unread, bookings, pages
  */
 $user = $app->auth()->user() ?? [];
 $firstName = explode(' ', trim((string) (($user['name'] ?? '') ?: ($user['username'] ?? ''))))[0];
@@ -36,6 +38,101 @@ $waiting = $warnings !== [] || $pending !== [];
 <?php endif ?>
 	</p>
 </div>
+<?php if ($glance !== null):
+    $report = $glance['report'];
+    $now = $report['totals'];
+    $before = $report['previous'];
+    $has = array_flip($glance['parts']);
+    // the change against the period before: in per cent for visits, as a number for the rest; an arrow and a sign, not colour alone
+    $delta = function (int $current, int $previous, bool $percent): string {
+        if ($percent && $previous === 0) {
+            return '';
+        }
+        $change = $percent ? (int) round(100 * ($current - $previous) / $previous) : $current - $previous;
+        [$class, $arrow, $sign] = $change > 0 ? ['up', '▲', '+'] : ($change < 0 ? ['down', '▼', '−'] : ['same', '±', '']);
+
+        return '<span class="home-glance-delta ' . $class . '"><span aria-hidden="true">' . $arrow . '</span> ' . e($sign . format_count(abs($change)) . ($percent ? ' %' : ''))
+            . '</span> <span class="small-text">' . e(t('compared with the period before')) . '</span>';
+    };
+    // visits per day as a line; nothing to draw before the first visit
+    $line = '';
+    if (max($report['visits_by_day']) > 0) {
+        $peak = max($report['visits_by_day']);
+        $last = count($report['visits_by_day']) - 1;
+        foreach ($report['visits_by_day'] as $i => $n) {
+            $line .= round(320 * $i / max(1, $last), 1) . ',' . round(60 - 52 * $n / $peak, 1) . ' ';
+        }
+    }
+?>
+<section class="home-glance" aria-labelledby="home-glance-heading">
+	<div class="home-section-head">
+		<h2 id="home-glance-heading"><?= e(t('At a glance')) ?></h2>
+		<nav class="tabs" aria-label="<?= e(t('Period')) ?>">
+<?php foreach (Talea\Admin\Kernel::GLANCE_PERIODS as $d): ?>
+			<a href="<?= e($app->url('admin.php?days=' . $d)) ?>"<?= $glance['days'] === $d ? ' class="active" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
+<?php endforeach ?>
+		</nav>
+	</div>
+	<div class="tiles home-glance-tiles">
+<?php if (isset($has['stats'])): ?>
+		<a class="tiles-item home-glance-visits" href="<?= e($app->url('admin.php?module=stats&days=' . $glance['days'])) ?>">
+			<span class="home-glance-figures">
+				<span><?= e(t('Visits')) ?></span>
+				<strong><?= format_count($now['visits']) ?></strong>
+				<span><?= $delta($now['visits'], $before['visits'], true) ?></span>
+				<span><?= e(t('%s page views', format_count($now['views']))) ?></span>
+			</span>
+<?php if ($line !== ''): ?>
+			<svg viewBox="0 0 320 64" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,64 <?= $line ?>320,64"/><polyline points="<?= trim($line) ?>"/></svg>
+<?php endif ?>
+		</a>
+<?php endif ?>
+<?php if (isset($has['enquiries'])): ?>
+		<a class="tiles-item" href="<?= e($app->url('admin.php?module=enquiries')) ?>">
+			<span><?= e(t('Enquiries')) ?></span>
+			<strong><?= format_count($now['enquiries']) ?></strong>
+			<span><?= $delta($now['enquiries'], $before['enquiries'], false) ?></span>
+<?php if ($glance['unread'] > 0): ?>
+			<span><span class="badge badge-draft"><?= e(t('%s unread', format_count($glance['unread']))) ?></span></span>
+<?php endif ?>
+		</a>
+<?php endif ?>
+<?php if (isset($has['bookings'])): $b = $glance['bookings']; ?>
+		<a class="tiles-item" href="<?= e($app->url('admin.php?module=bookings')) ?>">
+			<span><?= e(t('Bookings')) ?></span>
+			<strong><?= format_count($b['count']) ?></strong>
+			<span><?= $delta($b['count'], $b['previous'], false) ?></span>
+			<span><?= $b['next'] !== '' ? e(t('Next: %s', format_date($b['next'], true))) . ' · ' . e(t('%s upcoming', format_count($b['upcoming']))) : e(t('No upcoming bookings')) ?></span>
+		</a>
+<?php endif ?>
+<?php if (isset($has['pages'])): $pg = $glance['pages']; ?>
+		<a class="tiles-item" href="<?= e($app->url('admin.php?module=pages')) ?>">
+			<span><?= e(t('Pages')) ?></span>
+			<strong><?= format_count($pg['published'] ?? 0) ?></strong>
+			<span><?= e(t('published')) ?></span>
+<?php if (($pg['drafts'] ?? 0) > 0 || ($pg['hidden'] ?? 0) > 0): ?>
+			<span class="home-glance-badges"><?php if (($pg['drafts'] ?? 0) > 0): ?><span class="badge badge-draft"><?= e(t('%s with unpublished changes', format_count($pg['drafts']))) ?></span><?php endif ?><?php if (($pg['hidden'] ?? 0) > 0): ?> <span class="badge"><?= e(t('%s hidden', format_count($pg['hidden']))) ?></span><?php endif ?></span>
+<?php endif ?>
+		</a>
+<?php endif ?>
+	</div>
+<?php if (isset($has['stats'])): ?>
+	<p class="home-glance-more small-text">
+<?php if (isset($modules['subscribers'])): ?>
+		<span><strong><?= format_count($now['signups']) ?></strong> <?= e(t('Newsletter sign-ups')) ?></span>
+<?php endif ?>
+		<span><strong><?= format_count($now['contact_clicks']) ?></strong> <?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span>
+<?php if ($report['conversion'] !== null): ?>
+		<span><strong><?= e(format_count($report['conversion'], 1)) ?> %</strong> <?= e(t('Visits that became a lead')) ?></span>
+<?php endif ?>
+<?php if ($report['top_page'] !== null): ?>
+		<span><?= e(t('Most viewed')) ?>: <?= bdi($report['top_page']) ?></span>
+<?php endif ?>
+		<a href="<?= e($app->url('admin.php?module=stats&days=' . $glance['days'])) ?>"><?= e(t('All figures in Analytics')) ?></a>
+	</p>
+<?php endif ?>
+</section>
+<?php endif ?>
 <?php if ($firstSteps !== [] || isset($modules['pages'])): ?>
 <section class="home-start" aria-labelledby="home-start-heading">
 	<div class="home-section-head">
