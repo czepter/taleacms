@@ -40,4 +40,12 @@ final class PagesListTest extends SiteTestCase
         $this->assertPageLacks('/admin.php?module=pages&status=changes', 'row-menu-' . $site->publicId('pages', $hidden), message: '… and not the hidden page without a draft (' . $hiddenTitle . ')');
         $this->assertPageLacks('/admin.php?module=pages&status=hidden', 'row-menu-' . $site->publicId('pages', $draft), message: 'the hidden tab lists only hidden pages');
     }
+
+    public function testLanguageFilterAppliesOnChange(): void
+    {
+        $site = $this->site();
+        $site->setting('extensions', $site->settingValue('extensions') . ',languages');
+        $site->setting('additional_languages', 'de');
+        $this->assertMatchesRegularExpression('~<select name="language"[^>]*data-submit-on-change~', $this->assertPage('/admin.php?module=pages', 200, message: 'pages list with languages')->body, 'picking a language applies the filter');
+    }
 }

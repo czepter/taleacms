@@ -73,6 +73,12 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('<span class="status-note status-note-error">2 comments</span>', $html);
     }
 
+    public function testNeutralNoteIsNotAWarning(): void
+    {
+        $html = $this->view->render('admin/list/status', ['kind' => 'live', 'label' => 'Sent', 'notes' => [['text' => '22.10.2026', 'kind' => 'neutral']]]);
+        $this->assertStringContainsString('<span class="status-note status-note-neutral">22.10.2026</span>', $html);
+    }
+
     public function testActionsMenuHasPopoverAndDangerLast(): void
     {
         $html = $this->view->render('admin/list/actions', [

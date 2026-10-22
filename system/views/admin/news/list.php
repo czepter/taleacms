@@ -116,7 +116,7 @@ $tabs[] = $tab('trash', t('Trash'), $inTrash);
         $notes[] = ['text' => t('review by %s', format_date($c['review_by']))];
     }
     if ((int) $c['social_open'] > 0) { // social post drafts not posted yet (2.13)
-        $notes[] = ['text' => t('%d social posts', (int) $c['social_open']), 'url' => $edit . '#social-posts'];
+        $notes[] = ['text' => t('Social posts') . ' (' . (int) $c['social_open'] . ')', 'url' => $edit . '#social-posts'];
     }
     $fields = ['delete[]' => $c['public_id']];
 ?>
