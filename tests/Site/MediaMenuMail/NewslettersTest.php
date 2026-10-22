@@ -131,8 +131,10 @@ final class NewslettersTest extends SiteTestCase
         $created = $this->mcpText('create_news', ['title' => 'Second news item for the newsletter', 'category' => $category, 'publish' => true]);
         $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM tl_news WHERE visible = 1 AND deleted_at IS NULL"), 'two published news items exist: ' . $created);
 
-        $this->assertPage('/admin.php?module=newsletters', 200, 'Write a newsletter', message: 'newsletters: empty list');
+        $overview = $this->assertPage('/admin.php?module=newsletters', 200, 'Write a newsletter', message: 'newsletters: the E-mail overview of an empty site');
+        $this->assertStringContainsString('action=new&amp;mode=none', $overview->body, 'E-mail overview: a kind of newsletter starts a new one with its news mode');
         $this->assertPage('/admin.php?module=newsletters&action=new', 200, 'name="subject"', message: 'newsletters: new draft form');
+        $this->assertPage('/admin.php?module=newsletters&action=new&mode=none', 200, 'name="news_mode" value="none" checked', message: 'newsletters: a kind chosen on the overview presets the news mode');
     }
 
     #[Depends('testTheListAndTheNewDraftFormOfAnEmptySite')]
