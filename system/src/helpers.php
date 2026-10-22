@@ -103,7 +103,8 @@ function format_ago(string|\DateTimeInterface|null $value, ?int $now = null): st
     if ($value === null || $value === '') {
         return '—';
     }
-    $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value);
+    // immutable, so the caller's DateTime keeps its time
+    $dt = $value instanceof \DateTimeInterface ? \DateTimeImmutable::createFromInterface($value) : new \DateTimeImmutable($value);
     $now ??= time();
     $seconds = $now - $dt->getTimestamp();
     $today = (new \DateTimeImmutable('@' . $now))->setTimezone($dt->getTimezone())->setTime(0, 0);
