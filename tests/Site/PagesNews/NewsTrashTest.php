@@ -28,7 +28,7 @@ final class NewsTrashTest extends SiteTestCase
         $this->assertSame('0/1', (string) $site->value('SELECT CONCAT(visible, \'/\', deleted_at IS NULL) FROM tl_news WHERE news_id = ?', [$idc]), 'restored news comes back as a draft');
 
         $site->exec('UPDATE tl_news SET visible = 1, deleted_at = NOW() - INTERVAL 31 DAY WHERE news_id = ?', [$idc]);
-        $this->assertPage('/admin.php', 200, 'Dashboard', message: 'entering the administration empties the old trash');
+        $this->assertPage('/admin.php', 200, 'Welcome,', message: 'entering the administration empties the old trash');
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_news WHERE news_id = ?', [$idc]), 'news older than 30 days in the trash is deleted for good');
     }
 }
