@@ -387,8 +387,8 @@ button.navigation,
 label.navigation {
 	display: inline-block;
 	border: 1px solid transparent;
-	border-radius: 6px;
-	padding: 8px 16px;
+	border-radius: var(--radius);
+	padding: 10px 18px;
 	font: inherit;
 	font-weight: 600;
 	line-height: 1.25;
@@ -484,7 +484,7 @@ a.danger:hover {
 .tab-wrap {
 	overflow-x: auto;
 	border: 1px solid var(--line);
-	border-radius: var(--radius);
+	border-radius: 14px;
 	background: var(--surface);
 }
 table.listing {
@@ -958,7 +958,7 @@ form.center.small-text .btn {
 	max-width: 860px;
 	padding: 24px;
 	border: 1px solid var(--line);
-	border-radius: var(--radius);
+	border-radius: 14px;
 	background: var(--surface);
 }
 .form .row[hidden] { display: none; } /* a row hidden by the form's script (a schedule's day field, 3.1.1) */
@@ -1467,6 +1467,22 @@ body.login {
 .email-delivery p { margin: 0 0 6px; }
 .email-ok h2 { color: var(--ok); }
 .email-problem h2 { color: var(--warning-text); }
+
+/* ---------- an open enquiry beside the inbox (views/admin/enquiries/detail.php) ---------- */
+.inbox { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; }
+.inbox-list { flex: 1 1 280px; max-width: 360px; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.inbox-list > p { margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 600; }
+.inbox-list ul { max-height: 70vh; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.inbox-list li + li { border-top: 1px solid var(--line); }
+.inbox-list li a { display: grid; gap: 2px; padding: 12px 18px; color: var(--text); text-decoration: none; }
+.inbox-list li a:hover { background: var(--accent-light); }
+.inbox-list li.active a { background: var(--accent-light); box-shadow: inset 3px 0 0 var(--accent); }
+.inbox-who { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.inbox-who strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-who span { flex: none; font-size: 12px; color: var(--text-weak); }
+.inbox-text { font-size: 13px; color: var(--text-weak); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-open { flex: 999 1 480px; min-width: 0; }
+@media (max-width: 860px) { .inbox-list { max-width: none; } .inbox-list ul { max-height: 240px; } }
 
 /* empty state of a listing (views/admin/empty.php) */
 .empty-state {
