@@ -7,7 +7,7 @@
  * @var array<string, string> $names  section ident => name
  */
 ?>
-<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=users')) ?>"><?= e(t('Back to users')) ?></a> <a class="btn" href="<?= e($module->url('new')) ?>"><?= e(t('New role')) ?></a></p>
+<?= $app->view->render('admin/list/head', ['count' => (string) count($role), 'links' => [[$app->url('admin.php?module=users'), t('Back to users')]], 'primary' => [$module->url('new'), t('New role')]]) ?>
 <p class="small-text"><?= e(t('Start from a ready-made role:')) ?>
 <?php foreach (Talea\Admin\Modules\Roles::PRESETS as $key => [$presetName, $presetHelp]): ?>
 	<a href="<?= e($module->url('new', ['preset' => $key])) ?>" title="<?= e(t($presetHelp)) ?>"><?= e(t($presetName)) ?></a><?= $key !== array_key_last(Talea\Admin\Modules\Roles::PRESETS) ? ' ·' : '' ?>
@@ -18,15 +18,16 @@
 <?= $app->view->render('admin/empty', ['icon' => 'users', 'heading' => t('No custom roles yet.'), 'action' => [$module->url('new'), t('New role')]]) ?>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Roles')) ?></th><th scope="col"><?= e(t('Section')) ?></th><th scope="col"><?= e(t('Users')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Role')) ?></th><th scope="col"><?= e(t('Section')) ?></th><th scope="col"><?= e(t('Users')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($role as $r): ?>
+<?php foreach ($role as $r): $edit = $module->url('edit', ['id' => $r['role_id']]); ?>
 <tr>
-	<td><a href="<?= e($module->url('edit', ['id' => $r['role_id']])) ?>"><?= e($r['name']) ?></a><?= $r['description'] !== '' ? '<br><span class="small-text">' . e($r['description']) . '</span>' : '' ?></td>
-	<td><?= e(implode(', ', array_map(fn (string $i): string => t($names[$i] ?? $i), array_filter(explode(',', (string) $r['modules']))))) ?></td>
+	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($edit) ?>"><?= e($r['name']) ?></a><?= $r['description'] !== '' ? '<span class="cell-sub">' . e($r['description']) . '</span>' : '' ?></div></td>
+	<td class="cell-weak"><?= e(implode(', ', array_map(fn (string $i): string => t($names[$i] ?? $i), array_filter(explode(',', (string) $r['modules']))))) ?></td>
 	<td class="number"><?= (int) $r['member_count'] ?></td>
-	<td class="actions"><a href="<?= e($module->url('edit', ['id' => $r['role_id']])) ?>"><?= e(t('Edit')) ?></a>
-		/ <form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the role? Its members will keep their current access.')) ?>"><?= $csrf ?><input type="hidden" name="role_id" value="<?= (int) $r['role_id'] ?>"><input type="hidden" name="name" value="<?= e($r['name']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => 'role-' . $r['role_id'], 'name' => $r['name'], 'edit' => $edit, 'csrf' => $csrf, 'menu' => [
+        ['post' => $module->url('delete'), 'fields' => ['role_id' => (string) $r['role_id'], 'name' => $r['name']], 'label' => t('Delete'), 'confirm' => t('Delete the role? Its members will keep their current access.'), 'danger' => true],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

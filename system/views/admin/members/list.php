@@ -35,7 +35,9 @@
 	<td><form class="inline" method="post" action="<?= e($module->url('group_save')) ?>"><?= $csrf ?><input type="hidden" name="group_id" value="<?= e($g['public_id']) ?>"><input class="textfield" type="text" name="name" value="<?= e($g['name']) ?>" maxlength="80" required aria-label="<?= e(t('Group name')) ?>"> <button class="navigation" type="submit"><?= e(t('Rename')) ?></button></form></td>
 	<td class="number"><?= (int) $g['members'] ?></td>
 	<td class="number"><?= (int) $g['contents'] ?></td>
-	<td class="actions"><form class="inline" method="post" action="<?= e($module->url('group_delete')) ?>" data-confirm="<?= e(t('Delete the group? Its members stay.')) ?>"><?= $csrf ?><input type="hidden" name="group_id" value="<?= e($g['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $g['public_id'], 'name' => $g['name'], 'edit' => null, 'csrf' => $csrf, 'menu' => [
+        ['post' => $module->url('group_delete'), 'fields' => ['group_id' => $g['public_id']], 'label' => t('Delete'), 'confirm' => t('Delete the group? Its members stay.'), 'danger' => true],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
@@ -68,8 +70,8 @@
 <thead><tr><th scope="col"><?= e(t('E-mail address')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Groups')) ?></th><th scope="col"><?= e(t('Last sign-in')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($members as $m): $mine = $memberGroups[(int) $m['member_id']] ?? []; ?>
-<tr>
-	<td><?= e($m['email']) ?><?= $m['confirmed_at'] === null ? ' <span class="badge">' . e(t('not confirmed')) . '</span>' : '' ?></td>
+<tr<?= $m['confirmed_at'] === null ? ' class="inactive"' : '' ?>>
+	<td class="cell-main"><div class="cell-text"><span class="cell-title"><?= e($m['email']) ?></span><?= $m['confirmed_at'] === null ? '<span class="cell-sub">' . e(t('not confirmed')) . '</span>' : '' ?></div></td>
 	<td colspan="3">
 		<form class="inline" method="post" action="<?= e($module->url('save_member')) ?>"><?= $csrf ?><input type="hidden" name="member_id" value="<?= e($m['public_id']) ?>">
 		<input class="textfield" type="text" name="name" value="<?= e($m['name']) ?>" maxlength="100" aria-label="<?= e(t('Name')) ?>">
@@ -78,7 +80,9 @@
 <?php endforeach ?>
 		<button class="navigation" type="submit"><?= e(t('Save')) ?></button>
 		<span class="help"><?= $m['last_login_at'] !== null ? e(format_date((string) $m['last_login_at'])) : '–' ?></span></form></td>
-	<td class="actions"><form class="inline" method="post" action="<?= e($module->url('remove')) ?>" data-confirm="<?= e(t('Remove this member? They are signed out at once and lose access.')) ?>"><?= $csrf ?><input type="hidden" name="member_id" value="<?= e($m['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Remove')) ?></button></form></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $m['public_id'], 'name' => (string) $m['email'], 'edit' => null, 'csrf' => $csrf, 'menu' => [
+        ['post' => $module->url('remove'), 'fields' => ['member_id' => $m['public_id']], 'label' => t('Remove'), 'confirm' => t('Remove this member? They are signed out at once and lose access.'), 'danger' => true],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
