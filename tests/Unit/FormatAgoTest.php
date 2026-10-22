@@ -31,6 +31,13 @@ final class FormatAgoTest extends TestCase
         );
     }
 
+    public function testACallersDateTimeIsLeftAlone(): void
+    {
+        $value = new \DateTime('2026-10-20 15:30:00');
+        format_ago($value, strtotime('2026-10-22 12:00:00'));
+        $this->assertSame('2026-10-20 15:30:00', $value->format('Y-m-d H:i:s'), 'format_ago does not move the time of the object it was given');
+    }
+
     public function testEarlierTodayIsHoursNotYesterday(): void
     {
         $this->assertSame('11 h ago', format_ago('2026-10-22 00:30:00', strtotime('2026-10-22 12:00:00')));
