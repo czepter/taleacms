@@ -153,7 +153,7 @@ final class Collections extends Module
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['collection_id']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Talea\Core\Documents::fileField($k) !== null ? \Talea\Core\Documents::counts($this->db, (int) $k['collection_id']) : null,
-            'items' => $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by FROM {collection_items} WHERE collection_id = ? AND deleted_at IS ' . ($trash ? 'NOT NULL' : 'NULL')
+            'items' => $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by, data, image FROM {collection_items} WHERE collection_id = ? AND deleted_at IS ' . ($trash ? 'NOT NULL' : 'NULL')
                 . ($column !== null ? ' AND language = ?' : '') . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $column !== null ? [$k['collection_id'], $column] : [$k['collection_id']])]);
     }
 
@@ -246,7 +246,7 @@ final class Collections extends Module
         $language = Language::column($this->app->settings(), $this->request->post('language'));
         $done = 0;
         $skipped = 0;
-        foreach (array_unique(array_map(intval(...), $this->request->postList('selected'))) as $idp) {
+        foreach (array_unique(array_map(fn (string $uuid): int => $this->db->internalId('collection_items', $uuid), $this->request->postList('selected'))) as $idp) {
             $p = $this->db->one('SELECT item_id, name, slug, language FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk]);
             // the address is unique within a language: an item whose address the target language already has stays where it is
             if ($p === null || ($action === 'language' && $this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$idk, $language, $p['slug'], $idp]) !== null)) {
