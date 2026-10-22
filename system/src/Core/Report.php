@@ -16,6 +16,42 @@ final class Report
 {
     public const array PERIODS = [7, 30, 90, 365];
 
+    /**
+     * The few figures Home shows "at a glance": the totals of the period next to those of the period before it, visits per
+     * day for the line, and the most viewed page. Cheaper than build(): no tables by page, campaign or device.
+     *
+     * @return array{period_days: int, totals: array<string, int>, previous: array<string, int>, conversion: ?float, visits_by_day: list<int>, top_page: ?string}
+     */
+    public static function glance(Db $db, int $days): array
+    {
+        $days = in_array($days, self::PERIODS, true) ? $days : 30;
+        $since = date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
+        $tomorrow = date('Y-m-d', strtotime('+1 day'));
+        $totals = fn (string $from, string $to): array => [
+            'visits' => (int) $db->value('SELECT COALESCE(SUM(visits), 0) FROM {stats_days} WHERE day >= ? AND day < ?', [$from, $to]),
+            'views' => (int) $db->value('SELECT COALESCE(SUM(views), 0) FROM {stats_days} WHERE day >= ? AND day < ?', [$from, $to]),
+            'enquiries' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at >= ? AND created_at < ?', [$from . ' 00:00:00', $to . ' 00:00:00']),
+            'signups' => (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE created_at >= ? AND created_at < ? AND status = 1', [$from . ' 00:00:00', $to . ' 00:00:00']),
+            'contact_clicks' => Conversions::total(Conversions::summary($db, $from, $to)),
+        ];
+        $current = $totals($since, $tomorrow);
+        $traffic = $db->pairs('SELECT day, visits FROM {stats_days} WHERE day >= ?', [$since]);
+        $byDay = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $byDay[] = (int) ($traffic[date('Y-m-d', strtotime("-{$i} days"))] ?? 0);
+        }
+        $top = $db->value('SELECT path FROM {stats_pages} WHERE day >= ? GROUP BY path ORDER BY SUM(views) DESC LIMIT 1', [$since]);
+
+        return [
+            'period_days' => $days,
+            'totals' => $current,
+            'previous' => $totals(date('Y-m-d', strtotime('-' . (2 * $days - 1) . ' days')), $since),
+            'conversion' => $current['visits'] > 0 ? round(100 * ($current['enquiries'] + $current['signups']) / $current['visits'], 1) : null,
+            'visits_by_day' => $byDay,
+            'top_page' => $top === null || $top === false ? null : (string) $top,
+        ];
+    }
+
     /** @return array<string, mixed> */
     public static function build(Db $db, int $days): array
     {
