@@ -585,7 +585,8 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
 
   // phone: the canvas stacks the section in source order, no overlap
   await page.getByRole('button', { name: 'Mobile' }).first().click();
-  await page.waitForTimeout(1500);
+  // the canvas narrows and the grid re-lays out after the click: wait for the stack, a fixed pause was too short on a busy host
+  await page.waitForFunction(() => { const d = window.taleaBuilder.previewDoc(); const [a, b] = ['cfa', 'cfb'].map((x) => d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect()); return a.bottom <= b.top + 1; }, null, { timeout: 15000 }).catch(() => {});
   const boxes = await page.evaluate(() => { const d = window.taleaBuilder.previewDoc(); return ['cfa', 'cfb'].map((x) => { const r = d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect(); return [r.top, r.bottom]; }); });
   expect(boxes[0][1] <= boxes[1][0] + 1, `at phone width the elements still overlap: ${JSON.stringify(boxes)}`);
   expect(await page.evaluate(() => window.taleaBuilder.previewDoc().defaultView.getComputedStyle(window.taleaBuilder.previewDoc().querySelector('.tl-compose')).display) === 'flex', 'the compose section does not stack on a phone');
