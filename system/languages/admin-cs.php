@@ -5815,4 +5815,11 @@ return [
     'Search enquiries' => 'Hledat poptávky',
     'Sign-in' => 'Přihlášení',
     'password only' => 'jen heslo',
+    '%d hits' => '%d návštěv',
+    'Address contains' => 'Adresa obsahuje',
+    'New redirect' => 'Nové přesměrování',
+    'Search redirects' => 'Hledat přesměrování',
+    'last 60 days' => 'posledních 60 dní',
+    'Edit redirect' => 'Upravit přesměrování',
+    'Ignore: %s' => 'Ignorovat: %s',
 ];

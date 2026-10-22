@@ -141,6 +141,17 @@ final class ListPartialsTest extends TestCase
         $this->assertStringContainsString('aria-checked="true"', $this->view->render('admin/list/switch', ['action' => '?t', 'fields' => [], 'on' => true, 'label' => 'x', 'csrf' => '']));
     }
 
+    public function testAttentionRendersTitleAndRows(): void
+    {
+        $html = $this->view->render('admin/list/attention', ['id' => 'not-found', 'title' => '3 addresses <not> found', 'meta' => 'last 60 days',
+            'rows' => '<div class="attention-row">row</div>', 'aside' => '<form>ignore all</form>']);
+        $this->assertStringContainsString('<section class="attention" aria-labelledby="not-found">', $html);
+        $this->assertStringContainsString('<h2 id="not-found">3 addresses &lt;not&gt; found</h2>', $html);
+        $this->assertStringContainsString('<span class="attention-meta">last 60 days</span>', $html);
+        $this->assertStringContainsString('<div class="attention-row">row</div>', $html, 'rows stay raw HTML');
+        $this->assertStringContainsString('<form>ignore all</form>', $html);
+    }
+
     public function testSelectionButtonsCanPostElsewhere(): void
     {
         $html = $this->view->render('admin/list/selection', ['form' => 'bulk', 'action' => '?restore', 'csrf' => '', 'actions' => [
