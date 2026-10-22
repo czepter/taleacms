@@ -306,7 +306,12 @@ final class Kernel
         return $data + [
             'ask' => $ask,
             // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
-            'pending' => \Talea\Core\PendingReview::all($this->app, $modules),
+            'pending' => [
+                // drafts of news authors wait for an editor – a row only when there are some
+                ...(isset($modules['news']) && ($awaiting = Modules\News::countAwaitingPublication($this->app)) > 0
+                    ? [['kind' => 'news_awaiting', 'label' => 'News from authors awaiting publication', 'count' => $awaiting, 'url' => 'admin.php?module=news&status=awaiting_publication', 'examples' => []]] : []),
+                ...\Talea\Core\PendingReview::all($this->app, $modules),
+            ],
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
             // the site card: what the site is called, where it lives and what waits for publishing
