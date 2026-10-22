@@ -158,7 +158,7 @@ class Settings extends Module
         $this->app->session->set('settings_invalid', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['fields' => [], 'values' => []];
 
-        return $this->view('list', 'Settings', [
+        return $this->view('list', static::IDENT === 'settings' ? (self::TABS[$tab] ?? 'Settings') : 'Settings', [
             'tab' => $tab,
             'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,

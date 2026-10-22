@@ -5828,4 +5828,7 @@ return [
     'you' => 'Sie',
     'Elsewhere' => 'Woandershin',
     'E-mail' => 'E-Mail',
+    'Data and system' => 'Daten und System',
+    'Users and roles' => 'Benutzer und Rollen',
+    'Features and add-ons' => 'Funktionen und Add-ons',
 ];

@@ -5821,4 +5821,7 @@ return [
     'bookable' => 'lze rezervovat',
     'you' => 'vy',
     'Elsewhere' => 'Jinam',
+    'Data and system' => 'Data a systém',
+    'Users and roles' => 'Uživatelé a role',
+    'Features and add-ons' => 'Funkce a doplňky',
 ];
