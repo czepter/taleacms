@@ -363,6 +363,9 @@ final class Kernel
                 'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
         }
         $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3], 'group' => self::FIRST_STEP_GROUPS[$k[0]] ?? 'Build your website'], $steps);
+        // Home shows the groups in the order of FIRST_STEP_GROUPS, the steps keep their order within a group
+        $order = array_flip(array_values(array_unique(self::FIRST_STEP_GROUPS)));
+        usort($result, fn (array $a, array $b): int => $order[$a['group']] <=> $order[$b['group']]);
 
         return array_filter($result, fn (array $k): bool => !$k['done']) === [] ? [] : $result;
     }
