@@ -5889,4 +5889,5 @@ return [
     'Shared in a chat or post' => 'Geteilt in einem Chat oder Beitrag',
     'Checks for this page' => 'Prüfungen dieser Seite',
     'Site-wide SEO and GEO' => 'SEO und GEO der ganzen Website',
+    'Undo' => 'Rückgängig',
 ];

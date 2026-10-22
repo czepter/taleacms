@@ -5882,4 +5882,5 @@ return [
     'Shared in a chat or post' => 'Sdíleno v chatu nebo příspěvku',
     'Checks for this page' => 'Kontroly této stránky',
     'Site-wide SEO and GEO' => 'SEO a GEO celého webu',
+    'Undo' => 'Zpět',
 ];
