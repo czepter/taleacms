@@ -12,6 +12,7 @@
  * @var list<array<string, mixed>> $staff
  * @var array{lead: int, horizon: int, cancel: int, reminder: int, hold: int, pendingThanks: string, pendingMail: string, declinedMail: string} $settings
  * @var int $waiting requests waiting for the provider's answer
+ * @var list<array<string, mixed>> $requests the next requests to confirm (beside the agenda, #113)
  * @var int $months
  * @var string $expiry
  * @var bool $isAdmin
@@ -42,12 +43,27 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Bookings'),
     'action' => $app->url('admin.php'), 'hidden' => ['module' => 'bookings'] + array_filter(['view' => $shown === 'upcoming' ? '' : $shown]), 'filters' => $filters]);
 $kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'declined' => 'off', 'cancelled' => 'off', 'no_show' => 'error'];
 ?>
-<?php if ($waiting > 0): ?>
-<p class="notice notice-warning"><a href="<?= e($module->url('', ['status' => 'pending', 'view' => 'all'])) ?>"><?= e(t('%d requests are waiting for your answer.', $waiting)) ?></a></p>
-<?php endif ?>
 <?php if ($services === [] || $staff === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('Set up the booking first.'), 'text' => t('Add a service (what and how long) and a person who offers it. Then put the Booking element on a page – visitors pick a service, a person, a day and a free time.'), 'action' => $isAdmin ? [$module->url('services', ['new' => 1]), t('Add a service')] : null]) ?>
-<?php elseif ($byDay === []): ?>
+<?php else: ?>
+<div class="bookings-grid">
+<?php if ($requests !== []): ?>
+<section class="bookings-requests" aria-labelledby="bookings-requests-heading">
+	<h2 id="bookings-requests-heading"><?= e(t('Requests to confirm')) ?> <span class="small-text"><?= $waiting ?></span></h2>
+<?php foreach ($requests as $b): ?>
+	<article>
+		<p><strong><?= $b['anonymised_at'] !== null ? e(t('anonymised')) : e((string) $b['name']) ?></strong><br><span class="small-text"><?= e((string) ($b['service'] ?? '')) ?> · <?= e(format_date_long(substr((string) $b['starts_at'], 0, 10))) ?>, <?= e(substr((string) $b['starts_at'], 11, 5)) ?><?= (string) ($b['staff'] ?? '') !== '' ? ' · ' . e((string) $b['staff']) : '' ?></span></p>
+		<p class="navigation-row"><form class="inline" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>"><button class="btn" type="submit"><?= e(t('Accept')) ?></button></form>
+			<a class="navigation" href="<?= e($module->url('detail', ['id' => $b['public_id']])) ?>"><?= e(t('Decline or propose a time')) ?></a></p>
+	</article>
+<?php endforeach ?>
+<?php if ($waiting > count($requests)): ?>
+	<p class="small-text"><a href="<?= e($module->url('', ['status' => 'pending', 'view' => 'all'])) ?>"><?= e(t('All requests (%d)', $waiting)) ?></a></p>
+<?php endif ?>
+</section>
+<?php endif ?>
+<section class="bookings-agenda" aria-label="<?= e(t('Bookings by day')) ?>">
+<?php if ($byDay === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('No bookings here.'), 'text' => t('Nothing booked for these days and filters.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
@@ -75,8 +91,12 @@ $kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'decl
 <?php endforeach ?>
 </table></div>
 <?php endif ?>
+</section>
+</div>
+<?php endif ?>
 <?php if ($isAdmin): ?>
-<h2><?= e(t('Settings')) ?></h2>
+<details class="panel-collapsed bookings-settings">
+<summary><h2><?= e(t('Booking settings')) ?></h2></summary>
 <form class="form" method="post" action="<?= e($module->url('settings')) ?>">
 <?= $csrf ?>
 <div class="row"><label for="lead"><?= e(t('Earliest booking')) ?></label><div><input class="textfield short" type="number" id="lead" name="lead" min="0" max="720" value="<?= $settings['lead'] ?>"> <?= e(t('hours ahead')) ?></div></div>
@@ -92,5 +112,6 @@ $kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'decl
 <span class="help"><?= e(t('The opening text; your personal message from the request follows it.')) ?></span></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
+</details>
 <p class="small-text"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Enquiries → settings).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Enquiries so personal data does not stay forever.')) ?> <?= e(t('Claude can check free times and set up services and people; reading bookings is recorded in the change log.')) ?></p>
 <?php endif ?>

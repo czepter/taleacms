@@ -1798,3 +1798,14 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 	.menu-open .menu-wrap { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; z-index: 12; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 32px; background: var(--base); border-top: 1px solid var(--line); }
 	.menu-open .menu a { display: flex; align-items: center; min-height: 44px; overflow-wrap: anywhere; }
 }
+
+/* ---------- Bookings (views/admin/bookings/list.php): the requests to confirm beside the bookings by day ---------- */
+.bookings-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; margin: 0 0 32px; }
+.bookings-requests { flex: 1 1 300px; max-width: 380px; display: grid; gap: 12px; }
+.bookings-requests h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.bookings-requests article { padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.bookings-requests article p { margin: 0 0 10px; }
+.bookings-requests article .navigation-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.bookings-agenda { flex: 999 1 480px; min-width: 0; display: grid; gap: 10px; }
+.bookings-settings > summary h2 { margin: 0; font-size: 15px; }
+.bookings-settings .form { border: 0; border-top: 1px solid var(--line); border-radius: 0; max-width: none; }
