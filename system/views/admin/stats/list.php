@@ -5,6 +5,7 @@
  * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\Stats $module
  * @var array<string, mixed> $report
+ * @var list<array<string, mixed>> $experiments the running experiments (Builder\Experiments::all)
  */
 $days = (int) $report['period_days'];
 $chart = $report['days'];
@@ -44,11 +45,14 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
     return e($format((float) $r[$metric . '_p75'])) . ' <span class="badge ' . $class . '">' . e(t($label)) . '</span>';
 };
 ?>
+<div class="stats-head">
+<p class="small-text"><?= e(t('Counted without cookies')) ?></p>
 <nav class="tabs" aria-label="<?= e(t('Period')) ?>">
 <?php foreach (Talea\Core\Report::PERIODS as $d): ?>
 	<a href="<?= e($module->url('', ['days' => $d])) ?>"<?= $days === $d ? ' class="active" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
 <?php endforeach ?>
 </nav>
+</div>
 <div class="tiles">
 	<div class="tiles-item"><strong><?= format_count((int) $totals['visits']) ?></strong><span><?= e(t('Visits')) ?></span></div>
 	<div class="tiles-item"><strong><?= format_count((int) $totals['views']) ?></strong><span><?= e(t('Page views')) ?></span></div>
@@ -56,7 +60,8 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 	<div class="tiles-item"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
 	<div class="tiles-item"><strong><?= format_count(Talea\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
 </div>
-<h2><?= e(t('Page views and visits by day')) ?></h2>
+<figure class="stats-chart">
+<figcaption><?= e(t('Page views and visits by day')) ?></figcaption>
 <div class="chart" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
 <?php foreach ($chart as $h): ?>
 <?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : ''); ?>
@@ -64,6 +69,17 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 <?php endforeach ?>
 </div>
 <p class="small-text"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
+</figure>
+<?php if ($experiments !== []): ?>
+<section class="stats-experiments" aria-labelledby="stats-experiments-heading">
+	<h2 id="stats-experiments-heading"><?= e(t('Running experiments')) ?></h2>
+	<ul>
+<?php foreach ($experiments as $x): ?>
+		<li><a href="<?= e($app->url('admin.php?module=experiments&action=show&id=' . $x['public_id'])) ?>"><strong><?= e($x['name']) ?></strong></a> <span class="small-text"><?= e($x['page_title']) ?></span></li>
+<?php endforeach ?>
+	</ul>
+</section>
+<?php endif ?>
 
 <div class="stats-tables">
 <?php

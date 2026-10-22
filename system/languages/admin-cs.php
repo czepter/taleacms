@@ -5857,4 +5857,6 @@ return [
     'All requests (%d)' => 'Všechny žádosti (%d)',
     'Bookings by day' => 'Rezervace po dnech',
     'Booking settings' => 'Nastavení rezervací',
+    'Counted without cookies' => 'Měřeno bez cookies',
+    'Running experiments' => 'Běžící experimenty',
 ];
