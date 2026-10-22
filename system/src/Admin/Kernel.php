@@ -292,16 +292,7 @@ final class Kernel
         }
         usort($edited, fn (array $a, array $b): int => strcmp($b['edited'], $a['edited']));
 
-        // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
-        // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
-        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
-            'connected' => \Talea\Core\AskClaude::connected($db),
-            'examples' => \Talea\Core\AskClaude::examples($modules),
-            'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
-            'routine' => \Talea\Core\AskClaude::routine($db),
-            'prompt' => \Talea\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'), \Talea\Core\Language::visitorAddress($this->app->settings())),
-            'admin' => $this->app->auth()->isAdmin(),
-        ] : null;
+        $ask = $this->askClaude();
 
         return $data + [
             'ask' => $ask,
@@ -323,6 +314,28 @@ final class Kernel
             ],
             'edited' => array_slice($edited, 0, 6),
         ];
+    }
+
+    /**
+     * "Ask Claude" (3.1): a front door to the requests inbox, on Home and above the requests (#113) – only with the section and the
+     * Claude connection on (not in the public demo, where the Claude connection is refused); it knows whether Claude was
+     * connected at all (3.1.1). null = no box.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function askClaude(): ?array
+    {
+        $modules = $this->modules();
+        $db = $this->app->db();
+
+        return isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
+            'connected' => \Talea\Core\AskClaude::connected($db),
+            'examples' => \Talea\Core\AskClaude::examples($modules),
+            'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
+            'routine' => \Talea\Core\AskClaude::routine($db),
+            'prompt' => \Talea\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'), \Talea\Core\Language::visitorAddress($this->app->settings())),
+            'admin' => $this->app->auth()->isAdmin(),
+        ] : null;
     }
 
     /**
