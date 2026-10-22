@@ -17,16 +17,18 @@ $names = array_column($staff, 'name', 'id');
 <?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('Add a service'), 'text' => t('No services yet. A service is what the visitor books: a haircut, a consultation, a tyre change – with how long it takes.'), 'action' => [$module->url('services', ['new' => 1]), t('New service')]]) ?>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Duration')) ?></th><th scope="col"><?= e(t('Buffer')) ?></th><th scope="col"><?= e(t('Price')) ?></th><th scope="col"><?= e(t('Offered by')) ?></th><th scope="col"></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Duration')) ?></th><th scope="col"><?= e(t('Price')) ?></th><th scope="col"><?= e(t('Offered by')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($services as $s): ?>
-<tr<?= $s['active'] ? '' : ' class="unpublished"' ?>>
-	<td><a href="<?= e($module->url('services', ['id' => $s['public_id']])) ?>"><strong><?= e($s['name']) ?></strong></a><?= $s['active'] ? '' : ' <span class="small-text">(' . e(t('switched off')) . ')</span>' ?><?= $s['requires_confirmation'] ? ' <span class="small-text">(' . e(t('requires confirmation')) . ')</span>' : '' ?><?= $s['description'] !== '' ? '<br><span class="small-text">' . e($s['description']) . '</span>' : '' ?></td>
-	<td><?= e(t('%d min', $s['duration_min'])) ?></td>
-	<td><?= $s['buffer_min'] > 0 ? e(t('%d min', $s['buffer_min'])) : '—' ?></td>
+<?php foreach ($services as $s): $editUrl = $module->url('services', ['id' => $s['public_id']]); ?>
+<tr>
+	<td class="cell-main"><div class="cell-text"><span class="cell-row"><a class="cell-title" href="<?= e($editUrl) ?>"><?= e($s['name']) ?></a><?= $s['requires_confirmation'] ? ' <span class="tag">' . e(t('requires confirmation')) . '</span>' : '' ?></span><?= $s['description'] !== '' ? '<span class="cell-sub">' . e($s['description']) . '</span>' : '' ?></div></td>
+	<td class="cell-weak"><?= e(t('%d min', $s['duration_min'])) ?><?= $s['buffer_min'] > 0 ? ' + ' . e(t('%d min', $s['buffer_min'])) : '' ?></td>
 	<td><?= e($s['price_text']) ?></td>
-	<td><?= $s['staff'] === [] ? '<span class="small-text">' . e(t('nobody yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '–'), $s['staff']))) ?></td>
-	<td class="center"><form method="post" action="<?= e($module->url('service_delete')) ?>" data-confirm="<?= e(t('Delete the service?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($s['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td><?= $s['staff'] === [] ? '<span class="status-note-warning">' . e(t('nobody yet')) . '</span>' : e(implode(', ', array_map(fn (int $id): string => (string) ($names[$id] ?? '–'), $s['staff']))) ?></td>
+	<td><?= $app->view->render('admin/list/status', $s['active'] ? ['kind' => 'live', 'label' => t('bookable')] : ['kind' => 'off', 'label' => t('switched off')]) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $s['public_id'], 'name' => $s['name'], 'edit' => $editUrl, 'csrf' => $csrf, 'menu' => [
+        ['post' => $module->url('service_delete'), 'fields' => ['id' => $s['public_id']], 'label' => t('Delete'), 'confirm' => t('Delete the service?'), 'danger' => true],
+    ]]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

@@ -34,7 +34,7 @@ echo $app->view->render('admin/list/head', ['count' => (string) count($newslette
 ?>
 <tr>
 	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($edit) ?>"><?= e($n['subject']) ?></a></div></td>
-	<td><?= $app->view->render('admin/list/status', ['kind' => (int) $n['failed_count'] > 0 ? 'error' : $kind, 'label' => $label, 'notes' => $note !== null ? [['text' => $note, 'kind' => 'warning']] : []]) ?></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => (int) $n['failed_count'] > 0 ? 'error' : $kind, 'label' => $label, 'notes' => $note !== null ? [['text' => $note, 'kind' => 'neutral']] : []]) ?></td>
 	<td class="number"><?= $out ? (int) $n['recipients'] : '—' ?></td>
 	<td class="number"><?= $out ? (int) $n['sent_count'] : '—' ?></td>
 	<td class="number"><?= (int) $n['failed_count'] > 0 ? '<strong>' . (int) $n['failed_count'] . '</strong>' : ($n['status'] === 'sent' ? '0' : '—') ?></td>
