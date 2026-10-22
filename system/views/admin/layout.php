@@ -115,12 +115,9 @@ if ($username !== null) {
 <?= $app->view->render('admin/agency', ['app' => $app, 'withLogo' => false]) ?>
 <footer class="version">Talea <?= e(TALEA_VERSION) ?> · <?= e(t('Talea is free and has no ads.')) ?></footer>
 </main>
-<?php if (is_file(TALEA_ROOT . '/image/languages/admin-' . Talea\Core\Language::code() . '.js')): ?>
-<script src="<?= e($app->url('image/languages/admin-' . Talea\Core\Language::code() . '.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
-<?php if (Talea\Core\Language::register() === 'informal' && is_file(TALEA_ROOT . '/image/languages/admin-' . Talea\Core\Language::code() . '-du.js')): ?>
-<script src="<?= e($app->url('image/languages/admin-' . Talea\Core\Language::code() . '-du.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
-<?php endif ?>
-<?php endif ?>
+<?php foreach (Talea\Core\Language::scriptDictionaries() as $dictionary): ?>
+<script src="<?= e($app->url($dictionary)) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
+<?php endforeach ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-file="<?= Talea\Core\Files::limit() ?>" data-max-file-text="<?= e(Talea\Core\Files::limitText()) ?>" data-max-page="<?= Talea\Core\Images::MAX_SIDE ?>" defer></script>
 </body>
