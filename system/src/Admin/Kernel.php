@@ -64,6 +64,9 @@ final class Kernel
     /** Sections of the sidebar in their order (Module::GROUP); Settings is the gear at the bottom, not a section of the list. */
     public const array SECTIONS = ['Website', 'Content', 'Bookings', 'Customers', 'E-mail', 'Analytics', 'Claude'];
 
+    /** The periods "At a glance" on Home offers (days; Core\Report::PERIODS has a year too, Analytics shows that). */
+    public const array GLANCE_PERIODS = [7, 30, 90];
+
     /**
      * The sidebar of the Settings area (the gear): heading => list of [module ident, settings tab ('' = the module's own
      * screen), label]. An entry shows only when the person may open its module.
@@ -326,7 +329,39 @@ final class Kernel
                 'look' => $this->app->auth()->isAdmin() && \Talea\Core\Look::hasDraft($this->app->settings()),
             ],
             'edited' => array_slice($edited, 0, 6),
+            'glance' => $this->glance($modules),
         ];
+    }
+
+    /**
+     * "At a glance" on Home: visits, enquiries, bookings and pages of a period (?days=7|30|90) – each part only for whoever
+     * may open its section; null when there is none of them.
+     *
+     * @param array<string, class-string<Module>> $modules
+     * @return array<string, mixed>|null
+     */
+    private function glance(array $modules): ?array
+    {
+        $parts = array_intersect_key($modules, array_flip(['stats', 'enquiries', 'bookings', 'pages']));
+        if ($parts === []) {
+            return null;
+        }
+        $db = $this->app->db();
+        $days = in_array($this->app->request->getInt('days'), self::GLANCE_PERIODS, true) ? $this->app->request->getInt('days') : 30;
+        $report = \Talea\Core\Report::glance($db, $days);
+        $since = date('Y-m-d 00:00:00', strtotime('-' . ($days - 1) . ' days'));
+        $before = date('Y-m-d 00:00:00', strtotime('-' . (2 * $days - 1) . ' days'));
+
+        return ['days' => $days, 'parts' => array_keys($parts), 'report' => $report]
+            + (isset($parts['enquiries']) ? ['unread' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0')] : [])
+            + (isset($parts['bookings']) ? ['bookings' => [
+                'count' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ?', [$since]),
+                'previous' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ?', [$before, $since]),
+                'upcoming' => (int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE status IN ('pending', 'confirmed') AND starts_at >= NOW()"),
+                'next' => (string) $db->value("SELECT MIN(starts_at) FROM {bookings} WHERE status IN ('pending', 'confirmed') AND starts_at >= NOW()"),
+            ]] : [])
+            + (isset($parts['pages']) ? ['pages' => array_map(intval(...), $db->one('SELECT SUM(CASE WHEN visible = TRUE THEN 1 ELSE 0 END) AS published, SUM(CASE WHEN visible = FALSE THEN 1 ELSE 0 END) AS hidden,
+                SUM(CASE WHEN build_draft IS NOT NULL THEN 1 ELSE 0 END) AS drafts FROM {pages} WHERE deleted_at IS NULL') ?? [])] : []);
     }
 
     /**
