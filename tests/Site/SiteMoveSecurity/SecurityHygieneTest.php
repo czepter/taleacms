@@ -50,7 +50,7 @@ final class SecurityHygieneTest extends SiteTestCase
         $this->assertSame(401, $site->client()->post('/mcp', '{"jsonrpc":"2.0","id":1,"method":"tools/list"}', ['Authorization: Bearer hygiene-old', 'Content-Type: application/json'])->status, 'a blocked account cannot use its token');
 
         $users = $this->assertPage('/admin.php?module=users', 200, 'blocked automatically', message: 'Users shows why the account is blocked');
-        $this->assertStringContainsString('(blocked automatically)', $users->body, 'Users: the automatic block is labelled');
+        $this->assertStringContainsString('<span class="tag tag-warning">blocked automatically</span>', $users->body, 'Users: the automatic block is labelled');
         $this->assertStringContainsString('action=reactivate', $users->body, 'Users: the automatic block can be reactivated');
 
         $old = (int) $site->value("SELECT user_id FROM tl_users WHERE username = 'old-editor'");
