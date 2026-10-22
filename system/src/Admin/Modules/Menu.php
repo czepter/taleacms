@@ -18,7 +18,7 @@ final class Menu extends Module
 {
     public const string IDENT = 'menu';
     public const string NAME = 'Menu';
-    public const string GROUP = 'Appearance';
+    public const string GROUP = 'Website';
     public const string ICON = 'menu';
     public const bool ADMIN_ONLY = true;
 

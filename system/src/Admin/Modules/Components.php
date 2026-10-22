@@ -25,7 +25,7 @@ final class Components extends Module
 
     public const string IDENT = 'components';
     public const string NAME = 'Components';
-    public const string GROUP = 'Appearance';
+    public const string GROUP = 'Website';
     public const string ICON = 'component';
     public const bool ADMIN_ONLY = true;
     public const string TABLE = 'components';

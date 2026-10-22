@@ -15,50 +15,72 @@ use Talea\Core\Extensions;
 final class Kernel
 {
     /**
-     * Modules in the order they appear in the menu (by the groups Content, Appearance, Administration).
+     * Modules in the order they appear in the menu, section by section (Module::GROUP); the first module of a section the
+     * person may open is where the section's link goes.
      *
      * @var list<class-string<Module>>
      */
     public const array MODULES = [
         Modules\Pages::class,
-        Modules\News::class,
-        Modules\Collections::class,
-        Modules\Media::class,
-        Modules\Newsletters::class,
-        Modules\Categories::class,
-        Modules\Tags::class,
-        Modules\Business::class,
-        Modules\Facts::class,
-        Modules\Blueprints::class,
-        Modules\Wizard::class,
-        Modules\Bookings::class,
-        Modules\Enquiries::class,
-        Modules\Subscribers::class,
-        Modules\Stats::class,
-        Modules\Experiments::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
         Modules\Components::class,
         Modules\Popups::class,
+        Modules\Audit::class,
+        Modules\Redirects::class,
+        Modules\News::class,
+        Modules\Categories::class,
+        Modules\Tags::class,
+        Modules\Collections::class,
+        Modules\Media::class,
+        Modules\Bookings::class,
+        Modules\Enquiries::class,
+        Modules\Members::class,
+        Modules\Newsletters::class,
+        Modules\Subscribers::class,
+        Modules\Stats::class,
+        Modules\Experiments::class,
         Modules\Requests::class,
         Modules\ClaudeSettings::class,
         Modules\Schedules::class,
         Modules\Notebook::class,
-        Modules\Audit::class,
-        Modules\Redirects::class,
-        Modules\ChangeLog::class,
-        Modules\Status::class,
+        Modules\Settings::class,
+        Modules\Business::class,
+        Modules\Facts::class,
+        Modules\Blueprints::class,
+        Modules\Wizard::class,
         Modules\Users::class,
         Modules\Roles::class,
-        Modules\Members::class,
-        Modules\Settings::class,
         Modules\Connectors::class,
         Modules\Extensions::class,
         Modules\Addons::class,
         Modules\Transfer::class,
+        Modules\ChangeLog::class,
+        Modules\Status::class,
         Modules\Fleet::class,
     ];
+
+    /** Sections of the sidebar in their order (Module::GROUP); Settings is the gear at the bottom, not a section of the list. */
+    public const array SECTIONS = ['Website', 'Content', 'Bookings', 'Customers', 'E-mail', 'Analytics', 'Claude'];
+
+    /**
+     * The menu entries of each section: section => [ident => class], without the modules that sit under a parent.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open (modules())
+     * @return array<string, array<string, class-string<Module>>>
+     */
+    public static function sections(array $modules): array
+    {
+        $sections = [];
+        foreach ($modules as $ident => $class) {
+            if ($class::PARENT === '' || !isset($modules[$class::PARENT])) {
+                $sections[$class::GROUP][$ident] = $class;
+            }
+        }
+
+        return $sections;
+    }
 
     public function __construct(public readonly App $app)
     {

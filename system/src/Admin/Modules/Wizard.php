@@ -26,7 +26,7 @@ final class Wizard extends Module
 {
     public const string IDENT = 'wizard';
     public const string NAME = 'Site wizard';
-    public const string GROUP = 'Company';
+    public const string GROUP = 'Settings';
     public const string ICON = 'templates';
     public const bool ADMIN_ONLY = true;
     public const string PARENT = 'business';

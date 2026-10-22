@@ -19,7 +19,7 @@ final class Fleet extends Module
 {
     public const string IDENT = 'fleet';
     public const string NAME = 'Fleet';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'site';
     public const string TABLE = 'fleet_sites';
     public const string EXTENSION = 'fleet';

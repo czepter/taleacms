@@ -20,7 +20,7 @@ final class Facts extends Module
     public const string HUB = 'business';
     public const string PARENT = 'business';
     public const string NAME = 'Facts';
-    public const string GROUP = 'Company';
+    public const string GROUP = 'Settings';
     public const string ICON = 'facts';
     public const bool ADMIN_ONLY = false;
 

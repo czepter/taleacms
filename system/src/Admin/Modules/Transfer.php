@@ -35,7 +35,7 @@ final class Transfer extends Module
 {
     public const string IDENT = 'transfer';
     public const string NAME = 'Import and export';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'b-archive';
     public const bool ADMIN_ONLY = true;
 

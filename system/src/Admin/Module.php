@@ -26,7 +26,7 @@ abstract class Module
     /** Title in the menu. */
     public const string NAME = '';
 
-    /** Group in the menu: Content | Appearance | Administration. */
+    /** Section of the sidebar: one of Kernel::SECTIONS, or Settings (the gear at the bottom). */
     public const string GROUP = 'Content';
 
     /** Icon in the menu (key into the set in views/admin/icons.php). */

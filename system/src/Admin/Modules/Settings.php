@@ -18,7 +18,7 @@ class Settings extends Module
 {
     public const string IDENT = 'settings';
     public const string NAME = 'Settings';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Settings';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
 
