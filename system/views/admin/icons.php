@@ -65,6 +65,22 @@ $paths = [
     'b-text' => '<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
     'placeholder' => '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.9"/><path d="M12 17h.01"/>',
     'out' => '<path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>',
+    // list actions (docs/specs/admin-lists.md)
+    'edit' => '<path d="M12 20h9"/><path d="M16.500 3.500a2.100 2.100 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    'more' => '<circle cx="5" cy="12" r="1.600" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.600" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.600" fill="currentColor" stroke="none"/>',
+    'check' => '<path d="M4 12.500 9.500 18 20 6.500"/>',
+    'home' => '<path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/>',
+    'plus' => '<path d="M12 5v14M5 12h14"/>',
+    'close' => '<path d="M6 6l12 12M18 6 6 18"/>',
+    'upload' => '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/>',
+    'download' => '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    'subpage' => '<path d="M6 3v10a4 4 0 0 0 4 4h10"/><path d="m16 13 4 4-4 4"/>',
+    'copy' => '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    'trash' => '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    'restore' => '<path d="M3 12a9 9 0 1 0 3-6.700"/><path d="M3 4v5h5"/>',
+    'eye' => '<path d="M2 12s3.500-7 10-7 10 7 10 7-3.500 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    'attachment' => '<path d="m21 11-8.500 8.500a5 5 0 0 1-7-7L14 4a3.500 3.500 0 0 1 5 5l-8.500 8.500a2 2 0 0 1-3-3L15 7"/>',
+    'layers' => '<path d="M12 2 3 7l9 5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
 ];
 
 return fn (string $key): string => '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$key] ?? $paths['article']) . '</svg>';

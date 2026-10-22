@@ -5760,4 +5760,8 @@ return [
     'below, at the end' => 'pod nimi, na konci',
     'Slideshow navigation' => 'Navigace prezentace',
     'Slideshow arrow position' => 'Umístění šipek prezentace',
+    'just now' => 'právě teď',
+    '%d min ago' => 'před %d min',
+    '%d h ago' => 'před %d h',
+    'yesterday' => 'včera',
 ];
