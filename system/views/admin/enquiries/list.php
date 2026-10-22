@@ -56,7 +56,10 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
     $status = (int) $p['status'];
     $who = (string) ($p['email'] !== '' ? $p['email'] : $p['form']);
     // the form, the topic with a link to the page it came from (2.12) and who handles it
-    $sub = array_filter([bdi($p['form']), ($p['topic'] ?? '') !== '' ? e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . bdi($p['topic']) . '</a>' : '',
+    // a page from an import (MCP migration) is stored as given: only a path on this site becomes a link
+    $page = (string) ($p['page'] ?? '');
+    $topic = ($p['topic'] ?? '') === '' ? '' : e(t('Topic')) . ': ' . (preg_match('#^/(?!/)[^\s\\\\]*$#', $page) ? '<a href="' . e($page) . '" target="_blank" rel="noopener">' . bdi($p['topic']) . '</a>' : bdi($p['topic']));
+    $sub = array_filter([bdi($p['form']), $topic,
         $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '→ ' . bdi($users[(int) $p['assigned_to']]) : '']);
     $one = ['selected[]' => $p['public_id']];
 ?>
