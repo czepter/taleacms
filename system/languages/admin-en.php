@@ -5,6 +5,6 @@
  */
 
 return [
-    'datum_format' => 'j M Y',
     'date_in_words' => 'l j F Y',
+    'datum_format' => 'j M Y',
 ];
