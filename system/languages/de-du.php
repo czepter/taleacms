@@ -249,4 +249,9 @@ Der Link gilt %d Tage.
     'Mark the images you like with the heart – %d marked.' => 'Markiere die Bilder, die dir gefallen, mit dem Herz – %d markiert.',
     'Get in touch – within [number] hours we will come back with a proposal for next steps.' => 'Melde dich – innerhalb von [Anzahl] Stunden melden wir uns mit einem Vorschlag für das weitere Vorgehen.',
     'Choose a service and a free time – the confirmation arrives by email.' => 'Wähle eine Leistung und eine freie Zeit – die Bestätigung kommt per E-Mail.',
+    'Your request for %s – %s' => 'Deine Anfrage für den %s – %s',
+    'Your original request:' => 'Deine ursprüngliche Anfrage:',
+    'Your request' => 'Deine Anfrage',
+    'Your appointment is confirmed – thank you.' => 'Dein Termin ist bestätigt – vielen Dank.',
+    'Your appointment is confirmed' => 'Dein Termin ist bestätigt',
 ];

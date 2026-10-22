@@ -72,10 +72,9 @@ final class Kernel
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
         // (a regional site language such as de-at gives the administration of its language)
-        $language = \Talea\Core\Language::base((string) ($app->auth()->user()['language'] ?? '') ?: \Talea\Core\Language::defaults($app->settings()));
         \Talea\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Talea\Core\Language::setSiteRegister($app->settings()->get('german_register'));
-        \Talea\Core\Language::set(isset(\Talea\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'en', 'admin-');
+        \Talea\Core\Language::set(\Talea\Core\Language::adminCode($app->auth()->user(), $app->settings()), 'admin-');
         if (\Talea\Core\Files::bodyTooLarge($request)) {
             return $this->page('Invalid request', $app->view->render('admin/error', [
                 'text' => t('The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.', \Talea\Core\Files::size(\Talea\Core\Files::iniBytes((string) ini_get('post_max_size')))),
