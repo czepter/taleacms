@@ -38,8 +38,15 @@ final class Components extends Module
             $k['usage'] = count($k['places']);
         }
         unset($k);
+        // tabs (docs/specs/admin-lists.md): unpublished changes and components nothing uses
+        $changed = fn (array $k): bool => $k['build_draft'] !== null && $k['build'] !== null;
+        $counts = ['total' => count($components), 'changes' => count(array_filter($components, $changed)), 'unused' => count(array_filter($components, fn (array $k): bool => $k['usage'] === 0))];
+        $status = in_array($this->request->get('status'), ['changes', 'unused'], true) ? $this->request->get('status') : '';
+        if ($status !== '') {
+            $components = array_values(array_filter($components, $status === 'changes' ? $changed : fn (array $k): bool => $k['usage'] === 0));
+        }
 
-        return $this->view('list', 'Components', ['components' => $components]);
+        return $this->view('list', 'Components', ['components' => $components, 'counts' => $counts, 'status' => $status]);
     }
 
     protected function actionNew(): Response
