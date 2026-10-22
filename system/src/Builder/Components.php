@@ -13,7 +13,7 @@ use Talea\Core\Db;
 final class Components
 {
     /** Property types (a subset of collection fields). */
-    public const array TYPES = ['text' => 'short text', 'lines' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link'];
+    public const array TYPES = ['text' => 'short text', 'lines' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link', 'radio' => 'choice from options'];
 
     /** Maximum nesting of components (a component in a component…). */
     public const int MAX_NESTING = 4;
@@ -40,9 +40,9 @@ final class Components
     }
 
     /**
-     * Property definitions from the form or from AI: key, label, type and default value (checked by type).
+     * Property definitions from the form or from AI: key, label, type and default value (checked by type); a choice keeps its options.
      *
-     * @return list<array{key: string, label: string, type: string, default: string}>
+     * @return list<array{key: string, label: string, type: string, default: string, options?: list<string>}>
      */
     public static function sanitizeProperties(mixed $input): array
     {

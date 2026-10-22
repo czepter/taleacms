@@ -42,6 +42,20 @@ trait BuilderActions
      */
     abstract protected function describeTarget(array $target): array;
 
+    /**
+     * Opened from another builder's canvas ("Edit site header", a component's "Edit here" or "Open", #116): the way back leads to
+     * that builder. Only an address of this administration's builder is taken – never another site.
+     *
+     * @return array{url: string, text: string}|null
+     */
+    protected function backToBuilder(): ?array
+    {
+        $back = $this->request->get('back');
+        $admin = $this->app->url('admin.php?module=');
+
+        return str_starts_with($back, $admin) && preg_match('/^[a-z_]+&action=builder&[^\s"<>]*$/', substr($back, strlen($admin))) === 1 ? ['url' => $back, 'text' => t('Back to the page')] : null;
+    }
+
     /** Full-screen build editor: canvas with the real site page, tree, properties. */
     protected function actionBuilder(): Response
     {
@@ -76,7 +90,7 @@ trait BuilderActions
         Library::createClasses($this->db, ['card']); // card pattern in the Collection list
         $defaultLanguage = Language::defaults($app->settings());
         $data = [
-            'page' => ['title' => $target['title'], 'url' => $e['url'], 'visible' => $e['visible'], 'published' => $target['build'] !== null, 'can_publish' => $app->auth()->canPublish(),
+            'page' => ['id' => $e['id'] ?? null, 'title' => $target['title'], 'url' => $e['url'], 'visible' => $e['visible'], 'published' => $target['build'] !== null, 'can_publish' => $app->auth()->canPublish(),
                 'headings' => (bool) ($e['headings'] ?? false), 'description' => (string) ($e['description'] ?? ''), 'image' => (string) ($e['image'] ?? '')], // check before publishing: the page should have one h1 and not skip levels
             'build' => Build::fromJson($target['draft'] ?? $target['build']),
             'changed' => $target['draft'] !== null && $target['draft'] !== $target['build'],
@@ -105,6 +119,7 @@ trait BuilderActions
             'comments' => $this->commentsForEditor((string) ($e['signature'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
             'settings_text' => $e['settings_text'] ?? null, // label of the link to the target's settings (otherwise "Page settings")
             'back' => $e['back'],
+            'context' => $e['context'] ?? null, // a component opened from a page's canvas: the page and the places that share it
             'urls' => array_map(fn (string $action): string => $this->url($action, $target['params']), [
                 'save' => 'build_save', 'publish' => 'build_publish', 'discard' => 'build_discard', 'section' => 'build_section', 'class' => 'build_class',
                 'versions' => 'build_versions', 'compare' => 'build_compare', 'restore' => 'build_restore','ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',

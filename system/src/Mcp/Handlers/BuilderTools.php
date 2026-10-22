@@ -233,7 +233,7 @@ trait BuilderTools
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => $k['properties'], 'published' => $k['build'] !== null,
+        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => self::fieldTypes($k['properties'], false), 'published' => $k['build'] !== null,
             'unpublished_changes' => $k['build_draft'] !== null], \Talea\Builder\Components::all($db));
     }
 
@@ -256,7 +256,7 @@ trait BuilderTools
             throw new \InvalidArgumentException('The component needs a name.');
         }
         $data = ['name' => $name, 'updated_at' => date('Y-m-d H:i:s'), 'properties' => (string) json_encode(\Talea\Builder\Components::sanitizeProperties(
-            is_array($a['properties'] ?? null) ? $a['properties'] : ($current['properties'] ?? [])), JSON_UNESCAPED_UNICODE)];
+            self::fieldTypes(is_array($a['properties'] ?? null) ? $a['properties'] : ($current['properties'] ?? []), true)), JSON_UNESCAPED_UNICODE)];
         if ($current !== null) {
             $db->update('components', $data, ['component_id' => $id]);
         } else {

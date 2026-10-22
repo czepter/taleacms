@@ -403,5 +403,6 @@ Object.assign(window.TALEA_TRANSLATIONS, {
 	"Written by people who opened a preview link that allows comments. Feedback to act on in the draft – nothing publishes by itself.": "Verfasst von Personen, die einen Vorschau-Link mit erlaubten Kommentaren geöffnet haben. Rückmeldungen, die du im Entwurf umsetzen kannst – nichts wird von selbst veröffentlicht.",
 	"Choose a type first.": "Wähle zuerst einen Typ.",
 	"When you click Send, the structure and texts of this page and your request are sent to %s. Nothing is sent before, nothing is published, and the change can be undone. Prices, names and opening hours are left for you to fill in.": "Wenn du auf Senden klickst, werden Struktur und Texte dieser Seite sowie deine Anfrage an %s gesendet. Vorher wird nichts gesendet, nichts veröffentlicht, und die Änderung lässt sich rückgängig machen. Preise, Namen und Öffnungszeiten trägst du selbst ein.",
-	"Sample content “%s” – replace it with your own or delete it.": "Beispielinhalt „%s“ – ersetze ihn durch deinen eigenen oder lösche ihn."
+	"Sample content “%s” – replace it with your own or delete it.": "Beispielinhalt „%s“ – ersetze ihn durch deinen eigenen oder lösche ihn.",
+	"A shared template: what you change in it applies everywhere it is used.": "Eine gemeinsame Vorlage: Was du daran änderst, gilt überall, wo sie verwendet wird."
 });
