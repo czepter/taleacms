@@ -216,7 +216,8 @@ final class Booking
     /**
      * Saves a service. Returns the row, or the error text.
      *
-     * @param array<string, mixed> $data name, duration_min, buffer_min, price_text, description, active, sort_order, requires_confirmation, staff (ids)
+     * @param array<string, mixed> $data name, duration_min, buffer_min, price_text, description, active, sort_order, requires_confirmation, staff (ids),
+     *        staff_hours (person id => weekday => "9-12, 13-17"; replaces the service's own hours, an empty map = everyone's weekly hours)
      * @return array<string, mixed>|string
      */
     public static function saveService(App $app, array $data, int $id = 0): array|string
@@ -234,6 +235,21 @@ final class Booking
         if ($duration < 5 || $duration > self::MAX_DURATION) {
             return 'The duration is in minutes, 5 to 480.';
         }
+        $staffHours = null;
+        if (isset($data['staff_hours'])) {
+            $staffHours = [];
+            $known = array_column(self::staff($db, false), 'id');
+            foreach (is_array($data['staff_hours']) ? $data['staff_hours'] : [] as $staffId => $perDay) {
+                if (!in_array((int) $staffId, $known, true)) {
+                    return 'The times need an existing person.';
+                }
+                $parsed = is_array($perDay) ? self::parseHours($perDay) : null;
+                if ($parsed === null) {
+                    return 'Write the times as ranges, e.g. 9:00-12:00, 13:00-17:00.';
+                }
+                $staffHours[(int) $staffId] = $parsed;
+            }
+        }
         $row = ['name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($data['buffer_min'] ?? ($existing['buffer_min'] ?? 0)))),
             'price_text' => mb_substr(trim(strip_tags((string) ($data['price_text'] ?? ($existing['price_text'] ?? '')))), 0, 60),
             'description' => mb_substr(trim(strip_tags((string) ($data['description'] ?? ($existing['description'] ?? '')))), 0, 500),
@@ -246,6 +262,12 @@ final class Booking
         }
         if (isset($data['staff']) && is_array($data['staff'])) {
             self::link($db, 'service_id', $id, 'staff_id', array_map('intval', $data['staff']), array_column(self::staff($db, false), 'id'));
+        }
+        if ($staffHours !== null) {
+            $db->run('DELETE FROM {booking_hours} WHERE service_id = ?', [$id]);
+            foreach ($staffHours as $staffId => $perDay) {
+                self::saveHours($db, $staffId, $id, $perDay);
+            }
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'service_create' : 'service_update', $name);
         \Talea\Front\Cache::clear();

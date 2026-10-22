@@ -194,8 +194,23 @@ final class Bookings extends Module
             return $refused;
         }
         $id = $this->idParam('id', 'booking_services');
+        $staff = Booking::staff($this->db, false);
+        if ($id === 0 && $this->request->get('new') === '') {
+            return $this->view('services', 'Services', ['services' => Booking::services($this->db, false), 'staff' => $staff]);
+        }
+        // one service on its own page: the form, with the times of each person for it
+        $service = $id > 0 ? Booking::service($this->db, $id) : [];
+        if ($service === null) {
+            return $this->error('The service does not exist.', 404);
+        }
+        $hours = [];
+        foreach ($staff as $m) {
+            $own = $id > 0 ? Booking::hours($this->db, $m['id'], $id) : [];
+            $hours[$m['id']] = array_map(fn (int $d): string => \Talea\Core\Hours::rangesText($own[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS)));
+        }
 
-        return $this->view('services', 'Services', ['services' => Booking::services($this->db, false), 'staff' => Booking::staff($this->db, false), 'edit' => $id > 0 ? Booking::service($this->db, $id) : ($this->request->get('new') !== '' ? [] : null)]);
+        return $this->view('service_edit', $service === [] ? 'New service' : (string) $service['name'], ['s' => $service, 'staff' => $staff, 'hours' => $hours,
+            'ownHours' => $id > 0 && (int) $this->db->value('SELECT COUNT(*) FROM {booking_hours} WHERE service_id = ?', [$id]) > 0]);
     }
 
     protected function actionServiceSave(): Response
@@ -207,10 +222,27 @@ final class Bookings extends Module
             return $this->back('', 'services');
         }
         $r = $this->request;
+        $id = $this->idParam('id', 'booking_services');
+        $form = $r->post('id') !== '' && $id > 0 ? ['id' => $r->post('id')] : ['new' => 1];
+        // the times of the service: per person who offers it, fields named by the person's public id; "person" = everyone's weekly hours
+        $staff = $staffHours = [];
+        foreach ($r->postList('staff') as $uuid) {
+            if (($staffId = $this->db->internalId('booking_staff', $uuid)) > 0) {
+                $staff[] = $staffId;
+                foreach (array_keys(Booking::WEEKDAYS) as $d) {
+                    $staffHours[$staffId][$d] = $r->post('hours_' . $uuid . '_' . $d);
+                }
+            }
+        }
+        if ($r->post('hours_mode') !== 'own') {
+            $staffHours = [];
+        } elseif (implode('', array_merge([], ...array_values($staffHours))) === '') {
+            return $this->back('Enter times for at least one day, or choose "When the person works".', 'services', $form, 'error');
+        }
         $result = Booking::saveService($this->app, ['name' => $r->post('name'), 'duration_min' => $r->postInt('duration_min'), 'buffer_min' => $r->postInt('buffer_min'), 'price_text' => $r->post('price_text'),
-            'description' => $r->post('description'), 'active' => $r->postBool('active'), 'requires_confirmation' => $r->postBool('requires_confirmation'), 'sort_order' => $r->postInt('sort_order'), 'staff' => array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('booking_staff', $uuid), $r->postList('staff'))))], $this->idParam('id', 'booking_services'));
+            'description' => $r->post('description'), 'active' => $r->postBool('active'), 'requires_confirmation' => $r->postBool('requires_confirmation'), 'sort_order' => $r->postInt('sort_order'), 'staff' => $staff, 'staff_hours' => $staffHours], $id);
 
-        return is_string($result) ? $this->back($result, 'services', $r->post('id') !== '' && $this->idParam('id', 'booking_services') > 0 ? ['id' => $r->post('id')] : ['new' => 1], 'error') : $this->back('The service is saved.', 'services');
+        return is_string($result) ? $this->back($result, 'services', $form, 'error') : $this->back('The service is saved.', 'services');
     }
 
     protected function actionServiceDelete(): Response
@@ -246,7 +278,7 @@ final class Bookings extends Module
         $text = fn (array $hours): array => array_map(fn (int $d): string => \Talea\Core\Hours::rangesText($hours[$d] ?? []), $days);
 
         return $this->view('staff_edit', $member === [] ? 'New person' : (string) $member['name'], ['m' => $member, 'services' => Booking::services($this->db, false),
-            'hours' => $text($id > 0 ? Booking::hours($this->db, $id) : []), 'serviceHours' => array_map($text, $id > 0 ? Booking::serviceHours($this->db, $id) : []),
+            'hours' => $text($id > 0 ? Booking::hours($this->db, $id) : []), 'ownHours' => $id > 0 ? array_keys(Booking::serviceHours($this->db, $id)) : [],
             'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Talea\Core\Hours::week($this->app->settings()),
             'users' => $this->db->pairs("SELECT public_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"), 'userPublicId' => $id > 0 ? $this->publicId((int) ($member['user_id'] ?? 0), 'users') : '']);
     }
@@ -264,19 +296,11 @@ final class Bookings extends Module
         foreach (array_keys(Booking::WEEKDAYS) as $d) {
             $hours[$d] = $r->post('hours_' . $d);
         }
-        // hours per service: the fields of the services the person offers, named by the service's public id
-        $services = $serviceHours = [];
-        foreach ($r->postList('services') as $uuid) {
-            if (($serviceId = $this->db->internalId('booking_services', $uuid)) > 0) {
-                $services[] = $serviceId;
-                foreach (array_keys(Booking::WEEKDAYS) as $d) {
-                    $serviceHours[$serviceId][$d] = $r->post('hours_' . $uuid . '_' . $d);
-                }
-            }
-        }
+        // the times of one service are kept on the service's page (service_save)
+        $services = array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('booking_services', $uuid), $r->postList('services'))));
         $id = $this->idParam('id', 'booking_staff');
         $result = Booking::saveStaff($this->app, ['name' => $r->post('name'), 'email' => $r->post('email'), 'active' => $r->postBool('active'), 'user_id' => $this->idParam('user_id', 'users'), 'sort_order' => $r->postInt('sort_order'),
-            'services' => $services, 'hours' => $hours, 'service_hours' => $serviceHours], $id);
+            'services' => $services, 'hours' => $hours], $id);
         if (is_string($result)) {
             return $this->back($result, 'staff_edit', $id > 0 ? ['id' => $this->publicId($id, 'booking_staff')] : [], 'error');
         }
