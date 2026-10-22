@@ -5821,4 +5821,11 @@ return [
     'Search enquiries' => 'Anfragen durchsuchen',
     'Sign-in' => 'Anmeldung',
     'password only' => 'nur Passwort',
+    '%d hits' => '%d Aufrufe',
+    'Address contains' => 'Adresse enthält',
+    'New redirect' => 'Neue Weiterleitung',
+    'Search redirects' => 'Weiterleitungen durchsuchen',
+    'last 60 days' => 'letzte 60 Tage',
+    'Edit redirect' => 'Weiterleitung bearbeiten',
+    'Ignore: %s' => 'Ignorieren: %s',
 ];
