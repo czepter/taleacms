@@ -900,4 +900,5 @@ return [
     'Choose the news items yourself – for a monthly review or a theme.' => 'Du wählst die Beiträge selbst aus – für einen Monatsrückblick oder ein Thema.',
     'Your newsletters' => 'Deine Newsletter',
     'Your SMTP server sends in batches. Every e-mail carries a one-click unsubscribe link. Send yourself a test before it goes out.' => 'Dein SMTP-Server versendet in Etappen. Jede E-Mail enthält einen Abmeldelink mit einem Klick. Sende dir vorher einen Test.',
+    'Create the first page of your site.' => 'Lege die erste Seite deiner Website an.',
 ];

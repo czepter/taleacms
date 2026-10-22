@@ -5859,4 +5859,13 @@ return [
     'Booking settings' => 'Nastavení rezervací',
     'Counted without cookies' => 'Měřeno bez cookies',
     'Running experiments' => 'Běžící experimenty',
+    'New request with details' => 'Nový požadavek s podrobnostmi',
+    'Not in the menu' => 'Mimo menu',
+    'Header, footer and system pages' => 'Hlavička, patička a systémové stránky',
+    'All pages' => 'Všechny stránky',
+    'Trash (%d)' => 'Koš (%d)',
+    'Page settings' => 'Nastavení stránky',
+    'Open the live page' => 'Otevřít živou stránku',
+    'Preview of %s' => 'Náhled: %s',
+    'Create the first page of your site.' => 'Vytvořte první stránku svého webu.',
 ];
