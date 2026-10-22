@@ -302,6 +302,34 @@ h3.center {
 .header-pages h1 {
 	margin: 0;
 }
+/* a list's count next to the heading and its buttons on the right (docs/specs/admin-lists.md) */
+.page-title {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 12px;
+}
+.page-count {
+	color: var(--text-weak);
+	font-size: 15px;
+}
+.page-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+.page-actions .guide-link { margin-inline-end: 4px; }
+.quiet-link {
+	padding: 10px 8px;
+	color: var(--text-weak);
+	font-size: 15px;
+	text-decoration: none;
+}
+.quiet-link:hover,
+.quiet-link:focus-visible {
+	color: var(--text);
+}
 /* link to the guide article about the open screen (2.4) */
 .guide-link {
 	display: inline-flex;
