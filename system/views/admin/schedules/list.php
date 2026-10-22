@@ -39,7 +39,7 @@ $when = fn (array $s): string => match ((string) $s['cadence']) {
 	<td class="cell-weak"><?= e($when($s)) ?></td>
 	<td class="cell-weak"><?= $active && $s['next_due'] !== null ? e(format_date((string) $s['next_due'], true)) : '—' ?></td>
 	<td><?= $app->view->render('admin/list/status', $last($s['last_status'] !== null ? (string) $s['last_status'] : null) + ['notes' => array_values(array_filter([
-        $s['last_finished'] !== null ? ['text' => format_ago((string) $s['last_finished'])] : null,
+        $s['last_finished'] !== null ? ['text' => format_ago((string) $s['last_finished']), 'kind' => 'neutral'] : null,
     ]))]) ?><?= $s['last_summary'] !== null && $s['last_summary'] !== '' ? '<span class="cell-sub" title="' . e((string) $s['last_summary']) . '">' . e(mb_strimwidth((string) $s['last_summary'], 0, 80, '…')) . '</span>' : '' ?></td>
 	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => 'schedule-' . $s['id'], 'name' => (string) $s['name'], 'edit' => $edit, 'csrf' => $csrf, 'menu' => [
         ['url' => $module->url('history', ['id' => (int) $s['id']]), 'label' => t('History'), 'icon' => 'restore'],
