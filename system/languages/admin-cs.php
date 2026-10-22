@@ -5893,4 +5893,5 @@ return [
     'Write the times as ranges, e.g. 9:00-12:00, 13:00-17:00.' => 'Zapište časy jako rozsahy, např. 9:00-12:00, 13:00-17:00.',
     'These services have times of their own:' => 'Tyto služby mají vlastní časy:',
     'What is booked' => 'Co se rezervuje',
+    'Undo' => 'Zpět',
 ];

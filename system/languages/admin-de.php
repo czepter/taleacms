@@ -5900,4 +5900,5 @@ return [
     'Write the times as ranges, e.g. 9:00-12:00, 13:00-17:00.' => 'Schreiben Sie die Zeiten als Zeiträume, z. B. 9:00-12:00, 13:00-17:00.',
     'These services have times of their own:' => 'Diese Leistungen haben eigene Zeiten:',
     'What is booked' => 'Was gebucht wird',
+    'Undo' => 'Rückgängig',
 ];

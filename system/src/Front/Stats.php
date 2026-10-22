@@ -51,7 +51,8 @@ final class Stats
     {
         $server = $_SERVER;
         $ua = (string) ($server['HTTP_USER_AGENT'] ?? '');
-        if (!self::isOn($app) || $ua === '' || self::isBot($ua) || $app->request->get('preview') !== '') {
+        // signed-in users (the site's own people checking their pages) are not visitors
+        if (!self::isOn($app) || $ua === '' || self::isBot($ua) || $app->request->get('preview') !== '' || $app->auth()->user() !== null) {
             return;
         }
         $db = $app->db();
