@@ -76,7 +76,7 @@ final class Kernel
         'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
-    /** Home: the first steps in collapsible groups (step name => group); a step not listed belongs to the first group. */
+    /** Home: the first steps in collapsible groups (step name => group); every step of firstSteps() is listed. */
     private const array FIRST_STEP_GROUPS = [
         'Set up your site' => 'Build your website', 'Give your site a face' => 'Build your website', 'Prepare your pages' => 'Build your website',
         'Complete the privacy policy' => 'Build your website', 'Fill in company details' => 'Describe your business', 'Your kind of business' => 'Describe your business',
@@ -362,7 +362,7 @@ final class Kernel
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
         }
-        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3], 'group' => self::FIRST_STEP_GROUPS[$k[0]] ?? 'Build your website'], $steps);
+        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3], 'group' => self::FIRST_STEP_GROUPS[$k[0]]], $steps);
         // Home shows the groups in the order of FIRST_STEP_GROUPS, the steps keep their order within a group
         $order = array_flip(array_values(array_unique(self::FIRST_STEP_GROUPS)));
         usort($result, fn (array $a, array $b): int => $order[$a['group']] <=> $order[$b['group']]);
