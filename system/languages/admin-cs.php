@@ -5818,4 +5818,7 @@ return [
     'last 60 days' => 'posledních 60 dní',
     'Edit redirect' => 'Upravit přesměrování',
     'Ignore: %s' => 'Ignorovat: %s',
+    'bookable' => 'lze rezervovat',
+    'you' => 'vy',
+    'Elsewhere' => 'Jinam',
 ];

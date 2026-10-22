@@ -687,6 +687,7 @@ table.listing td.cell-actions { width: 1%; white-space: nowrap; }
 table.listing a.status-note { font-weight: 400; }
 .status-note-warning { color: var(--warning-text); }
 .status-note-error { color: var(--error); }
+.status-note-neutral { color: var(--text-weak); }
 .row-actions {
 	display: flex;
 	justify-content: flex-end;

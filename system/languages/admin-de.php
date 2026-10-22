@@ -5824,4 +5824,7 @@ return [
     'last 60 days' => 'letzte 60 Tage',
     'Edit redirect' => 'Weiterleitung bearbeiten',
     'Ignore: %s' => 'Ignorieren: %s',
+    'bookable' => 'buchbar',
+    'you' => 'Sie',
+    'Elsewhere' => 'Woandershin',
 ];
