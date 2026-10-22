@@ -5866,4 +5866,13 @@ return [
     'Booking settings' => 'Buchungseinstellungen',
     'Counted without cookies' => 'Gezählt ohne Cookies',
     'Running experiments' => 'Laufende Experimente',
+    'New request with details' => 'Neue Anfrage mit Details',
+    'Not in the menu' => 'Nicht im Menü',
+    'Header, footer and system pages' => 'Kopf, Fuß und Systemseiten',
+    'All pages' => 'Alle Seiten',
+    'Trash (%d)' => 'Papierkorb (%d)',
+    'Page settings' => 'Seiteneinstellungen',
+    'Open the live page' => 'Live-Seite öffnen',
+    'Preview of %s' => 'Vorschau von %s',
+    'Create the first page of your site.' => 'Legen Sie die erste Seite Ihrer Website an.',
 ];

@@ -9,6 +9,7 @@
  * @var string $active
  * @var array<string, mixed>|null $user
  * @var list<array{typ:string, text:string}> $flashes
+ * @var string $sidebar HTML a screen shows in the sidebar instead of the menu (Website mode), '' = the menu
  */
 $icon = require __DIR__ . '/icons.php';
 $onDashboard = $active === '' && (string) $app->request->get('action') === ''; // My account (akce=ucet) is not the Dashboard
@@ -88,7 +89,9 @@ $userName = $username['name'] ?: $username['username'];
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
 	<nav class="menu-wrap" aria-label="<?= e(t('Main menu')) ?>">
-<?php if ($settingsMenu !== []): ?>
+<?php if (($sidebar ?? '') !== ''): ?>
+	<?= $sidebar ?>
+<?php elseif ($settingsMenu !== []): ?>
 	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>"><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><?= e(t('Home')) ?></a>
 	<p class="menu-title"><?= e(t('Settings')) ?></p>
 	<ul class="menu menu-settings" id="menu">
@@ -106,7 +109,7 @@ $userName = $username['name'] ?: $username['username'];
 	<ul class="menu" id="menu">
 		<li class="menu-section<?= $current === 'Home' ? ' active' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $current === 'Home' ? ' aria-current="page"' : '' ?>><?= e(t('Home')) ?></a></li>
 <?php foreach ($listed as $section): $open = $section === $current; $entries = $sections[$section]; ?>
-		<li class="menu-section<?= $open ? ' active' : '' ?><?= $section === 'Claude' ? ' menu-claude' : '' ?>"><a href="<?= e($app->url('admin.php?module=' . array_key_first($entries))) ?>"<?= $open ? ' aria-current="true"' : '' ?>><?= e(t($section)) ?></a>
+		<li class="menu-section<?= $open ? ' active' : '' ?><?= $section === 'Claude' ? ' menu-claude' : '' ?>"><a href="<?= e($app->url('admin.php?module=' . ($section === 'Website' && isset($entries['pages']) ? 'pages&action=website' : array_key_first($entries)))) ?>"<?= $open ? ' aria-current="true"' : '' ?>><?= e(t($section)) ?></a>
 <?php if ($open && count($entries) > 1): ?>
 			<ul class="menu-sub">
 <?php foreach ($entries as $ident => $class): ?>

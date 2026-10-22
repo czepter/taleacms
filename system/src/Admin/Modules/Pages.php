@@ -82,6 +82,30 @@ final class Pages extends Module
      * @param list<array<string, mixed>> $pages
      * @return list<array<string, mixed>>
      */
+    /**
+     * Website mode: the sidebar holds the site's pages grouped by the menu (in it or not), the content is a live preview of
+     * the chosen page with the way into the builder. The draft is shown where a page has one.
+     */
+    protected function actionWebsite(): Response
+    {
+        $home = $this->app->settings()->int('home_page');
+        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
+        $groups = ['menu' => [], 'other' => []];
+        foreach (self::sortAsTree($pages) as $page) {
+            $inMenu = \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], '', (string) $page['slug']) ?? (bool) $page['in_menu'];
+            $groups[$inMenu ? 'menu' : 'other'][] = $page + ['home' => (int) $page['page_id'] === $home];
+        }
+        $chosen = $this->idParam('id', null, true);
+        $current = array_values(array_filter($pages, fn (array $p): bool => (int) $p['page_id'] === ($chosen > 0 ? $chosen : $home)))[0] ?? $pages[0] ?? null;
+        $url = $current === null ? '' : $this->app->url((int) $current['page_id'] === $home ? '' : (string) $current['slug']);
+        $this->kernel->sidebar = $this->app->view->render('admin/pages/website_sidebar', [
+            'app' => $this->app, 'module' => $this, 'groups' => $groups, 'current' => $current === null ? 0 : (int) $current['page_id'], 'modules' => $this->kernel->modules(),
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
+        ]);
+
+        return $this->view('website', '', ['page' => $current, 'url' => $url, 'preview' => $current !== null && $current['has_draft'] ? $url . '?build=draft' : $url]);
+    }
+
     private static function sortAsTree(array $pages): array
     {
         $byParent = [];
@@ -400,7 +424,7 @@ final class Pages extends Module
 
         return [
             'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true, 'description' => (string) $page['description'], 'image' => (string) $page['image'],
-            'back' => ['url' => $this->url(), 'text' => t('Pages')], 'settings' => $this->url('edit', ['id' => (string) $page['public_id']]),
+            'back' => ['url' => $this->url('website', ['id' => (string) $page['public_id']]), 'text' => t('Website')], 'settings' => $this->url('edit', ['id' => (string) $page['public_id']]),
             'signature' => 'page:' . (int) $page['page_id'],
         ];
     }

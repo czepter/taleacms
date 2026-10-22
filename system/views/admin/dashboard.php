@@ -32,7 +32,7 @@ $waiting = $warnings !== [] || $pending !== [];
 		<?= $app->view->render('admin/guide_link', ['url' => Talea\Admin\Guide::forScreen('', '', '', Talea\Core\Language::code())]) ?>
 		<a class="navigation" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('View site')) ?></a>
 <?php if (isset($modules['pages'])): ?>
-		<a class="btn" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Edit website')) ?></a>
+		<a class="btn" href="<?= e($app->url('admin.php?module=pages&action=website')) ?>"><?= e(t('Edit website')) ?></a>
 <?php endif ?>
 	</p>
 </div>

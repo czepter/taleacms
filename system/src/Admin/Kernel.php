@@ -101,6 +101,9 @@ final class Kernel
         return $sections;
     }
 
+    /** HTML a screen puts into the sidebar instead of the menu (Website mode: the page tree); '' = the menu. */
+    public string $sidebar = '';
+
     public function __construct(public readonly App $app)
     {
     }
@@ -246,6 +249,7 @@ final class Kernel
             'active' => $app->request->get('module'),
             'username' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),
+            'sidebar' => $this->sidebar,
         ]), $status);
     }
 
