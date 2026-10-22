@@ -32,6 +32,9 @@ $language = Talea\Core\Language::code();
 <script type="application/json" id="builder-data"><?= json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php if (is_file(TALEA_ROOT . '/image/languages/admin-' . $language . '.js')): ?>
 <script src="<?= e($app->url('image/languages/admin-' . $language . '.js')) ?>?v=<?= $version ?>"></script>
+<?php if (Talea\Core\Language::register() === 'informal' && is_file(TALEA_ROOT . '/image/languages/admin-' . $language . '-du.js')): ?>
+<script src="<?= e($app->url('image/languages/admin-' . $language . '-du.js')) ?>?v=<?= $version ?>"></script>
+<?php endif ?>
 <?php endif ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= $version ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $version ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-file="<?= Talea\Core\Files::limit() ?>" data-max-file-text="<?= e(Talea\Core\Files::limitText()) ?>" data-max-page="<?= Talea\Core\Images::MAX_SIDE ?>" defer></script>

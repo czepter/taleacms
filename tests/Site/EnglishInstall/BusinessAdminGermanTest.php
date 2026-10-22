@@ -34,6 +34,9 @@ final class BusinessAdminGermanTest extends SiteTestCase
         $last = null;
         foreach ($this->adminScreens() as $query) {
             $last = $this->assertCzechFree("/admin.php?$query", 200, $this->site()->admin(), true, 'German informal admin');
+            if (str_contains($query, 'action=builder')) {
+                $this->assertStringContainsString('admin-de-du.js', (string) $last->body, "informal German admin: the builder ($query) loads the script overlay too");
+            }
         }
         $this->assertStringContainsString('admin-de-du.js', (string) $last?->body, 'informal German admin: the script overlay admin-de-du.js is loaded');
         $mail = $this->site()->admin()->get('/admin.php?module=settings&tab=mail')->body;
