@@ -505,8 +505,9 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await tp.waitForTimeout(350);
   };
-  const centre = async (locator) => { const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
-  const tap = async (id, corner) => { const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
+  // the focus mode's canvas is wider (#115), so a target may lie below the fold: it is scrolled into view before the finger goes down
+  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const tap = async (id, corner) => { await node(tp, id).scrollIntoViewIfNeeded().catch(() => {}); const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
   await openBuilder(tp, 'touch');
 
   await tap('cs1', true);
@@ -537,6 +538,7 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
   await tp.touchscreen.tap(grip.x, grip.y);
   await tp.waitForFunction(() => !!window.taleaBuilder.state.placing);
   await tp.waitForTimeout(400);
+  await node(tp, 'txt5').scrollIntoViewIfNeeded().catch(() => {});
   const right = await node(tp, 'txt5').boundingBox();
   await tp.touchscreen.tap(right.x + right.width / 2, right.y + right.height * 0.8);
   await tp.waitForTimeout(500);
