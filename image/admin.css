@@ -204,6 +204,36 @@ body:not(.login) {
 	color: var(--text);
 	font-weight: 600;
 }
+.menu-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 32px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text);
+	text-decoration: none;
+}
+.menu-title {
+	margin: 14px 0 18px;
+	font-size: 26px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+.menu-settings {
+	gap: 16px;
+}
+.menu-heading {
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-weak);
+}
+.menu-settings .menu-sub {
+	margin: 2px 0 0;
+	padding: 0;
+}
 .menu-foot {
 	display: flex;
 	align-items: center;

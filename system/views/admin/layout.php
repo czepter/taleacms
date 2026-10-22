@@ -65,8 +65,20 @@ if ($username !== null) {
 $sections = Talea\Admin\Kernel::sections($modules);
 $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active;
 $current = $onDashboard ? 'Home' : (isset($modules[$active]) ? $modules[$active]::GROUP : '');
-// the settings are the gear at the bottom; while one of their screens is open they are listed last, so their other screens stay one click away
-$listed = array_values(array_filter([...Talea\Admin\Kernel::SECTIONS, ...($current === 'Settings' ? ['Settings'] : [])], fn (string $section): bool => isset($sections[$section])));
+$listed = array_values(array_filter(Talea\Admin\Kernel::SECTIONS, fn (string $section): bool => isset($sections[$section])));
+// the settings are the gear at the bottom; inside them the sidebar lists their screens instead of the sections
+$settingsMenu = [];
+if ($current === 'Settings') {
+    $tab = (string) $app->request->get('tab');
+    foreach (Talea\Admin\Kernel::SETTINGS_MENU as $menuGroup => $entries) {
+        foreach ($entries as [$ident, $entryTab, $label]) {
+            if (isset($modules[$ident])) {
+                $settingsMenu[$menuGroup][] = ['url' => $app->url('admin.php?module=' . $ident . ($entryTab !== '' ? '&tab=' . $entryTab : '')), 'label' => $label,
+                    'active' => $ident === $inMenu && ($ident !== 'settings' || $entryTab === ($tab !== '' ? $tab : 'general'))];
+            }
+        }
+    }
+}
 $userName = $username['name'] ?: $username['username'];
 ?>
 <header class="header">
@@ -76,6 +88,21 @@ $userName = $username['name'] ?: $username['username'];
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
 	<nav class="menu-wrap" aria-label="<?= e(t('Main menu')) ?>">
+<?php if ($settingsMenu !== []): ?>
+	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>"><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><?= e(t('Home')) ?></a>
+	<p class="menu-title"><?= e(t('Settings')) ?></p>
+	<ul class="menu menu-settings" id="menu">
+<?php foreach ($settingsMenu as $menuGroup => $entries): ?>
+		<li><span class="menu-heading"><?= e(t($menuGroup)) ?></span>
+			<ul class="menu-sub">
+<?php foreach ($entries as $entry): ?>
+				<li<?= $entry['active'] ? ' class="active"' : '' ?>><a href="<?= e($entry['url']) ?>"<?= $entry['active'] ? ' aria-current="page"' : '' ?>><?= e(t($entry['label'])) ?></a></li>
+<?php endforeach ?>
+			</ul>
+		</li>
+<?php endforeach ?>
+	</ul>
+<?php else: ?>
 	<ul class="menu" id="menu">
 		<li class="menu-section<?= $current === 'Home' ? ' active' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $current === 'Home' ? ' aria-current="page"' : '' ?>><?= e(t('Home')) ?></a></li>
 <?php foreach ($listed as $section): $open = $section === $current; $entries = $sections[$section]; ?>
@@ -90,6 +117,7 @@ $userName = $username['name'] ?: $username['username'];
 		</li>
 <?php endforeach ?>
 	</ul>
+<?php endif ?>
 	<div class="menu-foot">
 		<a class="signed-in" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . $userName) ?>"><span class="avatar" title="<?= e($userName . ' – ' . t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($userName, 0, 1))) ?></span></a>
 		<span class="menu-tools">

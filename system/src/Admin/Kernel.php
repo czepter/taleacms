@@ -65,6 +65,18 @@ final class Kernel
     public const array SECTIONS = ['Website', 'Content', 'Bookings', 'Customers', 'E-mail', 'Analytics', 'Claude'];
 
     /**
+     * The sidebar of the Settings area (the gear): heading => list of [module ident, settings tab ('' = the module's own
+     * screen), label]. An entry shows only when the person may open its module.
+     */
+    public const array SETTINGS_MENU = [
+        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies']],
+        'People' => [['users', '', 'Users and roles']],
+        'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
+        'Features' => [['extensions', '', 'Features and add-ons']],
+        'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
+    ];
+
+    /**
      * The menu entries of each section: section => [ident => class], without the modules that sit under a parent.
      *
      * @param array<string, class-string<Module>> $modules the modules the person may open (modules())

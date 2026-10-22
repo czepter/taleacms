@@ -44,13 +44,6 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     echo '</div>';
 };
 ?>
-<?php if ($module::IDENT === 'settings'): ?>
-<nav class="tabs" aria-label="<?= e(t('Settings sections')) ?>">
-<?php foreach (array_diff_key(Settings::TABS, Settings::MOVED_TABS) as $key => $name): ?>
-	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="active" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
-<?php endforeach ?>
-</nav>
-<?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
 <button type="submit" class="default-sending" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
