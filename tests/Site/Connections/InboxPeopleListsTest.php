@@ -24,6 +24,15 @@ final class InboxPeopleListsTest extends SiteTestCase
         $this->assertSame('2', (string) $site->value('SELECT status FROM tl_enquiries WHERE public_id = ?', [$id]), 'the one-click action resolves the enquiry');
     }
 
+    public function testATopicLinksOnlyToAPageOfTheSite(): void
+    {
+        $site = $this->site();
+        // imported enquiries (MCP migration) carry the page as given: only a path on this site becomes a link
+        $site->exec("INSERT INTO tl_enquiries (public_id, created_at, form, page, topic, email, data, status) VALUES ('6f1c2d3e-4b5a-4c6d-8e7f-0011223344aa', NOW(), 'Import', 'javascript:alert(1)', 'Odd topic', 'odd@example.com', '[]', 1)");
+        $list = $this->assertPage('/admin.php?module=enquiries', 200, 'Odd topic', message: 'the topic is shown');
+        $this->assertStringNotContainsString('href="javascript:', $list->body, 'no script link from an imported page value');
+    }
+
     public function testUsersAndRolesUseRowMenus(): void
     {
         $site = $this->site();

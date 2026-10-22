@@ -37,7 +37,7 @@ echo $app->view->render('admin/list/head', [
         $tab('changes', t('Unpublished changes'), $counts['changes']), $tab('trash', t('Trash'), $inTrash)],
     'action' => $app->url('admin.php'),
     'hidden' => ['module' => 'pages'] + ($status !== '' ? ['status' => $status] : []),
-    'filters' => $trash ? '' : $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language]),
+    'filters' => $trash ? '' : $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]),
     'search' => $trash ? null : ['name' => 'search', 'value' => $search, 'placeholder' => t('Name or address'), 'label' => t('Search pages')],
 ]) ?>
 <?php endif ?>
