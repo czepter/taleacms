@@ -55,12 +55,14 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
     $detail = $module->url('detail', ['id' => $p['public_id']]);
     $status = (int) $p['status'];
     $who = (string) ($p['email'] !== '' ? $p['email'] : $p['form']);
-    $sub = array_filter([(string) $p['form'], ($p['topic'] ?? '') !== '' ? (string) $p['topic'] : '', $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '→ ' . $users[(int) $p['assigned_to']] : '']);
+    // the form, the topic with a link to the page it came from (2.12) and who handles it
+    $sub = array_filter([bdi($p['form']), ($p['topic'] ?? '') !== '' ? e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . bdi($p['topic']) . '</a>' : '',
+        $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '→ ' . bdi($users[(int) $p['assigned_to']]) : '']);
     $one = ['selected[]' => $p['public_id']];
 ?>
 <tr<?= $status === 0 ? ' class="unread"' : '' ?>>
 	<td class="cell-select"><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $who)) ?>"></td>
-	<td><div class="cell-row"><?php if ($status === 0): ?><span class="unread-dot"><span class="visually-hidden"><?= e(t('New')) ?></span></span><?php endif ?><div class="cell-text"><a class="cell-title" href="<?= e($detail) ?>"><?= bdi($who) ?></a><span class="cell-sub"><?= bdi(implode(' · ', $sub)) ?></span></div></div></td>
+	<td><div class="cell-row"><?php if ($status === 0): ?><span class="unread-dot"><span class="visually-hidden"><?= e(t('New')) ?></span></span><?php endif ?><div class="cell-text"><a class="cell-title" href="<?= e($detail) ?>"><?= bdi($who) ?></a><span class="cell-sub"><?= implode(' · ', $sub) ?></span></div></div></td>
 	<td class="cell-main"><div class="cell-row"><?= $p['category'] !== '' ? '<span class="tag">' . e(t(Talea\Core\Triage::CATEGORIES[$p['category']] ?? $p['category'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? '<span class="tag tag-warning">' . e(t('urgent')) . '</span>' : '' ?><a class="cell-sub cell-preview" href="<?= e($detail) ?>"><?= bdi($preview((string) $p['data'])) ?></a></div></td>
 	<td><?= $app->view->render('admin/list/status', ['kind' => [0 => 'hidden', 1 => 'draft', 2 => 'live'][$status] ?? 'draft', 'label' => t(Enquiries::STATUSES[$status] ?? '')]) ?></td>
 	<td class="cell-weak"><?= e(format_ago($p['created_at'])) ?></td>

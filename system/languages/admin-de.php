@@ -5788,7 +5788,6 @@ return [
     'Search titles' => 'Titel suchen',
     'Search news' => 'Beiträge durchsuchen',
     'Delete the news item permanently? This cannot be undone.' => 'Den Beitrag endgültig löschen? Das lässt sich nicht rückgängig machen.',
-    '%d social posts' => '%d Social-Posts',
     'Move the news item to the trash? You can restore it for 30 days.' => 'Den Beitrag in den Papierkorb verschieben? Sie können ihn 30 Tage lang wiederherstellen.',
     'Move to this category' => 'In diese Kategorie verschieben',
     'Move the selected news items to the trash?' => 'Die ausgewählten Beiträge in den Papierkorb verschieben?',

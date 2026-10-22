@@ -5784,7 +5784,6 @@ return [
     'Search titles' => 'Hledat v nadpisech',
     'Search news' => 'Hledat novinky',
     'Delete the news item permanently? This cannot be undone.' => 'Smazat novinku natrvalo? Nelze to vrátit.',
-    '%d social posts' => '%d příspěvků na sociální sítě',
     'Move the news item to the trash? You can restore it for 30 days.' => 'Přesunout novinku do koše? Po 30 dní ji můžete obnovit.',
     'Move to this category' => 'Přesunout do této rubriky',
     'Move the selected news items to the trash?' => 'Přesunout vybrané novinky do koše?',
