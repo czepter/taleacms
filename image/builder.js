@@ -1080,7 +1080,6 @@
 		if (step >= stops.length) { return; }
 		const [target, heading, text] = stops[step];
 		if (target === left && !state.leftOpen) { state.leftOpen = true; state.leftTab = 'add'; redrawLeft(); }
-		if (target === right && !root.classList.contains('bd-right-open')) { tour(step + 1); return; }
 		target.classList.add('bd-highlighted');
 		const d = el('dialog', { class: 'bd-dialog bd-tour' },
 			el('div', {}, el('small', {}, (step + 1) + ' / ' + stops.length), el('h2', {}, heading), el('p', {}, text)),
@@ -1228,7 +1227,7 @@
 	/* ---------- left panel: Add and Structure ---------- */
 
 	let left, leftContent, right, rail;
-	/** Focus mode (#115): only the page and the bar; the rail on the left opens Add or Structure, the properties open with a selection. */
+	/** Focus mode (#115): the page, the bar and the properties; the rail on the left opens Add or Structure over the canvas. */
 	function redrawRail() {
 		root.classList.toggle('bd-left-open', state.leftOpen);
 		const item = (key, ik, name) => el('button', { type: 'button', title: name, 'aria-label': name, 'aria-pressed': String(state.leftOpen && state.leftTab === key),
@@ -1478,7 +1477,6 @@
 	function redraw() { redrawBar(); redrawLeft(); redrawRight(); }
 
 	function redrawRight() {
-		root.classList.toggle('bd-right-open', !!(state.editedClass !== null || (state.selected && find(state.selected))));
 		if (state.editedClass !== null) { classesPanel(); return; }
 		const n = state.selected && find(state.selected);
 		if (!n) {
