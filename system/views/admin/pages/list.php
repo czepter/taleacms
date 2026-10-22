@@ -24,7 +24,7 @@ $tab = fn (string $value, string $label, int $count): array => ['label' => $labe
 $import = '<form class="inline" method="post" action="' . e($module->url('import')) . '" enctype="multipart/form-data">' . $csrf
     . '<label class="navigation">' . $icon('upload') . e(t('Import page (JSON)')) . ' <input type="file" name="file" accept="application/json,.json" data-submit-on-change></label></form>';
 echo $app->view->render('admin/list/head', [
-    'count' => t('%d pages', $counts['total']),
+    'count' => (string) $counts['total'],
     'links' => $siteLanguages !== [] ? [[$module->url('translations'), t('Translations')]] : [],
     'secondary' => $import,
     'primary' => [$module->url('new'), t('New page')],

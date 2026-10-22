@@ -22,7 +22,7 @@ final class PagesListTest extends SiteTestCase
         $total = (int) $site->value('SELECT COUNT(*) FROM tl_pages WHERE deleted_at IS NULL');
 
         $this->assertPage('/admin.php?module=pages', 200, [
-            '<span class="page-count">' . $total . ' pages</span>',
+            '<span class="page-count">' . $total . '</span>',
             '<nav class="list-tabs"',
             'Hidden <span class="list-tab-count">' . $hiddenCount . '</span>',
             'popovertarget="row-menu-' . $site->publicId('pages', $hidden) . '"',

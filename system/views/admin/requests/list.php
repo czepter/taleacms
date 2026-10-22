@@ -12,34 +12,31 @@
  */
 use Talea\Core\Requests;
 
-$tag = fn (string $status): string => '<span class="badge' . match ($status) { 'done' => ' badge-published', 'new' => ' badge-draft', 'declined' => ' badge-error', default => '' } . '">' . e(t(Requests::STATUSES[$status] ?? $status)) . '</span>';
+$kinds = ['done' => 'live', 'new' => 'hidden', 'declined' => 'off'];
+echo $app->view->render('admin/list/head', ['count' => t('%d open', $open), 'primary' => [$module->url('new'), t('New request')]]);
 ?>
 <p class="notice"><?= e(t('Write what should change on the site – "change the opening hours on Monday", "add this PDF to the price list" – and Claude does it as drafts the next time it works on the site. Its notes and the links to the drafts appear in the request; a person reviews and publishes them.')) ?></p>
 <?php if (!$claudeOn): ?>
 <p class="notice error"><?= e(t('The Claude connection is switched off (Features) – requests are saved, but nobody reads them until it is on.')) ?></p>
 <?php endif ?>
-<p><a class="btn" href="<?= e($module->url('new')) ?>"><?= e(t('New request')) ?></a></p>
-<nav class="tabs" aria-label="<?= e(t('Request status')) ?>">
-<?php foreach (['' => t('All')] + array_map('t', Requests::STATUSES) as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $status === $key ? ' class="active" aria-current="true"' : '' ?>><?= e($name) ?></a>
-<?php endforeach ?>
-</nav>
+<?= $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Request status'), 'tabs' => array_map(fn (string $key, string $name): array => ['label' => $name, 'url' => $module->url('', array_filter(['status' => $key])), 'active' => $status === $key],
+    array_keys(['' => t('All')] + array_map('t', Requests::STATUSES)), ['' => t('All')] + array_map('t', Requests::STATUSES))]) ?>
 <?php if ($requests === [] && $status !== ''): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'comments', 'heading' => t('No request has this status.'), 'text' => '', 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php elseif ($requests === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'comments', 'heading' => t('No requests yet.'), 'text' => t('Write the first one: what should change, on which page, with the files Claude needs.'), 'action' => [$module->url('new'), t('New request')]]) ?>
 <?php else: ?>
-<p class="small-text"><?= e(t('%d open, %d shown.', $open, count($requests))) ?></p>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Request')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Written')) ?></th><th scope="col"><?= e(t('Last change')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Request')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Written')) ?></th><th scope="col"><?= e(t('Last change')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($requests as $r): ?>
-<tr<?= in_array($r['status'], ['done', 'declined'], true) ? ' class="unpublished"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => $r['public_id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $r['attachments'] !== [] ? ' <span class="small-text">(' . e(t('%d attachments', count($r['attachments']))) . ')</span>' : '' ?><br><span class="small-text"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
+<?php foreach ($requests as $r): $detail = $module->url('detail', ['id' => $r['public_id']]); ?>
+<tr>
+	<td class="cell-main"><div class="cell-text"><span class="cell-row"><a class="cell-title" href="<?= e($detail) ?>"><?= e((string) $r['title']) ?></a><?= $r['attachments'] !== [] ? ' <span class="tag">' . e(t('%d attachments', count($r['attachments']))) . '</span>' : '' ?></span><span class="cell-sub"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></div></td>
 	<td><?= e((string) $r['author']) ?></td>
-	<td><?= $tag((string) $r['status']) ?></td>
-	<td><?= e(format_date((string) $r['created_at'], true)) ?></td>
-	<td><?= e(format_date((string) $r['updated_at'], true)) ?></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => $kinds[(string) $r['status']] ?? 'planned', 'label' => t(Requests::STATUSES[$r['status']] ?? (string) $r['status'])]) ?></td>
+	<td class="cell-weak"><?= e(format_ago((string) $r['created_at'])) ?></td>
+	<td class="cell-weak"><?= e(format_ago((string) $r['updated_at'])) ?></td>
+	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $r['public_id'], 'name' => (string) $r['title'], 'edit' => $detail, 'menu' => [], 'csrf' => $csrf]) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

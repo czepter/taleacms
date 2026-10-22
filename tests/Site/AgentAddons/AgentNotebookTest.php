@@ -63,7 +63,7 @@ final class AgentNotebookTest extends SiteTestCase
     {
         $list = $this->assertPage('/admin.php?module=notebook', 200, 'Photos from 2024', message: 'notebook: the admin list by topic with the pinned note first');
         preg_match_all('/Photos from 2024|Never the word cheap/', $list->body, $matches);
-        $this->assertSame('Photos from 2024|1', $matches[0][0] . '|' . $this->lines('Never the word cheap', $list->body), 'notebook: the pinned note is above the newer one in the admin');
+        $this->assertSame('Photos from 2024|1', $matches[0][0] . '|' . $this->lines('>Never the word cheap</a>', $list->body), 'notebook: the pinned note is above the newer one in the admin');
 
         $search = $this->assertPage('/admin.php?module=notebook&search=cheap', 200, 'Never the word cheap', message: 'notebook: search in the admin');
         $this->assertStringNotContainsString('Photos from 2024', $search->body, 'notebook: the search does not list the other note');

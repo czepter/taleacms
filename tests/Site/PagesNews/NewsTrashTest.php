@@ -16,7 +16,7 @@ final class NewsTrashTest extends SiteTestCase
         $site = $this->site();
         $idc = (int) $site->value("SELECT news_id FROM tl_news WHERE slug = 'our-new-website-is-live'");
         $public = $site->publicId('news', $idc);
-        $this->assertPage('/admin.php?module=news', 200, 'Delete selected', message: 'news list');
+        $this->assertPage('/admin.php?module=news', 200, 'name="bulk" value="trash"', message: 'news list: the selection bar moves news to the trash');
 
         $this->adminPost('/admin.php?module=news&action=delete', ['delete' => [$public]], '/admin.php?module=news');
         $this->assertPage('/news/our-new-website-is-live', 404, message: 'news in the trash is not on the web');

@@ -893,4 +893,5 @@ return [
     'Choose a service and a free time – the confirmation arrives by email.' => 'Wähle eine Leistung und eine freie Zeit – die Bestätigung kommt per E-Mail.',
     'The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.' => 'Der Upload ist größer, als der Server erlaubt (höchstens %s), daher ist nichts angekommen. Lade eine kleinere Datei hoch oder erhöhe post_max_size auf dem Server.',
     'This Kaleta export has a format version Talea does not know – export the site again with Kaleta 3.7 or newer.' => 'Dieser Kaleta-Export hat eine Formatversion, die Talea nicht kennt – exportiere die Website erneut mit Kaleta 3.7 oder neuer.',
+    'Move the news item to the trash? You can restore it for 30 days.' => 'Den Beitrag in den Papierkorb verschieben? Du kannst ihn 30 Tage lang wiederherstellen.',
 ];
