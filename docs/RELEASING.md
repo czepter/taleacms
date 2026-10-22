@@ -7,7 +7,8 @@ by hand, no package is uploaded anywhere and a site never updates itself or asks
 
 Everything that goes to GitHub is English: commit, tag and release notes.
 
-1. Raise `TALEA_VERSION` in `system/bootstrap.php` on `main`, push, and wait for CI.
+1. Raise `TALEA_VERSION` in `system/bootstrap.php` on `main`, push, and wait for CI. A commit that changes only that line counts
+   as tested when its parent passed CI, so no test job runs again, neither in CI nor for the tag.
 2. Tag that commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. A tag that does not match `TALEA_VERSION` fails
    the release.
 3. The release workflow (`.github/workflows/release.yml`) runs the tests again only when CI has not passed for the tagged commit,

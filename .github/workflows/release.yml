@@ -57,16 +57,25 @@ jobs:
           if [ -n "$TESTED" ] && [ "$TESTED" != "$SHA" ]; then
             echo "main moved on from $TESTED to $SHA: no edge build for the older commit"; echo "stale=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          # CI already passed for exactly this content: the commit itself, or a parent with the same tree (the merge commit of an
-          # up-to-date pull request, whose head was tested). A run counts only when the named job succeeded: the run of a fork's
-          # pull request skips every job. Any API error: not tested. The same function is in ci.yml.
+          # CI already passed for this content: the commit itself, a parent with the same tree (the merge commit of an up-to-date
+          # pull request, whose head was tested), or a tested parent it differs from only in the TALEA_VERSION line (a release bump:
+          # the version is no code). A run counts only when the named job succeeded: the run of a fork's pull request skips every
+          # job. Any API error: not tested. The same function is in ci.yml.
           api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/$1"; }
+          version_only() {
+            api "compare/$1...$2" | jq -e --arg re "^[-+]const TALEA_VERSION = '[^']+';\$" '.status == "ahead" and (.files | length) == 1
+              and .files[0].filename == "system/bootstrap.php"
+              and ([.files[0].patch | split("\n")[] | select(startswith("+") or startswith("-"))] | length > 0 and all(test($re)))' >/dev/null
+          }
           tested() {
-            local commit tree c run
+            local commit tree c run by
             commit=$(api "commits/$1") || return 1
             tree=$(jq -r .commit.tree.sha <<<"$commit")
             for c in "$1" $(jq -r '.parents[].sha' <<<"$commit"); do
-              [ "$c" = "$1" ] || [ "$(api "commits/$c" | jq -r .commit.tree.sha)" = "$tree" ] || continue
+              if [ "$c" != "$1" ] && [ "$(api "commits/$c" | jq -r .commit.tree.sha)" != "$tree" ]; then
+                [ -z "$3" ] && version_only "$c" "$1" && by=$(tested "$c" "$2" bump) && { echo "$by"; return 0; }
+                continue
+              fi
               for run in $(api "actions/workflows/ci.yml/runs?head_sha=$c&status=success&per_page=5" | jq -r '.workflow_runs[].id'); do
                 api "actions/runs/$run/jobs?per_page=50" | jq -e --arg job "$2" '.jobs[] | select(.name == $job and .conclusion == "success")' >/dev/null \
                   && { echo "$c"; return 0; }
