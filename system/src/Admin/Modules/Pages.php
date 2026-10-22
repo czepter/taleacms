@@ -98,12 +98,42 @@ final class Pages extends Module
         $chosen = $this->idParam('id', null, true);
         $current = array_values(array_filter($pages, fn (array $p): bool => (int) $p['page_id'] === ($chosen > 0 ? $chosen : $home)))[0] ?? $pages[0] ?? null;
         $url = $current === null ? '' : $this->app->url((int) $current['page_id'] === $home ? '' : (string) $current['slug']);
+        $seo = $this->request->get('view') === 'seo' && $current !== null; // the SEO tab: how the chosen page appears outside the site
         $this->kernel->sidebar = $this->app->view->render('admin/pages/website_sidebar', [
             'app' => $this->app, 'module' => $this, 'groups' => $groups, 'current' => $current === null ? 0 : (int) $current['page_id'], 'modules' => $this->kernel->modules(),
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $seo,
         ]);
+        if ($seo) {
+            $fields = $this->db->one('SELECT seo_title, description, image, noindex FROM {pages} WHERE page_id = ?', [(int) $current['page_id']]) ?? [];
+
+            return $this->view('website_seo', '', ['page' => $current + $fields, 'url' => $url, 'home' => (int) $current['page_id'] === $home,
+                'siteName' => $this->app->settings()->get('site_name'), 'origin' => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/')]);
+        }
 
         return $this->view('website', '', ['page' => $current, 'url' => $url, 'preview' => $current !== null && $current['has_draft'] ? $url . '?build=draft' : $url]);
+    }
+
+    /** The SEO tab of Website mode saves only how the page appears outside the site: title, description, sharing image, noindex. */
+    protected function actionSeoSave(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        if ($page === null) {
+            return $this->back('Page does not exist.', 'website', [], 'error');
+        }
+        if (($refusal = $this->requirePublishPermission($page)) !== null) {
+            return $refusal;
+        }
+        $r = $this->request;
+        $this->db->update('pages', [
+            'seo_title' => mb_substr(trim($r->post('seo_title')), 0, 200),
+            'description' => mb_substr(trim($r->post('description')), 0, 300),
+            'image' => mb_substr(trim($r->post('image')), 0, 255),
+            'noindex' => (int) $r->postBool('noindex'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ], ['page_id' => (int) $page['page_id']]);
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search appearance edited', mb_substr($page['title'], 0, 80));
+
+        return $this->back('Saved.', 'website', ['view' => 'seo', 'id' => (string) $page['public_id']]);
     }
 
     private static function sortAsTree(array $pages): array
