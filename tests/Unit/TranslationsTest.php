@@ -106,6 +106,9 @@ final class TranslationsTest extends TestCase
 
             return $count;
         };
+        // a sentence that starts with Sie/Ihr is counted when the English source speaks to the reader ("Your request" → "Ihre Anfrage")
+        $needsOverlay = static fn (string $english, string $german): bool => $addressForms($german) > 0
+            || (preg_match('/\byou(r|rs|rself)?\b/i', $english) === 1 && preg_match('/\b(Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres|Ihnen)\b/u', $german) === 1);
         $scriptDictionary = static function (string $file): array {
             return json_decode(rtrim(preg_replace('/^[^{]*/', '', (string) file_get_contents($file), 1), " \n;)"), true) ?? [];
         };
@@ -113,7 +116,7 @@ final class TranslationsTest extends TestCase
             $base = require TALEA_ROOT . '/system/languages/' . $set . '.php';
             $overlay = require TALEA_ROOT . '/system/languages/' . $set . '-du.php';
             $formalLeft = array_keys(array_filter($overlay, fn ($v, $k): bool => $addressForms((string) $v) > 0, ARRAY_FILTER_USE_BOTH));
-            $withoutOverlay = array_keys(array_filter($base, fn ($v, $k): bool => is_string($v) && $addressForms($v) > 0 && !isset($overlay[$k]), ARRAY_FILTER_USE_BOTH));
+            $withoutOverlay = array_keys(array_filter($base, fn ($v, $k): bool => is_string($v) && $needsOverlay((string) $k, $v) && !isset($overlay[$k]), ARRAY_FILTER_USE_BOTH));
             $this->assertSame([[], [], []], [array_keys(array_diff_key($overlay, $base)), $formalLeft, $withoutOverlay], 'Deutsch du: ' . $set . '-du.php – only keys of the base dictionary, no Sie/Ihr in the overlay, every base string with a form of address has its counterpart');
         }
         $baseScripts = $scriptDictionary(TALEA_ROOT . '/image/languages/admin-de.js');
@@ -121,7 +124,7 @@ final class TranslationsTest extends TestCase
         $this->assertSame([[], [], []], [
             array_keys(array_diff_key($overlayScripts, $baseScripts)),
             array_keys(array_filter($overlayScripts, fn ($v): bool => $addressForms((string) $v) > 0)),
-            array_keys(array_filter($baseScripts, fn ($v, $k): bool => $addressForms((string) $v) > 0 && !isset($overlayScripts[$k]), ARRAY_FILTER_USE_BOTH)),
+            array_keys(array_filter($baseScripts, fn ($v, $k): bool => $needsOverlay((string) $k, (string) $v) && !isset($overlayScripts[$k]), ARRAY_FILTER_USE_BOTH)),
         ], 'Deutsch du: admin-de-du.js – only keys of admin-de.js, no Sie/Ihr in the overlay, every script text with a form of address has its counterpart');
         // every Claude panel suggestion (AskClaude::EXAMPLES) follows the register of the administration
         $suggestionsLeft = [];
