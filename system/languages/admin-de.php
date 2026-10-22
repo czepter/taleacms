@@ -5859,4 +5859,9 @@ return [
     'Sending is not set up yet' => 'Der Versand ist noch nicht eingerichtet',
     'Your SMTP server sends in batches. Every e-mail carries a one-click unsubscribe link. Send yourself a test before it goes out.' => 'Ihr SMTP-Server versendet in Etappen. Jede E-Mail enthält einen Abmeldelink mit einem Klick. Senden Sie sich vorher einen Test.',
     'Use your own mailing tool?' => 'Eigenes Newsletter-Tool?',
+    'Requests to confirm' => 'Anfragen zur Bestätigung',
+    'Decline or propose a time' => 'Ablehnen oder andere Zeit vorschlagen',
+    'All requests (%d)' => 'Alle Anfragen (%d)',
+    'Bookings by day' => 'Buchungen nach Tag',
+    'Booking settings' => 'Buchungseinstellungen',
 ];

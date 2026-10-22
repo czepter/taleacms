@@ -5852,4 +5852,9 @@ return [
     'Sending is not set up yet' => 'Odesílání zatím není nastavené',
     'Your SMTP server sends in batches. Every e-mail carries a one-click unsubscribe link. Send yourself a test before it goes out.' => 'Váš SMTP server odesílá po dávkách. Každý e-mail obsahuje odkaz na odhlášení jedním kliknutím. Než ho rozešlete, pošlete si test.',
     'Use your own mailing tool?' => 'Používáte vlastní nástroj na rozesílky?',
+    'Requests to confirm' => 'Žádosti k potvrzení',
+    'Decline or propose a time' => 'Odmítnout nebo navrhnout jiný čas',
+    'All requests (%d)' => 'Všechny žádosti (%d)',
+    'Bookings by day' => 'Rezervace po dnech',
+    'Booking settings' => 'Nastavení rezervací',
 ];

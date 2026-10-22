@@ -47,7 +47,8 @@ final class BookingConfirmationTest extends SiteTestCase
         $this->bookingFixture();
         $day = self::$day;
         $this->assertPage('/admin.php?module=bookings&action=list', 200, message: 'the list opens');
-        $this->assertPage('/admin.php?module=bookings', 200, 'Pavla Request', message: '3.3 booking: the list shows the request and what waits');
+        $list = $this->assertPage('/admin.php?module=bookings', 200, 'Pavla Request', message: '3.3 booking: the list shows the request and what waits');
+        $this->assertStringContainsString('<h2 id="bookings-requests-heading">Requests to confirm', $list->body, '#113: the requests to confirm stand beside the agenda');
         self::$accepted = $this->booking('pavla-bk@example.cz');
         $detail = '/admin.php?module=bookings&action=detail&id=' . $this->site()->publicId('bookings', self::$accepted);
         $this->assertPage($detail, 200, 'id="propose-slots"', message: '3.3 booking: the detail offers accept, decline and other times');
