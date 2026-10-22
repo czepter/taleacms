@@ -679,6 +679,7 @@ table.listing a.status-note { font-weight: 400; }
 	gap: 6px;
 }
 .icon-btn {
+	flex: none;
 	display: inline-grid;
 	place-items: center;
 	width: 36px;
@@ -769,7 +770,7 @@ input[name="selected[]"]:checked { counter-increment: selected; }
 	table.listing-cards td.cell-select { position: absolute; top: 12px; inset-inline-end: 12px; width: auto; padding: 0; }
 	table.listing-cards td.cell-main { max-width: none; height: auto; padding-left: 14px; padding-inline-end: 48px; }
 	table.listing-cards td.cell-main::before { display: none; }
-	table.listing-cards td.cell-actions { padding-left: 14px; }
+	table.listing-cards td.cell-actions { width: auto; padding-left: 14px; }
 	table.listing-cards td.cell-actions::before { display: none; }
 	table.listing-cards .row-actions { justify-content: flex-start; }
 }

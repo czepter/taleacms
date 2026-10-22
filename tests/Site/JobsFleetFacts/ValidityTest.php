@@ -80,7 +80,7 @@ final class ValidityTest extends SiteTestCase
         ], '/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', self::$page));
         $this->sameValue('null|2030-01-01', $site->value("SELECT CONCAT(IFNULL(valid_until, 'null'), '|', IFNULL(review_by, 'null')) FROM tl_pages WHERE page_id = ?", [self::$page]), 'saving the page form clears true until and keeps the new review-by date');
 
-        $this->assertPage('/admin.php?module=pages', 200, 'badge badge-draft" title="Asks for a review on this day."', message: 'the pages list shows the review-by badge');
+        $this->assertPage('/admin.php?module=pages', 200, '<span class="status-note status-note-warning">review by ', message: 'the pages list shows the review-by note');
         $this->assertPage('/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) self::$news), 200, 'name="review_by" value="' . self::$today . '"', message: 'the news form shows the two fields');
         $popup = (string) $site->value("SELECT public_id FROM tl_popups WHERE name = 'Review popup'");
         $this->assertPage("/admin.php?module=popups&action=edit&id=$popup", 200, 'name="review_by" value="' . self::$yesterday . '"', message: 'the pop-up form shows the two fields');
