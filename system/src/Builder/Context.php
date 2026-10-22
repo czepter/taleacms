@@ -18,6 +18,9 @@ final class Context
     /** The page has a Compose section: Build::css adds its grid CSS (a page without one weighs nothing extra). */
     public bool $compose = false;
 
+    /** The page has a slider (carousel, gallery slideshow): Build::css adds the CSS of its arrows and dots. */
+    public bool $slider = false;
+
     /** @var array<string, true> element types on the page */
     public array $types = [];
 
