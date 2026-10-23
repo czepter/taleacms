@@ -308,10 +308,11 @@ final class Kernel
         }
         usort($edited, fn (array $a, array $b): int => strcmp($b['edited'], $a['edited']));
 
+        // Home shows the box only once Claude is connected; until then it stays above the requests with the note how to connect
         $ask = $this->askClaude();
 
         return $data + [
-            'ask' => $ask,
+            'ask' => $ask !== null && $ask['connected'] ? $ask : null,
             // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
             'pending' => [
                 // drafts of news authors wait for an editor – a row only when there are some
