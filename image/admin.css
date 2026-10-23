@@ -1045,6 +1045,7 @@ form.center.small-text .btn {
 	color: var(--text);
 }
 fieldset {
+	min-inline-size: 0; /* a fieldset is as wide as its content by default: a wide table would push it out of its column instead of scrolling in .tab-wrap */
 	margin: 28px 0 0;
 	padding: 20px 0 0;
 	border: 0;
@@ -1735,7 +1736,7 @@ body.login {
 .font-pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .font-pairs .appearance-preset { width: 100%; text-align: left; }
 .font-pairs em { color: var(--accent); font-size: 12px; font-style: normal; }
-.appearance-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.appearance-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .appearance-preset { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
 .appearance-preset:hover { border-color: var(--accent); }
 .appearance-preset strong { font-size: 16px; }
