@@ -6,6 +6,7 @@
  * @var array<string, mixed> $user
  * @var string $csrf
  * @var list<array<string, mixed>> $keys the account's sign-in keys (passkeys)
+ * @var int $remembered other browsers of the account with a valid "stay signed in" token
  * @var list<string> $backupCodes  backup codes just created (shown only once)
  * @var string $newSecret      two-factor sign-in being turned on (in progress)
  * @var string $uri
@@ -26,7 +27,7 @@ $action = e($app->url('admin.php?action=account'));
 <?php endif ?>
 
 <form class="form" method="post" action="<?= $action ?>">
-<?= $csrf ?><input type="hidden" name="op" value="profil">
+<?= $csrf ?><input type="hidden" name="op" value="profile">
 <fieldset><legend><?= e(t('My details')) ?></legend>
 <div class="row"><span class="caption"><?= e(t('User name')) ?></span><div><?= e($username['username']) ?> <span class="help"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
 <div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($username['name']) ?>" maxlength="100"><span class="help"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
@@ -56,7 +57,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </form>
 
 <form class="form" method="post" action="<?= $action ?>" autocomplete="off">
-<?= $csrf ?><input type="hidden" name="op" value="heslo">
+<?= $csrf ?><input type="hidden" name="op" value="password">
 <fieldset><legend><?= e(t('Change password')) ?></legend>
 <div class="row"><label for="current-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="current-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
 <div class="row"><label for="new_password"><?= e(t('New password')) ?></label><div><input class="textfield" type="password" id="new_password" name="new_password" size="30" minlength="10" autocomplete="new-password" required><span class="help"><?= e(t('At least 10 characters.')) ?></span></div></div>
@@ -77,11 +78,11 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <fieldset><legend><?= e(t('Two-factor sign-in')) ?></legend>
 <?php if ($username['totp_secret'] !== ''): ?>
 <p><span class="badge badge-published"><?= e(t('on')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
-<input type="hidden" name="op" value="totp_vypni">
+<input type="hidden" name="op" value="totp_off">
 <div class="row"><label for="off-password"><?= e(t('Password to confirm')) ?></label><div><input class="textfield" type="password" id="off-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
 <p class="buttons"><button class="navigation" type="submit"><?= e(t('Turn off two-factor sign-in')) ?></button></p>
 <?php elseif ($newSecret !== ''): ?>
-<input type="hidden" name="op" value="totp_potvrd">
+<input type="hidden" name="op" value="totp_confirm">
 <ol>
 	<li><?= e(t('In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:')) ?><br>
 		<span class="totp-qr"><?= Talea\Core\Qr::svg($uri, t('QR code for the authenticator app')) ?></span><br>
@@ -129,6 +130,16 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </fieldset>
 </form>
 <script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
+<?php endif ?>
+
+<?php if ($remembered > 0): ?>
+<form class="form" method="post" action="<?= $action ?>">
+<?= $csrf ?><input type="hidden" name="op" value="remember_end">
+<fieldset><legend><?= e(t('Stay signed in')) ?></legend>
+<p><?= e(t('Other devices where you ticked “Stay signed in”: %d. They sign in again without the password until the 30 days are over.', $remembered)) ?></p>
+<p class="buttons"><button class="navigation danger" type="submit" data-confirm="<?= e(t('End “Stay signed in” on all other devices? They will have to sign in again once their current session ends.')) ?>"><?= e(t('End on all other devices')) ?></button></p>
+</fieldset>
+</form>
 <?php endif ?>
 
 <?php if ($claude): ?>

@@ -205,4 +205,40 @@ final class AccountSecurityTest extends SiteTestCase
         $site->exec("UPDATE tl_users SET email = '' WHERE username = 'admin'");
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
     }
+
+    #[Depends('testSignInByEmailAndStaySignedIn')]
+    public function testRememberedSignInsEndOnOtherDevices(): void
+    {
+        $site = $this->site();
+        $tokens = static fn (): string => (string) $site->value("SELECT COUNT(*) FROM tl_user_remember_tokens r JOIN tl_users u ON u.user_id = r.user_id WHERE u.username = 'salesperson'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $signIn = function (string $name): Http {
+            $client = $this->site()->client($name);
+            $client->post('/admin.php', ['_csrf' => $this->loginPage($client), 'username' => 'salesperson', 'password' => self::NEW_PASSWORD, 'remember' => '1']);
+
+            return $client;
+        };
+        $laptop = $signIn('laptop');
+        $signIn('phone');
+        $this->assertSame('2', $tokens(), 'two devices stay signed in');
+
+        $account = $laptop->get('/admin.php?action=account');
+        $this->assertTrue($account->contains('name="op" value="remember_end"'), 'My account offers to end the other devices');
+        $laptop->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'op' => 'remember_end']);
+        $this->assertSame('1', $tokens(), 'ending the other devices keeps only this one');
+        $this->assertArrayHasKey('tl_remember', $laptop->cookies(), 'this device keeps its cookie');
+
+        // turning on two-factor sign-in ends the remembered sign-ins elsewhere: they would skip the new code
+        $signIn('tablet');
+        $csrf = $laptop->get('/admin.php?action=account')->csrf();
+        $laptop->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'totp_start']);
+        $setup = $laptop->get('/admin.php?action=account');
+        $this->assertSame(1, preg_match('/<code class="totp-key">([A-Z2-7 ]+)<\/code>/', $setup->body, $key), 'the setup shows the key');
+        $code = trim($site->php('echo Talea\Core\Totp::code("' . str_replace(' ', '', $key[1]) . '", intdiv(time(), 30));'));
+        $laptop->post('/admin.php?action=account', ['_csrf' => $setup->csrf(), 'op' => 'totp_confirm', 'code' => $code]);
+        $this->assertNotSame('', (string) $site->value("SELECT totp_secret FROM tl_users WHERE username = 'salesperson'"), 'the form of My account turns two-factor sign-in on');
+        $this->assertSame('1', $tokens(), 'turning on two-factor sign-in ends the other remembered devices');
+        $site->exec("UPDATE tl_users SET totp_secret = '', totp_backup_codes = NULL WHERE username = 'salesperson'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+    }
 }

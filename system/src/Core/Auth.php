@@ -218,12 +218,35 @@ final class Auth
         return $user;
     }
 
+    /** The sha256 of this browser's "stay signed in" cookie, '' without one. */
+    private static function rememberHash(): string
+    {
+        $cookie = self::rememberCookie();
+
+        return $cookie === '' ? '' : hash('sha256', $cookie);
+    }
+
+    /** How many other browsers of the account still have a valid "stay signed in" token. */
+    public function rememberedElsewhere(int $idu): int
+    {
+        return (int) $this->db->value('SELECT COUNT(*) FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ? AND expires_at > NOW()', [$idu, self::rememberHash()]);
+    }
+
+    /**
+     * Ends the "stay signed in" tokens of the account on every other browser: when two-factor sign-in or a passkey changes
+     * (a lost phone or device must not leave a remembered sign-in behind), or when the owner asks for it in My account.
+     * This browser keeps its own; for another person's account (an administrator resetting it) that ends all of them.
+     */
+    public function forgetOtherDevices(int $idu): void
+    {
+        $this->db->run('DELETE FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ?', [$idu, self::rememberHash()]);
+    }
+
     /** Ends the "stay signed in" token of this browser and drops its cookie. */
     private function forget(): void
     {
-        $cookie = self::rememberCookie();
-        if ($cookie !== '') {
-            $this->db->delete('user_remember_tokens', ['token_hash' => hash('sha256', $cookie)]);
+        if (self::rememberHash() !== '') {
+            $this->db->delete('user_remember_tokens', ['token_hash' => self::rememberHash()]);
         }
         if (isset($_COOKIE[self::REMEMBER_COOKIE])) {
             $this->session->cookie(self::REMEMBER_COOKIE, '', time() - 86400);
@@ -251,9 +274,8 @@ final class Auth
     {
         $this->session->regenerate();
         $this->session->set('fingerprint', self::passwordHash($newHash));
-        $cookie = self::rememberCookie();
-        if ($cookie !== '') {
-            $this->db->run('UPDATE {user_remember_tokens} SET fingerprint = ? WHERE token_hash = ? AND user_id = ?', [self::passwordHash($newHash), hash('sha256', $cookie), $this->id()]);
+        if (self::rememberHash() !== '') {
+            $this->db->run('UPDATE {user_remember_tokens} SET fingerprint = ? WHERE token_hash = ? AND user_id = ?', [self::passwordHash($newHash), self::rememberHash(), $this->id()]);
         }
         $this->user = false;
     }

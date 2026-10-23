@@ -131,6 +131,7 @@ final class Account
                     [$codes, $json] = Totp::backupCodes();
                     $db->update('users', ['totp_secret' => $secret, 'totp_backup_codes' => $json], ['user_id' => $user['user_id']]);
                     $app->session->remove('totp_new');
+                    $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the new code
                     ChangeLog::write($app, 'account', 'two_step_on');
                     // the backup codes are shown only now - hence no redirect
                     return $this->page(['backupCodes' => $codes] + $data);
@@ -139,8 +140,14 @@ final class Account
                     return $this->key($r->post('op') === 'passkey_save', $user);
                 case 'passkey_delete':
                     $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$db->internalId('user_passkeys', $r->post('passkey_id')), $user['user_id']]);
+                    $app->auth()->forgetOtherDevices((int) $user['user_id']); // the lost device may have ticked "stay signed in"
                     ChangeLog::write($app, 'account', 'passkey_removed');
                     $message = ['ok', 'The passkey has been removed.'];
+                    break;
+                case 'remember_end':
+                    $app->auth()->forgetOtherDevices((int) $user['user_id']);
+                    ChangeLog::write($app, 'account', 'remembered_ended');
+                    $message = ['ok', 'Stay signed in has ended on all other devices.'];
                     break;
                 case 'totp_off':
                     if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
@@ -149,6 +156,7 @@ final class Account
                     }
                     $db->update('users', ['totp_secret' => '', 'totp_backup_codes' => null], ['user_id' => $user['user_id']]);
                     $db->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$user['user_id']]); // keys replace the code from the app - without it they make no sense
+                    $app->auth()->forgetOtherDevices((int) $user['user_id']);
                     ChangeLog::write($app, 'account', 'two_step_off');
                     $message = ['ok', 'Two-factor sign-in is turned off.'];
                     break;
@@ -251,6 +259,7 @@ final class Account
             'codesLeft' => count((array) json_decode((string) $user['totp_backup_codes'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $app->auth()->accountKeys((int) $user['user_id']),
+            'remembered' => $app->auth()->rememberedElsewhere((int) $user['user_id']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokens} WHERE user_id = ? AND kind = 'token' ORDER BY token_id DESC", [$user['user_id']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
             'apps' => $app->db()->all("SELECT client_id, MAX(name) AS name, " . \Talea\Front\OAuth::strongestAccessSql() . " AS access, (SELECT n.tool_set FROM {api_tokens} n WHERE n.client_id = t.client_id AND n.user_id = ? ORDER BY n.token_id DESC LIMIT 1) AS tool_set, MIN(created_at) AS created_at, MAX(used_at) AS used_at FROM {api_tokens} t WHERE user_id = ? AND client_id IS NOT NULL AND expires_at > ? GROUP BY client_id ORDER BY MIN(created_at) DESC",
