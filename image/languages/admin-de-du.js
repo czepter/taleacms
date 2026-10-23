@@ -135,7 +135,7 @@ Object.assign(window.TALEA_TRANSLATIONS, {
 	"Give your site a face": "Gib deiner Website ein Gesicht",
 	"Have a project? Let's talk.": "Du hast ein Projekt? Lass uns darüber sprechen.",
 	"How can we help you?": "Wie können wir dir helfen?",
-	"How to connect Claude": "So verbindest du Claude",
+	"How to connect the AI": "So verbindest du die AI",
 	"If you did not ask for a new password, delete this e-mail – your password stays unchanged.": "Falls du kein neues Passwort angefordert hast, lösche diese E-Mail – dein Passwort bleibt unverändert.",
 	"If you did not ask to subscribe, ignore this e-mail – without confirmation we will not send you anything.": "Falls du das Abonnement nicht angefordert hast, ignoriere diese E-Mail – ohne Bestätigung senden wir dir nichts.",
 	"Image without a description – neither a blind visitor nor a search engine knows what it shows. Add a description and confirm with Enter:": "Bild ohne Beschreibung – weder ein blinder Besucher noch eine Suchmaschine weiß, was darauf zu sehen ist. Ergänze eine Beschreibung und bestätige mit Enter:",

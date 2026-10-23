@@ -34,5 +34,5 @@
 </tbody></table></div>
 <p class="help"><?= e(t('Check every page: the assistant writes no prices, names or opening hours it was not given. Publish a page in the builder when it is right.')) ?></p>
 <?php endif ?>
-<p class="help"><?= e(t('Not what you wanted? The whole run can be taken back in one step.')) ?> <a href="<?= e($undo) ?>"><?= e(t('Claude sessions')) ?></a></p>
+<p class="help"><?= e(t('Not what you wanted? The whole run can be taken back in one step.')) ?> <a href="<?= e($undo) ?>"><?= e(t('AI sessions')) ?></a></p>
 <p><a class="btn" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Pages')) ?></a></p>

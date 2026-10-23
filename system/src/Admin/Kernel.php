@@ -62,7 +62,7 @@ final class Kernel
     ];
 
     /** Sections of the sidebar in their order (Module::GROUP); Settings is the gear at the bottom, not a section of the list. */
-    public const array SECTIONS = ['Website', 'Content', 'Bookings', 'Customers', 'E-mail', 'Analytics', 'Claude'];
+    public const array SECTIONS = ['Website', 'Content', 'Bookings', 'Customers', 'E-mail', 'Analytics', 'AI'];
 
     /** The periods "At a glance" on Home offers (days; Core\Report::PERIODS has a year too, Analytics shows that). */
     public const array GLANCE_PERIODS = [7, 30, 90];

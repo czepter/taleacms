@@ -61,7 +61,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 	</button>
 <?php endforeach ?>
 </div>
-<p class="help"><?= e(t('You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#claude')) ?>"><?= e(t('How to connect Claude')) ?></a></p>
+<p class="help"><?= e(t('You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#claude')) ?>"><?= e(t('How to connect the AI')) ?></a></p>
 </fieldset>
 </div>
 

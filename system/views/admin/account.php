@@ -137,7 +137,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <form id="claude-connections" method="post" action="<?= $action ?>"><?= $csrf ?></form>
 <form class="form" method="post" action="<?= $action ?>">
 <?= $csrf ?>
-<fieldset id="claude"><legend><?= e(t('Claude connection')) ?></legend>
+<fieldset id="claude"><legend><?= e(t('AI connection')) ?></legend>
 <?php if ($newToken !== ''): ?>
 <div class="notice notice-ok">
 	<p><strong><?= e(t('The token has been created.')) ?></strong> <?= e(t('Copy it now – it will not be shown again.')) ?></p>

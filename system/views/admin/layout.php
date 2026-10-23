@@ -109,7 +109,7 @@ $userName = $username['name'] ?: $username['username'];
 	<ul class="menu" id="menu">
 		<li class="menu-section<?= $current === 'Home' ? ' active' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $current === 'Home' ? ' aria-current="page"' : '' ?>><?= e(t('Home')) ?></a></li>
 <?php foreach ($listed as $section): $open = $section === $current; $entries = $sections[$section]; ?>
-		<li class="menu-section<?= $open ? ' active' : '' ?><?= $section === 'Claude' ? ' menu-claude' : '' ?>"><a href="<?= e($app->url('admin.php?module=' . ($section === 'Website' && isset($entries['pages']) ? 'pages&action=website' : array_key_first($entries)))) ?>"<?= $open ? ' aria-current="true"' : '' ?>><?= e(t($section)) ?></a>
+		<li class="menu-section<?= $open ? ' active' : '' ?><?= $section === 'AI' ? ' menu-claude' : '' ?>"><a href="<?= e($app->url('admin.php?module=' . ($section === 'Website' && isset($entries['pages']) ? 'pages&action=website' : array_key_first($entries)))) ?>"<?= $open ? ' aria-current="true"' : '' ?>><?= e(t($section)) ?></a>
 <?php if ($open && count($entries) > 1): ?>
 			<ul class="menu-sub">
 <?php foreach ($entries as $ident => $class): ?>

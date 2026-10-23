@@ -19,7 +19,7 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 };
 ?>
 <section class="ask-claude" aria-labelledby="ask-claude-heading">
-	<h2 id="ask-claude-heading"><?= e(t('Ask Claude')) ?></h2>
+	<h2 id="ask-claude-heading"><?= e(t('Ask AI')) ?></h2>
 	<p class="small-text"><?= e(t('Write what you need done on the site, as you would to a colleague. Claude does it as drafts and answers in Requests; a person reviews and publishes.')) ?></p>
 	<form method="post" action="<?= e($requestsUrl('save')) ?>" enctype="multipart/form-data">
 		<?= $app->session->csrfField() ?>
@@ -36,7 +36,7 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 		</div>
 	</form>
 <?php if (!$ask['connected']): ?>
-	<p class="notice ask-claude-disconnected"><?= e($ask['admin'] ? t('Claude is not connected to this site yet, so requests wait until it is.') : t('Claude is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Connect Claude')) ?></a><?php endif ?></p>
+	<p class="notice ask-claude-disconnected"><?= e($ask['admin'] ? t('The AI is not connected to this site yet, so requests wait until it is.') : t('The AI is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Connect AI')) ?></a><?php endif ?></p>
 <?php endif ?>
 <?php if ($ask['examples'] !== []): ?>
 	<p class="small-text ask-claude-try"><?= e(t('For example – click one, change it and send:')) ?></p>

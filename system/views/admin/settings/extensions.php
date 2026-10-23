@@ -15,7 +15,7 @@ $extensionSettings = [
     'redirects' => [[$adminUrl('module=redirects'), 'Redirects']],
     'languages' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
     'assistant' => [['#assistant', 'Provider, key and model']],
-    'claude' => [['#claude', 'How to connect Claude']],
+    'claude' => [['#claude', 'How to connect the AI']],
 ];
 ?>
 <div class="extensions-list">
@@ -100,5 +100,5 @@ $extensionSettings = [
 </div>
 </details>
 <?php if (in_array('claude', $enabledExtensions, true)): ?>
-<p class="notice"><?= e(t('How to connect Claude, its instructions, its guardrails and every connection are in')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings')) ?>"><?= e(t('Claude settings')) ?></a>.</p>
+<p class="notice"><?= e(t('How to connect Claude, its instructions, its guardrails and every connection are in')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings')) ?>"><?= e(t('AI settings')) ?></a>.</p>
 <?php endif ?>

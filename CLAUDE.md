@@ -187,4 +187,5 @@ and size/time limits, never SVG.
 <!-- claude-reflect: learned rules (saved from the band; edit freely) -->
 ## Learned rules
 - Run CI tests against a single database engine instead of both MariaDB and MySQL, since they are considered equivalent.
+- In this project's German UI text, use the term 'AI' instead of 'KI' for the AI assistant.
 <!-- end claude-reflect -->
