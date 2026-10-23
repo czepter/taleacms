@@ -26,7 +26,7 @@ $action = e($app->url('admin.php?action=account'));
 <?php endif ?>
 
 <form class="form" method="post" action="<?= $action ?>">
-<?= $csrf ?><input type="hidden" name="op" value="profil">
+<?= $csrf ?><input type="hidden" name="op" value="profile">
 <fieldset><legend><?= e(t('My details')) ?></legend>
 <div class="row"><span class="caption"><?= e(t('User name')) ?></span><div><?= e($username['username']) ?> <span class="help"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
 <div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($username['name']) ?>" maxlength="100"><span class="help"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
@@ -56,7 +56,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </form>
 
 <form class="form" method="post" action="<?= $action ?>" autocomplete="off">
-<?= $csrf ?><input type="hidden" name="op" value="heslo">
+<?= $csrf ?><input type="hidden" name="op" value="password">
 <fieldset><legend><?= e(t('Change password')) ?></legend>
 <div class="row"><label for="current-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="current-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
 <div class="row"><label for="new_password"><?= e(t('New password')) ?></label><div><input class="textfield" type="password" id="new_password" name="new_password" size="30" minlength="10" autocomplete="new-password" required><span class="help"><?= e(t('At least 10 characters.')) ?></span></div></div>
@@ -77,11 +77,11 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <fieldset><legend><?= e(t('Two-factor sign-in')) ?></legend>
 <?php if ($username['totp_secret'] !== ''): ?>
 <p><span class="badge badge-published"><?= e(t('on')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
-<input type="hidden" name="op" value="totp_vypni">
+<input type="hidden" name="op" value="totp_off">
 <div class="row"><label for="off-password"><?= e(t('Password to confirm')) ?></label><div><input class="textfield" type="password" id="off-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
 <p class="buttons"><button class="navigation" type="submit"><?= e(t('Turn off two-factor sign-in')) ?></button></p>
 <?php elseif ($newSecret !== ''): ?>
-<input type="hidden" name="op" value="totp_potvrd">
+<input type="hidden" name="op" value="totp_confirm">
 <ol>
 	<li><?= e(t('In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:')) ?><br>
 		<span class="totp-qr"><?= Talea\Core\Qr::svg($uri, t('QR code for the authenticator app')) ?></span><br>
