@@ -91,6 +91,7 @@ final class Users extends Module
             $data['totp_secret'] = '';
             $data['totp_backup_codes'] = null;
             $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // passkeys depend on two-factor sign-in
+            $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
         }
 
         $errors = [];

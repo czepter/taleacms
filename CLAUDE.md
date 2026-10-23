@@ -161,7 +161,8 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   restricted to groups through `content_groups` (no row = public). **Every query that lists or exports content leaves gated rows out with
   `Members::notGated(type, idColumn)`** (lists, sitemap, llms.txt, feeds, search, newsletters, announcements); a gated page answers
   `private, no-store` + noindex and is never cached (`Kernel::gate()`). A group that still gates content cannot be deleted. Limits through `Antispam::tally`.
-- Login: `password_hash`, TOTP, passkeys (`Core\Passkey`, only instead of the code for a TOTP account), password reset `Admin\PasswordReset`.
+- Login: by user name or e-mail (an address two accounts share signs neither in), `password_hash`, TOTP, passkeys (`Core\Passkey`; added only to a TOTP account; instead of the code after the password, or alone on the first step when the device verified its owner – UV flag, no account named in the challenge), password reset `Admin\PasswordReset`.
+  "Stay signed in" (`Auth::REMEMBER_COOKIE` `tl_remember`, 30 days from the sign-in, set only after the second step): its sha256 and the password fingerprint in `user_remember_tokens`; `Auth::user()` trades it for a new session once the old one ended; sign-out or a new password ends it; turning two-factor sign-in on or off, removing a passkey or an administrator's 2FA reset end it on the account's other devices (`Auth::forgetOtherDevices`), and My account can end them too; the cookie bypasses `Front\Cache`.
 
 ## Import and export
 

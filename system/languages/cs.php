@@ -1931,6 +1931,7 @@ Odkaz platí %d dní.
     'Sign in with fingerprint or passkey' => 'Přihlásit se otiskem prstu nebo klíčem',
     'Sign out' => 'Odhlásit se',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Přihlášení do administrace – jen po přihlášení, nikdy pro návštěvníky',
+    'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Přihlášení do administrace: „Zůstat přihlášen“ – jen když to uživatel zaškrtne, nikdy pro návštěvníky',
     'Signpost' => 'Rozcestník',
     'Similar news by tags and category is offered below a news item.' => 'Pod novinkou se nabídnou podobné podle štítků a kategorie.',
     'Site address' => 'Adresa webu',

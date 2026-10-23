@@ -6,6 +6,7 @@
  * @var array<string, mixed> $user
  * @var string $csrf
  * @var list<array<string, mixed>> $keys the account's sign-in keys (passkeys)
+ * @var int $remembered other browsers of the account with a valid "stay signed in" token
  * @var list<string> $backupCodes  backup codes just created (shown only once)
  * @var string $newSecret      two-factor sign-in being turned on (in progress)
  * @var string $uri
@@ -129,6 +130,16 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </fieldset>
 </form>
 <script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
+<?php endif ?>
+
+<?php if ($remembered > 0): ?>
+<form class="form" method="post" action="<?= $action ?>">
+<?= $csrf ?><input type="hidden" name="op" value="remember_end">
+<fieldset><legend><?= e(t('Stay signed in')) ?></legend>
+<p><?= e(t('Other devices where you ticked “Stay signed in”: %d. They sign in again without the password until the 30 days are over.', $remembered)) ?></p>
+<p class="buttons"><button class="navigation danger" type="submit" data-confirm="<?= e(t('End “Stay signed in” on all other devices? They will have to sign in again once their current session ends.')) ?>"><?= e(t('End on all other devices')) ?></button></p>
+</fieldset>
+</form>
 <?php endif ?>
 
 <?php if ($claude): ?>

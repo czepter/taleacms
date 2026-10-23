@@ -29,6 +29,14 @@ final class Auth
     public const int SESSION_LIMIT = 24 * 3600;
 
     /**
+     * "Stay signed in": the cookie that brings a new session once the old one has ended (idle, absolute limit, closed browser).
+     * Its sha256 is in user_remember_tokens; it lasts REMEMBER_DAYS from the sign-in and ends with a sign-out or a new password.
+     */
+    public const string REMEMBER_COOKIE = 'tl_remember';
+
+    public const int REMEMBER_DAYS = 30;
+
+    /**
      * The one answer to a failed password step (3.3.3, N51): a wrong name, a wrong password, a temporarily locked account
      * and a blocked one all get it, so the answer never confirms a password. It still tells a locked-out owner what to do.
      */
@@ -54,10 +62,12 @@ final class Auth
     /**
      * The password step of the sign-in. $address is what the per-address limit counts by – Antispam::visitorKey(): the
      * visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54). $password is taken as typed (N61).
+     * $login is the user name or the e-mail address of the account; $remember sets the "stay signed in" cookie once the
+     * sign-in is complete (after the second step, if the account has one).
      *
      * @return string|null error text, null = signed in (or waiting for the second step)
      */
-    public function login(string $login, string $password, string $address): ?string
+    public function login(string $login, string $password, string $address, bool $remember = false): ?string
     {
         // Slowing down password guessing: at most 10 attempts from one address per 15 minutes
         $attempts = (int) $this->db->value(
@@ -68,7 +78,7 @@ final class Auth
             return t('Too many sign-in attempts. Try again in 15 minutes.');
         }
 
-        $user = $this->db->one('SELECT * FROM {users} WHERE username = ?', [$login]);
+        $user = $this->account($login);
         // A locked or blocked account is never checked against its own password (3.3.3, N51): a different answer to the
         // right password would confirm it, and the lock would shut out only the real owner. The dummy hash is verified
         // instead – for a nonexistent user too – so the response time is the same in every case.
@@ -94,14 +104,31 @@ final class Auth
         $this->session->regenerate();
         if ($user['totp_secret'] !== '') {
             // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
-            $this->session->set('pending_user', ['user_id' => (int) $user['user_id'], 'time' => time()]);
+            $this->session->set('pending_user', ['user_id' => (int) $user['user_id'], 'time' => time(), 'remember' => $remember]);
 
             return null;
         }
         $this->recordSignIn((int) $user['user_id']);
-        $this->startSignIn((int) $user['user_id'], (string) $this->db->value('SELECT password FROM {users} WHERE user_id = ?', [$user['user_id']]));
+        $this->startSignIn((int) $user['user_id'], (string) $this->db->value('SELECT password FROM {users} WHERE user_id = ?', [$user['user_id']]), $remember);
 
         return null;
+    }
+
+    /**
+     * The account a sign-in name points to: the one with that user name, or else the one with that e-mail address. An address
+     * that several accounts share signs none of them in – the name tells them apart.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function account(string $login): ?array
+    {
+        $user = $this->db->one('SELECT * FROM {users} WHERE username = ?', [$login]);
+        if ($user !== null || !str_contains($login, '@')) {
+            return $user;
+        }
+        $matches = $this->db->all('SELECT * FROM {users} WHERE email = ? LIMIT 2', [$login]);
+
+        return count($matches) === 1 ? $matches[0] : null;
     }
 
     /**
@@ -137,13 +164,94 @@ final class Auth
      * A completed sign-in in the session: the account, the password fingerprint, and since 3.3.3 (N60) when it started and
      * when it was last used – user() ends it after IDLE_LIMIT without a request, or SESSION_LIMIT after it started.
      */
-    private function startSignIn(int $idu, string $passwordHash): void
+    private function startSignIn(int $idu, string $passwordHash, bool $remember = false): void
     {
         $this->session->set('user_id', $idu);
         $this->session->set('fingerprint', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
         $this->user = false;
+        if ($remember) {
+            $token = bin2hex(random_bytes(32));
+            $expires = time() + self::REMEMBER_DAYS * 86400;
+            $this->db->insert('user_remember_tokens', ['user_id' => $idu, 'token_hash' => hash('sha256', $token), 'fingerprint' => self::passwordHash($passwordHash),
+                'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', $expires)]);
+            if (random_int(1, 50) === 1) {
+                $this->db->run('DELETE FROM {user_remember_tokens} WHERE expires_at < NOW()');
+            }
+            $this->session->cookie(self::REMEMBER_COOKIE, $token, $expires);
+        }
+    }
+
+    /** The "stay signed in" cookie of this request when it has the right shape, '' otherwise. */
+    private static function rememberCookie(): string
+    {
+        $cookie = $_COOKIE[self::REMEMBER_COOKIE] ?? '';
+
+        return is_string($cookie) && preg_match('/^[a-f0-9]{64}$/', $cookie) === 1 ? $cookie : '';
+    }
+
+    /**
+     * A new session from the "stay signed in" cookie, when the old one has ended. The token stays the same until it expires
+     * (no rotation: two requests racing with one cookie would otherwise sign each other out); a blocked account, a changed
+     * password or an expired token ends it and drops the cookie. No second step is asked: it was passed when the cookie was set.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function restoreSignIn(): ?array
+    {
+        $cookie = self::rememberCookie();
+        if ($cookie === '') {
+            return null;
+        }
+        $token = $this->db->one('SELECT * FROM {user_remember_tokens} WHERE token_hash = ? AND expires_at > NOW()', [hash('sha256', $cookie)]);
+        $user = $token === null ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$token['user_id']]);
+        if ($user === null || !hash_equals(self::passwordHash((string) $user['password']), (string) $token['fingerprint'])) {
+            $this->forget();
+
+            return null;
+        }
+        $this->session->regenerate();
+        $this->startSignIn((int) $user['user_id'], (string) $user['password']);
+        $this->db->update('users', ['last_login_at' => date('Y-m-d H:i:s')], ['user_id' => $user['user_id']]);
+
+        return $user;
+    }
+
+    /** The sha256 of this browser's "stay signed in" cookie, '' without one. */
+    private static function rememberHash(): string
+    {
+        $cookie = self::rememberCookie();
+
+        return $cookie === '' ? '' : hash('sha256', $cookie);
+    }
+
+    /** How many other browsers of the account still have a valid "stay signed in" token. */
+    public function rememberedElsewhere(int $idu): int
+    {
+        return (int) $this->db->value('SELECT COUNT(*) FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ? AND expires_at > NOW()', [$idu, self::rememberHash()]);
+    }
+
+    /**
+     * Ends the "stay signed in" tokens of the account on every other browser: when two-factor sign-in or a passkey changes
+     * (a lost phone or device must not leave a remembered sign-in behind), or when the owner asks for it in My account.
+     * This browser keeps its own; for another person's account (an administrator resetting it) that ends all of them.
+     */
+    public function forgetOtherDevices(int $idu): void
+    {
+        $this->db->run('DELETE FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ?', [$idu, self::rememberHash()]);
+    }
+
+    /** Ends the "stay signed in" token of this browser and drops its cookie. */
+    private function forget(): void
+    {
+        if (self::rememberHash() !== '') {
+            $this->db->delete('user_remember_tokens', ['token_hash' => self::rememberHash()]);
+        }
+        if (isset($_COOKIE[self::REMEMBER_COOKIE])) {
+            $this->session->cookie(self::REMEMBER_COOKIE, '', time() - 86400);
+            unset($_COOKIE[self::REMEMBER_COOKIE]);
+        }
     }
 
     /** Is a sign-in that started at $loginAt and was last used at $lastSeen still valid at $now? (3.3.3, N60) */
@@ -161,11 +269,14 @@ final class Auth
         return substr(hash('sha256', 'talea-session|' . $hash), 0, 24);
     }
 
-    /** After changing one's own password: this sign-in stays valid, the others do not. */
+    /** After changing one's own password: this sign-in stays valid (with its "stay signed in" cookie), the others do not. */
     public function refreshAfterPasswordChange(string $newHash): void
     {
         $this->session->regenerate();
         $this->session->set('fingerprint', self::passwordHash($newHash));
+        if (self::rememberHash() !== '') {
+            $this->db->run('UPDATE {user_remember_tokens} SET fingerprint = ? WHERE token_hash = ? AND user_id = ?', [self::passwordHash($newHash), self::rememberHash(), $this->id()]);
+        }
         $this->user = false;
     }
 
@@ -207,9 +318,10 @@ final class Auth
         if ($backupCodes !== null) {
             $this->db->update('users', ['totp_backup_codes' => $backupCodes], ['user_id' => $user['user_id']]);
         }
+        $remember = !empty($this->session->get('pending_user')['remember']);
         $this->session->remove('pending_user');
         $this->session->regenerate();
-        $this->startSignIn((int) $user['user_id'], (string) $user['password']);
+        $this->startSignIn((int) $user['user_id'], (string) $user['password'], $remember);
 
         return null;
     }
@@ -227,50 +339,55 @@ final class Auth
     }
 
     /**
-     * Second step of the sign-in with a passkey, part 1: a challenge for the device. Valid only for the account that has just entered the correct password.
+     * Sign-in with a passkey, part 1: a challenge for the device. After the password it lists the account's keys; on the
+     * first step it lists none, so the device offers the keys it keeps for the site and nothing tells which accounts exist.
      *
      * @return array<string, mixed>|null options for navigator.credentials.get(), null = nothing to wait for
      */
     public function keyChallenge(string $siteUrl): ?array
     {
-        if (!$this->isAwaitingKey()) {
+        $pending = $this->isAwaitingCode();
+        if ($pending && !$this->isAwaitingKey()) {
             return null;
         }
         $challenge = Passkey::challenge();
         $this->session->set('passkey_challenge', $challenge);
+        $keys = $pending ? array_map(static fn (array $k): string => (string) $k['credential_id'], $this->accountKeys((int) $this->session->get('pending_user')['user_id'])) : [];
 
-        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['credential_id'], $this->accountKeys((int) $this->session->get('pending_user')['user_id'])));
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), $keys, $pending ? 'preferred' : 'required');
     }
 
     /**
-     * Second step of the sign-in with a passkey, part 2: verifying the signature. A failure counts the same as a wrong code.
+     * Sign-in with a passkey, part 2: verifying the signature. After the password it is the second step and must be a key of
+     * that account; on the first step the key alone signs in, so the device must have checked its owner (PIN, fingerprint).
+     * A failure counts the same as a wrong code. $remember is the tick of the first step (after the password it came then).
      *
      * @param array<string, mixed> $response
      * @return string|null error text, null = signed in
      */
-    public function verifyKey(array $response, string $siteUrl, string $ip): ?string
+    public function verifyKey(array $response, string $siteUrl, string $ip, bool $remember = false): ?string
     {
-        if (!$this->isAwaitingCode()) {
-            return t('The sign-in has expired, please start again.');
-        }
         $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'login' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
         $challenge = (string) $this->session->get('passkey_challenge', '');
         $this->session->remove('passkey_challenge'); // the challenge is valid for one attempt
-        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [(int) $this->session->get('pending_user')['user_id']]);
-        if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
+        $pending = $this->isAwaitingCode() ? $this->session->get('pending_user') : null;
+        $key = $this->db->one('SELECT * FROM {user_passkeys} WHERE credential_hash = ?' . ($pending !== null ? ' AND user_id = ?' : ''),
+            array_merge([hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))], $pending !== null ? [(int) $pending['user_id']] : []));
+        $userId = $pending !== null ? (int) $pending['user_id'] : (int) ($key['user_id'] ?? 0);
+        $user = $userId === 0 ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$userId]);
+        if ($user !== null && self::isLocked($user)) {
             $this->session->remove('pending_user');
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
-        $key = $user === null ? null : $this->db->one('SELECT * FROM {user_passkeys} WHERE user_id = ? AND credential_hash = ?', [$user['user_id'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         try {
-            if ($key === null) {
-                throw new \RuntimeException('This key does not belong to the account.');
+            if ($key === null || $user === null) {
+                throw new \RuntimeException($pending !== null ? 'This key does not belong to the account.' : 'This passkey is not registered on this site.');
             }
-            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count']);
+            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count'], $pending === null);
         } catch (\RuntimeException $e) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
@@ -283,7 +400,7 @@ final class Auth
         $this->recordSignIn((int) $user['user_id']);
         $this->session->remove('pending_user');
         $this->session->regenerate();
-        $this->startSignIn((int) $user['user_id'], (string) $user['password']);
+        $this->startSignIn((int) $user['user_id'], (string) $user['password'], $pending !== null ? !empty($pending['remember']) : $remember);
 
         return null;
     }
@@ -299,6 +416,7 @@ final class Auth
 
     public function logout(): void
     {
+        $this->forget();
         $this->session->destroy();
         $this->user = null;
     }
@@ -307,44 +425,49 @@ final class Auth
     public function user(): ?array
     {
         if ($this->user === false) {
-            // without a session cookie there is nobody who could be signed in - and no session is started for the check (the site stays cacheable)
-            if (!isset($_COOKIE['talea'])) {
-                return $this->user = null;
-            }
-            $id = $this->session->get('user_id');
-            $this->user = is_int($id)
-                ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$id])
-                : null;
-            if ($this->user !== null) {
-                $hash = $this->session->get('fingerprint');
-                if ($hash === null) {
-                    $this->session->set('fingerprint', self::passwordHash((string) $this->user['password'])); // a sign-in from before this check existed
-                } elseif (!hash_equals(self::passwordHash((string) $this->user['password']), (string) $hash)) {
-                    $this->session->remove('user_id'); // the password has changed since the sign-in
-                    $this->user = null;
-                }
-            }
-            if ($this->user !== null) {
-                // 3.3.3 (N60): the idle and the absolute limit are checked here, not left to the session garbage collector;
-                // tokens (MCP, OAuth) never come this way – signInAs() sets the user without a session
-                $now = time();
-                $loginAt = $this->session->get('login_at');
-                $lastSeen = $this->session->get('last_seen');
-                if (!is_int($loginAt) || !is_int($lastSeen)) {
-                    $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
-                } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
-                    foreach (['user_id', 'fingerprint', 'login_at', 'last_seen'] as $key) {
-                        $this->session->remove($key);
-                    }
-                    $this->user = null;
-
-                    return null;
-                }
-                $this->session->set('last_seen', $now);
-            }
+            $this->user = $this->sessionUser() ?? $this->restoreSignIn();
         }
 
         return $this->user;
+    }
+
+    /** The account signed in by the PHP session, null when there is none or it has ended. @return array<string, mixed>|null */
+    private function sessionUser(): ?array
+    {
+        // without a session cookie there is nobody who could be signed in - and no session is started for the check (the site stays cacheable)
+        if (!isset($_COOKIE['talea'])) {
+            return null;
+        }
+        $id = $this->session->get('user_id');
+        $user = is_int($id) ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$id]) : null;
+        if ($user === null) {
+            return null;
+        }
+        $hash = $this->session->get('fingerprint');
+        if ($hash === null) {
+            $this->session->set('fingerprint', self::passwordHash((string) $user['password'])); // a sign-in from before this check existed
+        } elseif (!hash_equals(self::passwordHash((string) $user['password']), (string) $hash)) {
+            $this->session->remove('user_id'); // the password has changed since the sign-in
+
+            return null;
+        }
+        // 3.3.3 (N60): the idle and the absolute limit are checked here, not left to the session garbage collector;
+        // tokens (MCP, OAuth) never come this way – signInAs() sets the user without a session
+        $now = time();
+        $loginAt = $this->session->get('login_at');
+        $lastSeen = $this->session->get('last_seen');
+        if (!is_int($loginAt) || !is_int($lastSeen)) {
+            $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
+        } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
+            foreach (['user_id', 'fingerprint', 'login_at', 'last_seen'] as $key) {
+                $this->session->remove($key);
+            }
+
+            return null;
+        }
+        $this->session->set('last_seen', $now);
+
+        return $user;
     }
 
     /** Sign-in without a session - for requests authenticated by a token (MCP). */

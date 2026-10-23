@@ -753,6 +753,7 @@ Der Link gilt %d Tage.
     'Sign in at this address (valid for %d days, works once; later you ask for a new link on the same page):' => 'Melden Sie sich unter dieser Adresse an (gültig %d Tage, funktioniert einmal; später fordern Sie auf derselben Seite einen neuen Link an):',
     'Sign out' => 'Abmelden',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Anmeldung in der Verwaltung – nur nach dem Anmelden, nie für Besucher',
+    'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Anmeldung in der Verwaltung: „Angemeldet bleiben“ – nur wenn ein Benutzer es ankreuzt, nie für Besucher',
     'Signpost' => 'Wegweiser',
     'Skip' => 'Überspringen',
     'Skip to content' => 'Zum Inhalt springen',

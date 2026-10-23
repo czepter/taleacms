@@ -1,4 +1,4 @@
-// Talea - passkeys (WebAuthn): registration in "My account" and the second sign-in step.
+// Talea - passkeys (WebAuthn): registration in "My account", sign-in on the first step and the second sign-in step.
 // A form with the data-passkey attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
 (function () {
 	'use strict';
@@ -24,6 +24,8 @@
 		if (!button) { return; }
 
 		if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
+			// on the first sign-in step the passkey is only an extra: without support the form is not shown at all
+			if (formEl.hasAttribute('data-passkey-optional')) { formEl.hidden = true; return; }
 			button.disabled = true;
 			var unsupported = formEl.querySelector('[data-passkey-unsupported]');
 			if (unsupported) { unsupported.hidden = false; }
@@ -72,7 +74,9 @@
 				}
 				response.authenticatorData = toText(o.authenticatorData);
 				response.signature = toText(o.signature);
-				return deliver({ step: 'key', answer: JSON.stringify(response) });
+				// the "stay signed in" tick of the password form counts for the passkey too
+				var remember = document.querySelector('input[name="remember"]');
+				return deliver({ step: 'key', answer: JSON.stringify(response), remember: remember && remember.checked ? '1' : '' });
 			}).then(function (j) {
 				window.location.href = (j && j.redirect) || window.location.href.split('#')[0];
 			}).catch(function (e) {
