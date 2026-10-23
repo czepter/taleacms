@@ -152,4 +152,57 @@ final class AccountSecurityTest extends SiteTestCase
         $this->assertSame(1, substr_count($total->body, 'name="password"'), '3.3.3: 24 hours after signing in the sign-in is over');
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
     }
+
+    /** Drops the PHP session cookie of the client, as a closed browser does; the "stay signed in" cookie stays. */
+    private function closeBrowser(Http $client): void
+    {
+        $jar = (string) (new \ReflectionProperty($client, 'jar'))->getValue($client);
+        $lines = array_filter(file($jar, FILE_IGNORE_NEW_LINES) ?: [], static fn (string $line): bool => (explode("\t", $line)[5] ?? '') !== 'talea');
+        file_put_contents($jar, implode("\n", $lines) . "\n");
+    }
+
+    #[Depends('testSessionsEndAfterEightIdleHoursOrTwentyFourInTotal')]
+    public function testSignInByEmailAndStaySignedIn(): void
+    {
+        $site = $this->site();
+        $password = ' Mezera-heslo-123 ';
+        $tokens = static fn (): string => (string) $site->value("SELECT COUNT(*) FROM tl_user_remember_tokens r JOIN tl_users u ON u.user_id = r.user_id WHERE u.username = 'salesperson'");
+        $site->exec("UPDATE tl_users SET email = 'sales@example.org' WHERE username = 'salesperson'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+
+        $plain = $site->client('plain');
+        $this->assertSame(302, $this->login($plain, $this->loginPage($plain), 'Sales@Example.org', $password)->status, 'the e-mail address signs in, in any case');
+        $this->assertArrayNotHasKey('tl_remember', $plain->cookies(), 'without the tick there is no "stay signed in" cookie');
+        $this->closeBrowser($plain);
+        $this->assertSame(1, substr_count($plain->get('/admin.php')->body, 'name="password"'), 'without the tick a closed browser is signed out');
+
+        $client = $site->client('remember');
+        $signIn = $client->post('/admin.php', ['_csrf' => $this->loginPage($client), 'username' => 'sales@example.org', 'password' => $password, 'remember' => '1']);
+        $this->assertSame(302, $signIn->status, 'sign-in by e-mail with "stay signed in"');
+        $this->assertArrayHasKey('tl_remember', $client->cookies(), 'the "stay signed in" cookie is set');
+        $this->assertSame('1', $tokens(), 'one token is stored');
+        $this->assertNotSame(hash('sha256', $client->cookies()['tl_remember']), $client->cookies()['tl_remember'], 'the cookie is not its own hash');
+
+        $this->closeBrowser($client);
+        $this->assertSame(1, substr_count($client->get('/admin.php?action=token')->body, '"csrf"'), 'a closed browser comes back signed in');
+
+        // logging out ends the token and the cookie
+        $client->post('/admin.php?action=logout', ['_csrf' => $client->get('/admin.php')->csrf()]);
+        $this->assertSame('0', $tokens(), 'signing out deletes the token');
+        $this->assertArrayNotHasKey('tl_remember', $client->cookies(), 'signing out drops the cookie');
+
+        // a new password ends every remembered sign-in of the account
+        $client->post('/admin.php', ['_csrf' => $this->loginPage($client), 'username' => 'salesperson', 'password' => $password, 'remember' => '1']);
+        $site->exec("UPDATE tl_users SET password = ? WHERE username = 'salesperson'", [password_hash(self::NEW_PASSWORD, PASSWORD_DEFAULT)]);
+        $this->closeBrowser($client);
+        $this->assertSame(1, substr_count($client->get('/admin.php')->body, 'name="password"'), 'after a new password the cookie no longer signs in');
+        $this->assertSame('0', $tokens(), 'the stale token is deleted');
+
+        // an address two accounts share signs neither in
+        $site->exec("UPDATE tl_users SET email = 'sales@example.org' WHERE username = 'admin'");
+        $shared = $site->client('shared');
+        $this->assertSame(401, $this->login($shared, $this->loginPage($shared), 'sales@example.org', self::NEW_PASSWORD)->status, 'a shared e-mail address does not sign in');
+        $site->exec("UPDATE tl_users SET email = '' WHERE username = 'admin'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+    }
 }

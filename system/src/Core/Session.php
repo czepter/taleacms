@@ -60,6 +60,14 @@ final class Session
         session_regenerate_id(true);
     }
 
+    /** A cookie of its own next to the session one, with the same path and flags (the "stay signed in" cookie). */
+    public function cookie(string $name, string $value, int $expires): void
+    {
+        if (!headers_sent()) {
+            setcookie($name, $value, ['expires' => $expires, 'path' => $this->cookiePath, 'secure' => $this->secure, 'httponly' => true, 'samesite' => 'Lax']);
+        }
+    }
+
     public function destroy(): void
     {
         $this->start();

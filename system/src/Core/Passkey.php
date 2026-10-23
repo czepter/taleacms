@@ -34,6 +34,7 @@ final class Passkey
     public const array ALGORITHMS = [-7, -257];
 
     private const int FLAG_UP = 0x01; // the user was present
+    private const int FLAG_UV = 0x04; // the device checked who it is (PIN, fingerprint, face)
     private const int FLAG_AT = 0x40; // the data contains a newly created key (only on registration)
 
     /** Random challenge for one attempt (base64url). The caller stores it in the session and discards it after use. */
@@ -72,7 +73,7 @@ final class Passkey
             'pubKeyCredParams' => array_map(static fn (int $alg): array => ['type' => 'public-key', 'alg' => $alg], self::ALGORITHMS),
             'timeout' => 120000,
             'attestation' => 'none',
-            'authenticatorSelection' => ['residentKey' => 'discouraged', 'userVerification' => 'preferred'],
+            'authenticatorSelection' => ['residentKey' => 'preferred', 'userVerification' => 'preferred'], // kept on the device: it can sign in without a name
             'excludeCredentials' => array_map(static fn (string $id): array => ['type' => 'public-key', 'id' => $id], $existing),
         ];
     }
@@ -80,16 +81,17 @@ final class Passkey
     /**
      * Options for navigator.credentials.get().
      *
-     * @param list<string> $allowed ids of the account's keys (base64url)
+     * @param list<string> $allowed ids of the account's keys (base64url); none = the device offers the keys it keeps for the site
+     * @param string $verification 'preferred' after the password, 'required' when the key alone signs in
      * @return array<string, mixed>
      */
-    public static function signInOptions(string $challenge, string $rpId, array $allowed): array
+    public static function signInOptions(string $challenge, string $rpId, array $allowed, string $verification = 'preferred'): array
     {
         return [
             'challenge' => $challenge,
             'rpId' => $rpId,
             'timeout' => 120000,
-            'userVerification' => 'preferred',
+            'userVerification' => $verification,
             'allowCredentials' => array_map(static fn (string $id): array => ['type' => 'public-key', 'id' => $id], $allowed),
         ];
     }
@@ -142,16 +144,20 @@ final class Passkey
     }
 
     /**
-     * Verifies a login response. Returns the new signature counter to store.
+     * Verifies a login response. Returns the new signature counter to store. $verified: the key alone signs in, so the
+     * device must have checked its owner (the UV flag) – the key and the PIN or fingerprint are then the two factors.
      *
      * @param array<string, mixed> $response clientDataJSON, authenticatorData, signature - all base64url
      * @throws \RuntimeException with the reason for rejection
      */
-    public static function verifySignIn(array $response, string $challenge, string $origin, string $rpId, string $publicKeyPem, int $storedCounter): int
+    public static function verifySignIn(array $response, string $challenge, string $origin, string $rpId, string $publicKeyPem, int $storedCounter, bool $verified = false): int
     {
         $client = self::verifyClient((string) ($response['clientDataJSON'] ?? ''), 'webauthn.get', $challenge, $origin);
         $data = self::fromB64((string) ($response['authenticatorData'] ?? ''));
-        self::verifyData($data, $rpId);
+        $flags = self::verifyData($data, $rpId);
+        if ($verified && ($flags & self::FLAG_UV) === 0) {
+            throw new \RuntimeException('The device did not check who you are. Use a passkey protected by a PIN, fingerprint or face.');
+        }
 
         $signature = self::fromB64((string) ($response['signature'] ?? ''));
         $key = openssl_pkey_get_public($publicKeyPem);

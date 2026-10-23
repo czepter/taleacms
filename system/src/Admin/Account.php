@@ -166,7 +166,8 @@ final class Account
     /**
      * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/passkeys.js.
      * A key can be added only to an account with two-factor sign-in enabled: it is a more convenient replacement of the
-     * code from the app, the code and the backup codes remain as a fallback in case the device is lost.
+     * code from the app (and signs in alone when the device checks its owner), the code and the backup codes remain as a
+     * fallback in case the device is lost.
      * The challenge is issued only to whoever types the current password (3.3.3, N56): a stolen session alone must not add
      * the attacker's own key. Saving needs that challenge, so it needs the password too.
      *
@@ -210,7 +211,7 @@ final class Account
             'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
         ]);
         ChangeLog::write($app, 'account', 'passkey_added', $name);
-        $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');
+        $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone, or use it instead of the code from the app.');
 
         return Response::json(['ok' => true]);
     }

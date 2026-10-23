@@ -76,6 +76,7 @@ final class Privacy
         ['tl-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
         ['tl-x', 'A/B tests: which version of a tested page the visitor sees – written only after they accepted the cookie bar (local storage)', 'until removed', 'statistics'],
         ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
+        ['tl_remember', 'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors', '30 days', 'necessary'],
         ['tl_member', 'Member login: keeps a member signed in – only after signing in, never for other visitors', '30 days', 'necessary'],
     ];
 

@@ -5,7 +5,9 @@
  * @var Talea\Core\App $app
  * @var string|null $error
  * @var string $login
+ * @var bool $remember  "stay signed in" was ticked (kept when the password was wrong)
  * @var bool $code  second step: the password is already correct, waiting for the code from the authenticator app
+ * @var bool $keys  show the passkey button: the account waiting for the second step has keys, or on the first step any account has one
  */
 ?>
 <!doctype html>
@@ -41,13 +43,14 @@
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
 <div class="login-field"><label for="code"><?= e(t('Verification code:')) ?></label> <input class="textfield" type="text" id="code" name="code" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
 <?php else: ?>
-<div class="login-field"><label for="user"><?= e(t('User name')) ?></label> <input class="textfield" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="40" autocomplete="username" required autofocus></div>
+<div class="login-field"><label for="user"><?= e(t('User name or e-mail')) ?></label> <input class="textfield" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="190" autocomplete="username" required autofocus></div>
 <div class="login-field"><label for="password"><?= e(t('Password')) ?></label> <input class="textfield" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
+<p class="login-remember"><label><input type="checkbox" name="remember" value="1"<?= $remember ? ' checked' : '' ?>> <?= e(t('Stay signed in for %s days', (string) Talea\Core\Auth::REMEMBER_DAYS)) ?></label></p>
 <?php endif ?>
 <p><input class="btn" type="submit" value="<?= e(t($code ? 'Verify code' : 'Sign in')) ?>"></p>
 </form>
-<?php if ($code && !empty($keys)): ?>
-<form method="post" action="<?= e($app->url('admin.php')) ?>" data-passkey="<?= e($app->url('admin.php')) ?>">
+<?php if (!empty($keys)): // the first step: any passkey kept on the device; after the password: the account's keys ?>
+<form method="post" action="<?= e($app->url('admin.php')) ?>" data-passkey="<?= e($app->url('admin.php')) ?>"<?= $code ? '' : ' data-passkey-optional' ?>>
 <?= $app->session->csrfField() ?>
 <p class="login-or"><?= e(t('or')) ?></p>
 <p><button class="btn" type="button" data-passkey-signin><?= e(t('Sign in with fingerprint or passkey')) ?></button></p>

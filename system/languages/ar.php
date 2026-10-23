@@ -757,6 +757,7 @@ The link works for %d days.
     'Sign in at this address (valid for %d days, works once; later you ask for a new link on the same page):' => 'سجّل الدخول عبر هذا العنوان (صالح لمدة %d يومًا، ويعمل مرة واحدة؛ ولاحقًا يمكنك طلب رابط جديد من الصفحة نفسها):',
     'Sign out' => 'تسجيل الخروج',
     'Sign-in to the administration – only after signing in, never for visitors' => 'تسجيل الدخول إلى لوحة الإدارة – بعد تسجيل الدخول فقط، ولا يُستخدم مع الزوار',
+    'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'تسجيل الدخول إلى الإدارة: «البقاء مسجّلاً» – فقط عندما يختاره المستخدم، ولا يُستخدم مع الزوار أبداً',
     'Signpost' => 'دليل التنقل',
     'Skip' => 'تخطي',
     'Skip to content' => 'انتقل إلى المحتوى',

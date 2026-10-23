@@ -453,7 +453,7 @@ final class Kernel
         $error = null;
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
         $address = \Talea\Core\Antispam::visitorKey($app->request, $app->settings());
-        // second step with a passkey (fingerprint, Face ID): the script image/passkeys.js asks for a challenge and sends the device signature
+        // a passkey (fingerprint, Face ID) on the first step or as the second: the script image/passkeys.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('step'), ['passkey_options', 'key'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
             if ($app->request->post('step') === 'passkey_options') {
@@ -461,7 +461,7 @@ final class Kernel
 
                 return Response::json($options ?? ['error' => t('The sign-in has expired, please start again.')], $options === null ? 400 : 200);
             }
-            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['answer'] ?? ''), true), $url, $address);
+            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['answer'] ?? ''), true), $url, $address, $app->request->postBool('remember'));
             if ($error === null) {
                 ChangeLog::write($app, 'signed_in', 'login', 'passkey');
             }
@@ -473,7 +473,7 @@ final class Kernel
             $error = $secondStep
                 ? $app->auth()->verifyCode($app->request->post('code'), $address)
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
-                : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
+                : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address, $app->request->postBool('remember'));
             if ($error === null && $app->auth()->user() !== null) {
                 ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'two-step' : '');
 
@@ -488,8 +488,10 @@ final class Kernel
             'app' => $app,
             'error' => $error,
             'login' => $app->request->post('username'),
+            'remember' => $app->request->postBool('remember'),
             'code' => $app->auth()->isAwaitingCode(),
-            'keys' => $app->auth()->isAwaitingKey(),
+            // the passkey button: after the password when the account has keys, on the first step when any account has one
+            'keys' => $app->auth()->isAwaitingCode() ? $app->auth()->isAwaitingKey() : (int) $app->db()->value('SELECT COUNT(*) FROM {user_passkeys}') > 0,
         ]), $error === null ? 200 : 401);
     }
 
