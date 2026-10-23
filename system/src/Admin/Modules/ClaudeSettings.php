@@ -14,8 +14,8 @@ use Talea\Core\Response;
 final class ClaudeSettings extends Settings
 {
     public const string IDENT = 'claude_settings';
-    public const string NAME = 'Claude settings';
-    public const string GROUP = 'Claude';
+    public const string NAME = 'AI settings';
+    public const string GROUP = 'AI';
     public const string ICON = 'settings';
     public const string HUB = 'claude';
 

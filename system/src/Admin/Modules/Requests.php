@@ -17,8 +17,8 @@ final class Requests extends Module
 {
     public const string IDENT = 'requests';
     public const string HUB = 'claude';
-    public const string NAME = 'Ask Claude';
-    public const string GROUP = 'Claude';
+    public const string NAME = 'Ask AI';
+    public const string GROUP = 'AI';
     public const string ICON = 'comments';
     public const string TABLE = 'requests';
 
@@ -27,7 +27,7 @@ final class Requests extends Module
         $status = $this->request->get('status');
         $status = isset(Inbox::STATUSES[$status]) ? $status : '';
 
-        return $this->view('list', 'Ask Claude', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
+        return $this->view('list', 'Ask AI', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
             'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
             // the same box as on Home above the list (#113); the list below already shows the person's requests

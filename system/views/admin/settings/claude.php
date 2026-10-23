@@ -22,11 +22,11 @@ $accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OA
 <p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http talea <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('The connector needs the site on HTTPS. In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
 <div class="row">
-	<label for="claude_instructions"><?= e(t('Instructions for Claude')) ?></label>
+	<label for="claude_instructions"><?= e(t('Instructions for the AI')) ?></label>
 	<div><textarea class="textfield wide" id="claude_instructions" name="claude_instructions" rows="6" maxlength="5000" placeholder="<?= e(t('e.g. We address customers informally. Say “renovation”, never “reconstruction”. Keep headings short. Always offer a free visit.')) ?>"><?= e($values['claude_instructions']) ?></textarea>
 	<span class="help"><?= e(t('Brand voice, words to use or avoid, house rules. Every Claude connection gets them when it connects, and they are its resource talea://instructions.')) ?></span></div>
 </div>
-<h3><?= e(t('Guardrails for Claude')) ?></h3>
+<h3><?= e(t('Guardrails for the AI')) ?></h3>
 <p class="help"><?= e(t('They hold for every Claude connection on top of its access. Claude is told why when it hits one, so it can tell you.')) ?></p>
 <div class="row">
 	<label for="claude_change_limit"><?= e(t('Changes per connection and hour')) ?></label>

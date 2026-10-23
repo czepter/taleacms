@@ -33,8 +33,8 @@ final class MenuPaths
         [['System status'], 'status', 'module=status'],
         // 3.2: the screens that left Settings
         [['Business details'], 'business', 'module=business'],
-        [['Claude settings', 'Guardrails for Claude'], 'claude_settings', 'module=claude_settings'],
-        [['Claude settings'], 'claude_settings', 'module=claude_settings'],
+        [['AI settings', 'Guardrails for the AI'], 'claude_settings', 'module=claude_settings'],
+        [['AI settings'], 'claude_settings', 'module=claude_settings'],
         [['My account'], '', 'action=account'],
     ];
 

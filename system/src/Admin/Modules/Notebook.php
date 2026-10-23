@@ -19,7 +19,7 @@ final class Notebook extends Module
     public const string HUB = 'claude';
     public const string PARENT = 'claude_settings';
     public const string NAME = 'Notebook';
-    public const string GROUP = 'Claude';
+    public const string GROUP = 'AI';
     public const string ICON = 'notebook';
 
     protected function actionList(): Response

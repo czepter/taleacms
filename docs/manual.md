@@ -344,7 +344,7 @@ the API key and model. The assistant only suggests. Text goes to the provider on
   (shorter, longer, more formal, friendlier, fix mistakes). Check the result and fill in facts yourself. Ctrl+Z undoes the change.
 - In news: headlines, intro, SEO description, tags, proofreading, image descriptions and translation into another site language.
 
-The **Claude connection (MCP)** is switched on in new installations (under Features on older sites). Then:
+The **AI connection (MCP)** is switched on in new installations (under Features on older sites). Then:
 
 - **Connector in the Claude app (recommended):** in Settings → Connectors add a custom connector with the address
   `https://your-site.com/mcp`. Claude sends you to the website to sign in and confirm access (OAuth), nothing to copy.
@@ -384,7 +384,7 @@ Existing connections keep the access they were given.
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
 
-**Instructions for Claude.** Under **Claude settings** write what Claude should keep to – how you address
+**Instructions for the AI.** Under **AI → AI settings** write what Claude should keep to – how you address
 customers, words to use or avoid, house rules. Every connection gets them when it connects. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site.

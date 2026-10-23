@@ -26,7 +26,7 @@ $action = ['save' => 'save', 'delete' => 'deletion', 'delete_permanently' => 'de
     'edit_build' => 'build changed', 'insert_section' => 'build changed', 'save_classes' => 'shared classes changed', 'upload_file' => 'file uploaded', 'update_settings' => 'settings changed', 'save_redirect' => 'redirects changed', 'trash_page' => 'page moved to trash', 'publish_build' => 'published',
     'update_design_system' => 'design system changed', 'create_page' => 'page created', 'update_page' => 'page changed', 'create_news' => 'news item created', 'update_news' => 'news item changed', 'create_category' => 'category created', 'save_menu' => 'menu changed', 'save_part_variant' => 'variant saved'];
 ?>
-<p><a class="navigation" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
+<p><a class="navigation" href="<?= e($module->url('sessions')) ?>"><?= e(t('AI sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text">
 	<input type="hidden" name="module" value="changelog">
 	<label><?= e(t('User:')) ?> <select name="username" data-submit-on-change><option value="0"><?= e(t('all')) ?></option>

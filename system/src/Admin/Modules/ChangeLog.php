@@ -70,7 +70,7 @@ final class ChangeLog extends Module
         $result = $this->app->session->get('undo_result');
         $this->app->session->set('undo_result', null);
 
-        return $this->view('sessions', 'Claude sessions', ['sessions' => $sessions, 'result' => is_array($result) ? $result : null]);
+        return $this->view('sessions', 'AI sessions', ['sessions' => $sessions, 'result' => is_array($result) ? $result : null]);
     }
 
     /** Undo one session (POST): rows changed since by someone else are left alone unless "force" is ticked. */

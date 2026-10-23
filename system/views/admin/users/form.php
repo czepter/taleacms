@@ -111,7 +111,7 @@ $role = [
 </form>
 <?php if ($author['user_id'] && ($connections ?? []) !== []): ?>
 <fieldset id="connections">
-<legend><?= e(t('Claude connections')) ?></legend>
+<legend><?= e(t('AI connections')) ?></legend>
 <p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
 <?php $accessLabel = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS); ?>
 <?php foreach ($connections as $c): ?>

@@ -145,4 +145,11 @@ final class RequestsToClaudeTest extends SiteTestCase
 
         $this->site()->exec("UPDATE tl_users SET email = '' WHERE username = 'admin'");
     }
+
+    public function testWithoutAClaudeConnectionHomeHasNoAskBox(): void
+    {
+        $this->site()->exec('DELETE FROM tl_api_tokens');
+        $this->assertStringNotContainsString('id="ask-claude-text"', $this->site()->admin()->get('/admin.php')->body, 'ask: Home has no box while Claude is not connected');
+        $this->assertStringContainsString('ask-claude-disconnected', $this->staff()->get('/admin.php?module=requests')->body, 'ask: above the requests the box stays and says Claude is not connected');
+    }
 }
