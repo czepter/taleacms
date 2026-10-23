@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A clean English install walked through in Chrome by tools/test-browser.mjs (admin, builder, editors, public site); fails on any
- * script error. Skipped without Node, Chrome (CHROME=/path) or the network for `npm i playwright-core`. Not part of the `site` suite.
+ * script error and on admin content that spills out of its box (in English and once more in German). Skipped without Node, Chrome (CHROME=/path) or the network for `npm i playwright-core`. Not part of the `site` suite.
  */
 #[Group('browser')]
 final class BrowserWalkTest extends TestCase

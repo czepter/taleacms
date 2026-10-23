@@ -1,5 +1,5 @@
 // Talea – browser test (run by tests/Browser/BrowserWalkTest.php): walks the admin, the builder, the news editor, the menu
-// editor and the public site in Chrome and fails on any uncaught script error or console error.
+// editor and the public site in Chrome and fails on any uncaught script error, console error or admin content that spills out of its box.
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
 // for screenshots of new screens, to look at them).
 import { createRequire } from 'node:module';
@@ -53,14 +53,30 @@ await step('find a page', async () => {
   PAGE = new URL(await page.locator('a[href*="action=edit&id="]').first().getAttribute('href'), BASE).searchParams.get('id') ?? '';
 });
 
-for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', `/admin.php?module=pages&action=edit&id=${PAGE}`,
+// content that spills out of its box (a badge wider than its tile, a word wider than its column): an element that lets its overflow
+// show and whose content is wider than itself; scroll containers and clipped boxes are wider on purpose. Only the innermost is named.
+async function nothingSpillsOut() {
+  const spilled = await page.evaluate(() => {
+    const wide = [...document.querySelectorAll('body *')].filter((e) => {
+      if (e.closest('svg')) { return false; }
+      const s = getComputedStyle(e);
+      return s.overflowX === 'visible' && s.display !== 'inline' && e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1;
+    });
+    return wide.filter((e) => !wide.some((d) => d !== e && e.contains(d)))
+      .map((e) => `<${e.tagName.toLowerCase()} class="${e.getAttribute('class') ?? ''}"> ${e.scrollWidth - e.clientWidth}px wider: "${e.textContent.trim().replace(/\s+/g, ' ').slice(0, 60)}"`);
+  });
+  if (spilled.length) { throw new Error('content spills out of its box: ' + spilled.join(' | ')); }
+}
+
+const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', `/admin.php?module=pages&action=edit&id=${PAGE}`,
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
   '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
-  '/admin.php?module=bookings']) {
-  await step(`open ${url}`, () => visit(url));
+  '/admin.php?module=bookings'];
+for (const url of ADMIN_PAGES) {
+  await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
 }
 
 await step('appearance: change a colour and preview', async () => {
@@ -784,6 +800,22 @@ await step('booking: pick a day, the month stays drawn and the free times load',
   if (!(await page.locator('.tl-booking-days button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
   await page.locator('.tl-booking-times button').first().click();
   if (!(await page.locator('[data-selected]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
+});
+
+// German texts are among the longest: the administration in German once more, every screen without content that spills out (the last
+// step, as the steps before find buttons by their English names)
+await step('administration in German: nothing spills out of its box', async () => {
+  await visit('/admin.php?action=account');
+  await page.locator('#language').selectOption('de');
+  await Promise.all([page.waitForNavigation(), page.locator('form:has(#language) input[type="submit"]').click()]);
+  await visit('/admin.php');
+  if (await page.getAttribute('html', 'lang') !== 'de') { throw new Error('the administration is not German: ' + await page.getAttribute('html', 'lang')); }
+  const failed = [];
+  for (const url of ADMIN_PAGES) {
+    await visit(url);
+    await nothingSpillsOut().catch((e) => failed.push(`${url}: ${e.message}`));
+  }
+  if (failed.length) { throw new Error(failed.join('\n  ')); }
 });
 
 await browser.close();

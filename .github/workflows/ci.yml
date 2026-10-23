@@ -18,7 +18,8 @@ jobs:
   # the merge commit of an up-to-date pull request (same tree as the tested head). Anything else, and any doubt (API error), runs
   # everything.
   # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
-  # test jobs (output tests=false); the repository checks (unit suite) and the security scan still run.
+  # test jobs (output tests=false, browser=false); a change of stylesheets (with or without documentation) runs the browser walk
+  # but not the database suites and static analysis (tests=false). The repository checks (unit suite) and the security scan still run.
   gate:
     name: Not tested yet
     runs-on: [self-hosted, Linux, X64]
@@ -26,6 +27,7 @@ jobs:
     outputs:
       run: ${{ steps.gate.outputs.run }}
       tests: ${{ steps.gate.outputs.tests }}
+      browser: ${{ steps.gate.outputs.browser }}
     steps:
       - id: gate
         env:
@@ -77,12 +79,17 @@ jobs:
             files=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$api/compare/$BEFORE...$AFTER" \
               | jq -r 'if (.files | length) < 300 then .files[].filename else empty end') || files=""
           fi
-          tests=true
-          if grep -q . <<<"$files" && ! grep -v -E '(\.md$|^docs/|^NOTICE$|^LICENSE$)' <<<"$files" | grep -q . \
-            && ! grep -q '^docs/examples/' <<<"$files"; then
-            tests=false; echo "documentation only: the test jobs are skipped"
+          tests=true; browser=true
+          code=$(grep -v -E '(\.md$|^docs/|^NOTICE$|^LICENSE$)' <<<"$files" || true)
+          if grep -q . <<<"$files" && ! grep -q '^docs/examples/' <<<"$files"; then
+            if ! grep -q . <<<"$code"; then
+              tests=false; browser=false; echo "documentation only: the test jobs are skipped"
+            elif ! grep -qv '\.css$' <<<"$code"; then
+              tests=false; echo "stylesheets only: of the test jobs only the browser walk runs (it finds content that spills out of its box)"
+            fi
           fi
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          echo "browser=$browser" >> "$GITHUB_OUTPUT"
   checks:
     name: Repository checks
     needs: gate
@@ -140,7 +147,7 @@ jobs:
   browser:
     name: Browser walk (Chrome)
     needs: gate
-    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.browser == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     services:
