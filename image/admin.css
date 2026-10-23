@@ -65,8 +65,6 @@
 		--ok-base: #10291D;
 		--warning-text: #FDB022;
 		--handover-text: #B69CFF;
-	--component: #B69CFF;
-	--component-base: #231C33;
 		--component: #B69CFF;
 		--component-base: #231C33;
 		--planned: #8FB8FF;
@@ -89,6 +87,8 @@
 	--ok-base: #10291D;
 	--warning-text: #FDB022;
 	--handover-text: #B69CFF;
+	--component: #B69CFF;
+	--component-base: #231C33;
 	--planned: #8FB8FF;
 	--on-accent: #121212;
 }
