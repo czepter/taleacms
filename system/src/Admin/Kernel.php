@@ -10,10 +10,76 @@ use Talea\Core\Response;
 use Talea\Core\Extensions;
 
 /**
- * Administration. URLs: admin.php?module=<ident>&action=<action>
+ * Administration. URLs: /admin/<module>/<action>/<id> (index.php hands them to admin.php, which reads them as
+ * ?module=&action=&id=); actions of the administration itself are /admin/<action> (OWN_ACTIONS).
  */
 final class Kernel
 {
+    /** Actions that belong to no module: /admin/account, /admin/oauth … (no module ident may take these names). */
+    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
+
+    /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
+    private const string SEGMENT = '[A-Za-z0-9_.-]+';
+
+    /**
+     * The clean address of an admin query: "module=news&action=edit&id=X&page=2#top" -> "admin/news/edit/X?page=2#top".
+     * App::url() calls it for every "admin.php?…", so links, forms and redirects never show admin.php or ?module=.
+     */
+    public static function path(string $query): string
+    {
+        [$query, $fragment] = array_pad(explode('#', $query, 2), 2, null);
+        $named = [];
+        $rest = [];
+        foreach ($query === '' ? [] : explode('&', $query) as $pair) {
+            [$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
+            if (in_array($key, ['module', 'action', 'id'], true) && !isset($named[$key]) && preg_match('#^' . self::SEGMENT . '$#', rawurldecode($value)) === 1) {
+                $named[$key] = rawurldecode($value);
+            } else {
+                $rest[] = $pair;
+            }
+        }
+        $module = $named['module'] ?? null;
+        $action = $named['action'] ?? null;
+        $id = $named['id'] ?? null;
+        // an action without a module that is not the administration's own would read as a module: it stays in the query
+        if ($module === null && $action !== null && !in_array($action, self::OWN_ACTIONS, true)) {
+            $rest[] = 'action=' . rawurlencode($action);
+            $action = null;
+        }
+        // an id goes into the path only after a module and its action
+        if ($id !== null && ($module === null || $action === null)) {
+            $rest[] = 'id=' . rawurlencode($id);
+            $id = null;
+        }
+        $segments = array_filter([$module, $action, $id], fn (?string $s): bool => $s !== null);
+
+        return rtrim('admin/' . implode('/', $segments), '/') . ($rest !== [] ? '?' . implode('&', $rest) : '') . ($fragment !== null ? '#' . $fragment : '');
+    }
+
+    /**
+     * A request for /admin/… (from index.php): its segments become the query admin.php reads. A GET that still names the
+     * module or action in its query (a GET form, an old link) is sent to the clean address. False = not an admin address.
+     */
+    public static function route(): bool
+    {
+        $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+        $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (preg_match('#^' . preg_quote($base, '#') . '/admin(?:/(.*))?$#', $path, $m) !== 1) {
+            return false;
+        }
+        $_SERVER['SCRIPT_NAME'] = $base . '/admin.php';
+        $target = self::path(http_build_query($_GET, '', '&', PHP_QUERY_RFC3986));
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && (isset($_GET['module']) || isset($_GET['action'])) && preg_match('#^admin(?:[?\#]|$)#', $target) !== 1) {
+            header('Location: ' . $base . '/' . $target, true, 302);
+            exit;
+        }
+        $segments = array_values(array_filter(explode('/', rawurldecode($m[1] ?? '')), fn (string $s): bool => $s !== ''));
+        $_GET = (isset($segments[0]) && in_array($segments[0], self::OWN_ACTIONS, true) ? ['action' => $segments[0]]
+            : array_filter(['module' => $segments[0] ?? null, 'action' => $segments[1] ?? null, 'id' => $segments[2] ?? null], fn (?string $v): bool => $v !== null)) + $_GET;
+
+        return true;
+    }
+
     /**
      * Modules in the order they appear in the menu, section by section (Module::GROUP); the first module of a section the
      * person may open is where the section's link goes.
@@ -123,12 +189,12 @@ final class Kernel
         \Talea\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Talea\Core\Language::set(\Talea\Core\Language::adminCode($app->auth()->user(), $app->settings()), 'admin-');
         if (\Talea\Core\Files::bodyTooLarge($request)) {
-            return $this->page('Invalid request', $app->view->render('admin/error', [
+            return $this->page('Invalid request', $app->view->render('admin/error', ['app' => $app,
                 'text' => t('The upload is larger than the server allows (at most %s), so nothing arrived. Upload a smaller file or raise post_max_size on the server.', \Talea\Core\Files::size(\Talea\Core\Files::iniBytes((string) ini_get('post_max_size')))),
             ]), 413);
         }
         if ($request->isPost() && !$app->session->csrfValid($request)) {
-            return $this->page('Invalid request', $app->view->render('admin/error', [
+            return $this->page('Invalid request', $app->view->render('admin/error', ['app' => $app,
                 'text' => 'The form has expired. Go back, reload the page and submit it again.',
             ]), 400);
         }
@@ -212,8 +278,8 @@ final class Kernel
             // a mistyped section is not a matter of access
             $known = array_filter(self::MODULES, fn (string $c): bool => $c::IDENT === $ident) !== [];
 
-            return $known ? $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403)
-                : $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 404);
+            return $known ? $this->page('Error', $app->view->render('admin/error', ['app' => $app, 'text' => 'You do not have access to this module.']), 403)
+                : $this->page('Error', $app->view->render('admin/error', ['app' => $app, 'text' => 'This page does not exist.']), 404);
         }
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
@@ -508,7 +574,7 @@ final class Kernel
         if (!is_array($pending) || time() - (int) ($pending['time'] ?? 0) > 900) {
             $app->session->set('pending_oauth', null);
 
-            return $this->page('Connect an application', $app->view->render('admin/error', ['text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
+            return $this->page('Connect an application', $app->view->render('admin/error', ['app' => $app, 'text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
         }
         $oauth = new \Talea\Front\OAuth($app);
         if ($app->request->isPost()) {

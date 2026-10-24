@@ -157,7 +157,7 @@ final class DraftCommentsTest extends SiteTestCase
         $text = $this->decodeMail($mail);
         $this->assertStringContainsString('New comment on the draft of “Comment draft”', $text, 'comments: the e-mail subject');
         $this->assertStringContainsString('Client Novak', $text, 'comments: the e-mail names the commenter');
-        $this->assertStringContainsString('module=pages&action=builder&id=' . $this->site()->publicId('pages', (int) self::$page), $text, 'comments: the e-mail links the builder');
+        $this->assertStringContainsString('/admin/pages/builder/' . $this->site()->publicId('pages', (int) self::$page), $text, 'comments: the e-mail links the builder');
 
         $this->assertPage('/admin.php?module=pages', 200, '1 comments', message: 'comments: the pages list shows the badge with the count');
         $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->site()->publicId('pages', (int) self::$page), 200, '"name":"Client Novak"', message: 'comments: the builder shows the comment in its panel data');

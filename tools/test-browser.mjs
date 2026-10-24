@@ -50,7 +50,7 @@ await step('sign in', async () => {
 let PAGE = '';
 await step('find a page', async () => {
   await visit('/admin.php?module=pages');
-  PAGE = new URL(await page.locator('a[href*="action=edit&id="]').first().getAttribute('href'), BASE).searchParams.get('id') ?? '';
+  PAGE = new URL(await page.locator('a[href*="/admin/pages/edit/"]').first().getAttribute('href'), BASE).pathname.split('/').pop() ?? '';
 });
 
 // content that spills out of its box (a badge wider than its tile, a word wider than its column): an element that lets its overflow

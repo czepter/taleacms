@@ -34,8 +34,8 @@ final class DisabledExtensionsTest extends SiteTestCase
         $this->assertSame(404, $visitor->post('/form', ['x' => 1])->status, 'submitting a form does not work');
 
         $admin = $site->admin()->get('/admin.php')->body;
-        $this->assertStringNotContainsString('module=news"', $admin, 'administration without news');
-        $this->assertStringNotContainsString('module=enquiries"', $admin, 'administration without enquiries');
+        $this->assertStringNotContainsString('/admin/news"', $admin, 'administration without news');
+        $this->assertStringNotContainsString('/admin/enquiries"', $admin, 'administration without enquiries');
 
         $schema = $this->toolText('builder_schema');
         $tools = $this->answerRaw($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'));

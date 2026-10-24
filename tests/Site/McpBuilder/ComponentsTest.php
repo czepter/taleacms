@@ -85,7 +85,7 @@ final class ComponentsTest extends SiteTestCase
         ]]]);
         $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'section', 'children' => [
             ['id' => 'kna1', 'type' => 'heading', 'tag' => 'h3', 'content' => ['text' => 'Draft {{heading}}']]]]]], JSON_UNESCAPED_UNICODE)]);
-        $back = rawurlencode('/admin.php?module=pages&action=builder&id=' . $page);
+        $back = rawurlencode('/admin/pages/builder/' . $page);
 
         $here = $this->assertPage("/admin.php?module=components&action=builder&id=$component&page=$page&use=use1&back=$back", 200, 'Back to the page', message: 'Edit here leads back to the page');
         $this->assertStringContainsString('/z-html?build=draft\u0026editor=1\u0026component=' . $component . '\u0026use=use1"', $here->body, 'the canvas is the page around the chosen use');

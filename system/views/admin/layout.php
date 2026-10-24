@@ -46,7 +46,7 @@ if ($username !== null) {
 }
 ?>
 <!doctype html>
-<html lang="<?= e(Talea\Core\Language::code()) ?>" data-timezone="<?= e(date_default_timezone_get()) ?>">
+<html lang="<?= e(Talea\Core\Language::code()) ?>" data-timezone="<?= e(date_default_timezone_get()) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

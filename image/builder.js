@@ -127,7 +127,7 @@
 	}
 	/** After a new sign-in (another tab) the session has a new form token – the editor fetches it. */
 	function refreshToken() {
-		return fetch(D.urls.admin + '?action=token', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.csrf) { csrf = j.csrf; return true; } return false; }).catch(() => false);
+		return fetch(D.urls.admin + '/token', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.csrf) { csrf = j.csrf; return true; } return false; }).catch(() => false);
 	}
 
 	function confirmAction(message, button) {
@@ -334,7 +334,7 @@
 		if (state.gesture) { state.refreshAfterGesture = true; return; } // the canvas is not swapped under a gesture in progress
 		if (previewPending) { previewPending = 'again'; return; }
 		previewPending = true;
-		const fresh = el('iframe', { class: 'bd-loading', title: T('Page preview'), src: D.preview + '&t=' + Date.now() });
+		const fresh = el('iframe', { class: 'bd-loading', title: T('Page preview'), src: D.preview + (D.preview.includes('?') ? '&' : '?') + 't=' + Date.now() });
 		previewSize(fresh);
 		fresh.addEventListener('load', () => {
 			// a gesture started while this page was loading: the canvas is not swapped under it (the handle it holds would disappear)
@@ -518,7 +518,7 @@
 		};
 		if (what.newType) { placeElement(newElement(what.newType)); return; }
 		if (what.custom) { placeElement(withNewIds(what.custom)); return; }
-		query(D.urls.section + '&key=' + encodeURIComponent(what.section), { ok: 1 }).then((j) => {
+		query(D.urls.section + (D.urls.section.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(what.section), { ok: 1 }).then((j) => {
 			if (!j.ok) { setState(j.error, true); return; }
 			D.classes = j.classes;
 			placeElement(j.element);
@@ -1155,7 +1155,7 @@
 			const list = el('ul');
 			const changes = el('div', { class: 'bd-compare', hidden: true });
 			// what changed: the text of the version against the current draft (the server compares, layout is not compared)
-			const compare = (r) => save().then(() => query(D.urls.compare + '&revision_id=' + r.revision_id)).then((o) => {
+			const compare = (r) => save().then(() => query(D.urls.compare + (D.urls.compare.includes('?') ? '&' : '?') + 'revision_id=' + r.revision_id)).then((o) => {
 				if (!o.ok) { setState(o.error, true); return; }
 				changes.replaceChildren(el('p', {}, T('Version from %s').replace('%s', r.when), ' → ', T('current draft'), '. ', el('ins', {}, T('added') + ': ' + o.added), ' · ', el('del', {}, T('deleted') + ': ' + o.deleted)),
 					o.added + o.deleted === 0 ? el('p', { class: 'bd-empty' }, T('The text has not changed since this version (formatting and image changes are not compared).'))
@@ -1410,7 +1410,7 @@
 
 	function sectionButton(s) {
 		return (
-			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.key), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.key), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { section: s.key }), ondragend: endDrag, onclick: () => query(D.urls.section + '&key=' + encodeURIComponent(s.key), { ok: 1 }).then((j) => {
+			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.key), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.key), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { section: s.key }), ondragend: endDrag, onclick: () => query(D.urls.section + (D.urls.section.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(s.key), { ok: 1 }).then((j) => {
 				if (!j.ok) { setState(j.error, true); return; }
 				D.classes = j.classes;
 				insert(j.element);
@@ -1649,7 +1649,7 @@
 		const component = (D.components || []).find((k) => String(k.id) === String(p.content.component));
 		if (!component || !D.urls.component) { return; }
 		const back = window.location.pathname + window.location.search; // the component builder only takes an address of this administration
-		const url = D.urls.admin + '?module=components&action=builder&id=' + component.public_id + (here && D.page.id ? '&page=' + D.page.id + '&use=' + p.id : '') + '&back=' + encodeURIComponent(back);
+		const url = D.urls.admin + '/components/builder/' + component.public_id + '?' + (here && D.page.id ? 'page=' + D.page.id + '&use=' + p.id + '&' : '') + 'back=' + encodeURIComponent(back);
 		save().then((ok) => { if (ok) { window.location.href = url; } });
 	}
 

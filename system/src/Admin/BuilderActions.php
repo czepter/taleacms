@@ -51,9 +51,9 @@ trait BuilderActions
     protected function backToBuilder(): ?array
     {
         $back = $this->request->get('back');
-        $admin = $this->app->url('admin.php?module=');
+        $admin = $this->app->url('admin.php') . '/';
 
-        return str_starts_with($back, $admin) && preg_match('/^[a-z_]+&action=builder&[^\s"<>]*$/', substr($back, strlen($admin))) === 1 ? ['url' => $back, 'text' => t('Back to the page')] : null;
+        return str_starts_with($back, $admin) && preg_match('#^[a-z_]+/builder(?:/[A-Za-z0-9_.-]+)?(?:\?[^\s"<>]*)?$#', substr($back, strlen($admin))) === 1 ? ['url' => $back, 'text' => t('Back to the page')] : null;
     }
 
     /** Full-screen build editor: canvas with the real site page, tree, properties. */

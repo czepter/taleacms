@@ -16,7 +16,7 @@ final class ToolListsTest extends SiteTestCase
         $site = $this->site();
         $site->exec("INSERT INTO tl_not_found (path, count, last_seen_at) VALUES ('gone-for-good', 4, NOW())");
         $this->assertPage('/admin.php?module=redirects', 200, [
-            '<section class="attention" aria-labelledby="not-found">', '/gone-for-good', 'aria-label="Ignore: /gone-for-good"', 'action=ignore_all',
+            '<section class="attention" aria-labelledby="not-found">', '/gone-for-good', 'aria-label="Ignore: /gone-for-good"', '/admin/redirects/ignore_all',
         ], message: 'redirects: the 404 addresses wait above the list');
         $this->assertPageLacks('/admin.php?module=redirects', ['id="from_path"', '#edit'], message: 'the list carries no form');
         $this->assertPage('/admin.php?module=redirects&new=1', 200, ['class="navigation-row"', 'id="from_path"'], message: 'New redirect opens its own page');

@@ -94,6 +94,10 @@ final class App
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
+        if (preg_match('#^admin\.php(?:\?(.*)|(\#.*))?$#s', $path, $m) === 1) {
+            // the administration has clean addresses (/admin/news/edit/<id>), never in a language version
+            return $this->request->basePath() . '/' . \Talea\Admin\Kernel::path(($m[1] ?? '') . ($m[2] ?? ''));
+        }
         if (preg_match('#^news(?=$|[/?.])#', $path) && isset($this->config['db'])) {
             // the custom news slug (setting news_slug) replaces /news – Core\Routes
             $path = Routes::publicPath($path, $this->db());

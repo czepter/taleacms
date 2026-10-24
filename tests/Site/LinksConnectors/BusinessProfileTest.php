@@ -50,8 +50,8 @@ final class BusinessProfileTest extends SiteTestCase
         $this->connectFake('google');
         $screen = $this->assertPage(self::CONNECTORS, 200, 'name="config[location]"', message: 'GBP: the Connections screen has the Business Profile section with the location select');
         $this->assertStringContainsString('name="config[post_news]"', $screen->body, 'GBP: the news opt-in');
-        $this->assertStringContainsString('action=gbp_locations', $screen->body, 'GBP: Load my locations is offered');
-        $this->assertStringNotContainsString('action=gbp_sync', $screen->body, 'GBP: Sync now only once a location is chosen');
+        $this->assertStringContainsString('/admin/connectors/gbp_locations', $screen->body, 'GBP: Load my locations is offered');
+        $this->assertStringNotContainsString('/admin/connectors/gbp_sync', $screen->body, 'GBP: Sync now only once a location is chosen');
 
         $this->adminPost('/admin.php?module=connectors&action=gbp_locations', [], self::CONNECTORS);
         $locations = $this->assertPage(self::CONNECTORS, 200, '<option value="accounts/100/locations/2001">Test Company – Prague</option>', message: 'GBP: Load my locations lists the account\'s locations from Google');

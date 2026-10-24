@@ -79,7 +79,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
 
         $this->connectFake('google');
         $screen = $site->admin()->get(self::CONNECTORS)->body;
-        foreach (['name="config[enquiries]" value="1"', 'action=sheet', 'name="config[domain]"', 'name="config[instance]"', 'name="config[enquiry_jobs]"'] as $needle) {
+        foreach (['name="config[enquiries]" value="1"', '/admin/connectors/sheet', 'name="config[domain]"', 'name="config[instance]"', 'name="config[enquiry_jobs]"'] as $needle) {
             $this->assertStringContainsString($needle, $screen, 'enquiries: Connections offers ' . $needle);
         }
 

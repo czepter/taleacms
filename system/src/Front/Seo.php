@@ -56,7 +56,7 @@ final class Seo
         if (!$s->bool('indexing')) {
             return "# Indexing of the site is turned off in Settings.\nUser-agent: *\nDisallow: /\n";
         }
-        $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /search', 'Disallow: /*?preview=', ''];
+        $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /admin/', 'Disallow: /admin$', 'Disallow: /search', 'Disallow: /*?preview=', ''];
         if ($s->get('ai_crawlers') === 'block') {
             foreach (self::AI_BOTS as $bot) {
                 $rows[] = 'User-agent: ' . $bot;

@@ -45,7 +45,7 @@ final class OAuthConnectorTest extends SiteTestCase
 
         $authorize = $admin->get("/oauth/authorize?response_type=code&client_id=$client&redirect_uri=$uri&code_challenge=$challenge&code_challenge_method=S256&state=xyz&scope=mcp");
         $this->assertSame(302, $authorize->status, 'signing in leads to the consent in the administration: status');
-        $this->assertMatchesRegularExpression('/action=oauth$/', $authorize->redirect, 'signing in leads to the consent in the administration');
+        $this->assertMatchesRegularExpression('#/admin/oauth$#', $authorize->redirect, 'signing in leads to the consent in the administration');
 
         $consent = $admin->get('/admin.php?action=oauth');
         $this->assertStringContainsString('Allow access', $consent->body, 'the consent page');

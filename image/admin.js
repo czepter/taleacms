@@ -130,7 +130,7 @@
 		var buttons = Array.prototype.slice.call(wrapper.querySelectorAll('[role="tab"]'));
 		var panels = buttons.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
 		var shouldSave = wrapper.querySelector('.appearance-save');
-		var key = 'tl-tab' + location.search;
+		var key = 'tl-tab' + location.pathname + location.search;
 		var show = function (i, focusTarget) {
 			buttons.forEach(function (t, j) {
 				t.setAttribute('aria-selected', i === j ? 'true' : 'false');
@@ -505,7 +505,7 @@
 			var address = palette.getAttribute('data-articles');
 			if (!address || q.length < 2) { paletteNews = []; return; }
 			paletteTimer = setTimeout(function () {
-				fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+				fetch(address + (address.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
 					if (paletteField.value.trim() !== q) { return; } // typing continued in the meantime
 					paletteNews = (d.articles || []).map(function (c) { return { n: c.title, u: c.url, s: c.published ? T('news item') : T('news item – unpublished') }; });
 					paletteRender();
@@ -562,7 +562,7 @@
 	// the sign-in is kept alive while the admin is open (otherwise after inactivity a form submit would fail and unsaved text would be lost)
 	if (document.querySelector('form[method="post"]')) {
 		setInterval(function () {
-			if (document.visibilityState === 'visible') { fetch('admin.php?action=token', { credentials: 'same-origin' }).catch(function () { /* offline: nothing */ }); }
+			if (document.visibilityState === 'visible') { fetch(document.documentElement.dataset.adminUrl + '/token', { credentials: 'same-origin' }).catch(function () { /* offline: nothing */ }); }
 		}, 10 * 60 * 1000);
 	}
 	// a success message confirmed the save: unsaved copies of submitted forms (image/editor.js) are no longer needed

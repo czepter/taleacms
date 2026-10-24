@@ -71,7 +71,7 @@ final class EuDutiesTest extends SiteTestCase
         self::$new = (int) $this->site()->pdo->lastInsertId();
         $detail = '/admin.php?module=enquiries&action=detail&id=' . $this->site()->publicId('enquiries', self::$new);
 
-        $this->assertPage($detail, 200, 'action=anonymise', message: '2.14: the enquiry detail offers Anonymise');
+        $this->assertPage($detail, 200, '/admin/enquiries/anonymise', message: '2.14: the enquiry detail offers Anonymise');
 
         $this->adminPost('/admin.php?module=enquiries&action=anonymise', ['enquiry_id' => $this->site()->publicId('enquiries', self::$new)], formPage: $detail);
         $this->assertSame('|[["Name",""],["E-mail",""]]|1', (string) $this->site()->value("SELECT CONCAT(email, '|', data, '|', anonymised_at IS NOT NULL) FROM tl_enquiries WHERE enquiry_id = ?", [self::$new]),

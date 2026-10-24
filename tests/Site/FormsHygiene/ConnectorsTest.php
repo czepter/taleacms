@@ -17,7 +17,7 @@ final class ConnectorsTest extends SiteTestCase
     public function testGoogleSignInUsesPkceAndStoresEncryptedTokens(): void
     {
         $this->resetFakeLogs();
-        $this->assertPage('/admin.php?module=connectors', 200, 'module=connectors&amp;action=callback', message: 'connectors: Administration → Connections lists Google with the redirect address');
+        $this->assertPage('/admin.php?module=connectors', 200, '/admin/connectors/callback', message: 'connectors: Administration → Connections lists Google with the redirect address');
 
         $this->connectFake('google');
 

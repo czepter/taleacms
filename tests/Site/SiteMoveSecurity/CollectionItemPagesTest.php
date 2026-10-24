@@ -142,8 +142,8 @@ final class CollectionItemPagesTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path IN ('wp/v2/users', '_next')"), '404 log: bot probes are not recorded');
 
         $start = $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 2.', message: 'the start screen explains the 404 warning and offers to review it');
-        $this->assertStringContainsString('module=redirects#not-found', $start->body, 'the warning links to the list');
-        $this->assertStringContainsString('action=ignore_all', $start->body, 'the warning can be dismissed');
+        $this->assertStringContainsString('/admin/redirects#not-found', $start->body, 'the warning links to the list');
+        $this->assertStringContainsString('/admin/redirects/ignore_all', $start->body, 'the warning can be dismissed');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path = 'about-us'"), 'an address that works again drops out of the log');
         $this->assertPage('/admin.php?module=redirects', 200, 'Ignore – nothing replaces it', message: 'the 404 list says what to do');
 

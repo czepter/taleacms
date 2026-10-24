@@ -461,7 +461,7 @@ PHP);
         $visitor->get('/oauth/authorize?response_type=code&client_id=' . $client . '&redirect_uri=' . self::REDIRECT_URI . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=new');
         $csrf = $visitor->get('/admin.php?action=oauth')->csrf();
         $redirect = $visitor->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => $site->password])->redirect;
-        $this->assertStringContainsString('action=oauth', $redirect, 'a signed-out person returns to the consent page after signing in');
+        $this->assertStringContainsString('/admin/oauth', $redirect, 'a signed-out person returns to the consent page after signing in');
 
         $account = $site->admin()->get('/admin.php?action=account');
         $this->assertStringContainsString('Connected applications', $account->body, 'the connected app in My account');

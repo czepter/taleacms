@@ -45,7 +45,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         file_put_contents($pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
         $csrf = $this->staff()->get('/admin.php?module=requests&action=new')->csrf();
         $response = $this->staff()->upload('/admin.php?module=requests&action=save', ['_csrf' => $csrf, 'title' => 'New price list for the Services page', 'text' => 'Please replace the old price list with the attached PDF.', 'about' => 'page:' . $this->site()->publicId('pages', 1), 'about_url' => ''], ['attachments[]' => $pdf]);
-        self::$request = preg_match('/id=([0-9a-f-]{36})/', $response->redirect, $m) ? $this->site()->internalId('requests', $m[1]) : 0;
+        self::$request = preg_match('#/([0-9a-f-]{36})#', $response->redirect, $m) ? $this->site()->internalId('requests', $m[1]) : 0;
         $this->assertGreaterThan(0, self::$request, 'the save redirects to the new request');
         $id = self::$request;
 
@@ -130,7 +130,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('New price list for the Services page', $page->body, 'ask: the dashboard lists their requests');
 
         $response = $this->staff()->post('/admin.php?module=requests&action=save', ['_csrf' => $page->csrf(), 'quick' => 1, 'from' => 'dashboard', 'text' => 'Closed from 24 to 26 December. Please put it on the home page and in the footer.']);
-        $this->assertSame('Closed from 24 to 26 December.|new|admin.php', $this->sq('SELECT CONCAT(title, \'|\', status) FROM tl_requests ORDER BY id DESC LIMIT 1') . '|' . basename($response->redirect), 'ask: the box saves a request titled by its first sentence and goes back to the dashboard');
+        $this->assertSame('Closed from 24 to 26 December.|new|admin', $this->sq('SELECT CONCAT(title, \'|\', status) FROM tl_requests ORDER BY id DESC LIMIT 1') . '|' . basename($response->redirect), 'ask: the box saves a request titled by its first sentence and goes back to the dashboard');
 
         $this->staff()->post('/admin.php?module=requests&action=save', ['_csrf' => $page->csrf(), 'quick' => 1, 'from' => 'dashboard', 'text' => '   ']);
         $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM tl_requests WHERE title = ''"), 'ask: an empty box saves nothing');

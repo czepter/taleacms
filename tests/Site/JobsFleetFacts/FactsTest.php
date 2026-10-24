@@ -179,7 +179,7 @@ final class FactsTest extends SiteTestCase
         $business = $site->admin()->get('/admin.php?module=business')->body;
         $this->assertTrue(str_contains($business, 'Stocktaking') && str_contains($business, 'name="exception_from"'), 'hours: the exceptions in Settings → Company');
         $exception = (int) $site->value('SELECT id FROM tl_hours_exceptions LIMIT 1');
-        $this->assertStringContainsString("action=hours_sign&amp;exception=$exception", $business, 'hours: every exception has a Door sign link');
+        $this->assertStringContainsString("/admin/business/hours_sign?exception=$exception", $business, 'hours: every exception has a Door sign link');
 
         $sign = $this->assertPage("/admin.php?module=settings&action=hours_sign&exception=$exception", 200, 'Stocktaking', message: 'hours: the door sign is a printable page with the note');
         $this->assertStringContainsString('<svg class="qr"', $sign->body, 'hours: the sign carries the QR code');
@@ -248,7 +248,7 @@ final class FactsTest extends SiteTestCase
         $site = $this->site();
         $idk = $site->publicId('collections', self::$teamIdk);
         $person = $site->publicId('collection_items', self::$person);
-        $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$person", 200, 'action=signature', message: 'people: the item form offers the e-mail signature');
+        $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$person", 200, '/admin/collections/signature', message: 'people: the item form offers the e-mail signature');
         $preview = $this->assertPage("/admin.php?module=collections&action=signature&id=$idk&item=$person", 200, 'data-copy-signature', message: 'people: the admin signature page shows the preview with the copy button');
         foreach (['Peter Signature', 'Sales director', 'href="tel:+420777123456"'] as $needle) {
             $this->assertStringContainsString($needle, $preview->body, "people: the preview has $needle");

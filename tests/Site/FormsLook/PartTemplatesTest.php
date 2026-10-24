@@ -42,7 +42,7 @@ final class PartTemplatesTest extends SiteTestCase
         $this->site()->admin()->get($page);
         $response = $this->adminPost('/admin.php?module=parts&action=apply_template&type=not_found', ['template' => 'with-search'], $page);
         $this->assertSame(302, $response->status, 'admin: applying a template redirects');
-        $this->assertStringContainsString('module=parts&action=builder&type=not_found', $response->redirect, 'admin: a template opens in the builder');
+        $this->assertStringContainsString('/admin/parts/builder?type=not_found', $response->redirect, 'admin: a template opens in the builder');
         $this->assertSame('1', $this->sql('SELECT build_draft LIKE \'%"type":"search"%\' FROM tl_site_parts WHERE type = \'not_found\' AND language = \'\''), 'admin: the 404 wrapper got the search template as a draft');
 
         $this->call('discard_draft', ['part' => 'footer']);

@@ -19,7 +19,7 @@ final class SearchDataTest extends SiteTestCase
     public function testGoogleOffersItsSearchConsolePropertiesOnce(): void
     {
         $this->connectFake('google');
-        $screen = $this->assertPage(self::CONNECTORS, 200, 'action=properties', message: 'search: a connected Google offers to load the Search Console properties');
+        $screen = $this->assertPage(self::CONNECTORS, 200, '/admin/connectors/properties', message: 'search: a connected Google offers to load the Search Console properties');
         $this->assertStringContainsString('Bing Webmaster Tools', $screen->body, 'search: Bing is listed');
         $this->assertStringContainsString('name="config[search_console_site]"', $screen->body, 'search: the property setting is on the screen');
 

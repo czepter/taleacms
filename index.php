@@ -7,6 +7,13 @@ declare(strict_types=1);
 
 require __DIR__ . '/system/bootstrap.php';
 
+// /admin/<module>/<action>/<id> is the administration
+if (Talea\Admin\Kernel::route()) {
+    require __DIR__ . '/admin.php';
+
+    return;
+}
+
 $app = Talea\Core\App::boot();
 (new Talea\Front\Kernel($app))->handle()->send();
 

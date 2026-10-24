@@ -23,7 +23,7 @@ final class HomeGlanceTest extends SiteTestCase
             [hash('sha256', 'glance')]);
 
         $home = $this->assertPage('/admin.php?days=7', 200, 'class="home-glance"', message: 'Home shows At a glance');
-        $this->assertMatchesRegularExpression('#href="[^"]*admin\.php\?days=7" class="active" aria-current="page"#', $home->body, 'the chosen period is marked');
+        $this->assertMatchesRegularExpression('#href="[^"]*admin\?days=7" class="active" aria-current="page"#', $home->body, 'the chosen period is marked');
         $this->assertStringContainsString('<strong>40</strong>', $home->body, 'the visits of the last 7 days');
         $this->assertStringContainsString('+100 %', $home->body, 'visits: the change against the week before in per cent');
         $this->assertStringContainsString('2 unread', $home->body, 'enquiries: the unread ones of all time');
