@@ -63,7 +63,7 @@ class Settings extends Module
         ],
         'seo' => [
             'indexing' => 'flag', 'schema_org' => 'flag', 'share_image' => 'text', 'share_image_auto' => 'flag', 'verification_google' => 'pattern:/^[A-Za-z0-9_-]{0,100}$/',
-            'verification_bing' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'lines', 'ai_crawlers' => 'choice:allow|block', 'url_slash' => 'choice:none|slash|html', 'llms_txt' => 'flag', 'markdown_news' => 'flag', 'indexnow' => 'flag',
+            'verification_bing' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'lines', 'ai_crawlers' => 'choice:allow|block', 'url_slash' => 'choice:none|slash|html', 'llms_txt' => 'flag', 'markdown_versions' => 'flag', 'indexnow' => 'flag',
             'security_contact' => 'pattern:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
         'analytics' => [

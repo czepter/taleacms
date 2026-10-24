@@ -103,7 +103,10 @@ final class CollectionsTest extends SiteTestCase
         $this->site()->mcp('publish_build', ['collection' => 'team']);
         $this->site()->clearPageCache();
         $this->assertPage('/team/zdenek', 200, 'Profile: Zdenek Zeman', message: 'published item template');
-        $this->assertPage('/llms.txt', 200, '/team/zdenek', message: 'llms.txt lists collection items with a detail');
+        $this->assertPage('/llms.txt', 200, '/team/zdenek.md)', message: 'llms.txt lists collection items with a detail, as Markdown');
+        $this->assertPage('/team/zdenek.md', 200, ['# Zdenek Zeman', '- Source: ' . $this->site()->base . '/team/zdenek'], message: 'an item has a Markdown version');
+        $this->assertPage('/team/zdenek', 200, 'href="' . $this->site()->base . '/team/zdenek.md"', message: 'the item page points to it');
+        $this->assertPage('/team/peter-smith.md', 200, ['# Peter Smith', '- Role: Master carpenter'], message: 'a short field under the title');
     }
 
     public function testRelatedItems(): void

@@ -16,6 +16,7 @@ use Talea\Core\View;
  *   /                           home page ("Settings → General"), without it the news listing
  *   /news                    news listing
  *   /news/<seo-link>         news item (+ .md for language models)
+ *   /<slug>.md               a page or a collection item as Markdown for language models
  *   /news/category/<seo>    news in a category
  *   /news/tag/<seo>       news with a tag
  *   /search?q=...              search
@@ -164,7 +165,7 @@ final class Kernel
         if (preg_match('#^/news/tag/([a-z0-9-]+)$#', $path, $m)) {
             return $this->tag($m[1]);
         }
-        if (preg_match('#^/news/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_news')) {
+        if (preg_match('#^/news/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_versions')) {
             $newsItem = $this->news->bySlug($m[1]);
 
             return $newsItem === null || \Talea\Core\Members::isGated($this->app->db(), 'news', (int) $newsItem['news_id']) // gated news has no Markdown version
@@ -173,6 +174,11 @@ final class Kernel
         }
         if (preg_match('#^/news/([a-z0-9-]+)$#', $path, $m)) {
             return $this->newsItem($m[1]);
+        }
+        if (preg_match('#^/([a-z0-9][a-z0-9/-]*)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_versions')) {
+            $markdown = $this->markdownVersion($m[1]);
+
+            return $markdown === null ? $this->notFound() : new Response($markdown, 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
         }
         if ($path === '/search') {
             return $this->search();
@@ -679,7 +685,32 @@ final class Kernel
         return $this->page($title, $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), [
             'description' => $description, 'image' => $image, 'build' => true, 'noindex' => $draft || !empty($item['noindex']),
             'item' => $item !== null ? ['collection' => $collection, 'item' => $item] : null,
+            'markdown' => $item !== null && $collection['detail'] && $item['visible'] && !$this->gated ? $collection['slug'] . '/' . $item['slug'] : null,
         ]);
+    }
+
+    /**
+     * Markdown version of a published page or collection item (/<slug>.md, /<collection>/<item>.md); null for a hidden,
+     * password-protected or gated one, which has none – like gated news.
+     */
+    private function markdownVersion(string $slug): ?string
+    {
+        $db = $this->app->db();
+        $seo = new Seo($this->app);
+        $page = $db->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$slug, Language::siteColumn()]);
+        if ($page !== null) {
+            return \Talea\Core\PageLock::isProtected($page) || \Talea\Core\Members::isGated($db, 'page', (int) $page['page_id'])
+                ? null : $seo->pageMarkdown($page, (int) $page['page_id'] === $this->homePageId());
+        }
+        if (!preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $slug, $m) || $m[1] === 'news') {
+            return null;
+        }
+        $collection = \Talea\Builder\Collections::bySlug($db, $m[1]);
+        $item = $collection !== null && $collection['detail']
+            ? $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id'], $m[2], Language::siteColumn()])
+            : null;
+
+        return $item === null || \Talea\Core\Members::isGated($db, 'item', (int) $item['item_id']) ? null : $seo->itemMarkdown($collection, $item);
     }
 
     /** Home page ID in the shown site version's language (counterpart of the page from Settings); 0 = the news listing is home. */
@@ -748,6 +779,7 @@ final class Kernel
             'description' => $page['description'] !== '' ? $page['description'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'main' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
             'head_code' => (string) ($page['head_code'] ?? ''), // code in <head> of this page only (2.3)
+            'markdown' => $locked || $this->gated || !$page['visible'] ? null : (string) $page['slug'], // markdownVersion() answers none of them
         ];
         // preview of the draft build for the editor: ?build=draft (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
