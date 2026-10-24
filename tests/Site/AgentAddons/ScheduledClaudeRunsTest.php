@@ -25,7 +25,7 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
         $page = $this->site()->admin()->get('/admin.php?module=schedules');
         $this->assertStringContainsString('get_due_agent_runs', $page->body, 'schedules: the Set up in Claude panel has the routine prompt');
         $this->assertStringContainsString("$base/mcp", $page->body, 'schedules: the panel has the MCP address');
-        $this->assertStringContainsString('action=account#claude', $page->body, 'schedules: the panel links the tokens');
+        $this->assertStringContainsString('/admin/account#claude', $page->body, 'schedules: the panel links the tokens');
 
         $csrf = $page->csrf();
         $admin = $this->site()->admin();

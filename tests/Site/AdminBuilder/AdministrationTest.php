@@ -34,20 +34,20 @@ final class AdministrationTest extends SiteTestCase
     public function testOverviewAndScreens(): void
     {
         $overview = $this->assertPage('/admin.php', 200, '<h1>Welcome, Tester</h1>', message: 'Home: the welcome is the screen heading (h1)');
-        $this->assertStringContainsString('<li><a href="/admin.php?module=appearance"><strong>Give your site a face', $overview->body, 'first steps do not count the appearance of the starter site as done');
-        $this->assertStringContainsString('<li><a href="/admin.php?module=pages"><strong>Prepare your pages', $overview->body, 'nor the pages of the starter site');
+        $this->assertStringContainsString('<li><a href="/admin/appearance"><strong>Give your site a face', $overview->body, 'first steps do not count the appearance of the starter site as done');
+        $this->assertStringContainsString('<li><a href="/admin/pages"><strong>Prepare your pages', $overview->body, 'nor the pages of the starter site');
         $this->assertMatchesRegularExpression('#<details class="home-step-group" open>\s*<summary><span class="home-step-name">Build your website</span>#', $overview->body, 'Home: the first group with something left to do is open');
         $skip = ['_csrf' => $overview->csrf(), 'step' => 'Give your site a face'];
         $this->site()->admin()->post('/admin.php?action=skip_first_step', $skip);
         $skipped = $this->site()->admin()->get('/admin.php');
-        $this->assertStringContainsString('<li class="done"><a href="/admin.php?module=appearance"><strong>Give your site a face', $skipped->body, 'Home: a skipped first step counts as done');
+        $this->assertStringContainsString('<li class="done"><a href="/admin/appearance"><strong>Give your site a face', $skipped->body, 'Home: a skipped first step counts as done');
         $this->assertStringContainsString('>Undo<span class="visually-hidden">: Give your site a face</span>', $skipped->body, 'Home: a skipped first step can be brought back');
         $this->site()->admin()->post('/admin.php?action=skip_first_step', $skip);
-        $this->assertStringContainsString('<li><a href="/admin.php?module=appearance"><strong>Give your site a face', $this->site()->admin()->get('/admin.php')->body, 'Home: Undo opens the step again');
+        $this->assertStringContainsString('<li><a href="/admin/appearance"><strong>Give your site a face', $this->site()->admin()->get('/admin.php')->body, 'Home: Undo opens the step again');
         $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-wrap" aria-label="Main menu">', message: 'administration: main menu in <nav>');
         $website = $this->assertPage('/admin.php?module=pages&action=website', 200, 'class="website-preview"', message: 'Website mode: a live preview of the home page');
         $this->assertStringContainsString('<span class="menu-heading">Main navigation</span>', $website->body, 'Website mode: the sidebar groups the pages by the menu');
-        $this->assertStringContainsString('action=builder&amp;id=', $website->body, 'Website mode: Edit opens the builder of the shown page');
+        $this->assertStringContainsString('/admin/pages/builder/', $website->body, 'Website mode: Edit opens the builder of the shown page');
         $homeId = $this->site()->publicId('pages', (int) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'home_page'"));
         $this->assertPage('/admin.php?module=pages&action=website&view=seo&id=' . $homeId, 200, 'class="seo-result"', message: 'Website mode, SEO: the search result of the page');
         $installed = (array) $this->site()->rows('SELECT seo_title, description, image FROM tl_pages WHERE public_id = ?', [$homeId])[0];
@@ -61,9 +61,9 @@ final class AdministrationTest extends SiteTestCase
         }
         $this->assertPage('/admin.php?module=users', 200, 'May do everything', message: 'users with a summary of permissions');
         // #116: on a page's canvas the header and footer carry the address of their builder; a visitor never gets the marks
-        $this->assertPage('/?build=draft&editor=1', 200, '<!--tl-part header /admin.php?module=parts&action=builder&type=header', message: 'canvas: the site header is marked for "Edit site header"');
+        $this->assertPage('/?build=draft&editor=1', 200, '<!--tl-part header /admin/parts/builder?type=header', message: 'canvas: the site header is marked for "Edit site header"');
         $this->assertStringNotContainsString('<!--tl-part', $this->site()->client('canvas-visitor')->get('/?build=draft&editor=1')->body, 'canvas marks are for people who may edit the site parts only');
-        $this->assertPage('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('/admin.php?module=pages&action=builder&id=x'), 200, 'Back to the page', message: 'a part opened from a page canvas leads back to it');
+        $this->assertPage('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('/admin/pages/builder/x'), 200, 'Back to the page', message: 'a part opened from a page canvas leads back to it');
         $this->assertStringNotContainsString('evil.example', $this->site()->admin()->get('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('https://evil.example/admin.php?module=pages&action=builder&id='))->body, 'the way back never leads to another site');
         foreach (['general', 'seo', 'analytics', 'cookies', 'mail', 'webhooks', 'backups'] as $tab) {
             $this->assertPage("/admin.php?module=settings&tab=$tab", 200, message: "settings/$tab");
@@ -75,12 +75,12 @@ final class AdministrationTest extends SiteTestCase
     {
         foreach (['company' => 'business', 'health' => 'status'] as $tab => $target) {
             $redirect = $this->site()->admin()->get("/admin.php?module=settings&tab=$tab")->redirect;
-            $this->assertSame($target, (string) preg_replace('/.*module=/', '', $redirect), "3.2: settings&tab=$tab leads to $target");
+            $this->assertSame($target, (string) preg_replace('#.*/admin/#', '', $redirect), "3.2: settings&tab=$tab leads to $target");
         }
         $this->assertPage('/admin.php?module=status', 200, 'Cron', message: '3.2: System status is its own screen');
         $this->assertPage('/admin.php?module=claude_settings', 200, 'name="claude_instructions"', message: '3.2: Claude settings hold the instructions and the guardrails');
         $this->assertPage('/admin.php?module=facts', 200, 'tabs-hub', message: '3.2: Business details show the hub tabs');
-        $this->assertPage('/admin.php', 200, 'module=claude_settings', message: '3.2: the menu leads to the hubs');
+        $this->assertPage('/admin.php', 200, '/admin/claude_settings', message: '3.2: the menu leads to the hubs');
         $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
 
         // 3.3.2 (N41): the cron and monitoring tokens change only from System status
@@ -175,7 +175,7 @@ final class AdministrationTest extends SiteTestCase
 
         $list = $author->get('/admin.php?module=news');
         $this->assertSame(200, $list->status);
-        $this->assertStringNotContainsString("action=edit&amp;id=$newsId\"", $list->body, 'the author does not see foreign news');
+        $this->assertStringNotContainsString("/admin/news/edit/$newsId\"", $list->body, 'the author does not see foreign news');
         $this->assertSame(404, $author->get("/admin.php?module=news&action=edit&id=$newsId")->status, 'the author does not open a foreign news item');
         $this->assertSame(403, $author->get('/admin.php?module=pages')->status, 'the author has no access to pages');
 

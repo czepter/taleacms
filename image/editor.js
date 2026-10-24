@@ -18,7 +18,7 @@
 	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-file') || '0', 10); // the server's per-file limit in bytes (0 = no limit)
 	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-page') || '2000', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
-	var GALLERY = ADMIN + '?module=media';
+	var GALLERY = ADMIN + '/media';
 	var NEWS_ID = (document.querySelector('form[data-draft] input[name="news_id"]') || {}).value || ''; // public id of the news item ('' = a new one)
 	var LANGUAGE = document.documentElement.lang || 'cs'; // date and time format by the page language
 	var time = function (t, timeOnly) { return window.taleaTime ? window.taleaTime(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
@@ -132,7 +132,7 @@
 		data.append('_csrf', CSRF);
 		data.append('folder_id', folder && folder.value !== '' && folder.value !== 'article' ? folder.value : '0');
 		files.forEach(function (s) { data.append('files[]', s); });
-		return fetch(GALLERY + '&action=upload&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
+		return fetch(GALLERY + '/upload?format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
 				if (j.errors && j.errors.length) { announce(j.errors.join('\n')); }
@@ -208,7 +208,7 @@
 			var search = modal.querySelector('input[type=search]').value.trim();
 			if (search !== '') { query += '&search=' + encodeURIComponent(search); }
 			grid.textContent = T('Loading…');
-			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+			fetch(GALLERY + '/listing?' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
 				selection.textContent = '';
 				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T("Unsorted")]], j.folders.map(function (s) { return [String(s.id), T('Folder: ') + s.name]; })).forEach(function (v) {
@@ -230,7 +230,7 @@
 			btn.textContent = T('Load more');
 			btn.addEventListener('click', function () {
 				btn.disabled = true;
-				fetch(GALLERY + '&action=listing' + query + '&page=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+				fetch(GALLERY + '/listing?' + query + '&page=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 					btn.remove();
 					j.images.forEach(function (o) { add(o, false); });
 					additional(query, pageNumber + 1, j.images.length);
@@ -321,7 +321,7 @@
 				clearTimeout(timer);
 				if (q.length < 2) { results.textContent = ''; return; }
 				timer = setTimeout(function () {
-					fetch(ADMIN + '?module=news&action=search_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+					fetch(ADMIN + '/news/search_json?q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 						results.textContent = j.articles.length ? '' : T('Nothing found.');
 						j.articles.forEach(function (c) {
 							var b = document.createElement('button');

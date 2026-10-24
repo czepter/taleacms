@@ -571,7 +571,7 @@
 			B.setState(T('Uploading…'));
 			const uploaded = [];
 			for (const file of usableFiles) {
-				const j = await B.query(B.D.urls.admin + '?module=media&action=upload&format=json', { 'files[]': file, folder_id: '0' });
+				const j = await B.query(B.D.urls.admin + '/media/upload?format=json', { 'files[]': file, folder_id: '0' });
 				if (j.images && j.images.length) { uploaded.push(...j.images); } else { B.setState((j.errors && j.errors[0]) || j.error || T('Upload failed. Check your connection and try again.'), true); }
 			}
 			if (!uploaded.length) { return; }
@@ -616,7 +616,7 @@
 			const b = box(part);
 			const back = window.location.pathname + window.location.search; // the part builder only takes an address of this administration
 			const label = part.type === 'header' ? T('Edit site header') : T('Edit site footer');
-			const link = mk(doc, 'a', { href: part.url + '&back=' + encodeURIComponent(back), target: '_top' }, label);
+			const link = mk(doc, 'a', { href: part.url + (part.url.includes('?') ? '&' : '?') + 'back=' + encodeURIComponent(back), target: '_top' }, label);
 			const o = mk(doc, 'div', { id: 'tl-bd-part', style: 'left:' + b.left + 'px;top:' + b.top + 'px;width:' + (b.right - b.left) + 'px;height:' + (b.bottom - b.top) + 'px' }, link, mk(doc, 'small', {}, T('Shared by every page')));
 			doc.body.append(o);
 			shown = part;

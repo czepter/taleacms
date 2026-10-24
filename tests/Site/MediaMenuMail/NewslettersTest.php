@@ -132,7 +132,7 @@ final class NewslettersTest extends SiteTestCase
         $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM tl_news WHERE visible = 1 AND deleted_at IS NULL"), 'two published news items exist: ' . $created);
 
         $overview = $this->assertPage('/admin.php?module=newsletters', 200, 'Write a newsletter', message: 'newsletters: the E-mail overview of an empty site');
-        $this->assertStringContainsString('action=new&amp;mode=none', $overview->body, 'E-mail overview: a kind of newsletter starts a new one with its news mode');
+        $this->assertStringContainsString('/admin/newsletters/new?mode=none', $overview->body, 'E-mail overview: a kind of newsletter starts a new one with its news mode');
         $this->assertPage('/admin.php?module=newsletters&action=new', 200, 'name="subject"', message: 'newsletters: new draft form');
         $this->assertPage('/admin.php?module=newsletters&action=new&mode=none', 200, 'name="news_mode" value="none" checked', message: 'newsletters: a kind chosen on the overview presets the news mode');
     }
@@ -269,9 +269,9 @@ final class NewslettersTest extends SiteTestCase
             unlink($file);
         }
         $known = $this->resetRequest($site->client('reset-known'), 'admin');
-        $mail = $this->waitForMail('admin@example.cz', 'action=password&token=');
+        $mail = $this->waitForMail('admin@example.cz', '/admin/password?token=');
 
-        $this->assertSame('200|1|1|1|1|1', $known->status . '|' . $site->value("SELECT CONCAT(COUNT(*), '|', SUM(sent_at IS NOT NULL), '|', SUM(body IS NULL), '|', MIN(attempts)) FROM tl_mail WHERE recipient = 'admin@example.cz'") . '|' . preg_match_all('/^.*action=password&token=[a-f0-9]{64}.*$/m', $mail), '3.3.3: the reset link went through the queue and was delivered by the time the answer was complete');
+        $this->assertSame('200|1|1|1|1|1', $known->status . '|' . $site->value("SELECT CONCAT(COUNT(*), '|', SUM(sent_at IS NOT NULL), '|', SUM(body IS NULL), '|', MIN(attempts)) FROM tl_mail WHERE recipient = 'admin@example.cz'") . '|' . preg_match_all('#^.*/admin/password\?token=[a-f0-9]{64}.*$#m', $mail), '3.3.3: the reset link went through the queue and was delivered by the time the answer was complete');
 
         $unknown = $this->resetRequest($site->client('reset-unknown'), 'nikdo-takovy');
         $this->assertSame('200|same|1', $unknown->status . '|' . ($unknown->text() === $known->text() ? 'same' : 'different') . '|' . $site->value('SELECT COUNT(*) FROM tl_mail'), '3.3.3: an unknown name gets the same page and queues nothing');

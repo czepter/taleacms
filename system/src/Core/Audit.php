@@ -589,7 +589,7 @@ final class Audit
         $ok = match (true) {
             $s === [] => true,
             is_file(TALEA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
-            in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
+            in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'admin', 'mcp'], true) => true,
             $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1), $sameLanguage, $languageParams),
             $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,
             count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,

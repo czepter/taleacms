@@ -73,7 +73,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         }
         $created = $this->answer('create_page', ['title' => 'Public ids', 'slug' => 'public-ids']);
         $this->assertMatchesRegularExpression(self::UUID, $created['id'], 'create_page: id');
-        $this->assertStringContainsString('id=' . $created['id'], $created['admin_url'], 'the admin link carries the public id');
+        $this->assertStringContainsString('/' . $created['id'], $created['admin_url'], 'the admin link carries the public id');
         $child = $this->answer('create_page', ['title' => 'Public child', 'slug' => 'public-child', 'parent' => $created['id']]);
         $page = $this->answer('get_page', ['id' => $child['id']]);
         $this->assertMatchesRegularExpression(self::UUID, $page['id'], 'get_page: id');
@@ -115,7 +115,7 @@ final class PublicIdsMcpTest extends SiteTestCase
         $this->assertMatchesRegularExpression(self::UUID, $popup['id'], 'save_popup: id');
         $this->assertSame([$page['id']], $popup['rules']['pages'], 'save_popup: the pages of the rules are public ids');
         $this->assertStringContainsString('/_popup/' . $popup['id'], $popup['preview'], 'the preview address names the pop-up by its public id');
-        $this->assertStringContainsString('id=' . $popup['id'], $popup['builder_url'], 'the builder link names the pop-up by its public id');
+        $this->assertStringContainsString('/' . $popup['id'], $popup['builder_url'], 'the builder link names the pop-up by its public id');
         $this->assertSame($popup['id'], $this->answer('list_popups')[0]['id'], 'list_popups: id');
         $this->assertNoNumbers($this->answer('list_popups'), 'list_popups');
 

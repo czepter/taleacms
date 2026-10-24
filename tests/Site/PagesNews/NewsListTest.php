@@ -29,7 +29,7 @@ final class NewsListTest extends SiteTestCase
             'name="selected[]" value="' . $scheduled . '" form="bulk"', 'class="selection-bar"', 'name="bulk" value="trash"', 'name="bulk" value="category"',
         ], message: 'news list in the shared list design');
         $this->assertPage('/admin.php?module=news&status=trash', 200, [
-            'name="selected[]" value="' . $trashed . '" form="bulk"', 'formaction="' , 'action=delete_permanently', 'aria-label="Restore: ',
+            'name="selected[]" value="' . $trashed . '" form="bulk"', 'formaction="' , '/admin/news/delete_permanently', 'aria-label="Restore: ',
         ], message: 'the trash tab restores and deletes the selection');
 
         $this->adminPost('/admin.php?module=news&action=restore', ['selected' => [$trashed]], '/admin.php?module=news&status=trash');
@@ -43,7 +43,7 @@ final class NewsListTest extends SiteTestCase
         $this->assertPage('/admin.php?module=categories', 200, ['class="page-count"', 'popovertarget="row-menu-' . $category . '"', 'class="cell-sub"'], message: 'categories list');
         $tag = '7c1e9a52-3b4d-4f6e-9a8b-0c1d2e3f4a5b';
         $site->exec("INSERT INTO tl_tags (public_id, name, slug) VALUES (?, 'Own page', 'own-page')", [$tag]);
-        $list = $this->assertPage('/admin.php?module=tags', 200, ['class="page-count"', 'module=tags&amp;edit=' . $tag . '"'], message: 'tags list');
+        $list = $this->assertPage('/admin.php?module=tags', 200, ['class="page-count"', '/admin/tags?edit=' . $tag . '"'], message: 'tags list');
         $this->assertStringNotContainsString('id="name"', $list->body, 'the list carries no form');
         $this->assertPage('/admin.php?module=tags&edit=' . $tag, 200, ['class="navigation-row"', 'value="Own page"', 'form="tag-delete"', 'data-confirm=', '<form id="tag-delete"'], message: 'a tag is edited on its own page');
         $this->assertPage('/admin.php?module=tags&edit=00000000-0000-4000-8000-000000000000', 404, message: 'an unknown tag');

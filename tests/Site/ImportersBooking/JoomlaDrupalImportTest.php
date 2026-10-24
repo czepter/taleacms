@@ -89,7 +89,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         @unlink($this->fakeLog('joomla'));
         @unlink($this->fakeLog('drupal'));
         $page = $this->site()->admin()->get('/admin.php?module=transfer');
-        $this->assertStringContainsString('action=source_fetch', $page->body, 'import and export: there is a fetch form');
+        $this->assertStringContainsString('/admin/transfer/source_fetch', $page->body, 'import and export: there is a fetch form');
         $this->assertStringContainsString('name="system" value="joomla"', $page->body, 'Joomla has a fetch form (address, token, steps)');
         $this->assertStringContainsString('name="system" value="drupal"', $page->body, 'Drupal has a fetch form');
         $this->assertStringContainsString('option value="webflow">Webflow', $page->body, 'Webflow is a file upload');

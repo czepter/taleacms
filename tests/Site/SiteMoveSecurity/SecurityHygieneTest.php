@@ -51,7 +51,7 @@ final class SecurityHygieneTest extends SiteTestCase
 
         $users = $this->assertPage('/admin.php?module=users', 200, 'blocked automatically', message: 'Users shows why the account is blocked');
         $this->assertStringContainsString('<span class="tag tag-warning">blocked automatically</span>', $users->body, 'Users: the automatic block is labelled');
-        $this->assertStringContainsString('action=reactivate', $users->body, 'Users: the automatic block can be reactivated');
+        $this->assertStringContainsString('/admin/users/reactivate', $users->body, 'Users: the automatic block can be reactivated');
 
         $old = (int) $site->value("SELECT user_id FROM tl_users WHERE username = 'old-editor'");
         $this->assertPage("/admin.php?module=users&action=edit&id=" . $site->publicId('users', $old), 200, 'Untick the box and save', message: 'the user form explains the automatic block');

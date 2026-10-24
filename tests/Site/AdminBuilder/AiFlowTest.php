@@ -195,7 +195,7 @@ final class AiFlowTest extends SiteTestCase
         $lastPage = (int) $site->value('SELECT MAX(page_id) FROM tl_pages');
         $before = $this->aiRequests();
         $start = $this->assertPage('/admin.php?module=wizard&action=ai', 200, 'No AI key is set', message: 'no key: the start screen says how to add one');
-        $this->assertStringContainsString('module=extensions', $start->body);
+        $this->assertStringContainsString('/admin/extensions', $start->body);
 
         $answers = ['name' => 'No Key Ltd', 'blueprint' => 'craftsman', 'type' => '', 'services' => 'Anything', 'tone' => 'friendly', 'language' => 'en'];
         $plan = $this->post('module=wizard&action=plan', $answers);

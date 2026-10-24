@@ -23,7 +23,7 @@ final class NoticeBoardFeatureTest extends SiteTestCase
 
     private function boardLink(string $slug): string
     {
-        return 'action=items&amp;id=' . $this->site()->publicId('collections', (int) $this->site()->value('SELECT collection_id FROM tl_collections WHERE slug = ?', [$slug]));
+        return '/admin/collections/items/' . $this->site()->publicId('collections', (int) $this->site()->value('SELECT collection_id FROM tl_collections WHERE slug = ?', [$slug]));
     }
 
     private function setFeature(bool $on): void

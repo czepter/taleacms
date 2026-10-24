@@ -40,10 +40,10 @@
 <?php if (!empty($fromExport)): ?>
 <p><?= e(t('The site is empty. Sign in and import the export of your Talea site in Import and export → Import from Talea.')) ?></p>
 <div class="actions">
-	<a class="button" href="<?= e($base) ?>/admin.php?module=transfer"><?= e(t('Continue with the import')) ?></a>
+	<a class="button" href="<?= e($base) ?>/admin/transfer"><?= e(t('Continue with the import')) ?></a>
 <?php else: ?>
 <div class="actions">
-	<a class="button" href="<?= e($base) ?>/admin.php"><?= e(t('Go to the administration')) ?></a>
+	<a class="button" href="<?= e($base) ?>/admin"><?= e(t('Go to the administration')) ?></a>
 <?php endif ?>
 	<a class="button second" href="<?= e($base) ?>/"><?= e(t('View site')) ?></a>
 </div>

@@ -95,7 +95,7 @@ final class MediaUsersTest extends SiteTestCase
         $this->site()->setting('require_2fa', '');
 
         $this->assertSame(302, $response->status, 'required 2FA redirects');
-        $this->assertStringContainsString('action=account', $response->redirect, 'required two-factor sign-in lets only My account through');
+        $this->assertStringContainsString('/admin/account', $response->redirect, 'required two-factor sign-in lets only My account through');
     }
 
     public function testTurningOnTwoFactorShowsQrCodeAndKey(): void
@@ -137,7 +137,7 @@ final class MediaUsersTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/Off – nothing is measured/', $off->body, '3.2: with the Statistics feature off the Analytics tab says so and links to Features');
 
         $this->statsFeature(true);
-        $on = $this->assertPage('/admin.php?module=settings&tab=analytics', 200, 'admin.php?module=extensions', message: '3.2: the Analytics tab links to Features');
+        $on = $this->assertPage('/admin.php?module=settings&tab=analytics', 200, '/admin/extensions', message: '3.2: the Analytics tab links to Features');
         $this->assertStringNotContainsString('name="stats"', $on->body, '3.2: one switch for the statistics – no second checkbox');
     }
 

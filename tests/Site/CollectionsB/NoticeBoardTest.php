@@ -95,7 +95,7 @@ final class NoticeBoardTest extends SiteTestCase
         $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM tl_collection_items WHERE item_id = ?', [$b]), 'MCP: the notice was not deleted');
 
         $items = $this->assertPage("/admin.php?module=collections&action=items&id={$site->publicId('collections', $board)}");
-        $this->assertStringNotContainsString('action=delete_item"', $items->body, 'admin: the notices list has no Delete button');
+        $this->assertStringNotContainsString('/admin/collections/delete_item"', $items->body, 'admin: the notices list has no Delete button');
         $this->assertStringContainsString('archive', $items->body, 'admin: the notices list mentions the archive');
         $token = $items->csrf();
 
@@ -164,7 +164,7 @@ final class NoticeBoardTest extends SiteTestCase
         $this->assertSame('3', (string) $site->value("SELECT COUNT(*) FROM tl_notice_log WHERE action IN ('posted', 'taken_down')"), 'notices: a second run records nothing twice');
 
         // the log under the item form and the CSV for an administrator, not for a guest
-        $form = $this->assertPage("/admin.php?module=collections&action=item&id={$site->publicId('collections', $board)}&item={$site->publicId('collection_items', $b)}", 200, 'action=notice_log', message: 'notices: the item form shows the log with the CSV link');
+        $form = $this->assertPage("/admin.php?module=collections&action=item&id={$site->publicId('collections', $board)}&item={$site->publicId('collection_items', $b)}", 200, '/admin/collections/notice_log', message: 'notices: the item form shows the log with the CSV link');
         $this->assertStringContainsString('City council', $form->body, 'notices: the log shows the changes');
         $this->assertStringContainsString("taken_down: $yesterday", $form->body, 'notices: the log shows the takedown');
 

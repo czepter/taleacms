@@ -1,12 +1,12 @@
 <?php
 /**
  * Talea - admin.
- * URLs look like admin.php?module=news&action=edit&id=5.
+ * URLs look like /admin/news/edit/<id> (index.php routes them here, Admin\Kernel::route); admin.php?module=news&action=edit&id=<id> still works.
  */
 
 declare(strict_types=1);
 
-require __DIR__ . '/system/bootstrap.php';
+require_once __DIR__ . '/system/bootstrap.php';
 
 $app = Talea\Core\App::boot();
 $response = (new Talea\Admin\Kernel($app))->handle();

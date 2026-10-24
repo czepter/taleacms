@@ -102,7 +102,7 @@ final class DemoModeTest extends SiteTestCase
         $this->assertSame($hash, (string) $site->value("SELECT password FROM tl_users WHERE username = 'admin'"), 'the shared password cannot be changed');
         $other = $site->client('other');
         $site->signIn($other);
-        $this->assertStringContainsString('module=pages', $other->get('/admin.php?module=pages')->body, 'another visitor still signs in with the shared password');
+        $this->assertStringContainsString('/admin/pages', $other->get('/admin.php?module=pages')->body, 'another visitor still signs in with the shared password');
 
         $this->post('/admin.php?module=settings&action=save', ['tab' => 'analytics', 'head_code' => '<script>alert(1)</script>', 'stats' => 1]);
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_settings WHERE name = 'head_code' AND value LIKE '%alert%'"), 'no code fields');
@@ -167,7 +167,7 @@ final class DemoModeTest extends SiteTestCase
         $this->assertNotSame('Changed by a visitor', $site->settingValue('site_name'), 'the reset brings back the settings');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_pages WHERE title = 'Defaced'"), 'the reset brings back the pages');
         $this->assertFileDoesNotExist($site->path('media/visitor.txt'), 'the reset brings back the media');
-        $this->assertStringContainsString('module=pages', $this->visitor()->get('/admin.php?module=pages')->body, 'the admin works after the reset');
+        $this->assertStringContainsString('/admin/pages', $this->visitor()->get('/admin.php?module=pages')->body, 'the admin works after the reset');
         $this->assertNotSame(200, $site->client('web')->get('/system/demo.php')->status, 'demo.php does not run from the web');
     }
 }

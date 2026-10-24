@@ -41,7 +41,7 @@ final class MenuPaths
     /**
      * Returns the text prepared for HTML (escaped) with known paths turned into links.
      *
-     * @param string $adminUrl URL of admin.php (e.g. $app->url('admin.php'))
+     * @param string $adminUrl URL of the administration (e.g. $app->url('admin.php'), "/admin")
      * @param list<string> $modules identifiers of modules the signed-in user can access - nothing else is linked
      */
     public static function links(string $adminUrl, string $text, array $modules): string
@@ -53,7 +53,7 @@ final class MenuPaths
                 continue;
             }
             $phrase = e(implode(' → ', array_map(static fn (string $c): string => t($c), $parts)));
-            $replacements[$phrase] = '<a href="' . e($adminUrl . '?' . $query) . '">' . $phrase . '</a>';
+            $replacements[$phrase] = '<a href="' . e($adminUrl . substr(Kernel::path($query), strlen('admin'))) . '">' . $phrase . '</a>';
         }
         uksort($replacements, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
         // in one pass: the longer phrase wins and an already inserted link is not rewritten again

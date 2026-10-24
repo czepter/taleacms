@@ -167,7 +167,7 @@ final class WordPressImportTest extends SiteTestCase
         $this->assertNotSame('', (string) ($popup['id'] ?? ''), 'a pop-up was created for the export');
 
         $this->adminPost(self::TRANSFER . '&action=export');
-        $list = $this->assertPage(self::TRANSFER, 200, 'action=download', message: 'the export is in the list');
+        $list = $this->assertPage(self::TRANSFER, 200, '/admin/transfer/download', message: 'the export is in the list');
         $this->assertSame(1, preg_match('/export-[0-9]*-[0-9]*\.[a-z]*/', $list->body, $m), 'the export has a file name');
         $file = $m[0];
         $download = $site->admin()->get(self::TRANSFER . '&action=download&file=' . $file);

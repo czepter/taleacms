@@ -56,6 +56,6 @@ final class UndoClaudeSessionTest extends SiteTestCase
     public function testASessionCannotBeUndoneTwiceAndTheChangeLogHasTheButton(): void
     {
         $this->assertSame('1|1', $this->sq('SELECT undone_at IS NOT NULL FROM tl_agent_sessions WHERE id = ?', [self::$session]) . '|' . $this->lines('already undone', $this->mcpRawText('undo_agent_session', ['id' => self::$session, 'confirm' => true])), 'undo: the session is marked undone and cannot be undone twice');
-        $this->assertPage('/admin.php?module=changelog&action=sessions', 200, 'action=undo', message: 'undo: the change log lists Claude sessions with the undo button');
+        $this->assertPage('/admin.php?module=changelog&action=sessions', 200, '/admin/changelog/undo', message: 'undo: the change log lists Claude sessions with the undo button');
     }
 }

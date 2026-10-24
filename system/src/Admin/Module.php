@@ -118,7 +118,7 @@ abstract class Module
 
     protected function error(string $text, int $status = 400): Response
     {
-        return $this->kernel->page('Error', $this->app->view->render('admin/error', ['text' => $text]), $status);
+        return $this->kernel->page('Error', $this->app->view->render('admin/error', ['app' => $this->app, 'text' => $text]), $status);
     }
 
     public function app(): App

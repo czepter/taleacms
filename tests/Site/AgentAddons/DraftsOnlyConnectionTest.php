@@ -112,8 +112,8 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
     {
         $business = $this->site()->admin()->get('/admin.php?module=business');
         $this->assertStringContainsString('id="proposed-hours"', $business->body, '3.2: Business details show the proposal');
-        $this->assertStringContainsString('action=hours_apply', $business->body, '3.2: with Apply');
-        $this->assertStringContainsString('action=hours_discard', $business->body, '3.2: and Discard');
+        $this->assertStringContainsString('/admin/business/hours_apply', $business->body, '3.2: with Apply');
+        $this->assertStringContainsString('/admin/business/hours_discard', $business->body, '3.2: and Discard');
 
         $this->adminPost('/admin.php?module=business&action=hours_apply', ['exception' => self::$proposed], '/admin.php?module=business');
         $this->assertSame('0', $this->sq('SELECT proposed FROM tl_hours_exceptions WHERE id = ?', [self::$proposed]), '3.2: a person applies the proposal');

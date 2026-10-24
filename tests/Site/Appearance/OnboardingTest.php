@@ -26,7 +26,7 @@ final class OnboardingTest extends SiteTestCase
         $features = $this->assertPage('/admin.php?module=wizard&action=features&topic=Restaurant+and+caf%C3%A9', 200, ['name="features[]" value="bookings"', 'value="start"'], message: 'step 2: the features');
         $this->assertSame('restaurant', $this->formField($features->body, 'topic'), 'the topic name becomes its key');
         $start = $this->assertPage('/admin.php?module=wizard&action=start&topic=restaurant&features%5B%5D=bookings&features%5B%5D=nothing', 200, 'Choose a look', message: 'step 3: how to start');
-        $this->assertStringContainsString('action=looks&amp;topic=restaurant&amp;features%5B0%5D=bookings"', $start->body, 'the answers go on to the gallery, unknown features are dropped');
+        $this->assertStringContainsString('/admin/wizard/looks?topic=restaurant&amp;features%5B0%5D=bookings"', $start->body, 'the answers go on to the gallery, unknown features are dropped');
         $this->assertStringNotContainsString('Let AI draft it', $start->body, 'without a key the AI wizard is not offered');
         $this->assertPage('/admin.php?module=wizard&action=start&features%5B0%5D%5B%5D=x', 200, message: 'a nested features list is ignored, not an error');
         $ai = $this->assertPage('/admin.php?module=wizard&action=ai&topic=restaurant&features%5B%5D=bookings', 200, 'name="features[]" value="bookings"', message: 'the AI wizard keeps the features');

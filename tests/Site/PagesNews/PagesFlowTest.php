@@ -201,7 +201,7 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertSame('1', (string) $site->value("SELECT visible FROM tl_pages WHERE slug = 'event'"), 'a scheduled page publishes itself in time');
 
         $location = $this->savePage(['page_id' => 0, 'title' => 'Offer', 'template' => 'landing', 'visible' => 0, 'in_menu' => 0, 'text' => ''])->redirect;
-        $this->assertStringContainsString('action=builder', $location, 'a new page from a template goes straight to the builder');
+        $this->assertStringContainsString('/admin/pages/builder/', $location, 'a new page from a template goes straight to the builder');
         $this->assertSame('1', (string) $site->value("SELECT build_draft LIKE '%\"type\":\"section\"%' FROM tl_pages WHERE slug = 'offer'"), 'the template builds a draft from sections');
         self::$offer = $this->idOf('offer');
         $this->assertGreaterThan(0, self::$offer);

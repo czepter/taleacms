@@ -28,8 +28,8 @@ final class MonthlyReportTest extends SiteTestCase
         }
         $mail = $site->admin()->get('/admin.php?module=settings&tab=mail');
         $this->assertStringContainsString('name="report_recipients"', $mail->body, 'Settings -> Mail has the recipients field');
-        $this->assertStringContainsString('action=report_preview', $mail->body, 'Settings -> Mail has the preview button');
-        $this->assertStringContainsString('action=report_send', $mail->body, 'Settings -> Mail has the send button');
+        $this->assertStringContainsString('/admin/settings/report_preview', $mail->body, 'Settings -> Mail has the preview button');
+        $this->assertStringContainsString('/admin/settings/report_send', $mail->body, 'Settings -> Mail has the send button');
 
         $preview = $this->assertPage('/admin.php?module=settings&action=report_preview', 200, $site->settingValue('site_name'), message: 'the preview is the e-mail of the last month with the site name');
         $this->assertStringContainsString('max-width:600px', $preview->body, 'the preview is an inline-styled e-mail');

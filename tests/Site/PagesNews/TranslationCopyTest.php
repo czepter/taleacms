@@ -31,7 +31,7 @@ final class TranslationCopyTest extends SiteTestCase
         $copy = $site->rows("SELECT page_id, build_draft FROM tl_pages WHERE language = 'de' AND translation_of = ?", [$original]);
         $this->assertCount(1, $copy);
         $this->assertSame(self::BUILD, json_encode(json_decode((string) $copy[0]['build_draft']), JSON_UNESCAPED_SLASHES), 'the draft is a copy of the original build');
-        $this->assertStringContainsString('action=builder&id=' . $site->publicId('pages', (int) $copy[0]['page_id']), $saved->redirect, 'the translation opens in the builder');
+        $this->assertStringContainsString('/admin/pages/builder/' . $site->publicId('pages', (int) $copy[0]['page_id']), $saved->redirect, 'the translation opens in the builder');
     }
 
     public function testAnUnknownSectionDoesNotExist(): void

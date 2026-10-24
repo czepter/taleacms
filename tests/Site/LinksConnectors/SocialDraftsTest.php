@@ -58,8 +58,8 @@ final class SocialDraftsTest extends SiteTestCase
         $editor = $site->admin()->get('/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $news))->body;
         $this->assertStringContainsString('id="social-posts"', $editor, 'social drafts: the editor shows the panel');
         $this->assertSame(2, preg_match_all('/data-copy="#social-text-[0-9]*"/', $editor), 'social drafts: a Copy button per draft');
-        $this->assertStringContainsString('action=social_posted', $editor, 'social drafts: Mark as posted');
-        $this->assertStringNotContainsString('action=social_suggest', $editor, 'social drafts: no assistant button while the assistant is off');
+        $this->assertStringContainsString('/social_posted', $editor, 'social drafts: Mark as posted');
+        $this->assertStringNotContainsString('/social_suggest', $editor, 'social drafts: no assistant button while the assistant is off');
 
         $facebook = (int) $site->value("SELECT id FROM tl_social_drafts WHERE news_id = ? AND network = 'facebook'", [$news]);
         $editPage = '/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $news);
@@ -72,7 +72,7 @@ final class SocialDraftsTest extends SiteTestCase
 
         $list = $site->admin()->get('/admin.php?module=news');
         $this->assertSame(200, $list->status);
-        $this->assertMatchesRegularExpression('~id=' . $site->publicId('news', (int) $news) . '#social-posts"[^>]*>[^<]* \(1\)</a>~', $list->body, 'social drafts: the news list links the drafts still waiting to be posted');
+        $this->assertMatchesRegularExpression('~/' . $site->publicId('news', (int) $news) . '#social-posts"[^>]*>[^<]* \(1\)</a>~', $list->body, 'social drafts: the news list links the drafts still waiting to be posted');
 
         $linkedin = (int) $site->value("SELECT id FROM tl_social_drafts WHERE news_id = ? AND network = 'linkedin'", [$news]);
         $result = $site->mcpResult('update_social_draft', ['id' => $linkedin, 'text' => 'Text from Claude']);
