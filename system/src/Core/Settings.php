@@ -113,7 +113,17 @@ final class Settings
         'matomo_url' => '',
         'matomo_id' => '0',
         'plausible_domain' => '',
+        'plausible_url' => '',         // a self-hosted Plausible; empty = plausible.io
+        'umami_id' => '',              // Umami website id (UUID)
+        'umami_url' => '',             // a self-hosted Umami; empty = Umami Cloud
         'head_code' => '',
+        // advertising pixels (Front\Seo::PIXELS): run only after consent to marketing, like marketing_code
+        'meta_pixel_id' => '',
+        'google_ads_id' => '',         // AW-…
+        'linkedin_partner_id' => '',
+        'tiktok_pixel_id' => '',
+        'microsoft_uet_id' => '',
+        'pinterest_tag_id' => '',
         // privacy and cookies
         'cookies_mode' => 'builtin', // none | builtin | external
         'cookies_external_code' => '',

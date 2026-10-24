@@ -63,10 +63,31 @@ final class Privacy
             ['_fbp', 'Advertising: tells visitors apart across sites', '3 months', 'marketing'],
             ['fr', 'Advertising: shows and measures ads', '3 months', 'marketing'],
         ]],
+        'google-ads' => ['Google Ads', '~AW-\d{6,15}|googleadservices\.com|googleads\.g\.doubleclick~', [
+            ['_gcl_au', 'Advertising: shows and measures ads', '3 months', 'marketing'],
+        ]],
+        'linkedin' => ['LinkedIn Insight Tag', '~snap\.licdn\.com|_linkedin_partner_id|_linkedin_data_partner_ids~i', [
+            ['li_sugr', 'Advertising: tells visitors apart across sites', '3 months', 'marketing'],
+            ['bcookie', 'Advertising: tells visitors apart across sites', '1 year', 'marketing'],
+        ]],
+        'tiktok' => ['TikTok Pixel', '~analytics\.tiktok\.com|ttq\.load~i', [
+            ['_ttp', 'Advertising: tells visitors apart across sites', '13 months', 'marketing'],
+        ]],
+        'microsoft-ads' => ['Microsoft Advertising', '~bat\.bing\.com~i', [
+            ['_uetsid', 'Advertising: shows and measures ads', '24 hours', 'marketing'],
+            ['_uetvid', 'Advertising: tells visitors apart across sites', '13 months', 'marketing'],
+        ]],
+        'pinterest' => ['Pinterest Tag', '~s\.pinimg\.com/ct|pintrk\(~i', [
+            ['_pin_unauth', 'Advertising: tells visitors apart across sites', '1 year', 'marketing'],
+        ]],
         'recaptcha' => ['Google reCAPTCHA', '~recaptcha~i', [['_GRECAPTCHA', 'Spam check: the risk analysis of the visitor', '6 months', 'necessary']]],
         'turnstile' => ['Cloudflare Turnstile', '~turnstile|challenges\.cloudflare\.com~i', [['cf_clearance', 'Spam check: the passed challenge', '30 minutes', 'necessary']]],
         'hcaptcha' => ['hCaptcha', '~hcaptcha~i', [['hc_accessibility', 'Spam check: accessibility of the challenge', '1 month', 'necessary']]],
     ];
+
+    /** Settings whose value alone means the provider runs: setting => key of KNOWN (an id says nothing to the patterns). */
+    private const array SET_BY = ['matomo_url' => 'matomo', 'meta_pixel_id' => 'facebook', 'google_ads_id' => 'google-ads', 'linkedin_partner_id' => 'linkedin',
+        'tiktok_pixel_id' => 'tiktok', 'microsoft_uet_id' => 'microsoft-ads', 'pinterest_tag_id' => 'pinterest'];
 
     /** Cookies and storage Talea sets itself – the code is the source of truth, so the list is fixed. */
     private const array OWN = [
@@ -142,9 +163,10 @@ final class Privacy
     public static function providersIn(array $samples, array $settings = []): array
     {
         $haystack = implode("\n", $samples) . "\n" . implode("\n", array_map('strval', $settings));
+        $set = array_values(array_intersect_key(self::SET_BY, array_filter($settings, fn ($value): bool => (string) $value !== '')));
         $found = [];
         foreach (self::KNOWN as $key => [, $pattern]) {
-            if (preg_match($pattern, $haystack) === 1 || ($key === 'matomo' && ($settings['matomo_url'] ?? '') !== '')
+            if (preg_match($pattern, $haystack) === 1 || in_array($key, $set, true)
                 || (in_array($key, ['recaptcha', 'turnstile', 'hcaptcha'], true) && ($settings['captcha_provider'] ?? '') === $key)) {
                 $found[] = $key;
             }
@@ -178,7 +200,7 @@ final class Privacy
     private static function settingSamples(Settings $s): array
     {
         $out = [];
-        foreach (['ga4_id', 'gtm_id', 'matomo_url', 'plausible_domain', 'head_code', 'marketing_code', 'cookies_external_code', 'captcha_provider'] as $key) {
+        foreach (['ga4_id', 'gtm_id', 'matomo_url', 'plausible_domain', 'umami_id', 'head_code', 'marketing_code', 'cookies_external_code', 'captcha_provider', ...array_keys(self::SET_BY)] as $key) {
             $out[$key] = $s->get($key);
         }
 
@@ -372,9 +394,14 @@ final class Privacy
         if (\Talea\Front\Stats::enabled($s) && (int) $db->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0) {
             $statistics[] = t('A/B tests: visitors see one of two versions of some content, chosen at random on every page view; nothing is stored in their browser. Only after they accept the cookie bar is the version remembered in the browser (local storage, key tl-x) so that the page does not change between visits. Views and goals (a form sent, a click, a booking, a page reached) are counted per version and day, without any data about the visitor.');
         }
-        foreach (['ga4_id' => 'Google Analytics', 'gtm_id' => 'Google Tag Manager', 'matomo_url' => 'Matomo', 'plausible_domain' => 'Plausible'] as $key => $name) {
+        foreach (['ga4_id' => 'Google Analytics', 'gtm_id' => 'Google Tag Manager', 'matomo_url' => 'Matomo'] + array_map(fn (array $p): string => $p[0], \Talea\Front\Seo::PIXELS) as $key => $name) {
             if ($s->get($key) !== '') {
                 $statistics[] = t('%s – a third-party service (processor); runs only after consent in the cookie bar unless the bar is off.', $name);
+            }
+        }
+        foreach (['plausible_domain' => 'Plausible', 'umami_id' => 'Umami'] as $key => $name) {
+            if ($s->get($key) !== '') {
+                $statistics[] = t('%s – counts visits without cookies or personal data, so it runs without consent.', $name);
             }
         }
         $sections[] = ['heading' => t('Statistics'), 'lines' => $statistics !== [] ? $statistics : [t('No traffic statistics.')]];

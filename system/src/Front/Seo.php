@@ -406,7 +406,7 @@ final class Seo
     {
         $s = $this->app->settings();
         $mode = $s->get('cookies_mode');
-        $marketing = trim($s->get('marketing_code'));
+        $marketing = trim(self::pixels($s) . $s->get('marketing_code'));
         $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
         if (\Talea\Core\Demo::active()) {
             // the public demo (2.6): a badge that leads to the admin; inline styles, so no site class can hide it
@@ -443,6 +443,32 @@ final class Seo
         };
     }
 
+    /**
+     * Advertising pixels: setting => [name, loader with {id}]. The official loaders, shortened to the page view; they go out
+     * with marketing_code, so they wait for consent to marketing in the same way.
+     */
+    public const array PIXELS = [
+        'meta_pixel_id' => ['Meta Pixel', "!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init',{id});fbq('track','PageView');"],
+        'google_ads_id' => ['Google Ads', "(function(d){var s=d.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id='+{id};d.head.appendChild(s);})(document);window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){dataLayer.push(arguments);};gtag('js',new Date());gtag('config',{id});"],
+        'linkedin_partner_id' => ['LinkedIn Insight Tag', "window._linkedin_data_partner_ids=window._linkedin_data_partner_ids||[];window._linkedin_data_partner_ids.push({id});(function(l){if(!l){window.lintrk=function(a,b){window.lintrk.q.push([a,b])};window.lintrk.q=[]}var s=document.createElement('script');s.async=true;s.src='https://snap.licdn.com/li.lms-analytics/insight.min.js';document.head.appendChild(s);})(window.lintrk);"],
+        'tiktok_pixel_id' => ['TikTok Pixel', "!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=['page','track','identify','instances','debug','on','off','once','ready','alias','group','enableCookie','disableCookie','holdConsent','revokeConsent','grantConsent'],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r='https://analytics.tiktok.com/i18n/pixel/events.js';ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=d.createElement('script');n.async=!0,n.src=r+'?sdkid='+e+'&lib='+t;d.head.appendChild(n)};ttq.load({id});ttq.page();}(window,document,'ttq');"],
+        'microsoft_uet_id' => ['Microsoft Advertising (UET)', "(function(w,d,u){var n=d.createElement('script');w[u]=w[u]||[];n.async=true;n.src='https://bat.bing.com/bat.js';n.onload=function(){var o={ti:{id},enableAutoSpaTracking:true};o.q=w[u];w[u]=new UET(o);w[u].push('pageLoad');};d.head.appendChild(n);})(window,document,'uetq');"],
+        'pinterest_tag_id' => ['Pinterest Tag', "!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version='3.0';var t=document.createElement('script');t.async=!0,t.src=e;document.head.appendChild(t)}}('https://s.pinimg.com/ct/core.js');pintrk('load',{id});pintrk('page');"],
+    ];
+
+    /** The advertising pixels that have an id, one <script> each; empty when none has. */
+    public static function pixels(\Talea\Core\Settings $s): string
+    {
+        $code = '';
+        foreach (self::PIXELS as $key => [, $loader]) {
+            if ($s->get($key) !== '') {
+                $code .= '<script>' . str_replace('{id}', (string) json_encode($s->get($key), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT), $loader) . "</script>\n";
+            }
+        }
+
+        return $code;
+    }
+
     private function usesAnalyticsCookies(): bool
     {
         $s = $this->app->settings();
@@ -471,8 +497,14 @@ final class Seo
             $url = json_encode(rtrim($s->get('matomo_url'), '/') . '/', JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
             $code .= "<script{$attributes}>var _paq=window._paq=window._paq||[];_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);(function(){var u={$url};_paq.push(['setTrackerUrl',u+'matomo.php']);_paq.push(['setSiteId','{$s->int('matomo_id')}']);var d=document,g=d.createElement('script'),s=d.getElementsByTagName('script')[0];g.async=true;g.src=u+'matomo.js';s.parentNode.insertBefore(g,s);})();</script>\n";
         }
+        // Plausible and Umami count without cookies, so they load without consent; a self-hosted one from its own address
         if ($s->get('plausible_domain') !== '') {
-            $code .= '<script defer data-domain="' . e($s->get('plausible_domain')) . '" src="https://plausible.io/js/script.js"></script>' . "\n";
+            $host = $s->get('plausible_url') !== '' ? rtrim($s->get('plausible_url'), '/') : 'https://plausible.io';
+            $code .= '<script defer data-domain="' . e($s->get('plausible_domain')) . '" src="' . e($host . '/js/script.js') . '"></script>' . "\n";
+        }
+        if ($s->get('umami_id') !== '') {
+            $host = $s->get('umami_url') !== '' ? rtrim($s->get('umami_url'), '/') : 'https://cloud.umami.is';
+            $code .= '<script defer data-website-id="' . e($s->get('umami_id')) . '" src="' . e($host . '/script.js') . '"></script>' . "\n";
         }
 
         return $code;

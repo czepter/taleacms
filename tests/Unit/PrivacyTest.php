@@ -16,6 +16,8 @@ final class PrivacyTest extends TestCase
             \Talea\Core\Privacy::providersIn($f17Embeds, ['ga4_id' => 'G-ABCD1234', 'gtm_id' => 'GTM-XYZ12', 'captcha_provider' => 'turnstile']),
             \Talea\Core\Privacy::providersIn(['<iframe src="https://maps.google.com/maps?q=Praha&output=embed"></iframe>', '<script>fbq("init", "1")</script>'], ['matomo_url' => 'https://stats.example.com/']),
             \Talea\Core\Privacy::providersIn(['<p>nothing</p>'], ['ga4_id' => '', 'captcha_provider' => ''])], '2.14 Privacy::providersIn – a YouTube video in a build, Analytics and Tag Manager from the settings, the CAPTCHA from its setting; a map element alone is not Google Maps (it embeds after a click)');
+        $this->assertSame(['facebook', 'pinterest'], \Talea\Core\Privacy::providersIn([], ['meta_pixel_id' => '1234567890', 'tiktok_pixel_id' => '', 'pinterest_tag_id' => '2612345678901']),
+            'Privacy::providersIn – an advertising pixel id alone puts its provider in the cookie table; an empty one does not');
         $f17Rows = [];
         foreach (\Talea\Core\Privacy::providersIn($f17Embeds, []) as $f17Key) {
             foreach (\Talea\Core\Privacy::KNOWN[$f17Key][2] as $f17Cookie) {

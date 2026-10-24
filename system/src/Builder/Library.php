@@ -491,6 +491,13 @@ final class Library
         if ($get('plausible_domain') !== '') {
             $analytics[] = $x('The website measures traffic with Plausible Analytics without cookies and without personal data.');
         }
+        if ($get('umami_id') !== '') {
+            $analytics[] = $x('The website measures traffic with Umami without cookies and without personal data.');
+        }
+        $pixels = array_values(array_map(fn (array $p): string => $p[0], array_filter(\Talea\Front\Seo::PIXELS, fn (string $key): bool => $get($key) !== '', ARRAY_FILTER_USE_KEY)));
+        if ($pixels !== []) {
+            $analytics[] = $x('With your consent, the website uses advertising pixels (%s) that store cookies in your browser to measure and target ads.', implode(', ', $pixels));
+        }
         if ($get('marketing_code') !== '') {
             $analytics[] = $x('With your consent, the website loads marketing codes (for example advertising pixels) that store cookies.');
         }

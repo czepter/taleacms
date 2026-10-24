@@ -21,7 +21,7 @@
 <div class="tiles">
 	<a class="tiles-item" href="<?= e($app->url('admin.php?module=settings&tab=webhooks')) ?>"><strong><?= e(t('Webhooks')) ?></strong><span><?= e(t('Enquiries and events to Make, Zapier or your own system, signed.')) ?></span></a>
 	<a class="tiles-item" href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><strong><?= e(t('Mailing service')) ?></strong><span><?= e(t('Subscribers to Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing.')) ?></span></a>
-	<a class="tiles-item" href="<?= e($app->url('admin.php?module=settings&tab=analytics')) ?>"><strong><?= e(t('Analytics and tags')) ?></strong><span><?= e(t('Google Analytics, Tag Manager, Matomo or Plausible.')) ?></span></a>
+	<a class="tiles-item" href="<?= e($app->url('admin.php?module=settings&tab=analytics')) ?>"><strong><?= e(t('Analytics and tags')) ?></strong><span><?= e(t('Google Analytics, Tag Manager, Matomo, Plausible, Umami and advertising pixels.')) ?></span></a>
 </div>
 <?php foreach ($services as $key => ['class' => $class, 'row' => $row, 'config' => $config]): $st = $status[$key]; ?>
 <section class="panel">

@@ -452,7 +452,7 @@ final class Audit
         $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Company details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company');
         $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing');
         $check($s->get('favicon') !== '' || is_file(TALEA_ROOT . '/media/icon-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
-        $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
+        $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code') . \Talea\Front\Seo::pixels($s)) !== '';
         $check(!$tracking || $s->get('cookies_mode') !== 'none', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
         $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact');
         // accounts and access (2.8): the same findings as System status, each with the user to fix

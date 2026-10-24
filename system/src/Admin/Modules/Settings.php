@@ -68,7 +68,10 @@ class Settings extends Module
         ],
         'analytics' => [
             'ga4_id' => 'pattern:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'pattern:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'number:0:99999',
-            'plausible_domain' => 'pattern:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'code', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
+            'plausible_domain' => 'pattern:/^([a-z0-9.-]{3,100})?$/', 'plausible_url' => 'url', 'umami_url' => 'url',
+            'umami_id' => 'pattern:/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/', 'head_code' => 'code', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
+            'meta_pixel_id' => 'pattern:/^(\d{10,20})?$/', 'google_ads_id' => 'pattern:/^(AW-\d{6,15})?$/', 'linkedin_partner_id' => 'pattern:/^(\d{3,12})?$/',
+            'tiktok_pixel_id' => 'pattern:/^([A-Z0-9]{15,25})?$/', 'microsoft_uet_id' => 'pattern:/^(\d{4,12})?$/', 'pinterest_tag_id' => 'pattern:/^(\d{10,16})?$/',
         ],
         'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
             'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
@@ -122,7 +125,7 @@ class Settings extends Module
     private function rejectInvalid(string $tab, array $errors, array $given): Response
     {
         $template = (string) @file_get_contents(TALEA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
-        $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
+        $names = array_map(fn (string $key): string => preg_match('/\$field\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => $errors, 'values' => $given]);
 
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
