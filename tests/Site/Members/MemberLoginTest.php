@@ -160,6 +160,11 @@ final class MemberLoginTest extends SiteTestCase
                 $this->assertStringNotContainsString($needle, $body, "$path leaks \"$needle\"");
             }
         }
+        foreach (['/club-prices.md', '/resources/' . self::$s['itemSlug'] . '.md'] as $path) { // a 404 page names its own address, so only the status and the text
+            $answer = $visitor->get($path);
+            $this->assertSame(404, $answer->status, "$path: a gated page or item has no Markdown version");
+            $this->assertStringNotContainsString('Secret', $answer->body, "$path leaks");
+        }
         $this->assertStringContainsString('open-page', $visitor->get('/sitemap.xml')->body, 'the sitemap still lists public pages');
         foreach (glob($this->site()->path('storage/cache/pages/*')) ?: [] as $file) {
             $this->assertStringNotContainsString('Secret', (string) file_get_contents($file), 'the page cache has no restricted content (' . basename($file) . ')');

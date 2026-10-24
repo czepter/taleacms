@@ -68,6 +68,25 @@ final class PublicSiteTest extends SiteTestCase
         $this->assertPage('/llms.txt', 200, '## Pages');
     }
 
+    public function testEveryPageHasAMarkdownVersionForLanguageModels(): void
+    {
+        $markdown = $this->assertPage('/services.md', 200, ['# Services', '- Source: ' . $this->site()->base . '/services', '](' . $this->site()->base . '/contact)']);
+        $this->assertStringStartsWith('text/markdown', $markdown->headers['content-type'] ?? '');
+        $this->assertStringNotContainsString('<', $markdown->body, 'no HTML in the Markdown version');
+        $this->assertPage('/home.md', 200, '- Source: ' . $this->site()->base . '/', message: 'the home page at its own slug, the source is the root');
+        $this->assertPage('/services', 200, 'type="text/markdown" href="' . $this->site()->base . '/services.md"', message: 'the page points to its Markdown version');
+        $this->assertPage('/llms.txt', 200, ['/services.md)', '/home.md)', '/news/our-new-website-is-live.md)'], message: 'llms.txt links the Markdown versions');
+        $this->assertPage('/privacy-policy.md', 404, message: 'a hidden page has none');
+        $this->assertPage('/no-such-page.md', 404);
+
+        $this->site()->setting('markdown_versions', '0');
+        $this->site()->clearPageCache();
+        $this->assertPage('/services.md', 404, message: 'switched off: no Markdown versions');
+        $this->assertPage('/llms.txt', 200, '/services)', message: 'switched off: llms.txt links the pages themselves');
+        $this->site()->setting('markdown_versions', '1');
+        $this->site()->clearPageCache();
+    }
+
     public function testPrivacyPolicyIsHiddenUntilTheAdministratorPublishesIt(): void
     {
         $this->assertPage('/privacy-policy', 404);

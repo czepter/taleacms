@@ -39,7 +39,7 @@ $field('verification_bing', 'Bing', 'text', 'The content value from the msvalida
 $field('schema_org', 'schema.org structured data', 'flag');
 $field('indexnow', 'Notify search engines about new news (IndexNow)', 'flag', 'Bing, Seznam and Yandex will then index them within minutes.');
 $field('llms_txt', 'llms.txt file', 'flag', 'A guide to the site for language models.');
-$field('markdown_news', 'Plain-text news (.md)', 'flag', 'Every news item also as plain text without navigation – for language models and AI search engines.');
+$field('markdown_versions', 'Plain-text versions (.md)', 'flag', 'Every page, news item and collection item also as plain text without navigation – for language models and AI search engines.');
 $field('robots_extra', 'Custom robots.txt rules', 'lines', '', 'spellcheck="false"');
 $field('security_contact', 'Security contact', 'text', 'An e-mail address or an https:// page where people report security problems of this site. It is published at /.well-known/security.txt (RFC 9116); empty = no file.', 'spellcheck="false"');
 ?>

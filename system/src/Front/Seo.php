@@ -170,7 +170,7 @@ final class Seo
     {
         $s = $this->app->settings();
         $db = $this->app->db();
-        $md = $s->bool('markdown_news') ? '.md' : '';
+        $md = $s->bool('markdown_versions') ? '.md' : '';
         $rows = ['# ' . $s->get('site_name'), ''];
         if ($s->get('site_description') !== '') {
             array_push($rows, '> ' . str_replace("\n", ' ', $s->get('site_description')), '');
@@ -187,7 +187,8 @@ final class Seo
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
         foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND language = ? ORDER BY sort_order, title', [\Talea\Core\Language::siteColumn()]) as $r) {
-            $rows[] = '- [' . $r['title'] . '](' . $this->page((int) $r['page_id'] === $home ? '' : $r['slug']) . ')' . ($r['description'] !== '' ? ': ' . $r['description'] : '');
+            // the home page's Markdown version lives at its own slug (/home.md): the root has no name to add ".md" to
+            $rows[] = '- [' . $r['title'] . '](' . ($md !== '' ? $this->page($r['slug'], $md) : $this->page((int) $r['page_id'] === $home ? '' : $r['slug'])) . ')' . ($r['description'] !== '' ? ': ' . $r['description'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = TRUE ORDER BY name') as $k) {
@@ -207,7 +208,7 @@ final class Seo
                         break;
                     }
                 }
-                $rows[] = '- [' . $p['name'] . '](' . $this->page($k['slug'] . '/' . $p['slug']) . ')' . ($description !== '' ? ': ' . $description : '');
+                $rows[] = '- [' . $p['name'] . '](' . $this->page($k['slug'] . '/' . $p['slug'], $md) . ')' . ($description !== '' ? ': ' . $description : '');
             }
         }
         if (!\Talea\Core\Extensions::isEnabled($s, 'news')) {
@@ -230,7 +231,60 @@ final class Seo
         $head[] = '- ' . t('Categories') . ': ' . $newsItem['category_name'];
         $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('news/') . $newsItem['slug']);
 
-        return implode("\n", $head) . "\n\n" . self::htmlToMarkdown($newsItem['intro']) . "\n\n" . self::htmlToMarkdown($newsItem['text']) . "\n";
+        return implode("\n", $head) . "\n\n" . $this->markdown($newsItem['intro']) . "\n\n" . $this->markdown($newsItem['text']) . "\n";
+    }
+
+    /** @param array<string, mixed> $page */
+    public function pageMarkdown(array $page, bool $home): string
+    {
+        $head = ['# ' . $page['title'], ''];
+        if ($page['description'] !== '') {
+            array_push($head, '> ' . str_replace("\n", ' ', (string) $page['description']), '');
+        }
+        $head[] = '- ' . t('Source') . ': ' . $this->page($home ? '' : (string) $page['slug']);
+
+        return \Talea\Core\Facts::fillText(implode("\n", $head) . "\n\n" . $this->markdown((string) $page['text']) . "\n", $this->app);
+    }
+
+    /**
+     * A collection item's fields as Markdown: longer texts and lists under their label as headings, images as pictures, the
+     * rest as "label: value" under the title.
+     *
+     * @param array<string, mixed> $collection with decoded fields
+     * @param array<string, mixed> $item
+     */
+    public function itemMarkdown(array $collection, array $item): string
+    {
+        $data = json_decode((string) $item['data'], true) ?: [];
+        $head = ['# ' . $item['name'], ''];
+        if ($item['description'] !== '') {
+            array_push($head, '> ' . str_replace("\n", ' ', (string) $item['description']), '');
+        }
+        $head[] = '- ' . t('Source') . ': ' . $this->page($collection['slug'] . '/' . $item['slug']);
+        $body = [];
+        foreach ($collection['fields'] as $field) {
+            $value = $data[$field['key']] ?? '';
+            if (!is_scalar($value) || trim((string) $value) === '') {
+                continue;
+            }
+            $value = trim((string) $value);
+            $label = (string) $field['label'];
+            $text = match ($field['type']) {
+                'html' => $this->markdown($value),
+                'lines' => $value,
+                'parameters', 'variants' => implode("\n", array_map(fn (string $line): string => '- ' . trim($line), array_filter(preg_split('/\R/u', $value) ?: [], fn (string $line): bool => trim($line) !== ''))),
+                default => null,
+            };
+            if ($text !== null) {
+                $body[] = '## ' . $label . "\n\n" . $text;
+            } elseif ($field['type'] === 'image') {
+                $body[] = '![' . $label . '](' . $this->absoluteUrl($value) . ')';
+            } else {
+                $head[] = '- ' . $label . ': ' . ($field['type'] === 'file' ? $this->absoluteUrl($value) : str_replace("\n", ' ', $value));
+            }
+        }
+
+        return \Talea\Core\Facts::fillText(implode("\n", $head) . "\n\n" . implode("\n\n", $body) . "\n", $this->app);
     }
 
     /**
@@ -281,8 +335,10 @@ final class Seo
             $h[] = '<meta property="og:description" content="' . e($meta['description']) . '">';
         }
         $h[] = '<meta name="twitter:card" content="' . (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
-        if ($newsItem !== null && $s->bool('markdown_news')) {
-            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('news/') . $newsItem['slug'] . '.md') . '">';
+        // the Markdown version: a news item, or the path a page or collection item hands over in $meta['markdown']
+        $markdown = $meta['markdown'] ?? ($newsItem !== null ? $this->path('news/') . $newsItem['slug'] : null);
+        if ($markdown !== null && $s->bool('markdown_versions')) {
+            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $markdown . '.md') . '">';
         }
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->structuredData($title, $meta, $newsItem), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
@@ -557,12 +613,18 @@ final class Seo
         return str_starts_with($url, '/') ? $this->app->request->origin() . $url : $this->root . $url;
     }
 
+    /** HTML as Markdown with absolute links and pictures: a language model reads the text away from the site. */
+    private function markdown(string $html): string
+    {
+        return (string) preg_replace('#\]\((/(?!/)[^)]*)\)#', '](' . $this->app->request->origin() . '$1)', self::htmlToMarkdown($html));
+    }
+
     /** Simple conversion of HTML to Markdown - headings, paragraphs, lists, links, quotes, images. */
     private static function htmlToMarkdown(string $html): string
     {
         $md = preg_replace('/\s+/', ' ', $html) ?? $html;
         $replacements = [
-            '#<h2[^>]*>(.*?)</h2>#i' => "\n\n## $1\n\n", '#<h3[^>]*>(.*?)</h3>#i' => "\n\n### $1\n\n", '#<h4[^>]*>(.*?)</h4>#i' => "\n\n#### $1\n\n",
+            '#<h1[^>]*>(.*?)</h1>#i' => "\n\n# $1\n\n", '#<h2[^>]*>(.*?)</h2>#i' => "\n\n## $1\n\n", '#<h3[^>]*>(.*?)</h3>#i' => "\n\n### $1\n\n", '#<h4[^>]*>(.*?)</h4>#i' => "\n\n#### $1\n\n",
             '#<(strong|b)>(.*?)</\1>#i' => '**$2**', '#<(em|i)>(.*?)</\1>#i' => '*$2*',
             '#<a [^>]*href="([^"]*)"[^>]*>(.*?)</a>#i' => '[$2]($1)',
             '#<img [^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>#i' => '![$2]($1)', '#<img [^>]*src="([^"]*)"[^>]*>#i' => '![]($1)',

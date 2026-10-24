@@ -310,7 +310,7 @@ filled-in details of the operator.
 ## 9. News, SEO and languages
 
 **News** is the company blog: categories, tags, scheduled publishing, trash, version history. SEO takes care of itself
-(sitemap, canonical URLs, structured data, `llms.txt` for AI search). Enable further language versions (`/de/…`) under
+(sitemap, canonical URLs, structured data, `llms.txt` for AI search, and every page, news item and collection item as plain Markdown at its address + `.md`, e.g. `/services.md`). Enable further language versions (`/de/…`) under
 **Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages. British English, Austrian German, Brazilian Portuguese and Traditional Chinese are offered as regional versions (`/pt-br/`; search engines get `pt-BR`): they use the texts and number format of their language. An import keeps a regional language unless the site already has that language without the region (an `en_GB` export into an English site stays English).
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
 Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
