@@ -24,6 +24,22 @@ final class Html
     private const array ATTRIBUTES = ['href', 'src', 'alt', 'title', 'class', 'id', 'width', 'height', 'colspan', 'rowspan', 'scope', 'target', 'rel', 'lang', 'dir',
         'loading', 'decoding', 'srcset', 'sizes', 'start', 'reversed', 'type', 'cite', 'datetime', 'controls', 'poster', 'preload', 'playsinline', 'muted', 'loop'];
 
+    /**
+     * Ids the site frame and its scripts look up: the skip link target, the menu, the cookie bar, the basket field, and the
+     * globals of measurement and maps (an element id becomes window.<id>). Compared in lower case.
+     */
+    private const array RESERVED_IDS = ['main', 'navigation', 'cookies-bar', 'cookies-heading', 'cookies-reopen', 'poptavka', 'screen-hours',
+        'l', 't', 'datalayer', 'gtag', 'grecaptcha', 'hcaptcha', 'turnstile', '_paq', 'fbq', 'pintrk', 'lintrk', 'plausible', 'umami'];
+
+    /**
+     * May content keep this id? Anchors (#price-list) keep working; an id the site frame uses (RESERVED_IDS), one in the
+     * system's own namespace (tl-…, talea…) or one with other characters goes – it would take over the frame's hook.
+     */
+    public static function isSafeId(string $id): bool
+    {
+        return preg_match('/^[\p{L}\p{N}_.:-]{1,100}$/uD', $id) === 1 && preg_match('/^(tl[-_]|talea)/i', $id) !== 1 && !in_array(mb_strtolower($id), self::RESERVED_IDS, true);
+    }
+
     public static function safe(string $html): string
     {
         if (trim($html) === '' || !preg_match('/<|&/', $html)) {
@@ -160,7 +176,8 @@ final class Html
                         || ($name === 'data-id' && strtolower($n->localName) === 'img' && (ctype_digit($a->value) || Uuid::valid($a->value)))) // the Media public id the editor puts on an image (older texts carry the number)
                     && (!in_array($name, ['href', 'src', 'poster', 'cite'], true) || WpContent::isSafeUrl($a->value))
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
-                    && ($name !== 'target' || $a->value === '_blank');
+                    && ($name !== 'target' || $a->value === '_blank')
+                    && ($name !== 'id' || self::isSafeId($a->value));
                 if (!$ok) {
                     $n->removeAttribute($a->name);
                 }

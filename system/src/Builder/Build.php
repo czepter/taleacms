@@ -33,9 +33,6 @@ final class Build
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
     private const string CONTENT_MARK = "\u{E000}tl-page-content\u{E000}";
 
-    /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
-    public const array RESERVED_ANCHORS = ['main', 'navigation', 'cookies-bar', 'cookies-heading', 'cookies-reopen'];
-
     /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
         Elements\Section::class, Elements\Container::class, Elements\Grid::class,
@@ -145,7 +142,7 @@ final class Build
             }
             if (is_string($p['anchor'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['anchor'])) {
                 // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
-                if (isset($used['kotva:' . $p['anchor']]) || in_array($p['anchor'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['anchor'])) {
+                if (isset($used['kotva:' . $p['anchor']]) || !\Talea\Core\Html::isSafeId($p['anchor']) || preg_match('/^(s|ka)-/', $p['anchor'])) {
                     $errors[$place . '.anchor'] = 'The anchor “' . $p['anchor'] . '” is already used on the page by another element or the layout – left out.';
                 } else {
                     $clean['anchor'] = $p['anchor'];
