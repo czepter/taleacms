@@ -23,3 +23,4 @@ unset($headers['X-Talea-Form-Action']);
 ] + ($app->request->isHttps() ? ['Strict-Transport-Security' => 'max-age=15552000'] : [])))->send();
 Talea\Core\Webhook::afterResponse($app); // e.g. a just-published news item
 Talea\Core\Mail::afterResponse($app); // e.g. the password reset link – queued, so the answer's timing reveals no account (3.3.3)
+Talea\Core\SiteImport::afterResponse($app); // a running Talea import goes on in the background – last, it can take minutes

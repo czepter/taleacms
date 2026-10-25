@@ -266,10 +266,11 @@ final class DesignSystem
     ];
 
     /**
-     * The font library (image/fonts/<slug>/font.json): slug => name, category, weights, italic, variable, files [file, weight, style].
+     * The font library (image/fonts/<slug>/font.json): slug => name, category, weights, italic, variable, files [file, weight, style],
+     * scripts [latin, latin-ext, cyrillic…] (what Builder\FontScripts checks against the site's languages).
      * A folder with a missing or broken font.json or a missing WOFF2 file is skipped.
      *
-     * @return array<string, array{slug: string, name: string, category: string, weights: list<int>, italic: bool, variable: bool, files: list<array{file: string, weight: string, style: string}>}>
+     * @return array<string, array{slug: string, name: string, category: string, weights: list<int>, italic: bool, variable: bool, files: list<array{file: string, weight: string, style: string}>, scripts: list<string>}>
      */
     public static function libraryFonts(): array
     {
@@ -293,7 +294,8 @@ final class DesignSystem
             }
             if ($files !== []) {
                 $fonts[$slug] = ['slug' => $slug, 'name' => preg_replace('/[^\p{L}\p{N} -]/u', '', $f['name']), 'category' => $f['category'], 'weights' => array_map('intval', (array) ($f['weights'] ?? [])),
-                    'italic' => (bool) ($f['italic'] ?? false), 'variable' => (bool) ($f['variable'] ?? false), 'files' => $files];
+                    'italic' => (bool) ($f['italic'] ?? false), 'variable' => (bool) ($f['variable'] ?? false), 'files' => $files,
+                    'scripts' => array_values(array_filter((array) ($f['scripts'] ?? []), 'is_string'))];
             }
         }
         uasort($fonts, fn (array $a, array $b): int => [array_search($a['category'], array_keys(self::FONT_CATEGORIES)), $a['name']] <=> [array_search($b['category'], array_keys(self::FONT_CATEGORIES)), $b['name']]);
@@ -318,8 +320,12 @@ final class DesignSystem
         return null;
     }
 
-    /** The library font behind a stored choice ("lib:<slug>"), or null. */
-    private static function libraryFont(string $key): ?array
+    /**
+     * The library font behind a stored choice ("lib:<slug>"), or null.
+     *
+     * @return array{slug: string, name: string, category: string, weights: list<int>, italic: bool, variable: bool, files: list<array{file: string, weight: string, style: string}>, scripts: list<string>}|null
+     */
+    public static function libraryFont(string $key): ?array
     {
         return str_starts_with($key, 'lib:') ? (self::libraryFonts()[substr($key, 4)] ?? null) : null;
     }

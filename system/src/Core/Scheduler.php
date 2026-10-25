@@ -153,6 +153,9 @@ final class Scheduler
      */
     public static function run(App $app, string $source, float $budget): array
     {
+        if (SiteImport::running() !== null) {
+            return ['site_import' => SiteImport::work($app, $budget)]; // the import owns the site: no other job touches it until it is done
+        }
         \Talea\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
