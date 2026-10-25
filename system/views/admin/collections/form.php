@@ -29,6 +29,8 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <div class="row"><label for="slug"><?= e(t('URL')) ?></label><div><input class="textfield" id="slug" name="slug" value="<?= e($k['slug']) ?>" maxlength="110"><span class="help"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Item pages')) ?></span><div class="options"><label><input type="checkbox" name="detail" value="1"<?= $k['detail'] ? ' checked' : '' ?>> <?= e(t('each item has its own page (detail)')) ?></label>
 <span class="help"><?= e(t('Design the detail page in the builder (Detail template). Without a detail page, items are just cards in the list.')) ?></span></div></div>
+<div class="row"><span class="caption"><?= e(t('Admin menu')) ?></span><div class="options"><label><input type="checkbox" name="admin_menu" value="1"<?= !empty($k['admin_menu']) ? ' checked' : '' ?>> <?= e(t('Show in the admin menu')) ?></label>
+<span class="help"><?= e(t('The collection gets its own link in the main menu, under the heading Collections, so its items are one click away from every screen. At most %d collections are listed there, by name.', Talea\Admin\Modules\Collections::MENU_LIMIT)) ?></span></div></div>
 <div class="row"><label for="hidden_redirect"><?= e(t('Hidden items redirect to')) ?></label><div><input class="textfield" id="hidden_redirect" name="hidden_redirect" value="<?= e((string) ($k['hidden_redirect'] ?? '')) ?>" maxlength="255" placeholder="/<?= e($k['slug'] !== '' ? $k['slug'] : 'team') ?>">
 <span class="help"><?= e(t('When an item is hidden or deleted – a person who left, a product no longer sold – its page leads here (301) instead of “page not found”. Empty = page not found.')) ?></span></div></div>
 <fieldset>
@@ -56,6 +58,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 	<td><?= $p['key'] !== '' ? '<code>{{' . e($p['key']) . '}}</code>' . match ($p['type']) {
         'item' => ' <code>{{' . e($p['key']) . '_url}}</code> <code>{{' . e($p['key']) . '_seo}}</code>',
         'datetime' => ' <code>{{' . e($p['key']) . '_iso}}</code>',
+        'number' => ' <code>{{' . e($p['key']) . '_raw}}</code>',
         'file' => ' <code>{{' . e($p['key']) . '_name}}</code>',
         default => '',
     } : '<span class="help">' . e(t('created from the label')) . '</span>' ?></td>

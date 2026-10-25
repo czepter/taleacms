@@ -134,7 +134,7 @@ final class ContentCheck
 
         return self::run([
             'title' => (string) ($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title']),
-            'description' => (string) ($newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($lead)), 0, 300, '…')),
+            'description' => (string) ($newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : Html::plain($lead, 300)),
             'html' => $lead . "\n" . (string) ($newsItem['text'] ?? ''),
             'title_is_h1' => true,
         ]);

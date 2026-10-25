@@ -162,12 +162,14 @@
         "language_switcher",
         "mega_menu",
         "menu",
+        "menu_part",
         "news_link",
         "phone_menu"
     ],
     "news_list": [
         "category",
         "count",
+        "heading",
         "images"
     ],
     "newsletter_signup": [

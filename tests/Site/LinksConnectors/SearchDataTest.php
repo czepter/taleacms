@@ -87,6 +87,8 @@ final class SearchDataTest extends SiteTestCase
     {
         $last = trim($this->site()->php('echo (new DateTimeImmutable("last day of last month"))->format("Y-m-d");'));
         $this->site()->exec("INSERT INTO tl_search_stats (day, engine, kind, `key`, clicks, impressions, ctr, position) VALUES (?, 'google', 'query', 'talea last month', 15, 300, 5, 4.0)", [$last]);
+        // the month may already be archived (#161, the hourly report_archive job): the preview would show the stored month
+        $this->site()->exec('DELETE FROM tl_monthly_reports');
         $report = $this->assertPage('/admin.php?module=settings&action=report_preview', 200, 'talea last month on Google', message: 'search: the monthly report mentions the top queries when the month has a snapshot');
         $this->assertStringContainsString('Searches that brought visitors', $report->body, 'search: the report section heading');
         $this->assertStringNotContainsString('talea bing', $report->body, 'search: only the queries of that month');

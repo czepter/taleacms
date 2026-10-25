@@ -109,10 +109,13 @@ final class AskClaude
             $db->all('SELECT id, public_id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
     }
 
-    /** Whether anyone has connected Claude (a connector or a personal token) – the same test as the step in First steps. */
-    public static function connected(Db $db): bool
+    /**
+     * Whether Claude is connected now – a connector or a personal token that can call the site (Core\ClaudeConnection: valid,
+     * of an account that is not blocked and meets the required two-factor sign-in); the same test as the step in First steps.
+     */
+    public static function connected(Db $db, Settings $settings): bool
     {
-        return $db->value("SELECT 1 FROM {api_tokens} WHERE kind IN ('token', 'refresh') LIMIT 1") !== null;
+        return ClaudeConnection::reachable(ClaudeConnection::status($db, $settings));
     }
 
     /**

@@ -134,10 +134,13 @@ final class Language
 
             return;
         }
-        // a regional version without a dictionary of its own uses the one of its language (de-at → de.php, en-gb → en.php)
+        // a regional version holds only what differs from its language (pt-br.php over pt.php); without a file of its own it uses its language's (de-at → de.php)
         $file = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '.php';
-        $file = is_file($file) ? $file : TALEA_SYSTEM . '/languages/' . $dictionarySet . self::base(self::$code) . '.php';
         $custom = is_file($file) ? require $file : [];
+        $languageFile = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::base(self::$code) . '.php';
+        if (self::base(self::$code) !== self::$code && is_file($languageFile)) {
+            $custom += require $languageFile;
+        }
         $overlay = TALEA_SYSTEM . '/languages/' . $dictionarySet . self::base(self::$code) . '-du.php';
         if (self::$register === 'informal' && is_file($overlay)) {
             $custom = (require $overlay) + $custom;
@@ -195,6 +198,12 @@ final class Language
     public static function siteColumn(): string
     {
         return self::$column;
+    }
+
+    /** Texts for visitors (Search, Read more, the cookie bar…) exist in this language or in the language of a regional version; otherwise the site shows them in English. */
+    public static function hasVisitorTexts(string $code): bool
+    {
+        return is_file(TALEA_SYSTEM . '/languages/' . $code . '.php') || is_file(TALEA_SYSTEM . '/languages/' . self::base($code) . '.php');
     }
 
     /** The language subtag of a stored code: pt-br → pt, zh-hant → zh, cs → cs. What a regional version shares with its language. */

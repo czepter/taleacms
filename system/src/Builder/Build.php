@@ -718,8 +718,9 @@ final class Build
     /** Page CSS: the base of the used types, the used classes (from tl_classes) and the style of individual elements – each in its own layer. */
     public static function css(Db $db, Context $k): string
     {
-        // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
-        $base = ':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
+        // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them,
+        // and so does the system content inside the Page content element of a wrapper (.content: a news item's text looks the same as without the wrapper)
+        $base = ':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.content *)) { margin-block: 0; }' . "\n"
             . ':where(.build) :where(.tl-text) > * + * { margin-block-start: 1em; }' . "\n";
         $rtl = Language::isRtl(Language::code());
         foreach (self::ELEMENTS as $className) {

@@ -93,6 +93,27 @@ final class LinksTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringNotContainsString('"page":"/portfolio-orphan","target"', $this->mcpJson('suggest_internal_links', ['limit' => 100]), 'a page linked from a text is no orphan any more');
     }
 
+    public function testTheHomePageOfALanguageVersionIsNoOrphan(): void
+    {
+        $site = $this->site();
+        $home = (int) $site->settingValue('home_page');
+        $this->assertGreaterThan(0, $home, 'the site has a home page');
+        $languages = $site->settingValue('additional_languages');
+        $site->setting('additional_languages', 'de');
+        $site->mcp('create_page', ['title' => 'Startseite', 'slug' => 'startseite-orphan-check', 'language' => 'de', 'translation_of' => $site->publicId('pages', $home), 'visible' => true, 'in_menu' => false, 'content' => '<p>[Text]</p>']);
+        $site->mcp('create_page', ['title' => 'Impressum', 'slug' => 'impressum-orphan-check', 'language' => 'de', 'visible' => true, 'in_menu' => false, 'content' => '<p>[Text]</p>']);
+        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM tl_pages WHERE language = 'de' AND visible = TRUE AND slug LIKE '%-orphan-check'"), 'both German pages are published');
+        $site->clearPageCache();
+
+        $json = $this->mcpJson('suggest_internal_links', ['limit' => 100]);
+        $this->assertStringContainsString('"page":"/de/impressum-orphan-check","target"', $json, 'a German page nothing links to is an orphan');
+        $this->assertStringNotContainsString('"page":"/de/startseite-orphan-check","target"', $json, 'the German home page is reached through the logo and the language switcher: no orphan');
+
+        $site->exec("DELETE FROM tl_pages WHERE slug LIKE '%-orphan-check'");
+        $site->setting('additional_languages', $languages);
+        $site->clearPageCache();
+    }
+
     public function testBrokenExternalLinksInAPageBuildAreFoundWithTheirElement(): void
     {
         $site = $this->site();

@@ -35,9 +35,14 @@ final class Menu extends Module
         $items = $this->mapPages($items, fn (mixed $id): string => $this->publicId((int) $id, 'pages'));
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));
+        // SVG files from Media as further icons next to the built-in set: the path is the value, the file's name the label
+        $mediaIcons = [];
+        foreach ($this->db->all("SELECT image_path, name FROM {media} WHERE image_path LIKE '%.svg' ORDER BY name, media_id LIMIT 200") as $m) {
+            $mediaIcons[(string) $m['image_path']] = t('Media: %s', (string) $m['name'] !== '' ? (string) $m['name'] : basename((string) $m['image_path']));
+        }
 
         return $this->view('list', 'Menu', [
-            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft,
+            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft, 'mediaIcons' => $mediaIcons,
             'pages' => array_map(fn (array $s): array => ['page_id' => $s['public_id'], 'title' => $s['title'], 'hidden' => !$s['visible']], $pages),
             'languages' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);

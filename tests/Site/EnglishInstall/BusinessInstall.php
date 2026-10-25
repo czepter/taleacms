@@ -25,7 +25,7 @@ trait BusinessInstall
             'module=tags', 'module=media', 'module=stats', 'module=appearance', 'module=menu', 'module=users', 'module=users&action=new', 'module=roles', 'module=roles&action=new', 'module=redirects',
             'module=changelog', 'module=transfer', 'module=extensions', 'module=claude_settings', 'module=addons', 'module=subscribers', 'module=newsletters', 'module=newsletters&action=new',
             'module=parts&action=templates&type=header', 'module=parts&action=templates&type=footer', 'action=account', 'module=settings&tab=general', 'module=business', 'module=settings&tab=seo',
-            'module=settings&tab=analytics', 'module=settings&tab=cookies', 'module=settings&tab=mail', 'module=settings&tab=backups', 'module=status',
+            'module=settings&tab=analytics', 'module=settings&tab=cookies', 'module=settings&tab=mail', 'module=settings&tab=reports', 'module=settings&tab=backups', 'module=status',
             'module=popups', 'module=popups&action=new', 'module=notebook', 'module=notebook&action=edit', 'module=requests', 'module=requests&action=new', 'module=schedules', 'module=schedules&action=edit',
             'module=bookings', 'module=bookings&action=new', 'module=bookings&action=services&new=1', 'module=bookings&action=staff', 'module=bookings&action=staff_edit'];
     }

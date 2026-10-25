@@ -239,6 +239,9 @@ final class WpFile
             // the language as the plugin names it (a Polylang slug, a WPML code), the translation group (pll:… | wpml:… | dup:<id>)
             // and the multilingual plugin that left a trace on the post (Core\WpLanguages)
             'language_wp' => '', 'group' => '', 'language_plugin' => '',
+            // a WooCommerce product (Core\WpWooCommerce): its meta (SKU, prices, stock, attributes), its categories (slug => name)
+            // and the terms of its global attributes [taxonomy, name]
+            'shop' => [], 'product_categories' => [], 'attributes' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -274,6 +277,10 @@ final class WpFile
                         $p['language_plugin'] = WpLanguages::POLYLANG;
                     } elseif (in_array($domain, WpLanguages::WPML_TAXONOMIES, true) && $p['language_plugin'] === '') {
                         $p['language_plugin'] = WpLanguages::WPML;
+                    } elseif ($domain === WpWooCommerce::CATEGORIES && $n->getAttribute('nicename') !== '' && count($p['product_categories']) < 50) {
+                        $p['product_categories'][mb_substr($n->getAttribute('nicename'), 0, 190)] = self::plainText($text);
+                    } elseif (str_starts_with($domain, WpWooCommerce::ATTRIBUTE_PREFIX) && count($p['attributes']) < 200) {
+                        $p['attributes'][] = [mb_substr($domain, 0, 60), mb_substr(self::plainText($text), 0, 200)]; // a global attribute (pa_colour: Red)
                     }
                     break;
                 case 'wp:postmeta':
@@ -293,6 +300,8 @@ final class WpFile
                         $p['language_plugin'] = WpLanguages::WPML;
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
+                    } elseif ($p['type'] === WpWooCommerce::TYPE && in_array($key, WpWooCommerce::META, true)) {
+                        $p['shop'][$key] = mb_substr($value, 0, 20000); // the export writes wp:post_type before the meta
                     } elseif (WpTypes::isCustomType($p['type']) && count($p['fields']) < 120) {
                         // custom fields of a custom post type (Core\WpTypes); the export writes wp:post_type before the meta
                         $value = (string) ($meta['wp:meta_value'] ?? '');

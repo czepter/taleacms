@@ -33,6 +33,8 @@ final class Appearance extends Module
         return $this->view('list', 'Site appearance', [
             'ds' => $ds, 'versions' => Look::versions($this->db),
             'contrasts' => DesignSystem::contrasts($ds),
+            // a language version in a script the chosen fonts have no letters for (Arabic, Hebrew, Cyrillic, Greek)
+            'fontProblems' => \Talea\Builder\FontScripts::problems($ds, [\Talea\Core\Language::defaults($siteSettings), ...\Talea\Core\Language::additional($siteSettings)]),
             'presets' => array_map(fn (string $k): array => ['name' => DesignSystem::PRESETS[$k][0], 'description' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
             'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
