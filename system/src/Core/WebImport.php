@@ -449,13 +449,17 @@ final class WebImport
         return array_values(array_unique(array_filter($links)));
     }
 
-    /** An address without the fragment, tracking parameters and a trailing index file. */
+    /**
+     * An address without the fragment, tracking parameters and a trailing index file. Raw UTF-8 (an emoji in a sitemap) comes
+     * back percent-encoded, so parse_url() cannot damage it and the same page written either way is one address.
+     */
     public static function normalize(string $url): string
     {
-        $c = parse_url($url);
+        $c = parse_url(WpImport::encodeNonAscii($url));
         if (!is_array($c) || !isset($c['scheme'], $c['host']) || !in_array(strtolower($c['scheme']), ['http', 'https'], true)) {
             return '';
         }
+        $c['host'] = rawurldecode($c['host']); // an internationalised domain stays as it was written
         $path = (string) preg_replace('#/index\.(html?|php)$#i', '/', $c['path'] ?? '/');
         $query = '';
         if (isset($c['query'])) {

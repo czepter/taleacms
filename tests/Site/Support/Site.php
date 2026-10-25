@@ -485,6 +485,12 @@ final class Site
             if (isset($this->pdo, $this->database) && !$this->keepDatabase) {
                 TestDatabase::drop(TestDatabase::admin(), $this->database);
             }
+            // MySQL keeps the connection of a dropped database open as long as this object lives (a test class may hold its site
+            // in a static property): ended here, so a worker's connections do not pile up past max_connections (PostgreSQL's
+            // DROP … WITH (FORCE) ends them already)
+            if (isset($this->pdo) && !TestDatabase::isPostgres()) {
+                TestDatabase::admin()->exec('KILL ' . (int) $this->pdo->query('SELECT CONNECTION_ID()')->fetchColumn());
+            }
         } catch (\Throwable) {
         }
         if (isset($this->work)) {

@@ -78,7 +78,7 @@ final class Settings
         'related_news_auto' => '1',    // related news by tags and category
         'tasks_token' => '',          // secret part of the /tasks URL for cron
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'stats') is the only switch; kept for MCP update_settings
-        'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
+        'secret_key' => '',           // created by itself; signs links, salts the statistics hashes and keys the connector credentials – cleared once TALEA_SECRET_KEY replaces it (Antispam::environmentSecret)
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
         'schema_org' => '1',          // structured data JSON-LD
@@ -101,6 +101,7 @@ final class Settings
         'claude_destructive' => '1',     // 0 = no deleting, trashing or discarding through Claude
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
+        'claude_instructions_seen' => '', // sha256 of the instructions an administrator last checked (#149, Core\ClaudeInstructions); never over MCP or in an export
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = news (Core\Routes)
         'slugs_per_language' => '0', // a page, news item or category may share its slug with another language version (/contact, /en/contact); changed only by Core\Slug::switchPerLanguage

@@ -83,7 +83,7 @@
 	const state = {
 		build: D.build && Array.isArray(D.build.children) ? D.build : { v: 1, children: [] },
 		selected: null, bp: 'base', elementState: '', leftTab: 'add', leftOpen: false, rightTab: 'content', undo: [], redo: [], lastKey: null, lastTime: 0,
-		changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null, multi: [], gesture: false, keepEditing: false, refreshAfterGesture: false,
+		changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, openItems: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null, multi: [], gesture: false, keepEditing: false, refreshAfterGesture: false,
 	};
 
 	/* The builder's small explicit interface for the compose scripts (builder-overlay.js, builder-handles.js, builder-keys.js, builder-compose.js): events and the API object at the end of the file. */
@@ -105,7 +105,9 @@
 	const icon = (name) => el('span', { html: '<svg class="bd-icon" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.block) + '</svg>' }).firstChild;
 	const clone = (o) => JSON.parse(JSON.stringify(o));
 	const newId = () => Math.random().toString(16).slice(2, 9).padEnd(7, '0');
-	const text = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
+	// the text of an element's HTML for labels: parsed in the inert document behind <template>, where nothing loads or runs
+	const inert = document.createElement('template').content.ownerDocument;
+	const text = (html) => { const d = inert.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
 
 	/**
 	 * A request to the admin. Never ends with an exception: returns the response JSON, or {ok: false, error, …} –
@@ -796,9 +798,10 @@
 
 	/* ---------- clipboard (also between pages and between Talea sites) ---------- */
 
-	// Within one site the copy lives in localStorage. For another Talea site the same element goes as text into the system
-	// clipboard: an envelope {"talea":"elements",…} with its classes and components (Builder\ElementClipboard), which the
-	// paste event of the other builder recognises and sends to its server.
+	// A copy is an envelope {"talea":"elements",…} with the classes and components of the elements (Builder\ElementClipboard): in
+	// the system clipboard as text (for another Talea site too) and in localStorage. Every paste goes through the server
+	// (build_paste): any web page can put text claiming this site into the clipboard, so the claim is never trusted here – the
+	// server checks the elements and keeps Custom HTML only in an envelope this site signed for an administrator.
 	const CLIPBOARD_FORMAT = 'elements';
 	function envelope(elements) {
 		return query(D.urls.package, { elements: JSON.stringify(elements) })
@@ -815,31 +818,31 @@
 	function copy() {
 		const n = state.selected && find(state.selected);
 		if (!n) { return; }
-		try { localStorage.setItem('tl-builder-clipboard', JSON.stringify(n.p)); } catch (e) { /* private mode */ }
+		const text = envelope([n.p]);
+		text.then((t) => { try { localStorage.setItem('tl-builder-clipboard', t); } catch (e) { /* private mode */ } });
 		setState(T('Copied'));
-		writeClipboard(envelope([n.p])).catch(() => setState(T('Copied within this site – for another Talea site use More actions → Copy for another Talea site.')));
+		writeClipboard(text).catch(() => setState(T('Copied within this site – for another Talea site use More actions → Copy for another Talea site.')));
 	}
 	/** The copy from this site (localStorage). */
 	function pasteFromClipboard() {
-		let p = null;
-		try { p = JSON.parse(localStorage.getItem('tl-builder-clipboard') || 'null'); } catch (e) { p = null; }
-		if (p && TYPY[p.type]) { insert(withNewIds(p)); return true; }
-		return false;
+		let text = '';
+		try { text = localStorage.getItem('tl-builder-clipboard') || ''; } catch (e) { /* private mode */ }
+		return pasteText(text);
 	}
 	/** Text from the system clipboard: an envelope from this or another Talea site; anything else is not for the editor. */
 	function pasteText(text) {
 		let data = null;
 		try { data = JSON.parse(text); } catch (e) { return false; }
 		if (!data || data.talea !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
-		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.type]).map(withNewIds)); return true; }
-		setState(T('Inserting elements from another site…'));
+		const own = data.site === location.origin;
+		setState(own ? T('Inserting elements…') : T('Inserting elements from another site…'));
 		query(D.urls.paste, { clipboard: text }).then((j) => {
 			if (!j.ok) { setState(j.error || T('The elements could not be inserted.'), true); return; }
 			D.classes = j.classes;
 			setComponents(j.components);
 			insertAll(j.elements);
 			const notes = j.notes || [];
-			setState([T('Inserted from %s.').replace('%s', data.site)].concat(notes).join(' '), notes.length > 0);
+			setState([own ? T('Inserted') : T('Inserted from %s.').replace('%s', String(data.site))].concat(notes).join(' '), notes.length > 0);
 		});
 		return true;
 	}
@@ -1699,8 +1702,23 @@
 		if (ai) { panel.append(ai); }
 		const properties = Object.entries(s.properties || {});
 		if (!properties.length) { panel.append(el('p', { class: 'bd-empty' }, s.container ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
-		properties.forEach(([key, def]) => panel.append(field(def, p.content[key], (h) => { if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); } },
-			{ error: state.errors[state.selectedPath + '.content.' + key], element: p })));
+		// a Collection list offers the chosen collection's fields by their labels where a property holds a field key
+		const listCollection = p.type === 'collection_list' ? (D.collections || []).find((k) => k.slug === p.content.collection) || null : null;
+		properties.forEach(([key, def]) => panel.append(field(listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.content[key]) : def, p.content[key], (h) => {
+			if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); }
+			if (p.type === 'collection_list' && key === 'collection') { redrawRight(); } // the field choices follow the collection
+		}, { error: state.errors[state.selectedPath + '.content.' + key], element: p, key: key })));
+	}
+
+	/** Collection list properties that hold a field key, and the field types each offers (null = any). */
+	const COLLECTION_FIELD_KEYS = { sort_field: null, filter_field: null, period_start_field: ['date', 'datetime'], period_end_field: ['date', 'datetime'] };
+
+	/** A choice of the collection's fields by their labels for a field-key property; a stored key the collection lacks stays offered. */
+	function collectionFieldChoice(def, collection, types, value) {
+		const options = { '': '—' };
+		(collection.fields || []).filter((f) => !types || types.includes(f.type)).forEach((f) => { options[f.key] = f.label || f.key; });
+		if (value && !(value in options)) { options[value] = T('%s (not a field of this collection)').replace('%s', value); }
+		return { type: 'choice', label: def.label, default: '', options: options };
 	}
 
 	/** A control for a content field according to the type from the schema. */
@@ -1745,7 +1763,7 @@
 				if (window.taleaStructuredField) { return window.taleaStructuredField(def, value, change, { page: D.page }); }
 				return wrapper;
 			case 'items':
-				return itemField(def, Array.isArray(value) ? value : [], change);
+				return itemField(def, Array.isArray(value) ? value : [], change, options);
 			default:
 				if (def.media === 'video' || def.media === 'file') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
 					const video = def.media === 'video';
@@ -1763,32 +1781,75 @@
 		return wrapper;
 	}
 
-	function itemField(def, previous, change) {
+	/**
+	 * Items of a field (form fields, tabs, questions…). A list whose schema has a summary (the form fields) shows each item as one
+	 * row – "Name · Short text · Required" – that opens into its settings: the basic ones, the options of a choice, then the price
+	 * estimate and the condition folded until they are set. Open rows stay open while the inspector redraws; the saved values
+	 * are the same as without rows.
+	 */
+	function itemField(def, previous, change, options) {
 		const wrapper = el('div', { class: 'bd-field' }, el('span', {}, T(def.label)));
 		// works on a copy: every change (adding, removing and moving too) then goes through zmena → history, save, canvas re-render
 		const items = clone(Array.isArray(previous) ? previous : []);
 		const save = () => change(clone(items));
+		const rows = Array.isArray(def.summary);
+		const list = state.selected + ':' + ((options && options.key) || def.label);
+		const PARTS = ['', 'estimate', 'condition'];
+		const openKey = (i, part) => list + '|' + i + '|' + part;
+		const setOpen = (i, part, open) => { if (open) { state.openItems[openKey(i, part)] = true; } else { delete state.openItems[openKey(i, part)]; } };
+		// moving or removing an item takes its open rows along
+		const reorder = (move) => {
+			const flags = items.map((_, j) => PARTS.map((part) => !!state.openItems[openKey(j, part)]));
+			flags.forEach((_, j) => PARTS.forEach((part) => setOpen(j, part, false)));
+			move(flags);
+			flags.forEach((f, j) => PARTS.forEach((part, n) => setOpen(j, part, f[n])));
+		};
+		const summaryText = (item) => def.summary.map((k) => {
+			const d = def.fields[k] || {};
+			if (d.type === 'boolean') { return item[k] ? T(d.label) : ''; }
+			if (d.type === 'choice') { return T((d.options || {})[item[k] ?? d.default] || String(item[k] ?? '')); }
+			return String(item[k] ?? '').trim() || T('(no label)');
+		}).filter(Boolean).join(' · ');
 		items.forEach((item, i) => {
-			const box = el('div', { class: 'bd-item' });
 			// a field with the condition „when“ ({siblings: hodnota}) shows only when another field of the item has the given value (options only for a select)
 			const visible = (d) => !d.when || Object.entries(d.when).every(([pk, pv]) => item[pk] === pv);
-			Object.entries(def.fields).forEach(([k, d]) => {
-				if (!visible(d)) { return; }
-				box.append(field(d, item[k], (h) => {
-					item[k] = h;
-					save();
-					if (Object.values(def.fields).some((other) => other.when && k in other.when)) { redrawRight(); }
-				}));
+			let label = null;
+			const control = ([k, d]) => field(d, item[k], (h) => {
+				item[k] = h;
+				save();
+				if (label && def.summary.includes(k)) { label.textContent = summaryText(item); } // the row follows, the focus stays
+				if (Object.values(def.fields).some((other) => other.when && k in other.when)) { redrawRight(); }
 			});
-			box.append(el('div', { class: 'bd-item-actions bd-actions' },
-				el('button', { type: 'button', title: T('Up'), onclick: () => { if (i > 0) { items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('up')),
-				el('button', { type: 'button', class: 'danger', title: T("Remove"), onclick: () => { items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('delete'))));
-			wrapper.append(box);
+			const actions = el('div', { class: 'bd-item-actions bd-actions' },
+				el('button', { type: 'button', title: T('Up'), 'aria-label': T('Up'), onclick: () => { if (i > 0) { reorder((f) => f.splice(i - 1, 0, f.splice(i, 1)[0])); items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('up')),
+				el('button', { type: 'button', class: 'danger', title: T("Remove"), 'aria-label': T("Remove"), onclick: () => { reorder((f) => f.splice(i, 1)); items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('delete')));
+			const fields = Object.entries(def.fields).filter(([, d]) => visible(d));
+			if (!rows) {
+				wrapper.append(el('div', { class: 'bd-item' }, fields.map(control), actions));
+				return;
+			}
+			const group = (name) => fields.filter(([, d]) => (d.group || '') === name);
+			// a folded group (estimate, condition): open when one of its values is set or the user opened it
+			const fold = (part, title) => {
+				const own = group(part);
+				if (!own.length) { return null; }
+				const box = el('details', { class: 'bd-item-group', open: own.some(([k]) => String(item[k] ?? '') !== '') || !!state.openItems[openKey(i, part)],
+					ontoggle: (e) => { if (e.target === box) { setOpen(i, part, box.open); } } }, el('summary', {}, T(title)), own.map(control));
+				return box;
+			};
+			label = el('span', {}, summaryText(item));
+			const choices = group('options');
+			const row = el('details', { class: 'bd-item bd-item-row', open: !!state.openItems[openKey(i, '')], ontoggle: (e) => { if (e.target === row) { setOpen(i, '', row.open); } } },
+				el('summary', {}, label), group('').map(control),
+				choices.length ? el('div', { class: 'bd-item-group', role: 'group', 'aria-label': T('Options') }, choices.map(control)) : null,
+				fold('estimate', 'Price estimate'), fold('condition', 'Condition'), actions);
+			wrapper.append(row);
 		});
 		wrapper.append(el('button', { type: 'button', class: 'bd-btn', onclick: () => {
 			const newVersion = {};
 			Object.entries(def.fields).forEach(([k, d]) => { newVersion[k] = d.default ?? ''; });
 			items.push(newVersion);
+			if (rows) { setOpen(items.length - 1, '', true); } // the new row opens to be filled in
 			change(clone(items));
 			redrawRight();
 		} }, T('Add item')));

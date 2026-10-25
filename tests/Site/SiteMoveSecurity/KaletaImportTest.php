@@ -48,10 +48,12 @@ final class KaletaImportTest extends SiteTestCase
         }
         $this->assertStringNotContainsString('skipped', $result->text(), 'nothing skipped – the end of a table file is not a skipped row');
 
-        $this->assertSame('2/1/1/1/1/1/1/1/1/1/1', (string) $new->value("SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM tl_pages), (SELECT COUNT(*) FROM tl_news), (SELECT COUNT(*) FROM tl_news_tags),
+        $this->assertSame('2/1/1/1/1/1/1/1/2/1/1', (string) $new->value("SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM tl_pages), (SELECT COUNT(*) FROM tl_news), (SELECT COUNT(*) FROM tl_news_tags),
             (SELECT COUNT(*) FROM tl_categories), (SELECT COUNT(*) FROM tl_collections), (SELECT COUNT(*) FROM tl_collection_items), (SELECT COUNT(*) FROM tl_components),
             (SELECT COUNT(*) FROM tl_popups), (SELECT COUNT(*) FROM tl_redirects), (SELECT COUNT(*) FROM tl_media WHERE folder_id IS NOT NULL), (SELECT COUNT(*) FROM tl_booking_staff))"),
-            'pages (not the trash), news with its tag, category, collection, item, component, pop-up, redirect, media in its folder, booking staff');
+            'pages (not the trash), news with its tag, category, collection, item, component, pop-up, redirects, media in its folder, booking staff');
+        $this->assertSame([['from_path' => 'old-about', 'to_path' => 'about'], ['from_path' => 'old-home', 'to_path' => '']], $new->rows('SELECT from_path, to_path FROM tl_redirects ORDER BY from_path'),
+            'a redirect to the home page (an empty target) moves with the site');
 
         $about = (int) $new->value("SELECT page_id FROM tl_pages WHERE slug = 'about'");
         $home = (int) $new->value("SELECT page_id FROM tl_pages WHERE slug = 'home'");

@@ -141,12 +141,6 @@ final class SocialDrafts
         return rtrim($cut, " ,;:-–") . '…';
     }
 
-    /** The lead as plain text (the editor stores HTML). */
-    public static function plain(string $html): string
-    {
-        return trim(html_entity_decode(strip_tags(preg_replace('#</(p|h[2-4]|li|blockquote)>#i', ' ', $html) ?? $html), ENT_QUOTES | ENT_HTML5));
-    }
-
     /**
      * Writes the drafts of a published news item for the chosen networks that have none yet. Nothing for a draft, a
      * scheduled or a trashed news item. Returns how many drafts were created. Safe to call again (the existing ones stay).
@@ -170,7 +164,7 @@ final class SocialDrafts
         $hashtags = self::hashtags(self::tags($db, $idc));
         $url = self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']);
         $image = self::image($app, $c);
-        $lead = self::plain((string) $c['intro']);
+        $lead = Html::plain((string) $c['intro']);
         $now = date('Y-m-d H:i:s');
         foreach ($networks as $network) {
             $link = self::trackedLink($url, $network, (string) $c['slug']);

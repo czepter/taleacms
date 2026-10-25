@@ -10,9 +10,10 @@
  * @var int $pageCount
  * @var int $total
  * @var string $limit
- * @var array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, search: string, sort: string} $filter
+ * @var array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, waiting: bool, search: string, sort: string} $filter
  * @var list<array<string, mixed>> $folders
  * @var string|null $newsItem  title of the news item used as the filter
+ * @var int $waitingCount  files waiting for approval (Core\MediaStaging)
  */
 $activeFolder = null;
 foreach ($folders as $s) {
@@ -20,15 +21,18 @@ foreach ($folders as $s) {
         $activeFolder = $s;
     }
 }
-$params = array_filter(['section' => $filter['section_public'], 'article' => $filter['article_public'], 'unused' => $filter['unused'] ? 1 : null,
+$params = array_filter(['section' => $filter['section_public'], 'article' => $filter['article_public'], 'unused' => $filter['unused'] ? 1 : null, 'waiting' => $filter['waiting'] ? 1 : null,
     'search' => $filter['search'] !== '' ? $filter['search'] : null, 'sort' => $filter['sort'] !== 'newest' ? $filter['sort'] : null], fn ($v): bool => $v !== null);
-$isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['unused'];
+$isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['unused'] && !$filter['waiting'];
 ?>
 <div class="media">
 <nav class="media-folders" aria-label="<?= e(t('Folders')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $isAll ? ' class="active"' : '' ?>><?= e(t('All media')) ?></a>
 	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="active"' : '' ?>><?= e(t('Uncategorized')) ?></a>
 	<a href="<?= e($module->url('', ['unused' => 1])) ?>"<?= $filter['unused'] ? ' class="active"' : '' ?>><?= e(t('Unused')) ?></a>
+<?php if ($waitingCount > 0 || $filter['waiting']): ?>
+	<a href="<?= e($module->url('', ['waiting' => 1])) ?>"<?= $filter['waiting'] ? ' class="active"' : '' ?>><?= e(t('Waiting for approval')) ?> <small>(<?= $waitingCount ?>)</small></a>
+<?php endif ?>
 	<a href="<?= e($module->url('cleanup')) ?>"><?= e(t('Clean-up')) ?></a>
 	<strong><?= e(t('Folders')) ?></strong>
 <?php foreach ($folders as $s): ?>
@@ -44,6 +48,9 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <div class="media-content">
 <?php if ($newsItem !== null): ?>
 <p class="notice"><?= e(t('Images used in the news item “%s”.', $newsItem)) ?> <a href="<?= e($module->url()) ?>"><?= e(t('Show all media')) ?></a></p>
+<?php endif ?>
+<?php if ($filter['waiting']): ?>
+<p class="notice"><?= e(t('Files Claude uploaded over a connection limited to drafts. They are not public yet: signed-in users and draft previews see them. A file goes public with the content that uses it when that is published, or here with Publish file. Files nobody approves are deleted after %d days.', Talea\Core\MediaStaging::DAYS)) ?></p>
 <?php endif ?>
 <?php if ($activeFolder !== null): ?>
 <div class="media-folder-edit">
@@ -96,6 +103,9 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 			<input class="gallery-description" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Description for blind users (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['name'])) ?>" data-description-media="<?= e($o['public_id']) ?>" data-address="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
 			<span><label><input type="checkbox" name="selected[]" value="<?= e($o['public_id']) ?>"> <?= e(t('select')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['public_id'], 'page' => $pageNumber])) ?>#edit"><?= e(t('description')) ?></a></span>
+<?php if ($o['staged_at'] !== null): ?>
+			<span><strong><?= e(t('Waiting for approval')) ?></strong><?php if ($app->auth()->canPublish()): ?> <button class="navigation" type="submit" formaction="<?= e($module->url('approve')) ?>" name="media_id" value="<?= e($o['public_id']) ?>"><?= e(t('Publish file')) ?></button><?php endif ?></span>
+<?php endif ?>
 		</figcaption>
 	</figure>
 <?php endforeach ?>
@@ -129,7 +139,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php endif ?>
 	<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
-<?php if (preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
+<?php if (preg_match('/\.(jpg|png|webp)$/', $o['image_path']) && $o['staged_at'] === null): ?>
 <form class="form" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data">
 	<?= $csrf ?>
 	<input type="hidden" name="media_id" value="<?= e($o['public_id']) ?>">

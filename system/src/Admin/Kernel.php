@@ -18,6 +18,12 @@ final class Kernel
     /** Actions that belong to no module: /admin/account, /admin/oauth … (no module ident may take these names). */
     public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
 
+    /**
+     * The editors' ongoing requests (unsaved state, assistant, build draft): they do not change the site, so they neither clear the
+     * page cache (it would be cold all the time during work) nor publish files waiting for approval (Core\MediaStaging).
+     */
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'];
+
     /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
     private const string SEGMENT = '[A-Za-z0-9_.-]+';
 
@@ -144,7 +150,7 @@ final class Kernel
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
         'Features' => [['extensions', '', 'Features and add-ons'], ['assistant_settings', '', 'Writing assistant'], ['newsletter_settings', '', 'Newsletter'], ['claude_settings', '', 'AI settings']],
-        'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
+        'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
     /** Home: the first steps in collapsible groups (step name => group); every step of firstSteps() is listed. */
@@ -170,6 +176,27 @@ final class Kernel
         }
 
         return $sections;
+    }
+
+    /**
+     * What waits for someone, shown next to its menu item: new enquiries (spam left out, as in their list) and bookings to
+     * confirm that have not ended yet. One query per page through indexes, only for the modules the person may open.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open (modules())
+     * @return array<string, int> ident => count, only counts above 0
+     */
+    public static function waiting(App $app, array $modules): array
+    {
+        $counts = array_intersect_key([
+            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam')",
+            'bookings' => "(SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW())",
+        ], $modules);
+        if ($counts === []) {
+            return [];
+        }
+        $row = (array) $app->db()->one('SELECT ' . implode(', ', array_map(fn (string $ident, string $count): string => $count . ' AS ' . $ident, array_keys($counts), $counts)));
+
+        return array_filter(array_map(intval(...), $row));
     }
 
     /** HTML a screen puts into the sidebar instead of the menu (Website mode: the page tree); '' = the menu. */
@@ -201,9 +228,8 @@ final class Kernel
             ]), 400);
         }
 
-        // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
-        // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
-        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'], true)) {
+        // every change in the admin invalidates the site page cache, except the editors' ongoing requests (DRAFT_ACTIONS)
+        if ($request->isPost() && !in_array($request->get('action'), self::DRAFT_ACTIONS, true)) {
             \Talea\Front\Cache::clear();
         }
         $action = $request->get('action');
@@ -291,6 +317,9 @@ final class Kernel
         }
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
+        if ($request->isPost() && !in_array($action, self::DRAFT_ACTIONS, true)) {
+            \Talea\Core\MediaStaging::promotePublished($app->db()); // files waiting for approval that published content now uses (#150)
+        }
         if ($request->isPost() && $response->status === 302) {
             // every change made in the admin goes to the change log
             $description = $request->post('title') ?: ($request->post('name') ?: ($request->post('username') ?: $request->post('tab')));
@@ -364,6 +393,10 @@ final class Kernel
             $backup = \Talea\Core\Backup::listAll()[0]['time'] ?? 0;
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
+            }
+            // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
+            if (($change = \Talea\Core\ClaudeInstructions::pending($this->app)) !== null) {
+                $warnings[] = [\Talea\Core\ClaudeInstructions::who($change) . ' ' . t('Check them.'), $this->app->url('admin.php?module=claude_settings#instructions-change'), t('Check the instructions')];
             }
         }
         // recently edited content: pages and news together
@@ -452,7 +485,8 @@ final class Kernel
         $db = $this->app->db();
 
         return isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
-            'connected' => \Talea\Core\AskClaude::connected($db),
+            'connected' => \Talea\Core\AskClaude::connected($db, $this->app->settings()),
+            'status' => \Talea\Core\ClaudeConnection::status($db, $this->app->settings()), // #154: whether a request reaches Claude and how
             'examples' => \Talea\Core\AskClaude::examples($modules),
             'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Talea\Core\AskClaude::routine($db),
@@ -496,7 +530,7 @@ final class Kernel
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Talea\Core\Extensions::isEnabled($s, 'claude')) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
+                'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db, $s)]);
         }
         $skipped = $this->skippedFirstSteps();
         $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3] || in_array($k[0], $skipped, true),
@@ -600,7 +634,7 @@ final class Kernel
         // a focused frame without the admin menu and the draft-look bar – a stray Publish has no place here
         $page = Response::html($app->view->render('admin/bare', ['app' => $app, 'heading' => t('Connect an application'), 'content' => $app->view->render('admin/oauth', [
             'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'username' => $app->auth()->user(),
-            'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
+            'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST), 'connected' => $oauth->isConnectedClient((string) $pending['client_id']),
         ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);

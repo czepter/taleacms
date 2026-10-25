@@ -135,7 +135,7 @@ final class SiteExport
         self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} ORDER BY component_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
         self::fields($f, 'menus', $all('menus', 'SELECT location, language, items FROM {menus} ORDER BY location, language', [], ['items' => 'menu']));
-        self::fields($f, 'collections', $all('collections', 'SELECT collection_id, public_id, name, slug, fields, detail, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id', [], $builds));
+        self::fields($f, 'collections', $all('collections', 'SELECT collection_id, public_id, name, slug, fields, detail, admin_menu, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id', [], $builds));
         self::fields($f, 'collection_templates', $all('collection_templates', 'SELECT collection_id, language, build, build_draft FROM {collection_templates} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY collection_id, language', ['collection_id' => 'collections'], $builds));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, 'popups', $all('popups', 'SELECT popup_id, public_id, name, slug, type, trigger_type, value, rules, frequency, days, active, sort_order, valid_until, review_by, build, build_draft FROM {popups} ORDER BY popup_id', [], ['rules' => 'rules'] + $builds));
@@ -143,7 +143,8 @@ final class SiteExport
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name FROM {media_folders} ORDER BY folder_id'));
-        self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
+        // a file waiting for approval (Core\MediaStaging) is not part of the site yet
+        self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
         self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURRENT_DATE AND proposed = FALSE ORDER BY date_from'));

@@ -92,6 +92,19 @@ final class AccountSecurityTest extends SiteTestCase
     }
 
     #[Depends('testPasswordResetRevokesTheConnectionTokens')]
+    public function testAPasswordSetByAnAdministratorRevokesPersonalTokensToo(): void
+    {
+        $site = $this->site();
+        $token = 'talea_' . str_repeat('d', 48);
+        $site->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'personal', ?, NOW() FROM tl_users WHERE username = 'salesperson'", [hash('sha256', $token)]);
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_api_tokens t JOIN tl_users u ON u.user_id = t.user_id WHERE u.username = 'salesperson' AND t.kind = 'token'"), 'the personal token is there');
+        $site->admin()->post('/admin.php?module=users&action=save', ['_csrf' => $site->csrf(), 'user_id' => (string) $site->value("SELECT public_id FROM tl_users WHERE username = 'salesperson'"),
+            'username' => 'salesperson', 'password' => self::NEW_PASSWORD, 'admin' => 'r' . $site->value('SELECT MAX(role_id) FROM tl_role')]);
+
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_api_tokens t JOIN tl_users u ON u.user_id = t.user_id WHERE u.username = 'salesperson'"), 'a password an administrator sets revokes the personal tokens, not only the connections');
+    }
+
+    #[Depends('testPasswordResetRevokesTheConnectionTokens')]
     public function testTheAccountLocksAfterTenWrongPasswordsAndAnswersLikeAnyFailure(): void
     {
         $site = $this->site();

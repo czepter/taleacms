@@ -305,7 +305,11 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_backup_codes'], $code);
-        if ($user === null || (!Totp::verify($user['totp_secret'], $code) && $backupCodes === null)) {
+        $step = $user === null ? null : Totp::step($user['totp_secret'], $code);
+        if ($step !== null && !$this->claimCodeStep((int) $user['user_id'], $step)) {
+            $step = null; // a code of a step this account already signed in with never passes again
+        }
+        if ($user === null || ($step === null && $backupCodes === null)) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
@@ -324,6 +328,15 @@ final class Auth
         $this->startSignIn((int) $user['user_id'], (string) $user['password'], $remember);
 
         return null;
+    }
+
+    /**
+     * Claims the step of a code from the app: true when the account has not signed in with this step or a later one. The
+     * check and the record are one UPDATE, so two sign-ins with the same code at the same moment cannot both pass.
+     */
+    private function claimCodeStep(int $userId, int $step): bool
+    {
+        return $this->db->run('UPDATE {users} SET totp_last_step = ? WHERE user_id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)', [$step, $userId, $step])->rowCount() === 1;
     }
 
     /** Does the account waiting for the second step have registered passkeys? */
@@ -435,7 +448,7 @@ final class Auth
     private function sessionUser(): ?array
     {
         // without a session cookie there is nobody who could be signed in - and no session is started for the check (the site stays cacheable)
-        if (!isset($_COOKIE['talea'])) {
+        if (!isset($_COOKIE[Session::COOKIE])) {
             return null;
         }
         $id = $this->session->get('user_id');
