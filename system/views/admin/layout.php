@@ -74,8 +74,13 @@ if ($current === 'Settings') {
     foreach (Talea\Admin\Kernel::SETTINGS_MENU as $menuGroup => $entries) {
         foreach ($entries as [$ident, $entryTab, $label]) {
             if (isset($modules[$ident])) {
+                $here = $ident === $inMenu && ($ident !== 'settings' || $entryTab === ($tab !== '' ? $tab : 'general'));
+                // Analytics lists a page per service while it is open (Admin\AnalyticsServices); the overview is the entry itself
+                $servicePage = $here && $entryTab === 'analytics' ? Talea\Admin\AnalyticsServices::page((string) $app->request->get('service')) : '';
                 $settingsMenu[$menuGroup][] = ['url' => $app->url('admin.php?module=' . $ident . ($entryTab !== '' ? '&tab=' . $entryTab : '')), 'label' => $label,
-                    'active' => $ident === $inMenu && ($ident !== 'settings' || $entryTab === ($tab !== '' ? $tab : 'general'))];
+                    'active' => $here && $servicePage === '',
+                    'children' => $here && $entryTab === 'analytics' ? array_map(fn (string $page, string $name): array => ['url' => $app->url('admin.php?module=settings&tab=analytics&service=' . $page),
+                        'label' => $name, 'active' => $page === $servicePage], array_keys(Talea\Admin\AnalyticsServices::PAGES), Talea\Admin\AnalyticsServices::PAGES) : []];
             }
         }
     }
@@ -99,7 +104,15 @@ $userName = $username['name'] ?: $username['username'];
 		<li><span class="menu-heading"><?= e(t($menuGroup)) ?></span>
 			<ul class="menu-sub">
 <?php foreach ($entries as $entry): ?>
-				<li<?= $entry['active'] ? ' class="active"' : '' ?>><a href="<?= e($entry['url']) ?>"<?= $entry['active'] ? ' aria-current="page"' : '' ?>><?= e(t($entry['label'])) ?></a></li>
+				<li<?= $entry['active'] ? ' class="active"' : '' ?>><a href="<?= e($entry['url']) ?>"<?= $entry['active'] ? ' aria-current="page"' : '' ?>><?= e(t($entry['label'])) ?></a>
+<?php if ($entry['children'] !== []): ?>
+					<ul class="menu-sub">
+<?php foreach ($entry['children'] as $child): ?>
+						<li<?= $child['active'] ? ' class="active"' : '' ?>><a href="<?= e($child['url']) ?>"<?= $child['active'] ? ' aria-current="page"' : '' ?>><?= e(t($child['label'])) ?></a></li>
+<?php endforeach ?>
+					</ul>
+<?php endif ?>
+				</li>
 <?php endforeach ?>
 			</ul>
 		</li>

@@ -134,11 +134,36 @@ final class MediaUsersTest extends SiteTestCase
         $this->assertStringNotContainsString('image/web.js', $this->site()->client()->get('/about-us')->body, 'web.js only where it is needed (a page without a form)');
         $this->assertPage('/admin.php?module=settings&tab=analytics', 200, [], message: '3.2: Analytics tab with the feature off');
         $off = $this->site()->admin()->get('/admin.php?module=settings&tab=analytics');
-        $this->assertMatchesRegularExpression('/Off – nothing is measured/', $off->body, '3.2: with the Statistics feature off the Analytics tab says so and links to Features');
+        $this->assertMatchesRegularExpression('~Built-in statistics</span></td>\s*<td><span class="status status-off">Off~', $off->body, '3.2: with the Statistics feature off the Analytics overview says so and links to Features');
 
         $this->statsFeature(true);
         $on = $this->assertPage('/admin.php?module=settings&tab=analytics', 200, '/admin/extensions', message: '3.2: the Analytics tab links to Features');
         $this->assertStringNotContainsString('name="stats"', $on->body, '3.2: one switch for the statistics – no second checkbox');
+    }
+
+    /** Settings → Analytics: an overview, a page per service with only its fields, the "Connect a service" wizard. */
+    public function testAnalyticsServicePagesAndWizard(): void
+    {
+        $overview = $this->assertPage('/admin.php?module=settings&tab=analytics', 200, ['Connect a service', 'service=umami&amp;connect=1', 'Measure advertising (remarketing)']);
+        $this->assertStringNotContainsString('name="ga4_id"', $overview->body, 'the overview has no fields');
+        $this->assertStringContainsString('aria-current="page">Analytics</a>', $overview->body, 'the menu: Analytics is the overview');
+
+        $umami = $this->assertPage('/admin.php?module=settings&tab=analytics&service=umami', 200, ['name="umami_id"', 'name="hosting"', 'aria-current="page">Umami</a>']);
+        $this->assertStringNotContainsString('name="ga4_id"', $umami->body, "a service's page shows only its own fields");
+        $this->assertPage('/admin.php?module=settings&tab=analytics&service=connect', 200, ['aria-current="step"', 'service=meta-pixel&amp;connect=1'], message: 'the wizard: choose');
+        $connect = $this->assertPage('/admin.php?module=settings&tab=analytics&service=meta-pixel&connect=1', 200, ['name="meta_pixel_id"', 'name="connect" value="1"'], message: 'the wizard: connect');
+        $this->assertStringNotContainsString('name="google_ads_id"', $connect->body, 'the wizard connects one pixel');
+
+        $done = $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'analytics', 'service' => 'meta-pixel', 'connect' => '1', 'meta_pixel_id' => '1234567890']);
+        $this->assertStringContainsString('connected=1', $done->redirect, 'the wizard ends on its summary');
+        $this->assertSame(['1234567890', ''], [$this->site()->settingValue('meta_pixel_id'), $this->site()->settingValue('ga4_id')], 'only the posted field is saved');
+        $this->assertPage('/admin.php?module=settings&tab=analytics&service=meta-pixel&connected=1', 200, ['Meta Pixel is connected.', 'the bar and the cookie table name it']);
+
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'analytics', 'service' => 'umami', 'hosting' => 'cloud', 'umami_id' => '94db1cb1-74f4-4a40-ad6c-962362670409', 'umami_url' => 'https://umami.example.com/']);
+        $this->assertSame(['94db1cb1-74f4-4a40-ad6c-962362670409', ''], [$this->site()->settingValue('umami_id'), $this->site()->settingValue('umami_url')], 'Umami Cloud: no address of an own installation');
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'analytics', 'service' => 'umami', 'disconnect' => '1', 'umami_id' => '94db1cb1-74f4-4a40-ad6c-962362670409']);
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'analytics', 'service' => 'pixels', 'meta_pixel_id' => '']);
+        $this->assertSame(['', ''], [$this->site()->settingValue('umami_id'), $this->site()->settingValue('meta_pixel_id')], 'Disconnect empties the service; the pixels page saves its fields');
     }
 
     /** The Statistics feature is the only switch of the built-in statistics; cached pages go with it. */
