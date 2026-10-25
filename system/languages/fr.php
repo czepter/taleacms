@@ -2,6 +2,7 @@
 /** Talea – texts of the site in language 'fr' (keyed by the English source text). */
 
 return [
+    '%d days' => '%d jours',
     '%d min' => '%d min',
     '%d reviews on Google' => '%d avis sur Google',
     '%s from %s' => '%s de %s',
@@ -230,6 +231,7 @@ return [
     'Content split into switchable tabs – pricing by package, services by field.' => 'Contenu réparti en onglets – tarifs par formule, services par domaine.',
     'Content will load from' => 'Le contenu sera chargé depuis',
     'Content, style and advanced' => 'Contenu, style et avancé',
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Bandeau cookies : un identifiant aléatoire qui relie le choix à son enregistrement, uniquement lorsque les consentements sont enregistrés (cookie)',
     'Cookie bar: the categories the visitor allowed (cookie)' => 'Bandeau cookies : les catégories autorisées par le visiteur (cookie)',
     'Cookie settings' => 'Paramètres des cookies',
     'Cookies and analytics' => 'Cookies et mesure d’audience',
@@ -569,6 +571,7 @@ Le lien est valable %d jours.
     'Pagination' => 'Pagination',
     'Parent page' => 'Page parente',
     'Password' => 'Mot de passe',
+    'Password-protected page: the page was opened with its password (cookie)' => 'Page protégée par mot de passe : la page a été ouverte avec son mot de passe (cookie)',
     'Paste style' => 'Coller le style',
     'Paul S.' => 'Paul S.',
     'Pay after handover' => 'Paiement à la livraison',
@@ -604,6 +607,8 @@ Le lien est valable %d jours.
     'Posted until %s' => 'Affiché jusqu’au %s',
     'Poster (image before playing)' => 'Affiche (image avant la lecture)',
     'Preview of drafts – visitors still see the published site.' => 'Aperçu des brouillons – les visiteurs voient toujours le site publié.',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Aperçu des brouillons : uniquement pour qui a ouvert un lien d’aperçu signé (cookie)',
+    'Preview of drafts: shows the files that wait for approval, only for someone who opened a signed preview link (cookie)' => 'Aperçu des brouillons : affiche les fichiers en attente d’approbation, uniquement pour la personne qui a ouvert un lien d’aperçu signé (cookie)',
     'Preview size' => 'Taille de l’aperçu',
     'Previous' => 'Précédent',
     'Previous month' => 'Mois précédent',
@@ -1155,6 +1160,7 @@ Le lien est valable %d jours.
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'vers un serveur FTP chiffré en FTPS (autre hébergeur, NAS domestique)',
     'to confirm your subscription to news from %s, click the link:' => 'pour confirmer votre abonnement aux actualités de %s, cliquez sur le lien :',
     'until removed' => 'jusqu’à suppression',
+    'until the preview link expires, at most %d days' => 'jusqu’à l’expiration du lien d’aperçu, au plus %d jours',
     'updated' => 'mis à jour',
     'user' => 'utilisateur',
     'visitors only (not signed in)' => 'visiteurs uniquement (non connectés)',

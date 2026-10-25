@@ -2,6 +2,7 @@
 /** Talea – texts of the site in language 'es' (keyed by the English source text). */
 
 return [
+    '%d days' => '%d días',
     '%d min' => '%d min',
     '%d reviews on Google' => '%d reseñas en Google',
     '%s from %s' => '%s de %s',
@@ -233,6 +234,7 @@ return [
     'Content split into switchable tabs – pricing by package, services by field.' => 'Contenido dividido en pestañas – precios por paquete, servicios por área.',
     'Content will load from' => 'El contenido se cargará desde',
     'Content, style and advanced' => 'Contenido, estilo y avanzado',
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Aviso de cookies: un identificador aleatorio que vincula la elección con su registro, solo cuando se registran los consentimientos (cookie)',
     'Cookie bar: the categories the visitor allowed (cookie)' => 'Aviso de cookies: las categorías permitidas por el visitante (cookie)',
     'Cookie settings' => 'Ajustes de cookies',
     'Cookies and analytics' => 'Cookies y analítica',
@@ -572,6 +574,7 @@ El enlace es válido %d días.
     'Pagination' => 'Paginación',
     'Parent page' => 'Página superior',
     'Password' => 'Contraseña',
+    'Password-protected page: the page was opened with its password (cookie)' => 'Página protegida con contraseña: la página se abrió con su contraseña (cookie)',
     'Paste style' => 'Pegar estilo',
     'Paul S.' => 'Pablo S.',
     'Pay after handover' => 'Pago tras la entrega',
@@ -607,6 +610,8 @@ El enlace es válido %d días.
     'Posted until %s' => 'Publicado hasta el %s',
     'Poster (image before playing)' => 'Póster (imagen antes de reproducir)',
     'Preview of drafts – visitors still see the published site.' => 'Vista previa de borradores: los visitantes siguen viendo el sitio publicado.',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Vista previa de borradores: solo para quien abrió un enlace de vista previa firmado (cookie)',
+    'Preview of drafts: shows the files that wait for approval, only for someone who opened a signed preview link (cookie)' => 'Vista previa de borradores: muestra los archivos pendientes de aprobación, solo para quien abrió un enlace de vista previa firmado (cookie)',
     'Preview size' => 'Tamaño de la vista previa',
     'Previous' => 'Anterior',
     'Previous month' => 'Mes anterior',
@@ -1161,6 +1166,7 @@ El enlace es válido %d días.
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'a un servidor FTP con cifrado FTPS (otro alojamiento, NAS doméstico)',
     'to confirm your subscription to news from %s, click the link:' => 'para confirmar su suscripción a las novedades de %s, haga clic en el enlace:',
     'until removed' => 'hasta su eliminación',
+    'until the preview link expires, at most %d days' => 'hasta que caduque el enlace de vista previa, como máximo %d días',
     'updated' => 'actualizado',
     'user' => 'usuario',
     'visitors only (not signed in)' => 'solo visitantes (sin sesión iniciada)',

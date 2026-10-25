@@ -1246,14 +1246,14 @@ final class Kernel
         $r = $this->app->request;
         $cookiePath = $r->basePath() . '/';
         if ($r->get('preview_end') === '1') {
-            setcookie('tl_preview', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
-            unset($_COOKIE['tl_preview']);
+            setcookie(\Talea\Core\Preview::COOKIE, '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
+            unset($_COOKIE[\Talea\Core\Preview::COOKIE]);
         }
-        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE['tl_preview'] ?? '');
+        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE[\Talea\Core\Preview::COOKIE] ?? '');
         if ($key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
             $this->sitePreview = true;
             if ($r->get('preview_key') === $key && !headers_sent()) {
-                setcookie('tl_preview', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
+                setcookie(\Talea\Core\Preview::COOKIE, $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
         if ($this->sitePreview || ($r->get('build') === 'draft' && $this->app->auth()->isAdmin())) {

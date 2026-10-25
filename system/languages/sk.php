@@ -2,6 +2,7 @@
 /** Talea – texts of the site in language 'sk' (keyed by the English source text). */
 
 return [
+    '%d days' => '%d dní',
     '%d min' => '%d min',
     '%d reviews on Google' => 'Recenzií na Google: %d',
     '%s from %s' => '%s z %s',
@@ -231,6 +232,7 @@ return [
     'Content split into switchable tabs – pricing by package, services by field.' => 'Obsah rozdelený do prepínacích kariet – cenník po balíkoch, služby po odboroch.',
     'Content will load from' => 'Obsah sa načíta zo služby',
     'Content, style and advanced' => 'Obsah, štýl a pokročilé',
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, ktorý prepojí voľbu s jej záznamom – len keď sa súhlasy evidujú (cookie)',
     'Cookie bar: the categories the visitor allowed (cookie)' => 'Cookie lišta: kategórie, ktoré návštevník povolil (cookie)',
     'Cookie settings' => 'Nastavenia cookies',
     'Cookies and analytics' => 'Cookies a meranie návštevnosti',
@@ -565,6 +567,7 @@ Odkaz platí %d dní.
     'Pagination' => 'Stránkovanie',
     'Parent page' => 'Nadradená stránka',
     'Password' => 'Heslo',
+    'Password-protected page: the page was opened with its password (cookie)' => 'Stránka chránená heslom: stránka bola otvorená svojím heslom (cookie)',
     'Paste style' => 'Vložiť štýl',
     'Paul S.' => 'Pavol S.',
     'Pay after handover' => 'Platba po odovzdaní',
@@ -601,6 +604,8 @@ Odkaz platí %d dní.
     'Poster (image before playing)' => 'Plagát (obrázok pred spustením)',
     'Premium' => 'Prémium',
     'Preview of drafts – visitors still see the published site.' => 'Náhľad konceptov – návštevníci stále vidia zverejnený web.',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhľad konceptov: len pre toho, kto otvoril podpísaný odkaz na náhľad (cookie)',
+    'Preview of drafts: shows the files that wait for approval, only for someone who opened a signed preview link (cookie)' => 'Náhľad konceptov: zobrazí súbory čakajúce na schválenie, len pre toho, kto otvoril podpísaný odkaz na náhľad (cookie)',
     'Preview size' => 'Veľkosť náhľadu',
     'Previous' => 'Predchádzajúci',
     'Previous month' => 'Predchádzajúci mesiac',
@@ -1150,6 +1155,7 @@ Odkaz platí %d dní.
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'na FTP server so šifrovaním FTPS (iný hosting, domáci NAS)',
     'to confirm your subscription to news from %s, click the link:' => 'na potvrdenie odberu noviniek webu %s kliknite na odkaz:',
     'until removed' => 'do odstránenia',
+    'until the preview link expires, at most %d days' => 'do vypršania odkazu na náhľad, najviac %d dní',
     'updated' => 'aktualizované',
     'user' => 'používateľ',
     'visitors only (not signed in)' => 'len návštevníkom (neprihláseným)',

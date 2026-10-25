@@ -2,6 +2,7 @@
 /** Talea – texts of the site in language 'pl' (keyed by the English source text). */
 
 return [
+    '%d days' => '%d dni',
     '%d min' => '%d min',
     '%d reviews on Google' => 'Opinii w Google: %d',
     '%s from %s' => '%s z %s',
@@ -233,6 +234,7 @@ return [
     'Content split into switchable tabs – pricing by package, services by field.' => 'Treść podzielona na przełączane karty – cennik według pakietów, usługi według branż.',
     'Content will load from' => 'Treść zostanie wczytana z serwisu',
     'Content, style and advanced' => 'Treść, styl i zaawansowane',
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Baner cookie: losowy identyfikator, który łączy wybór z jego zapisem – tylko gdy zgody są rejestrowane (cookie)',
     'Cookie bar: the categories the visitor allowed (cookie)' => 'Baner cookie: kategorie dozwolone przez odwiedzającego (cookie)',
     'Cookie settings' => 'Ustawienia plików cookie',
     'Cookies and analytics' => 'Pliki cookie i pomiar ruchu',
@@ -571,6 +573,7 @@ Link jest ważny %d dni.
     'Pagination' => 'Paginacja',
     'Parent page' => 'Strona nadrzędna',
     'Password' => 'Hasło',
+    'Password-protected page: the page was opened with its password (cookie)' => 'Strona chroniona hasłem: strona została otwarta swoim hasłem (cookie)',
     'Paste style' => 'Wklej styl',
     'Paul S.' => 'Paweł S.',
     'Pay after handover' => 'Płatność po odbiorze',
@@ -606,6 +609,8 @@ Link jest ważny %d dni.
     'Posted until %s' => 'Wywieszono do %s',
     'Poster (image before playing)' => 'Plakat (obraz przed odtworzeniem)',
     'Preview of drafts – visitors still see the published site.' => 'Podgląd wersji roboczych – odwiedzający nadal widzą opublikowaną stronę.',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Podgląd wersji roboczych: tylko dla osoby, która otworzyła podpisany link do podglądu (cookie)',
+    'Preview of drafts: shows the files that wait for approval, only for someone who opened a signed preview link (cookie)' => 'Podgląd szkiców: pokazuje pliki oczekujące na zatwierdzenie, tylko dla osoby, która otworzyła podpisany link podglądu (cookie)',
     'Preview size' => 'Rozmiar podglądu',
     'Previous' => 'Poprzedni',
     'Previous month' => 'Poprzedni miesiąc',
@@ -1158,6 +1163,7 @@ Link jest ważny %d dni.
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'na serwer FTP z szyfrowaniem FTPS (inny hosting, domowy NAS)',
     'to confirm your subscription to news from %s, click the link:' => 'aby potwierdzić subskrypcję newslettera witryny %s, prosimy kliknąć w link:',
     'until removed' => 'do usunięcia',
+    'until the preview link expires, at most %d days' => 'do wygaśnięcia linku do podglądu, najwyżej %d dni',
     'updated' => 'zaktualizowano',
     'user' => 'użytkownik',
     'visitors only (not signed in)' => 'tylko odwiedzającym (niezalogowanym)',

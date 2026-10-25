@@ -2,6 +2,7 @@
 /** Talea – texts of the site in language 'it' (keyed by the English source text). */
 
 return [
+    '%d days' => '%d giorni',
     '%d min' => '%d min',
     '%d reviews on Google' => '%d recensioni su Google',
     '%s from %s' => '%s da %s',
@@ -233,6 +234,7 @@ return [
     'Content split into switchable tabs – pricing by package, services by field.' => 'Contenuto diviso in schede selezionabili – listino per pacchetti, servizi per settore.',
     'Content will load from' => 'Il contenuto verrà caricato da',
     'Content, style and advanced' => 'Contenuto, stile e avanzate',
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Banner cookie: un identificativo casuale che collega la scelta alla sua registrazione, solo quando i consensi vengono registrati (cookie)',
     'Cookie bar: the categories the visitor allowed (cookie)' => 'Banner cookie: le categorie consentite dal visitatore (cookie)',
     'Cookie settings' => 'Impostazioni dei cookie',
     'Cookies and analytics' => 'Cookie e misurazione del traffico',
@@ -571,6 +573,7 @@ Il link è valido %d giorni.
     'Pagination' => 'Paginazione',
     'Parent page' => 'Pagina padre',
     'Password' => 'Password',
+    'Password-protected page: the page was opened with its password (cookie)' => 'Pagina protetta da password: la pagina è stata aperta con la sua password (cookie)',
     'Paste style' => 'Incolla stile',
     'Paul S.' => 'Paolo S.',
     'Pay after handover' => 'Pagamento alla consegna',
@@ -606,6 +609,8 @@ Il link è valido %d giorni.
     'Posted until %s' => 'Affisso fino al %s',
     'Poster (image before playing)' => 'Poster (immagine prima della riproduzione)',
     'Preview of drafts – visitors still see the published site.' => 'Anteprima delle bozze – i visitatori vedono ancora il sito pubblicato.',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Anteprima delle bozze: solo per chi ha aperto un link di anteprima firmato (cookie)',
+    'Preview of drafts: shows the files that wait for approval, only for someone who opened a signed preview link (cookie)' => 'Anteprima delle bozze: mostra i file in attesa di approvazione, solo per chi ha aperto un link di anteprima firmato (cookie)',
     'Preview size' => 'Dimensione dell’anteprima',
     'Previous' => 'Precedente',
     'Previous month' => 'Mese precedente',
@@ -1159,6 +1164,7 @@ Il link è valido %d giorni.
     'to an FTP server with FTPS encryption (another host, home NAS)' => 'su un server FTP con cifratura FTPS (altro hosting, NAS domestico)',
     'to confirm your subscription to news from %s, click the link:' => 'per confermare l’iscrizione alle novità del sito %s, clicchi sul link:',
     'until removed' => 'fino alla rimozione',
+    'until the preview link expires, at most %d days' => 'fino alla scadenza del link di anteprima, al massimo %d giorni',
     'updated' => 'aggiornato',
     'user' => 'utente',
     'visitors only (not signed in)' => 'solo ai visitatori (non connessi)',
