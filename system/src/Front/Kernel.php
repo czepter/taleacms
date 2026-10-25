@@ -100,6 +100,14 @@ final class Kernel
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
     }
 
+    /** The maintenance notice (setting maintenance_text) with 503. */
+    private function maintenance(string $retryAfter): Response
+    {
+        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::tag(Language::code())) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
+            . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => $retryAfter]);
+    }
+
     /** 301 target when the request uses the non-preferred slash form (setting url_slash), else null. */
     private function slashRedirect(string $internal): ?string
     {
@@ -124,14 +132,17 @@ final class Kernel
         if (\Talea\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
             return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
         }
+        // a running Talea import (Core\SiteImport::work) replaces the content: everyone, signed in or not, and Claude (/mcp, OAuth) wait for it;
+        // the orchestrator probe and cron go on – cron carries the import forward
+        if (\Talea\Core\SiteImport::running() !== null && !in_array($request->path(), ['/health', '/tasks'], true)) {
+            return $this->maintenance('60');
+        }
         // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;
         }
         if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
-            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::tag(Language::code())) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
-                . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
-                . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
+            return $this->maintenance('3600');
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache

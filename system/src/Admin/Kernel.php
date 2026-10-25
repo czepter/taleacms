@@ -219,6 +219,12 @@ final class Kernel
 
             return Response::redirect($app->url('admin.php'));
         }
+        // a running Talea import owns the site: until it is done the administration shows only its progress (Core\SiteImport::work)
+        if (($import = \Talea\Core\SiteImport::running()) !== null && !($request->get('module') === 'transfer' && $action === 'talea')) {
+            return $app->auth()->isAdmin()
+                ? Response::redirect($app->url('admin.php?' . http_build_query(['module' => 'transfer', 'action' => 'talea', 'file' => $import])))
+                : $this->page('Import in progress', $app->view->render('admin/error', ['app' => $app, 'text' => 'The site is being imported. The administration is locked until the import is done – try again in a few minutes.']), 503);
+        }
 
         // migrations never run on a page request (bin/migrate does, e.g. in the Docker entrypoint); the administrator is told when some wait
         if ($app->auth()->isAdmin() && Migrator::pending($app->db()) !== []) {
