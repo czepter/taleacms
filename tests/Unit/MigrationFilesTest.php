@@ -59,7 +59,9 @@ final class MigrationFilesTest extends TestCase
 
     public function testNoMigrationUsesRawSql(): void
     {
-        $this->assertSame(0, preg_match('/->execute\(|->query\(/', $this->source()));
+        // raw SQL strings ($this->execute('…'), $this->query('…')); Phinx's query builder (getUpdateBuilder()…->execute()) writes
+        // portable SQL and is allowed
+        $this->assertSame(0, preg_match('/\$this->(execute|query)\(/', $this->source()));
     }
 
     public function testPhinxConfigurationCarriesThePrefixAndTheOneCollation(): void

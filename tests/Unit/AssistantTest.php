@@ -22,7 +22,7 @@ final class AssistantTest extends TestCase
         $this->assertTrue(str_contains(\Talea\Core\Assistant::compose($r['skeleton'], ['N', 'A [[2]]link[[3]] and [[0]]bold[[1]] first.', 'P']), '<p>A <a href="/x?a=1&amp;b=2">link</a> and <strong>bold</strong> first.</p>'), 'Assistant::compose: a shuffled word order keeps the formatting');
 
         $settings = (new \ReflectionClass(\Talea\Core\Settings::class))->newInstanceWithoutConstructor();
-        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($settings, ['site_name' => 'Test', 'ai_key' => 'x']);
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($settings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_model' => 'm1']);
         $fake = new class($settings) extends \Talea\Core\Assistant {
             public int $calls = 0;
 
@@ -80,13 +80,36 @@ final class AssistantTest extends TestCase
         ], 'Assistant::suggestSection: HTML from a ```html block, the brief inside <brief>, the result without a script and a javascript: link');
         $aiFake->answer = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>'; // check-english: allow
         $this->assertSame(['<p>Kratší <strong>text</strong> </p>', 'Kratší text'], [$aiFake->rewrite('<p>Dlouhý text k přepsání.</p>', 'shorter', true), $aiFake->rewrite('Nadpis', 'formal', false)], 'Assistant::rewrite: an HTML answer sanitized, plain text without tags'); // check-english: allow
-        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'openai', 'ai_model' => 'claude-sonnet-5']);
+        // no model chosen: the newest of the provider's stored list (never a name from the code); a list of another provider does not count
+        $stored = json_encode(['provider' => 'openai', 'time' => 1, 'models' => [['id' => 'gpt-new', 'name' => 'gpt-new'], ['id' => 'gpt-old', 'name' => 'gpt-old']]]);
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'openai', 'ai_model' => '', 'ai_models' => $stored]);
+        $aiFake->rewrite('Text', 'shorter', false);
+        $this->assertSame(['gpt-new', ['gpt-new', 'gpt-old']], [$aiFake->last['model'], array_column($aiFake->models(), 'id')], 'Assistant: no model chosen = the newest the provider listed');
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($aiSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'mistral', 'ai_model' => '', 'ai_models' => $stored]);
+        $this->assertSame([], $aiFake->models(), 'Assistant::models: the list of another provider is not offered');
+
+        // the provider's list: newest first by its own date, Google's "models/" prefix dropped, models that cannot chat left out
+        $this->assertSame([['id' => 'new', 'name' => 'New'], ['id' => 'old', 'name' => 'old']], Assistant::modelList(['data' => [
+            ['id' => 'models/old', 'created' => 1], ['id' => 'models/new', 'created' => 2, 'display_name' => 'New'], ['id' => 'embed', 'created' => 3, 'capabilities' => ['completion_chat' => false]], ['id' => 'bad id!'], 'junk',
+        ]]), 'Assistant::modelList: chat models from the provider, newest first');
+        $listSettings = (new \ReflectionClass(\Talea\Core\Settings::class))->newInstanceWithoutConstructor();
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($listSettings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_provider' => 'google']);
+        $lister = new class($listSettings) extends Assistant {
+            public string $url = '';
+
+            protected function fetch(string $url, ?array $body): array
+            {
+                $this->url = $url;
+
+                return ['data' => [['id' => 'embed', 'capabilities' => ['completion_chat' => false]]]];
+            }
+        };
         try {
-            $aiFake->rewrite('Text', 'shorter', false);
-            $aiError = '';
+            $lister->loadModels();
+            $listError = '';
         } catch (\RuntimeException $e) {
-            $aiError = $e->getMessage();
+            $listError = $e->getMessage();
         }
-        $this->assertTrue(str_contains($aiError, 'Enter the model name'), 'Assistant: a provider other than Claude needs a model');
+        $this->assertSame(['https://generativelanguage.googleapis.com/v1beta/openai/models', true], [$lister->url, str_contains($listError, 'lists no models')], 'Assistant::loadModels: the models address next to the chat address; a list without a chat model is an error, not an empty choice');
     }
 }

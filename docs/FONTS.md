@@ -43,7 +43,10 @@ Then:
 3. Optionally add a suggested pair to `DesignSystem::PAIRINGS`.
 4. Mention a new family in `NOTICE` only if it is not a Google Fonts OFL family.
 
-Cyrillic, Greek, Arabic and CJK subsets are not included (on request).
+Cyrillic, Greek, Arabic and CJK subsets are not included (on request). `scripts` is read by `Builder\FontScripts`: when a site has an
+Arabic, Hebrew, Cyrillic or Greek language version, Appearance and the site audit warn about a heading or text font whose `scripts` lack
+it and suggest library and system fonts that have it. A family subset for another script lists it there (`arabic`, `hebrew`, `cyrillic`,
+`greek`).
 
 ## Licences
 

@@ -36,9 +36,13 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 </div>
 <?php foreach ($p['types'] ?? [] as $type => $t): ?>
 <?php $prefixes = $t['prefixes']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
+<?php if ($t['product'] ?? false): // a WooCommerce shop (Core\WpWooCommerce) ?>
+<p><?= e(t('WooCommerce products: %s items become a product catalogue with item pages at /%s/… – code, price, availability, parameters (attributes), summary, description and picture. Variations, orders and coupons stay in WordPress.', (int) $t['count'], $address)) ?></p>
+<?php else: ?>
 <p><?= e(t('Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['count'], $address,
     $t['fields'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Talea\Builder\Collections::FIELD_TYPES[Talea\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['fields']), $t['fields'])))) ?>
 <?php if ($t['left_out'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['left_out'])))) ?><?php endif ?></p>
+<?php endif ?>
 <?php endforeach ?>
 <?php if (Talea\Core\WpImport::isMultilingual($state)): // Polylang or WPML ?>
 <?php $found = (array) $state['languages']['found']; $languageName = fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0] ?? $code; ?>
