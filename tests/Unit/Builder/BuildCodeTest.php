@@ -33,4 +33,18 @@ final class BuildCodeTest extends TestCase
             \Talea\Builder\Build::code('<div style="color: \\72 ed">z</div><style>p{color:#c00}</style>'),
         ], 'Build::code: an escaped url(, javascript: or @import goes; harmless escaped CSS stays as typed');
     }
+
+    /** the CSS reading knows strings and fails closed: a "/*" in a string hides nothing, unreadable or oversized CSS goes */
+    public function testCssCheckKnowsStringsAndFailsClosed(): void
+    {
+        $this->assertSame(['', '<div>x</div>', '', '<style>p::before{content:"/* not a comment */"}</style>'], [
+            \Talea\Builder\Build::code('<style>p{content:"/*"} a{background:url(java\\script:alert(1))} b{content:"*/"}</style>'),
+            \Talea\Builder\Build::code('<div style="content:\'/*\'; background:\\75 rl(javascript:alert(1)); content:\'*/\'">x</div>'),
+            \Talea\Builder\Build::code('<style>p{color:red}' . str_repeat(' ', 600_000) . '</style>'),
+            \Talea\Builder\Build::code('<style>p::before{content:"/* not a comment */"}</style>'),
+        ], 'Build::code: a comment opener inside a string hides no escaped payload; oversized CSS goes; harmless CSS stays');
+        $plain = new \ReflectionMethod(\Talea\Builder\Build::class, 'cssPlain');
+        $this->assertSame([null, 'a{b:url(x)}', 'p{content:"/*"}'], [$plain->invoke(null, "p{color:\xff}"), $plain->invoke(null, 'a{b:/* c */\\75 rl(x)}'), $plain->invoke(null, 'p{content:"/*"}')],
+            'Build::cssPlain: invalid UTF-8 cannot be read (null = removed); comments go, escapes are decoded, strings are kept');
+    }
 }

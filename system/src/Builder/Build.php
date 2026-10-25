@@ -374,20 +374,65 @@ final class Build
         return \Talea\Core\Html::inner($body); // attribute values without a raw < or >
     }
 
-    /**
-     * CSS as the browser reads it, for the checks of codeNode(): comments dropped and escapes decoded (\75 rl( is url(,
-     * @\69mport is @import, java\script is javascript). Only checked, never written – the code stays as typed.
-     */
-    private static function cssPlain(string $css): string
-    {
-        return (string) preg_replace_callback('/\\\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))/su', static function (array $m): string {
-            if (($m[2] ?? '') !== '') {
-                return $m[2];
-            }
-            $character = mb_chr((int) hexdec($m[1]), 'UTF-8');
+    /** CSS longer than this is not read for the checks: the <style> element or style attribute goes (fail closed). */
+    private const int CSS_CHECK_LIMIT = 500_000;
 
-            return $character === false || $character === "\0" ? "\u{FFFD}" : $character; // as CSS reads 0, a surrogate or past U+10FFFF
-        }, (string) preg_replace('#/\*.*?(\*/|$)#s', '', $css));
+    /**
+     * Does CSS match a pattern of codeNode() – as typed or as the browser reads it (cssPlain())? CSS that cannot be read
+     * (invalid UTF-8, too long, a regular expression error) counts as a match, so it is removed.
+     */
+    private static function cssMatches(string $pattern, string $css): bool
+    {
+        $plain = self::cssPlain($css);
+
+        return $plain === null || preg_match($pattern, $css) !== 0 || preg_match($pattern, $plain) !== 0;
+    }
+
+    /**
+     * CSS as the browser reads it: comments dropped and escapes decoded (\75 rl( is url(, @\69mport is @import, java\script
+     * is javascript), in one pass from left to right that knows quoted strings – a "/*" inside a string starts no comment.
+     * Only checked, never written: the code stays as typed. Null = the CSS cannot be read.
+     */
+    private static function cssPlain(string $css): ?string
+    {
+        if (strlen($css) > self::CSS_CHECK_LIMIT || !mb_check_encoding($css, 'UTF-8')) {
+            return null;
+        }
+        $plain = '';
+        $quote = '';
+        for ($i = 0, $length = strlen($css); $i < $length; $i++) {
+            $character = $css[$i];
+            if ($character === '\\') {
+                $hex = preg_match('/[0-9a-fA-F]{1,6}[ \t\r\n\f]?/A', $css, $m, 0, $i + 1);
+                if ($hex === false) {
+                    return null;
+                }
+                if ($hex === 1) {
+                    $decoded = mb_chr((int) hexdec($m[0]), 'UTF-8');
+                    $plain .= $decoded === false || $decoded === "\0" ? "\u{FFFD}" : $decoded; // as CSS reads 0, a surrogate or past U+10FFFF
+                    $i += strlen($m[0]);
+                } elseif ($i + 1 < $length) {
+                    $plain .= $css[++$i]; // any other escaped character stands for itself
+                }
+                continue;
+            }
+            if ($quote === '' && $character === '/' && ($css[$i + 1] ?? '') === '*') {
+                $end = strpos($css, '*/', $i + 2);
+                if ($end === false) {
+                    break; // an unclosed comment runs to the end
+                }
+                $i = $end + 1;
+                continue;
+            }
+            if ($quote === '' && ($character === '"' || $character === "'")) {
+                $quote = $character;
+            } elseif ($character === $quote || ($quote !== '' && $character === "\n")) {
+                $quote = ''; // the closing quote, or a line break that ends an unclosed string
+            }
+            $plain .= $character;
+        }
+
+        return $plain;
     }
 
     private static function codeNode(\Dom\Node $node): void
@@ -401,7 +446,7 @@ final class Build
             if (!$n instanceof \Dom\Element) {
                 continue;
             }
-            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', self::cssPlain((string) $n->textContent))) {
+            if (strtolower($n->localName) === 'style' && self::cssMatches('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', (string) $n->textContent)) {
                 $n->remove();
                 continue;
             }
@@ -410,7 +455,7 @@ final class Build
                 $ok = !str_starts_with($name, 'on') && $name !== 'srcdoc' && $name !== 'http-equiv'
                     && (!in_array($name, self::CODE_URLS, true) && !str_ends_with($name, ':href') || WpContent::isSafeUrl($a->value) || trim($a->value) === '')
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
-                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', self::cssPlain($a->value)))
+                    && ($name !== 'style' || !self::cssMatches('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'attributename' && $name !== 'formtarget');
                 if (!$ok) {
                     $n->removeAttribute($a->name);
