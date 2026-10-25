@@ -58,6 +58,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 	<td><?= $p['key'] !== '' ? '<code>{{' . e($p['key']) . '}}</code>' . match ($p['type']) {
         'item' => ' <code>{{' . e($p['key']) . '_url}}</code> <code>{{' . e($p['key']) . '_seo}}</code>',
         'datetime' => ' <code>{{' . e($p['key']) . '_iso}}</code>',
+        'number' => ' <code>{{' . e($p['key']) . '_raw}}</code>',
         'file' => ' <code>{{' . e($p['key']) . '_name}}</code>',
         default => '',
     } : '<span class="help">' . e(t('created from the label')) . '</span>' ?></td>
