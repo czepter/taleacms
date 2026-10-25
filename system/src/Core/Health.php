@@ -54,6 +54,8 @@ final class Health
         $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
+        [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);
+        $add(t('Security'), t('Encryption key'), $keyState, $keyInfo);
         $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
 
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it

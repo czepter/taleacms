@@ -13,6 +13,7 @@ services:
       TALEA_DB_PASSWORD: ${TALEA_DB_PASSWORD:-change-me}
       TALEA_SITE_URL: ${TALEA_SITE_URL:-http://localhost:8080}
       TALEA_AI_URL: ${TALEA_AI_URL:-} # optional gateway for the writing assistant
+      TALEA_SECRET_KEY: ${TALEA_SECRET_KEY:-} # openssl rand -hex 32; keeps the encryption key out of the database (docs/DEPLOYMENT.md)
     volumes: [storage:/app/storage, media:/app/media, extensions:/app/extensions]
     depends_on:
       db: {condition: service_healthy}

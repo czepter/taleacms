@@ -78,7 +78,7 @@ final class Settings
         'related_news_auto' => '1',    // related news by tags and category
         'tasks_token' => '',          // secret part of the /tasks URL for cron
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'stats') is the only switch; kept for MCP update_settings
-        'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
+        'secret_key' => '',           // created by itself; signs links, salts the statistics hashes and keys the connector credentials – cleared once TALEA_SECRET_KEY replaces it (Antispam::environmentSecret)
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
         'schema_org' => '1',          // structured data JSON-LD
