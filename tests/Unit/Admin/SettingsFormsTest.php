@@ -28,7 +28,8 @@ final class SettingsFormsTest extends TestCase
                 if (!isset($settingsFields[$name]) && !in_array($name, ['extensions', 'ai_provider_previous', 'new_tasks_token', 'new_token', 'file', 'tab', 'id', 'ip', 'pairing_key',
                     'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
                     'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
-                    'screen_collections', 'new_screen_token', 'smtp_ses_region'], true)) { // smtp_ses_region: read by MailServices::settle(); 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
+                    'screen_collections', 'new_screen_token', 'smtp_ses_region',
+                    'instructions_seen', 'month'], true)) { // #149: the acknowledge button (ClaudeSettings::actionAcknowledgeInstructions); #161: the month a report send or view names // smtp_ses_region: read by MailServices::settle(); 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
                     $unknownFields[] = basename($view) . ': ' . $name;
                 }
             }

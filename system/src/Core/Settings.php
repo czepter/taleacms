@@ -101,6 +101,7 @@ final class Settings
         'claude_destructive' => '1',     // 0 = no deleting, trashing or discarding through Claude
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
+        'claude_instructions_seen' => '', // sha256 of the instructions an administrator last checked (#149, Core\ClaudeInstructions); never over MCP or in an export
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = news (Core\Routes)
         'slugs_per_language' => '0', // a page, news item or category may share its slug with another language version (/contact, /en/contact); changed only by Core\Slug::switchPerLanguage

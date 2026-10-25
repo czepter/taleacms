@@ -387,7 +387,10 @@ My account shows the access of every connected app and token. The **change log**
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
 
 **Instructions for the AI.** Under **AI → AI settings** write what Claude should keep to – how you address
-customers, words to use or avoid, house rules. Every connection gets them when it connects. Claude also offers ready-made
+customers, words to use or avoid, house rules. Every connection gets them when it connects. A connection may change them
+too, so every change – in the admin or through Claude – goes to the change log with the whole text before and after, and
+**Home** tells the administrators until one of them has looked at the change in AI settings and pressed **I have checked
+the instructions**. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site.
 

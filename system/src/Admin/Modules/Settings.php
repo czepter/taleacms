@@ -208,6 +208,7 @@ class Settings extends Module
         $errors = [];
         $given = [];
         $zoneBefore = $settings->get('time_zone');
+        $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $refused = null;
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
@@ -255,6 +256,7 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'));
         // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
         // a server that already is the service's stays as it is – the user name and the password are never touched
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Talea\Core\Demo::active()) {

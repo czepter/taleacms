@@ -6,6 +6,7 @@
  * @var Talea\Core\App $app
  * @var array<string, string> $values
  * @var list<array<string, mixed>> $connections
+ * @var array{at: string, by: string, via: string, before: string, after: string}|null $instructionsChange the change not checked yet (#149)
  */
 $mcpUrl = $app->request->origin() . $app->url('mcp');
 $accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS);
@@ -21,6 +22,13 @@ $accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OA
 </ol>
 <p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http talea <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('The connector needs the site on HTTPS. In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
+<?php if ($instructionsChange !== null): // escaped first, so the comparison shows the exact text, angle brackets included ?>
+<div class="notice notice-warning" id="instructions-change">
+	<p><?= e(Talea\Core\ClaudeInstructions::who($instructionsChange)) ?> <?= e(t('Before → after:')) ?></p>
+	<div class="compare"><?= Talea\Core\Diff::html(e($instructionsChange['before']), e($instructionsChange['after']))['html'] ?: '<p>–</p>' ?></div>
+	<p><button class="btn" type="submit" formaction="<?= e($module->url('acknowledge_instructions')) ?>" name="instructions_seen" value="<?= e(Talea\Core\ClaudeInstructions::fingerprint($instructionsChange['after'])) ?>"><?= e(t('I have checked the instructions')) ?></button></p>
+</div>
+<?php endif ?>
 <div class="row">
 	<label for="claude_instructions"><?= e(t('Instructions for the AI')) ?></label>
 	<div><textarea class="textfield wide" id="claude_instructions" name="claude_instructions" rows="6" maxlength="5000" placeholder="<?= e(t('e.g. We address customers informally. Say “renovation”, never “reconstruction”. Keep headings short. Always offer a free visit.')) ?>"><?= e($values['claude_instructions']) ?></textarea>

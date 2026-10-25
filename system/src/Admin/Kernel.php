@@ -357,6 +357,10 @@ final class Kernel
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
+            // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
+            if (($change = \Talea\Core\ClaudeInstructions::pending($this->app)) !== null) {
+                $warnings[] = [\Talea\Core\ClaudeInstructions::who($change) . ' ' . t('Check them.'), $this->app->url('admin.php?module=claude_settings#instructions-change'), t('Check the instructions')];
+            }
         }
         // recently edited content: pages and news together
         $edited = [];

@@ -99,7 +99,8 @@ final class ParityTest extends TestCase
                 'source_preview' => $readOnly, 'source_run' => 'admin: structured import (3.0)', 'source_progress' => 'admin: structured import (3.0)',
                 'source_images' => 'admin: structured import (3.0)', 'source_delete' => 'admin: structured import (3.0)',
                 'source_fetch' => 'admin: structured import (3.0) – the API token is typed in the admin, kept in the session only, never over MCP'],
-            'settings' => $settingsParity, 'extensions' => $settingsParity, 'business' => $settingsParity, 'status' => $settingsParity, 'claude_settings' => $settingsParity,
+            'settings' => $settingsParity, 'extensions' => $settingsParity, 'business' => $settingsParity, 'status' => $settingsParity,
+            'claude_settings' => $settingsParity + ['acknowledge_instructions' => 'admin: a person confirms having checked changed instructions for Claude (#149) – a connection must not clear the notice about a change it may have made itself'],
             'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
             'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'],
             // 2.17: scheduled runs – what a routine in Claude does on the site and when is the administrator's decision; Claude only gets the due runs and reports them
