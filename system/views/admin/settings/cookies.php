@@ -34,7 +34,7 @@ $field('cookies_policy_url', 'Link to the policy', 'text', 'E.g. /privacy-policy
 <summary><?= e(t('Codes and records')) ?></summary>
 <?php
 $field('cookies_external_code', 'External service code', 'code', 'The script from your provider (for Cookiebot, the line with data-cbid). It loads first.', 'spellcheck="false"');
-$field('marketing_code', 'Marketing codes', 'code', 'Meta Pixel, Sklik retargeting, Google Ads… Runs only after marketing consent is given.', 'spellcheck="false"');
+$field('marketing_code', 'Marketing codes', 'code', 'Other advertising codes, e.g. Sklik retargeting (Meta, Google Ads and others have their own fields under Analytics). Runs only after marketing consent is given.', 'spellcheck="false"');
 $field('lead_attribution', 'Remember where leads came from', 'flag', 'The first page of a visit, its campaign and the site that sent the visitor go with enquiries and newsletter sign-ups (Statistics → Campaigns and pages). Only for visitors who allow marketing in the cookie bar – turning it on adds that choice to the bar.');
 $field('cookies_log', 'Log consents', 'flag', 'Time, a random identifier and the chosen categories – no IP address. Evidence in case of an audit.');
 $field('cookies_log_months', 'Keep consent records (months)', 'number', 'Older records are deleted automatically. 0 = keep.', 'min="0" max="120"');

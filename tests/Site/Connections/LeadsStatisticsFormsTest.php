@@ -352,6 +352,36 @@ PHP);
     }
 
     #[Depends('testRequiredGroupAndOfferedOptionsOnly')]
+    public function testSelfHostedAnalyticsAndAdvertisingPixels(): void
+    {
+        $site = $this->site();
+        $settings = ['plausible_domain' => 'example.com', 'plausible_url' => 'https://plausible.example.com/', 'umami_id' => '94db1cb1-74f4-4a40-ad6c-962362670409',
+            'umami_url' => 'https://umami.example.com', 'meta_pixel_id' => '1234567890123', 'google_ads_id' => 'AW-123456789'];
+        foreach ($settings as $name => $value) {
+            $site->setting($name, $value);
+        }
+        $this->clearCache();
+        $body = $site->client()->get('/leads-23')->body;
+        $this->assertStringContainsString('<script defer data-domain="example.com" src="https://plausible.example.com/js/script.js"></script>', $body, 'Plausible: a self-hosted address');
+        $this->assertStringContainsString('<script defer data-website-id="94db1cb1-74f4-4a40-ad6c-962362670409" src="https://umami.example.com/script.js"></script>', $body, 'Umami: a self-hosted address, without consent');
+        $this->assertMatchesRegularExpression('~<template data-consent="marketing"><script>!function\(f,b,e,v,n,t,s\).*fbq\(\'init\',"1234567890123"\).*</script>\n<script>.*gtag\(\'config\',"AW-123456789"\)~s', $body, 'Pixels: Meta and Google Ads wait for consent to marketing');
+        $this->assertStringContainsString('data-category="marketing"', $body, 'Pixels: the bar offers marketing');
+        $site->mcp('update_settings', ['settings' => ['meta_pixel_id' => '9876543210', 'umami_url' => 'https://evil.example/']]);
+        $this->assertSame(['1234567890123', 'https://umami.example.com'], [$site->settingValue('meta_pixel_id'), $site->settingValue('umami_url')], 'MCP: pixels and script hosts are set only in the administration');
+
+        $site->setting('plausible_url', '');
+        $site->setting('umami_url', '');
+        $this->clearCache();
+        $body = $site->client()->get('/leads-23')->body;
+        $this->assertStringContainsString('src="https://plausible.io/js/script.js"', $body, 'Plausible: empty address = plausible.io');
+        $this->assertStringContainsString('src="https://cloud.umami.is/script.js"', $body, 'Umami: empty address = Umami Cloud');
+        foreach (array_keys($settings) as $name) {
+            $site->setting($name, '');
+        }
+        $this->clearCache();
+    }
+
+    #[Depends('testRequiredGroupAndOfferedOptionsOnly')]
     public function testWebsiteImportMigrationReportAndEnquiryImport(): void
     {
         $site = $this->site();
