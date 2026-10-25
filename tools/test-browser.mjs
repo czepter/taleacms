@@ -683,6 +683,56 @@ await step('news editor: type and format', async () => {
   }
 });
 
+await step('news editor: pasted HTML is cleaned without running anything (#148)', async () => {
+  // the paste cleanup used to parse the HTML in the admin page itself: an <img onerror> ran before it was removed
+  const editor = page.locator('[contenteditable="true"]').first();
+  await editor.click();
+  const result = await editor.evaluate(async (surface) => {
+    window.__pasteRan = 0;
+    const blocked = [];
+    const watch = (e) => blocked.push(`${e.violatedDirective} ${e.sourceFile}:${e.lineNumber} ${e.target && e.target.outerHTML ? e.target.outerHTML.slice(0, 160) : e.target}`);
+    document.addEventListener('securitypolicyviolation', watch);
+    const data = new DataTransfer();
+    data.setData('text/html', '<p>Pasted <mark>word</mark></p><img src="/media/missing-148.png" onerror="window.__pasteRan = 1">'
+      + '<a href="java&#9;script:window.__pasteRan=2">one</a> <a href=" JaVaScRiPt:window.__pasteRan=3">two</a> <a href="data:text/html,x" target="_top" rel="opener">three</a>'
+      + '<iframe src="https://frames.example/x"></iframe><noscript><img src=x onerror="window.__pasteRan = 4"></noscript>');
+    surface.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 600));
+    document.removeEventListener('securitypolicyviolation', watch);
+    return { ran: window.__pasteRan, html: surface.innerHTML, blocked };
+  });
+  if (result.ran) { throw new Error(`the pasted HTML ran code (${result.ran})`); }
+  if (result.blocked.length) { throw new Error(`the pasted HTML tried to run a handler in the admin page: ${result.blocked.join(' | ')}`); }
+  if (/onerror|script:|data:|frames\.example|_top|rel="opener"/i.test(result.html)) { throw new Error(`the pasted HTML kept a handler, an unsafe address, a frame or a target: ${result.html}`); }
+  if (!/<mark>word<\/mark>/.test(result.html)) { throw new Error(`the highlighted word was lost: ${result.html}`); }
+});
+
+await step('builder: a pasted envelope claiming this site goes through the server, its Custom HTML is left out (#148)', async () => {
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await page.waitForTimeout(1500);
+  const status = await page.evaluate(async (origin) => {
+    window.__clipRan = 0;
+    const text = JSON.stringify({ talea: 'elements', v: 1, site: origin, elements: [
+      { type: 'text', content: { html: '<p>Clip 148<img src="/media/missing-148.png" alt="" onerror="window.__clipRan = 1"></p>' } },
+      { type: 'custom_html', content: { code: '<p>Code 148</p>' } }] });
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    const box = document.querySelector('.bd-status');
+    for (let i = 0; i < 50 && !/^Inserted|could not|None of/.test(box.textContent); i++) { await new Promise((r) => setTimeout(r, 100)); }
+    return box.textContent;
+  }, new URL(BASE).origin);
+  if (!/^Inserted/.test(status) || !/Custom HTML elements left out: 1/.test(status)) { throw new Error(`the paste did not go through the server: ${status}`); }
+  const inserted = canvas().locator('.tl-text', { hasText: 'Clip 148' }).first();
+  await inserted.waitFor({ timeout: 8000 });
+  await page.waitForTimeout(500);
+  if (await page.evaluate(() => window.__clipRan)) { throw new Error('the pasted envelope ran code in the admin'); }
+  if (/onerror/i.test(await inserted.innerHTML())) { throw new Error('the server kept the handler'); }
+  if (await canvas().getByText('Code 148').count()) { throw new Error('the unsigned Custom HTML was inserted'); }
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(800);
+});
+
 await step('newsletter: draft and preview', async () => {
   await visit('/admin.php?module=newsletters&action=new');
   await page.fill('input[name="subject"]', 'Spring news from our workshop');

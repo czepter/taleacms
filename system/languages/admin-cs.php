@@ -1207,6 +1207,7 @@ return [
     'Custom CSS' => 'Vlastní CSS',
     'Custom CSS and attributes' => 'Vlastní CSS a atributy',
     'Custom HTML' => 'Vlastní HTML',
+    'Custom HTML elements left out: %d – code is pasted only from a copy an administrator made on this site.' => 'Vynechané prvky Vlastní HTML: %d – kód se vkládá jen z kopie, kterou pořídil administrátor na tomto webu.',
     'Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.' => 'Vlastní PHP šablony se už nevyvíjejí – vzhled webu nastavíte tady ve Vzhledu webu a v builderu. Stávající vlastní šablona dál funguje, doporučujeme ale přejít na výchozí.',
     'Custom SMTP server' => 'Vlastní SMTP server',
     'Custom code in the head' => 'Vlastní kód do hlavičky',

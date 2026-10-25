@@ -1209,6 +1209,7 @@ return [
     'Custom CSS' => 'Eigenes CSS',
     'Custom CSS and attributes' => 'Eigenes CSS und Attribute',
     'Custom HTML' => 'Eigenes HTML',
+    'Custom HTML elements left out: %d – code is pasted only from a copy an administrator made on this site.' => 'Ausgelassene Elemente „Eigenes HTML“: %d – Code wird nur aus einer Kopie eingefügt, die ein Administrator auf dieser Website erstellt hat.',
     'Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.' => 'Eigene PHP-Themes werden nicht mehr weiterentwickelt – stellen Sie das Aussehen der Website hier unter Erscheinungsbild der Website und im Builder ein. Ein vorhandenes eigenes Theme funktioniert weiter, wir empfehlen aber den Wechsel zum Standard-Theme.',
     'Custom SMTP server' => 'Eigener SMTP-Server',
     'Custom code in the head' => 'Eigener Code im Head',

@@ -74,7 +74,9 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
 - **Copy between Talea sites:** Ctrl+C puts the element into the system clipboard as text together with its classes and
   components; Ctrl+V in the builder of another Talea site inserts it (missing classes and components are created by an
   administrator, existing ones stay). Images still load from the source site over https – replace them from this site's Media.
-  Without clipboard access use **More actions → Copy / Paste from another Talea site (as text)**.
+  Without clipboard access use **More actions → Copy / Paste from another Talea site (as text)**. Every paste is checked by
+  the server: **Custom HTML** is pasted only from a copy an administrator made on this site; from any other copy it is left
+  out with a note.
 - **Preview:** next to the device switch choose a **wide monitor (1920 px)** or zoom 50–100 %.
 - **Display conditions** (Advanced): show an element only between two dates (a promo banner), only to visitors or signed-in users,
   only in chosen language versions, or only when the address has a URL parameter (`?utm_campaign=jaro`, `?variant=b`).

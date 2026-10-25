@@ -105,7 +105,9 @@
 	const icon = (name) => el('span', { html: '<svg class="bd-icon" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.block) + '</svg>' }).firstChild;
 	const clone = (o) => JSON.parse(JSON.stringify(o));
 	const newId = () => Math.random().toString(16).slice(2, 9).padEnd(7, '0');
-	const text = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
+	// the text of an element's HTML for labels: parsed in the inert document behind <template>, where nothing loads or runs
+	const inert = document.createElement('template').content.ownerDocument;
+	const text = (html) => { const d = inert.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
 
 	/**
 	 * A request to the admin. Never ends with an exception: returns the response JSON, or {ok: false, error, …} –
@@ -796,9 +798,10 @@
 
 	/* ---------- clipboard (also between pages and between Talea sites) ---------- */
 
-	// Within one site the copy lives in localStorage. For another Talea site the same element goes as text into the system
-	// clipboard: an envelope {"talea":"elements",…} with its classes and components (Builder\ElementClipboard), which the
-	// paste event of the other builder recognises and sends to its server.
+	// A copy is an envelope {"talea":"elements",…} with the classes and components of the elements (Builder\ElementClipboard): in
+	// the system clipboard as text (for another Talea site too) and in localStorage. Every paste goes through the server
+	// (build_paste): any web page can put text claiming this site into the clipboard, so the claim is never trusted here – the
+	// server checks the elements and keeps Custom HTML only in an envelope this site signed for an administrator.
 	const CLIPBOARD_FORMAT = 'elements';
 	function envelope(elements) {
 		return query(D.urls.package, { elements: JSON.stringify(elements) })
@@ -815,31 +818,31 @@
 	function copy() {
 		const n = state.selected && find(state.selected);
 		if (!n) { return; }
-		try { localStorage.setItem('tl-builder-clipboard', JSON.stringify(n.p)); } catch (e) { /* private mode */ }
+		const text = envelope([n.p]);
+		text.then((t) => { try { localStorage.setItem('tl-builder-clipboard', t); } catch (e) { /* private mode */ } });
 		setState(T('Copied'));
-		writeClipboard(envelope([n.p])).catch(() => setState(T('Copied within this site – for another Talea site use More actions → Copy for another Talea site.')));
+		writeClipboard(text).catch(() => setState(T('Copied within this site – for another Talea site use More actions → Copy for another Talea site.')));
 	}
 	/** The copy from this site (localStorage). */
 	function pasteFromClipboard() {
-		let p = null;
-		try { p = JSON.parse(localStorage.getItem('tl-builder-clipboard') || 'null'); } catch (e) { p = null; }
-		if (p && TYPY[p.type]) { insert(withNewIds(p)); return true; }
-		return false;
+		let text = '';
+		try { text = localStorage.getItem('tl-builder-clipboard') || ''; } catch (e) { /* private mode */ }
+		return pasteText(text);
 	}
 	/** Text from the system clipboard: an envelope from this or another Talea site; anything else is not for the editor. */
 	function pasteText(text) {
 		let data = null;
 		try { data = JSON.parse(text); } catch (e) { return false; }
 		if (!data || data.talea !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
-		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.type]).map(withNewIds)); return true; }
-		setState(T('Inserting elements from another site…'));
+		const own = data.site === location.origin;
+		setState(own ? T('Inserting elements…') : T('Inserting elements from another site…'));
 		query(D.urls.paste, { clipboard: text }).then((j) => {
 			if (!j.ok) { setState(j.error || T('The elements could not be inserted.'), true); return; }
 			D.classes = j.classes;
 			setComponents(j.components);
 			insertAll(j.elements);
 			const notes = j.notes || [];
-			setState([T('Inserted from %s.').replace('%s', data.site)].concat(notes).join(' '), notes.length > 0);
+			setState([own ? T('Inserted') : T('Inserted from %s.').replace('%s', String(data.site))].concat(notes).join(' '), notes.length > 0);
 		});
 		return true;
 	}

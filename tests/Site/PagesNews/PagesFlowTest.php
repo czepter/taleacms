@@ -275,6 +275,23 @@ final class PagesFlowTest extends SiteTestCase
         $own = $this->pageAction('build_paste', self::$offer, ['clipboard' => '{"talea":"elements","v":1,"site":"' . $base . '","elements":[{"id":"own1","type":"heading","classes":["clipboard-same"],"content":{"text":"From here"}}],"classes":[{"name":"clipboard-same","style":{},"css":""}],"components":[]}']);
         $this->assertSame('200|1|0', $own->status . '|' . (int) str_contains($own->body, '"text":"From here"') . '|' . $site->value("SELECT COUNT(*) FROM tl_classes WHERE name = 'clipboard-same'"), 'paste from this site inserts the elements without importing anything');
 
+        // #148: every paste goes through the server; Custom HTML stays only in an envelope this site signed for an administrator
+        $signed = $this->pageAction('build_package', self::$offer, ['elements' => json_encode([['type' => 'custom_html', 'content' => ['code' => '<p id="code148">code</p>']], ['type' => 'heading', 'content' => ['text' => 'Signed 148']]])])->json()['clipboard'] ?? [];
+        $pasteCode = function (array $envelope): string {
+            $d = $this->pageAction('build_paste', self::$offer, ['clipboard' => json_encode($envelope, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)])->json() ?? [];
+
+            return implode(',', array_column($d['elements'] ?? [], 'type')) . '|' . (int) str_contains(implode(' ', $d['notes'] ?? []) . ($d['error'] ?? ''), 'Custom HTML elements left out: 1');
+        };
+        $changed = $signed;
+        $changed['elements'][0]['content']['code'] = '<p id="changed148">changed</p>';
+        $claimed = $signed;
+        unset($claimed['sig']);
+        $codeOnly = $claimed;
+        $codeOnly['elements'] = [$claimed['elements'][0]];
+        $this->assertSame(['signed' => true, 'own copy' => 'custom_html,heading|0', 'changed' => 'heading|1', 'unsigned' => 'heading|1', 'code only' => '|1'],
+            ['signed' => is_string($signed['sig'] ?? null), 'own copy' => $pasteCode($signed), 'changed' => $pasteCode($changed), 'unsigned' => $pasteCode($claimed), 'code only' => $pasteCode($codeOnly)],
+            "an administrator's copy is signed and keeps its Custom HTML; changed or unsigned, the code is left out with a note");
+
         // display conditions on the site: a URL parameter switches the element and takes the page out of the cache, a language version does not
         $conditions = '{"v":1,"children":[{"id":"pod1","type":"section","children":[{"id":"pod2","type":"heading","content":{"text":"Spring sale"},"conditions":{"url_parameter":{"name":"utm_campaign","value":"spring"}}},{"id":"pod3","type":"heading","content":{"text":"German only"},"conditions":{"languages":["de"]}},{"id":"pod4","type":"heading","content":{"text":"For everyone"}}]}]}';
         $saved = $this->pageAction('build_save', self::$offer, ['build' => $conditions]);
