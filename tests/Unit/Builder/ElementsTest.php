@@ -107,4 +107,15 @@ final class ElementsTest extends TestCase
             str_contains($template, '.menu-btn:has(+ .navigation:popover-open) span::after { top: 0; rotate: -45deg; }'),
         ], 'Navigation: the open phone menu dims the page behind it and the button shows a cross');
     }
+
+    /** a navigation shows the first or second half of the menu around a logo; the first carries the rest for the phone */
+    public function testMenuHalvesAroundALogo(): void
+    {
+        $menu = array_map(fn (string $text): array => ['text' => $text], ['A', 'B', 'C', 'D', 'E']);
+        $texts = fn (array $part): array => [array_column($part[0], 'text'), array_column($part[1], 'text')];
+        $this->assertSame([[['A', 'B', 'C', 'D', 'E'], []], [['A', 'B', 'C'], ['D', 'E']], [['D', 'E'], []]], [
+            $texts(\Talea\Builder\Elements\Navigation::part($menu, 'whole')), $texts(\Talea\Builder\Elements\Navigation::part($menu, 'first')), $texts(\Talea\Builder\Elements\Navigation::part($menu, 'second')),
+        ], 'Navigation::part: the first half takes the extra item of an odd count and keeps the rest for the phone');
+        $this->assertTrue((bool) preg_match('/@media \(max-width: 767px\) \{\s*\.tl-nav--second \{ display: none; \}\s*\.tl-nav \.tl-nav-rest \{ display: flex; \}/', \Talea\Builder\Elements\Navigation::baseCss()), 'Navigation: on a phone the second half steps aside and the first shows the whole menu');
+    }
 }

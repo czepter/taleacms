@@ -25,6 +25,8 @@ final class Navigation extends Element
     {
         return [
             'menu' => ['type' => 'choice', 'label' => 'Which menu', 'default' => 'main', 'options' => \Talea\Core\Menu::LOCATIONS],
+            // a logo in the middle of the menu: one navigation shows the first half of the items, another the second half
+            'menu_part' => ['type' => 'choice', 'label' => 'Part of the menu', 'default' => 'whole', 'options' => ['whole' => 'the whole menu', 'first' => 'first half (left of a logo in the middle)', 'second' => 'second half (right of the logo)']],
             'news_link' => ['type' => 'boolean', 'label' => 'Link to news (in the automatic menu)', 'default' => true],
             'phone_menu' => ['type' => 'boolean', 'label' => 'Hide behind a button on phones', 'default' => true],
             'mega_menu' => ['type' => 'boolean', 'label' => 'Submenu as a wide panel (mega menu)', 'default' => false],
@@ -77,7 +79,11 @@ final class Navigation extends Element
 	.tl-nav--mega .submenu > ul > li:not(.menu-column) { align-self: start; }
 	.tl-nav--mega .menu-column > ul a { padding: 0.55em 1em; }
 }
+/* the halves around a logo: on a phone the first half carries the whole menu (one button), the second half steps aside */
+.tl-nav .tl-nav-rest { display: none; }
 @media (max-width: 767px) {
+	.tl-nav--second { display: none; }
+	.tl-nav .tl-nav-rest { display: flex; }
 	.tl-nav-btn { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--tl-nav-button-border, 1px solid var(--tl-color-line)); border-radius: 50%; background: var(--tl-color-background); color: var(--tl-color-text); cursor: pointer; }
 	.tl-nav-btn span, .tl-nav-btn span::before, .tl-nav-btn span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 	.tl-nav-btn span { position: relative; }
@@ -103,18 +109,38 @@ final class Navigation extends Element
 }';
     }
 
+    /**
+     * The items a navigation shows and, for the first half around a logo, the rest it carries for the phone (where the second
+     * half is hidden). The first half gets the extra item of an odd count.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    public static function part(array $menu, string $part): array
+    {
+        $half = (int) ceil(count($menu) / 2);
+
+        return match ($part) {
+            'first' => [array_slice($menu, 0, $half), array_slice($menu, $half)],
+            'second' => [array_slice($menu, $half), []],
+            default => [$menu, []],
+        };
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $menu = $k->menu[$p['content']['menu'] ?? 'main'] ?? [];
         if (!$p['content']['news_link']) {
             $menu = array_values(array_filter($menu, fn (array $x): bool => empty($x['auto'])));
         }
+        $part = (string) ($p['content']['menu_part'] ?? 'whole');
+        [$menu, $rest] = self::part($menu, $part);
+        $rest = $rest !== [] ? \Talea\Core\Menu::html($rest, $k->path, $k->url(''), !empty($p['content']['mega_menu'])) : '';
         $items = \Talea\Core\Menu::html($menu, $k->path, $k->url(''), !empty($p['content']['mega_menu']));
         if ($items === '' && $k->editor) {
             $items = '<li><span>' . e(t('Build the menu in Appearance → Menu')) . '</span></li>';
         }
-        $menu = '<ul>' . $items . '</ul>' . (($p['content']['language_switcher'] ?? true) ? $k->languages : '') . $k->colorScheme;
-        $classes = 'tl-nav' . (!empty($p['content']['mega_menu']) ? ' tl-nav--mega' : '') . (($p['content']['highlight'] ?? '') === 'underline' ? ' tl-nav--underline' : '');
+        $menu = '<ul>' . $items . '</ul>' . ($rest !== '' ? '<ul class="tl-nav-rest">' . $rest . '</ul>' : '') . (($p['content']['language_switcher'] ?? true) ? $k->languages : '') . $k->colorScheme;
+        $classes = 'tl-nav' . (!empty($p['content']['mega_menu']) ? ' tl-nav--mega' : '') . (($p['content']['highlight'] ?? '') === 'underline' ? ' tl-nav--underline' : '') . ($part === 'second' ? ' tl-nav--second' : '');
         if (!$p['content']['phone_menu']) {
             return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '"><div class="tl-nav-menu">' . $menu . '</div></nav>';
         }
