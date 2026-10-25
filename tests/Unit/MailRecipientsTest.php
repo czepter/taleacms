@@ -31,15 +31,20 @@ final class MailRecipientsTest extends TestCase
                 usleep(50_000);
             }
             $settings = FakeSettings::site(['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'none', 'smtp_user' => '',
-                'mail_from' => 'web@example.com', 'site_email' => 'web@example.com', 'mail_reply_to' => '']);
+                'mail_from' => 'web@example.com', 'mail_from_name' => 'Jana Nováková', 'site_email' => 'web@example.com', // check-english: allow
+                'mail_reply_to' => 'office@example.com', 'mail_reply_to_name' => 'Office']);
             $this->assertTrue(Mail::deliverNow($settings, 'first@example.com, second@example.com', 'Enquiry', 'text', '', ['Reply-To' => 'visitor@example.com', 'Bcc' => 'hidden@example.com']), Mail::$error);
+            $this->assertTrue(Mail::deliverNow($settings, 'first@example.com', 'Notice', 'text', ''), Mail::$error);
             Mail::close();
-            $file = '';
-            for ($i = 0; $i < 50 && $file === ''; $i++) {
-                $file = (glob($dir . '/*.eml') ?: [''])[0];
-                usleep($file === '' ? 100_000 : 0);
+            $files = [];
+            for ($i = 0; $i < 50 && count($files) < 2; $i++) {
+                $files = glob($dir . '/*.eml') ?: [];
+                usleep(count($files) < 2 ? 100_000 : 0);
             }
-            $message = (string) file_get_contents($file);
+            [$message, $notice] = array_map(fn ($file) => (string) file_get_contents($file), $files);
+            $this->assertStringContainsString("\r\nFrom: =?UTF-8?B?" . base64_encode('Jana Nováková') . "?= <web@example.com>\r\n", $message, 'the sender name'); // check-english: allow
+            $this->assertStringContainsString("\r\nReply-To: visitor@example.com\r\n", $message, 'the visitor of a form wins over the reply address of the settings');
+            $this->assertStringContainsString("\r\nReply-To: =?UTF-8?B?" . base64_encode('Office') . "?= <office@example.com>\r\n", $notice, 'the reply address with its name');
             $this->assertStringContainsString("X-Rcpt-To: first@example.com, second@example.com, hidden@example.com\r\n", $message, 'all three in the envelope');
             $this->assertStringContainsString("\r\nTo: first@example.com, second@example.com\r\n", $message, 'the visible recipients in To');
             $this->assertSame(1, substr_count($message, 'hidden@example.com'), 'the hidden recipient nowhere in the message');

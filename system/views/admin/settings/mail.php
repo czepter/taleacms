@@ -72,11 +72,13 @@ $field('smtp_user', 'User name', 'text', 'Usually the full e-mail address of the
 $field('newsletter_hourly_limit', 'Newsletters: e-mails per hour', 'number', 'Newsletters go out in batches while cron runs. Keep to the sending limit of your SMTP service – free plans often allow only a few hundred e-mails a day.', 'min="10" max="100000"');
 ?>
 </fieldset>
-<details class="advanced"<?= $values['mail_from'] !== '' || $values['mail_reply_to'] !== '' ? ' open' : '' ?>>
+<details class="advanced"<?= $values['mail_from'] !== '' || $values['mail_from_name'] !== '' || $values['mail_reply_to'] !== '' || $values['mail_reply_to_name'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Sender and replies')) ?></summary>
 <?php
 $field('mail_from', 'Sender address', 'email', 'Empty = the site e-mail. With SMTP it must be an address your mailbox is allowed to send from.');
+$field('mail_from_name', 'Sender name', 'text', 'Empty = the site name.', 'maxlength="100"');
 $field('mail_reply_to', 'Send replies to', 'email', 'Optional – when readers\' replies should go somewhere other than the sender.');
+$field('mail_reply_to_name', 'Name for replies', 'text', 'Optional – the name shown with the reply address.', 'maxlength="100"');
 ?>
 </details>
 <p><button class="navigation" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button> <span class="small-text"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
