@@ -286,6 +286,15 @@ final class OAuth
         return [$this->app->request->post('client_id'), $this->app->request->post('client_secret')];
     }
 
+    /**
+     * Whether this site has a connection with the client (a token from an earlier consent). Anyone can register an app under
+     * any name, so the consent screen marks a client without one as new and its name as not verified.
+     */
+    public function isConnectedClient(string $clientId): bool
+    {
+        return $this->app->db()->value('SELECT 1 FROM {api_tokens} WHERE client_id = ? LIMIT 1', [$clientId]) !== null;
+    }
+
     /** @return array<string, mixed>|null */
     private function client(string $clientId): ?array
     {

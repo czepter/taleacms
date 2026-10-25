@@ -231,6 +231,11 @@ previous version in the **Item history** (the last 20), one click brings it back
 product, an event or a question with an answer – and which fields fill the properties (price, job title, start…).
 Item pages then carry schema.org data next to your company details. An offer needs a price field and a currency.
 
+**In the admin menu:** every collection with *Show in the admin menu* (in its settings, on by default) has its own link in
+the main menu under the heading **Collections** – at most 8, by name – so its items are one click away from every screen;
+the others are in Content → Collections. Ctrl/⌘ K finds every collection by its name. The list of items filters by
+language version and by each choice field.
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
@@ -256,7 +261,9 @@ receiver check that the call came from your site. The **delivery log** shows eve
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
 
-Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
+Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. The main menu
+shows how many new enquiries (and bookings waiting for a confirmation) there are next to the item; on a phone a dot on the
+Menu button says something waits. When the form is on the
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
 in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
@@ -315,8 +322,10 @@ filled-in details of the operator.
 (sitemap, canonical URLs, structured data, `llms.txt` for AI search, and every page, news item and collection item as plain Markdown at its address + `.md`, e.g. `/services.md`). Enable further language versions (`/de/…`) under
 **Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages. British English, Austrian German, Brazilian Portuguese and Traditional Chinese are offered as regional versions (`/pt-br/`; search engines get `pt-BR`): they use the texts and number format of their language. An import keeps a regional language unless the site already has that language without the region (an `en_GB` export into an English site stays English).
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
-Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
-site language separately from the admin language.
+Polish, Slovak, Arabic, Portuguese (European, with a Brazilian version), Chinese (Simplified and Traditional) and Hungarian;
+other languages show them in English, with dates in their own format, and Settings says so under the language. Arabic, Hebrew,
+Cyrillic and Greek versions are checked against the fonts: Site appearance and the Site audit warn when the heading or text font
+has no letters for them and name fonts that have. The installer lets you choose the site language separately from the admin language.
 
 German has two forms of address, informal (du) and formal (Sie), chosen separately for the admin and for the site; both are
 "du" unless you choose "Sie". The admin follows each person's choice (**My account → Form of address in German**; the installer
@@ -401,7 +410,13 @@ too, so every change – in the admin or through Claude – goes to the change l
 **Home** tells the administrators until one of them has looked at the change in AI settings and pressed **I have checked
 the instructions**. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
-item, and a weekly review of the site.
+item, and a weekly review of the site. The longer ones are complete runbooks, from the first step to the hand-over:
+**launch a new site**, **move a site** here (WordPress, also a shop or a multilingual site, or any other platform),
+**add a language version** (also a regional or right-to-left one), **weekly care** (the review that also fixes what is
+safe), **prepare a newsletter**, **set up online bookings** and a **compliance check** (record of processing, cookies,
+privacy policy, imprint, accessibility statement, personal data requests – templates, never legal advice). Each works in
+drafts, keeps to your instructions, asks you instead of inventing facts and asks before anything is published, deleted
+or sent.
 
 **Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
@@ -425,6 +440,11 @@ and `?lang=en` addresses redirect. A language version your site does not have ye
 the preview (it then shows in the language switcher at once); otherwise its posts are left out and the report says so. While
 the same address in every language is off (Settings → General), an address another language already has gets a number, and
 the report lists those addresses.
+
+A **WooCommerce shop** arrives as a product catalogue (the Products collection, an enquiry basket instead of a checkout): each
+product keeps its address under `/product/…` with its code (SKU), current price, availability, attributes as parameters,
+summary, description and picture; its other old addresses redirect. Variations, orders and coupons stay in WordPress, and
+product categories become the category text of each product. The images are downloaded several at a time.
 
 **Moving a Talea site** to another host or starting a new site from an agency's starter kit: on the old site create
 **Import and export → Export of the whole site**, then install Talea on the new host and choose **Start from an export**

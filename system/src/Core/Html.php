@@ -40,6 +40,19 @@ final class Html
         return preg_match('/^[\p{L}\p{N}_.:-]{1,100}$/uD', $id) === 1 && preg_match('/^(tl[-_]|talea)/i', $id) !== 1 && !in_array(mb_strtolower($id), self::RESERVED_IDS, true);
     }
 
+    /**
+     * Stored HTML (a news intro, a description) as one line of plain text for a meta description, structured data, feeds or
+     * llms.txt: block ends become spaces, entities characters (&nbsp; from WordPress or a site import), every run of whitespace
+     * (U+00A0 too) one space; $width > 0 shortens it with an ellipsis. The result is text, not HTML: escape it on output.
+     */
+    public static function plain(string $html, int $width = 0): string
+    {
+        $text = strip_tags((string) preg_replace('#</(p|h[1-6]|li|dt|dd|blockquote|figcaption|div|td|th)>|<br\s*/?>#i', ' ', $html));
+        $text = trim((string) preg_replace('/[\s\x{00A0}]+/u', ' ', html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+        return $width > 0 ? mb_strimwidth($text, 0, $width, '…') : $text;
+    }
+
     public static function safe(string $html): string
     {
         if (trim($html) === '' || !preg_match('/<|&/', $html)) {

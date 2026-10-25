@@ -43,21 +43,23 @@ final class Form extends Element
     {
         return [
             'name' => ['type' => 'text', 'label' => 'Form name (in Enquiries and in the email)', 'default' => t('Enquiry'), 'max' => 120],
-            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 20, 'fields' => [
+            // the editor shows each field as one row (summary = what the row says) and groups its settings (group): the options,
+            // the price estimate and the condition – only the inspector reads summary and group, the saved build is the same
+            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 20, 'summary' => ['label', 'type', 'required'], 'fields' => [
                 'label' => ['type' => 'text', 'label' => 'Label', 'default' => '', 'max' => 200],
                 'type' => ['type' => 'choice', 'label' => 'Type', 'default' => 'text', 'options' => self::FIELD_TYPES],
                 'required' => ['type' => 'boolean', 'label' => 'Required', 'default' => false],
-                'options' => ['type' => 'lines', 'label' => 'Choice options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'select']],
-                'choices' => ['type' => 'lines', 'label' => 'Options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'radio']],
-                'checkbox_options' => ['type' => 'lines', 'label' => 'Options to tick (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'checkboxes']],
-                'value' => ['type' => 'text', 'label' => 'Value sent with the form (not shown to the visitor)', 'default' => '', 'max' => 300, 'when' => ['type' => 'hidden']],
+                'options' => ['type' => 'lines', 'label' => 'Choice options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'select'], 'group' => 'options'],
+                'choices' => ['type' => 'lines', 'label' => 'Options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'radio'], 'group' => 'options'],
+                'checkbox_options' => ['type' => 'lines', 'label' => 'Options to tick (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'checkboxes'], 'group' => 'options'],
+                'value' => ['type' => 'text', 'label' => 'Value sent with the form (not shown to the visitor)', 'default' => '', 'max' => 300, 'when' => ['type' => 'hidden'], 'group' => 'options'],
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
-                'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number']],
-                'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate']],
-                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate']],
+                'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number'], 'group' => 'estimate'],
+                'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
                 // conditions (2.12): the field shows only when another field has a value
-                'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200],
-                'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200],
+                'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200, 'group' => 'condition'],
+                'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200, 'group' => 'condition'],
             ], 'default' => [
                 ['label' => t('Your name'), 'type' => 'text', 'required' => true, 'options' => ''],
                 ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
@@ -93,6 +95,7 @@ final class Form extends Element
 .tl-field :focus-visible { outline: 2px solid var(--tl-color-primary); outline-offset: 1px; }
 .tl-field-consent label { display: flex; gap: var(--tl-space-xs); align-items: flex-start; }
 .tl-field-consent input { margin-block-start: 0.3em; accent-color: var(--tl-color-primary); }
+.tl-field input[type="file"]::file-selector-button { margin-inline-end: 0.8em; padding: 0.45em 1em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-surface); color: var(--tl-color-text); font: inherit; font-weight: 600; cursor: pointer; }
 .tl-step { display: grid; gap: var(--tl-space-s); margin: 0; padding: 0; border: 0; }
 .tl-step > legend { margin-bottom: var(--tl-space-xs); font-weight: 700; font-size: 1.1em; }
 .tl-steps-navigation { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); align-items: center; }
@@ -113,6 +116,8 @@ final class Form extends Element
 .tl-field fieldset label { display: flex; gap: var(--tl-space-xs); align-items: center; font-weight: 400; }
 .tl-field fieldset input { accent-color: var(--tl-color-primary); }
 .tl-field [aria-invalid="true"] { border-color: #c4281c !important; }
+/* a field the visitor has left wrong (an e-mail without @, a required field left empty) shows it once they interacted with it, not before */
+.tl-field :is(input, select, textarea):user-invalid:not([type="checkbox"]):not([type="radio"]) { border-color: #c4281c; box-shadow: 0 0 0 1px #c4281c; }
 .tl-field-help { color: var(--tl-color-muted); font-size: var(--tl-step--1); }
 .tl-field-error { color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); font-size: var(--tl-step--1); }
 .tl-form-done, .tl-form-error { margin: 0; padding: var(--tl-space-m); border-radius: var(--tl-radius); }
@@ -264,7 +269,7 @@ final class Form extends Element
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-error" autofocus' : '';
         $message = $error ? '<span class="tl-field-error" id="' . $id . '-error">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
         if ($field['type'] === 'checkbox') {
-            $link = $privacyPolicy !== '' ? ' <a class="tl-field-policy" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
+            $link = $privacyPolicy !== '' ? ' <a class="tl-field-policy" href="' . e($privacyPolicy) . '" target="_blank" rel="noopener" aria-label="' . e(t('Privacy policy') . ' (' . t('open in a new window') . ')') . '">' . e(t('Privacy policy')) . ' <span aria-hidden="true">↗</span></a>' : '';
 
             return '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }

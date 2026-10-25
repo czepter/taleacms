@@ -111,7 +111,7 @@ The first five are Kaleta's and stay; the last one is Talea's.
 
 ```bash
 # set TALEA_DB_PASSWORD and TALEA_SITE_URL in docker-compose.yaml (or in your environment)
-docker compose up -d --build   # then open http://localhost:8080: the installer asks for the site and the administrator
+docker compose up -d   # then open http://localhost:8080: the installer asks for the site and the administrator
 ```
 
 The stack is Talea on FrankenPHP plus MySQL 8.4; configuration comes from environment variables, updates are a new image

@@ -452,6 +452,14 @@ PHP);
         $site->exec("UPDATE tl_pages SET visible = 1 WHERE slug = 'our-story'");
         $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}', $this->fieldOf($this->reportDone($origin), 'summary'),
             'migration report: after a redirect and publishing, the contact address redirects (but the form is gone)');
+        // the target page shows a form through a component: the form is there
+        $component = $this->firstId($site->mcp('save_component', ['name' => 'Report form']));
+        $build = $site->value("SELECT build FROM tl_pages WHERE slug = 'our-story'");
+        $site->exec('UPDATE tl_components SET build = ? WHERE component_id = ?', ['{"v":1,"children":[{"id":"rf00001","type":"form","tag":"form","content":{}}]}', $component]);
+        $site->exec("UPDATE tl_pages SET build = ? WHERE slug = 'our-story'", ['{"v":1,"children":[{"id":"rf00002","type":"component","tag":"div","content":{"component":"' . $component . '"}}]}']);
+        $this->assertSame(0, json_decode($this->fieldOf($this->reportDone($origin), 'summary'), true)['errors'] ?? null, 'migration report: a form inside a component of the target page counts');
+        $site->exec("UPDATE tl_pages SET build = ? WHERE slug = 'our-story'", [$build]);
+        $site->exec('DELETE FROM tl_components WHERE component_id = ?', [$component]);
         $site->exec("UPDATE tl_pages SET visible = 0 WHERE slug = 'our-story'");
         $site->exec("DELETE FROM tl_redirects WHERE from_path = 'visit-us'");
 

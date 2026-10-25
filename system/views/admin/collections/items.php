@@ -10,10 +10,11 @@
  * @var list<string> $languages other languages of the site (a detail template for each one separately)
  * @var list<string> $siteLanguages all languages of the site for the filter (empty = a single language)
  * @var string $language language selected in the filter ('' = all)
+ * @var list<array{key: string, label: string, type: string, options: list<string>}> $choiceFields the collection's choice fields: each one is a filter
+ * @var array<string, string> $fieldFilter field key => the chosen option
  * @var bool $trash the trash is shown
  * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
- * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  */
 $icon = require __DIR__ . '/../icons.php';
@@ -28,12 +29,24 @@ if ($app->auth()->isAdmin()) {
     }
 }
 echo $app->view->render('admin/list/head', ['count' => (string) count($items), 'links' => $links, 'primary' => [$module->url('item', ['id' => $k['public_id']]), t('Add item')]]);
-if ($inTrash > 0 || $trash || $siteLanguages !== []) {
+$filtered = $language !== '' || $fieldFilter !== [];
+$filters = $trash ? '' : $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]);
+foreach ($trash ? [] : $choiceFields as $f) {
+    $filters .= '<select name="field_' . e($f['key']) . '" aria-label="' . e($f['label']) . '" data-submit-on-change><option value="">' . e($f['label']) . ': ' . e(t('all')) . '</option>';
+    foreach ($f['options'] as $option) {
+        $filters .= '<option value="' . e($option) . '"' . (($fieldFilter[$f['key']] ?? null) === $option ? ' selected' : '') . '>' . e($option) . '</option>';
+    }
+    $filters .= '</select>';
+}
+if ($filtered) {
+    $filters .= ' <a href="' . e($module->url('items', ['id' => $k['public_id']])) . '">' . e(t('Clear filter')) . '</a>';
+}
+if ($inTrash > 0 || $trash || $filters !== '') {
     echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Items'), 'tabs' => $inTrash > 0 || $trash ? [
         ['label' => t('All'), 'url' => $module->url('items', ['id' => $k['public_id']]), 'active' => !$trash],
         ['label' => t('Trash'), 'count' => $inTrash, 'url' => $module->url('items', ['id' => $k['public_id'], 'status' => 'trash']), 'active' => $trash],
     ] : [], 'action' => $app->url('admin.php'), 'hidden' => ['module' => 'collections', 'action' => 'items', 'id' => $k['public_id']],
-        'filters' => $trash || $siteLanguages === [] ? '' : $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true])]);
+        'filters' => $filters]);
 }
 // the row's picture and a short summary from the collection's own fields
 $fields = is_array($k['fields'] ?? null) ? $k['fields'] : (json_decode((string) ($k['fields'] ?? ''), true) ?: []);
@@ -92,8 +105,10 @@ $summary = function (array $p) use ($fields): string {
 </div>
 <?php endif ?>
 <?php else: ?>
-<?php if ($items === [] && $language === ''): ?>
+<?php if ($items === [] && !$filtered): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'collections', 'heading' => t('The collection is empty.'), 'text' => t('Add the first item – then put it on the site with the Collection list element in the builder.'), 'action' => [$module->url('item', ['id' => $k['public_id']]), t('Add item')]]) ?>
+<?php elseif ($items === []): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'collections', 'heading' => t('No item matches the filter.'), 'text' => '', 'action' => [$module->url('items', ['id' => $k['public_id']]), t('Clear filter')]]) ?>
 <?php else: ?>
 <div class="tab-wrap">
 <table class="listing">

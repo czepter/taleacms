@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- A WooCommerce shop export (WXR 1.2) for the import tests: products with SKU, prices, stock and attributes. Made up from start to end; the .example domain does not exist. -->
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+<channel>
+	<title>Example Furniture</title>
+	<link>https://www.shop.example</link>
+	<description>A made-up shop for the import tests</description>
+	<pubDate>Mon, 19 Oct 2026 08:00:00 +0000</pubDate>
+	<language>en-GB</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.shop.example</wp:base_site_url>
+	<wp:base_blog_url>https://www.shop.example</wp:base_blog_url>
+
+	<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[shop]]></wp:author_login><wp:author_email><![CDATA[shop@shop.example]]></wp:author_email><wp:author_display_name><![CDATA[Shop]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+
+	<wp:term><wp:term_id>10</wp:term_id><wp:term_taxonomy><![CDATA[product_cat]]></wp:term_taxonomy><wp:term_slug><![CDATA[chairs]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[Chairs]]></wp:term_name></wp:term>
+	<wp:term><wp:term_id>11</wp:term_id><wp:term_taxonomy><![CDATA[pa_colour]]></wp:term_taxonomy><wp:term_slug><![CDATA[natural]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[Natural]]></wp:term_name></wp:term>
+	<wp:term><wp:term_id>12</wp:term_id><wp:term_taxonomy><![CDATA[pa_colour]]></wp:term_taxonomy><wp:term_slug><![CDATA[walnut]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[Walnut]]></wp:term_name></wp:term>
+
+	<generator>https://wordpress.org/?v=6.6</generator>
+
+	<item>
+		<title><![CDATA[Oak chair]]></title>
+		<link>https://www.shop.example/product/oak-chair/oak-chair-photo/</link>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>501</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[oak-chair-photo]]></wp:post_name>
+		<wp:status><![CDATA[inherit]]></wp:status>
+		<wp:post_type><![CDATA[attachment]]></wp:post_type>
+		<wp:attachment_url><![CDATA[https://www.shop.example/wp-content/uploads/2026/03/oak-chair.jpg]]></wp:attachment_url>
+	</item>
+	<!-- a simple product on sale with its own and a global attribute, a category and a plain custom field -->
+	<item>
+		<title><![CDATA[Oak chair]]></title>
+		<link>https://www.shop.example/product/oak-chair/</link>
+		<dc:creator><![CDATA[shop]]></dc:creator>
+		<content:encoded><![CDATA[<p>A solid chair for the dining room.</p><img src="https://www.shop.example/wp-content/uploads/2026/03/oak-chair-detail-300x200.jpg" alt="Detail">]]></content:encoded>
+		<excerpt:encoded><![CDATA[<p>Solid oak, <strong>oiled</strong>.</p>]]></excerpt:encoded>
+		<wp:post_id>601</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[oak-chair]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_type><![CDATA[product]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="product_type" nicename="simple"><![CDATA[simple]]></category>
+		<category domain="product_cat" nicename="chairs"><![CDATA[Chairs]]></category>
+		<category domain="pa_colour" nicename="natural"><![CDATA[Natural]]></category>
+		<category domain="pa_colour" nicename="walnut"><![CDATA[Walnut]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_edit_lock]]></wp:meta_key><wp:meta_value><![CDATA[1712345678:1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[501]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_sku]]></wp:meta_key><wp:meta_value><![CDATA[CH-100]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_regular_price]]></wp:meta_key><wp:meta_value><![CDATA[120]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_sale_price]]></wp:meta_key><wp:meta_value><![CDATA[99.90]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_price]]></wp:meta_key><wp:meta_value><![CDATA[99.90]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_stock_status]]></wp:meta_key><wp:meta_value><![CDATA[instock]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_stock]]></wp:meta_key><wp:meta_value><![CDATA[12]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_product_attributes]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{s:8:"material";a:6:{s:4:"name";s:8:"Material";s:5:"value";s:9:"Oak | Ash";s:8:"position";i:0;s:10:"is_visible";i:1;s:12:"is_variation";i:0;s:11:"is_taxonomy";i:0;}s:9:"pa_colour";a:6:{s:4:"name";s:9:"pa_colour";s:5:"value";s:0:"";s:8:"position";i:1;s:10:"is_visible";i:1;s:12:"is_variation";i:1;s:11:"is_taxonomy";i:1;}}]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[total_sales]]></wp:meta_key><wp:meta_value><![CDATA[7]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[warranty]]></wp:meta_key><wp:meta_value><![CDATA[2 years]]></wp:meta_value></wp:postmeta>
+	</item>
+	<!-- out of stock, a decimal comma, no attributes, no picture -->
+	<item>
+		<title><![CDATA[Side table]]></title>
+		<link>https://www.shop.example/product/side-table/</link>
+		<dc:creator><![CDATA[shop]]></dc:creator>
+		<content:encoded><![CDATA[<p>A small table.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>602</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-02 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[side-table]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_type><![CDATA[product]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="product_type" nicename="simple"><![CDATA[simple]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_sku]]></wp:meta_key><wp:meta_value><![CDATA[TB-200]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_regular_price]]></wp:meta_key><wp:meta_value><![CDATA[45,50]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_price]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_stock_status]]></wp:meta_key><wp:meta_value><![CDATA[outofstock]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[warranty]]></wp:meta_key><wp:meta_value><![CDATA[1 year]]></wp:meta_value></wp:postmeta>
+	</item>
+	<!-- a variation and an order have no counterpart: listed in the preview, not imported -->
+	<item>
+		<title><![CDATA[Oak chair - Walnut]]></title>
+		<link>https://www.shop.example/?post_type=product_variation&amp;p=603</link>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>603</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:05:00]]></wp:post_date>
+		<wp:post_name><![CDATA[oak-chair-walnut]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>601</wp:post_parent>
+		<wp:post_type><![CDATA[product_variation]]></wp:post_type>
+		<wp:postmeta><wp:meta_key><![CDATA[attribute_pa_colour]]></wp:meta_key><wp:meta_value><![CDATA[walnut]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_price]]></wp:meta_key><wp:meta_value><![CDATA[109]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Order]]></title>
+		<link>https://www.shop.example/?post_type=shop_order&amp;p=604</link>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>604</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-05 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[order]]></wp:post_name>
+		<wp:status><![CDATA[wc-completed]]></wp:status>
+		<wp:post_type><![CDATA[shop_order]]></wp:post_type>
+	</item>
+</channel>
+</rss>

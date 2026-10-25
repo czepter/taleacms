@@ -44,7 +44,7 @@ trait CollectionTools
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $k): array => ['collection' => $k['slug'], 'name' => $k['name'], 'item_pages' => (bool) $k['detail'], 'redirect_hidden_to' => (string) ($k['hidden_redirect'] ?? ''), 'fields' => self::fieldTypes($k['fields'], false),
+        return array_map(fn (array $k): array => ['collection' => $k['slug'], 'name' => $k['name'], 'item_pages' => (bool) $k['detail'], 'admin_menu' => (bool) $k['admin_menu'], 'redirect_hidden_to' => (string) ($k['hidden_redirect'] ?? ''), 'fields' => self::fieldTypes($k['fields'], false),
             'preset' => (string) ($k['preset'] ?? ''),
             'items' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['collection_id']])]
             + (($sd = \Talea\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['fields'], 'currency' => $sd['currency']]] : []), Collections::all($db));
@@ -77,10 +77,13 @@ trait CollectionTools
             if ($id === null) {
                 throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Talea\Builder\Presets::available($this->app->settings()))) . ' (list_collection_presets).');
             }
+            if (array_key_exists('admin_menu', $a)) {
+                $db->update('collections', ['admin_menu' => empty($a['admin_menu']) ? 0 : 1], ['collection_id' => $id]);
+            }
             $created = (array) Collections::byId($db, $id);
             $preset = (array) \Talea\Builder\Presets::get((string) $a['preset']);
 
-            return ['collection' => $created['slug'], 'name' => $created['name'], 'fields' => self::fieldTypes($created['fields'], false), 'redirect_hidden_to' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
+            return ['collection' => $created['slug'], 'name' => $created['name'], 'admin_menu' => (bool) $created['admin_menu'], 'fields' => self::fieldTypes($created['fields'], false), 'redirect_hidden_to' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
                 'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['slug'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null]
                 // say why there is no list page - the address is already a page
                 + ($pageId === null ? ['list_page_note' => 'No list page was added: /' . $created['slug'] . ' is already taken. Add a Collection list element (type collection) to that page, or create a page at another address.'] : [])
@@ -98,10 +101,10 @@ trait CollectionTools
         if ($redirect === null) {
             throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
         }
-        $db->insert('collections', ['name' => $collectionName, 'slug' => $seo, 'detail' => empty($a['item_pages']) ? 0 : 1, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s'),
+        $db->insert('collections', ['name' => $collectionName, 'slug' => $seo, 'detail' => empty($a['item_pages']) ? 0 : 1, 'admin_menu' => ($a['admin_menu'] ?? true) ? 1 : 0, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s'),
             'schema_org' => self::collectionSchema($a['structured_data'] ?? null, $field)]);
 
-        return ['collection' => $seo, 'fields' => self::fieldTypes($field, false)] + ($redirect !== '' ? ['redirect_hidden_to' => $redirect] : []);
+        return ['collection' => $seo, 'admin_menu' => (bool) ($a['admin_menu'] ?? true), 'fields' => self::fieldTypes($field, false)] + ($redirect !== '' ? ['redirect_hidden_to' => $redirect] : []);
     }
 
     /** update_collection */
@@ -127,6 +130,9 @@ trait CollectionTools
         if (array_key_exists('item_pages', $a)) {
             $changes['detail'] = empty($a['item_pages']) ? 0 : 1;
         }
+        if (array_key_exists('admin_menu', $a)) {
+            $changes['admin_menu'] = empty($a['admin_menu']) ? 0 : 1;
+        }
         if (array_key_exists('redirect_hidden_to', $a)) {
             $changes['hidden_redirect'] = Collections::cleanRedirect((string) $a['redirect_hidden_to'])
                 ?? throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
@@ -141,7 +147,7 @@ trait CollectionTools
         \Talea\Front\Cache::clear();
         $newVersion = (array) $db->one('SELECT * FROM {collections} WHERE collection_id = ?', [$collection['collection_id']]);
 
-        return ['collection' => $newVersion['slug'], 'name' => $newVersion['name'], 'item_pages' => (bool) $newVersion['detail'], 'redirect_hidden_to' => (string) $newVersion['hidden_redirect'], 'fields' => self::fieldTypes(json_decode((string) $newVersion['fields'], true) ?: [], false)];
+        return ['collection' => $newVersion['slug'], 'name' => $newVersion['name'], 'item_pages' => (bool) $newVersion['detail'], 'admin_menu' => (bool) $newVersion['admin_menu'], 'redirect_hidden_to' => (string) $newVersion['hidden_redirect'], 'fields' => self::fieldTypes(json_decode((string) $newVersion['fields'], true) ?: [], false)];
     }
 
     /** delete_collection */

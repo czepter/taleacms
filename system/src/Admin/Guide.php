@@ -56,6 +56,8 @@ final class Guide
         'schedules' => 'claude-capabilities', // 2.17: scheduled runs – what a routine in Claude does on the site is described with its capabilities
         'transfer' => 'wordpress-import',
         'extensions' => 'extensions',
+        'assistant_settings' => 'ai-assistant',
+        'newsletter_settings' => 'newsletter',
         'addons' => 'addons',
         'fleet' => 'fleet-console',
     ];
@@ -68,6 +70,7 @@ final class Guide
         'analytics' => 'statistics#settings-analytics',
         'cookies' => 'privacy-cookies',
         'mail' => 'email',
+        'reports' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
         'console' => 'fleet-console#pair-a-site',
