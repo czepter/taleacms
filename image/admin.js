@@ -598,4 +598,29 @@
 	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { showTip(el); } });
 	document.addEventListener('focusout', hideTip);
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
+
+	// Save at hand: the Save row of the screen's one edit form is repeated in the page heading, which stays on top while scrolling.
+	// The copies submit that form (form="…"), so their name/value, data-confirm and the field validation work as on the originals.
+	var head = document.querySelector('.header-pages'), rows = [];
+	document.querySelectorAll('main form.form').forEach(function (form) {
+		var row = Array.prototype.filter.call(form.querySelectorAll('.buttons'), function (r) {
+			return Array.prototype.some.call(r.querySelectorAll('.btn'), function (b) { return b.type === 'submit'; });
+		}).pop();
+		if (row) { rows.push(row); }
+	});
+	if (head && rows.length === 1) { // a screen with several forms (My account) has no single Save
+		var form = rows[0].closest('form'), save = document.createElement('span');
+		var actions = head.querySelector('.page-actions');
+		if (!actions) { actions = head.appendChild(document.createElement('div')); actions.className = 'page-actions'; }
+		form.id = form.id || 'edit-form';
+		save.className = 'page-save';
+		rows[0].querySelectorAll(':scope > :is(.btn, .navigation):not(.danger)').forEach(function (el) {
+			if (el.tagName !== 'A' && el.type !== 'submit') { return; }
+			var copy = el.cloneNode(true);
+			copy.removeAttribute('id');
+			if (el.tagName !== 'A') { copy.setAttribute('form', form.id); }
+			save.appendChild(copy);
+		});
+		actions.appendChild(save);
+	}
 })();
