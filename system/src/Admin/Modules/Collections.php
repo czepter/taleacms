@@ -29,6 +29,22 @@ final class Collections extends Module
     public const string ICON = 'collections';
     public const string TABLE = 'collections';
 
+    /** At most this many collections stand in the admin sidebar; the others are reached through Collections. */
+    public const int MENU_LIMIT = 8;
+
+    /**
+     * Every collection by name for the admin sidebar and the command palette (one query per page): public_id, name and
+     * admin_menu ("Show in the admin menu"). A notice board stays out while its feature is off, as in the list.
+     *
+     * @return list<array{public_id: string, name: string, admin_menu: int}>
+     */
+    public static function navigation(\Talea\Core\App $app): array
+    {
+        $notices = \Talea\Core\Extensions::isEnabled($app->settings(), 'notice_board') ? '' : " WHERE preset <> 'notices'";
+
+        return $app->db()->all('SELECT public_id, name, admin_menu FROM {collections}' . $notices . ' ORDER BY name');
+    }
+
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
@@ -68,7 +84,7 @@ final class Collections extends Module
 
     protected function actionNew(): Response
     {
-        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['collection_id' => 0, 'public_id' => '', 'name' => '', 'slug' => '', 'detail' => 0, 'fields' => [
+        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['collection_id' => 0, 'public_id' => '', 'name' => '', 'slug' => '', 'detail' => 0, 'admin_menu' => 1, 'fields' => [
             ['key' => '', 'label' => t('Description'), 'type' => 'lines'], ['key' => '', 'label' => t('Image'), 'type' => 'image'],
         ]], 'otherCollections' => $this->otherCollections(0)]);
     }
@@ -105,7 +121,7 @@ final class Collections extends Module
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
-        $data = ['name' => $name, 'slug' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
+        $data = ['name' => $name, 'slug' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'admin_menu' => $r->postBool('admin_menu') ? 1 : 0, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
         if (is_array($_POST['schema'] ?? null)) {
             $schema = \Talea\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);
@@ -148,13 +164,30 @@ final class Collections extends Module
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $trash = $this->request->get('status') === 'trash';
+        $where = 'collection_id = ? AND deleted_at IS ' . ($trash ? 'NOT NULL' : 'NULL');
+        $params = [$k['collection_id']];
+        if ($column !== null) {
+            $where .= ' AND language = ?';
+            $params[] = $column;
+        }
+        // every choice field is a filter too (?field_<key>=<option>): a job by its kind, a product by its range; an unknown option is no filter
+        $choiceFields = array_values(array_filter($k['fields'], fn (array $f): bool => ($f['type'] ?? '') === 'radio' && preg_match(KolekceObsahu::KEY_PATTERN, (string) ($f['key'] ?? '')) === 1));
+        $fieldFilter = [];
+        foreach ($trash ? [] : $choiceFields as $f) {
+            if (in_array($value = $this->request->get('field_' . $f['key']), (array) ($f['options'] ?? []), true)) {
+                $fieldFilter[$f['key']] = $value;
+                $where .= ' AND ' . $this->db->dialect()->jsonExtract('data', '$.' . $f['key']) . ' = ?'; // the key matched KEY_PATTERN above
+                $params[] = $value;
+            }
+        }
 
         return $this->view('items', $k['name'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'choiceFields' => $choiceFields, 'fieldFilter' => $fieldFilter,
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['collection_id']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Talea\Core\Documents::fileField($k) !== null ? \Talea\Core\Documents::counts($this->db, (int) $k['collection_id']) : null,
-            'items' => $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by, data, image FROM {collection_items} WHERE collection_id = ? AND deleted_at IS ' . ($trash ? 'NOT NULL' : 'NULL')
-                . ($column !== null ? ' AND language = ?' : '') . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $column !== null ? [$k['collection_id'], $column] : [$k['collection_id']])]);
+            'items' => $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by, data, image FROM {collection_items} WHERE ' . $where
+                . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $params)]);
     }
 
     protected function actionItem(): Response

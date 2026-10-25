@@ -41,7 +41,26 @@ final class Media extends Module
             'filter' => $filter,
             'folders' => $this->folders(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
+            'waitingCount' => \Talea\Core\MediaStaging::count($this->db),
         ]);
+    }
+
+    /**
+     * Waiting for approval → Publish file (#150, Core\MediaStaging): a file a Claude connection limited to drafts uploaded moves to
+     * media/ and is public from now on. Only whoever may publish.
+     */
+    protected function actionApprove(): Response
+    {
+        $file = $this->request->isPost() && $this->app->auth()->canPublish()
+            ? $this->db->one('SELECT * FROM {media} WHERE media_id = ? AND staged_at IS NOT NULL', [$this->idParam('media_id')]) : null;
+        if ($file === null) {
+            return $this->back('', '', ['waiting' => 1]);
+        }
+        if (!\Talea\Core\MediaStaging::promote($this->db, $file)) {
+            return $this->back(t('The file could not be moved to the media folder – check the write permissions of media/.'), '', ['waiting' => 1], 'error');
+        }
+
+        return $this->back(t('The file is public: %s', $file['image_path']), '', ['waiting' => 1]);
     }
 
     /** JSON list for the image picker dialog in the editor; the same filters as in the list. */
@@ -129,6 +148,7 @@ final class Media extends Module
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
             [t('pop-up'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {popups}'],
             [t('newsletter'), 'SELECT subject AS used_in, CONCAT_WS(\' \', intro, button_url, html) AS content FROM {newsletters}'],
+            [t('menu'), 'SELECT location AS used_in, items AS content FROM {menus}'], // an SVG from Media as a menu icon
         ];
         $usages = [];
         foreach ($sources as [$kind, $sql]) {
@@ -230,23 +250,25 @@ final class Media extends Module
     }
 
     /**
-     * SVG from text (upload and MCP): cleaned of scripts and outbound links (Core\Svg) and saved under a new name.
+     * SVG from text (upload and MCP): cleaned of scripts and outbound links (Core\Svg) and saved under a new name. $staged: it
+     * waits for approval outside the web root (Core\MediaStaging); the path returned is the public one.
      *
      * @return array<string, mixed> row for the media table
      */
-    public static function saveSvgContent(string $content, string $displayName): array
+    public static function saveSvgContent(string $content, string $displayName, bool $staged = false): array
     {
         $svg = strlen($content) < 2_000_000 ? \Talea\Core\Svg::sanitize($content) : null;
         if ($svg === null) {
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
+        $root = \Talea\Core\MediaStaging::root($staged);
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(TALEA_ROOT . '/' . $folder)) {
-            mkdir(TALEA_ROOT . '/' . $folder, 0775, true);
+        if (!is_dir($root . '/' . $folder)) {
+            mkdir($root . '/' . $folder, 0775, true);
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $path = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.svg';
-        file_put_contents(TALEA_ROOT . '/' . $path, $svg);
+        file_put_contents($root . '/' . $path, $svg);
         [$w, $h] = \Talea\Core\Svg::dimensions($svg);
 
         return ['image_path' => $path, 'image_width' => min(65535, $w), 'image_height' => min(65535, $h), 'image_size' => strlen($svg),
@@ -257,7 +279,8 @@ final class Media extends Module
     protected function actionReplace(): Response
     {
         $ido = $this->idParam('media_id');
-        $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$ido]) : null;
+        // a file waiting for approval is not replaced: the new one would land in media/ before anyone approved it (#150)
+        $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE media_id = ? AND staged_at IS NULL', [$ido]) : null;
         $file = $_FILES['file'] ?? null;
         if ($image === null || !is_array($file)) {
             return $this->back();
@@ -412,9 +435,10 @@ final class Media extends Module
     }
 
     /**
-     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, search (name, label or file name).
+     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, waiting=1 (waiting for approval,
+     * Core\MediaStaging), search (name, label or file name).
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, search: string, sort: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, waiting: bool, search: string, sort: string}}
      */
     private function filter(): array
     {
@@ -448,10 +472,14 @@ final class Media extends Module
                 $where[] = 'o.media_id NOT IN (' . implode(',', array_map(intval(...), $elsewhere)) . ')';
             }
         }
+        $waiting = $this->request->get('waiting') === '1';
+        if ($waiting) {
+            $where[] = 'o.staged_at IS NOT NULL';
+        }
 
         $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'newest';
 
-        return [implode(' AND ', $where), $params, ['section' => $section, 'section_public' => $section === null ? null : ($section === 0 ? '0' : $sectionParam), 'article' => $newsItem, 'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'search' => $search, 'sort' => $sort]];
+        return [implode(' AND ', $where), $params, ['section' => $section, 'section_public' => $section === null ? null : ($section === 0 ? '0' : $sectionParam), 'article' => $newsItem, 'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'waiting' => $waiting, 'search' => $search, 'sort' => $sort]];
     }
 
     /** @return list<array<string, mixed>> folders with the number of images */

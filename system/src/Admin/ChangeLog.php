@@ -12,7 +12,8 @@ use Talea\Core\App;
  */
 final class ChangeLog
 {
-    public static function write(App $app, string $module, string $action, string $description = '', string $reason = ''): void
+    /** $detail: what does not fit the description (#149: the whole instructions for Claude before and after, as JSON). */
+    public static function write(App $app, string $module, string $action, string $description = '', string $reason = '', string $detail = ''): void
     {
         try {
             $user = $app->auth()->user();
@@ -20,7 +21,7 @@ final class ChangeLog
                 'created_at' => date('Y-m-d H:i:s'), 'user_id' => $user['user_id'] ?? null, 'user_name' => (string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? ''),
                 'via' => mb_substr((string) ($app->auth()->connection()['name'] ?? ''), 0, 100), // a change made by Claude names its connection
                 'module' => mb_substr($module, 0, 30), 'action' => mb_substr($action, 0, 40), 'description' => mb_substr($description, 0, 255),
-            ] + ($reason !== '' ? ['reason' => mb_substr($reason, 0, 255)] : []));
+            ] + ($reason !== '' ? ['reason' => mb_substr($reason, 0, 255)] : []) + ($detail !== '' ? ['detail' => $detail] : []));
             if (random_int(1, 100) === 1) {
                 $app->db()->run('DELETE FROM {change_log} WHERE created_at < NOW() - INTERVAL 180 DAY');
             }

@@ -43,4 +43,18 @@ final class CollectionsTest extends TestCase
         $this->assertSame([['a4', 'a5'], [true, true, true, true, true]], [\Talea\Core\HoursSign::FORMATS,
             (fn (string $v): array => [str_contains($v, '@page'), str_contains($v, '@media print'), str_contains($v, 'data-print'), preg_match('/(href|src)="https?:/', $v) === 0, str_contains($v, '<!DOCTYPE html>')])((string) file_get_contents(TALEA_SYSTEM . '/views/admin/settings/hours_sign.php'))], '2.10: HoursSign – formats, a standalone view with print CSS, a Print button only on screen and no outside resource');
     }
+
+    /** a number field reads as a number in the page language, {{field_raw}} as stored */
+    public function testNumbersInThePageLanguage(): void
+    {
+        $numbers = fn (string $language): array => \Talea\Core\Language::runWith($language, fn (): array => array_map(\Talea\Builder\Collections::displayNumber(...), ['1490', '4.20', '4,5', '-12000', '', 'on request', '1 490']));
+        $this->assertSame([
+            ["1\u{00A0}490", '4,20', '4,5', "-12\u{00A0}000", '', 'on request', "1\u{00A0}490"],
+            ['1,490', '4.20', '4.5', '-12,000', '', 'on request', '1,490'],
+            ['1.490', '4,20', '4,5', '-12.000', '', 'on request', '1.490'],
+        ], [$numbers('cs'), $numbers('en'), $numbers('de')], 'Collections::displayNumber: separators of the page language, the decimals as stored, text and empty values unchanged');
+        $collection = ['slug' => 'products', 'detail' => false, 'preset' => '', 'fields' => [['key' => 'price', 'label' => 'Price', 'type' => 'number']]];
+        $values = \Talea\Core\Language::runWith('en', fn (): array => \Talea\Builder\Collections::values($collection, ['name' => '[Product]', 'slug' => 'product', 'created_at' => '2026-10-18 10:00:00', 'data' => ['price' => '1490.50']], fn (string $p): string => $p));
+        $this->assertSame([['1,490.50', 'text'], ['1490.50', 'text']], [$values['price'], $values['price_raw']], 'Collections::values: {{price}} for visitors, {{price_raw}} as stored');
+    }
 }

@@ -319,20 +319,8 @@ parameters:
 			path: system/src/Core/WebImport.php
 
 		-
-			message: '#^Comparison operation "\<\=" between 10 and 0 is always false\.$#'
+			message: '#^Comparison operation "\<\=" between 20 and 0 is always false\.$#'
 			identifier: smallerOrEqual.alwaysFalse
-			count: 1
-			path: system/src/Core/WpImport.php
-
-		-
-			message: '#^Method Talea\\Core\\WpImport\:\:collectionFor\(\) should return array\{idk\: int, seo_link\: string, pole\: list\<array\{key\: string, label\: string, type\: string\}\>, mapa\: array\<string, string\>, typy\: array\<string, string\>\} but returns array\{collection_id\: int, slug\: string, fields\: mixed, map\: array\<string, string\>, types\: array\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Core/WpImport.php
-
-		-
-			message: '#^Offset ''map'' does not exist on array\{idk\: int, seo_link\: string, pole\: list\<array\{key\: string, label\: string, type\: string\}\>, mapa\: array\<string, string\>, typy\: array\<string, string\>\}\.$#'
-			identifier: offsetAccess.notFound
 			count: 1
 			path: system/src/Core/WpImport.php
 

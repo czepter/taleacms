@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Admin;
 
 use Talea\Core\Language;
+use Talea\Core\Antispam;
 use Talea\Core\Preview;
 use Talea\Core\Response;
 use Talea\Builder\DesignSystem;
@@ -236,7 +237,8 @@ trait BuilderActions
 
     /**
      * The selected elements packed for the system clipboard (JSON): with the shared classes and the components they use, so
-     * that the builder of another Talea site can paste them (Builder\ElementClipboard). Changes nothing.
+     * that the builder of another Talea site can paste them (Builder\ElementClipboard). Changes nothing. Only an administrator's
+     * copy is signed: an editor's signature would let an administrator paste the editor's Custom HTML as their own.
      */
     protected function actionBuildPackage(): Response
     {
@@ -245,14 +247,21 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t('Nothing to copy.')], 400);
         }
 
-        return Response::json(['ok' => true, 'clipboard' => ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin())]);
+        $envelope = ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin());
+        if ($this->app->auth()->isAdmin()) {
+            $envelope['sig'] = ElementClipboard::signature($envelope, (new Antispam($this->db, $this->app->settings()))->key());
+        }
+
+        return Response::json(['ok' => true, 'clipboard' => $envelope]);
     }
 
     /**
      * Elements pasted from the clipboard of another Talea site (JSON): the envelope is checked, missing classes and
      * components are created like on a page import (an administrator only, existing classes stay), the elements go through
      * the validator and come back with new ids – the editor inserts them at the selected position and saves the draft as
-     * usual. Media of the other site are relinked or left out; the editor shows how many.
+     * usual. Media of the other site are relinked or left out; the editor shows how many. The builder sends every paste here,
+     * also one that claims this site: Custom HTML stays only in an envelope this site signed for an administrator – from any
+     * other text it is left out with a note.
      */
     protected function actionBuildPaste(): Response
     {
@@ -261,17 +270,23 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t('Page does not exist.')], 404);
         }
         $raw = (string) ($_POST['clipboard'] ?? '');
-        $package = strlen($raw) <= ElementClipboard::MAX_LENGTH ? ElementClipboard::parse(json_decode($raw, true)) : null;
+        $decoded = strlen($raw) <= ElementClipboard::MAX_LENGTH ? json_decode($raw, true) : null;
+        $package = ElementClipboard::parse($decoded);
         if ($package === null) {
             return Response::json(['ok' => false, 'error' => t('The clipboard does not contain Talea elements.')], 400);
         }
         $admin = $this->app->auth()->isAdmin();
-        [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
+        // an editor's code elements are left out by Build::sanitize, with its own note
+        $code = !$admin || ElementClipboard::isSigned($decoded, (new Antispam($this->db, $this->app->settings()))->key());
+        [$elements, $created, $images, $droppedCode] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin, $code);
         [$build, $errors] = Build::sanitize(['children' => $elements], $admin);
-        if ($build['children'] === []) {
-            return Response::json(['ok' => false, 'error' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
-        }
         $messages = array_values($errors);
+        if ($droppedCode > 0) {
+            array_unshift($messages, t('Custom HTML elements left out: %d – code is pasted only from a copy an administrator made on this site.', $droppedCode));
+        }
+        if ($build['children'] === []) {
+            return Response::json(['ok' => false, 'error' => t('None of the elements could be inserted.') . ($messages !== [] ? ' ' . implode(' ', array_slice($messages, 0, 3)) : '')], 400);
+        }
         if ($created['classes'] > 0 || $created['components'] > 0) {
             $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['components']);
         } elseif (!$admin && ($package['classes'] !== [] || $package['components'] !== [])) {

@@ -133,7 +133,7 @@ final class Screen
             if ($type === 'datetime' || $type === 'date') {
                 $slide['date'] = $slide['date'] === '' ? ($type === 'date' ? format_date($value) : $value) : $slide['date'] . ' – ' . ($type === 'date' ? format_date($value) : $value);
             } elseif ($type === 'html' || $type === 'lines') {
-                $slide['text'] .= ($slide['text'] === '' ? '' : ' ') . self::plain($value);
+                $slide['text'] .= ($slide['text'] === '' ? '' : ' ') . \Talea\Core\Html::plain($value);
             } elseif ($type === 'number') {
                 $slide['lines'][] = $fields[$key]['label'] . ': ' . $value;
             } elseif (!in_array($type, ['image', 'link', 'file'], true)) {
@@ -143,12 +143,6 @@ final class Screen
         $slide['text'] = mb_strimwidth($slide['text'], 0, self::TEXT_LENGTH, '…');
 
         return $slide;
-    }
-
-    /** Formatted text as one line for a screen (the HTML of an answer or a news lead). */
-    public static function plain(string $html): string
-    {
-        return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5)));
     }
 
     /**
@@ -165,7 +159,7 @@ final class Screen
         if ($s->bool('screen_news') && Extensions::isEnabled($s, 'news')) {
             foreach ((new NewsRepository($db, $s, $app->request->basePath()))->listPublished(1, self::NEWS_LIMIT)[0] as $n) {
                 $slides[] = ['kind' => 'news', 'label' => t('News'), 'title' => (string) $n['title'], 'date' => format_date((string) $n['published_at']),
-                    'text' => mb_strimwidth(self::plain((string) $n['intro']), 0, self::TEXT_LENGTH, '…'), 'lines' => [], 'image' => (string) $n['image']];
+                    'text' => \Talea\Core\Html::plain((string) $n['intro'], self::TEXT_LENGTH), 'lines' => [], 'image' => (string) $n['image']];
             }
         }
         foreach (self::collections($s) as $slug) {

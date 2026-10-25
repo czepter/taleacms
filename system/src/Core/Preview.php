@@ -16,6 +16,9 @@ final class Preview
 {
     public const int MAX_MINUTES = 7 * 24 * 60;
 
+    /** The cookie of the whole-site preview (Front\Kernel): it lasts until its key expires. */
+    public const string COOKIE = 'tl_preview';
+
     /** Preview key for the target "page:12" or "part:header:en", valid for the given number of minutes. */
     public static function key(Db $db, Settings $settings, string $target, int $minutes, bool $comments = false): string
     {

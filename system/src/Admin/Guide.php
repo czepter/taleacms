@@ -70,6 +70,7 @@ final class Guide
         'analytics' => 'statistics#settings-analytics',
         'cookies' => 'privacy-cookies',
         'mail' => 'email',
+        'reports' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
         'console' => 'fleet-console#pair-a-site',

@@ -84,4 +84,38 @@ final class ElementsTest extends TestCase
             $f9Schema['before_after']['properties']['before_label']['default'], count($f9Schema['hotspots']['properties']['points']['default']), $f9Schema['timeline']['properties']['milestones']['default'][2]['date'],
             preg_match(\Talea\Builder\Build::ATTRIBUTE_PATTERN, 'data-before-after'), preg_match('/data-\(insert\|[^)]*before-after/', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Kernel.php'))], '2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute');
     }
+
+    /** the form element's inspector shows each field as a row: the summary names real fields, the groups are the ones builder.js folds */
+    public function testFormFieldRows(): void
+    {
+        $fields = \Talea\Builder\Elements\Form::properties()['fields'];
+        $this->assertSame([], array_diff($fields['summary'], array_keys($fields['fields'])), 'Form: the row summary names fields of the item');
+        $groups = array_values(array_unique(array_filter(array_map(fn (array $f): string => $f['group'] ?? '', $fields['fields']))));
+        sort($groups);
+        $this->assertSame(['condition', 'estimate', 'options'], $groups, 'Form: the field settings are grouped into options, the estimate and the condition');
+    }
+
+    /** the open phone menu dims the page and its button turns into a cross – the Navigation element and the template header */
+    public function testPhoneMenuDimsAndCloses(): void
+    {
+        $navCss = \Talea\Builder\Elements\Navigation::baseCss();
+        $template = (string) file_get_contents(TALEA_ROOT . '/image/template.css');
+        $this->assertSame([true, true, true, true], [
+            (bool) preg_match('/@media \(max-width: 767px\).*?\.tl-nav-menu\[popover\]::backdrop \{ background:/s', $navCss),
+            str_contains($navCss, '.tl-nav:has(> .tl-nav-menu:popover-open) > .tl-nav-btn span::before { top: 0; rotate: 45deg;'),
+            str_contains($template, '.navigation[popover]::backdrop { background:'),
+            str_contains($template, '.menu-btn:has(+ .navigation:popover-open) span::after { top: 0; rotate: -45deg; }'),
+        ], 'Navigation: the open phone menu dims the page behind it and the button shows a cross');
+    }
+
+    /** a navigation shows the first or second half of the menu around a logo; the first carries the rest for the phone */
+    public function testMenuHalvesAroundALogo(): void
+    {
+        $menu = array_map(fn (string $text): array => ['text' => $text], ['A', 'B', 'C', 'D', 'E']);
+        $texts = fn (array $part): array => [array_column($part[0], 'text'), array_column($part[1], 'text')];
+        $this->assertSame([[['A', 'B', 'C', 'D', 'E'], []], [['A', 'B', 'C'], ['D', 'E']], [['D', 'E'], []]], [
+            $texts(\Talea\Builder\Elements\Navigation::part($menu, 'whole')), $texts(\Talea\Builder\Elements\Navigation::part($menu, 'first')), $texts(\Talea\Builder\Elements\Navigation::part($menu, 'second')),
+        ], 'Navigation::part: the first half takes the extra item of an odd count and keeps the rest for the phone');
+        $this->assertTrue((bool) preg_match('/@media \(max-width: 767px\) \{\s*\.tl-nav--second \{ display: none; \}\s*\.tl-nav \.tl-nav-rest \{ display: flex; \}/', \Talea\Builder\Elements\Navigation::baseCss()), 'Navigation: on a phone the second half steps aside and the first shows the whole menu');
+    }
 }

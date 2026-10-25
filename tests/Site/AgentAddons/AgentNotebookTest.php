@@ -59,6 +59,15 @@ final class AgentNotebookTest extends SiteTestCase
         $this->assertStringContainsString('read_notebook before larger changes', (string) $initialize, 'notebook: the server instructions tell Claude to read the notebook and write decisions down');
     }
 
+    public function testReadingNeedsTheNotebookSection(): void
+    {
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'No notes', 'username' => 'nonotes', 'password' => $this->site()->password, 'admin' => 1, 'manual' => 1, 'modules' => ['pages']]);
+        $token = $this->tokenOf('nonotes', 'no notes', 'f');
+        $this->assertStringContainsString('no access to the Notebook', $this->mcpRawText('read_notebook', [], $token), 'notebook: reading needs the Notebook section, like writing');
+        $info = $this->mcpData('site_info', [], $token);
+        $this->assertSame([(string) (self::$before + 2), '[]'], [$this->pick($info, 'notebook_count'), $this->pick($info, 'notebook_pinned')], 'notebook: site_info names no pinned titles to a user without the section');
+    }
+
     public function testTheAdminListsSearchesAndFiltersNotes(): void
     {
         $list = $this->assertPage('/admin.php?module=notebook', 200, 'Photos from 2024', message: 'notebook: the admin list by topic with the pinned note first');

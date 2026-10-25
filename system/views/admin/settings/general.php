@@ -60,7 +60,11 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<option value="<?= e($code) ?>"<?= $values['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="help"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span></div>
+	<span class="help"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span>
+<?php if (!Talea\Core\Language::hasVisitorTexts($values['site_language'])): ?>
+	<p class="notice notice-warning"><?= e(t('Texts for visitors (Search, Read more, form messages, the cookie bar…) are not translated into %s yet: the site shows them in English.', Talea\Core\Language::AVAILABLE[$values['site_language']][0] ?? $values['site_language'])) ?></p>
+<?php endif ?>
+	</div>
 </div>
 <?php if (in_array('de', array_map(Talea\Core\Language::base(...), array_merge([$values['site_language']], explode(',', $values['additional_languages']))), true)): ?>
 <div class="row">
@@ -87,7 +91,11 @@ if ($waiting !== []): ?>
 		<span class="help"><?= e(t('Not in the language switcher yet: %s. A language appears there once the home page has a published translation.', implode(', ', array_map(fn (string $c): string => Talea\Core\Language::AVAILABLE[$c][0], $waiting)))) ?> <a href="<?= e($app->url('admin.php?module=pages&action=translations')) ?>"><?= e(t('Translations')) ?></a></span>
 <?php endif ?>
 		<span class="help"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
-<?php $translated = array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Talea\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(TALEA_SYSTEM . '/languages/' . Talea\Core\Language::base($code) . '.php')))); ?>
+<?php $translated = array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Talea\Core\Language::AVAILABLE), Talea\Core\Language::hasVisitorTexts(...)))); ?>
+<?php $english = array_map(fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0], array_values(array_filter(Talea\Core\Language::additional($app->settings()), fn (string $code): bool => !Talea\Core\Language::hasVisitorTexts($code)))); ?>
+<?php if ($english !== []): ?>
+		<p class="notice notice-warning"><?= e(t('Texts for visitors are not translated into %s yet: these versions show Search, Read more, form messages and the cookie bar in English.', implode(', ', $english))) ?></p>
+<?php endif ?>
 		<span class="help"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>

@@ -14,6 +14,23 @@ docker compose up -d                       # pulls ghcr.io/czepter/talea; TALEA_
 Open the site and walk through the installer. Configuration is environment variables (`TALEA_*`, every one also as
 `TALEA_<NAME>_FILE` for Docker secrets); nothing inside the image needs editing. The full list is in `docker/README.md`.
 
+## The site's secret
+
+Set `TALEA_SECRET_KEY` (or `TALEA_SECRET_KEY_FILE`) to a random value of at least 32 characters, e.g. `openssl rand -hex 32`
+(`docker-compose.coolify.yaml` generates one). It encrypts the stored connector credentials (OAuth secrets and tokens, API tokens) and
+signs forms, preview and download links and the builder clipboard, each with a key derived from it. Without it the key is the setting
+`secret_key` in the database, so a database dump or backup alone decrypts every credential; System status warns about it.
+
+When the variable is set on a site that still has its key in the database, the first request encrypts the stored credentials again
+under the new key and clears the database key, in one transaction (a failure is logged and leaves everything as it was; the next
+request tries again). Because the signing key changes with it, things signed before the switch stop working once: open forms ask to be
+reloaded, preview and document links must be created again, visitors re-enter page passwords, a builder clipboard copied before is
+pasted without its Custom HTML, and visitors of that day are counted again in the statistics.
+
+**Keep the secret with your backups.** A database restored on another server, or after the variable was changed or removed, cannot
+read the stored credentials without the same `TALEA_SECRET_KEY`: System status then reports them as unreadable. Set the variable the
+database was used with, or connect the services again in Integrations.
+
 ## Update
 
 1. Read the release notes on GitHub: what changed, and whether it is a security release (watch the repository's releases to hear of them).
@@ -47,7 +64,7 @@ release). To go back:
 1. stop the containers,
 2. restore the dump from `storage/backups/` taken before the update (Settings → Backups → restore, or the SQL file with
    your MySQL client),
-3. start the previous image tag.
+3. start the previous image tag with the same `TALEA_SECRET_KEY` (see The site's secret).
 
 ## Testing an update end to end
 
@@ -62,6 +79,14 @@ built image to use as N (it is left in place).
 
 Any number of web containers can share the `storage`, `media` and `extensions` volumes. Exactly one of them should run the
 background loop: set `TALEA_CRON=0` on all but one. Migrations are safe to start everywhere at once.
+
+## Files waiting for approval
+
+Files that Claude uploads over a connection limited to drafts wait in `storage/staging/` (the `storage` volume) until a person
+publishes content that uses them or approves them in Media; then they move to `media/`. Files nobody approves are deleted after
+30 days. A request for a missing `/media/…` file must reach `index.php`, which shows a waiting file only to signed-in users and
+draft previews: the image's Caddyfile does this; on your own nginx use the `/media/` block of `system/nginx.example.conf`
+(without it, waiting files are 404 in previews too; publishing still works).
 
 ## Add-ons
 

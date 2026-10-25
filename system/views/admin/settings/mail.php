@@ -80,15 +80,7 @@ $field('mail_reply_to', 'Send replies to', 'email', 'Optional – when readers\'
 ?>
 </details>
 <p><button class="navigation" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button> <span class="small-text"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
-<fieldset>
-<legend><?= e(t('Monthly report')) ?></legend>
-<p class="help"><?= e(t('In the first days of each month the site e-mails a short report about the previous month: traffic, enquiries and sign-ups, updates, backups, changes made by people and by Claude, the problems right now and what needs your decision. Counts and page addresses only – never names, e-mail addresses or the contents of enquiries, so the report can be forwarded. With the agency details from the General tab it carries the agency’s branding.')) ?></p>
-<?php
-$field('report_monthly', 'Send a monthly report by e-mail', 'flag', '');
-$field('report_recipients', 'Recipients', 'lines', 'One address per line or separated by commas, at most 10. Empty = the site e-mail (Settings → General).', 'maxlength="2000"');
-?>
-<p><a class="navigation" href="<?= e($module->url('report_preview')) ?>" target="_blank" rel="noopener"><?= e(t('Preview last month')) ?></a> <button class="navigation" type="submit" formaction="<?= e($module->url('report_send')) ?>"><?= e(t('Send last month’s report now')) ?></button> <span class="small-text"><?= e(t('Save the settings first – sending uses the saved recipients.')) ?></span></p>
-</fieldset>
+<p class="help"><?= e(t('The monthly report – its e-mail, the recipients and the archive to print or download – is under Settings → Reports.')) ?> <a href="<?= e($module->url('', ['tab' => 'reports'])) ?>"><?= e(t('Reports')) ?></a></p>
 <?php if (!empty($mail)): ?>
 <h2><?= e(t('Recent messages')) ?></h2>
 <div class="tab-wrap"><table class="listing">

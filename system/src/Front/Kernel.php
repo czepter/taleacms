@@ -156,6 +156,12 @@ final class Kernel
                 return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), 301);
             }
         }
+        // a file waiting for approval (#150, Core\MediaStaging): for signed-in users and draft previews; everyone else gets the
+        // usual 404, unless published content already uses it
+        if (str_starts_with($request->path(), '/media/')
+            && ($waiting = \Talea\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Talea\Core\MediaStaging::hasPreview($this->app))) !== null) {
+            return $waiting;
+        }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;
         }
@@ -677,7 +683,7 @@ final class Kernel
         foreach ($collection['fields'] as $field) {
             $h = (string) ($item['data'][$field['key']] ?? '');
             if ($description === '' && in_array($field['type'], ['lines', 'html'], true) && $h !== '') {
-                $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
+                $description = \Talea\Core\Html::plain($h, 300);
             }
             if ($image === '' && $field['type'] === 'image' && $h !== '') {
                 $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
@@ -865,7 +871,7 @@ final class Kernel
     {
         preg_match_all('#<p\b[^>]*>(.*?)</p>#si', $html, $m);
         foreach ($m[1] as $paragraph) {
-            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5)));
+            $text = \Talea\Core\Html::plain($paragraph);
             if (mb_strlen($text) >= 50) {
                 return mb_strimwidth($text, 0, 160, '…');
             }
@@ -905,7 +911,7 @@ final class Kernel
         return $this->page(
             $category['name'],
             $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
-            ['description' => strip_tags($category['description']), 'part' => 'list'],
+            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list'],
         );
     }
 
@@ -923,7 +929,7 @@ final class Kernel
         return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('list', [
             'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? self::authored(\Talea\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
-            'description' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
+            'description' => $colorScheme ? \Talea\Core\Html::plain((string) $tag['description'], 300) : '',
             'part' => 'list',
         ]);
     }
@@ -970,7 +976,7 @@ final class Kernel
 
         return $this->page($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title'], $content, [
             'article' => $newsItem,
-            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($newsItem['intro'])), 0, 300, '…'),
+            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : \Talea\Core\Html::plain($newsItem['intro'], 300),
             'keywords' => $newsItem['keywords'],
             'image' => $newsItem['image'],
             'noindex' => (bool) $newsItem['noindex'],
@@ -1251,14 +1257,14 @@ final class Kernel
         $r = $this->app->request;
         $cookiePath = $r->basePath() . '/';
         if ($r->get('preview_end') === '1') {
-            setcookie('tl_preview', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
-            unset($_COOKIE['tl_preview']);
+            setcookie(\Talea\Core\Preview::COOKIE, '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
+            unset($_COOKIE[\Talea\Core\Preview::COOKIE]);
         }
-        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE['tl_preview'] ?? '');
+        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE[\Talea\Core\Preview::COOKIE] ?? '');
         if ($key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
             $this->sitePreview = true;
             if ($r->get('preview_key') === $key && !headers_sent()) {
-                setcookie('tl_preview', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
+                setcookie(\Talea\Core\Preview::COOKIE, $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
         if ($this->sitePreview || ($r->get('build') === 'draft' && $this->app->auth()->isAdmin())) {
@@ -1293,8 +1299,12 @@ final class Kernel
             return true;
         }
         $key = $this->app->request->get('preview_key');
+        if ($key === '' || !\Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key)) {
+            return false;
+        }
+        \Talea\Core\MediaStaging::previewCookie($this->app, $key); // the preview shows the files its draft uses that wait for approval
 
-        return $key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
+        return true;
     }
 
     private function siteParts(string $content, array $meta, string $languageSwitcher, string $path): array
