@@ -188,6 +188,7 @@ final class SiteImport
         }
         $json = $work . '/content.json';
         $mediaCount = 0;
+        $renamed = [];
         $warnings = [];
         if (KaletaExport::is($path)) {
             // a Kaleta export becomes a Talea export in place; everything below reads only the converted file
@@ -211,15 +212,19 @@ final class SiteImport
             fclose($out);
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $name = (string) $zip->getNameIndex($i);
-                if (self::mediaTarget($name) !== null) {
+                $target = self::archiveTarget($zip, $name);
+                if ($target !== null) {
                     $mediaCount++;
+                    if ($target !== $name) {
+                        $renamed[$name] = $target; // photo.JPG is saved as photo.jpg – the content follows (split())
+                    }
                 }
             }
             $zip->close();
         } else {
             copy($path, $json);
         }
-        [$header, $counts] = self::split($json, $work);
+        [$header, $counts] = self::split($json, $work, $renamed);
         @unlink($json);
         if (($header['format'] ?? '') !== 'talea-export') {
             throw new \RuntimeException('The file is not a Talea export.');
@@ -242,17 +247,19 @@ final class SiteImport
      * content.json as written by SiteExport has one row per line – read as a stream. Any other layout (e.g. formatted by hand)
      * is read whole, when it is not too large.
      *
+     * @param array<string, string> $renamed media saved under another name (archive name => saved name, archiveTarget())
      * @return array{0: array<string, mixed>, 1: array<string, int>} header with settings, rows per table
      */
-    private static function split(string $json, string $work): array
+    private static function split(string $json, string $work, array $renamed = []): array
     {
         $parts = [];
         $counts = [];
         $ids = [];
-        $write = function (string $table, array $row) use (&$parts, &$counts, &$ids, $work): void {
+        $write = function (string $table, array $row) use (&$parts, &$counts, &$ids, $work, $renamed): void {
             if (!in_array($table, self::TABLES, true)) {
                 return;
             }
+            $row = self::renameMedia($row, $renamed);
             $parts[$table] ??= fopen($work . '/' . $table . '.ndjson', 'wb');
             fwrite($parts[$table], json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
             $counts[$table] = ($counts[$table] ?? 0) + 1;
@@ -309,7 +316,7 @@ final class SiteImport
         }
         file_put_contents($work . '/ids.json', (string) json_encode($ids === [] ? new \stdClass() : $ids));
         if (is_array($header['settings'] ?? null)) {
-            file_put_contents($work . '/settings.json', (string) json_encode($header['settings'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            file_put_contents($work . '/settings.json', (string) json_encode(self::renameMedia($header['settings'], $renamed), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
         return [is_array($header) ? $header : [], $counts];
@@ -935,7 +942,7 @@ final class SiteImport
         while ($state['media_position'] < $total && $done < self::MEDIA_BATCH && microtime(true) - $start < self::SECONDS) {
             $name = (string) $zip->getNameIndex((int) $state['media_position']);
             $state['media_position']++;
-            $target = self::mediaTarget($name);
+            $target = self::archiveTarget($zip, $name);
             if ($target === null) {
                 continue;
             }
@@ -946,15 +953,19 @@ final class SiteImport
                 $content = Svg::sanitize((string) $zip->getFromName($name)); // an SVG is cleaned like an uploaded one
                 $ok = $content !== null && file_put_contents($full, $content) !== false;
             } elseif ($ok) {
-                // streamed: a video or a large PDF does not have to fit in memory
+                // streamed into the working folder: a video or a large PDF does not have to fit in memory, and the file reaches
+                // media/ only once its content is what the extension says
+                $temporary = self::workFolder((string) $state['file']) . '/media-' . bin2hex(random_bytes(6)) . '.tmp';
                 $in = $zip->getStream($name);
-                $out = $in === false ? false : @fopen($full, 'wb');
+                $out = $in === false ? false : @fopen($temporary, 'wb');
                 $ok = $in !== false && $out !== false && stream_copy_to_stream($in, $out) !== false;
                 foreach ([$in, $out] as $handle) {
                     if (is_resource($handle)) {
                         fclose($handle);
                     }
                 }
+                $ok = $ok && self::contentMatches($temporary, $target) && @rename($temporary, $full);
+                @unlink($temporary);
             }
             if (!$ok) {
                 $state['media']['skipped']++;
@@ -972,15 +983,71 @@ final class SiteImport
         }
     }
 
-    /** Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. */
+    /**
+     * Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. The extensions are
+     * written in lower case, as Media writes them (photo.JPG → photo.jpg): the header rules of the server then always match.
+     */
     public static function mediaTarget(string $name): ?string
     {
         if (!preg_match('#^media/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_.-]*$#', $name) || str_contains($name, '..')) {
             return null;
         }
         $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $base = basename($name);
+        $dot = (int) strpos($base, '.');
 
-        return in_array($extension, [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS], true) ? $name : null;
+        return in_array($extension, [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS], true) ? substr($name, 0, strlen($name) - strlen($base) + $dot) . strtolower(substr($base, $dot)) : null;
+    }
+
+    /** mediaTarget() for an entry of this archive; a name whose lower-case twin is in the archive too is left out (the twin is the file). */
+    private static function archiveTarget(\ZipArchive $zip, string $name): ?string
+    {
+        $target = self::mediaTarget($name);
+
+        return $target === null || ($target !== $name && $zip->locateName($target) !== false) ? null : $target;
+    }
+
+    /**
+     * The content points at the media under their names in the archive; a file saved under another name (mediaTarget) is
+     * renamed in every text of the row, as a plain path and in its JSON-escaped form (media\/…) inside a build.
+     *
+     * @param array<mixed> $row
+     * @param array<string, string> $renamed archive name => saved name
+     * @return array<mixed>
+     */
+    public static function renameMedia(array $row, array $renamed): array
+    {
+        if ($renamed === []) {
+            return $row;
+        }
+        $pairs = [];
+        foreach ($renamed as $from => $to) {
+            $pairs[$from] = $to;
+            $pairs[str_replace('/', '\\/', $from)] = str_replace('/', '\\/', $to);
+        }
+        array_walk_recursive($row, function (mixed &$value) use ($pairs): void {
+            if (is_string($value) && str_contains($value, 'media')) {
+                $value = strtr($value, $pairs);
+            }
+        });
+
+        return $row;
+    }
+
+    /**
+     * Is the file what its extension says? An image must be a raster image (JPG, PNG, GIF, WebP, AVIF or ICO), any other
+     * file must not be HTML, PHP, a script, SVG or a program (Files::forbiddenContent, as for an upload). SVG is cleaned
+     * by Svg::sanitize instead.
+     */
+    public static function contentMatches(string $path, string $target): bool
+    {
+        if (in_array(strtolower(pathinfo($target, PATHINFO_EXTENSION)), self::MEDIA_EXTENSIONS, true)) {
+            $info = @getimagesize($path);
+
+            return $info !== false && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_ICO], true);
+        }
+
+        return !Files::forbiddenContent($path);
     }
 
     /** After the import: the search index, the cache and the working files. */
