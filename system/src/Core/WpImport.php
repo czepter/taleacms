@@ -28,11 +28,15 @@ use Talea\Admin\Modules\Pages;
  *    language version the site does not have yet is added ONLY when the owner asks (option add_languages: an added language
  *    shows in the switcher, hreflang and the sitemap at once); otherwise its posts are left out and reported. Slugs stay
  *    unique across languages until slugs are per language: a clash gets a number and is listed in the report.
+ *  - A WooCommerce shop (Core\WpWooCommerce): products go to a collection with the fields of the Products preset (code,
+ *    price, availability, parameters, picture…) at their old address prefix.
+ *  - Images are downloaded a few at a time in parallel (fetchAhead, ImageDownloader::downloadMany) and processed one by one.
  */
 final class WpImport
 {
     public const int BATCH = 100;
-    public const int IMAGE_BATCH = 10;
+    /** Images per batch: downloaded a few at a time in parallel (fetchAhead), processed one by one; SECONDS still ends a slow batch. */
+    public const int IMAGE_BATCH = 20;
     public const int SECONDS = 8;
 
     /** Default import options (the Preview step). */
@@ -55,6 +59,9 @@ final class WpImport
 
     private int $downloadsLeft = 0;
     private float $end = 0.0;
+
+    /** @var array<string, string|\RuntimeException> images downloaded ahead and not used yet: original address => content or why it failed */
+    private array $fetched = [];
 
     /**
      * @param string $base the site folder for image URLs in the text (Request::basePath(), empty for a site in the root)
@@ -185,6 +192,9 @@ final class WpImport
             // a custom post type becomes a collection (2.7): count its items, vote on the type of each field, remember the address
             $t = $overview['types'][$p['type']] ?? ['count' => 0, 'prefixes' => [], 'fields' => [], 'left_out' => [], 'content' => false, 'excerpt' => false];
             $t['count']++;
+            if (WpWooCommerce::isProduct($p)) {
+                $t['product'] = true; // a WooCommerce shop: the products go to a product catalogue (Core\WpWooCommerce)
+            }
             self::tallyLanguage($state, $p);
             $prefix = WpTypes::prefix($p['link']);
             if ($prefix !== '') {
@@ -541,7 +551,9 @@ final class WpImport
             return;
         }
         $collection = $this->collectionFor((string) $p['type'], $state);
-        $input = [];
+        // a WooCommerce product fills the fields of the Products preset; the availability in the product's language
+        $input = $collection['product'] ? WpWooCommerce::values($p, $state['attachments'],
+            fn (string $text): string => Language::runWith(Language::ofContent($this->settings, $language), fn (): string => t($text))) : [];
         foreach ($collection['map'] as $old => $new) {
             $value = (string) ($p['fields'][$old] ?? '');
             $input[$new] = match ($collection['types'][$new]) {
@@ -551,10 +563,10 @@ final class WpImport
                 default => $value,
             };
         }
-        if (isset($collection['types']['content'])) {
+        if (isset($collection['types']['content']) && !$collection['product']) {
             $input['content'] = WpContent::sanitize($p['content'], $state['attachments']);
         }
-        if (isset($collection['types']['excerpt'])) {
+        if (isset($collection['types']['excerpt']) && !$collection['product']) {
             $input['excerpt'] = trim(html_entity_decode(strip_tags($p['excerpt']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         }
         $data = \Talea\Builder\Collections::sanitizeData($collection['fields'], $input);
@@ -594,7 +606,7 @@ final class WpImport
      * The collection of a custom post type: created on first use, remembered in the state.
      *
      * @param array<string, mixed> $state
-     * @return array{idk: int, seo_link: string, pole: list<array{key: string, label: string, type: string}>, mapa: array<string, string>, typy: array<string, string>}
+     * @return array{collection_id: int, slug: string, fields: list<array{key: string, label: string, type: string}>, map: array<string, string>, types: array<string, string>, product: bool}
      */
     private function collectionFor(string $type, array &$state): array
     {
@@ -602,23 +614,26 @@ final class WpImport
             return $state['collections'][$type];
         }
         $t = $state['overview']['types'][$type];
-        $definitions = [];
+        // WooCommerce products take the fields of the Products preset, their own custom fields follow
+        $preset = ($t['product'] ?? false) ? \Talea\Builder\Presets::get(WpWooCommerce::PRESET) : null;
+        $definitions = $preset !== null ? \Talea\Builder\Presets::fields($this->db, $preset) : [];
+        $first = count($definitions);
         $oldKeys = [];
         foreach ($t['fields'] as $old => $votes) {
             $definitions[] = ['label' => WpTypes::label((string) $old), 'type' => WpTypes::fieldType($votes)];
             $oldKeys[] = (string) $old;
         }
-        if ($t['excerpt']) {
+        if ($t['excerpt'] && $preset === null) {
             $definitions[] = ['key' => 'excerpt', 'label' => t('Excerpt'), 'type' => 'lines'];
         }
-        if ($t['content']) {
+        if ($t['content'] && $preset === null) {
             $definitions[] = ['key' => 'content', 'label' => t('Content'), 'type' => 'html'];
         }
         $fields = \Talea\Builder\Collections::sanitizeFields($definitions);
         $map = [];
         foreach ($oldKeys as $i => $old) {
-            if (isset($fields[$i])) {
-                $map[$old] = $fields[$i]['key'];
+            if (isset($fields[$first + $i])) {
+                $map[$old] = $fields[$first + $i]['key'];
             }
         }
         arsort($t['prefixes']);
@@ -632,14 +647,19 @@ final class WpImport
         } else {
             $seo = self::availableSlug($wanted, fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
                 || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ?', [$url]) !== null || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null);
-            $idk = $this->db->insert('collections', ['name' => mb_substr(WpTypes::label($type), 0, 100), 'slug' => $seo, 'detail' => 1,
-                'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')]);
+            // a product catalogue keeps the preset (the enquiry basket and the comparison find its fields), its structured data and item template
+            $schema = $preset !== null && is_array($preset['schema']) ? \Talea\Builder\CollectionSchema::sanitize($preset['schema'], $fields) : null;
+            $idk = $this->db->insert('collections', ['name' => mb_substr($preset !== null ? t((string) $preset['name']) : WpTypes::label($type), 0, 100), 'slug' => $seo, 'detail' => 1,
+                'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')] + ($preset === null ? [] : [
+                    'preset' => WpWooCommerce::PRESET, 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
+                    'build' => \Talea\Builder\Build::toJson(\Talea\Builder\Presets::itemTemplate($preset, $fields)),
+                ]));
             $this->writeMap('collection', $type, $idk);
             $state['result']['collections'] = ($state['result']['collections'] ?? 0) + 1;
         }
 
         return $state['collections'][$type] = ['collection_id' => $idk, 'slug' => $seo, 'fields' => $fields, 'map' => $map,
-            'types' => array_column($fields, 'type', 'key')];
+            'types' => array_column($fields, 'type', 'key'), 'product' => $preset !== null];
     }
 
     /**
@@ -1033,6 +1053,7 @@ final class WpImport
         $this->source = self::source((string) $state['web']['url']);
         $this->downloadsLeft = self::IMAGE_BATCH;
         $this->end = microtime(true) + self::SECONDS;
+        $this->fetched = [];
         while (true) {
             $id = $this->db->value('SELECT MIN(local_id) FROM {import_map} WHERE source = ? AND type = ? AND local_id > ?', [$this->source, $state['images']['type'], (int) $state['images']['id']]);
             if ($id === null && $state['images']['type'] !== 'item') {
@@ -1053,6 +1074,75 @@ final class WpImport
                 return;
             }
         }
+    }
+
+    /**
+     * Downloads the next images the records will ask for in parallel (ImageDownloader::downloadMany, with all its rules), so
+     * that image() finds them ready: from the record in progress on, the addresses that are neither in the map nor downloaded
+     * already – at most ImageDownloader::PARALLEL and what is left of the batch, so only a few images are held in memory.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function fetchAhead(array $state, ImageDownloader $downloader): void
+    {
+        $wanted = [];
+        $limit = min(ImageDownloader::PARALLEL, $this->downloadsLeft + 1); // image() has already counted the image it asks for
+        $type = (string) $state['images']['type'];
+        $id = (int) $state['images']['id'];
+        for ($records = 0; count($wanted) < $limit && $records < 200; $records++) {
+            $next = $this->db->value('SELECT MIN(local_id) FROM {import_map} WHERE source = ? AND type = ? AND local_id > ?', [$this->source, $type, $id]);
+            if ($next === null && $type === 'item') {
+                break;
+            }
+            [$type, $id] = $next === null ? [$type === 'news' ? 'page' : 'item', 0] : [$type, (int) $next];
+            foreach ($next === null ? [] : $this->imageUrls($type, $id, $state, $downloader) as $url) {
+                $original = self::withoutSize($url);
+                if (count($wanted) < $limit && !isset($wanted[$original]) && !isset($this->fetched[$original])
+                    && $this->db->value("SELECT 1 FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$this->source, sha1($original)]) === null) {
+                    $wanted[$original] = true;
+                }
+            }
+        }
+        $this->fetched += $wanted === [] ? [] : $downloader->downloadMany(array_map('strval', array_keys($wanted)));
+    }
+
+    /**
+     * The image addresses of the old site a record asks for (what recordImages and itemImages download): images in its
+     * text, image fields and the featured image.
+     *
+     * @param array<string, mixed> $state
+     * @return list<string>
+     */
+    private function imageUrls(string $type, int $id, array $state, ImageDownloader $downloader): array
+    {
+        $html = [];
+        $urls = [];
+        if ($type === 'item') {
+            $item = $this->db->one('SELECT p.data, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ?', [$id]);
+            $data = json_decode((string) ($item['data'] ?? ''), true) ?: [];
+            foreach (json_decode((string) ($item['fields'] ?? ''), true) ?: [] as $field) {
+                $value = (string) ($data[(string) $field['key']] ?? '');
+                if ($field['type'] === 'image') {
+                    $urls[] = $value;
+                } elseif ($field['type'] === 'html') {
+                    $html[] = $value;
+                }
+            }
+            $urls[] = (string) ($state['previews']['p' . $id] ?? '');
+        } else {
+            $html = array_values((array) ($type === 'news' ? $this->db->one('SELECT intro, text FROM {news} WHERE news_id = ?', [$id]) : $this->db->one('SELECT text FROM {pages} WHERE page_id = ?', [$id])));
+            $urls[] = $type === 'news' ? (string) ($state['previews'][$id] ?? '') : '';
+        }
+        $inText = [];
+        foreach ($html as $value) {
+            Html::rewriteImages((string) $value, function (string $src) use (&$inText): ?array {
+                $inText[] = $src;
+
+                return null; // only collects – nothing changes
+            });
+        }
+
+        return array_values(array_filter([...$inText, ...$urls], fn (string $url): bool => $url !== '' && $downloader->isAllowedUrl($url)));
     }
 
     /**
@@ -1118,7 +1208,7 @@ final class WpImport
      */
     private function itemImages(int $id, array &$state, ImageDownloader $downloader): bool
     {
-        $item = $this->db->one('SELECT p.item_id, p.name, p.data, p.image, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ?', [$id]);
+        $item = $this->db->one('SELECT p.item_id, p.name, p.data, p.image, k.fields, k.preset FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ?', [$id]);
         if ($item === null) {
             return true;
         }
@@ -1150,6 +1240,12 @@ final class WpImport
             $complete = $image !== false;
             if (is_array($image) && $share === '') {
                 $share = (string) $image['image_path'];
+            }
+            // a product's featured image is its picture too (the image field of the Products preset), also when the field
+            // could not keep the old site's address (only https addresses and Media paths are kept)
+            $picture = \Talea\Builder\Presets::field(['preset' => $item['preset'], 'fields' => json_decode((string) $item['fields'], true) ?: []], WpWooCommerce::PRESET, 'image', ['image']);
+            if (is_array($image) && $picture !== null && (string) ($data[$picture] ?? '') === '') {
+                $data[$picture] = (string) $image['image_path'];
             }
             if ($complete) {
                 unset($state['previews']['p' . $id]);
@@ -1228,7 +1324,14 @@ final class WpImport
         $temporary = WpFile::folder() . '/image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             try {
-                $data = $downloader->download($original);
+                if (!isset($this->fetched[$original])) {
+                    $this->fetchAhead($state, $downloader); // this image and the next few at once
+                }
+                $data = $this->fetched[$original] ?? $downloader->download($original);
+                unset($this->fetched[$original]);
+                if ($data instanceof \RuntimeException) {
+                    throw $data;
+                }
             } catch (\RuntimeException $e) {
                 if ($original === $url) {
                     throw $e;

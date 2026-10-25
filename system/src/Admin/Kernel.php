@@ -126,6 +126,8 @@ final class Kernel
         Modules\Roles::class,
         Modules\Connectors::class,
         Modules\Extensions::class,
+        Modules\AssistantSettings::class,
+        Modules\NewsletterSettings::class,
         Modules\Addons::class,
         Modules\Transfer::class,
         Modules\ChangeLog::class,
@@ -147,8 +149,8 @@ final class Kernel
         'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
-        'Features' => [['extensions', '', 'Features and add-ons']],
-        'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
+        'Features' => [['extensions', '', 'Features and add-ons'], ['assistant_settings', '', 'Writing assistant'], ['newsletter_settings', '', 'Newsletter'], ['claude_settings', '', 'AI settings']],
+        'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
     /** Home: the first steps in collapsible groups (step name => group); every step of firstSteps() is listed. */
@@ -174,6 +176,27 @@ final class Kernel
         }
 
         return $sections;
+    }
+
+    /**
+     * What waits for someone, shown next to its menu item: new enquiries (spam left out, as in their list) and bookings to
+     * confirm that have not ended yet. One query per page through indexes, only for the modules the person may open.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open (modules())
+     * @return array<string, int> ident => count, only counts above 0
+     */
+    public static function waiting(App $app, array $modules): array
+    {
+        $counts = array_intersect_key([
+            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam')",
+            'bookings' => "(SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW())",
+        ], $modules);
+        if ($counts === []) {
+            return [];
+        }
+        $row = (array) $app->db()->one('SELECT ' . implode(', ', array_map(fn (string $ident, string $count): string => $count . ' AS ' . $ident, array_keys($counts), $counts)));
+
+        return array_filter(array_map(intval(...), $row));
     }
 
     /** HTML a screen puts into the sidebar instead of the menu (Website mode: the page tree); '' = the menu. */
@@ -223,6 +246,12 @@ final class Kernel
             $app->auth()->logout();
 
             return Response::redirect($app->url('admin.php'));
+        }
+        // a running Talea import owns the site: until it is done the administration shows only its progress (Core\SiteImport::work)
+        if (($import = \Talea\Core\SiteImport::running()) !== null && !($request->get('module') === 'transfer' && $action === 'talea')) {
+            return $app->auth()->isAdmin()
+                ? Response::redirect($app->url('admin.php?' . http_build_query(['module' => 'transfer', 'action' => 'talea', 'file' => $import])))
+                : $this->page('Import in progress', $app->view->render('admin/error', ['app' => $app, 'text' => 'The site is being imported. The administration is locked until the import is done – try again in a few minutes.']), 503);
         }
 
         // migrations never run on a page request (bin/migrate does, e.g. in the Docker entrypoint); the administrator is told when some wait

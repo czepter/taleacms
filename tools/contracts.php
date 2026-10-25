@@ -1,8 +1,8 @@
 <?php
 /**
  * Talea – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
- * and checked by tests/Unit/ContractsTest.php: an MCP tool or parameter, a design token or a builder element (and its content
- * properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
+ * and checked by tests/Unit/ContractsTest.php: an MCP tool or parameter, an MCP prompt or its argument, a design token or a
+ * builder element (and its content properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
  * deliberate addition, record it:
  *
  *   php tools/contracts.php --update
@@ -27,6 +27,18 @@ function talea_mcp_contract(): array
             'required' => $tool['inputSchema']['required'],
             'annotations' => Talea\Mcp\Tools::annotations($tool['name']),
         ];
+    }
+    ksort($contract);
+
+    return $contract;
+}
+
+/** @return array<string, array<string, bool>> the MCP prompts (#157): name => argument => required */
+function talea_prompt_contract(): array
+{
+    $contract = [];
+    foreach (Talea\Mcp\Prompts::listAll() as $prompt) {
+        $contract[$prompt['name']] = array_column($prompt['arguments'], 'required', 'name');
     }
     ksort($contract);
 
@@ -120,6 +132,28 @@ function talea_contract_diff(): array
     foreach (array_diff(array_keys($current), array_keys($recorded)) as $tool) {
         $added[] = "MCP tool $tool";
     }
+    $promptFile = __DIR__ . '/contracts/mcp-prompts.json';
+    $prompts = is_file($promptFile) ? json_decode((string) file_get_contents($promptFile), true) : [];
+    $currentPrompts = talea_prompt_contract();
+    foreach ($prompts as $prompt => $arguments) {
+        if (!isset($currentPrompts[$prompt])) {
+            $broken[] = "MCP prompt $prompt removed";
+            continue;
+        }
+        foreach ($arguments as $argument => $required) {
+            if (!array_key_exists($argument, $currentPrompts[$prompt])) {
+                $broken[] = "MCP prompt $prompt: argument $argument removed";
+            } elseif ($currentPrompts[$prompt][$argument] && !$required) {
+                $broken[] = "MCP prompt $prompt: argument $argument became required";
+            }
+        }
+        foreach (array_diff_key($currentPrompts[$prompt], $arguments) as $argument => $required) {
+            $added[] = "MCP prompt $prompt: argument $argument";
+        }
+    }
+    foreach (array_diff_key($currentPrompts, $prompts) as $prompt => $_) {
+        $added[] = "MCP prompt $prompt";
+    }
     $tokens = json_decode((string) file_get_contents(__DIR__ . '/contracts/design-tokens.json'), true);
     foreach (array_diff($tokens, talea_token_contract()) as $token) {
         $broken[] = "design token $token removed";
@@ -193,10 +227,11 @@ if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __F
         }
         $json = fn (mixed $v): string => json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
         file_put_contents(__DIR__ . '/contracts/mcp-tools.json', $json(talea_mcp_contract()));
+        file_put_contents(__DIR__ . '/contracts/mcp-prompts.json', $json(talea_prompt_contract()));
         file_put_contents(__DIR__ . '/contracts/design-tokens.json', $json(talea_token_contract()));
         file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(talea_element_contract()));
         file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(talea_extension_contract()));
-        echo 'recorded: ' . count(talea_mcp_contract()) . ' MCP tools, ' . count(talea_token_contract()) . ' design tokens, ' . count(talea_element_contract()) . " builder elements\n";
+        echo 'recorded: ' . count(talea_mcp_contract()) . ' MCP tools, ' . count(talea_prompt_contract()) . ' MCP prompts, ' . count(talea_token_contract()) . ' design tokens, ' . count(talea_element_contract()) . " builder elements\n";
         exit(0);
     }
     $diff = talea_contract_diff();

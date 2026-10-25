@@ -121,6 +121,14 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-tick { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .bd-item { margin-bottom: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--base); }
 .bd-item-actions { display: flex; justify-content: flex-end; gap: 4px; }
+/* a form field as one row that opens into its settings; options, estimate and condition in groups */
+.bd-item-row { min-width: 0; padding-block: 0; }
+.bd-item-row[open] { padding-block-end: 10px; }
+.bd-item-row > summary { padding-block: 9px; font-size: 13px; font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-item-row[open] > summary { margin-block-end: 8px; border-block-end: 1px solid var(--line); }
+.bd-item-group { margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.bd-item-group > summary { font-size: 12px; font-weight: 600; cursor: pointer; }
+.bd-item-group[open] > summary { margin-block-end: 8px; }
 .bd-image-preview { display: block; max-width: 100%; max-height: 120px; margin-top: 4px; border-radius: 6px; }
 
 /* style */
