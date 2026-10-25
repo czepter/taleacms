@@ -3,6 +3,13 @@
 // The AI provider of the site tests (#31, Core\Assistant): answers like the Claude API on POST /ai/v1/messages (the tests point
 // TALEA_AI_URL here). The task is recognized by the system prompt; the log keeps what was sent (task, the user's text), never the key.
 // Words in the request steer the answer: "HOSTILE" gives a hostile reply (code, unknown keys, deletions), "GARBAGE" text that is not JSON.
+// GET /ai/v1/models lists two models like the Claude API (Core\Assistant::loadModels).
+if ($path === '/ai/v1/models' && $method === 'GET') {
+    return $reply(200, ['data' => [
+        ['type' => 'model', 'id' => 'fake-model-new', 'display_name' => 'Fake Model New', 'created_at' => '2026-09-01T00:00:00Z'],
+        ['type' => 'model', 'id' => 'fake-model-old', 'display_name' => 'Fake Model Old', 'created_at' => '2025-01-01T00:00:00Z'],
+    ]]);
+}
 if ($path !== '/ai/v1/messages' || $method !== 'POST') {
     return false;
 }

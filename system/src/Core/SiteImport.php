@@ -23,9 +23,10 @@ use Talea\Builder\Style;
  * Users, passwords, keys and tokens are never in an export, so they are never imported; the imported news belong to the
  * administrator who runs the import.
  *
- * Steps (Admin\Modules\Transfer, one step per request): prepare – content.json is split into one file per table (one row per
+ * Steps: prepare – content.json is split into one file per table (one row per
  * line, so even a large export does not need to fit in memory); preview; data – a database backup, emptying the content
- * and the rows in batches; media – files from the archive in batches; done. The state is a file in storage/import.
+ * and the rows in batches; media – files from the archive in batches; done. The state is a file in storage/import. Data and media
+ * run as a background job (work()); while it runs the site shows the maintenance notice and the administration only the progress.
  */
 final class SiteImport
 {
@@ -1059,6 +1060,93 @@ final class SiteImport
             // the search index of the imported news, 200 at a time
         }
         \Talea\Front\Cache::clear();
+    }
+
+    /* ---------- the import as a background job ---------- */
+
+    /** Marks the running import: while it exists, the site answers with the maintenance notice and the administration shows only the progress. */
+    private const string RUNNING = WpFile::FOLDER . '/talea-running';
+
+    /** The export being imported right now, null = none. */
+    public static function running(): ?string
+    {
+        $file = is_file(self::RUNNING) ? trim((string) @file_get_contents(self::RUNNING)) : '';
+
+        return $file !== '' && is_file(self::stateFile($file)) ? $file : null;
+    }
+
+    /**
+     * Confirmation in the preview: the import becomes the site's background job. The person who confirmed it owns the imported news.
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function start(array $state, int $admin): void
+    {
+        $state['phase'] = 'data';
+        $state['admin'] = $admin;
+        $state['error'] = '';
+        self::saveState($state);
+        file_put_contents(self::RUNNING, (string) $state['file'], LOCK_EX);
+    }
+
+    /**
+     * Runs the batches of the running import until it is done, fails or the budget is used up; the rest waits for the next
+     * call (after an admin response, Scheduler on cron and visits). One run at a time: a file lock. A failure stops the import
+     * and ends the lock of the site – the backup made by the first batch is the way back.
+     */
+    public static function work(App $app, float $seconds): string
+    {
+        $file = self::running();
+        if ($file === null) {
+            @unlink(self::RUNNING);
+
+            return 'not running';
+        }
+        $lock = fopen(WpFile::folder() . '/import.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+            return 'busy';
+        }
+        $state = self::loadState($file);
+        try {
+            $end = microtime(true) + $seconds;
+            $import = new self($app->db(), $app->settings(), (int) ($state['admin'] ?? 0));
+            while ($state !== null && in_array($state['phase'], ['data', 'media'], true) && microtime(true) < $end) {
+                $state['phase'] === 'data' ? $import->importData($state) : $import->importMedia($state);
+                self::saveState($state);
+            }
+            if ($state !== null && $state['phase'] === 'done') {
+                self::cleanUp($file);
+                \Talea\Admin\ChangeLog::write($app, 'transfer', 'import of a Talea export', $file);
+            }
+        } catch (\Throwable $e) {
+            $state ??= self::newState($file);
+            $state['error'] = $e->getMessage();
+            self::saveState($state);
+        } finally {
+            if ($state === null || !in_array($state['phase'], ['data', 'media'], true) || ($state['error'] ?? '') !== '') {
+                @unlink(self::RUNNING);
+            }
+            flock($lock, LOCK_UN);
+        }
+
+        return $state === null ? 'state missing' : trim($state['phase'] . ' ' . ($state['error'] ?? ''));
+    }
+
+    /** After an admin response (admin.php): the import goes on without the browser waiting; the session is closed first, so the next page does not wait for it. */
+    public static function afterResponse(App $app): void
+    {
+        if (self::running() === null) {
+            return;
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+        ignore_user_abort(true);
+        @set_time_limit(0);
+        self::work($app, 3600.0); // ponytail: one process for up to an hour; a longer import is picked up by the next admin request or cron
     }
 
     /** Removes the working folder of a finished import (the export file itself stays). */

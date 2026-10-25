@@ -114,9 +114,14 @@
 	// Parsed in the inert document behind <template>: in the admin page itself a pasted <img onerror> would load and run before
 	// sanitize() removed it. Not createHTMLDocument(): Chromium loads images there, so the handler fires (CSP only blocks it).
 	var inert = document.createElement('template').content.ownerDocument;
+	// Chromium checks the admin's CSP for every on…= attribute it parses, even in the inert document (and reports a violation);
+	// inside a tag they are renamed first. Not a filter: sanitize() keeps only the attributes it allows, so they go anyway.
+	function defuse(html) {
+		return String(html).replace(/<[a-z][^>]*>/gi, function (tag) { return tag.replace(/([\s"'\/])on([a-z]+\s*=)/gi, '$1data-defused-on$2'); });
+	}
 	function cleanOnce(html, strict, keepEmpty) {
 		var box = inert.createElement('div');
-		box.innerHTML = html;
+		box.innerHTML = defuse(html);
 		sanitize(box, strict);
 		if (!keepEmpty) { tidy(box); }
 		return box.innerHTML.trim();
