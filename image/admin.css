@@ -225,7 +225,7 @@ body:not(.login) {
 	font-size: 14px;
 	color: var(--text-weak);
 }
-.menu-sub li.active a {
+.menu-sub li.active > a {
 	color: var(--text);
 	font-weight: 600;
 }
@@ -295,6 +295,10 @@ body:not(.login) {
 .menu-settings .menu-sub {
 	margin: 2px 0 0;
 	padding: 0;
+}
+.menu-settings .menu-sub .menu-sub { /* the pages of Analytics, one per service */
+	margin: 0 0 4px;
+	padding-inline-start: 12px;
 }
 .menu-foot {
 	display: flex;
@@ -2017,3 +2021,18 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .stats-experiments li + li { border-top: 1px solid var(--line); }
 .stats-experiments a { text-decoration: none; }
 
+/* ---------- Settings → Analytics (views/admin/settings/analytics.php): the overview, a service's page, the wizard ---------- */
+.analytics-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin: 0 0 24px; }
+.analytics-head p { flex: 1 1 360px; margin: 0; color: var(--text-weak); }
+.analytics-group + .analytics-group { margin-top: 28px; }
+.analytics-group > .help { margin: -8px 0 12px; }
+.analytics-group table.listing td.cell-main { min-width: 140px; }
+.analytics-group table.listing .analytics-runs { min-width: 180px; }
+.analytics-group table.listing .tag { white-space: normal; } /* "After consent to analytics or marketing" wraps rather than pushing the button out */
+.analytics-group .onboarding-choice .status { font-size: 13px; }
+.analytics-path { margin: 0 0 8px; font-size: 13px; color: var(--text-weak); }
+.analytics-path a { color: inherit; }
+.analytics-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 20px; }
+.analytics-title { margin: 20px 0 10px; font-size: 15px; font-weight: 700; }
+.analytics-changes { margin: 0 0 24px; padding-inline-start: 20px; display: grid; gap: 6px; }
+.form:has(input[name="hosting"][value="cloud"]:checked) .analytics-own { display: none; } /* Plausible or Umami at the provider: no address */

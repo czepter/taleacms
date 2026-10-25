@@ -131,7 +131,22 @@ class Settings extends Module
         $names = array_map(fn (string $key): string => preg_match('/\$field\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => $errors, 'values' => $given]);
 
-        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
+        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', $this->tabParams($tab), 'error');
+    }
+
+    /**
+     * Where a save returns to: the tab, and on the analytics tab the service's page (and the wizard step) it came from.
+     *
+     * @return array<string, string>
+     */
+    private function tabParams(string $tab): array
+    {
+        if (static::IDENT !== 'settings') {
+            return [];
+        }
+        $service = $tab === 'analytics' ? \Talea\Admin\AnalyticsServices::resolve($this->request->post('service')) : '';
+
+        return ['tab' => $tab] + ($service !== '' ? ['service' => $service] : []) + ($service !== '' && $this->request->post('connect') === '1' ? ['connect' => '1'] : []);
     }
 
     /** Settings and the screens built on it (Features, Business details, Claude settings, System status) share the templates in admin/settings/. */
@@ -166,6 +181,10 @@ class Settings extends Module
 
         return $this->view('list', static::IDENT === 'settings' ? (self::TABS[$tab] ?? 'Settings') : 'Settings', [
             'tab' => $tab,
+            // the analytics tab (Admin\AnalyticsServices): the overview, a service's page, the wizard's steps
+            'service' => $tab === 'analytics' ? \Talea\Admin\AnalyticsServices::resolve($this->request->get('service')) : '',
+            'connecting' => $this->request->get('connect') === '1',
+            'connected' => $this->request->get('connected') === '1',
             'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
@@ -216,17 +235,30 @@ class Settings extends Module
         $zoneBefore = $settings->get('time_zone');
         $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $refused = null;
+        $override = []; // values saved instead of what the form sent
+        if ($tab === 'analytics' && $this->request->postBool('disconnect')) {
+            // "Disconnect" on a service's page empties its fields
+            foreach (\Talea\Admin\AnalyticsServices::services(\Talea\Admin\AnalyticsServices::resolve($this->request->post('service'))) as $service) {
+                foreach (array_keys(\Talea\Admin\AnalyticsServices::SERVICES[$service][3]) as $key) {
+                    $override[$key] = $key === 'matomo_id' ? '0' : '';
+                }
+            }
+        }
+        if ($tab === 'analytics' && $this->request->post('hosting') === 'cloud') {
+            // Plausible or Umami at the provider: the address of an own installation goes
+            $override += array_fill_keys(array_intersect(['plausible_url', 'umami_url'], array_keys($_POST)), '');
+        }
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
             // a missing checkbox or list still means "off" / "none"
-            if ($type !== 'flag' && !str_starts_with($type, 'list:') && !array_key_exists($key, $_POST)) {
+            if ($type !== 'flag' && !str_starts_with($type, 'list:') && !array_key_exists($key, $_POST) && !array_key_exists($key, $override)) {
                 continue;
             }
             // "code" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
-            $value = $type === 'code' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+            $value = $override[$key] ?? ($type === 'code' ? (string) ($_POST[$key] ?? '') : $this->request->post($key));
             if (str_starts_with($type, 'list:')) {
                 $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 5)))));
                 continue;
@@ -319,8 +351,12 @@ class Settings extends Module
             return $this->back(t('Settings saved. The time zone changed from %s to %s: dates already saved keep their clock time and are not converted, so check scheduled pages and news.', $zoneBefore, $settings->get('time_zone')), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'info');
         }
 
+        if ($tab === 'analytics' && $errors === [] && $this->request->post('connect') === '1') {
+            return $this->back('', '', $this->tabParams($tab) + ['connected' => '1']); // the wizard's last step says what changed
+        }
+
         return $errors === []
-            ? $this->back('Settings saved.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
+            ? $this->back('Settings saved.', '', $this->tabParams($tab))
             : $this->rejectInvalid($tab, $errors, $given);
     }
 
