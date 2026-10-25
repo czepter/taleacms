@@ -40,10 +40,10 @@ final class ClipboardTest extends TestCase
     public function testSignature(): void
     {
         $key = str_repeat('k', 64);
-        $envelope = ['talea' => 'elements', 'v' => 1, 'site' => 'https://here.example', 'elements' => [['type' => 'custom_html', 'content' => ['code' => '<p>ž</p>'], 'style' => ['base' => ['opacity' => 1.0, 'width' => 0.5]]]], 'classes' => [], 'components' => []];
+        $envelope = ['talea' => 'elements', 'v' => 1, 'site' => 'https://here.example', 'elements' => [['type' => 'custom_html', 'content' => ['code' => '<p>€</p>'], 'style' => ['base' => ['opacity' => 1.0, 'width' => 0.5]]]], 'classes' => [], 'components' => []];
         $envelope['sig'] = ElementClipboard::signature($envelope, $key);
         // the envelope as the browser gives it back: numeric keys first, 1.0 written as 1, other key order
-        $browser = json_decode('{"sig":"' . $envelope['sig'] . '","components":[],"classes":{},"elements":[{"style":{"base":{"width":0.5,"opacity":1}},"content":{"code":"<p>ž</p>"},"type":"custom_html"}],"site":"https://here.example","v":1,"talea":"elements"}', true);
+        $browser = json_decode('{"sig":"' . $envelope['sig'] . '","components":[],"classes":{},"elements":[{"style":{"base":{"width":0.5,"opacity":1}},"content":{"code":"<p>€</p>"},"type":"custom_html"}],"site":"https://here.example","v":1,"talea":"elements"}', true);
         $changed = $browser;
         $changed['elements'][0]['content']['code'] = '<img src=x onerror=alert(1)>';
         $moved = $browser;
