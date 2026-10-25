@@ -189,4 +189,5 @@ and size/time limits, never SVG.
 ## Learned rules
 - Run CI tests against a single database engine instead of both MariaDB and MySQL, since they are considered equivalent.
 - In this project's German UI text, use the term 'AI' instead of 'KI' for the AI assistant.
+- Use prebuilt images instead of build context in the Coolify compose file and all other compose files.
 <!-- end claude-reflect -->

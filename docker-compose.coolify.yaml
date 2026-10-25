@@ -1,10 +1,10 @@
 # Talea on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify.yaml.
 # Coolify fills the SERVICE_* magic variables: the domain (set it on the web service, port 8080) and the database password.
-# Optional: add TALEA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab.
+# Optional: add TALEA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab; TALEA_TAG pins a version (1.4.2, 1.4).
 
 services:
   web:
-    build: .
+    image: ghcr.io/czepter/talea:${TALEA_TAG:-latest}
     restart: unless-stopped
     expose: ["8080"]
     environment:

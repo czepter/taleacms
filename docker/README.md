@@ -2,13 +2,13 @@
 
 ```bash
 # set TALEA_DB_PASSWORD and TALEA_SITE_URL in docker-compose.yaml (or in your environment, e.g. Coolify)
-docker compose up -d --build   # then open the site: it redirects to the installer (site name, administrator)
+docker compose up -d   # then open the site: it redirects to the installer (site name, administrator)
 ```
 
 Services: `web` (FrankenPHP/Caddy, plain HTTP on `:8080` – put your TLS proxy in front, e.g. Traefik/Coolify; it also runs
 `php system/docker.php cron` every 5 minutes = the `/tasks` jobs) and `db` (MySQL 8.4; MariaDB 11.4+ works too, 10.x lacks the collation `utf8mb4_0900_ai_ci`).
 The database comes from the environment; the web installer (`/install.php`) asks only for the site and the administrator, creates the tables and
-leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull/build && up -d`);
+leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull && docker compose up -d`);
 the entrypoint applies pending database migrations (`php bin/migrate --if-installed`) before the server starts; migrations never run on a page request. A site never updates itself and never asks for new versions.
 
 Volumes: `/app/storage` (logs, cache, backups), `/app/media` (uploads), `/app/extensions` (add-ons). Bind mounts must be owned by uid 33 (www-data).
