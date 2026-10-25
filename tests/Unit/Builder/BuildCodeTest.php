@@ -43,8 +43,20 @@ final class BuildCodeTest extends TestCase
             \Talea\Builder\Build::code('<style>p{color:red}' . str_repeat(' ', 600_000) . '</style>'),
             \Talea\Builder\Build::code('<style>p::before{content:"/* not a comment */"}</style>'),
         ], 'Build::code: a comment opener inside a string hides no escaped payload; oversized CSS goes; harmless CSS stays');
-        $plain = new \ReflectionMethod(\Talea\Builder\Build::class, 'cssPlain');
-        $this->assertSame([null, 'a{b:url(x)}', 'p{content:"/*"}'], [$plain->invoke(null, "p{color:\xff}"), $plain->invoke(null, 'a{b:/* c */\\75 rl(x)}'), $plain->invoke(null, 'p{content:"/*"}')],
-            'Build::cssPlain: invalid UTF-8 cannot be read (null = removed); comments go, escapes are decoded, strings are kept');
+        $views = new \ReflectionMethod(\Talea\Builder\Build::class, 'cssViews');
+        $this->assertSame([null, ['a{b:/* c */\\75 rl(x)}', 'a{b:/* c */url(x)}', 'a{b:url(x)}', 'a{b:url(x)}'], 'p{content:"/*"}'],
+            [$views->invoke(null, "p{color:\xff}"), $views->invoke(null, 'a{b:/* c */\\75 rl(x)}'), $views->invoke(null, 'p{content:"/*"}')[2]],
+            'Build::cssViews: invalid UTF-8 cannot be read (null = removed); the views decode escapes, drop comments, keep strings');
+    }
+
+    /** every CSS line break ends a string, and a "/*" inside an unquoted url( is no comment – each reading is checked */
+    public function testCssLineBreaksAndUnquotedUrlsHideNothing(): void
+    {
+        $this->assertSame(['<div>f</div>', '<div>r</div>', '<div>u</div>', '<div style="background:url(/a/*.png)">ok</div>'], [
+            \Talea\Builder\Build::code("<div style='a:\"x\f; b:\"/*\"; background:\\75 rl(javascript:alert(1)); c:\"*/\"'>f</div>"),
+            \Talea\Builder\Build::code("<div style='a:\"x\r; b:\"/*\"; background:\\75 rl(javascript:alert(1)); c:\"*/\"'>r</div>"),
+            \Talea\Builder\Build::code('<div style="background:url(/*);background:\\75 rl(javascript:alert(1));y:url(*/)">u</div>'),
+            \Talea\Builder\Build::code('<div style="background:url(/a/*.png)">ok</div>'),
+        ], 'Build::code: a string ended by \\f or \\r and a "/*" inside url( hide no escaped payload; a harmless url stays');
     }
 }
