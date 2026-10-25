@@ -24,4 +24,11 @@ final class SecurityHardeningTest extends TestCase
         $this->assertSame([null, null, 'prices', ['children[0].anchor', 'children[1].anchor']], [$build['children'][0]['anchor'] ?? null, $build['children'][1]['anchor'] ?? null,
             $build['children'][2]['anchor'] ?? null, array_keys($errors)], 'Build::sanitize: an anchor the site frame uses is left out and reported');
     }
+
+    /** an uploaded SVG keeps no XML comments: inlined into HTML, a comment can turn into markup */
+    public function testSvgLosesItsComments(): void
+    {
+        $svg = (string) \Talea\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg"><!--><img src=x onerror=alert(1)>--><g><!-- note --><path d="M0 0h1"/></g></svg>');
+        $this->assertSame([false, false, true], [str_contains($svg, '<!--'), str_contains($svg, 'onerror'), str_contains($svg, '<path d="M0 0h1"/>')], 'Svg::sanitize drops comments, the drawing stays');
+    }
 }
