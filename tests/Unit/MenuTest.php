@@ -18,6 +18,12 @@ final class MenuTest extends TestCase
             ['text' => 'Úvod', 'url' => '/', 'new_window' => false, 'children' => []], // check-english: allow
             ['text' => 'Služby', 'url' => '', 'new_window' => false, 'children' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'new_window' => false, 'children' => []]]], // check-english: allow
         ], '/kuchyne/detail', '/'), 'Menu::html: submenu, active item and branch, home only by exact match'); // check-english: allow
+        // a link with a fragment is never the current page: on the home page "/#products" matched the path "/" (every anchor underlined)
+        $anchors = [
+            ['text' => 'Home', 'url' => '/', 'new_window' => false, 'children' => []], ['text' => 'Products', 'url' => '/#products', 'new_window' => false, 'children' => []],
+            ['text' => 'Prices', 'url' => '/services#prices', 'new_window' => false, 'children' => []], ['text' => 'Contact', 'url' => '#contact', 'new_window' => false, 'children' => []],
+        ];
+        $this->assertSame([1, 0], array_map(fn (string $path): int => substr_count(\Talea\Core\Menu::html($anchors, $path, '/'), 'aria-current'), ['/', '/services']), 'Menu::html: a link with a fragment is never aria-current, the page itself still is');
         // 2.7: icons and descriptions of menu items, a group inside a submenu with its own items (a column of the mega menu)
         $this->assertSame([
             ['type' => 'link', 'text' => 'Kontakt', 'icon' => 'phone', 'description' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'new_window' => false], // check-english: allow
