@@ -134,7 +134,10 @@ final class Users extends Module
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
                 if (isset($data['password'])) {
-                    \Talea\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections
+                    // a new password ends the user's Claude connections and personal tokens: an administrator sets one when the
+                    // account may be in the wrong hands, and a token would outlive the old password
+                    \Talea\Front\OAuth::revokeConnections($this->db, $id);
+                    $this->db->delete('api_tokens', ['user_id' => $id, 'kind' => 'token']);
                 }
             } else {
                 $id = $this->db->insert('users', $data);
