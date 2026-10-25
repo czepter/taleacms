@@ -401,6 +401,24 @@ h3.center {
 .header-pages h1 {
 	margin: 0;
 }
+/* on a wide screen the heading stays on top while the page scrolls, with the Save row of an edit form (admin.js: .page-save);
+   a line under it once the page has moved */
+.page-save { display: none; }
+@media (min-width: 861px) {
+	.header-pages {
+		position: sticky;
+		top: 0;
+		z-index: 6;
+		margin: -12px 0 8px;
+		padding: 12px 0;
+		background: var(--base);
+		animation: header-pages-stuck linear both;
+		animation-timeline: scroll();
+		animation-range: 0 24px;
+	}
+	.page-save { display: contents; }
+}
+@keyframes header-pages-stuck { to { box-shadow: 0 1px 0 var(--line); } }
 /* a list's count next to the heading and its buttons on the right (docs/specs/admin-lists.md) */
 .page-title {
 	display: flex;
@@ -1101,7 +1119,8 @@ form.center.small-text .btn {
 }
 /* Delete on an edit page sits apart from Save and Cancel, at the end of the row */
 .form .buttons .buttons-end { margin-left: auto; }
-.form .buttons .btn + .btn {
+.form .buttons .btn + .btn,
+.page-save .btn + .btn {
 	background: var(--surface);
 	border-color: var(--line-field);
 	color: var(--text);
