@@ -6,7 +6,8 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd { display: grid; grid-template: "lista lista" auto "platno pravy" 1fr / 1fr 320px; height: 100vh; height: 100dvh; }
 .bd:not(.bd-left-open) > .bd-left { display: none; }
 .bd[hidden] { display: none; }
-.bd button, .bd input, .bd select, .bd textarea { font: inherit; color: inherit; }
+.bd button, .bd input, .bd select, .bd textarea,
+.bd-dialog button, .bd-dialog input, .bd-dialog select, .bd-dialog textarea { font: inherit; color: inherit; } /* the dialogs live on <body>, outside .bd */
 
 /* top bar */
 .bd-bar { grid-area: lista; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface); }
