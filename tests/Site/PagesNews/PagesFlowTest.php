@@ -333,4 +333,34 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertSame(200, $this->pageAction('build_class', $idv, ['name' => 'panel', 'new_name' => 'panel-services'])->status, 'class rename');
         $this->assertSame('1', (string) $site->value('SELECT build LIKE \'%"panel-services"%\' AND build NOT LIKE \'%"panel"%\' FROM tl_pages WHERE page_id = ?', [$idv]), 'the renamed class in the builds');
     }
+
+    // ---- the page cache warms itself after a change and empties on a new day (Front\Cache::maintain)
+
+    public function testPageCacheIsWarmedAfterAChangeAndEmptiedOnANewDay(): void
+    {
+        $site = $this->site();
+        $boot = '$app = Talea\\Core\\App::boot(); $app->request->setOrigin($app->settings()->get("site_url")); $app->applyTimezone(); ';
+        $maintain = fn (): string => $site->php($boot . 'echo Talea\\Front\\Cache::maintain($app, 20.0);');
+        $generation = $site->path('storage/cache/pages/generation');
+
+        $site->exec('UPDATE tl_news SET announced_at = NOW() WHERE announced_at IS NULL'); // announcing a news item clears the cache (a visit runs the jobs)
+        $site->php($boot . 'Talea\\Front\\Cache::clear();');
+        $this->assertSame('nothing to warm', $maintain(), 'within five minutes of the last change nothing is warmed');
+        $this->assertSame(0, $this->cachedPages());
+
+        touch($generation, time() - 360);
+        $this->assertMatchesRegularExpression('/^warmed ([1-9]\d*), \1 of \1$/', $maintain(), 'five minutes after the last change the sitemap addresses are requested');
+        $this->assertGreaterThan(0, $this->cachedPages(), 'the warmed pages are in the cache');
+        $this->assertSame('warm', $maintain(), 'a warmed generation is not warmed again');
+        $this->assertSame('talea', $this->visitor()->get('/')->headers['x-cache'] ?? '', 'the home page comes from the cache');
+
+        file_put_contents($generation, '2000-01-01 0123456789abcdef');
+        $this->assertSame('new day, cleared', $maintain(), 'a generation of another day empties the cache');
+        $this->assertSame(0, $this->cachedPages());
+
+        $site->php($boot . 'Talea\\Front\\Cache::load($app); Talea\\Front\\Cache::save($app, "<p>built</p>", null);');
+        $this->assertSame(1, $this->cachedPages(), 'a page built without a change in between is saved');
+        $site->php($boot . 'Talea\\Front\\Cache::load($app); Talea\\Front\\Cache::clear(); Talea\\Front\\Cache::save($app, "<p>old</p>", null);');
+        $this->assertSame(0, $this->cachedPages(), 'a page built across a change is not saved: it may show the old state');
+    }
 }

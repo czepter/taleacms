@@ -64,5 +64,6 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 | `TALEA_SITE_URL` | request host | Public URL, e.g. `https://example.com` (**set it**, used in e-mails/links) |
 | `TALEA_BACKUP_BEFORE_MIGRATE` | on | `0` skips the database backup that precedes pending migrations on start |
 | `TALEA_CRON` | on | `0` on every replica but one: the background-job loop must run once |
+| `TALEA_INTERNAL_URL` | `http://127.0.0.1:8080` | Where the background loop reaches this container's own server to warm the page cache |
 
 SMTP is configured in the admin (Settings → Mail).
