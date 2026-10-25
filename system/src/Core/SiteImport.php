@@ -802,6 +802,7 @@ final class SiteImport
 
         return $name !== '' ? ['collection_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 110),
             'fields' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
+            'admin_menu' => (int) (!array_key_exists('admin_menu', $r) || !empty($r['admin_menu'])), // an older export has no such column: in the menu, as after the upgrade
             'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
             'preset' => \Talea\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
             'schema_org' => ($schema = \Talea\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null

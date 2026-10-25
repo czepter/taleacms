@@ -229,6 +229,43 @@ body:not(.login) {
 	color: var(--text);
 	font-weight: 600;
 }
+/* the collections in the menu (#158): a group under an overline heading, after the sections and before AI */
+.menu-collections {
+	margin-top: 14px;
+}
+.menu-collections .menu-sub {
+	margin: 2px 0 0;
+	padding: 0;
+}
+/* what waits in a module (new enquiries, bookings to confirm) at the end of its item; on a phone a dot on the Menu button */
+.menu-count {
+	display: inline-block;
+	min-width: 20px;
+	margin-inline-start: 6px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--on-accent);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 20px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+.header:has(.menu-count) .menu-switch {
+	position: relative;
+}
+.header:has(.menu-count) .menu-switch::after {
+	content: "";
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	width: 10px;
+	height: 10px;
+	border: 2px solid var(--base);
+	border-radius: 50%;
+	background: var(--signal);
+}
 .menu-back {
 	display: inline-flex;
 	align-items: center;

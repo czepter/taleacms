@@ -176,6 +176,27 @@ final class Kernel
         return $sections;
     }
 
+    /**
+     * What waits for someone, shown next to its menu item: new enquiries (spam left out, as in their list) and bookings to
+     * confirm that have not ended yet. One query per page through indexes, only for the modules the person may open.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open (modules())
+     * @return array<string, int> ident => count, only counts above 0
+     */
+    public static function waiting(App $app, array $modules): array
+    {
+        $counts = array_intersect_key([
+            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam')",
+            'bookings' => "(SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW())",
+        ], $modules);
+        if ($counts === []) {
+            return [];
+        }
+        $row = (array) $app->db()->one('SELECT ' . implode(', ', array_map(fn (string $ident, string $count): string => $count . ' AS ' . $ident, array_keys($counts), $counts)));
+
+        return array_filter(array_map(intval(...), $row));
+    }
+
     /** HTML a screen puts into the sidebar instead of the menu (Website mode: the page tree); '' = the menu. */
     public string $sidebar = '';
 

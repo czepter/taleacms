@@ -231,6 +231,11 @@ previous version in the **Item history** (the last 20), one click brings it back
 product, an event or a question with an answer – and which fields fill the properties (price, job title, start…).
 Item pages then carry schema.org data next to your company details. An offer needs a price field and a currency.
 
+**In the admin menu:** every collection with *Show in the admin menu* (in its settings, on by default) has its own link in
+the main menu under the heading **Collections** – at most 8, by name – so its items are one click away from every screen;
+the others are in Content → Collections. Ctrl/⌘ K finds every collection by its name. The list of items filters by
+language version and by each choice field.
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
@@ -256,7 +261,9 @@ receiver check that the call came from your site. The **delivery log** shows eve
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
 
-Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
+Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. The main menu
+shows how many new enquiries (and bookings waiting for a confirmation) there are next to the item; on a phone a dot on the
+Menu button says something waits. When the form is on the
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
 in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
