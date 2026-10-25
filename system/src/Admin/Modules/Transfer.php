@@ -641,10 +641,7 @@ final class Transfer extends Module
         return $this->back('The file has been deleted. The imported content stays on the site.');
     }
 
-    /**
-     * Preview, progress and result of the import. GET only shows; POST (the form submits itself) does one batch under
-     * a lock, so two browser windows never import at the same time.
-     */
+    /** Preview, progress and result of the import; the import itself runs in the background (SiteImport::work). */
     protected function actionTalea(): Response
     {
         $file = $this->request->isPost() ? $this->request->post('file') : $this->request->get('file');
@@ -652,32 +649,11 @@ final class Transfer extends Module
         if ($state === null) {
             return $this->back('The file does not exist.', type: 'error');
         }
-        $error = '';
-        if ($this->request->isPost() && in_array($state['phase'], ['data', 'media'], true)) {
-            $lock = fopen(WpFile::folder() . '/import.lock', 'c');
-            if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
-                try {
-                    @set_time_limit(60);
-                    $state = SiteImport::loadState($file) ?? $state;
-                    $import = new SiteImport($this->db, $this->app->settings(), (int) $this->app->auth()->id());
-                    $state['phase'] === 'data' ? $import->importData($state) : $import->importMedia($state);
-                    if ($state['phase'] === 'done') {
-                        SiteImport::cleanUp($file);
-                        \Talea\Admin\ChangeLog::write($this->app, 'transfer', 'import of a Talea export', $file);
-                    }
-                } catch (\RuntimeException $e) {
-                    $error = self::message($e);
-                } finally {
-                    SiteImport::saveState($state);
-                    flock($lock, LOCK_UN);
-                }
-            }
-        }
 
-        return $this->view('talea', 'Import from Talea', ['state' => $state, 'error' => $error, 'siteContent' => SiteImport::siteContent($this->db)]);
+        return $this->view('talea', 'Import from Talea', ['state' => $state, 'siteContent' => SiteImport::siteContent($this->db)]);
     }
 
-    /** Confirmation in the preview: the import starts (the first batch backs up the database and empties the content). */
+    /** Confirmation in the preview: the import starts in the background (the first batch backs up the database and empties the content). */
     protected function actionTaleaRun(): Response
     {
         $file = $this->request->post('file');
@@ -688,8 +664,7 @@ final class Transfer extends Module
         if (!SiteImport::siteContent($this->db)['empty']) {
             return $this->back('The site already has its own content. A Talea export can be imported only into a new, empty site.', 'talea', ['file' => $file], 'error');
         }
-        $state['phase'] = 'data';
-        SiteImport::saveState($state);
+        SiteImport::start($state, (int) $this->app->auth()->id());
 
         return $this->back('', 'talea', ['file' => $file]);
     }

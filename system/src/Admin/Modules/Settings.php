@@ -81,8 +81,10 @@ class Settings extends Module
         'reports' => ['report_monthly' => 'flag', 'report_recipients' => 'emails'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
-        'extensions' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#',
-            'newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
+        'extensions' => [], // the switches are saved by Extensions::save (actionSave)
+        // the writing assistant and the newsletter connection have their own screens (Modules\AssistantSettings, Modules\NewsletterSettings)
+        'assistant' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#'],
+        'newsletter' => ['newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
             'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
@@ -274,8 +276,22 @@ class Settings extends Module
             if (Extensions::isEnabled($settings, 'news')) {
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
-            if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous')) && $settings->get('ai_key') !== '' && ($keyError = (new \Talea\Core\Assistant($settings))->verifyKey()) !== null) {
-                return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
+        }
+        if ($tab === 'assistant') {
+            $providerChanged = $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous');
+            if ($settings->get('ai_key') === '') {
+                $settings->set('ai_models', ''); // a removed key: the list it loaded goes too
+            } elseif ($this->request->post('ai_key') !== '' || $providerChanged || $this->request->postBool('reload_models')) {
+                // a new key, another provider or the reload button: the provider's model list, which also checks the key
+                $assistant = new \Talea\Core\Assistant($settings);
+                try {
+                    $models = array_column($assistant->loadModels(), 'id');
+                } catch (\RuntimeException $e) {
+                    return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($e->getMessage())), '', [], 'error');
+                }
+                if (!in_array($settings->get('ai_model'), $models, true)) {
+                    $settings->set('ai_model', $models[0]); // the model of the previous provider (or none yet): the newest of this one
+                }
             }
         }
         if ($tab === 'company') {
