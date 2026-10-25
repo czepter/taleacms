@@ -456,7 +456,7 @@ final class Kernel
         $db = $this->app->db();
 
         return isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
-            'connected' => \Talea\Core\AskClaude::connected($db),
+            'connected' => \Talea\Core\AskClaude::connected($db, $this->app->settings()),
             'examples' => \Talea\Core\AskClaude::examples($modules),
             'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Talea\Core\AskClaude::routine($db),
@@ -500,7 +500,7 @@ final class Kernel
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Talea\Core\Extensions::isEnabled($s, 'claude')) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db)]);
+                'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db, $s)]);
         }
         $skipped = $this->skippedFirstSteps();
         $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3] || in_array($k[0], $skipped, true),

@@ -32,6 +32,14 @@ final class OAuth
     // lasts an hour and every refresh rotates the refresh token. A new password ends the connections (revokeConnections()).
     public const int REFRESH_LIFETIME = 365 * 86400;
     private const int CODE_LIFETIME = 600;
+
+    /**
+     * At most this many refreshes of one connection (client + account) within REFRESH_WINDOW seconds (#154): the Claude app
+     * refreshes about once an hour, so thirty leave room for restarts and several devices and stop only a loop. Over the
+     * limit the answer is 429 slow_down with Retry-After; the refresh token stays valid.
+     */
+    public const int REFRESH_LIMIT = 30;
+    public const int REFRESH_WINDOW = 3600;
     private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/';
 
     /** One name for each access level: the consent screen, My account, Claude settings and Users say the same (translated with t() where shown). */
@@ -227,16 +235,25 @@ final class OAuth
             if ($refresh === null || $refresh['client_id'] !== $clientId || (string) $refresh['expires_at'] < $now) {
                 return $this->error('invalid_grant', 'The refresh token is invalid or expired – connect the application again.');
             }
+            if (Antispam::tally($clientId . '|' . $refresh['user_id'], 'oauth-refresh', self::REFRESH_WINDOW) > self::REFRESH_LIMIT) {
+                return $this->json(['error' => 'slow_down', 'error_description' => 'Too many token refreshes for this connection – try again later.'], 429,
+                    ['Retry-After' => (string) (self::REFRESH_WINDOW - time() % self::REFRESH_WINDOW)]); // the counter starts again with the next window
+            }
+            // the new pair keeps the connection's last served call (Core\ClaudeConnection): a refresh is not a call
+            $used = \Talea\Core\ClaudeConnection::lastUse($db, (int) $refresh['user_id'], $clientId);
             $db->delete('api_tokens', ['token_id' => (int) $refresh['token_id']]); // rotation: the old refresh token ends
 
-            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set']); // the access and the tool set chosen at consent (or switched in My account) stay
+            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set'], $used); // the access and the tool set chosen at consent (or switched in My account) stay
         }
 
         return $this->error('unsupported_grant_type', 'Only authorization_code and refresh_token are supported.');
     }
 
-    /** @param array<string, mixed> $client */
-    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet): Response
+    /**
+     * @param array<string, mixed> $client
+     * @param string|null $used the last call a refresh carries over to the new refresh row, null for a new connection
+     */
+    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet, ?string $used = null): Response
     {
         $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = FALSE', [$idu]);
         if ($user === null) {
@@ -246,7 +263,8 @@ final class OAuth
         $refresh = 'talea_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'access', self::ACCESS_LIFETIME], [$refresh, 'refresh', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
-                'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
+                'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
+                'used_at' => $kind === 'refresh' ? $used : null]);
         }
         // cleanup of expired tokens and codes
         $db->run("DELETE FROM {api_tokens} WHERE kind <> 'token' AND expires_at < ?", [date('Y-m-d H:i:s')]);
@@ -313,10 +331,11 @@ final class OAuth
         return ['Access-Control-Allow-Origin' => '*'];
     }
 
-    private function json(array $data, int $status = 200): Response
+    /** @param array<string, string> $headers extra headers (Retry-After) */
+    private function json(array $data, int $status = 200, array $headers = []): Response
     {
         return new Response((string) json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $status,
-            ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'] + self::cors());
+            ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'] + $headers + self::cors());
     }
 
     private function error(string $code, string $description, int $status = 400): Response
