@@ -1,16 +1,16 @@
 <?php
 /**
- * Import of a Talea export (1.8): preview, progress in batches and the result. Until it is done, the form submits
- * itself (data-auto-submit in image/admin.js) – each submission is one batch.
+ * Import of a Talea export (1.8): preview, progress and the result. The import runs in the background (Core\SiteImport::work);
+ * until it is done, the page reloads itself (data-auto-submit in image/admin.js) to show how far it got.
  *
  * @var Talea\Admin\Modules\Transfer $module
  * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state
- * @var string $error  already translated error of the last batch (the import stopped)
  * @var array{empty: bool, pages: int, news: int, items: int, media: int} $siteContent
  */
 $h = $state['header'];
+$error = (string) ($state['error'] ?? ''); // the import stopped
 $counts = $state['counts'];
 $labels = [
     'pages' => 'Pages', 'news' => 'News', 'categories' => 'Categories', 'tags' => 'Tags', 'collections' => 'Collections', 'collection_items' => 'Collection items',
@@ -23,7 +23,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <h2><?= e(t('Import from Talea')) ?></h2>
 <?= $app->view->render('admin/transfer/steps', ['step' => $state['phase'] === 'preview' ? 2 : 3]) ?>
 <?php if ($error !== ''): ?>
-<p class="notice notice-error"><?= e(t('The import has stopped:')) ?> <?= e($error) ?></p>
+<p class="notice notice-error"><?= e(t('The import has stopped:')) ?> <?= e(t($error)) ?></p>
 <?php if ($state['backup'] !== ''): ?>
 <p><?= e(t('The state before the import is in backup %s (Settings → Backups).', $state['backup'])) ?></p>
 <?php endif ?>
@@ -59,22 +59,24 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <form class="form" method="post" action="<?= e($module->url('talea_run')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="file" value="<?= e($state['file']) ?>">
+<p><?= e(t('While the import runs, every visitor sees the maintenance notice and the administration shows only its progress.')) ?></p>
 <p><label><input type="checkbox" name="confirmation" value="1" required> <?= e(t('Replace the content of this site with the export. A database backup is made first.')) ?></label></p>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Import')) ?>"></p>
 </form>
 <?php endif ?>
 <?php elseif ($state['phase'] === 'data' || $state['phase'] === 'media'): ?>
 <?php if ($state['phase'] === 'data'): ?>
-<p class="notice" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', $rowsDone, array_sum($counts))) ?></p>
+<p class="notice" role="status"><?= e(t('Importing: %s of %s items. The import runs on the server – this page only shows how far it got.', $rowsDone, array_sum($counts))) ?></p>
 <progress class="transfer-progress" max="<?= $rowsTotal ?>" value="<?= $rowsDone ?>"></progress>
 <?php else: ?>
-<p class="notice" role="status"><?= e(t('Copying files into media/: %s of %s. Keep this page open, it continues by itself.', (int) $state['media']['saved'] + (int) $state['media']['skipped'], (int) $state['media_total'])) ?></p>
+<p class="notice" role="status"><?= e(t('Copying files into media/: %s of %s. The import runs on the server – this page only shows how far it got.', (int) $state['media']['saved'] + (int) $state['media']['skipped'], (int) $state['media_total'])) ?></p>
 <progress class="transfer-progress" max="<?= max(1, (int) $state['media_total']) ?>" value="<?= (int) $state['media']['saved'] + (int) $state['media']['skipped'] ?>"></progress>
 <?php endif ?>
-<form method="post" action="<?= e($module->url('talea')) ?>" data-auto-submit="400">
-	<?= $csrf ?>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" data-auto-submit="3000">
+	<input type="hidden" name="module" value="transfer">
+	<input type="hidden" name="action" value="talea">
 	<input type="hidden" name="file" value="<?= e($state['file']) ?>">
-	<p><button class="btn" type="submit"><?= e(t('Continue')) ?></button></p>
+	<p><button class="btn" type="submit"><?= e(t('Refresh')) ?></button></p>
 </form>
 <?php else: ?>
 <p class="notice notice-ok"><?= e(t('The site has been imported.')) ?></p>
