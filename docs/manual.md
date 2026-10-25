@@ -322,8 +322,10 @@ filled-in details of the operator.
 (sitemap, canonical URLs, structured data, `llms.txt` for AI search, and every page, news item and collection item as plain Markdown at its address + `.md`, e.g. `/services.md`). Enable further language versions (`/de/…`) under
 **Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages. British English, Austrian German, Brazilian Portuguese and Traditional Chinese are offered as regional versions (`/pt-br/`; search engines get `pt-BR`): they use the texts and number format of their language. An import keeps a regional language unless the site already has that language without the region (an `en_GB` export into an English site stays English).
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
-Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
-site language separately from the admin language.
+Polish, Slovak, Arabic, Portuguese (European, with a Brazilian version), Chinese (Simplified and Traditional) and Hungarian;
+other languages show them in English, with dates in their own format, and Settings says so under the language. Arabic, Hebrew,
+Cyrillic and Greek versions are checked against the fonts: Site appearance and the Site audit warn when the heading or text font
+has no letters for them and name fonts that have. The installer lets you choose the site language separately from the admin language.
 
 German has two forms of address, informal (du) and formal (Sie), chosen separately for the admin and for the site; both are
 "du" unless you choose "Sie". The admin follows each person's choice (**My account → Form of address in German**; the installer
