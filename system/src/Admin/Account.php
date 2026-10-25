@@ -124,12 +124,14 @@ final class Account
                     break;
                 case 'totp_confirm':
                     $secret = (string) $app->session->get('totp_new', '');
-                    if ($secret === '' || !Totp::verify($secret, $r->post('code'))) {
+                    $step = $secret === '' ? null : Totp::step($secret, $r->post('code'));
+                    if ($step === null) {
                         $message = ['error', 'The code does not match. Check the time on your phone and try again.'];
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
-                    $db->update('users', ['totp_secret' => $secret, 'totp_backup_codes' => $json], ['user_id' => $user['user_id']]);
+                    // the confirming code is spent too: it cannot sign in a second time
+                    $db->update('users', ['totp_secret' => $secret, 'totp_backup_codes' => $json, 'totp_last_step' => $step], ['user_id' => $user['user_id']]);
                     $app->session->remove('totp_new');
                     $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the new code
                     ChangeLog::write($app, 'account', 'two_step_on');
