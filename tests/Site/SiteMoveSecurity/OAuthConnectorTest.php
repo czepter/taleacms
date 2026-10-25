@@ -13,6 +13,10 @@ final class OAuthConnectorTest extends SiteTestCase
 {
     private const string REDIRECT_URI = 'https://claude.ai/api/mcp/auth_callback';
 
+    /** The connection the first test made: client id and the refresh token after its rotation (#154). */
+    private static string $client = '';
+    private static string $refresh = '';
+
     private function json(string $path, string $body): \Talea\Tests\Site\Support\Response
     {
         return $this->site()->client()->post($path, $body, ['Content-Type: application/json']);
@@ -76,7 +80,62 @@ final class OAuthConnectorTest extends SiteTestCase
         $viaRefresh = $visitor->post('/mcp', '{"jsonrpc":"2.0","id":1,"method":"tools/list"}', ["Authorization: Bearer $refresh", 'Content-Type: application/json']);
         $this->assertSame(401, $viaRefresh->status, 'the refresh token cannot be used for MCP');
 
-        $this->assertStringContainsString('"access_token"', $token(['grant_type' => 'refresh_token', 'refresh_token' => $refresh, 'client_id' => $client])->body, 'refreshing the token');
+        $this->assertSame(1, (int) $this->site()->value("SELECT COUNT(*) FROM tl_api_tokens WHERE client_id = ? AND kind = 'refresh' AND used_at IS NOT NULL", [$client]), '#154: a served call stamps the refresh row of its connection');
+        $renewed = $token(['grant_type' => 'refresh_token', 'refresh_token' => $refresh, 'client_id' => $client]);
+        $this->assertStringContainsString('"access_token"', $renewed->body, 'refreshing the token');
         $this->assertSame(400, $token(['grant_type' => 'refresh_token', 'refresh_token' => $refresh, 'client_id' => $client])->status, 'the refresh token is replaced after use');
+        self::$client = $client;
+        self::$refresh = (string) ($renewed->json()['refresh_token'] ?? '');
+    }
+
+    /** #154: a refresh is not a call, but it keeps the connection's last served call, so "last used" and the 60-day check see it. */
+    public function testARefreshKeepsTheLastServedCall(): void
+    {
+        $site = $this->site();
+        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM tl_api_tokens WHERE client_id = ? AND kind = 'refresh' AND token_hash = ? AND used_at IS NOT NULL", [self::$client, hash('sha256', self::$refresh)]),
+            '#154: the new refresh row carries the last call of the rotated one');
+        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM tl_api_tokens WHERE token_id = (SELECT MAX(token_id) FROM tl_api_tokens WHERE client_id = ? AND kind = 'access') AND used_at IS NULL", [self::$client]),
+            '#154: the new access token has not been used yet – only a served call sets it');
+    }
+
+    /** #154: a call refused for the missing two-factor sign-in the site requires leaves no trace of use. */
+    public function testARefusedCallIsNotAUse(): void
+    {
+        $site = $this->site();
+        $hash = hash('sha256', $site->mcpToken);
+        $site->exec('UPDATE tl_api_tokens SET used_at = NULL WHERE token_hash = ?', [$hash]);
+        $site->setting('require_2fa', 'everyone');
+        $refused = $site->client('mcp')->post('/mcp', '{"jsonrpc":"2.0","id":1,"method":"tools/list"}', ['Authorization: Bearer ' . $site->mcpToken, 'Content-Type: application/json']);
+        $this->assertSame(403, $refused->status, '#154: the site requires two-factor sign-in the account does not have');
+        $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM tl_api_tokens WHERE token_hash = ? AND used_at IS NOT NULL', [$hash]), '#154: the refused call did not stamp the token');
+        $site->setting('require_2fa', '');
+        $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
+        $this->assertSame(1, (int) $site->value('SELECT COUNT(*) FROM tl_api_tokens WHERE token_hash = ? AND used_at IS NOT NULL', [$hash]), '#154: a served call stamps it');
+    }
+
+    /** #154: the token endpoint renews one connection at most REFRESH_LIMIT times an hour; over it 429 slow_down, the token stays. */
+    public function testTheRefreshLimit(): void
+    {
+        $visitor = $this->site()->client();
+        $refresh = self::$refresh;
+        $refused = null;
+        $renewed = 0;
+        // the first test refreshed once in this window already (or in the previous one, when the hour turned in between)
+        for ($i = 0; $i <= \Talea\Front\OAuth::REFRESH_LIMIT && $refused === null; $i++) {
+            $answer = $visitor->post('/oauth/token', ['grant_type' => 'refresh_token', 'refresh_token' => $refresh, 'client_id' => self::$client]);
+            if ($answer->status === 429) {
+                $refused = $answer;
+            } else {
+                $this->assertSame(200, $answer->status, '#154: a refresh under the limit works: ' . $answer->body);
+                $refresh = (string) ($answer->json()['refresh_token'] ?? '');
+                $renewed++;
+            }
+        }
+        $this->assertNotNull($refused, '#154: the refresh over the limit is refused');
+        $this->assertGreaterThanOrEqual(\Talea\Front\OAuth::REFRESH_LIMIT - 1, $renewed, '#154: the limit leaves room for thirty refreshes an hour');
+        $this->assertSame('slow_down', $refused->json()['error'] ?? '', '#154: the answer over the limit is slow_down');
+        $wait = (int) ($refused->headers['retry-after'] ?? 0);
+        $this->assertTrue($wait >= 1 && $wait <= \Talea\Front\OAuth::REFRESH_WINDOW, "#154: Retry-After says when to try again ($wait)");
+        $this->assertSame(1, (int) $this->site()->value("SELECT COUNT(*) FROM tl_api_tokens WHERE kind = 'refresh' AND token_hash = ?", [hash('sha256', $refresh)]), '#154: the refresh token stays valid over the limit');
     }
 }

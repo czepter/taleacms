@@ -9,11 +9,15 @@
  * @var string $status the filter ('' = all)
  * @var int $open new and in progress together
  * @var bool $claudeOn the Claude connection extension is on
+ * @var array{state: string, pickup: ?string} $claude whether requests reach Claude now (#154)
  * @var array<string, mixed>|null $ask the Ask Claude box (Kernel::askClaude), null without the Claude connection
  */
+use Talea\Core\ClaudeConnection;
 use Talea\Core\Requests;
 
 $kinds = ['done' => 'live', 'new' => 'hidden', 'declined' => 'off'];
+// #154: a new request waiting longer than WAIT_HOURS while nothing picks requests up says so
+$overdue = ClaudeConnection::blocked($claude) ? date('Y-m-d H:i:s', time() - ClaudeConnection::WAIT_HOURS * 3600) : null;
 echo $app->view->render('admin/list/head', ['count' => t('%d open', $open), 'primary' => [$module->url('new'), t('New request')]]);
 ?>
 <?php if ($ask !== null): ?>
@@ -38,7 +42,8 @@ echo $app->view->render('admin/list/head', ['count' => t('%d open', $open), 'pri
 <tr>
 	<td class="cell-main"><div class="cell-text"><span class="cell-row"><a class="cell-title" href="<?= e($detail) ?>"><?= e((string) $r['title']) ?></a><?= $r['attachments'] !== [] ? ' <span class="tag">' . e(t('%d attachments', count($r['attachments']))) . '</span>' : '' ?></span><span class="cell-sub"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></div></td>
 	<td><?= e((string) $r['author']) ?></td>
-	<td><?= $app->view->render('admin/list/status', ['kind' => $kinds[(string) $r['status']] ?? 'planned', 'label' => t(Requests::STATUSES[$r['status']] ?? (string) $r['status'])]) ?></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => $kinds[(string) $r['status']] ?? 'planned', 'label' => t(Requests::STATUSES[$r['status']] ?? (string) $r['status']),
+		'note' => $overdue !== null && $r['status'] === 'new' && (string) $r['created_at'] < $overdue ? t('waiting over %d hours – nothing picks it up', ClaudeConnection::WAIT_HOURS) : null]) ?></td>
 	<td class="cell-weak"><?= e(format_ago((string) $r['created_at'])) ?></td>
 	<td class="cell-weak"><?= e(format_ago((string) $r['updated_at'])) ?></td>
 	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $r['public_id'], 'name' => (string) $r['title'], 'edit' => $detail, 'menu' => [], 'csrf' => $csrf]) ?></td>

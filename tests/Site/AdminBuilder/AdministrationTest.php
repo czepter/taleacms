@@ -65,7 +65,7 @@ final class AdministrationTest extends SiteTestCase
         $this->assertStringNotContainsString('<!--tl-part', $this->site()->client('canvas-visitor')->get('/?build=draft&editor=1')->body, 'canvas marks are for people who may edit the site parts only');
         $this->assertPage('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('/admin/pages/builder/x'), 200, 'Back to the page', message: 'a part opened from a page canvas leads back to it');
         $this->assertStringNotContainsString('evil.example', $this->site()->admin()->get('/admin.php?module=parts&action=builder&type=footer&language=&back=' . rawurlencode('https://evil.example/admin.php?module=pages&action=builder&id='))->body, 'the way back never leads to another site');
-        foreach (['general', 'seo', 'analytics', 'cookies', 'mail', 'webhooks', 'backups'] as $tab) {
+        foreach (['general', 'seo', 'analytics', 'cookies', 'mail', 'reports', 'webhooks', 'backups'] as $tab) {
             $this->assertPage("/admin.php?module=settings&tab=$tab", 200, message: "settings/$tab");
         }
     }

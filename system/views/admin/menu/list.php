@@ -31,7 +31,7 @@ $choice = ['location' => $location, 'language' => $language];
 <form method="post" action="<?= e($module->url('save', $choice)) ?>" class="menu-form" data-menu>
 <?= $csrf ?>
 <input type="hidden" name="items" value="">
-<script type="application/json" data-menu-data><?= json_encode(['items' => $items, 'pages' => $pages, 'icons' => ['' => t('no icon')] + array_map(fn (string $n): string => t($n), Talea\Builder\Icons::options())], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<script type="application/json" data-menu-data><?= json_encode(['items' => $items, 'pages' => $pages, 'icons' => ['' => t('no icon')] + array_map(fn (string $n): string => t($n), Talea\Builder\Icons::options()) + $mediaIcons], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <ol class="menu-editor" data-menu-list></ol>
 <p class="help" data-menu-empty hidden><?= e(t('The menu is empty – add the first item.')) ?></p>
 <fieldset class="menu-add">

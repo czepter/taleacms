@@ -7,12 +7,29 @@ which ships a ZIP for PHP hosting and installs its updates from the administrati
 ## Install
 
 ```bash
-cp docker-compose.yaml compose.yaml        # or use docker-compose.coolify.yaml on Coolify
-docker compose up -d                       # builds the image from source, or set `image:` to a published tag
+cp docker-compose.yaml compose.yaml        # on Coolify: docker-compose.coolify-{mysql,mariadb,postgres}.yaml
+docker compose up -d                       # pulls ghcr.io/czepter/talea; TALEA_TAG pins a version (default latest)
 ```
 
 Open the site and walk through the installer. Configuration is environment variables (`TALEA_*`, every one also as
 `TALEA_<NAME>_FILE` for Docker secrets); nothing inside the image needs editing. The full list is in `docker/README.md`.
+
+## The site's secret
+
+Set `TALEA_SECRET_KEY` (or `TALEA_SECRET_KEY_FILE`) to a random value of at least 32 characters, e.g. `openssl rand -hex 32`
+(`docker-compose.coolify.yaml` generates one). It encrypts the stored connector credentials (OAuth secrets and tokens, API tokens) and
+signs forms, preview and download links and the builder clipboard, each with a key derived from it. Without it the key is the setting
+`secret_key` in the database, so a database dump or backup alone decrypts every credential; System status warns about it.
+
+When the variable is set on a site that still has its key in the database, the first request encrypts the stored credentials again
+under the new key and clears the database key, in one transaction (a failure is logged and leaves everything as it was; the next
+request tries again). Because the signing key changes with it, things signed before the switch stop working once: open forms ask to be
+reloaded, preview and document links must be created again, visitors re-enter page passwords, a builder clipboard copied before is
+pasted without its Custom HTML, and visitors of that day are counted again in the statistics.
+
+**Keep the secret with your backups.** A database restored on another server, or after the variable was changed or removed, cannot
+read the stored credentials without the same `TALEA_SECRET_KEY`: System status then reports them as unreadable. Set the variable the
+database was used with, or connect the services again in Integrations.
 
 ## Update
 
@@ -47,7 +64,7 @@ release). To go back:
 1. stop the containers,
 2. restore the dump from `storage/backups/` taken before the update (Settings → Backups → restore, or the SQL file with
    your MySQL client),
-3. start the previous image tag.
+3. start the previous image tag with the same `TALEA_SECRET_KEY` (see The site's secret).
 
 ## Testing an update end to end
 

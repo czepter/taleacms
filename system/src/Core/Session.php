@@ -6,6 +6,9 @@ namespace Talea\Core;
 
 final class Session
 {
+    /** The name of the session cookie (the cookie table of Core\Privacy lists it). */
+    public const string COOKIE = 'talea';
+
     private bool $started = false;
 
     public function __construct(
@@ -19,7 +22,7 @@ final class Session
         if ($this->started) {
             return;
         }
-        session_name('talea');
+        session_name(self::COOKIE);
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => $this->cookiePath,

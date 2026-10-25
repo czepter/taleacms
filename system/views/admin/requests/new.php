@@ -11,9 +11,15 @@
  * @var array<int, string> $items idp => "collection – item"
  * @var int $maxAttachments
  * @var string $limit the upload limit of the server
+ * @var array{state: string, pickup: ?string, stalled_since: ?string}|null $claude whether the request reaches Claude (#154), null with the Claude connection off
+ * @var array{cadence: string, day: int, time: string, next_due: ?string}|null $routine
+ * @var bool $admin
  */
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('All requests')) ?></a></p>
+<?php if ($claude !== null): ?>
+<?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $claude, 'routine' => $routine, 'admin' => $admin]) ?>
+<?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>" enctype="multipart/form-data">
 <?= $csrf ?>
 <fieldset>

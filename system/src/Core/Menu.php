@@ -62,7 +62,7 @@ final class Menu
                 continue;
             }
             $item = ['type' => $p['type'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
-            if (is_string($p['icon'] ?? null) && $p['icon'] !== '' && isset(Icons::SET[$p['icon']])) {
+            if (is_string($p['icon'] ?? null) && $p['icon'] !== '' && (isset(Icons::SET[$p['icon']]) || self::isMediaIcon($p['icon']))) {
                 $item['icon'] = $p['icon'];
             }
             $description = is_scalar($p['description'] ?? null) ? mb_substr(trim(strip_tags((string) $p['description'])), 0, self::MAX_DESCRIPTION) : '';
@@ -134,6 +134,10 @@ final class Menu
         $convert = function (array $p) use (&$convert, $pages, $url, $app, $withNews): ?array {
             $children = array_values(array_filter(array_map($convert, $p['children'] ?? [])));
             $extra = array_intersect_key($p, ['icon' => 1, 'description' => 1]); // icon and description go along unchanged
+            if (str_starts_with((string) ($extra['icon'] ?? ''), 'media/')) {
+                // an SVG from Media: its address on the site, or nothing once the file is gone
+                $extra['icon'] = self::isMediaIcon($extra['icon']) && is_file(TALEA_ROOT . '/' . $extra['icon']) ? $app->url($extra['icon']) : '';
+            }
             $item = match ($p['type']) {
                 'page' => isset($pages[$p['page_id']])
                     ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['page_id']]['title'], 'url' => $url($pages[$p['page_id']]), 'new_window' => false, 'children' => $children]
@@ -151,9 +155,19 @@ final class Menu
     }
 
     /**
+     * May the icon be this SVG from Media? Only a path under media/: the file was cleaned at upload (Svg::sanitize) and is shown
+     * as an <img>, so it never runs anything. Whether it exists is asked when the menu is shown (items()), so a site import can
+     * bring the menu before its files. The built-in set (Builder\Icons) stays inline.
+     */
+    public static function isMediaIcon(string $icon): bool
+    {
+        return preg_match('#^media/[A-Za-z0-9_./-]{1,200}\.svg$#D', $icon) === 1 && !str_contains($icon, '..');
+    }
+
+    /**
      * List of <li> (without the wrapping <ul>) for the template and the Navigation element. An item with a submenu has the
      * class "submenu" and a nested <ul>; the active link gets aria-current, its parent item the class "active". An icon is an
-     * inline SVG (class menu-icon) before the label. A group inside a submenu with items of its own is a column (class
+     * inline SVG (class menu-icon) before the label, an SVG from Media an <img> with the same class. A group inside a submenu with items of its own is a column (class
      * menu-column): a heading (menu-heading) and its list.
      *
      * @param list<array<string, mixed>> $items from items()
@@ -164,7 +178,8 @@ final class Menu
     public static function html(array $items, string $path, string $root, bool $mega = false): string
     {
         $active = function (string $url) use ($path, $root): bool {
-            if ($url === '' || preg_match('#^[a-z]+:|^\##i', $url)) {
+            // a link with a fragment (/#products, /services#prices) points into a page, it is never the current page itself
+            if ($url === '' || preg_match('#^[a-z]+:|\##i', $url)) {
                 return false;
             }
             $target = rtrim((string) parse_url($url, PHP_URL_PATH), '/');
@@ -172,7 +187,11 @@ final class Menu
             return $target === rtrim($path, '/') || ($target !== rtrim($root, '/') && $target !== '' && str_starts_with($path, $target . '/'));
         };
         $li = function (array $p, int $depth) use (&$li, $active, $mega): string {
-            $icon = ($p['icon'] ?? '') !== '' ? Icons::svg((string) $p['icon'], 'menu-icon') : '';
+            $icon = match (true) {
+                ($p['icon'] ?? '') === '' => '',
+                str_contains((string) $p['icon'], '/') => '<img class="menu-icon" src="' . e((string) $p['icon']) . '" alt="" width="20" height="20">', // an SVG from Media (its address from items())
+                default => Icons::svg((string) $p['icon'], 'menu-icon'),
+            };
             if ($p['children'] !== [] && $depth === 1 && $p['url'] === '') {
                 // a group inside a submenu: a heading with its items under it – a column of the mega menu, a labelled part of a plain submenu
                 return '<li class="menu-column"><span class="menu-heading">' . $icon . e($p['text']) . '</span><ul>' . implode('', array_map(fn (array $d): string => $li($d, 2), $p['children'])) . '</ul></li>';

@@ -89,16 +89,27 @@ final class Privacy
     private const array SET_BY = ['matomo_url' => 'matomo', 'meta_pixel_id' => 'facebook', 'google_ads_id' => 'google-ads', 'linkedin_partner_id' => 'linkedin',
         'tiktok_pixel_id' => 'tiktok', 'microsoft_uet_id' => 'microsoft-ads', 'pinterest_tag_id' => 'pinterest'];
 
-    /** Cookies and storage Talea sets itself – the code is the source of truth, so the list is fixed. */
-    private const array OWN = [
-        ['talea_consent', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
-        ['tl-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
-        ['tl-language', 'The chosen language version (local storage)', 'until removed', 'necessary'],
-        ['tl-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
-        ['tl-x', 'A/B tests: which version of a tested page the visitor sees – written only after they accepted the cookie bar (local storage)', 'until removed', 'statistics'],
-        ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
-        ['tl_remember', 'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors', '30 days', 'necessary'],
-        ['tl_member', 'Member login: keeps a member signed in – only after signing in, never for other visitors', '30 days', 'necessary'],
+    /** How long the cookie bar keeps the visitor's choice and its record id (views/front/cookies.php sets both). */
+    public const int CONSENT_DAYS = 180;
+
+    /**
+     * Cookies and storage Talea sets itself – the code is the source of truth, so the list is fixed: [name, purpose, duration,
+     * category, the number for a %d in the duration]. Names and lifetimes come from the constants the code sets them with; a
+     * name ending in * is a prefix. PrivacyTest checks that every cookie the code sets is here.
+     */
+    public const array OWN = [
+        ['talea_consent', 'Cookie bar: the categories the visitor allowed (cookie)', '%d days', 'necessary', self::CONSENT_DAYS],
+        ['talea_consent_id', 'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)', '%d days', 'necessary', self::CONSENT_DAYS],
+        ['tl-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary', null],
+        ['tl-language', 'The chosen language version (local storage)', 'until removed', 'necessary', null],
+        ['tl-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary', null],
+        ['tl-x', 'A/B tests: which version of a tested page the visitor sees – written only after they accepted the cookie bar (local storage)', 'until removed', 'statistics', null],
+        [Preview::COOKIE, 'Preview of drafts: only for someone who opened a signed preview link (cookie)', 'until the preview link expires, at most %d days', 'necessary', Preview::MAX_MINUTES / 1440],
+        [MediaStaging::COOKIE, 'Preview of drafts: shows the files that wait for approval, only for someone who opened a signed preview link (cookie)', 'until the preview link expires, at most %d days', 'necessary', Preview::MAX_MINUTES / 1440],
+        [PageLock::COOKIE . '*', 'Password-protected page: the page was opened with its password (cookie)', '%d days', 'necessary', PageLock::DAYS],
+        [Session::COOKIE, 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary', null],
+        [Auth::REMEMBER_COOKIE, 'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors', '%d days', 'necessary', Auth::REMEMBER_DAYS],
+        [Members::COOKIE, 'Member login: keeps a member signed in – only after signing in, never for other visitors', '%d days', 'necessary', Members::SESSION_DAYS],
     ];
 
     /** Pages the scan fetches at most – a few published pages are enough to see what the site answers with. */
@@ -115,21 +126,18 @@ final class Privacy
     public static function cookieTable(App $app): array
     {
         $s = $app->settings();
-        $rows = self::ownRows($s, (int) $app->db()->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0);
+        $rows = self::ownRows($s, (int) $app->db()->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0,
+            (int) $app->db()->value("SELECT COUNT(*) FROM {pages} WHERE password_hash <> '' AND deleted_at IS NULL") > 0);
         $found = self::providersIn(self::contentSamples($app), self::settingSamples($s));
         foreach ($found as $key) {
             foreach (self::KNOWN[$key][2] as [$name, $purpose, $duration, $category]) {
                 $rows[] = ['name' => $name, 'provider' => self::KNOWN[$key][0], 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
             }
         }
-        $known = array_map(fn (array $r): string => strtolower(rtrim($r['name'], '*')), $rows);
+        $known = array_column($rows, 'name');
         foreach ((self::lastScan($s)['cookies'] ?? []) as $name) {
             $name = (string) $name;
-            $explained = false;
-            foreach ($known as $prefix) {
-                $explained = $explained || str_starts_with(strtolower($name), $prefix);
-            }
-            if (!$explained) {
+            if (array_filter($known, fn (string $pattern): bool => self::names($pattern, $name)) === []) {
                 $rows[] = ['name' => $name, 'provider' => t('this site'), 'purpose' => t('Set by the server – describe its purpose'), 'duration' => t('see the browser'), 'category' => 'necessary'];
             }
         }
@@ -137,16 +145,29 @@ final class Privacy
         return $rows;
     }
 
+    /**
+     * Does a row name the cookie? Exactly, ignoring case; only a name ending in * is a prefix (_ga_*), so "talea" does not
+     * explain "talea_tracker".
+     */
+    public static function names(string $pattern, string $cookie): bool
+    {
+        $pattern = strtolower($pattern);
+
+        return str_ends_with($pattern, '*') ? str_starts_with(strtolower($cookie), rtrim($pattern, '*')) : strtolower($cookie) === $pattern;
+    }
+
     /** @return list<array{name: string, provider: string, purpose: string, duration: string, category: string}> */
-    private static function ownRows(Settings $s, bool $experiments = false): array
+    private static function ownRows(Settings $s, bool $experiments = false, bool $lockedPages = false): array
     {
         $rows = [];
-        foreach (self::OWN as [$name, $purpose, $duration, $category]) {
+        $consent = $s->get('cookies_mode') === 'builtin';
+        foreach (self::OWN as [$name, $purpose, $duration, $category, $number]) {
             if (($name === 'tl-theme' && !$s->bool('theme_switcher')) || ($name === 'tl-accessibility' && !$s->bool('accessibility_toolbar'))
-                || ($name === 'tl_member' && !Extensions::isEnabled($s, 'members')) || ($name === 'tl-x' && !$experiments) || ($name === 'talea_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'tl-language' && Language::additional($s) === [])) {
+                || ($name === Members::COOKIE && !Extensions::isEnabled($s, 'members')) || ($name === 'tl-x' && !$experiments) || ($name === 'talea_consent' && !$consent)
+                || ($name === 'talea_consent_id' && (!$consent || !$s->bool('cookies_log'))) || ($name === PageLock::COOKIE . '*' && !$lockedPages) || ($name === 'tl-language' && Language::additional($s) === [])) {
                 continue;
             }
-            $rows[] = ['name' => $name, 'provider' => 'Talea', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
+            $rows[] = ['name' => $name, 'provider' => 'Talea', 'purpose' => t($purpose), 'duration' => $number === null ? t($duration) : t($duration, $number), 'category' => $category];
         }
 
         return $rows;

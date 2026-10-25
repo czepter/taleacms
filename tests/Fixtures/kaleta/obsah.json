@@ -7,7 +7,7 @@
 "kategorie":[{"idt":4,"nazev":"Fixture category","seo_link":"fixture-category","popis":"","hodnost":100,"jazyk":"","preklad_z":null}],
 "stitky":[{"ids":9,"nazev":"Fixture tag","seo_link":"fixture-tag","popis":"","obrazek":""}],
 "novinky":[{"idc":5,"titulek":"Fixture news","seo_link":"fixture-news","uvod":"<p>Fixture intro</p>","text":"<p>Fixture news text</p>","datum":"2026-10-01 10:00:00","visible":1,"tema":4,"jazyk":"","preklad_z":null,"autor":"[Author]","stitky":[9]}],
-"presmerovani":[{"idp":24,"z_adresy":"old-about","na_adresu":"about","typ":301,"auto_score":null}],
+"presmerovani":[{"idp":24,"z_adresy":"old-about","na_adresu":"about","typ":301,"auto_score":null},{"idp":25,"z_adresy":"old-home","na_adresu":"","typ":301,"auto_score":null}],
 "tridy":[{"nazev":"fixture-section","styl":"{\"zaklad\":{\"max_radek\":\"var(--ka-sirka-textu)\",\"okraj_dole\":\"l\"}}","css":"font-family: var(--ka-pismo-text);"}],
 "casti":[{"typ":"hlavicka","jazyk":"","varianta":"","nazev":"","stranky":null,"pravidla":null,"stavba":"{\"v\":1,\"deti\":[{\"id\":\"b000001\",\"typ\":\"sekce\",\"znacka\":\"header\",\"obsah\":{\"sirka\":\"plna\"},\"deti\":[{\"id\":\"b000002\",\"typ\":\"navigace\",\"znacka\":\"nav\",\"obsah\":{\"menu\":\"hlavni\",\"mobil\":true,\"mega\":false,\"novinky\":false,\"zvyrazneni\":\"pozadi\",\"jazyky\":false}}]}]}","stavba_koncept":null}],
 "komponenty":[{"idm":7,"nazev":"Fixture component","vlastnosti":"[{\"klic\":\"label\",\"popisek\":\"Label\",\"typ\":\"text\",\"vychozi\":\"Default label\"}]","stavba":"{\"v\":1,\"deti\":[{\"id\":\"c000001\",\"typ\":\"text\",\"znacka\":\"div\",\"obsah\":{\"html\":\"<p>{{label}}</p>\"}}]}","stavba_koncept":null,"kit_key":null}],
