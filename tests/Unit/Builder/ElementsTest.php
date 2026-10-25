@@ -94,4 +94,17 @@ final class ElementsTest extends TestCase
         sort($groups);
         $this->assertSame(['condition', 'estimate', 'options'], $groups, 'Form: the field settings are grouped into options, the estimate and the condition');
     }
+
+    /** the open phone menu dims the page and its button turns into a cross – the Navigation element and the template header */
+    public function testPhoneMenuDimsAndCloses(): void
+    {
+        $navCss = \Talea\Builder\Elements\Navigation::baseCss();
+        $template = (string) file_get_contents(TALEA_ROOT . '/image/template.css');
+        $this->assertSame([true, true, true, true], [
+            (bool) preg_match('/@media \(max-width: 767px\).*?\.tl-nav-menu\[popover\]::backdrop \{ background:/s', $navCss),
+            str_contains($navCss, '.tl-nav:has(> .tl-nav-menu:popover-open) > .tl-nav-btn span::before { top: 0; rotate: 45deg;'),
+            str_contains($template, '.navigation[popover]::backdrop { background:'),
+            str_contains($template, '.menu-btn:has(+ .navigation:popover-open) span::after { top: 0; rotate: -45deg; }'),
+        ], 'Navigation: the open phone menu dims the page behind it and the button shows a cross');
+    }
 }

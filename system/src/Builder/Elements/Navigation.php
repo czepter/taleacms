@@ -86,9 +86,14 @@ final class Navigation extends Element
 	.tl-nav-btn span::after { top: 6px; }
 	.tl-nav-menu[popover] { position: fixed; inset: 4.5rem var(--tl-space-m) auto; flex-direction: column; align-items: stretch; padding: var(--tl-space-s); border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: var(--tl-color-text); box-shadow: var(--tl-shadow-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
 	.tl-nav-menu[popover]:not(:popover-open) { display: none; }
+	/* the open sheet dims the page below it and its button turns into a cross */
+	.tl-nav-menu[popover]::backdrop { background: rgb(0 0 0 / 0.35); }
+	.tl-nav:has(> .tl-nav-menu:popover-open) > .tl-nav-btn span { background: transparent; }
+	.tl-nav:has(> .tl-nav-menu:popover-open) > .tl-nav-btn span::before { top: 0; rotate: 45deg; background: currentColor; }
+	.tl-nav:has(> .tl-nav-menu:popover-open) > .tl-nav-btn span::after { top: 0; rotate: -45deg; background: currentColor; }
 	/* keyboard: Tab past the last menu item – the open menu hides so that it does not cover the element focus moved to (WCAG 2.4.11),
 	   and shows again when focus returns to the navigation; Esc or a tap outside closes it completely (Popover API, no JavaScript) */
-	:root:has(:focus-visible) .tl-nav:not(:has(:focus-visible)) > .tl-nav-menu[popover]:popover-open { display: none; }
+	:root:has(:focus-visible) .tl-nav:not(:has(:focus-visible)) > .tl-nav-menu[popover]:popover-open, :root:has(:focus-visible) .tl-nav:not(:has(:focus-visible)) > .tl-nav-menu[popover]:popover-open::backdrop { display: none; }
 	/* the rows of the phone sheet sit close together: --tl-nav-space is the gap of the bar on a wide screen */
 	.tl-nav-menu[popover] ul { flex-direction: column; gap: 2px; }
 	.tl-nav-menu[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0; padding-inline-start: 1rem; border: 0; box-shadow: none; }
