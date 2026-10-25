@@ -588,7 +588,8 @@ final class Audit
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
         $ok = match (true) {
             $s === [] => true,
-            is_file(TALEA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
+            // a file waiting for approval (MediaStaging) goes public with the content that links to it
+            (is_file(TALEA_ROOT . '/' . ltrim($path, '/')) || is_file(MediaStaging::root(true) . '/' . ltrim($path, '/'))) && preg_match('#^/(media|image)/#', $path) === 1 => true,
             in_array($s[0], ['search', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'admin', 'mcp'], true) => true,
             $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1), $sameLanguage, $languageParams),
             $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,

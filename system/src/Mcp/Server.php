@@ -183,6 +183,9 @@ final class Server
             if ($tools->isWriteTool($name)) {
                 ChangeLog::write($this->app, 'claude', $name, mb_substr((string) ($given['title'] ?? $given['name'] ?? $given['template'] ?? $given['id'] ?? ''), 0, 200), $reason);
                 \Talea\Front\Cache::clear();
+                if (!$this->app->auth()->draftsOnly()) {
+                    \Talea\Core\MediaStaging::promotePublished($db); // files waiting for approval that published content now uses (#150)
+                }
             }
             if ($name === 'list_enquiries') {
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw

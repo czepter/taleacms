@@ -376,7 +376,9 @@ be changed over the connection.
 **What a connection may do.** When you connect Claude (or create a token), you choose:
 
 - **Drafts only – you publish** (the default, recommended) – Claude builds pages, writes news drafts and prepares look
-  changes, and you publish them; it cannot change settings, redirects or anything else on the live site;
+  changes, and you publish them; it cannot change settings, redirects or anything else on the live site. Files it uploads wait
+  for your approval: you and your previews see them, visitors do not until you publish content that uses them or approve them
+  in Media → Waiting for approval; files nobody approves are deleted after 30 days;
 - **Can also publish** – build, edit and publish, never beyond your role;
 - **Read only** – Claude reads pages, settings, the audit and the change log and suggests changes.
 

@@ -596,6 +596,7 @@ return [
     'The fact {{fact.%s}} does not exist – visitors see nothing in its place. Create it in Facts, or fix the key.' => 'Der Fakt {{fact.%s}} existiert nicht – Besucher sehen an seiner Stelle nichts. Lege ihn unter Fakten an oder korrigiere den Schlüssel.',
     'The failed transfers were tried again – see the result in the Service column.' => 'Die fehlgeschlagenen Übertragungen wurden erneut versucht – das Ergebnis siehst du in der Spalte „Dienst“.',
     'The fetch from the site did not finish. Start it again.' => 'Der Abruf von der Website ist nicht fertig geworden. Starte ihn erneut.',
+    'The file could not be moved to the media folder – check the write permissions of media/.' => 'Die Datei konnte nicht in den Medienordner verschoben werden – prüfe die Schreibrechte von media/.',
     'The file could not be saved – check write permissions for storage/import.' => 'Die Datei konnte nicht gespeichert werden – prüfe die Schreibrechte für storage/import.',
     'The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.' => 'Die Datei konnte nicht hochgeladen werden. Wenn sie größer ist, als der Server erlaubt, lade sie per FTP in den Ordner storage/import/ hoch.',
     'The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/sources/ folder.' => 'Die Datei konnte nicht hochgeladen werden. Ist sie größer, als der Server erlaubt, lade sie per FTP in den Ordner storage/import/sources/.',

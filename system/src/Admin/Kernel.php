@@ -18,6 +18,12 @@ final class Kernel
     /** Actions that belong to no module: /admin/account, /admin/oauth … (no module ident may take these names). */
     public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
 
+    /**
+     * The editors' ongoing requests (unsaved state, assistant, build draft): they do not change the site, so they neither clear the
+     * page cache (it would be cold all the time during work) nor publish files waiting for approval (Core\MediaStaging).
+     */
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'];
+
     /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
     private const string SEGMENT = '[A-Za-z0-9_.-]+';
 
@@ -199,9 +205,8 @@ final class Kernel
             ]), 400);
         }
 
-        // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
-        // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
-        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'], true)) {
+        // every change in the admin invalidates the site page cache, except the editors' ongoing requests (DRAFT_ACTIONS)
+        if ($request->isPost() && !in_array($request->get('action'), self::DRAFT_ACTIONS, true)) {
             \Talea\Front\Cache::clear();
         }
         $action = $request->get('action');
@@ -283,6 +288,9 @@ final class Kernel
         }
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
+        if ($request->isPost() && !in_array($action, self::DRAFT_ACTIONS, true)) {
+            \Talea\Core\MediaStaging::promotePublished($app->db()); // files waiting for approval that published content now uses (#150)
+        }
         if ($request->isPost() && $response->status === 302) {
             // every change made in the admin goes to the change log
             $description = $request->post('title') ?: ($request->post('name') ?: ($request->post('username') ?: $request->post('tab')));

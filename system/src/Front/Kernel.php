@@ -145,6 +145,12 @@ final class Kernel
                 return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), 301);
             }
         }
+        // a file waiting for approval (#150, Core\MediaStaging): for signed-in users and draft previews; everyone else gets the
+        // usual 404, unless published content already uses it
+        if (str_starts_with($request->path(), '/media/')
+            && ($waiting = \Talea\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Talea\Core\MediaStaging::hasPreview($this->app))) !== null) {
+            return $waiting;
+        }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;
         }
@@ -1282,8 +1288,12 @@ final class Kernel
             return true;
         }
         $key = $this->app->request->get('preview_key');
+        if ($key === '' || !\Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key)) {
+            return false;
+        }
+        \Talea\Core\MediaStaging::previewCookie($this->app, $key); // the preview shows the files its draft uses that wait for approval
 
-        return $key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
+        return true;
     }
 
     private function siteParts(string $content, array $meta, string $languageSwitcher, string $path): array

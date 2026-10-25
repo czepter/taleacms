@@ -155,6 +155,11 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   English; the recorded contract is `tools/contracts/mcp-tools.json` (`php tools/contracts.php`). Nothing over MCP may write outside
   content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials** set (`tool_set` on `api_tokens`/`oauth_codes`, chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
   `tests/Unit/Mcp/ParityTest.php`: read-only, an MCP tool, or "admin: reason".
+- **Files waiting for approval** (`Core\MediaStaging`): what a drafts-only Claude connection uploads waits outside the web root in
+  `storage/staging/` (`media.staged_at`; the row keeps the public `media/…` path). A missing `/media/…` file reaches `index.php`, which
+  shows a waiting file to signed-in users and draft previews only. It goes public once published content uses it (`promotePublished`
+  after admin POSTs, write calls of connections that may publish, the `media_staging` job, the first anonymous request) or when a
+  person approves it in Media; the job deletes it after 30 days. A new kind of published content goes into `MediaStaging::PUBLISHED`.
 - **Member login** (`Core\Members`, extension `members`, off by default; public pages `Front\MemberArea` at `/member`; admin `Modules\Members`): visitor accounts
   with e-mailed one-time links only (token stored as sha256, single use, claimed atomically; the GET only shows a button), own session cookie `tl_member`
   (sha256 in `member_sessions`, never a PHP session, never created for anonymous visitors; the cookie bypasses `Front\Cache`). Pages, collection items and news are

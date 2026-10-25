@@ -50,6 +50,7 @@ final class Scheduler
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
+        'media_staging' => [3600, 'any', 'Files waiting for approval: public with the content that uses them, deleted after 30 days'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -125,6 +126,7 @@ final class Scheduler
             },
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
+            'media_staging' => fn (App $app): string => MediaStaging::cleanup($app->db()),
             'import_recheck' => function (App $app, string $source): string {
                 $state = ImportRecheck::run($app->db(), $app->settings(), $source === 'cron' ? 20.0 : 2.0); // nothing to do once done (3.3.3, N63)
 

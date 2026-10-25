@@ -79,21 +79,22 @@ final class Files
     }
 
     /**
-     * An attachment from a file already on disk (MCP, import) – the source stays, a copy is saved.
+     * An attachment from a file already on disk (MCP, import) – the source stays, a copy is saved. $staged: it waits for approval
+     * outside the web root (Core\MediaStaging); the path returned is the public one.
      *
      * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      */
-    public static function saveFile(string $path, string $displayName): array
+    public static function saveFile(string $path, string $displayName, bool $staged = false): array
     {
         if (!is_file($path)) {
             throw new \RuntimeException('The file could not be uploaded.');
         }
 
-        return self::process($path, $displayName, false);
+        return self::process($path, $displayName, false, MediaStaging::root($staged));
     }
 
     /** @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string} */
-    private static function process(string $tmp, string $displayName, bool $uploaded): array
+    private static function process(string $tmp, string $displayName, bool $uploaded, string $root = TALEA_ROOT): array
     {
         $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
@@ -104,24 +105,27 @@ final class Files
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(TALEA_ROOT . '/' . $folder) && !mkdir(TALEA_ROOT . '/' . $folder, 0775, true)) {
+        if (!is_dir($root . '/' . $folder) && !mkdir($root . '/' . $folder, 0775, true)) {
             throw new \RuntimeException('Cannot create the folder ' . $folder . ' - check the write permissions.');
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $target = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $extension;
-        if (!($uploaded ? move_uploaded_file($tmp, TALEA_ROOT . '/' . $target) : copy($tmp, TALEA_ROOT . '/' . $target))) {
+        if (!($uploaded ? move_uploaded_file($tmp, $root . '/' . $target) : copy($tmp, $root . '/' . $target))) {
             throw new \RuntimeException('The file could not be saved.');
         }
 
         // an attachment is recognized in the media table by an empty thumbnail and zero dimensions
-        return ['image_path' => $target, 'image_width' => 0, 'image_height' => 0, 'image_size' => (int) filesize(TALEA_ROOT . '/' . $target),
+        return ['image_path' => $target, 'image_width' => 0, 'image_height' => 0, 'image_size' => (int) filesize($root . '/' . $target),
             'thumb_path' => '', 'thumb_width' => 0, 'thumb_height' => 0, 'name' => mb_substr($name, 0, 150)];
     }
 
+    /** Deletes an attachment, also a copy waiting for approval (Core\MediaStaging). */
     public static function delete(string $path): void
     {
-        if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file(TALEA_ROOT . '/' . $path)) {
-            unlink(TALEA_ROOT . '/' . $path);
+        foreach ([TALEA_ROOT, MediaStaging::root(true)] as $root) {
+            if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file($root . '/' . $path)) {
+                unlink($root . '/' . $path);
+            }
         }
     }
 

@@ -41,24 +41,26 @@ final class Images
     /**
      * An image that already lies on the server (downloaded during an import from WordPress): it goes the same way as an uploaded one,
      * so it is indistinguishable from it - re-encoding through GD, shrinking, thumbnail, WebP. The source file stays in place.
+     * $staged: the files wait for approval outside the web root (Core\MediaStaging); the paths returned are the public ones.
      *
      * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      * @throws \RuntimeException with a Czech message for the user
      */
-    public static function saveFile(string $path, string $name): array
+    public static function saveFile(string $path, string $name, bool $staged = false): array
     {
         if (!is_file($path)) {
             throw new \RuntimeException('The file could not be uploaded.');
         }
 
-        return self::process($path, $name, false);
+        return self::process($path, $name, false, MediaStaging::root($staged));
     }
 
     /**
      * @param bool $uploaded the file came through a form (it is moved with move_uploaded_file); otherwise it is only copied
+     * @param string $root where the media/… paths are written (the site, or the staging folder of Core\MediaStaging)
      * @return array{image_path:string, image_width:int, image_height:int, image_size:int, thumb_path:string, thumb_width:int, thumb_height:int, name:string}
      */
-    private static function process(string $tmp, string $fileName, bool $uploaded): array
+    private static function process(string $tmp, string $fileName, bool $uploaded, string $root = TALEA_ROOT): array
     {
         if (!extension_loaded('gd')) {
             throw new \RuntimeException('The GD extension for image processing is missing on the server.');
@@ -74,7 +76,7 @@ final class Images
         $extension = self::TYPES[$info[2]];
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(TALEA_ROOT . '/' . $folder) && !mkdir(TALEA_ROOT . '/' . $folder, 0775, true)) {
+        if (!is_dir($root . '/' . $folder) && !mkdir($root . '/' . $folder, 0775, true)) {
             throw new \RuntimeException('Cannot create the folder ' . $folder . ' - check the write permissions.');
         }
         $base = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3));
@@ -82,10 +84,10 @@ final class Images
         if ($extension === 'gif') {
             // a GIF can be animated - it is saved unchanged, the thumbnail is the first frame
             $target = $base . '.gif';
-            if (!($uploaded ? move_uploaded_file($tmp, TALEA_ROOT . '/' . $target) : copy($tmp, TALEA_ROOT . '/' . $target))) {
+            if (!($uploaded ? move_uploaded_file($tmp, $root . '/' . $target) : copy($tmp, $root . '/' . $target))) {
                 throw new \RuntimeException('The file could not be saved.');
             }
-            $image = imagecreatefromgif(TALEA_ROOT . '/' . $target);
+            $image = imagecreatefromgif($root . '/' . $target);
             [$w, $h] = [$info[0], $info[1]];
         } else {
             $image = @imagecreatefromstring((string) file_get_contents($tmp));
@@ -96,11 +98,11 @@ final class Images
             $image = self::shrink($image, self::MAX_SIDE);
             [$w, $h] = [imagesx($image), imagesy($image)];
             $target = $base . '.' . $extension;
-            self::write($image, TALEA_ROOT . '/' . $target, $extension);
-            self::webp($image, TALEA_ROOT . '/' . $target, $extension);
+            self::write($image, $root . '/' . $target, $extension);
+            self::webp($image, $root . '/' . $target, $extension);
             if (self::ratio($w, $h, self::MEDIUM_SIDE) < 1.0) {
                 $medium = self::shrink($image, self::MEDIUM_SIDE);
-                $mediumPath = TALEA_ROOT . '/' . $base . '-1200.' . $extension;
+                $mediumPath = $root . '/' . $base . '-1200.' . $extension;
                 self::write($medium, $mediumPath, $extension);
                 self::webp($medium, $mediumPath, $extension);
             }
@@ -109,11 +111,11 @@ final class Images
         $preview = self::shrink($image, self::THUMBNAIL_SIDE);
         $thumbnailExtension = $extension === 'gif' ? 'png' : $extension;
         $thumbnailPath = $base . '-nahled.' . $thumbnailExtension;
-        self::write($preview, TALEA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
-        self::webp($preview, TALEA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
+        self::write($preview, $root . '/' . $thumbnailPath, $thumbnailExtension);
+        self::webp($preview, $root . '/' . $thumbnailPath, $thumbnailExtension);
 
         return [
-            'image_path' => $target, 'image_width' => $w, 'image_height' => $h, 'image_size' => (int) filesize(TALEA_ROOT . '/' . $target),
+            'image_path' => $target, 'image_width' => $w, 'image_height' => $h, 'image_size' => (int) filesize($root . '/' . $target),
             'thumb_path' => $thumbnailPath, 'thumb_width' => imagesx($preview), 'thumb_height' => imagesy($preview),
             'name' => mb_substr(trim(str_replace(['_', '-'], ' ', $name)), 0, 150),
         ];
@@ -195,10 +197,12 @@ final class Images
             if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m)) {
                 continue;
             }
-            // together with the image its variants for srcset and WebP are removed too
+            // together with the image its variants for srcset and WebP are removed too, also a copy waiting for approval (MediaStaging)
             foreach ([$path, $path . '.webp', $path . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $file) {
-                if (is_file(TALEA_ROOT . '/' . $file)) {
-                    unlink(TALEA_ROOT . '/' . $file);
+                foreach ([TALEA_ROOT, MediaStaging::root(true)] as $root) {
+                    if (is_file($root . '/' . $file)) {
+                        unlink($root . '/' . $file);
+                    }
                 }
             }
         }

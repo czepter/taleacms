@@ -63,6 +63,14 @@ built image to use as N (it is left in place).
 Any number of web containers can share the `storage`, `media` and `extensions` volumes. Exactly one of them should run the
 background loop: set `TALEA_CRON=0` on all but one. Migrations are safe to start everywhere at once.
 
+## Files waiting for approval
+
+Files that Claude uploads over a connection limited to drafts wait in `storage/staging/` (the `storage` volume) until a person
+publishes content that uses them or approves them in Media; then they move to `media/`. Files nobody approves are deleted after
+30 days. A request for a missing `/media/…` file must reach `index.php`, which shows a waiting file only to signed-in users and
+draft previews: the image's Caddyfile does this; on your own nginx use the `/media/` block of `system/nginx.example.conf`
+(without it, waiting files are 404 in previews too; publishing still works).
+
 ## Add-ons
 
 `extensions/` is a volume, so add-ons survive an image update. After an update check that each add-on still supports the new core
