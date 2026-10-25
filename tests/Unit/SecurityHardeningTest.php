@@ -65,4 +65,14 @@ final class SecurityHardeningTest extends TestCase
             rmdir($folder);
         }
     }
+
+    /** a probe in the 404 log or an over-long address in a text never reaches is_file() where open_basedir would make it warn */
+    public function testFileChecksRefuseTraversalForeignFoldersAndLongPaths(): void
+    {
+        $this->assertSame([true, false, false, false, false, false], array_map(\Talea\Core\Files::isFile(...), ['image/web.css', 'system/bootstrap.php', 'media/../system/bootstrap.php',
+            '@fs/../../proc/self/environ', 'media/2026/01/' . str_repeat('a', 5000) . '-1200.jpg', "image/web.css\0.jpg"]), 'Files::isFile: only media/ and image/, no .., no NUL, no over-long path');
+        $this->assertSame('', \Talea\Core\Images::srcset('media/2026/01/' . str_repeat('a', 5000) . '.jpg', ''), 'Images::srcset: an over-long address in a text gives no srcset and no warning');
+        $this->assertSame([true, true, true, false], array_map(\Talea\Core\NotFound::isBot(...), ['@fs/../../proc/self/environ', 'news/../../etc/passwd', '..', 'news/a..b']),
+            'NotFound::isBot: path traversal probes are never recorded');
+    }
 }

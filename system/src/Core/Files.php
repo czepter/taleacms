@@ -25,6 +25,18 @@ final class Files
         return preg_match(self::FORBIDDEN_TYPES, (string) (new \finfo(FILEINFO_MIME_TYPE))->file($path)) === 1;
     }
 
+    /**
+     * Is there a file at this path of the site (relative: media/… or image/…)? Refuses a '..' segment, any other folder, a NUL
+     * byte and an over-long path before the disk is asked: outside open_basedir or past the platform's path limit is_file()
+     * warns, and the error handler turns that into a crash of the page. $root is another folder holding the same tree (the
+     * files waiting for approval, MediaStaging::root(true)).
+     */
+    public static function isFile(string $path, string $root = TALEA_ROOT): bool
+    {
+        return strlen($path) <= 500 && preg_match('#^(media|image)/#', $path) === 1 && !in_array('..', explode('/', $path), true)
+            && !str_contains($path, "\0") && strlen($root . '/' . $path) < PHP_MAXPATHLEN - 1 && is_file($root . '/' . $path);
+    }
+
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {

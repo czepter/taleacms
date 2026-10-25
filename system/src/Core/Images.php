@@ -152,7 +152,7 @@ final class Images
      */
     public static function shrinkFile(string $path): array
     {
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !is_file(TALEA_ROOT . '/' . $path)) {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !Files::isFile($path)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be made smaller.');
         }
         $image = @imagecreatefromstring((string) file_get_contents(TALEA_ROOT . '/' . $path));
@@ -341,7 +341,7 @@ final class Images
         foreach (['-nahled', '-1200', ''] as $extension) {
             $file = $m[1] . $extension . '.' . $m[3];
             // the actual width of each variant: earlier images were shrunk by the longer side, so for tall images „1200“ did not mean the width
-            $info = is_file(TALEA_ROOT . '/' . $file) ? @getimagesize(TALEA_ROOT . '/' . $file) : false;
+            $info = Files::isFile($file) ? @getimagesize(TALEA_ROOT . '/' . $file) : false; // a 4 000-character address in a text must not crash the page
             if ($info !== false && !isset($widths[$info[0]])) {
                 $widths[$info[0]] = true;
                 $variants[] = $base . '/' . $file . ' ' . $info[0] . 'w';
