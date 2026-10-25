@@ -112,10 +112,14 @@ final class Components extends Module
         return Response::json(['ok' => true, 'id' => $id, 'components' => self::listForEditor($this->db)]);
     }
 
-    /** @return list<array{id: int, public_id: string, name: string, properties: list<array<string, mixed>>}> */
+    /** @return list<array{id: int, public_id: string, name: string, properties: list<array<string, mixed>>, outline: list<array{0: int, 1: string}>}> */
     public static function listForEditor(\Talea\Core\Db $db): array
     {
-        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'public_id' => (string) $k['public_id'], 'name' => $k['name'], 'properties' => $k['properties']], KomponentyStavby::all($db));
+        // outline: the component's headings as [level, text] for the builder's heading check (image/builder.js, check())
+        $builds = KomponentyStavby::builds($db);
+
+        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'public_id' => (string) $k['public_id'], 'name' => $k['name'], 'properties' => $k['properties'],
+            'outline' => array_map(fn (array $n): array => [$n[1], $n[2]], \Talea\Builder\Check::outline($builds[(int) $k['component_id']] ?? [], $builds, null, [(int) $k['component_id']]))], KomponentyStavby::all($db));
     }
 
     /* ---------- editing in the builder ---------- */

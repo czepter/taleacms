@@ -32,6 +32,24 @@ final class Components
         return $r === null ? null : self::extract($r);
     }
 
+    /**
+     * The builds of all components as the site shows them (published, otherwise the draft – as Elements\Component renders them), by id.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function builds(Db $db): array
+    {
+        $builds = [];
+        foreach ($db->all('SELECT component_id, build, build_draft FROM {components}') as $r) {
+            $build = Build::fromJson($r['build'] ?? $r['build_draft']);
+            if ($build !== null) {
+                $builds[(int) $r['component_id']] = $build;
+            }
+        }
+
+        return $builds;
+    }
+
     private static function extract(array $r): array
     {
         $r['properties'] = json_decode((string) $r['properties'], true) ?: [];

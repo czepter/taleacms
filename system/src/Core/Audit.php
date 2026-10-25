@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 use Talea\Builder\Build;
 use Talea\Builder\Check;
+use Talea\Builder\Components;
 use Talea\Builder\SampleContent;
 
 /**
@@ -110,6 +111,7 @@ final class Audit
         $db = $this->app->db();
         $home = (int) $this->app->settings()->get('home_page');
         $titles = [];
+        $components = Components::builds($db);
         foreach ($db->all('SELECT page_id, title, seo_title, slug, description, text, build, visible, noindex, language FROM {pages} WHERE deleted_at IS NULL') as $p) {
             $where = t('Page “%s”', $p['title']);
             $target = ['page' => (int) $p['page_id']];
@@ -128,7 +130,7 @@ final class Audit
                 $this->add('sample', $where, t('The page text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, $target);
             }
             if ($build !== null) {
-                foreach (Check::builds($build, true, 50) as $c) {
+                foreach (Check::builds($build, true, 50, $components) as $c) {
                     $this->add('build', $where, $c['message'], 'admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $p['page_id']), $url, $target, $c['id']);
                 }
             }

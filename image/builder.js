@@ -1001,7 +1001,7 @@
 		const findings = [];
 		const headings = [];
 		const tags = (x) => typeof x === 'string' && x.includes('{{');
-		(function walk(children, inComponent) {
+		(function walk(children) {
 			children.forEach((p) => {
 				const o = p.content || {};
 				if (p.type === 'button' && (!o.link || o.link === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
@@ -1012,7 +1012,10 @@
 				if (sample) { findings.push([p.id, T('Sample content “%s” – replace it with your own or delete it.').replace('%s', sample[0])]); }
 				const level = p.type === 'heading' && /^h([1-6])$/.exec(p.tag || 'h2'); // a heading with the p tag (big number, label) is not in the outline
 				if (level) { headings.push([p.id, Number(level[1]), text(o.text)]); }
-				if (p.children) { walk(p.children, inComponent); }
+				// a component use brings the headings of its component (a hero component usually carries the page's h1) – Builder\Check::outline
+				const component = p.type === 'component' && (D.components || []).find((k) => String(k.id) === String(o.component));
+				if (component) { (component.outline || []).forEach(([n, t]) => headings.push([p.id, n, t])); }
+				if (p.children) { walk(p.children); }
 			});
 		})(state.build.children);
 		findings.push(...contrastCheck());
