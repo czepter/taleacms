@@ -20,4 +20,18 @@ final class BuildCheckTest extends TestCase
         ]]]], true);
         $this->assertSame(['c', 'd', 'a', 'b'], array_column($buildCheck, 'id'), 'Build check: button without a link, image without alt, missing h1 and a skipped level');
     }
+
+    public function testTheH1OfAComponentCountsForThePage(): void
+    {
+        $hero = ['v' => 1, 'children' => [['id' => 'h', 'type' => 'heading', 'tag' => 'h1', 'content' => ['text' => '{{title}}']]]];
+        $page = ['v' => 1, 'children' => [
+            ['id' => 'use', 'type' => 'component', 'content' => ['component' => 7]],
+            ['id' => 'a', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Services']],
+        ]];
+        $this->assertSame([], \Talea\Builder\Check::builds($page, true, components: [7 => $hero]), 'The hero component carries the page’s h1');
+        $this->assertSame(['use', 'a'], array_column(\Talea\Builder\Check::outline($page, [7 => $hero]), 0), 'Its headings count under the use’s id');
+        $this->assertSame(['a'], array_column(\Talea\Builder\Check::builds($page, true), 'id'), 'Without the component builds the h1 is missing');
+        $self = ['v' => 1, 'children' => [['id' => 'loop', 'type' => 'component', 'content' => ['component' => 8]]]];
+        $this->assertSame([], \Talea\Builder\Check::outline($self, [8 => $self]), 'A component inside itself ends');
+    }
 }

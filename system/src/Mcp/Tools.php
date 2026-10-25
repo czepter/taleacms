@@ -1031,7 +1031,9 @@ final class Tools
      */
     private function checkTarget(array $target, array $build): array
     {
-        $findings = [...\Talea\Builder\Check::builds($build, $target['kind'] === 'page'), ...\Talea\Builder\SampleContent::findings($build)];
+        $page = $target['kind'] === 'page';
+        $components = $page ? \Talea\Builder\Components::builds($this->app->db()) : [];
+        $findings = [...\Talea\Builder\Check::builds($build, $page, components: $components), ...\Talea\Builder\SampleContent::findings($build)];
 
         return $findings === [] ? [] : ['check' => $findings];
     }

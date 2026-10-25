@@ -17,14 +17,14 @@ final class Check
      * @param array<string, mixed> $build sanitized build
      * @param bool $headings check the heading outline (a page should have one h1 and not skip levels)
      * @param int $max at most this many findings (the site audit wants them all)
+     * @param array<int, array<string, mixed>> $components published builds of the components by id (Components::builds), for their headings
      * @return list<array{id: ?string, message: string}>
      */
-    public static function builds(array $build, bool $headings, int $max = self::MAX): array
+    public static function builds(array $build, bool $headings, int $max = self::MAX, array $components = []): array
     {
         $findings = [];
-        $outline = [];
         $tags = static fn (mixed $x): bool => is_string($x) && str_contains($x, '{{');
-        $walk = static function (array $children) use (&$walk, &$findings, &$outline, $tags): void {
+        $walk = static function (array $children) use (&$walk, &$findings, $tags): void {
             foreach ($children as $p) {
                 if (!is_array($p)) {
                     continue;
@@ -58,10 +58,6 @@ final class Check
                         $findings[] = ['id' => $id, 'message' => t('The structured data “%s” is missing required properties: %s.', $node['type'], implode(', ', $missing))];
                     }
                 }
-                // a heading with the p tag (big number, label) does not belong in the outline
-                if ($type === 'heading' && preg_match('/^h([1-6])$/', (string) ($p['tag'] ?? 'h2'), $m)) {
-                    $outline[] = [$id, (int) $m[1], self::text($o['text'] ?? '')];
-                }
                 if (is_array($p['children'] ?? null)) {
                     $walk($p['children']);
                 }
@@ -69,6 +65,7 @@ final class Check
         };
         $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
         if ($headings) {
+            $outline = self::outline($build, $components);
             $h1 = array_values(array_filter($outline, static fn (array $n): bool => $n[1] === 1));
             if ($h1 === []) {
                 $findings[] = ['id' => $outline[0][0] ?? null, 'message' => t('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')];
@@ -84,6 +81,41 @@ final class Check
         }
 
         return array_slice($findings, 0, $max);
+    }
+
+    /**
+     * Headings of a build in page order as [element id, level, text]. A component use adds the headings of its component under
+     * its own id (a hero component usually carries the page's h1); a heading with the p tag (big number, label) is not in the outline.
+     *
+     * @param array<int, array<string, mixed>> $components published builds of the components by id
+     * @param list<int> $nesting components already being walked (a component inside itself)
+     * @return list<array{0: ?string, 1: int, 2: string}>
+     */
+    public static function outline(array $build, array $components, ?string $use = null, array $nesting = []): array
+    {
+        $outline = [];
+        $walk = static function (array $children) use (&$walk, &$outline, $components, $use, $nesting): void {
+            foreach ($children as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $id = $use ?? (isset($p['id']) ? (string) $p['id'] : null);
+                $type = $p['type'] ?? '';
+                if ($type === 'heading' && preg_match('/^h([1-6])$/', (string) ($p['tag'] ?? 'h2'), $m)) {
+                    $outline[] = [$id, (int) $m[1], self::text($p['content']['text'] ?? '')];
+                }
+                $c = $type === 'component' ? (int) ($p['content']['component'] ?? 0) : 0;
+                if (isset($components[$c]) && !in_array($c, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
+                    array_push($outline, ...self::outline($components[$c], $components, $id, [...$nesting, $c]));
+                }
+                if (is_array($p['children'] ?? null)) {
+                    $walk($p['children']);
+                }
+            }
+        };
+        $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
+
+        return $outline;
     }
 
     private static function text(mixed $html): string
