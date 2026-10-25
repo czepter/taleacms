@@ -1702,8 +1702,23 @@
 		if (ai) { panel.append(ai); }
 		const properties = Object.entries(s.properties || {});
 		if (!properties.length) { panel.append(el('p', { class: 'bd-empty' }, s.container ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
-		properties.forEach(([key, def]) => panel.append(field(def, p.content[key], (h) => { if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); } },
-			{ error: state.errors[state.selectedPath + '.content.' + key], element: p, key: key })));
+		// a Collection list offers the chosen collection's fields by their labels where a property holds a field key
+		const listCollection = p.type === 'collection_list' ? (D.collections || []).find((k) => k.slug === p.content.collection) || null : null;
+		properties.forEach(([key, def]) => panel.append(field(listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.content[key]) : def, p.content[key], (h) => {
+			if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); }
+			if (p.type === 'collection_list' && key === 'collection') { redrawRight(); } // the field choices follow the collection
+		}, { error: state.errors[state.selectedPath + '.content.' + key], element: p, key: key })));
+	}
+
+	/** Collection list properties that hold a field key, and the field types each offers (null = any). */
+	const COLLECTION_FIELD_KEYS = { sort_field: null, filter_field: null, period_start_field: ['date', 'datetime'], period_end_field: ['date', 'datetime'] };
+
+	/** A choice of the collection's fields by their labels for a field-key property; a stored key the collection lacks stays offered. */
+	function collectionFieldChoice(def, collection, types, value) {
+		const options = { '': '—' };
+		(collection.fields || []).filter((f) => !types || types.includes(f.type)).forEach((f) => { options[f.key] = f.label || f.key; });
+		if (value && !(value in options)) { options[value] = T('%s (not a field of this collection)').replace('%s', value); }
+		return { type: 'choice', label: def.label, default: '', options: options };
 	}
 
 	/** A control for a content field according to the type from the schema. */

@@ -17,6 +17,7 @@ window.TALEA_TRANSLATIONS = {
 	"%d updates pending - they will run the next time the administration loads": "%d Updates ausstehend – sie werden beim nächsten Laden der Administration ausgeführt",
 	"%d%%": "%d %%",
 	"%s (copy)": "%s (Kopie)",
+	"%s (not a field of this collection)": "%s (kein Feld dieser Sammlung)",
 	"%s - installing it is recommended": "%s – Nachinstallation empfohlen",
 	"%s - missing": "%s – fehlt",
 	"%s - set write permissions": "%s – setzen Sie Schreibrechte",

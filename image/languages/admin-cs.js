@@ -17,6 +17,7 @@ window.TALEA_TRANSLATIONS = {
 	"%d updates pending - they will run the next time the administration loads": "čeká %d aktualizací - proběhnou při příštím načtení administrace",
 	"%d%%": "%d %%",
 	"%s (copy)": "%s (kopie)",
+	"%s (not a field of this collection)": "%s (není pole této kolekce)",
 	"%s - installing it is recommended": "%s - doporučeno doinstalovat",
 	"%s - missing": "%s - chybí",
 	"%s - set write permissions": "%s - nastavte práva k zápisu",
