@@ -80,7 +80,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   **Regional versions** (`en-gb`, `de-at`, `pt-br`, `zh-hant`) are ordinary codes in `Language::AVAILABLE`, stored and addressed in lowercase
   (`/pt-br/`); the shape of a code is `Language::TAG` (use it in every regex, never `[a-z]{2}`). `Language::tag()` prints the canonical case
   (`pt-BR`) for `<html lang>`, `hreflang`, feeds and structured data; `Language::base()` is the language (`pt`): a regional version uses the
-  dictionary, number format and German register of its base unless it has its own file. Imports fold a regional code into the base language the
+  dictionary, number format and German register of its base; its own file (`pt-br.php`) holds only what differs and goes over the base one. Imports fold a regional code into the base language the
   site already has (`Language::forSite()`, `Language::column()`); `Language::fromForeign()` maps locales and foreign tags (`pt_BR`, `zh-TW`).
 - **Shared slugs** (setting `slugs_per_language`, off by default, Settings → General): a page, news item or category may share its address with the version in
   another language (`/contact`, `/de/contact`). Language columns are `VARCHAR(35)`; pages, news and categories have a per-language unique key
