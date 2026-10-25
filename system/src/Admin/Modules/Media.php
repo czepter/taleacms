@@ -148,6 +148,7 @@ final class Media extends Module
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
             [t('pop-up'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {popups}'],
             [t('newsletter'), 'SELECT subject AS used_in, CONCAT_WS(\' \', intro, button_url, html) AS content FROM {newsletters}'],
+            [t('menu'), 'SELECT location AS used_in, items AS content FROM {menus}'], // an SVG from Media as a menu icon
         ];
         $usages = [];
         foreach ($sources as [$kind, $sql]) {

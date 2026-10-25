@@ -42,4 +42,18 @@ final class NewElementsTest extends SiteTestCase
         $this->assertStringContainsString('"BreadcrumbList"', $body, 'breadcrumbs for search engines too');
         $this->assertStringNotContainsString('"FAQPage"', $body, 'an accordion with faq off has no FAQPage data');
     }
+
+    /** the news list may have a heading of its own above the cards */
+    public function testNewsListHeading(): void
+    {
+        $this->rawText('create_category', ['name' => 'Heading news']);
+        $this->rawText('create_news', ['title' => '[News headline]', 'category' => 'Heading news', 'content' => '<p>[Text]</p>', 'publish' => true]);
+        $text = $this->rawText('save_build', ['id' => $this->site()->publicId('pages', $this->zPage()), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+            ['type' => 'news_list', 'content' => ['heading' => '[Latest news]', 'count' => 3]],
+        ]]]]]);
+        $this->assertStringContainsString('"errors":[]', $text, 'the news list with a heading passes the validator');
+        $this->site()->clearPageCache();
+        $body = $this->visit('/z-html');
+        $this->assertMatchesRegularExpression('#<h2 class="tl-news-heading">\[Latest news\]</h2><article class="tl-news">.*?\[News headline\]#s', $body, 'the heading stands above the news cards');
+    }
 }

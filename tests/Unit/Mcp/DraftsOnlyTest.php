@@ -14,7 +14,9 @@ final class DraftsOnlyTest extends TestCase
         // every tool a drafts routine is told to use is allowed for drafts-only connections, unless its sentence says it needs
         // full access or is conditional ("when this connection may"); the texts: the work_requests and scheduled_run prompts,
         // the tasks of scheduled runs, and the next step list_requests hands out
-        $draftTexts = ['work_requests' => \Talea\Mcp\Prompts::get('work_requests', [])['messages'][0]['content']['text'], 'scheduled_run' => \Talea\Mcp\Prompts::get('scheduled_run', [])['messages'][0]['content']['text']]
+        // (the closing section of a prompt only lists the runners of the tools it names for an Essentials connection)
+        $promptTask = fn (string $name): string => explode(\Talea\Mcp\Prompts::RUNNERS_HEADING, \Talea\Mcp\Prompts::get($name, [])['messages'][0]['content']['text'])[0];
+        $draftTexts = ['work_requests' => $promptTask('work_requests'), 'scheduled_run' => $promptTask('scheduled_run')]
             + array_map(fn (array $task): string => $task[1], \Talea\Core\AgentSchedules::TASKS)
             + ['next of list_requests' => (string) (preg_match("/'next' => '([^']+)'/", (string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Handlers/RequestTools.php'), $nextMatch) ? $nextMatch[1] : '')];
         $draftGaps = [];

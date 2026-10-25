@@ -13,6 +13,7 @@
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $presets
  * @var array<string, string> $values
  * @var list<array{id: int, summary: string, created: string, author: ?string}> $versions earlier published looks (Core\Look)
+ * @var list<array{key: string, font: string, script: string, languages: list<string>, suggestions: list<string>}> $fontProblems (Builder\FontScripts)
  */
 use Talea\Front\SiteIdentity;
 use Talea\Builder\DesignSystem;
@@ -61,7 +62,7 @@ $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font
 	</button>
 <?php endforeach ?>
 </div>
-<p class="help"><?= e(t('You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#claude')) ?>"><?= e(t('How to connect the AI')) ?></a></p>
+<p class="help"><?= e(t('You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings')) ?>"><?= e(t('How to connect the AI')) ?></a></p>
 </fieldset>
 </div>
 
@@ -154,6 +155,9 @@ $pairings = array_filter(DesignSystem::PAIRINGS, fn (array $p): bool => isset($l
 	<div><?= $fontSelect('font_body', 'ds-font-body', SiteIdentity::TEXT_FONTS) ?>
 	<span class="help"><?= e(t('Library fonts are stored on your own server – visitors contact no font server, and no consent is needed. Only the fonts you choose are loaded on the site.')) ?></span></div>
 </div>
+<?php foreach ($fontProblems as $problem): ?>
+<p class="notice notice-warning"><?= e(Talea\Builder\FontScripts::message($problem)) ?></p>
+<?php endforeach ?>
 <div class="font-sample" aria-live="polite">
 	<strong data-font-sample="ds[font_heading]" class="font-sample-heading" style="font-family:<?= e(DesignSystem::fontFamily($ds, $ds['font_heading'], true)) ?>"><?= e('Handsome headlines, set with care') ?></strong>
 	<p data-font-sample="ds[font_body]" style="font-family:<?= e(DesignSystem::fontFamily($ds, $ds['font_body'], false)) ?>"><?= e('The quick brown fox jumps over the lazy dog. 0123456789 € &') ?></p>

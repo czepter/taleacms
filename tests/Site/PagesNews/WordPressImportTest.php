@@ -195,4 +195,55 @@ final class WordPressImportTest extends SiteTestCase
         $anonymous = $site->client('anonymous')->get(self::TRANSFER . '&action=download&file=' . $file);
         $this->assertStringContainsString('Password', $anonymous->body, 'the export is for the signed-in administrator only');
     }
+
+    /**
+     * A WooCommerce shop (tools/fixtures/wordpress-shop.xml) moves as a product catalogue; its images come from a small "old
+     * site" on 127.0.0.1 (TALEA_IMPORT_LOCAL) and are downloaded in parallel.
+     */
+    public function testShopProductsBecomeAProductCatalogue(): void
+    {
+        $site = $this->site();
+        $old = $site->workDir('shop-old');
+        mkdir($old . '/wp-content/uploads/2026/03', 0775, true);
+        foreach (['oak-chair.jpg', 'oak-chair-detail.jpg'] as $i => $name) {
+            $image = imagecreatetruecolor(320 + $i, 200);
+            imagefill($image, 0, 0, (int) imagecolorallocate($image, 120, 80 + $i * 40, 40));
+            imagejpeg($image, $old . '/wp-content/uploads/2026/03/' . $name);
+        }
+        file_put_contents($old . '/router.php', '<?php return false;');
+        $origin = 'http://127.0.0.1:' . $site->startPhp($old, 'router.php');
+        $export = $site->workDir('shop') . '/wordpress-shop.xml';
+        file_put_contents($export, str_replace('https://www.shop.example', $origin, (string) file_get_contents($this->fixture('wordpress-shop.xml'))));
+        $site->admin()->upload(self::TRANSFER . '&action=upload', ['_csrf' => $site->csrf()], ['file' => $export]);
+        $this->batch('wordpress-shop.xml');
+        $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-shop.xml', 200, 'WooCommerce products: 2 items become a product catalogue', message: 'the preview names the shop');
+        $this->runImport('wordpress-shop.xml', ['drafts' => 1, 'pages' => 1, 'redirects' => 1, 'category' => 0, 'collections' => 1]);
+
+        $collection = $site->rows("SELECT collection_id, slug, preset, fields, schema_org, build FROM tl_collections WHERE slug = 'product'")[0] ?? [];
+        $this->assertSame(['product', 'products', ['image', 'code', 'brand', 'category', 'summary', 'description', 'parameters', 'variants', 'price', 'price_note', 'availability', 'datasheet', 'warranty']],
+            [$collection['slug'] ?? '', $collection['preset'] ?? '', array_column(json_decode((string) ($collection['fields'] ?? ''), true) ?: [], 'key')],
+            'the products are a catalogue made from the Products preset at the old address prefix, their own custom field follows');
+        $this->assertNotSame(['', ''], [(string) ($collection['schema_org'] ?? ''), (string) ($collection['build'] ?? '')], 'the catalogue has the preset\'s structured data and item template');
+        $items = [];
+        foreach ($site->rows('SELECT slug, data FROM tl_collection_items WHERE collection_id = ? ORDER BY item_id', [(int) ($collection['collection_id'] ?? 0)]) as $row) {
+            $items[(string) $row['slug']] = json_decode((string) $row['data'], true) ?: [];
+        }
+        $this->assertSame(['oak-chair', 'side-table'], array_keys($items), 'two products, no variation and no order');
+        $chair = $items['oak-chair'];
+        $this->assertSame(['CH-100', '99.90', 'In stock', 'Chairs', 'Solid oak, oiled.', "Material: Oak, Ash\nColour: Natural, Walnut", '2 years'],
+            [$chair['code'], $chair['price'], $chair['availability'], $chair['category'], $chair['summary'], $chair['parameters'], $chair['warranty']], 'the product fields from the WooCommerce data');
+        $this->assertSame(['TB-200', '45.50', 'Out of stock'], [$items['side-table']['code'], $items['side-table']['price'], $items['side-table']['availability']], 'the second product');
+        $this->assertPage('/product/oak-chair', 200, ['Oak chair', 'Material', 'In stock'], as: $this->visitor(), message: 'the product page keeps its old address');
+        $old = $this->visitor()->get('/?p=601');
+        $this->assertSame([301, $site->base . '/product/oak-chair'], [$old->status, $old->redirect], 'the old /?p=601 address redirects to the product');
+
+        // the images: the featured image (also the picture, which the http address of the old site could not keep) and the image in the description
+        $this->adminPost(self::TRANSFER . '&action=images', ['file' => 'wordpress-shop.xml']);
+        $this->batch('wordpress-shop.xml');
+        $row = $site->rows("SELECT data, image FROM tl_collection_items WHERE slug = 'oak-chair'")[0] ?? [];
+        $data = json_decode((string) ($row['data'] ?? ''), true) ?: [];
+        $this->assertSame([true, true, true], [str_contains((string) ($data['image'] ?? ''), 'media/'), str_contains((string) ($row['image'] ?? ''), 'media/'), str_contains((string) ($data['description'] ?? ''), 'media/')],
+            'the images are in Media: the picture, the share image and the image in the description (' . strip_tags(self::$lastBatch) . ')');
+        $this->assertSame(2, (int) $site->value("SELECT COUNT(*) FROM tl_media WHERE name = 'Oak chair' OR name = 'Detail'"), 'each image downloaded once');
+    }
 }
