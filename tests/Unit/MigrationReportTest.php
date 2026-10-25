@@ -18,6 +18,14 @@ final class MigrationReportTest extends TestCase
         $this->assertSame([1, 4], \Talea\Core\MigrationReport::countElements([
             ['type' => 'section', 'children' => [['type' => 'image'], ['type' => 'gallery', 'content' => ['photos' => [['src' => 'a'], ['src' => 'b']]]], ['type' => 'container', 'children' => [['type' => 'form']]]]],
             ['type' => 'text', 'content' => ['html' => '<p><img src="x"></p>']]]), '2.7: MigrationReport::countElements');
+        // a Component element counts what its build holds; one inside itself counts nothing, as it renders nothing
+        $components = [
+            7 => ['children' => [['type' => 'form'], ['type' => 'image'], ['type' => 'component', 'content' => ['component' => '7']]]],
+            8 => ['children' => [['type' => 'section', 'children' => [['type' => 'component', 'content' => ['component' => '7']]]]]],
+        ];
+        $uses = [['type' => 'section', 'children' => [['type' => 'component', 'content' => ['component' => '7']]]], ['type' => 'component', 'content' => ['component' => '8']], ['type' => 'component', 'content' => ['component' => '99']]];
+        $this->assertSame([[2, 2], [0, 0]], [\Talea\Core\MigrationReport::countElements($uses, fn (int $id): ?array => $components[$id] ?? null), \Talea\Core\MigrationReport::countElements($uses)],
+            'MigrationReport::countElements: forms and images inside components (also nested), a component containing itself counted once');
         $this->assertSame([['date' => '2025-03-14 09:30:00', 'form' => 'Contact', 'page' => '/contact', 'email' => 'jana@example.cz', 'data' => [['Name', 'Jana'], ['E-mail', 'jana@example.cz'], ['Message', 'Hi']]],
             'date must be a date and time, e.g. 2025-03-14 09:30', 'fields are empty', ''], [
             \Talea\Mcp\Tools::enquiryEntry(['date' => '2025-03-14 09:30', 'form' => 'Contact', 'page' => '/contact', 'fields' => ['Name' => 'Jana', 'E-mail' => 'jana@example.cz', 'Message' => '<b>Hi</b>', 'Empty' => '']]),

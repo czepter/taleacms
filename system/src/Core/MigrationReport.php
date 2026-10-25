@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Builder\Build;
+use Talea\Builder\Collections;
+use Talea\Builder\Components;
+use Talea\Builder\Elements\Component;
 
 /**
  * The migration parity report (2.7): before a moved site goes live, every address of the old site must still work on
@@ -201,7 +204,7 @@ final class MigrationReport
             $home = (int) $settings->get('home_page');
             $page = $home > 0 ? $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$home]) : null;
 
-            return $page !== null ? self::page($page) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'description' => (string) $settings->get('site_description'), 'form' => false, 'images' => 0, 'visible' => true];
+            return $page !== null ? self::page($page, $db) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'description' => (string) $settings->get('site_description'), 'form' => false, 'images' => 0, 'visible' => true];
         }
         if ($s[0] === 'news' && count($s) === 2) {
             $n = $db->one('SELECT title, seo_title, seo_description, intro, text, visible FROM {news} WHERE slug = ? AND deleted_at IS NULL', [$s[1]]);
@@ -212,13 +215,17 @@ final class MigrationReport
         }
         $page = $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [implode('/', $s)]);
         if ($page !== null) {
-            return self::page($page);
+            return self::page($page, $db);
         }
         if (count($s) === 2) {
-            $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
+            $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data, p.language, k.collection_id, k.build FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
             if ($item !== null) {
-                return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'description' => trim((string) $item['description']), 'form' => false,
-                    'images' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'visible' => (bool) $item['visible']];
+                // the item page is drawn by the collection's published template (the item's language, else the default one): its forms and images count
+                $template = Build::fromJson(Collections::inLanguage($db, $item, (string) $item['language'])['build']) ?? Build::fromJson($item['build']);
+                [$forms, $images] = self::countElements($template['children'] ?? [], self::componentBuilds($db));
+
+                return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'description' => trim((string) $item['description']), 'form' => $forms > 0,
+                    'images' => $images + preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'visible' => (bool) $item['visible']];
             }
         }
 
@@ -229,14 +236,14 @@ final class MigrationReport
      * @param array<string, mixed> $p a row of tl_pages
      * @return array{type: string, title: string, description: string, form: bool, images: int, visible: bool}
      */
-    private static function page(array $p): array
+    private static function page(array $p, Db $db): array
     {
         // a hidden imported page is still being worked on: count its draft
         $json = $p['visible'] ? ($p['build'] ?? null) : ($p['build_draft'] ?? $p['build'] ?? null);
         [$forms, $images] = [0, substr_count(strtolower((string) $p['text']), '<img')];
         if ($json !== null) {
             $build = Build::fromJson((string) $json);
-            [$forms, $images] = self::countElements($build['children'] ?? []);
+            [$forms, $images] = self::countElements($build['children'] ?? [], self::componentBuilds($db));
         }
 
         return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'description' => trim((string) $p['description']),
@@ -245,11 +252,16 @@ final class MigrationReport
 
     /**
      * Forms and images in a build: the Form element, and the Image element plus the photos of galleries and carousels.
+     * With $component (the build of a component by its id, componentBuilds()), a Component element counts what the site
+     * renders in its place – a contact form shared as a component is still a form. Like the renderer, a component inside
+     * itself or nested deeper than Components::MAX_NESTING counts nothing.
      *
      * @param list<array<string, mixed>> $children
+     * @param (\Closure(int): ?array<string, mixed>)|null $component
+     * @param list<int> $nesting the components the build lies in
      * @return array{0: int, 1: int}
      */
-    public static function countElements(array $children): array
+    public static function countElements(array $children, ?\Closure $component = null, array $nesting = []): array
     {
         $forms = 0;
         $images = 0;
@@ -263,13 +275,30 @@ final class MigrationReport
                 $images += count((array) ($el['content']['photos'] ?? []));
             } elseif ($type === 'text') {
                 $images += substr_count(strtolower((string) ($el['content']['html'] ?? '')), '<img');
+            } elseif ($type === Component::TYPE && $component !== null) {
+                $id = (int) ($el['content']['component'] ?? 0);
+                if ($id > 0 && !in_array($id, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
+                    [$f, $i] = self::countElements($component($id)['children'] ?? [], $component, [...$nesting, $id]);
+                    $forms += $f;
+                    $images += $i;
+                }
             }
-            [$f, $i] = self::countElements(is_array($el['children'] ?? null) ? $el['children'] : []);
+            [$f, $i] = self::countElements(is_array($el['children'] ?? null) ? $el['children'] : [], $component, $nesting);
             $forms += $f;
             $images += $i;
         }
 
         return [$forms, $images];
+    }
+
+    /** @return \Closure(int): ?array<string, mixed> the build a Component element shows: the component's published one (its draft until it has none) */
+    private static function componentBuilds(Db $db): \Closure
+    {
+        return static function (int $id) use ($db): ?array {
+            $component = Components::byId($db, $id);
+
+            return $component === null ? null : Build::fromJson($component['build'] ?? $component['build_draft']);
+        };
     }
 
     /**
