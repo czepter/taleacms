@@ -7,20 +7,17 @@ namespace Talea\Core;
 /**
  * AI assistant (extension "assistant"): suggestions of titles, intro, SEO description and tags, proofreading, image
  * descriptions, translation, and in the builder new sections from a description and text edits. The provider (Anthropic,
- * OpenAI, Google, Mistral) and the key are chosen by the administrator in Extensions. Internally the request has the shape
- * of the Claude API; call() converts it for the chosen provider.
+ * OpenAI, Google, Mistral), the key and the model are chosen by the administrator under Settings → Writing assistant; the
+ * models come from the provider's own list (loadModels), never from the code. Internally the request has the shape of the
+ * Claude API; call() converts it for the chosen provider.
  *
  * The assistant only suggests – it never saves or publishes anything itself. Text is sent only after a click on an assistant button.
  */
 class Assistant
 {
-    public const array MODELS = [
-        'claude-haiku-4-5-20251001' => 'Fast and economical (Claude Haiku 4.5)',
-        'claude-sonnet-5' => 'Balanced – recommended (Claude Sonnet 5)',
-        'claude-opus-5' => 'Most thorough (Claude Opus 5)',
-    ];
+    /** The shape of a model name (the setting ai_model and every id a provider lists). */
+    public const string MODEL_ID = '#^[A-Za-z0-9._:/-]{2,80}$#';
 
-    /** Keys of MODELS for the field type "vyber" in Settings. */
     /**
      * Providers: key => [name, API URL, where to get a key]. The URL is fixed – it cannot be changed from the administration
      * (the key could be sent elsewhere that way); a custom gateway or a local model is set only by the constant TALEA_AI_URL in config.php.
@@ -477,25 +474,26 @@ class Assistant
         return isset(self::PROVIDERS[$this->settings->get('ai_provider')]) ? $this->settings->get('ai_provider') : 'anthropic';
     }
 
-    /** Model from Settings; for Claude from the list, for other providers the administrator enters it (their offer changes quickly). */
+    /**
+     * The model from Settings; none chosen yet (or the old default of a site that never chose) = the first one the provider
+     * lists, which is its newest.
+     */
     private function model(): string
     {
         $model = $this->settings->get('ai_model');
-        if ($this->provider() === 'anthropic') {
-            return isset(self::MODELS[$model]) ? $model : 'claude-sonnet-5';
+        if (preg_match(self::MODEL_ID, $model)) {
+            return $model;
         }
-        if (!preg_match('#^[A-Za-z0-9._:/-]{2,80}$#', $model) || isset(self::MODELS[$model])) {
-            throw new \RuntimeException('Enter the model name of the chosen provider under Features (Writing assistant).');
-        }
+        $models = $this->models() ?: $this->loadModels();
 
-        return $model;
+        return $models[0]['id'];
     }
 
-    /** Verifies the key from Settings: a short request, returns null (OK) or the error text. */
+    /** Verifies the key from Settings by loading the provider's models: null (OK) or the error text. */
     public function verifyKey(): ?string
     {
         try {
-            $this->call(['model' => $this->provider() === 'anthropic' ? 'claude-haiku-4-5-20251001' : $this->model(), 'max_tokens' => 5, 'messages' => [['role' => 'user', 'content' => 'ok']]]);
+            $this->loadModels();
 
             return null;
         } catch (\RuntimeException $e) {
@@ -504,38 +502,120 @@ class Assistant
     }
 
     /**
-     * @param array<string, mixed> $body
-     * @return array<string, mixed>
+     * The models the provider offers to this key, straight from its API, newest first – new models appear without an update
+     * of Talea. Stored in ai_models with the provider, so the settings page and model() do not ask every time.
+     *
+     * @return list<array{id: string, name: string}>
      */
+    public function loadModels(): array
+    {
+        $models = self::modelList($this->fetch($this->url('models'), null));
+        if ($models === []) {
+            throw new \RuntimeException(t('%s lists no models for this key.', self::PROVIDERS[$this->provider()][0]));
+        }
+        $this->settings->set('ai_models', (string) json_encode(['provider' => $this->provider(), 'time' => time(), 'models' => $models], JSON_UNESCAPED_UNICODE));
+
+        return $models;
+    }
+
+    /**
+     * The chat models of a provider's answer to GET …/models, newest first by its own date (Anthropic lists so already;
+     * OpenAI and Mistral give a timestamp). Google lists "models/gemini-…" but takes the name without the prefix; Mistral
+     * marks the models that cannot chat.
+     *
+     * @param array<string, mixed> $data
+     * @return list<array{id: string, name: string}>
+     */
+    public static function modelList(array $data): array
+    {
+        $listed = array_values(array_filter((array) ($data['data'] ?? []), 'is_array'));
+        usort($listed, fn (array $a, array $b): int => self::created($b) <=> self::created($a));
+        $models = [];
+        foreach ($listed as $m) {
+            $id = (string) preg_replace('#^models/#', '', (string) ($m['id'] ?? ''));
+            if (($m['capabilities']['completion_chat'] ?? true) !== false && preg_match(self::MODEL_ID, $id)) {
+                $models[] = ['id' => $id, 'name' => is_string($m['display_name'] ?? null) && $m['display_name'] !== '' ? mb_substr($m['display_name'], 0, 80) : $id];
+            }
+        }
+
+        return $models;
+    }
+
+    /** @return list<array{id: string, name: string}> the stored list of the chosen provider (loadModels); [] when there is none */
+    public function models(): array
+    {
+        $stored = json_decode($this->settings->get('ai_models'), true);
+
+        return is_array($stored) && ($stored['provider'] ?? '') === $this->provider() && is_array($stored['models'] ?? null) ? $stored['models'] : [];
+    }
+
+    /** When the stored list was loaded (0 = never). */
+    public function modelsTime(): int
+    {
+        $stored = json_decode($this->settings->get('ai_models'), true);
+
+        return $this->models() !== [] ? (int) ($stored['time'] ?? 0) : 0;
+    }
+
+    private static function created(array $model): int
+    {
+        return is_int($model['created'] ?? null) ? $model['created'] : (int) strtotime((string) ($model['created_at'] ?? ''));
+    }
+
+    /**
+     * The provider's address for "messages" (the chat) or "models" (its list). It can be changed only by a constant in
+     * config.php (company proxy, gateway) – never from the administration, the key could be sent elsewhere that way.
+     */
+    private function url(string $what): string
+    {
+        $url = defined('TALEA_AI_URL') ? (string) constant('TALEA_AI_URL') : (Config::env('AI_URL') ?: self::PROVIDERS[$this->provider()][1]); // the server's environment is as trusted as config.php
+
+        return $what === 'models' ? (string) preg_replace('#/(messages|chat/completions)$#', '/models', $url) : $url;
+    }
+
     /**
      * Calls the model. Both the request and the answer have the shape of the Claude API ({model, max_tokens, system, messages} → {content, stop_reason});
      * for other providers they are converted. Protected because of tests that replace it (tests/Unit/AssistantTest.php).
+     *
+     * @param array<string, mixed> $body
+     * @return array<string, mixed>
      */
     protected function call(array $body): array
+    {
+        $provider = $this->provider();
+        if ($provider === 'anthropic') {
+            return $this->fetch($this->url('messages'), $body);
+        }
+
+        return self::fromOpenAi($this->fetch($this->url('messages'), self::toOpenAi($body, $provider)));
+    }
+
+    /**
+     * One request to the provider: POST with a JSON body, or GET without one (the model list). Returns the decoded answer;
+     * an error becomes a message for the person. Protected because of tests that replace it.
+     *
+     * @param array<string, mixed>|null $body
+     * @return array<string, mixed>
+     */
+    protected function fetch(string $url, ?array $body): array
     {
         $key = $this->settings->get('ai_key');
         $provider = $this->provider();
         $name = self::PROVIDERS[$provider][0];
         if ($key === '') {
-            throw new \RuntimeException('The API key is missing – an administrator enters it under Features (Writing assistant).');
+            throw new \RuntimeException('The API key is missing – an administrator enters it under Settings → Writing assistant.');
         }
-        // the URL can be changed only by a constant in config.php (company proxy, gateway) – never from the administration, the key could be sent elsewhere that way
-        $url = defined('TALEA_AI_URL') ? (string) constant('TALEA_AI_URL') : (Config::env('AI_URL') ?: self::PROVIDERS[$provider][1]); // the server's environment is as trusted as config.php
-        if ($provider === 'anthropic') {
-            $headers = ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'];
-        } else {
-            $headers = ['Content-Type: application/json', 'Authorization: Bearer ' . $key];
-            $body = self::toOpenAi($body, $provider);
-        }
-        $json = (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $headers = $provider === 'anthropic' ? ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'] : ['Content-Type: application/json', 'Authorization: Bearer ' . $key];
+        $json = $body === null ? null : (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
-            curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $json, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 90, CURLOPT_CONNECTTIMEOUT => 10]);
+            curl_setopt_array($ch, [CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $json === null ? 20 : 90, CURLOPT_CONNECTTIMEOUT => 10]
+                + ($json === null ? [] : [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $json]));
             $response = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         } else {
             $response = @file_get_contents($url, false, stream_context_create(['http' => [
-                'method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $json, 'timeout' => 90, 'ignore_errors' => true,
+                'method' => $json === null ? 'GET' : 'POST', 'header' => implode("\r\n", $headers), 'content' => $json ?? '', 'timeout' => $json === null ? 20 : 90, 'ignore_errors' => true,
             ]]));
             $code = preg_match('#^HTTP/\S+ (\d{3})#', $http_response_header[0] ?? '', $m) ? (int) $m[1] : 0;
         }
@@ -544,15 +624,15 @@ class Assistant
             $data = $data[0]; // Google returns the error as an array
         }
         if ($code === 200 && is_array($data)) {
-            return $provider === 'anthropic' ? $data : self::fromOpenAi($data);
+            return $data;
         }
 
         throw new \RuntimeException(match (true) {
             $code === 0 => t('Could not reach %s. Check that the server may make outgoing connections.', $name),
-            $code === 401, $code === 403 => t('The %s API key is not valid. Check it under Features.', $name),
+            $code === 401, $code === 403 => t('The %s API key is not valid. Check it under Settings → Writing assistant.', $name),
             $code === 429 => t('%s is busy right now or the key\'s limit is used up. Try again shortly.', $name),
             $code === 400 && str_contains((string) ($data['error']['message'] ?? ''), 'credit') => t('The %s account has run out of credit.', $name),
-            $code === 404 => t('%s does not know the model. Check its name under Features.', $name),
+            $code === 404 => t('%s does not know the model. Choose another one under Settings → Writing assistant.', $name),
             $code >= 500 => t('%s is down. Try again shortly.', $name),
             default => t('The assistant reports an error (%s): %s', (string) $code, mb_substr((string) ($data['error']['message'] ?? 'unknown error'), 0, 200)),
         });

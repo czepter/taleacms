@@ -11,7 +11,8 @@ use Talea\Connectors\Connector;
  * top (Search Console data, the Business Profile, a sheet of enquiries, a CRM).
  *
  *  - A short curated list of services (SERVICES); nothing else can be connected.
- *  - Credentials are encrypted with a key derived from the site's secret (sodium secretbox) and never leave the server:
+ *  - Credentials are encrypted with a key derived from TALEA_SECRET_KEY, or from secret_key in the database while the variable
+ *    is not set (sodium secretbox, vaultKey()), and never leave the server:
  *    the admin form never shows them back, MCP never sees them, the site export never carries them.
  *  - OAuth with PKCE and a state bound to the session; the access token is refreshed with the refresh token when it
  *    expires; disconnecting revokes it where the service allows it.
@@ -46,28 +47,117 @@ final class Connectors
 
     /* ---------- credentials ---------- */
 
+    /** The encrypted columns of {connectors}. */
+    private const array SEALED = ['secret', 'access_token', 'refresh_token'];
+
+    /**
+     * The key of the credentials, derived from TALEA_SECRET_KEY when it is set (a database dump alone then decrypts nothing),
+     * otherwise from secret_key in the database. The signing key (Antispam::key()) comes from the same secret in another context.
+     */
     private static function vaultKey(Settings $settings): string
     {
-        return sodium_crypto_generichash('talea-connectors|' . (new Antispam($settings->db(), $settings))->key(), '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
+        return self::derive(Antispam::environmentSecret($settings) ?? (new Antispam($settings->db(), $settings))->key());
+    }
+
+    private static function derive(string $secret): string
+    {
+        return sodium_crypto_generichash('talea-connectors|' . $secret, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
     }
 
     public static function encrypt(Settings $settings, string $plain): string
     {
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-
-        return base64_encode($nonce . sodium_crypto_secretbox($plain, $nonce, self::vaultKey($settings)));
+        return self::seal(self::vaultKey($settings), $plain);
     }
 
     /** null when it cannot be read (another site's key, damaged). */
     public static function decrypt(Settings $settings, ?string $sealed): ?string
     {
+        return self::open(self::vaultKey($settings), $sealed);
+    }
+
+    private static function seal(string $key, string $plain): string
+    {
+        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+
+        return base64_encode($nonce . sodium_crypto_secretbox($plain, $nonce, $key));
+    }
+
+    private static function open(string $key, ?string $sealed): ?string
+    {
         $raw = $sealed !== null ? base64_decode($sealed, true) : false;
         if ($raw === false || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
             return null;
         }
-        $plain = sodium_crypto_secretbox_open(substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), self::vaultKey($settings));
+        $plain = sodium_crypto_secretbox_open(substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $key);
 
         return $plain === false ? null : $plain;
+    }
+
+    /**
+     * Moves the key out of the database (Antispam::environmentSecret, on the first use of TALEA_SECRET_KEY): in one transaction
+     * every stored credential is encrypted again under the key derived from the variable and secret_key is cleared. A value the
+     * database key cannot open stays as it is (already moved, or damaged). The row of secret_key is locked first, so two requests
+     * never move twice. false = nothing changed (called inside another transaction, or it failed: logged, tried again next time).
+     */
+    public static function moveKey(Settings $settings, string $secret): bool
+    {
+        $db = $settings->db();
+        if ($db->pdo()->inTransaction()) {
+            return false;
+        }
+        try {
+            $db->transaction(function (Db $db) use ($secret): void {
+                $old = (string) $db->value("SELECT value FROM {settings} WHERE name = 'secret_key' FOR UPDATE");
+                if ($old === '') {
+                    return;
+                }
+                [$from, $to] = [self::derive($old), self::derive($secret)];
+                foreach ($db->all('SELECT service, ' . implode(', ', self::SEALED) . ' FROM {connectors}') as $row) {
+                    $sealed = [];
+                    foreach (self::SEALED as $column) {
+                        if (($plain = self::open($from, $row[$column])) !== null) {
+                            $sealed[$column] = self::seal($to, $plain);
+                        }
+                    }
+                    if ($sealed !== []) {
+                        $db->update('connectors', $sealed, ['service' => $row['service']]);
+                    }
+                }
+                $db->update('settings', ['value' => ''], ['name' => 'secret_key']);
+            });
+        } catch (\Throwable $e) {
+            error_log('Talea: the connector credentials could not be moved to TALEA_SECRET_KEY: ' . $e->getMessage());
+
+            return false;
+        }
+        $settings->set('secret_key', ''); // the cached value too
+
+        return true;
+    }
+
+    /**
+     * Where the key is, for System status: [ok | warning | error, what the administrator reads]. An error when a stored credential
+     * cannot be read with the key in use (a database restored without its TALEA_SECRET_KEY, or the variable changed).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function keyStatus(Settings $settings): array
+    {
+        $unreadable = 0;
+        foreach ($settings->db()->all('SELECT ' . implode(', ', self::SEALED) . ' FROM {connectors}') as $row) {
+            foreach ($row as $sealed) {
+                $unreadable += (int) ($sealed !== null && $sealed !== '' && self::decrypt($settings, (string) $sealed) === null);
+            }
+        }
+        $variable = Config::env('SECRET_KEY');
+
+        return match (true) {
+            $unreadable > 0 => ['error', t('%d stored connector credential(s) cannot be read with the current key – a database restored without its TALEA_SECRET_KEY, or the variable changed. Set the variable the credentials were stored with, or connect the services again.', $unreadable)],
+            $variable !== '' && strlen($variable) < Antispam::SECRET_MIN_LENGTH => ['error', t('TALEA_SECRET_KEY is shorter than %d characters and is not used – the key stays in the database', Antispam::SECRET_MIN_LENGTH)],
+            $variable === '' => ['warning', t('kept in the database – a database dump or backup alone decrypts the stored connector credentials; set TALEA_SECRET_KEY (docs/DEPLOYMENT.md)')],
+            Antispam::environmentSecret($settings) === null => ['warning', t('TALEA_SECRET_KEY is set, but the stored credentials could not be moved to it yet – see the error log')],
+            default => ['ok', t('from TALEA_SECRET_KEY – the database holds no key')],
+        };
     }
 
     /** @return array<string, mixed>|null */

@@ -193,7 +193,7 @@ final class Webhook
         $root = $app->request->origin() . $app->request->basePath() . '/'; // files are shared by all languages
         $data = [
             'event' => 'news_published', 'site' => $app->settings()->get('site_name'), 'title' => $c['title'],
-            'url' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'excerpt' => trim(strip_tags($c['intro'])), 'category' => $c['category'],
+            'url' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'excerpt' => Html::plain($c['intro']), 'category' => $c['category'],
             'image' => $c['image'] === '' ? '' : (preg_match('#^https?://#i', $c['image']) ? $c['image'] : rtrim($root, '/') . '/' . ltrim($c['image'], '/')),
             'tags' => array_column($app->db()->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$idc]), 'name'),
             'published_at' => date('c', strtotime($c['published_at'])),

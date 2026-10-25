@@ -28,9 +28,16 @@ final class Antispam
     {
     }
 
-    /** Secret key of the installation; created on first use. */
+    /**
+     * Secret key of the installation (form signatures, signed links, the statistics salt): derived from TALEA_SECRET_KEY when it
+     * is set, so the database holds none of it; otherwise secret_key in the database, created on first use.
+     */
     public function key(): string
     {
+        $secret = self::environmentSecret($this->settings);
+        if ($secret !== null) {
+            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret, '', 32));
+        }
         $key = $this->settings->get('secret_key');
         if ($key === '') {
             $key = bin2hex(random_bytes(32));
@@ -38,6 +45,24 @@ final class Antispam
         }
 
         return $key;
+    }
+
+    /** The shortest TALEA_SECRET_KEY that is used (`openssl rand -hex 32` gives 64 characters); a shorter one is ignored and System status says so. */
+    public const int SECRET_MIN_LENGTH = 32;
+
+    /**
+     * TALEA_SECRET_KEY (or the file TALEA_SECRET_KEY_FILE names) once it has replaced secret_key in the database: its first use
+     * moves the stored connector credentials to it (Connectors::moveKey). null = the database key is in use (the variable is not
+     * set or too short, or the move has not happened yet and is tried again on the next request).
+     */
+    public static function environmentSecret(Settings $settings): ?string
+    {
+        $secret = Config::env('SECRET_KEY');
+        if (strlen($secret) < self::SECRET_MIN_LENGTH) {
+            return null;
+        }
+
+        return $settings->get('secret_key') === '' || Connectors::moveKey($settings, $secret) ? $secret : null;
     }
 
     /** Hidden fields for a form: the signed time of issue and a bot trap. */

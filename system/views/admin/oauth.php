@@ -7,11 +7,15 @@
  * @var array{nazev:string, redirect_uri:string} $pending
  * @var array<string, mixed> $user
  * @var string $url  the server the app returns to after consent
+ * @var bool $connected whether this site has a connection with the app already; without one its name is not verified
  */
 $role = t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '');
 ?>
 <div class="oauth-consent">
-	<p class="oauth-who"><strong><?= e($pending['name']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?></p>
+	<p class="oauth-who"><strong><?= e($pending['name']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?><?php if (!$connected): ?> <span class="badge badge-draft"><?= e(t('new, not verified')) ?></span><?php endif ?></p>
+<?php if (!$connected): ?>
+	<p class="help"><?= e(t('This website has no connection with this application yet. An application chooses its name itself, so the name is not verified – allow access only if you started this connection yourself.')) ?></p>
+<?php endif ?>
 	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $username['username'], $role)) ?></p>
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>

@@ -78,7 +78,7 @@ final class Settings
         'related_news_auto' => '1',    // related news by tags and category
         'tasks_token' => '',          // secret part of the /tasks URL for cron
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'stats') is the only switch; kept for MCP update_settings
-        'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
+        'secret_key' => '',           // created by itself; signs links, salts the statistics hashes and keys the connector credentials – cleared once TALEA_SECRET_KEY replaces it (Antispam::environmentSecret)
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
         'schema_org' => '1',          // structured data JSON-LD
@@ -101,6 +101,7 @@ final class Settings
         'claude_destructive' => '1',     // 0 = no deleting, trashing or discarding through Claude
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
+        'claude_instructions_seen' => '', // sha256 of the instructions an administrator last checked (#149, Core\ClaudeInstructions); never over MCP or in an export
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = news (Core\Routes)
         'slugs_per_language' => '0', // a page, news item or category may share its slug with another language version (/contact, /en/contact); changed only by Core\Slug::switchPerLanguage
@@ -193,7 +194,8 @@ final class Settings
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)
         'ai_key' => '',              // API key of the AI assistant (never written back into the form)
-        'ai_model' => 'claude-sonnet-5',
+        'ai_model' => '',              // empty = the newest model the provider lists (Core\Assistant::model())
+        'ai_models' => '',             // the provider's model list as JSON {provider, time, models}, loaded from its API (Assistant::loadModels)
         'first_steps_hidden' => '0',      // the administrator hid the first steps on the dashboard
         'first_steps_skipped' => '[]',    // first steps the administrator skipped (JSON list of step names)
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)

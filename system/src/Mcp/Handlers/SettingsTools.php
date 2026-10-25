@@ -38,6 +38,7 @@ trait SettingsTools
         };
 
         $adminOnly();
+        $instructionsBefore = $siteSettings->get('claude_instructions'); // a change goes to the change log and to Home (#149)
         $changes = is_array($a['settings'] ?? null) ? $a['settings'] : [];
         $stored = [];
         $errors = [];
@@ -146,6 +147,7 @@ trait SettingsTools
         if ($stored !== []) {
             \Talea\Front\Cache::clear();
         }
+        \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $siteSettings->get('claude_instructions'));
         if (isset($stored['company_hours'])) {
             \Talea\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
         }

@@ -30,6 +30,7 @@ final class Requests extends Module
         return $this->view('list', 'Ask AI', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
             'claudeOn' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
+            'claude' => $this->claude(), // #154: new requests nothing picks up are highlighted after WAIT_HOURS
             // the same box as on Home above the list (#113); the list below already shows the person's requests
             'ask' => ($ask = $this->kernel->askClaude()) === null ? null : ['from' => 'requests', 'recent' => []] + $ask]);
     }
@@ -41,6 +42,9 @@ final class Requests extends Module
             'news' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT public_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
             'items' => $this->db->pairs('SELECT p.public_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
             'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Talea\Core\Files::limitText(),
+            // #154: whether the request reaches Claude (only with the Claude connection on, as the Ask AI box)
+            'claude' => \Talea\Core\Extensions::isEnabled($this->app->settings(), 'claude') ? $this->claude() : null,
+            'routine' => \Talea\Core\AskClaude::routine($this->db), 'admin' => $this->app->auth()->isAdmin(),
         ]);
     }
 
@@ -79,11 +83,27 @@ final class Requests extends Module
         } catch (\DomainException $e) {
             return $fromDashboard ? $this->toDashboard($e->getMessage(), 'error') : $this->back($e->getMessage(), 'new', [], 'error');
         }
-        if ($fromDashboard) {
-            return $this->toDashboard(t('Sent to Claude as a request. Claude does it as drafts the next time it works on the site; its notes appear in the request.'));
-        }
+        // #154: the message says when Claude sees the request – nothing is "sent" while nothing picks it up
+        $claude = $this->claude();
+        $message = match (true) {
+            !\Talea\Core\ClaudeConnection::reachable($claude) => 'The request is saved – it waits until Claude is connected to the site; you will read its notes here.',
+            $claude['pickup'] === 'stalled' => 'The request is saved – it waits: the scheduled run that picks up requests has stopped. You will read Claude’s notes here.',
+            $claude['pickup'] === 'manual' => 'The request is saved. Claude picks it up the next time someone asks it; you will read its notes here.',
+            default => 'The request is saved. Claude will see it the next time it works on the site; you will read its notes here.',
+        };
+        $type = \Talea\Core\ClaudeConnection::blocked($claude) ? 'warning' : 'ok';
 
-        return $this->back('The request is saved. Claude will see it the next time it works on the site; you will read its notes here.', 'detail', ['id' => $this->publicId($id)]);
+        return $fromDashboard ? $this->toDashboard($message, $type) : $this->back($message, 'detail', ['id' => $this->publicId($id)], $type);
+    }
+
+    /**
+     * Whether requests reach Claude now (#154, Core\ClaudeConnection), read again after a change.
+     *
+     * @return array{state: string, last_call: ?string, pickup: ?string, stalled_since: ?string, expires: ?string, expiring: bool, waiting: int, oldest_waiting: ?string}
+     */
+    private function claude(): array
+    {
+        return \Talea\Core\ClaudeConnection::status($this->db, $this->app->settings(), true);
     }
 
     private function toDashboard(string $message, string $type = 'ok'): Response

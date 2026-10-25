@@ -1,7 +1,7 @@
 <?php
 /**
- * Built-in cookie bar. Consent is stored in the cookie "talea_consent" for 6 months. A browser sending Global Privacy
- * Control counts as "only necessary" without asking (2.3).
+ * Built-in cookie bar. Consent is stored in the cookie "talea_consent" for Privacy::CONSENT_DAYS days (the cookie table reads the
+ * same constant). A browser sending Global Privacy Control counts as "only necessary" without asking (2.3).
  * Scripts waiting for consent have type="text/plain" data-consent="analytics", marketing codes are in <template data-consent="marketing">.
  * The appearance is deliberately neutral and independent of the layout; the layout can override it with the .cookies-* classes.
  *
@@ -91,12 +91,12 @@
 	}
 	function save(category) {
 		var had = readConsent() || [];
-		document.cookie = 'talea_consent=' + encodeURIComponent(category.join(',') || 'none') + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+		document.cookie = 'talea_consent=' + encodeURIComponent(category.join(',') || 'none') + '; path=/; max-age=' + <?= \Talea\Core\Privacy::CONSENT_DAYS * 86400 ?> + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
 		bar.hidden = true; reopen.hidden = false;
 		var evidence = <?= json_encode($evidence) ?>;
 		if (evidence) {
 			var id = (document.cookie.match(/(?:^|; )talea_consent_id=([a-f0-9]{32})/) || [])[1];
-			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'talea_consent_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax'; }
+			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'talea_consent_id=' + id + '; path=/; max-age=' + <?= \Talea\Core\Privacy::CONSENT_DAYS * 86400 ?> + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); }
 			var data = new FormData(); data.append('id', id); data.append('category', category.join(',') || 'none');
 			if (navigator.sendBeacon) { navigator.sendBeacon(evidence, data); } else { fetch(evidence, { method: 'POST', body: data }); }
 		}

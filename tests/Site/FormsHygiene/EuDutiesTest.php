@@ -49,6 +49,31 @@ final class EuDutiesTest extends SiteTestCase
         $this->assertTrue($response->contains('<td><code>YSC</code></td><td>YouTube</td><td>Video player: views within a session</td><td>session</td><td>Marketing</td>'), '2.14: and the YouTube rows translated');
     }
 
+    public function testTheCookieTableNamesTheCookiesAsTheCodeSetsThem(): void
+    {
+        $this->site()->setting('cookies_log', '1');
+
+        $response = $this->assertPage('/cookies-2-14', 200, '<td><code>talea_consent</code></td><td>Talea</td><td>Cookie bar: the categories the visitor allowed (cookie)</td><td>180 days</td>',
+            message: '#153: the cookie bar keeps the choice 180 days, as views/front/cookies.php sets it');
+
+        $this->assertTrue($response->contains('<td><code>talea</code></td><td>Talea</td>'), '#153: the session cookie is listed by its name, talea');
+        $this->assertFalse($response->contains('PHPSESSID'), '#153: no PHPSESSID – Talea names its session cookie');
+        $this->assertTrue($response->contains('<td><code>tl_preview</code></td><td>Talea</td><td>Preview of drafts: only for someone who opened a signed preview link (cookie)</td><td>until the preview link expires, at most 7 days</td>'), '#153: the preview cookie is listed');
+        $this->assertTrue($response->contains('<td><code>talea_consent_id</code></td><td>Talea</td>'), '#153: the consent id is listed while consents are recorded');
+        $this->assertTrue($response->contains('<td><code>tl_remember</code></td><td>Talea</td><td>Sign-in to the administration: &quot;Stay signed in&quot; – only when a user ticks it, never for visitors</td><td>30 days</td>'), '#153: "stay signed in" with its lifetime');
+        $this->assertFalse($response->contains('<code>tl_page_*</code>'), '#153: no page-lock cookie while no page has a password');
+        $this->assertFalse($response->contains('<code>tl_member</code>'), '#153: no member cookie while member login is off');
+
+        $this->site()->setting('cookies_log', '0');
+        $locked = $this->createPage(['title' => 'Locked 153', 'slug' => 'locked-153', 'visible' => true]);
+        $this->site()->exec('UPDATE tl_pages SET password_hash = ? WHERE page_id = ?', [password_hash('partner-153', PASSWORD_DEFAULT), $locked]);
+
+        $response = $this->assertPage('/cookies-2-14', 200, '<td><code>tl_page_*</code></td><td>Talea</td><td>Password-protected page: the page was opened with its password (cookie)</td><td>30 days</td>',
+            message: '#153: a page with a password brings its unlock cookie into the table');
+        $this->assertFalse($response->contains('<code>talea_consent_id</code>'), '#153: no consent id once consents are not recorded');
+        $this->site()->exec('UPDATE tl_pages SET password_hash = NULL WHERE page_id = ?', [$locked]);
+    }
+
     public function testRetentionWithAnonymiseKeepsTheRowAndBlanksThePerson(): void
     {
         // the choice first – opening Enquiries runs the retention, which would delete the old row under the default

@@ -49,6 +49,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $code = trim($site->php('echo Talea\Core\Totp::code("' . self::SECRET . '", intdiv(time(), 30));'));
         [$status, self::$app] = $this->signInWithCode($code);
         $this->assertSame(302, $status, 'sign-in with the code from the app (TOTP)');
+        $this->assertSame(401, $this->signInWithCode($code)[0], 'a code from the app signs in only once (no replay within the drift)');
         $this->assertSame(302, $this->signInWithCode('abcde-12345')[0], 'a backup code passes');
         $this->assertSame(401, $this->signInWithCode('abcde-12345')[0], 'a backup code can be used only once');
     }
@@ -58,6 +59,7 @@ final class TwoFactorLoginTest extends SiteTestCase
     {
         $site = $this->site();
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("UPDATE tl_users SET totp_last_step = NULL WHERE username = 'author'"); // the code of this step was spent above
         $browser = $site->client('author');
         $csrf = $browser->get('/admin.php')->csrf();
         $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'author', 'password' => $site->password, 'remember' => '1']);

@@ -219,6 +219,9 @@ final class AgentJournal
             $rows[$id]['after'] = $e['after_row'];
         }
         $result = ['restored' => 0, 'removed' => 0, 'conflicts' => [], 'untracked' => $untracked, 'undone' => false];
+        // restoring the settings row can change the instructions for Claude: that change is recorded like any other (#149)
+        $instructions = fn (): string => (string) ($db->value("SELECT value FROM {settings} WHERE name = 'claude_instructions'") ?? '');
+        $instructionsBefore = $instructions();
         $db->transaction(function (Db $db) use ($rows, $force, &$result): void {
             foreach (array_reverse($rows) as $row) {
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition($db, array_keys($row['key'])), array_values($row['key']));
@@ -247,6 +250,7 @@ final class AgentJournal
         $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
         \Talea\Front\Cache::clear();
+        ClaudeInstructions::changed($app, $instructionsBefore, $instructions());
         \Talea\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
         Events::record($db, 'claude.session_undone', 'info', t('A Claude session was undone: %d rows restored, %d removed, %d left because they changed since.', $result['restored'], $result['removed'], count($result['conflicts'])),
             ['session' => $sessionId, 'restored' => $result['restored'], 'removed' => $result['removed'], 'conflicts' => count($result['conflicts'])]);

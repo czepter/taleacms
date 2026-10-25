@@ -2,13 +2,13 @@
 
 ```bash
 # set TALEA_DB_PASSWORD and TALEA_SITE_URL in docker-compose.yaml (or in your environment, e.g. Coolify)
-docker compose up -d --build   # then open the site: it redirects to the installer (site name, administrator)
+docker compose up -d   # then open the site: it redirects to the installer (site name, administrator)
 ```
 
 Services: `web` (FrankenPHP/Caddy, plain HTTP on `:8080` – put your TLS proxy in front, e.g. Traefik/Coolify; it also runs
 `php system/docker.php cron` every 5 minutes = the `/tasks` jobs) and `db` (MySQL 8.4; MariaDB 11.4+ works too, 10.x lacks the collation `utf8mb4_0900_ai_ci`).
 The database comes from the environment; the web installer (`/install.php`) asks only for the site and the administrator, creates the tables and
-leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull/build && up -d`);
+leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull && docker compose up -d`);
 the entrypoint applies pending database migrations (`php bin/migrate --if-installed`) before the server starts; migrations never run on a page request. A site never updates itself and never asks for new versions.
 
 Volumes: `/app/storage` (logs, cache, backups), `/app/media` (uploads), `/app/extensions` (add-ons). Bind mounts must be owned by uid 33 (www-data).
@@ -44,8 +44,9 @@ home folder: `colima ssh -- sh -c "cd $PWD && docker compose -f docker-compose-d
 
 ## Coolify
 
-New resource → Docker Compose (build pack) from this repository, compose file `/docker-compose.coolify.yaml`. Coolify generates the database
-password (`SERVICE_PASSWORD_DB`) and the site URL (`SERVICE_FQDN_WEB_8080` / `SERVICE_URL_WEB`); set the domain on the `web` service,
+New resource → Docker Compose (build pack) from this repository, compose file `/docker-compose.coolify-mysql.yaml` (MySQL 8.4),
+`/docker-compose.coolify-mariadb.yaml` (MariaDB 11.4) or `/docker-compose.coolify-postgres.yaml` (PostgreSQL 18). Coolify generates the database
+password (`SERVICE_PASSWORD_DB`), the site's secret (`SERVICE_PASSWORD_64_SECRET` → `TALEA_SECRET_KEY`) and the site URL (`SERVICE_FQDN_WEB_8080` / `SERVICE_URL_WEB`); set the domain on the `web` service,
 open it and run the installer. Add `TALEA_AI_URL` or any variable below in the Environment Variables tab.
 
 ## Environment variables
@@ -63,5 +64,6 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 | `TALEA_SITE_URL` | request host | Public URL, e.g. `https://example.com` (**set it**, used in e-mails/links) |
 | `TALEA_BACKUP_BEFORE_MIGRATE` | on | `0` skips the database backup that precedes pending migrations on start |
 | `TALEA_CRON` | on | `0` on every replica but one: the background-job loop must run once |
+| `TALEA_SECRET_KEY` | – | The site's secret, at least 32 characters (`openssl rand -hex 32`): encrypts the connector credentials and signs links, so a database dump alone holds no key. Without it the key stays in the database (System status warns). Keep it with your backups, see docs/DEPLOYMENT.md |
 
 SMTP is configured in the admin (Settings → Mail).

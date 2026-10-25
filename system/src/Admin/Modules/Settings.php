@@ -27,7 +27,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (choice:…). */
@@ -76,12 +76,15 @@ class Settings extends Module
         'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
             'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
         'mail' => ['mail_mode' => 'choice:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'pattern:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'number:1:65535',
-            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000',
-            'report_monthly' => 'flag', 'report_recipients' => 'emails'],
+            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000'],
+        // the monthly report (2.9) and its archive (#161, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
+        'reports' => ['report_monthly' => 'flag', 'report_recipients' => 'emails'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
-        'extensions' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#',
-            'newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
+        'extensions' => [], // the switches are saved by Extensions::save (actionSave)
+        // the writing assistant and the newsletter connection have their own screens (Modules\AssistantSettings, Modules\NewsletterSettings)
+        'assistant' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#'],
+        'newsletter' => ['newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
             'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
@@ -193,6 +196,9 @@ class Settings extends Module
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT categories, COUNT(*) AS count FROM {consents} WHERE created_at > NOW() - INTERVAL 30 DAY GROUP BY categories ORDER BY count DESC") : [],
             'cookieTable' => $tab === 'cookies' ? \Talea\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Talea\Core\Privacy::lastScan($settings) : [],
+            // #161: the archived monthly reports, the month the archive starts with and the month the job stores next
+            'reports' => $tab === 'reports' ? ['months' => \Talea\Core\ReportArchive::months($this->db), 'first' => \Talea\Core\ReportArchive::firstMonth($this->db),
+                'previous' => \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
                 ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
         ]);
@@ -208,6 +214,7 @@ class Settings extends Module
         $errors = [];
         $given = [];
         $zoneBefore = $settings->get('time_zone');
+        $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $refused = null;
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
@@ -255,6 +262,7 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'), typed: true);
         // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
         // a server that already is the service's stays as it is – the user name and the password are never touched
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Talea\Core\Demo::active()) {
@@ -268,8 +276,22 @@ class Settings extends Module
             if (Extensions::isEnabled($settings, 'news')) {
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
-            if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous')) && $settings->get('ai_key') !== '' && ($keyError = (new \Talea\Core\Assistant($settings))->verifyKey()) !== null) {
-                return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
+        }
+        if ($tab === 'assistant') {
+            $providerChanged = $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous');
+            if ($settings->get('ai_key') === '') {
+                $settings->set('ai_models', ''); // a removed key: the list it loaded goes too
+            } elseif ($this->request->post('ai_key') !== '' || $providerChanged || $this->request->postBool('reload_models')) {
+                // a new key, another provider or the reload button: the provider's model list, which also checks the key
+                $assistant = new \Talea\Core\Assistant($settings);
+                try {
+                    $models = array_column($assistant->loadModels(), 'id');
+                } catch (\RuntimeException $e) {
+                    return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($e->getMessage())), '', [], 'error');
+                }
+                if (!in_array($settings->get('ai_model'), $models, true)) {
+                    $settings->set('ai_model', $models[0]); // the model of the previous provider (or none yet): the newest of this one
+                }
             }
         }
         if ($tab === 'company') {
@@ -599,17 +621,52 @@ class Settings extends Module
             'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src * data:; frame-ancestors 'self'; base-uri 'self' https: http:"]);
     }
 
-    /** Sends the previous month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin). */
+    /**
+     * Sends a month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin): the previous
+     * month, or an archived one chosen in Settings → Reports (#161).
+     */
     protected function actionReportSend(): Response
     {
         if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'mail']);
+            return $this->back('', '', ['tab' => 'reports']);
         }
-        $sent = \Talea\Core\MonthlyReport::sendAndRecord($this->app, \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable()));
+        $month = $this->request->post('month');
+        if ($month !== '' && \Talea\Core\ReportArchive::get($this->db, $month) === null) {
+            return $this->back('This month is not in the archive.', '', ['tab' => 'reports'], 'error');
+        }
+        $start = $month !== '' ? new \DateTimeImmutable($month . '-01') : \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable());
+        $sent = \Talea\Core\MonthlyReport::sendAndRecord($this->app, $start);
 
         return $sent === 0
-            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'error')
-            : $this->back(t('The report has been handed over for delivery to %d recipient(s).', $sent), '', ['tab' => 'mail']);
+            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'reports'], 'error')
+            : $this->back(t('The report for %s has been handed over for delivery to %d recipient(s).', \Talea\Core\ReportPage::monthName($start->format('Y-m')), $sent), '', ['tab' => 'reports']);
+    }
+
+    /** One archived month as the printable A4 page (#161, Core\ReportPage) with its Print button. */
+    protected function actionReportView(): Response
+    {
+        $stored = \Talea\Core\ReportArchive::get($this->db, $this->request->get('month'));
+        if ($stored === null) {
+            return $this->error('This month is not in the archive.', 404);
+        }
+
+        // its own inline styles and the Print button script, nothing else may run – like the door sign
+        return new Response(\Talea\Core\ReportPage::render($this->app, $stored, $this->app->url('image/print.js') . '?v=' . TALEA_VERSION), 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store, private',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
+    }
+
+    /** The same page as an HTML file to keep or attach (#161): no Print button, no script, the logo by its full address. */
+    protected function actionReportDownload(): Response
+    {
+        $stored = \Talea\Core\ReportArchive::get($this->db, $this->request->get('month'));
+        if ($stored === null) {
+            return $this->error('This month is not in the archive.', 404);
+        }
+        $host = (string) preg_replace('/[^a-z0-9.-]+/', '-', strtolower((string) (parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin(), PHP_URL_HOST) ?: 'site')));
+
+        return new Response(\Talea\Core\ReportPage::render($this->app, $stored), 200, ['Content-Type' => 'text/html; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="website-report-' . $host . '-' . $stored['month'] . '.html"', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; frame-ancestors 'none'; base-uri 'none'"]);
     }
 
     /** A test call to the webhook addresses, sent right away – the result is in the delivery log below. */

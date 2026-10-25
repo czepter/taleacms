@@ -21,6 +21,10 @@ final class WebsiteImportTest extends TestCase
             \Talea\Core\WebImport::absolute('b/c', 'https://a.cz/dir/page'), \Talea\Core\WebImport::absolute('//cdn.a.cz/x.jpg', 'https://a.cz/'),
             \Talea\Core\WebImport::links('<a href="/x">1</a><a href="mailto:a@a.cz">2</a><a href="javascript:alert(1)">3</a><a href="#top">4</a>', 'https://a.cz/'),
         ], '2.6 WebImport: addresses – normalized, absolute, links without mail and scripts');
+        $emoji = 'https://A.cz/party-' . "\u{1F389}" . '/?utm_source=x';
+        $this->assertSame(['https://a.cz/party-%F0%9F%8E%89/', 'https://a.cz/party-%F0%9F%8E%89/', 'party-' . "\u{1F389}"], [
+            \Talea\Core\WebImport::normalize($emoji), \Talea\Core\WebImport::normalize('https://a.cz/party-%F0%9F%8E%89/'), \Talea\Core\WebImport::path(\Talea\Core\WebImport::normalize($emoji)),
+        ], 'WebImport: an emoji address is percent-encoded before parse_url(), one address however it is written, and its path (for the redirect) comes back whole');
         $webPage = \Talea\Core\WebImport::extract('<html><head><title>About us | Acme</title><meta name="description" content="Who we are"></head><body>'
             . '<header><nav><a href="/">Home</a></nav></header><main><h1>About us</h1><p>We build oak furniture since 1990, for homes and offices across the region. ' . str_repeat('More text. ', 10) . '</p>'
             . '<img data-src="/img/team.jpg" src="data:image/gif;base64,x" alt="Our team"><p><a href="https://www.a.cz/contact/">Contact</a> <a href="https://other.cz/">Partner</a></p>'

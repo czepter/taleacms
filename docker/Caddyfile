@@ -75,8 +75,12 @@
 		file_server
 	}
 
-	# static files carry ?v=version in their URLs; sw.js must always be revalidated
-	@static path_regexp (?i)\.(css|js|woff2|svg|jpe?g|png|gif|webp|avif|ico)$
+	# static files carry ?v=version in their URLs; sw.js must always be revalidated. Only files that exist: a missing media/
+	# file goes to index.php, which shows a file waiting for approval privately (Core\MediaStaging)
+	@static {
+		path_regexp (?i)\.(css|js|woff2|svg|jpe?g|png|gif|webp|avif|ico)$
+		file
+	}
 	header @static Cache-Control "public, max-age=2592000"
 	header /sw.js Cache-Control no-cache
 

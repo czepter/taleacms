@@ -32,6 +32,21 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertSame('en', $this->pick($info, 'languages', 'default'), 'MCP: site_info lists languages');
     }
 
+    public function testAMalformedRequestIsAJsonRpcErrorNotAnErrorPage(): void
+    {
+        $site = $this->site();
+        $answers = [
+            $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":["list_pages"],"arguments":{}}}'),
+            $site->mcpRaw('{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_pages","arguments":"x"}}'),
+            $site->mcpRaw('{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":{"a":1}}}'),
+            $site->mcpRaw('{"jsonrpc":"2.0","id":4,"method":"tools/call","params":"list_pages"}'),
+        ];
+        $this->assertSame([[1, -32602], [2, -32602], [3, -32602], [4, -32602]], array_map(fn (array $a): array => [$a['id'] ?? null, $a['error']['code'] ?? null], $answers),
+            'MCP: a name, address, arguments or params of the wrong type is invalid params');
+        $batch = $site->mcpRaw('[1, {"jsonrpc":"2.0","id":5,"method":"ping"}]');
+        $this->assertSame([-32600, 5], [$batch[0]['error']['code'] ?? null, $batch[1]['id'] ?? null], 'MCP: a batch entry that is not an object is an invalid request; the others are answered');
+    }
+
     public function testBuilderSchemaAndBuildsUseTheEnglishVocabulary(): void
     {
         $schema = $this->call('builder_schema');

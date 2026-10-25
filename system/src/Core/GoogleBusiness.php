@@ -213,8 +213,8 @@ final class GoogleBusiness
      */
     public static function postBody(array $news, string $url, string $imageUrl, string $language): array
     {
-        $title = trim(html_entity_decode(strip_tags($news['title']), ENT_QUOTES | ENT_HTML5));
-        $intro = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($news['intro']), ENT_QUOTES | ENT_HTML5)));
+        $title = Html::plain($news['title']);
+        $intro = Html::plain($news['intro']);
         $summary = $title . ($intro !== '' ? "\n\n" . $intro : '');
         if (mb_strlen($summary) > self::POST_SUMMARY_LENGTH) {
             $summary = rtrim(mb_substr($summary, 0, self::POST_SUMMARY_LENGTH - 1)) . '…';

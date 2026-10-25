@@ -33,7 +33,23 @@ final class ClaudeSettings extends Settings
             FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.kind IN ('token', 'refresh') AND (t.client_id IS NULL OR t.expires_at > ?)
             GROUP BY t.user_id, t.client_id, CASE WHEN t.client_id IS NULL THEN t.token_id ELSE 0 END
             ORDER BY MAX(t.used_at) IS NULL, MAX(t.used_at) DESC, MAX(t.token_id) DESC LIMIT 200", [date('Y-m-d H:i:s')]);
+        $data['instructionsChange'] = \Talea\Core\ClaudeInstructions::pending($this->app); // the change Home points to, before and after (#149)
 
         return parent::view($template, $heading, $data);
+    }
+
+    /**
+     * An administrator checked the changed instructions (#149): Home stops pointing to them until the next change. The form
+     * carries the fingerprint of the text shown, so a change made in the meantime is not acknowledged unseen.
+     */
+    protected function actionAcknowledgeInstructions(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+
+        return \Talea\Core\ClaudeInstructions::acknowledge($this->app->settings(), $this->request->post('instructions_seen'))
+            ? $this->back('Thank you. Home no longer points to the instructions until they change again.')
+            : $this->back('The instructions changed again in the meantime – check them once more.', '', [], 'error');
     }
 }
