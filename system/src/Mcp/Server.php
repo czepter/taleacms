@@ -63,7 +63,9 @@ final class Server
         if (count($batch) > 50) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'A batch has at most 50 messages.']], 400);
         }
-        $responses = array_values(array_filter(array_map($this->process(...), $batch)));
+        // a message that is not an object is an invalid request, not an error page
+        $responses = array_values(array_filter(array_map(fn (mixed $z): ?array => is_array($z) ? $this->process($z)
+            : ['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'A message must be a JSON object.']], $batch)));
         if ($responses === []) {
             return new Response('', 202);
         }
@@ -75,9 +77,17 @@ final class Server
     private function process(array $z): ?array
     {
         $id = $z['id'] ?? null;
-        $method = (string) ($z['method'] ?? '');
+        $method = is_string($z['method'] ?? null) ? $z['method'] : '';
         if ($id === null) {
             return null;
+        }
+        // a name, address or arguments of the wrong type is invalid params – (string) on an array would warn and the error
+        // handler would answer with an error page
+        $params = $z['params'] ?? [];
+        foreach (['name' => 'is_string', 'uri' => 'is_string', 'arguments' => 'is_array'] as $key => $isValid) {
+            if (!is_array($params) || (isset($params[$key]) && !$isValid($params[$key]))) {
+                return ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32602, 'message' => is_array($params) ? 'params.' . $key . ' has the wrong type.' : 'params must be an object.']];
+            }
         }
         $ok = fn (array $result): array => ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result];
         $tools = new Tools($this->app);
