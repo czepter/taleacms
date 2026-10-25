@@ -2326,6 +2326,7 @@ return [
     'Media folder (its photos are added after the list)' => 'Složka v Médiích (její fotky se přidají za seznam)',
     'Media size' => 'Velikost médií',
     'Media: %d files are still waiting – the copy continues in the background.' => 'Média: ještě čeká %d souborů – kopírování pokračuje na pozadí.',
+    'Media: %s' => 'Média: %s',
     'Media: the copy is complete (checked %s).' => 'Média: kopie je kompletní (kontrola %s).',
     'Media: the last attempt %s failed: %s' => 'Média: poslední pokus %s selhal: %s',
     'Member accounts' => 'Členské účty',
