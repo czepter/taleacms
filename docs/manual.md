@@ -401,7 +401,13 @@ too, so every change – in the admin or through Claude – goes to the change l
 **Home** tells the administrators until one of them has looked at the change in AI settings and pressed **I have checked
 the instructions**. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
-item, and a weekly review of the site.
+item, and a weekly review of the site. The longer ones are complete runbooks, from the first step to the hand-over:
+**launch a new site**, **move a site** here (WordPress, also a shop or a multilingual site, or any other platform),
+**add a language version** (also a regional or right-to-left one), **weekly care** (the review that also fixes what is
+safe), **prepare a newsletter**, **set up online bookings** and a **compliance check** (record of processing, cookies,
+privacy policy, imprint, accessibility statement, personal data requests – templates, never legal advice). Each works in
+drafts, keeps to your instructions, asks you instead of inventing facts and asks before anything is published, deleted
+or sent.
 
 **Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
