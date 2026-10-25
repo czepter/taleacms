@@ -344,9 +344,17 @@ final class WpImport
     /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
     public static function oldPath(string $link): string
     {
-        $path = trim(rawurldecode((string) parse_url($link, PHP_URL_PATH)), '/ ');
+        // parse_url() is not multibyte safe (it may take bytes of an emoji or an accented letter for control characters and
+        // write "_"): everything outside ASCII is percent-encoded first and decoded back below
+        $path = trim(rawurldecode((string) parse_url(self::encodeNonAscii($link), PHP_URL_PATH)), '/ ');
 
         return mb_strlen($path) > 255 || !mb_check_encoding($path, 'UTF-8') ? '' : $path;
+    }
+
+    /** An address with every non-ASCII character percent-encoded (RFC 3986), the form parse_url() reads safely. */
+    public static function encodeNonAscii(string $url): string
+    {
+        return (string) preg_replace_callback('/[^\x00-\x7F]+/', fn (array $m): string => rawurlencode($m[0]), $url);
     }
 
     /** Image URL without the thumbnail size and without parameters: foto-300x200.jpg?x=1 → foto.jpg (WordPress inserts downsized copies into the text). */

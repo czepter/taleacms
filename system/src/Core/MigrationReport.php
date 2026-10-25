@@ -60,7 +60,9 @@ final class MigrationReport
     /** @param array<string, mixed> $state */
     public static function save(array $state): void
     {
-        file_put_contents(self::file((string) $state['id']), (string) json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+        // an old sitemap may hold an address that is not valid UTF-8 (a cut escape of an emoji): it is substituted, otherwise
+        // json_encode() returns false and the report is saved as an empty file the next batch cannot find
+        file_put_contents(self::file((string) $state['id']), (string) json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), LOCK_EX);
     }
 
     public static function delete(string $id): void
@@ -175,7 +177,7 @@ final class MigrationReport
             }
             $to = substr($to, strlen($origin));
         }
-        $next = $this->resolve((string) parse_url($to, PHP_URL_PATH), $hops + 1);
+        $next = $this->resolve((string) parse_url(WpImport::encodeNonAscii($to), PHP_URL_PATH), $hops + 1);
 
         return $next['status'] === 'missing' ? ['url' => $to] + $next : $next;
     }
