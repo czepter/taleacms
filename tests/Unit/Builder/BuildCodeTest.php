@@ -21,4 +21,16 @@ final class BuildCodeTest extends TestCase
         $this->assertSame([], array_filter($codeBypasses, fn (string $h): bool => (bool) preg_match('/\son[a-z]+=|javascript:|srcdoc|<base|<meta|<object|<animate|evil\.example/i', \Talea\Builder\Build::code($h))), 'Build::code: bypassing the old filter fails');
         $this->assertSame('<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen=""></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>', \Talea\Builder\Build::code('<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>'), 'Build::code: map, service form and placeholder values stay');
     }
+
+    /** the CSS checks read the CSS as the browser does: escapes decoded, comments dropped */
+    public function testCssEscapesAreDecodedBeforeTheCheck(): void
+    {
+        $this->assertSame(['<div>x</div>', '<div>y</div>', '', '', '<div style="color: \\72 ed">z</div><style>p{color:#c00}</style>'], [
+            \Talea\Builder\Build::code('<div style="background:\\75 rl(javascript:alert(1))">x</div>'),
+            \Talea\Builder\Build::code('<div style="background:url(java\\script:alert(1))">y</div>'),
+            \Talea\Builder\Build::code('<style>@\\69mport "https://evil.example/x.css";</style>'),
+            \Talea\Builder\Build::code('<style>@im/**/port "https://evil.example/x.css";</style>'),
+            \Talea\Builder\Build::code('<div style="color: \\72 ed">z</div><style>p{color:#c00}</style>'),
+        ], 'Build::code: an escaped url(, javascript: or @import goes; harmless escaped CSS stays as typed');
+    }
 }
