@@ -605,7 +605,7 @@ final class Kernel
         // a focused frame without the admin menu and the draft-look bar – a stray Publish has no place here
         $page = Response::html($app->view->render('admin/bare', ['app' => $app, 'heading' => t('Connect an application'), 'content' => $app->view->render('admin/oauth', [
             'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'username' => $app->auth()->user(),
-            'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
+            'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST), 'connected' => $oauth->isConnectedClient((string) $pending['client_id']),
         ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);
