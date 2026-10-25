@@ -1,4 +1,5 @@
-# Talea on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify.yaml.
+# Talea + PostgreSQL 18 on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify-postgres.yaml.
+# The same with MySQL: docker-compose.coolify-mysql.yaml, with MariaDB: docker-compose.coolify-mariadb.yaml.
 # Coolify fills the SERVICE_* magic variables: the domain (set it on the web service, port 8080) and the database password.
 # Optional: add TALEA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab; TALEA_TAG pins a version (1.4.2, 1.4).
 
@@ -10,6 +11,7 @@ services:
     environment:
       - SERVICE_FQDN_WEB_8080
       - TALEA_SITE_URL=${SERVICE_URL_WEB}
+      - TALEA_DB_DRIVER=pgsql
       - TALEA_DB_HOST=db
       - TALEA_DB_NAME=talea
       - TALEA_DB_USER=${SERVICE_USER_DB}
@@ -24,18 +26,16 @@ services:
         condition: service_healthy
 
   db:
-    image: mysql:8.4
+    image: postgres:18
     restart: unless-stopped
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     environment:
-      - MYSQL_DATABASE=talea
-      - MYSQL_USER=${SERVICE_USER_DB}
-      - MYSQL_PASSWORD=${SERVICE_PASSWORD_DB}
-      - MYSQL_RANDOM_ROOT_PASSWORD=1
+      - POSTGRES_DB=talea
+      - POSTGRES_USER=${SERVICE_USER_DB}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_DB}
     volumes:
-      - db:/var/lib/mysql
+      - db:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       retries: 20
 

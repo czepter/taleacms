@@ -1,0 +1,47 @@
+# Talea + MariaDB 11.4 on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify-mariadb.yaml.
+# The same with MySQL: docker-compose.coolify-mysql.yaml, with PostgreSQL: docker-compose.coolify-postgres.yaml.
+# Coolify fills the SERVICE_* magic variables: the domain (set it on the web service, port 8080) and the database password.
+# Optional: add TALEA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab; TALEA_TAG pins a version (1.4.2, 1.4).
+
+services:
+  web:
+    image: ghcr.io/czepter/talea:${TALEA_TAG:-latest}
+    restart: unless-stopped
+    expose: ["8080"]
+    environment:
+      - SERVICE_FQDN_WEB_8080
+      - TALEA_SITE_URL=${SERVICE_URL_WEB}
+      - TALEA_DB_HOST=db
+      - TALEA_DB_NAME=talea
+      - TALEA_DB_USER=${SERVICE_USER_DB}
+      - TALEA_DB_PASSWORD=${SERVICE_PASSWORD_DB}
+      - TALEA_AI_URL=${TALEA_AI_URL:-}
+    volumes:
+      - storage:/app/storage
+      - media:/app/media
+      - extensions:/app/extensions
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    environment:
+      - MARIADB_DATABASE=talea
+      - MARIADB_USER=${SERVICE_USER_DB}
+      - MARIADB_PASSWORD=${SERVICE_PASSWORD_DB}
+      - MARIADB_RANDOM_ROOT_PASSWORD=1
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  db:
+  storage:
+  media:
+  extensions:

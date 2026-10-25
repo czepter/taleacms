@@ -44,7 +44,8 @@ home folder: `colima ssh -- sh -c "cd $PWD && docker compose -f docker-compose-d
 
 ## Coolify
 
-New resource → Docker Compose (build pack) from this repository, compose file `/docker-compose.coolify.yaml`. Coolify generates the database
+New resource → Docker Compose (build pack) from this repository, compose file `/docker-compose.coolify-mysql.yaml` (MySQL 8.4),
+`/docker-compose.coolify-mariadb.yaml` (MariaDB 11.4) or `/docker-compose.coolify-postgres.yaml` (PostgreSQL 18). Coolify generates the database
 password (`SERVICE_PASSWORD_DB`) and the site URL (`SERVICE_FQDN_WEB_8080` / `SERVICE_URL_WEB`); set the domain on the `web` service,
 open it and run the installer. Add `TALEA_AI_URL` or any variable below in the Environment Variables tab.
 
