@@ -84,4 +84,14 @@ final class ElementsTest extends TestCase
             $f9Schema['before_after']['properties']['before_label']['default'], count($f9Schema['hotspots']['properties']['points']['default']), $f9Schema['timeline']['properties']['milestones']['default'][2]['date'],
             preg_match(\Talea\Builder\Build::ATTRIBUTE_PATTERN, 'data-before-after'), preg_match('/data-\(insert\|[^)]*before-after/', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Kernel.php'))], '2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute');
     }
+
+    /** the form element's inspector shows each field as a row: the summary names real fields, the groups are the ones builder.js folds */
+    public function testFormFieldRows(): void
+    {
+        $fields = \Talea\Builder\Elements\Form::properties()['fields'];
+        $this->assertSame([], array_diff($fields['summary'], array_keys($fields['fields'])), 'Form: the row summary names fields of the item');
+        $groups = array_values(array_unique(array_filter(array_map(fn (array $f): string => $f['group'] ?? '', $fields['fields']))));
+        sort($groups);
+        $this->assertSame(['condition', 'estimate', 'options'], $groups, 'Form: the field settings are grouped into options, the estimate and the condition');
+    }
 }

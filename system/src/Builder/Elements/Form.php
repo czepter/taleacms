@@ -43,21 +43,23 @@ final class Form extends Element
     {
         return [
             'name' => ['type' => 'text', 'label' => 'Form name (in Enquiries and in the email)', 'default' => t('Enquiry'), 'max' => 120],
-            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 20, 'fields' => [
+            // the editor shows each field as one row (summary = what the row says) and groups its settings (group): the options,
+            // the price estimate and the condition – only the inspector reads summary and group, the saved build is the same
+            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 20, 'summary' => ['label', 'type', 'required'], 'fields' => [
                 'label' => ['type' => 'text', 'label' => 'Label', 'default' => '', 'max' => 200],
                 'type' => ['type' => 'choice', 'label' => 'Type', 'default' => 'text', 'options' => self::FIELD_TYPES],
                 'required' => ['type' => 'boolean', 'label' => 'Required', 'default' => false],
-                'options' => ['type' => 'lines', 'label' => 'Choice options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'select']],
-                'choices' => ['type' => 'lines', 'label' => 'Options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'radio']],
-                'checkbox_options' => ['type' => 'lines', 'label' => 'Options to tick (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'checkboxes']],
-                'value' => ['type' => 'text', 'label' => 'Value sent with the form (not shown to the visitor)', 'default' => '', 'max' => 300, 'when' => ['type' => 'hidden']],
+                'options' => ['type' => 'lines', 'label' => 'Choice options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'select'], 'group' => 'options'],
+                'choices' => ['type' => 'lines', 'label' => 'Options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'radio'], 'group' => 'options'],
+                'checkbox_options' => ['type' => 'lines', 'label' => 'Options to tick (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'checkboxes'], 'group' => 'options'],
+                'value' => ['type' => 'text', 'label' => 'Value sent with the form (not shown to the visitor)', 'default' => '', 'max' => 300, 'when' => ['type' => 'hidden'], 'group' => 'options'],
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
-                'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number']],
-                'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate']],
-                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate']],
+                'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number'], 'group' => 'estimate'],
+                'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
                 // conditions (2.12): the field shows only when another field has a value
-                'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200],
-                'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200],
+                'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200, 'group' => 'condition'],
+                'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200, 'group' => 'condition'],
             ], 'default' => [
                 ['label' => t('Your name'), 'type' => 'text', 'required' => true, 'options' => ''],
                 ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
