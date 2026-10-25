@@ -18,6 +18,9 @@
  * @var list<array{name: string, provider: string, purpose: string, duration: string, category: string}> $cookieTable  cookies and storage the site uses (2.14, the Privacy tab)
  * @var array{time?: int, pages?: int, cookies?: list<string>, error?: string} $cookieScan  the last scan of the site's own pages (2.14)
  * @var array<string, mixed>|null $statementPage  the accessibility statement page created from the audit (2.14), null = none yet
+ * @var string $service  the analytics tab: '' = overview, 'connect' = the wizard's first step, else a page or service (Admin\AnalyticsServices)
+ * @var bool $connecting  the analytics tab: a service's page as the wizard's second step
+ * @var bool $connected  the analytics tab: the wizard's last step
  */
 use Talea\Admin\Modules\Settings;
 
@@ -50,7 +53,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
-<?php if (!in_array($tab, ['health', 'console'], true)): ?>
+<?php if (!in_array($tab, ['health', 'console', 'analytics'], true)): // the analytics pages bring their own buttons ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 <?php endif ?>
 </form>
