@@ -2942,6 +2942,7 @@ return [
     'Padding top and bottom' => 'Vnitřní odsazení nahoře a dole',
     'Page' => 'Stránka',
     'Page cache' => 'Cache stránek',
+    'Page cache: emptied on a new day, warmed after changes' => 'Cache stránek: s novým dnem vyprázdněna, po změnách znovu připravena',
     'Page content' => 'Obsah stránky',
     'Page does not exist.' => 'Stránka neexistuje.',
     'Page not found' => 'Stránka nenalezena',

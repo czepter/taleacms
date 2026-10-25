@@ -2947,6 +2947,7 @@ return [
     'Padding top and bottom' => 'Innenabstand oben und unten',
     'Page' => 'Seite',
     'Page cache' => 'Seiten-Cache',
+    'Page cache: emptied on a new day, warmed after changes' => 'Seiten-Cache: am neuen Tag geleert, nach Änderungen vorgewärmt',
     'Page content' => 'Seiteninhalt',
     'Page does not exist.' => 'Die Seite existiert nicht.',
     'Page not found' => 'Seite nicht gefunden',

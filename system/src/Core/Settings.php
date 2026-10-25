@@ -67,7 +67,7 @@ final class Settings
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Talea-Signature), shown only to administrators
         'require_2fa' => '',          // '' | admins (administrators) | everyone (everyone) – mandatory two-factor login
         'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: accounts = block accounts unused for 90 days, connections = revoke Claude connections unused for 60 days
-        'page_cache' => '1',       // full-page cache for visitors who are not logged in (5 minutes)
+        'page_cache' => '1',       // full-page cache for visitors who are not logged in (until a change or a new day, Front\Cache)
         'link_check' => '1',     // look for broken links in news, page builds and collection items in the background
         'link_check_time' => '0',
         'redirect_auto' => '0',  // create redirects for addresses visitors could not find by itself (2.14, Core\RedirectMatcher)

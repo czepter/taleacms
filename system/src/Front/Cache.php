@@ -8,14 +8,26 @@ use Talea\Core\App;
 use Talea\Core\Response;
 
 /**
- * Full-page cache for visitors who are not signed in (files in storage/cache/pages, valid for 5 minutes).
- * A page from the cache costs one database query instead of dozens. Any change in the administration clears the cache.
- * Nothing personal is cached: signed-in administration users, previews.
+ * Full-page cache for visitors who are not signed in (files in storage/cache/pages).
+ * A page from the cache costs one database query instead of dozens. Any change clears the cache, and so does a new day (texts that
+ * depend on the date: the opening-hours notice, the year in the footer); five minutes after the last change the background jobs
+ * build the most important pages again (maintain()), so the first visitor does not wait. Nothing personal is cached: signed-in
+ * administration users, previews.
  */
 final class Cache
 {
     private const string FOLDER = TALEA_ROOT . '/storage/cache/pages';
-    private const int LINK_LIFETIME = 300;
+    /** Only a safety net: a change and a new day clear the cache anyway. */
+    private const int LINK_LIFETIME = 86400;
+
+    /** How long after the last change the cache is warmed: a series of saves is warmed once, after the last one. */
+    private const int WARM_DELAY = 300;
+
+    /** At most this many addresses of the sitemap are warmed, the most important first (its priority). */
+    private const int WARM_PAGES = 300;
+
+    /** Content of the generation file when this request started: a page built across a clear() is not saved. */
+    private static ?string $generation = null;
 
     /** Ad and campaign tracking parameters: they do not change the page, so the cache should not be bypassed for them. */
     private const string TRACKING_PARAMS = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|tl_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
@@ -26,7 +38,11 @@ final class Cache
     public static function load(App $app): ?Response
     {
         $file = self::file($app);
-        if ($file === null || !is_file($file)) {
+        if ($file === null) {
+            return null;
+        }
+        self::$generation = self::generation();
+        if (!is_file($file)) {
             return null;
         }
         if (filemtime($file) < time() - self::LINK_LIFETIME) {
@@ -50,7 +66,7 @@ final class Cache
             return null;
         }
         Stats::record($app, $meta['news_id'] ?? null);
-        if (!empty($meta['news_id'])) {
+        if (!empty($meta['news_id']) && ($_SERVER['HTTP_USER_AGENT'] ?? '') !== '') { // the warm-up sends no user agent
             $app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [(int) $meta['news_id']]);
         }
         // the browser may keep the page and only ask whether it has changed (304 without a body)
@@ -72,7 +88,10 @@ final class Cache
         if (!is_dir(self::FOLDER)) {
             @mkdir(self::FOLDER, 0775, true);
         }
-        @file_put_contents($file, json_encode(['news_id' => $idc]) . "\n" . $html, LOCK_EX);
+        // a change was saved while this page was being built: it may show the old state, and nothing would replace it for a day
+        if (self::$generation === null || self::$generation === self::generation()) {
+            @file_put_contents($file, json_encode(['news_id' => $idc]) . "\n" . $html, LOCK_EX);
+        }
         if (self::$lock !== null) {
             flock(self::$lock, LOCK_UN);
             fclose(self::$lock);
@@ -106,11 +125,14 @@ final class Cache
         if (is_file($file) && filemtime($file) >= time() - self::LINK_LIFETIME && ($content = file_get_contents($file)) !== false && $content !== '') {
             return $content;
         }
+        $generation = self::generation();
         $content = $produce();
         if (!is_dir(self::FOLDER)) {
             @mkdir(self::FOLDER, 0775, true);
         }
-        @file_put_contents($file, $content, LOCK_EX);
+        if ($generation === self::generation()) {
+            @file_put_contents($file, $content, LOCK_EX);
+        }
 
         return $content;
     }
@@ -120,6 +142,83 @@ final class Cache
         foreach (array_merge(glob(self::FOLDER . '/*.html') ?: [], glob(self::FOLDER . '/*.lock') ?: []) as $file) {
             @unlink($file);
         }
+        // a new generation: its day empties the cache at midnight, its time starts the warm-up delay (maintain())
+        if (!is_dir(self::FOLDER)) {
+            @mkdir(self::FOLDER, 0775, true);
+        }
+        @file_put_contents(self::FOLDER . '/generation', date('Y-m-d') . ' ' . bin2hex(random_bytes(8)), LOCK_EX);
+    }
+
+    /**
+     * Background job (Core\Scheduler): a new day empties the cache; from cron, five minutes after the last change, the addresses of the
+     * sitemap are requested again over HTTP the way a visitor would, the most important first, within the time budget (the rest in the
+     * next run). After an update (TALEA_VERSION is part of the key) the cache is warmed at the first run.
+     */
+    public static function maintain(App $app, float $budget): string
+    {
+        if (!$app->settings()->bool('page_cache')) {
+            return 'off';
+        }
+        if (!str_starts_with(self::generation(), date('Y-m-d') . ' ')) {
+            self::clear();
+
+            return 'new day, cleared';
+        }
+        $since = time() - (int) @filemtime(self::FOLDER . '/generation');
+        if ($budget <= 0 || $since < self::WARM_DELAY || $app->settings()->bool('maintenance') || !function_exists('curl_init')) {
+            return 'nothing to warm';
+        }
+        $key = TALEA_VERSION . ' ' . self::generation();
+        $state = json_decode((string) @file_get_contents(self::FOLDER . '/warmed'), true);
+        $next = is_array($state) && ($state['key'] ?? '') === $key ? (int) $state['next'] : 0;
+        $paths = self::warmPaths($app);
+        if ($next >= count($paths)) {
+            return 'warm';
+        }
+        // TALEA_INTERNAL_URL (the container itself, set by docker/entrypoint.sh): the request reaches this container, not the proxy in
+        // front, which during an update may still send it to the old one; without it the site's own address (web cron)
+        $base = rtrim((string) (getenv('TALEA_INTERNAL_URL') ?: $app->request->origin()), '/') . '/';
+        $host = (string) parse_url($app->request->origin(), PHP_URL_HOST);
+        $headers = ['Host: ' . $host . (($port = parse_url($app->request->origin(), PHP_URL_PORT)) ? ':' . $port : '')];
+        if (str_starts_with($app->request->origin(), 'https://')) {
+            $headers[] = 'X-Forwarded-Proto: https';
+        }
+        $end = microtime(true) + $budget;
+        $start = $next;
+        while ($next < count($paths) && microtime(true) < $end) {
+            $ch = curl_init($base . $paths[$next]);
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 2,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_HTTPHEADER => $headers]); // no user agent: not a visit (Stats)
+            curl_exec($ch);
+            if ((int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE) === 0) {
+                break; // the site did not answer (still starting, cannot reach itself): the next run goes on from here
+            }
+            $next++;
+        }
+        @file_put_contents(self::FOLDER . '/warmed', (string) json_encode(['key' => $key, 'next' => $next]), LOCK_EX);
+
+        return 'warmed ' . ($next - $start) . ', ' . $next . ' of ' . count($paths);
+    }
+
+    /**
+     * Addresses of the sitemap relative to the site root, by priority (home, pages, then news and items).
+     * ponytail: priority only; the most read addresses (stats_pages) would be the better order for very large sites.
+     *
+     * @return list<string>
+     */
+    private static function warmPaths(App $app): array
+    {
+        preg_match_all('#<loc>([^<]*)</loc>.*?<priority>([\d.]+)</priority>#', (new Seo($app))->sitemapXml(), $m, PREG_SET_ORDER);
+        usort($m, fn (array $a, array $b): int => (float) $b[2] <=> (float) $a[2]); // usort is stable: the sitemap order stays within a priority
+        $root = $app->request->origin() . $app->request->basePath() . '/';
+
+        return array_slice(array_map(fn (array $r): string => substr(html_entity_decode($r[1], ENT_QUOTES | ENT_XML1), strlen($root)), $m), 0, self::WARM_PAGES);
+    }
+
+    /** Day and random id of the last clear(), '' before the first one. */
+    private static function generation(): string
+    {
+        return (string) @file_get_contents(self::FOLDER . '/generation');
     }
 
     /** Cache file for this request, or null when it should not be cached. */
@@ -140,6 +239,6 @@ final class Cache
             }
         }
 
-        return self::FOLDER . '/' . md5($r->origin() . '|' . \Talea\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
+        return self::FOLDER . '/' . md5(TALEA_VERSION . '|' . $r->origin() . '|' . \Talea\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
     }
 }
