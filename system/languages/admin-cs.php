@@ -1879,6 +1879,7 @@ return [
     'Header on scroll (header part only)' => 'Záhlaví při rolování (jen část Záhlaví)',
     'Header, footer and system pages' => 'Hlavička, patička a systémové stránky',
     'Heading' => 'Nadpis',
+    'Heading above the list (optional)' => 'Nadpis nad seznamem (nepovinný)',
     'Heading font' => 'Písmo nadpisů',
     'Heading on the left, questions and answers on the right.' => 'Nadpis vlevo, otázky a odpovědi vpravo.',
     'Headings' => 'Titulky',

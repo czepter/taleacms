@@ -169,6 +169,7 @@
     "news_list": [
         "category",
         "count",
+        "heading",
         "images"
     ],
     "newsletter_signup": [

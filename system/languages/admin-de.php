@@ -1883,6 +1883,7 @@ return [
     'Header on scroll (header part only)' => 'Kopfzeile beim Scrollen (nur Website-Teil Kopfzeile)',
     'Header, footer and system pages' => 'Kopf, Fuß und Systemseiten',
     'Heading' => 'Überschrift',
+    'Heading above the list (optional)' => 'Überschrift über der Liste (optional)',
     'Heading font' => 'Überschriftenschrift',
     'Heading on the left, questions and answers on the right.' => 'Links die Überschrift, rechts Fragen und Antworten.',
     'Headings' => 'Überschriften',
