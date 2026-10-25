@@ -60,6 +60,28 @@ final class AiFlowTest extends SiteTestCase
         $this->assertSame(0, $this->aiRequests(), 'privacy: opening the screens sends nothing');
     }
 
+    public function testTheModelListComesFromTheProvider(): void
+    {
+        $site = $this->site();
+        $extensions = $site->settingValue('extensions');
+        $site->setting('extensions', ($extensions === '' ? 'news,enquiries,stats,redirects,claude' : $extensions) . ',assistant');
+        $site->setting('ai_key', 'test-key-for-the-fake-provider');
+        $site->setting('ai_provider', 'anthropic');
+        $site->exec("DELETE FROM tl_settings WHERE name IN ('ai_model', 'ai_models')");
+        try {
+            $this->assertPage('/admin.php?module=assistant_settings', 200, ['<option value="fake-model-new" selected>Fake Model New · fake-model-new</option>', 'value="fake-model-old"', 'name="reload_models"'],
+                message: 'assistant settings: the provider\'s models, newest first, without a list in the code');
+            $this->post('module=assistant_settings&action=save', ['tab' => 'assistant', 'ai_provider' => 'anthropic', 'ai_provider_previous' => 'anthropic', 'ai_key' => '', 'ai_model' => 'fake-model-old']);
+            $this->assertSame('fake-model-old', $site->settingValue('ai_model'), 'assistant settings: the chosen model is saved');
+            $this->post('module=assistant_settings&action=save', ['tab' => 'assistant', 'ai_provider' => 'anthropic', 'ai_provider_previous' => 'openai', 'ai_key' => '', 'ai_model' => 'gpt-something']);
+            $this->assertSame('fake-model-new', $site->settingValue('ai_model'), 'assistant settings: another provider\'s model is replaced by the newest of the list');
+            $this->assertPage('/admin.php?module=settings', 200, ['href="/admin/assistant_settings">Writing assistant<', 'href="/admin/claude_settings">AI settings<'], message: 'settings menu: the writing assistant and the AI settings under Features');
+        } finally {
+            $site->setting('extensions', $extensions);
+            $site->exec("DELETE FROM tl_settings WHERE name IN ('ai_model', 'ai_models')");
+        }
+    }
+
     public function testAskChangesTheDraftOnlyAndIsLoggedAndUndoable(): void
     {
         $site = $this->site();

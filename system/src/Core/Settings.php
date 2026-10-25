@@ -193,7 +193,8 @@ final class Settings
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)
         'ai_key' => '',              // API key of the AI assistant (never written back into the form)
-        'ai_model' => 'claude-sonnet-5',
+        'ai_model' => '',              // empty = the newest model the provider lists (Core\Assistant::model())
+        'ai_models' => '',             // the provider's model list as JSON {provider, time, models}, loaded from its API (Assistant::loadModels)
         'first_steps_hidden' => '0',      // the administrator hid the first steps on the dashboard
         'first_steps_skipped' => '[]',    // first steps the administrator skipped (JSON list of step names)
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)
