@@ -388,6 +388,13 @@ Existing connections keep the access they were given.
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
 
+**Is Claude connected?** Under the logo every screen says so with a dot and a word: *Claude connected* (it called the
+site in the last week), *Claude idle* with its last call, *Claude: requests wait* (the scheduled run that picks up
+requests stopped) or *Claude not connected* – on a phone only the dot. Only a connection that can call counts: a valid
+token of an account that is not blocked and has the two-factor sign-in the site requires. **AI → AI settings** opens with
+the details (last call, how requests are picked up, when a connection ends, what to do next); a new request waiting
+over 48 hours with nothing to pick it up is marked in Ask AI, and System status and `get_health` report the connection.
+
 **Instructions for the AI.** Under **AI → AI settings** write what Claude should keep to – how you address
 customers, words to use or avoid, house rules. Every connection gets them when it connects. A connection may change them
 too, so every change – in the admin or through Claude – goes to the change log with the whole text before and after, and

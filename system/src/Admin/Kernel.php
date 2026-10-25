@@ -457,6 +457,7 @@ final class Kernel
 
         return isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Talea\Core\Demo::active() ? [
             'connected' => \Talea\Core\AskClaude::connected($db, $this->app->settings()),
+            'status' => \Talea\Core\ClaudeConnection::status($db, $this->app->settings()), // #154: whether a request reaches Claude and how
             'examples' => \Talea\Core\AskClaude::examples($modules),
             'recent' => \Talea\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Talea\Core\AskClaude::routine($db),

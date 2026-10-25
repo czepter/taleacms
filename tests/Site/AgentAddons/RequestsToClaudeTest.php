@@ -146,6 +146,38 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->site()->exec("UPDATE tl_users SET email = '' WHERE username = 'admin'");
     }
 
+    /** #154: the status chip on every screen, the panel in the AI settings, the messages, the 48-hour highlight and get_health. */
+    public function testTheClaudeConnectionStatus(): void
+    {
+        $site = $this->site();
+        $site->exec("UPDATE tl_requests SET status = 'done' WHERE status = 'new'");
+        $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'); // a served call: the connection is active
+        $this->assertPage('/admin.php', 200, ['class="claude-chip status status-live"', 'data-claude-state="active"', 'Claude connected'], message: '#154: the chip says Claude is connected');
+        $this->assertPage('/admin.php?module=claude_settings', 200, ['id="claude-status-heading"', 'Claude is connected', 'picked up only when someone asks Claude'], message: '#154: the AI settings open with the status panel');
+        $this->assertPage('/admin.php?module=requests', 200, ['data-claude-state="active"', 'Requests are picked up only when someone asks Claude'], as: $this->staff(), message: '#154: staff with Ask AI see the chip and how requests are picked up');
+
+        $csrf = $this->staff()->get('/admin.php')->csrf();
+        $this->staff()->post('/admin.php?module=requests&action=save', ['_csrf' => $csrf, 'quick' => 1, 'from' => 'dashboard', 'text' => 'Add the winter opening hours to the contact page.']);
+        $this->assertStringContainsString('Claude picks it up the next time someone asks it', $this->staff()->get('/admin.php')->body, '#154: the message says when Claude sees the request');
+        $site->exec("UPDATE tl_requests SET created_at = ? WHERE status = 'new'", [date('Y-m-d H:i:s', time() - 50 * 3600)]);
+        $this->assertPageLacks('/admin.php?module=requests', 'waiting over 48 hours', as: $this->staff(), message: '#154: a request is not highlighted while it is picked up when someone asks');
+
+        // a scheduled run of the task "requests" that missed its last run: nothing picks the requests up
+        $site->exec("INSERT INTO tl_agent_schedules (name, task, text, cadence, day, time, active, next_due, created_at) VALUES ('Requests', 'requests', '', 'daily', 1, '07:00', TRUE, ?, NOW())", [date('Y-m-d H:i:s', time() + 86400)]);
+        $site->exec("INSERT INTO tl_agent_runs (schedule_id, due_at, finished_at, status) SELECT MAX(id), NOW(), NOW(), 'missed' FROM tl_agent_schedules");
+        $this->assertPage('/admin.php', 200, ['class="claude-chip status status-hidden"', 'Claude: requests wait'], message: '#154: the chip says requests wait when the scheduled run stopped');
+        $this->assertPage('/admin.php?module=requests', 200, ['waiting over 48 hours – nothing picks it up', 'The scheduled run that picks up requests has stopped'], as: $this->staff(), message: '#154: a new request waiting over 48 hours with nothing to pick it up is highlighted');
+        $health = $this->mcpData('get_health');
+        $this->assertSame(['active', 'stalled'], [$health['claude_connection']['state'] ?? '', $health['claude_connection']['pickup'] ?? ''], '#154: get_health returns claude_connection');
+        $this->assertContains('Claude connection', array_column($health['problems'] ?? [], 'check'), '#154: System status warns when requests wait and nothing picks them up');
+        $site->exec("DELETE FROM tl_agent_schedules WHERE task = 'requests'");
+
+        // the only connection belongs to an administrator without two-factor sign-in, which the site now requires of administrators
+        $site->setting('require_2fa', 'admins');
+        $this->assertPage('/admin.php?module=requests', 200, ['data-claude-state="none"', 'Claude not connected', 'ask-claude-disconnected'], as: $this->staff(), message: '#154: a connection that cannot call is no connection');
+        $site->setting('require_2fa', '');
+    }
+
     public function testWithoutAClaudeConnectionHomeHasNoAskBox(): void
     {
         $this->site()->exec('DELETE FROM tl_api_tokens');

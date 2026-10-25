@@ -137,10 +137,25 @@ body:not(.login) {
 }
 .header-top {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 4px;
 	margin-bottom: 28px;
 }
+/* #154: whether Claude is connected (views/admin/claude_chip.php) – a dot plus words on a line under the logo */
+.claude-chip {
+	order: 1;
+	flex-basis: 100%;
+	box-sizing: border-box;
+	min-width: 0;
+	padding: 2px;
+	font-size: 13px;
+	color: var(--text-weak);
+	text-decoration: none;
+	white-space: normal;
+}
+.claude-chip:hover { color: var(--text); }
+.claude-chip-text { min-width: 0; white-space: normal; overflow-wrap: anywhere; } /* a long state (German) wraps under the logo instead of spilling out */
 .brand {
 	display: flex;
 	align-items: center;
@@ -1237,6 +1252,16 @@ body.login {
 		min-height: 64px;
 		margin: 0;
 	}
+	/* on a phone only the dot, next to the search; the words stay for screen readers */
+	.claude-chip {
+		order: 0;
+		flex-basis: auto;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		padding: 0;
+	}
+	.claude-chip-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 	.menu-switch {
 		display: block;
 		margin-left: 6px;
@@ -1807,6 +1832,11 @@ a.look-card:hover { border-color: var(--accent); }
 .enquiry dt { font-weight: 600; color: var(--text-weak); }
 .enquiry dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .enquiry { grid-template-columns: minmax(0, 1fr); } .enquiry dd { margin-bottom: 8px; } }
+/* #154: the state of the Claude connection at the top of the AI settings (views/admin/claude_panel.php) */
+.claude-status { font-weight: 400; }
+.claude-status h2 { margin: 0 0 12px; font-size: 16px; }
+.claude-status .enquiry { margin: 0; }
+.claude-status ul { margin: 12px 0 0; padding-inline-start: 20px; }
 
 /* ---------- menu editor ("Vzhled → Menu", Appearance → Menu) ---------- */
 .menu-editor, .menu-submenu { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }

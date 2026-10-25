@@ -85,6 +85,7 @@ $userName = $username['name'] ?: $username['username'];
 <header class="header">
 	<div class="header-top">
 		<a class="brand" href="<?= e($app->url('admin.php')) ?>" aria-label="Talea – <?= e(t('Home')) ?>"><?= $app->view->render('admin/logo', ['height' => 26]) ?></a>
+		<?= $app->view->render('admin/claude_chip', ['app' => $app, 'modules' => $modules]) ?>
 		<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?> (Ctrl K)" aria-label="<?= e(t('Quick search and commands')) ?>"><?= $icon('b-search') ?></button>
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>

@@ -170,6 +170,19 @@ final class ClaudeConnection
     }
 
     /**
+     * The status as get_health returns it: the state, the last call and the earliest end as ISO 8601 moments, the pickup.
+     *
+     * @param array{state: string, last_call: ?string, pickup: ?string, expires: ?string} $status
+     * @return array{state: string, last_call: ?string, pickup: ?string, expires: ?string}
+     */
+    public static function summary(array $status): array
+    {
+        $iso = static fn (?string $moment): ?string => $moment !== null && ($t = strtotime($moment)) !== false ? date(DATE_ATOM, $t) : null;
+
+        return ['state' => $status['state'], 'last_call' => $iso($status['last_call']), 'pickup' => $status['pickup'], 'expires' => $iso($status['expires'])];
+    }
+
+    /**
      * Stamps the refresh row of the OAuth connection a served call came through (Mcp\Server): the access row goes an hour
      * after it expires, the refresh row lives a year. At most once a STAMP_SECONDS. A personal token (no client) is its
      * own long-lived row, stamped by the caller.
