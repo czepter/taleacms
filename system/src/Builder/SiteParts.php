@@ -21,6 +21,9 @@ final class SiteParts
         'not_found' => ['Page not found (404)', 'A wrapper around the page-not-found message – e.g. with links onward.'],
     ];
 
+    /** Wrappers of news pages: without the News extension they wrap nothing and are not offered. */
+    public const array NEWS = ['news_item', 'list'];
+
     /** Parts that can have variants for selected pages (a landing page without navigation, a different footer…). */
     public const array WITH_VARIANTS = ['header', 'footer'];
 
