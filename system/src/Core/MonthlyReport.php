@@ -13,6 +13,11 @@ namespace Talea\Core;
  * The job (Core\Scheduler, hourly) sends it when report_monthly is on and report_last_month is not yet the previous month,
  * so a site without cron still gets it with the first visit of the new month. Recipients: report_recipients, otherwise the
  * site e-mail. The e-mail is written in the site's default language (Language::runWith, like the alerts).
+ *
+ * #161: build() is also the archived report (Core\ReportArchive, Settings → Reports, printed by Core\ReportPage, MCP
+ * get_monthly_report): requests to Claude, pages and news published, Claude sessions and scheduled runs, security counts, the
+ * site audit, enquiry categories, bookings, newsletters sent and what waits at the month's end. A section is null when its
+ * feature is off; scrub() masks e-mail addresses and phone numbers in every string. A summary – no hours, no prices.
  */
 final class MonthlyReport
 {
@@ -88,10 +93,11 @@ final class MonthlyReport
             'failed' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.failed', $from, $to]),
             'last' => $lastBackup === null ? null : date('Y-m-d H:i:s', $lastBackup),
         ];
-        // the change log names the Claude connection a change came through (ChangeLog::write); empty = a person in the admin
+        // the change log names the Claude connection a change came through (ChangeLog::write); empty = a person in the admin;
+        // sign-ins are no change (they are counted under security)
         $changes = [
-            'people' => $count("SELECT COUNT(*) FROM {change_log} WHERE created_at >= ? AND created_at < ? AND via = ''", [$from, $to]),
-            'claude' => $count("SELECT COUNT(*) FROM {change_log} WHERE created_at >= ? AND created_at < ? AND via <> ''", [$from, $to]),
+            'people' => $count("SELECT COUNT(*) FROM {change_log} WHERE created_at >= ? AND created_at < ? AND via = '' AND module <> 'signed_in'", [$from, $to]),
+            'claude' => $count("SELECT COUNT(*) FROM {change_log} WHERE created_at >= ? AND created_at < ? AND via <> '' AND module <> 'signed_in'", [$from, $to]),
         ];
         $problems = [];
         $errors = 0;
@@ -105,8 +111,24 @@ final class MonthlyReport
             }
         }
 
-        return [
+        // #161: what the archived report adds – a section whose source fails (a table of a newer migration, an error in the
+        // audit) is left out instead of losing the whole month; a section whose feature is off is null
+        $section = static function (callable $collect): ?array {
+            try {
+                return $collect();
+            } catch (\Throwable) {
+                return null;
+            }
+        };
+        $claude = Extensions::isEnabled($s, 'claude');
+        if (is_array($enquiries)) {
+            // the category the triage gave (Core\Triage), never the contents
+            $enquiries['categories'] = $section(fn (): array => $top("SELECT category AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? AND category <> '' GROUP BY category ORDER BY n DESC", [$from, $to], 'category')) ?? [];
+        }
+
+        return self::scrub([
             'month' => $monthStart->format('Y-m'),
+            'generated_at' => date('Y-m-d H:i:s'),
             'stats' => $stats,
             // what people searched for (2.13, Core\SearchData): the top 3 queries of the month's last snapshot per engine
             'search' => SearchData::topQueries($db, $fromDay, $toDay),
@@ -116,7 +138,179 @@ final class MonthlyReport
             'changes' => $changes,
             'problems' => $problems,
             'decisions' => ['enquiries' => $enquiries['unanswered'] ?? 0, 'errors' => $errors],
+            'requests' => $claude ? $section(fn (): array => self::requests($db, $from, $to)) : null,
+            'published' => $section(fn (): array => self::published($app, $from, $to)),
+            'claude' => $claude ? $section(fn (): array => self::claude($db, $from, $to)) : null,
+            'security' => $section(fn (): array => self::security($db, $from, $to)),
+            'audit' => $section(fn (): array => self::audit($app, $monthStart)),
+            'bookings' => Extensions::isEnabled($s, 'bookings') ? $section(fn (): array => [
+                'total' => $count('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
+                'statuses' => array_map('intval', $db->pairs('SELECT status, COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ? GROUP BY status ORDER BY status', [$from, $to])),
+                'appointments' => $count("SELECT COUNT(*) FROM {bookings} WHERE starts_at >= ? AND starts_at < ? AND status IN ('confirmed', 'done', 'no_show')", [$from, $to]),
+            ]) : null,
+            'newsletters' => Extensions::isEnabled($s, 'newsletter_signup') ? $section(fn (): array => array_map(static fn (array $r): array => ['subject' => (string) $r['subject'], 'date' => (string) $r['finished_at'], 'sent' => (int) $r['sent_count']],
+                $db->all("SELECT subject, finished_at, sent_count FROM {newsletters} WHERE status = 'sent' AND finished_at >= ? AND finished_at < ? ORDER BY finished_at LIMIT " . self::LIST_LIMIT, [$from, $to]))) : null,
+            // what waits for a person when the report is made (the month has just ended): the kinds of "Waiting for you"
+            'waiting' => $section(fn (): array => array_column(PendingReview::all($app, array_fill_keys(array_column(PendingReview::KINDS, 1), '')), 'count', 'kind')),
+        ]);
+    }
+
+    /** At most this many titles in one list of the archived report (requests, pages, news, newsletters). */
+    public const int LIST_LIMIT = 20;
+
+    /** Security events the report counts – the types only, never an address or an account. */
+    public const array SECURITY_EVENTS = ['firewall.blocked', 'security.account_suspended', 'security.connection_revoked'];
+
+    /**
+     * Requests to Claude (2.15): handled this month, and the ones still open at its end – title, status and dates only.
+     *
+     * @return array{created: int, done: list<array{title: string, status: string, created: string, done: string}>, done_count: int, open: list<array{title: string, status: string, created: string, done: string}>, open_count: int}
+     */
+    private static function requests(Db $db, string $from, string $to): array
+    {
+        $done = "FROM {requests} WHERE status IN ('done', 'declined') AND done_at >= ? AND done_at < ?";
+        $open = "FROM {requests} WHERE status IN ('new', 'in_progress') AND created_at < ?";
+        $row = static fn (array $r): array => ['title' => (string) $r['title'], 'status' => (string) $r['status'], 'created' => (string) $r['created_at'], 'done' => (string) ($r['done_at'] ?? '')];
+
+        return [
+            'created' => (int) $db->value('SELECT COUNT(*) FROM {requests} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
+            'done' => array_map($row, $db->all('SELECT title, status, created_at, done_at ' . $done . ' ORDER BY done_at LIMIT ' . self::LIST_LIMIT, [$from, $to])),
+            'done_count' => (int) $db->value('SELECT COUNT(*) ' . $done, [$from, $to]),
+            'open' => array_map($row, $db->all('SELECT title, status, created_at, done_at ' . $open . ' ORDER BY created_at LIMIT ' . self::LIST_LIMIT, [$to])),
+            'open_count' => (int) $db->value('SELECT COUNT(*) ' . $open, [$to]),
         ];
+    }
+
+    /**
+     * Pages published this month (the build.published events: one row per page, the last publishing, by a person or through
+     * Claude) and news published this month.
+     *
+     * @return array{pages: list<array{title: string, date: string, by: string}>, pages_count: int, news: list<array{title: string, date: string}>|null, news_count: int|null}
+     */
+    private static function published(App $app, string $from, string $to): array
+    {
+        $db = $app->db();
+        $pages = [];
+        foreach ($db->all("SELECT created_at, data FROM {events} WHERE type = 'build.published' AND created_at >= ? AND created_at < ? ORDER BY id", [$from, $to]) as $r) {
+            $info = json_decode((string) $r['data'], true);
+            if (is_array($info) && (int) ($info['page_id'] ?? 0) > 0) {
+                $pages[(int) $info['page_id']] = ['date' => (string) $r['created_at'], 'by' => !empty($info['claude']) ? 'claude' : 'person'];
+            }
+        }
+        $titles = $pages === [] ? [] : $db->pairs('SELECT page_id, title FROM {pages} WHERE page_id IN (' . implode(',', array_keys($pages)) . ')');
+        $list = [];
+        foreach ($pages as $id => $p) {
+            if (isset($titles[$id])) { // a page deleted since is left out
+                $list[] = ['title' => (string) $titles[$id]] + $p;
+            }
+        }
+        $news = Extensions::isEnabled($app->settings(), 'news');
+        $where = 'FROM {news} WHERE visible = TRUE AND deleted_at IS NULL AND published_at >= ? AND published_at < ?';
+
+        return [
+            'pages' => array_slice($list, 0, self::LIST_LIMIT),
+            'pages_count' => count($list),
+            'news' => $news ? array_map(static fn (array $r): array => ['title' => (string) $r['title'], 'date' => (string) $r['published_at']],
+                $db->all('SELECT title, published_at ' . $where . ' ORDER BY published_at LIMIT ' . self::LIST_LIMIT, [$from, $to])) : null,
+            'news_count' => $news ? (int) $db->value('SELECT COUNT(*) ' . $where, [$from, $to]) : null,
+        ];
+    }
+
+    /**
+     * Claude sessions (the undo journal, Core\AgentJournal) and scheduled runs (Core\AgentSchedules): counts by result and by
+     * task only – a run's name and summary are written by people and Claude and stay out.
+     *
+     * @return array{sessions: int, calls: int, undone: int, runs: int, run_statuses: array<string, int>, run_tasks: array<string, int>}
+     */
+    private static function claude(Db $db, string $from, string $to): array
+    {
+        $sessions = $db->one('SELECT COUNT(*) AS n, COALESCE(SUM(calls), 0) AS calls, COALESCE(SUM(CASE WHEN undone_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS undone FROM {agent_sessions} WHERE started_at >= ? AND started_at < ?', [$from, $to]) ?? [];
+        $statuses = array_map('intval', $db->pairs('SELECT status, COUNT(*) FROM {agent_runs} WHERE due_at >= ? AND due_at < ? GROUP BY status ORDER BY status', [$from, $to]));
+
+        return [
+            'sessions' => (int) ($sessions['n'] ?? 0), 'calls' => (int) ($sessions['calls'] ?? 0), 'undone' => (int) ($sessions['undone'] ?? 0),
+            'runs' => array_sum($statuses), 'run_statuses' => $statuses,
+            'run_tasks' => array_map('intval', $db->pairs('SELECT s.task, COUNT(*) FROM {agent_runs} r JOIN {agent_schedules} s ON s.id = r.schedule_id WHERE r.due_at >= ? AND r.due_at < ? GROUP BY s.task ORDER BY s.task', [$from, $to])),
+        ];
+    }
+
+    /**
+     * Sign-ins to the administration, the failed ones (the change log) and the security events – counts only.
+     *
+     * @return array{sign_ins: int, failed_sign_ins: int, events: array<string, int>}
+     */
+    private static function security(Db $db, string $from, string $to): array
+    {
+        $signIns = array_map('intval', $db->pairs("SELECT action, COUNT(*) FROM {change_log} WHERE module = 'signed_in' AND action IN ('login', 'failed_attempt') AND created_at >= ? AND created_at < ? GROUP BY action", [$from, $to]));
+        $events = array_map('intval', $db->pairs('SELECT type, COUNT(*) FROM {events} WHERE type IN (' . implode(',', array_fill(0, count(self::SECURITY_EVENTS), '?')) . ') AND created_at >= ? AND created_at < ? GROUP BY type', [...self::SECURITY_EVENTS, $from, $to]));
+
+        return ['sign_ins' => $signIns['login'] ?? 0, 'failed_sign_ins' => $signIns['failed_attempt'] ?? 0, 'events' => $events];
+    }
+
+    /**
+     * The site audit when the report is made: findings by kind, and against the previous archived month how many fewer and how
+     * many more per kind (the audit keeps no history of its own; null before there is a previous month to compare with).
+     *
+     * @return array{kinds: array<string, int>, total: int, fixed: ?int, new: ?int}
+     */
+    private static function audit(App $app, \DateTimeImmutable $monthStart): array
+    {
+        $kinds = [];
+        foreach ((new Audit($app))->run() as $finding) {
+            $kinds[$finding['kind']] = ($kinds[$finding['kind']] ?? 0) + 1;
+        }
+        $before = ReportArchive::get($app->db(), $monthStart->modify('first day of last month')->format('Y-m'))['data']['audit']['kinds'] ?? null;
+        [$fixed, $new] = [null, null];
+        if (is_array($before)) {
+            [$fixed, $new] = [0, 0];
+            foreach (array_unique([...array_keys($kinds), ...array_keys($before)]) as $kind) {
+                $delta = ($kinds[$kind] ?? 0) - (int) ($before[$kind] ?? 0);
+                if ($delta > 0) {
+                    $new += $delta;
+                } else {
+                    $fixed -= $delta;
+                }
+            }
+        }
+
+        return ['kinds' => $kinds, 'total' => array_sum($kinds), 'fixed' => $fixed, 'new' => $new];
+    }
+
+    /**
+     * Nothing personal leaves the report (#161): every string of the data – titles written by staff, search queries, form names,
+     * the texts of System status – loses its e-mail addresses (and any other word with "@") and its phone numbers. The archive,
+     * the printed report, the e-mail and get_monthly_report all read the scrubbed data. Numbers are not strings, so counts stay.
+     *
+     * @param array<mixed> $data
+     * @return array<mixed>
+     */
+    public static function scrub(array $data): array
+    {
+        array_walk_recursive($data, static function (mixed &$value): void {
+            if (is_string($value)) {
+                $value = self::redact($value);
+            }
+        });
+
+        return $data;
+    }
+
+    /**
+     * One text with e-mail addresses ("ann@studio.example", "ann @ studio.example", "ann [at] studio [dot] example") and phone numbers (a run of
+     * 9 or more digits with spaces, dots, dashes, slashes or brackets, an optional "+") masked. A date or a moment in the run
+     * ("2026-09-30 03:00:00") keeps it.
+     */
+    public static function redact(string $text): string
+    {
+        $text = (string) preg_replace('/[\w.+-]+\s*(?:\[\s*at\s*\]|\(\s*at\s*\))\s*[\w-]+(?:\s*(?:\[\s*dot\s*\]|\(\s*dot\s*\)|\.)\s*[\w-]+)+/iu', '[e-mail]', $text);
+        $text = (string) preg_replace('/[^\s@<>()\[\]{},;:"\']+\s*@\s*[^\s@<>()\[\]{},;:"\']+|\S*[@＠﹫]\S*/u', '[e-mail]', $text);
+
+        return (string) preg_replace_callback('/(?<![\w.\/-])\+?\(?\d[\d \t.\/()-]{6,}\d(?![\w\/])/u', static function (array $m): string {
+            $digits = strlen((string) preg_replace('/\D/', '', $m[0]));
+            $date = preg_match('/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\. ?\d{1,2}\. ?\d{4}|\d{1,2}\/\d{1,2}\/\d{4}/', $m[0]) === 1;
+
+            return $digits < 9 || $date ? $m[0] : '[phone]';
+        }, $text);
     }
 
     /**
@@ -134,8 +328,9 @@ final class MonthlyReport
             $agency = $s->get('agency_name');
             $monthName = t(self::MONTHS[(int) substr((string) $data['month'], 5, 2)] ?? 'January') . ' ' . substr((string) $data['month'], 0, 4);
             $subject = t('Website report – %s – %s', $monthName, $siteName);
-            // nothing that looks like an e-mail address gets through from the data – a form name or a message could carry one
-            $mask = static fn (string $text): string => (string) preg_replace('/[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}/i', '…', $text);
+            // no e-mail address or phone number gets through from the data – a form name or a message could carry one (#161: the
+            // same masking as the archive, so data built before it are covered too)
+            $mask = self::redact(...);
             $safe = static fn (string $text): string => e($mask($text));
             $n = static fn (int $value): string => format_number($value, 0);
             $admin = $siteUrl . '/admin';
@@ -241,7 +436,36 @@ final class MonthlyReport
                 $section(t('Enquiries and sign-ups'), $table($rows), $plainRows($pairs));
             }
 
-            // care of the site: backups, changes
+            // the work on the site (#161): requests handled, what was published, Claude's sessions and scheduled runs – the whole
+            // story is the printable report in Settings → Reports
+            $requests = $data['requests'] ?? null;
+            $published = $data['published'] ?? null;
+            $claude = $data['claude'] ?? null;
+            $rows = [];
+            $pairs = [];
+            $add = function (string $label, int $value) use (&$rows, &$pairs, $row, $n): void {
+                $rows[] = $row(e($label), $n($value));
+                $pairs[] = [$label, $n($value)];
+            };
+            if (is_array($requests)) {
+                $add(t('Requests handled'), (int) $requests['done_count']);
+                $add(t('Requests still open'), (int) $requests['open_count']);
+            }
+            if (is_array($published)) {
+                $add(t('Pages published'), (int) ($published['pages_count'] ?? 0));
+                if (($published['news_count'] ?? null) !== null) {
+                    $add(t('News published'), (int) $published['news_count']);
+                }
+            }
+            if (is_array($claude)) {
+                $add(t('Claude sessions'), (int) $claude['sessions']);
+                $add(t('Scheduled Claude runs'), (int) $claude['runs']);
+            }
+            if ($rows !== []) {
+                $section(t('Work on the site'), $table($rows), $plainRows($pairs));
+            }
+
+            // care of the site: backups, changes, security
             $rows = [];
             $pairs = [];
             $backups = (array) ($data['backups'] ?? []);
@@ -253,6 +477,12 @@ final class MonthlyReport
             $changesText = t('%d by people, %d by Claude', (int) ($changes['people'] ?? 0), (int) ($changes['claude'] ?? 0));
             $rows[] = $row(e(t('Changes in the administration')), e($changesText));
             $pairs[] = [t('Changes in the administration'), $changesText];
+            $security = $data['security'] ?? null;
+            if (is_array($security)) {
+                $securityText = t('%d failed sign-in(s), %d address(es) blocked for a while', (int) $security['failed_sign_ins'], (int) ($security['events']['firewall.blocked'] ?? 0));
+                $rows[] = $row(e(t('Security')), e($securityText));
+                $pairs[] = [t('Security'), $securityText];
+            }
             $section(t('Care of the site'), $table($rows), $plainRows($pairs));
 
             // problems right now
@@ -278,7 +508,7 @@ final class MonthlyReport
                 $s->get('agency_phone') !== '' ? e($s->get('agency_phone')) : '',
             ]);
             $plainContacts = array_filter([$s->get('agency_url'), $s->get('agency_email'), $s->get('agency_phone')]);
-            $footerNote = t('Sent once a month by the website %s. Switch it off or change the recipients in Settings → Mail.', $siteName);
+            $footerNote = t('Sent once a month by the website %s. The full report to print or download, the recipients and the switch are in Settings → Reports.', $siteName);
             $footer = '<tr><td style="padding:20px 28px 24px;border-top:1px solid #eee;font:12px/1.6 Arial,Helvetica,sans-serif;color:#777;">'
                 . ($agency !== '' && $contacts !== [] ? '<div style="margin:0 0 6px;color:#555;">' . e($agency) . ' · ' . implode(' · ', $contacts) . '</div>' : '')
                 . e($footerNote) . '</td></tr>';
@@ -297,7 +527,8 @@ final class MonthlyReport
     }
 
     /**
-     * The whole e-mail for a month: the data are collected inside the e-mail's language too, so the health texts match.
+     * The whole e-mail for a month: the archived month (#161, Core\ReportArchive) when it is stored, so the e-mail and the printed
+     * report say the same; otherwise built on the spot, inside the e-mail's language too, so the health texts match.
      *
      * @return array{subject: string, html: string, text: string}
      */
@@ -305,7 +536,7 @@ final class MonthlyReport
     {
         $s = $app->settings();
 
-        return Language::runWith(Language::defaults($s), fn (): array => self::render(self::build($app, $monthStart), $s, self::siteUrl($app)), 'admin-');
+        return Language::runWith(Language::defaults($s), fn (): array => self::render(ReportArchive::get($app->db(), $monthStart->format('Y-m'))['data'] ?? self::build($app, $monthStart), $s, self::siteUrl($app)), 'admin-');
     }
 
     /**
@@ -346,7 +577,9 @@ final class MonthlyReport
         $sent = self::send($app, $monthStart);
         if ($sent > 0) {
             $month = $monthStart->format('Y-m');
-            $app->settings()->set('report_last_month', $month);
+            if ($month > $app->settings()->get('report_last_month')) {
+                $app->settings()->set('report_last_month', $month); // an older month sent again from the archive never makes the job send the last one twice
+            }
             Events::record($app->db(), 'report.sent', 'info', t('The monthly report for %s went to %d recipient(s).', $month, $sent), ['month' => $month, 'recipients' => $sent]);
         }
 

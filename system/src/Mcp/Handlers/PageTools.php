@@ -45,7 +45,8 @@ trait PageTools
             'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
             // what the site has switched on, so Claude does not guess (extension keys: news, enquiries, newsletter_signup…)
             'extensions' => \Talea\Core\Extensions::enabled($siteSettings),
-            'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
+            // the pinned titles only for someone with the Notebook section, as read_notebook
+            'notebook_count' => $notebook['count'], 'notebook_pinned' => $auth->hasModule('notebook') ? $notebook['pinned'] : [],
             // direction: rtl for Arabic - the site mirrors the layout itself, Claude writes the text in its natural order
             'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings), 'direction' => Language::dir(Language::defaults($siteSettings)),
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true), 'direction' => Language::dir($code)], Language::additional($siteSettings))],

@@ -177,6 +177,9 @@ final class Catalog
         'list_requests' => ['read', ''],
         // Waiting for you (3.2): drafts and proposals that wait for a person
         'list_pending_review' => ['read', ''],
+        // The archive of the monthly reports (#161): administrators only (Handlers\ReportTools)
+        'list_monthly_reports' => ['read', ''],
+        'get_monthly_report' => ['read', ''],
         'update_request' => ['draft', ''],
         // Scheduled runs (2.17): a routine in Claude asks what is due and reports what it did as drafts – report_agent_run
         // only records the run, so a drafts-only connection (the one the runs are meant for) may call both

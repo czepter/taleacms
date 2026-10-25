@@ -59,6 +59,8 @@ final class RightToLeftTest extends TestCase
         $this->assertSame('الامن ٢٠٢٦ fxm', Search::normalize('<p>الأَمْنُ ٢٠٢٦ - FXM</p>'));
         $this->assertSame(Search::normalize('الإمارات'), Search::normalize('الامارات'), 'alef with hamza and plain alef are one letter');
         $this->assertSame(Search::normalize('مصطفى'), Search::normalize('مصطفي'), 'alef maqsura and ya are one letter');
+        $this->assertSame(Search::normalize('مدرسة'), Search::normalize('مدرسه'), 'ta marbuta is read as ha');
+        $this->assertSame(Search::normalize('ٱلله'), Search::normalize('الله'), 'alef wasla is a plain alef');
         $this->assertSame('cafe 12', Search::normalize('Café, 12!'), 'Latin text gives the tokens it always did');
         $results = Search::find('الخدمات', [['title' => 'صفحة الخدمات', 'url' => '/a', 'text' => '<p>نقدم الخدمات</p>'], ['title' => 'Home', 'url' => '/b', 'text' => 'x']]);
         $this->assertSame(['/a'], array_column($results, 'url'));

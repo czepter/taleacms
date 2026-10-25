@@ -359,6 +359,20 @@ final class Collections
     }
 
     /**
+     * A number field for visitors: the thousands separator and decimal mark of the page language, with as many decimals as
+     * were stored (a price 4.20 keeps both, 1490 gets none). Anything that is not a number stays as it is.
+     */
+    public static function displayNumber(string $value): string
+    {
+        $plain = str_replace([' ', "\u{00A0}"], '', trim($value));
+        if (!preg_match('/^-?\d+(?:[.,](\d+))?$/D', $plain, $m)) {
+            return $value;
+        }
+
+        return format_count((float) str_replace(',', '.', $plain), strlen($m[1] ?? ''));
+    }
+
+    /**
      * Values for the placeholders: key => [value, type].
      *
      * @param callable(string): string $url url within the site
@@ -397,6 +411,13 @@ final class Collections
             if ($p['type'] === 'parameters' || $p['type'] === 'variants') {
                 // a table for visitors (2.11): parameters to compare, variants with their code and price
                 $h[$p['key']] = [$p['type'] === 'parameters' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
+                continue;
+            }
+            if ($p['type'] === 'number') {
+                // {{price}} = the number as visitors read it (1,490 / 1.490 / 1 490, 4.20 stays 4.20), {{price_raw}} = as stored,
+                // for a link, a data attribute or a calculation
+                $h[$p['key']] = [self::displayNumber($value), 'text'];
+                $h[$p['key'] . '_raw'] ??= [$value, 'text'];
                 continue;
             }
             if ($p['type'] === 'radio') {

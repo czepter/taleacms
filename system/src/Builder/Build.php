@@ -33,9 +33,6 @@ final class Build
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
     private const string CONTENT_MARK = "\u{E000}tl-page-content\u{E000}";
 
-    /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
-    public const array RESERVED_ANCHORS = ['main', 'navigation', 'cookies-bar', 'cookies-heading', 'cookies-reopen'];
-
     /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
         Elements\Section::class, Elements\Container::class, Elements\Grid::class,
@@ -145,7 +142,7 @@ final class Build
             }
             if (is_string($p['anchor'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['anchor'])) {
                 // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
-                if (isset($used['kotva:' . $p['anchor']]) || in_array($p['anchor'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['anchor'])) {
+                if (isset($used['kotva:' . $p['anchor']]) || !\Talea\Core\Html::isSafeId($p['anchor']) || preg_match('/^(s|ka)-/', $p['anchor'])) {
                     $errors[$place . '.anchor'] = 'The anchor “' . $p['anchor'] . '” is already used on the page by another element or the layout – left out.';
                 } else {
                     $clean['anchor'] = $p['anchor'];
@@ -377,6 +374,85 @@ final class Build
         return \Talea\Core\Html::inner($body); // attribute values without a raw < or >
     }
 
+    /** CSS longer than this is not read for the checks: the <style> element or style attribute goes (fail closed). */
+    private const int CSS_CHECK_LIMIT = 500_000;
+
+    /**
+     * Does CSS match a pattern of codeNode() in any way it can be read (cssViews())? CSS that cannot be read (invalid UTF-8,
+     * too long, a regular expression error) counts as a match, so it is removed.
+     */
+    private static function cssMatches(string $pattern, string $css): bool
+    {
+        foreach (self::cssViews($css) ?? [null] as $view) {
+            if ($view === null || preg_match($pattern, $view) !== 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The ways a browser could read CSS, for the checks only (the code stays as typed): as typed; with escapes decoded
+     * (\75 rl( is url(, @\69mport is @import, java\script is javascript) and comments kept, as inside an unquoted url(…);
+     * decoded with comments dropped outside strings; decoded with every comment dropped, strings or not. Matching any of
+     * them removes the CSS, so no single reading has to be perfect. Null = the CSS cannot be read.
+     *
+     * @return list<?string>|null
+     */
+    private static function cssViews(string $css): ?array
+    {
+        if (strlen($css) > self::CSS_CHECK_LIMIT || !mb_check_encoding($css, 'UTF-8')) {
+            return null;
+        }
+        $css = str_replace(["\r\n", "\r", "\f"], "\n", $css); // CSS reads every line break as \n (it ends a string)
+
+        return [$css, self::cssPlain($css, false, false), self::cssPlain($css, true, true), self::cssPlain($css, false, true)];
+    }
+
+    /**
+     * One reading of CSS, left to right: escapes decoded; comments dropped when $comments (outside quoted strings when
+     * $strings, everywhere otherwise). Null = a regular expression error.
+     */
+    private static function cssPlain(string $css, bool $strings, bool $comments): ?string
+    {
+        $plain = '';
+        $quote = '';
+        for ($i = 0, $length = strlen($css); $i < $length; $i++) {
+            $character = $css[$i];
+            if ($character === '\\') {
+                $hex = preg_match('/[0-9a-fA-F]{1,6}[ \t\n]?/A', $css, $m, 0, $i + 1);
+                if ($hex === false) {
+                    return null;
+                }
+                if ($hex === 1) {
+                    $decoded = (string) mb_chr((int) hexdec($m[0]), 'UTF-8');
+                    $plain .= $decoded === '' || $decoded === "\0" ? "\u{FFFD}" : $decoded; // as CSS reads 0, a surrogate or past U+10FFFF
+                    $i += strlen($m[0]);
+                } elseif ($i + 1 < $length) {
+                    $plain .= $css[++$i]; // any other escaped character stands for itself
+                }
+                continue;
+            }
+            if ($comments && $quote === '' && $character === '/' && ($css[$i + 1] ?? '') === '*') {
+                $end = strpos($css, '*/', $i + 2);
+                if ($end === false) {
+                    break; // an unclosed comment runs to the end
+                }
+                $i = $end + 1;
+                continue;
+            }
+            if ($strings && $quote === '' && ($character === '"' || $character === "'")) {
+                $quote = $character;
+            } elseif ($quote !== '' && ($character === $quote || $character === "\n")) {
+                $quote = ''; // the closing quote, or a line break that ends an unclosed string
+            }
+            $plain .= $character;
+        }
+
+        return $plain;
+    }
+
     private static function codeNode(\Dom\Node $node): void
     {
         foreach (iterator_to_array($node->childNodes) as $n) {
@@ -388,7 +464,7 @@ final class Build
             if (!$n instanceof \Dom\Element) {
                 continue;
             }
-            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', (string) $n->textContent)) {
+            if (strtolower($n->localName) === 'style' && self::cssMatches('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', (string) $n->textContent)) {
                 $n->remove();
                 continue;
             }
@@ -397,7 +473,7 @@ final class Build
                 $ok = !str_starts_with($name, 'on') && $name !== 'srcdoc' && $name !== 'http-equiv'
                     && (!in_array($name, self::CODE_URLS, true) && !str_ends_with($name, ':href') || WpContent::isSafeUrl($a->value) || trim($a->value) === '')
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
-                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
+                    && ($name !== 'style' || !self::cssMatches('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'attributename' && $name !== 'formtarget');
                 if (!$ok) {
                     $n->removeAttribute($a->name);
@@ -642,8 +718,9 @@ final class Build
     /** Page CSS: the base of the used types, the used classes (from tl_classes) and the style of individual elements – each in its own layer. */
     public static function css(Db $db, Context $k): string
     {
-        // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
-        $base = ':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
+        // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them,
+        // and so does the system content inside the Page content element of a wrapper (.content: a news item's text looks the same as without the wrapper)
+        $base = ':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.content *)) { margin-block: 0; }' . "\n"
             . ':where(.build) :where(.tl-text) > * + * { margin-block-start: 1em; }' . "\n";
         $rtl = Language::isRtl(Language::code());
         foreach (self::ELEMENTS as $className) {

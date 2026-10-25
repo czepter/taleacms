@@ -18,6 +18,12 @@ final class MenuTest extends TestCase
             ['text' => 'Úvod', 'url' => '/', 'new_window' => false, 'children' => []], // check-english: allow
             ['text' => 'Služby', 'url' => '', 'new_window' => false, 'children' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'new_window' => false, 'children' => []]]], // check-english: allow
         ], '/kuchyne/detail', '/'), 'Menu::html: submenu, active item and branch, home only by exact match'); // check-english: allow
+        // a link with a fragment is never the current page: on the home page "/#products" matched the path "/" (every anchor underlined)
+        $anchors = [
+            ['text' => 'Home', 'url' => '/', 'new_window' => false, 'children' => []], ['text' => 'Products', 'url' => '/#products', 'new_window' => false, 'children' => []],
+            ['text' => 'Prices', 'url' => '/services#prices', 'new_window' => false, 'children' => []], ['text' => 'Contact', 'url' => '#contact', 'new_window' => false, 'children' => []],
+        ];
+        $this->assertSame([1, 0], array_map(fn (string $path): int => substr_count(\Talea\Core\Menu::html($anchors, $path, '/'), 'aria-current'), ['/', '/services']), 'Menu::html: a link with a fragment is never aria-current, the page itself still is');
         // 2.7: icons and descriptions of menu items, a group inside a submenu with its own items (a column of the mega menu)
         $this->assertSame([
             ['type' => 'link', 'text' => 'Kontakt', 'icon' => 'phone', 'description' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'new_window' => false], // check-english: allow
@@ -50,5 +56,19 @@ final class MenuTest extends TestCase
         $navMegaCss = \Talea\Builder\Elements\Navigation::baseCss();
         $this->assertSame([true, true, true, true], [str_contains($navMegaCss, '.tl-nav .menu-icon {'), str_contains($navMegaCss, '.tl-nav .menu-column > ul {'), str_contains($navMegaCss, '.tl-nav .menu-heading {'),
             (bool) preg_match('/@media \(max-width: 767px\).*?\.tl-nav-menu\[popover\] \.menu-description \{ display: none; \}/s', $navMegaCss)], 'Navigation: icon, column and description style of the menu; the description hides on a phone');
+    }
+
+    /** an SVG from Media as a menu icon: only a path under media/, rendered as an <img>; the built-in set stays inline */
+    public function testMediaIcons(): void
+    {
+        $items = \Talea\Core\Menu::sanitize([
+            ['type' => 'link', 'text' => '[Own icon]', 'url' => '/a', 'icon' => 'media/2026/10/star-1a2b3c.svg'],
+            ['type' => 'link', 'text' => '[Outside]', 'url' => '/b', 'icon' => 'media/../config.svg'],
+            ['type' => 'link', 'text' => '[Not an SVG]', 'url' => '/c', 'icon' => 'media/photo.png'],
+            ['type' => 'link', 'text' => '[Elsewhere]', 'url' => '/d', 'icon' => 'image/logo.svg'],
+        ]);
+        $this->assertSame(['media/2026/10/star-1a2b3c.svg', null, null, null], array_map(fn (array $p): ?string => $p['icon'] ?? null, $items), 'Menu::sanitize: an SVG under media/ is an icon, a path outside it and another type are not');
+        $this->assertSame('<li><a href="/a"><img class="menu-icon" src="/web/media/2026/10/star.svg" alt="" width="20" height="20">[Own icon]</a></li>',
+            \Talea\Core\Menu::html([['text' => '[Own icon]', 'url' => '/a', 'new_window' => false, 'children' => [], 'icon' => '/web/media/2026/10/star.svg']], '/', '/'), 'Menu::html: an SVG from Media is an <img> with the class of the built-in icons');
     }
 }

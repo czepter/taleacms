@@ -18,7 +18,7 @@ final class ServerTest extends TestCase
         } catch (\InvalidArgumentException $e) {
             $promptError = $e->getMessage();
         }
-        $this->assertSame([true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'weekly_review', 'work_requests', 'scheduled_run', 'review_pending', 'draft_blueprint'], ['talea://instructions', 'talea://overview']], [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(\Talea\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
+        $this->assertSame([true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'launch_site', 'weekly_review', 'weekly_care', 'work_requests', 'scheduled_run', 'review_pending', 'draft_blueprint', 'set_up_bookings', 'compliance_check', 'add_language_version', 'newsletter_release'], ['talea://instructions', 'talea://overview']], [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(\Talea\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
             $promptError, array_column(\Talea\Mcp\Prompts::listAll(), 'name'), array_column(\Talea\Mcp\Prompts::resources(), 'uri')], '2.2: MCP prompts and resources');
     }
 

@@ -31,6 +31,9 @@ final class Scheduler
         'backup' => [0, 'cron', 'Automatic backups'],
         'links' => [0, 'any', 'Checking links'],
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
+        // #161: the previous month's report is stored once the month has turned – before the clean-up deletes its oldest sources,
+        // and before the monthly e-mail, which is written from it
+        'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
@@ -50,6 +53,7 @@ final class Scheduler
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
+        'media_staging' => [3600, 'any', 'Files waiting for approval: public with the content that uses them, deleted after 30 days'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -117,6 +121,7 @@ final class Scheduler
             'notices' => fn (App $app): string => Notices::run($app),
             'heartbeat' => fn (App $app): string => \Talea\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Talea\Fleet\Console::checkUptime($app),
+            'report_archive' => fn (App $app): string => ReportArchive::runIfDue($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
                 $scan = Privacy::scan($app);
@@ -125,6 +130,7 @@ final class Scheduler
             },
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
+            'media_staging' => fn (App $app): string => MediaStaging::cleanup($app->db()),
             'import_recheck' => function (App $app, string $source): string {
                 $state = ImportRecheck::run($app->db(), $app->settings(), $source === 'cron' ? 20.0 : 2.0); // nothing to do once done (3.3.3, N63)
 
@@ -147,6 +153,9 @@ final class Scheduler
      */
     public static function run(App $app, string $source, float $budget): array
     {
+        if (SiteImport::running() !== null) {
+            return ['site_import' => SiteImport::work($app, $budget)]; // the import owns the site: no other job touches it until it is done
+        }
         \Talea\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped

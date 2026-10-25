@@ -28,6 +28,9 @@ final class PageLock
 
     public const int DAYS = 30;
 
+    /** The unlock cookie of a page is this prefix and the page's number. */
+    public const string COOKIE = 'tl_page_';
+
     public const int MIN_LENGTH = 6;
 
     /** @param array<string, mixed> $page */
@@ -39,7 +42,7 @@ final class PageLock
     /** @param array<string, mixed> $page */
     public static function isUnlocked(App $app, array $page): bool
     {
-        $cookie = $_COOKIE[self::cookie((int) $page['page_id'])] ?? '';
+        $cookie = $_COOKIE[self::COOKIE . (int) $page['page_id']] ?? '';
 
         return is_string($cookie) && hash_equals(self::token($app, $page), $cookie);
     }
@@ -65,7 +68,7 @@ final class PageLock
         // the right password always opens the page, past the page's cap too (3.3.3, N58): wrong guesses from many addresses
         // must not lock out every reader of it
         if (!headers_sent()) {
-            setcookie(self::cookie((int) $page['page_id']), self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
+            setcookie(self::COOKIE . (int) $page['page_id'], self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
                 'httponly' => true, 'samesite' => 'Lax', 'secure' => $app->request->isHttps()]);
         }
 
@@ -101,11 +104,6 @@ final class PageLock
             . '<form class="tl-form" method="post"><p class="tl-field"><label for="tl-password-page">' . e(t('Password')) . '</label>'
             . '<input type="password" id="tl-password-page" name="tl_page_password" autocomplete="current-password" required></p>'
             . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
-    }
-
-    private static function cookie(int $ids): string
-    {
-        return 'tl_stranka_' . $ids;
     }
 
     /** @param array<string, mixed> $page */

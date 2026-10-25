@@ -130,16 +130,30 @@ final class MoveSiteTest extends SiteTestCase
         $new = $this->moved();
         $admin = $new->admin();
         $file = self::$file;
-        $admin->post('/admin.php?module=transfer&action=talea_run', ['_csrf' => $new->csrf(), 'file' => $file, 'confirmation' => 1]);
+        // the test holds the import lock, so the background job cannot start yet and the locked site can be looked at
+        $lock = fopen($new->path('storage/import/import.lock'), 'c');
+        $this->assertTrue($lock !== false && flock($lock, LOCK_EX), 'the test holds the import lock');
+        $csrf = $new->csrf();
+        $admin->post('/admin.php?module=transfer&action=talea_run', ['_csrf' => $csrf, 'file' => $file, 'confirmation' => 1]);
+        $this->assertSame(503, $new->client('import-visitor')->get('/')->status, 'a running import puts the site into maintenance');
+        $this->assertSame(503, $admin->get('/')->status, 'signed-in people see the maintenance notice too');
+        $this->assertSame(200, $new->client('import-probe')->get('/health')->status, 'the orchestrator probe still answers');
+        $this->assertStringContainsString('transfer/talea?file=' . rawurlencode($file), $admin->get('/admin.php?module=pages')->redirect, 'the administration is locked: every page leads to the progress');
+        $this->assertStringContainsString('data-auto-submit', $admin->get('/admin.php?module=transfer&action=talea&file=' . rawurlencode($file))->body, 'the progress reloads itself');
+        flock($lock, LOCK_UN);
+        fclose($lock);
+
         $result = null;
         for ($i = 0; $i < 80; $i++) {
-            $result = $admin->post('/admin.php?module=transfer&action=talea', ['_csrf' => $new->csrf(), 'file' => $file]);
+            $result = $admin->get('/admin.php?module=transfer&action=talea&file=' . rawurlencode($file)); // each request carries the import forward after its response
             if ($result->contains('The site has been imported') || $result->contains('The import has stopped')) {
                 break;
             }
         }
         $this->assertStringContainsString('The site has been imported', $result->body, 'the import went through in batches: ' . mb_substr($result->text(), 0, 300));
-        $this->assertStringNotContainsString('data-auto-submit', $result->body, 'the result no longer submits itself');
+        $this->assertStringNotContainsString('data-auto-submit', $result->body, 'the result no longer reloads itself');
+        $this->assertSame(200, $new->client('import-done')->get('/')->status, 'after the import the site is open again');
+        $this->assertSame('', $admin->get('/admin.php?module=pages')->redirect, 'after the import the administration is open again');
 
         $this->assertSame($this->counts($old), $this->counts($new), 'the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)');
         $this->assertSame($this->sameNumbers($old), $this->sameNumbers($new), 'same public ids and values: home page, site name and the design system came along');

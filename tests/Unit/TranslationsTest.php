@@ -46,9 +46,10 @@ final class TranslationsTest extends TestCase
         $sourceDictionary = require TALEA_ROOT . '/system/languages/cs.php';
         $dataNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         $brokenDictionaries = [];
-        foreach (glob(TALEA_ROOT . '/system/languages/[a-z][a-z].php') ?: [] as $file) {
+        foreach (glob(TALEA_ROOT . '/system/languages/*.php') ?: [] as $file) {
             $code = basename($file, '.php');
-            if ($code === 'en' || $code === 'cs') {
+            // a language (de) or a regional version holding what differs (pt-br); not the admin and installer sets, not the German -du overlay
+            if ($code === 'en' || $code === 'cs' || preg_match('/^' . \Talea\Core\Language::TAG . '$/D', $code) !== 1 || str_ends_with($code, '-du')) {
                 continue;
             }
             $dictionary = require $file;
@@ -64,6 +65,17 @@ final class TranslationsTest extends TestCase
             }
         }
         $this->assertSame([], $brokenDictionaries, 'Site language dictionaries: keys from cs.php, same %s and HTML');
+    }
+
+    public function testNewerVisitorDictionariesAreComplete(): void
+    {
+        // Portuguese, Chinese (Simplified and Traditional) and Hungarian translate every text the Arabic dictionary does (#159)
+        $keys = array_keys(require TALEA_ROOT . '/system/languages/ar.php');
+        foreach (['pt', 'zh', 'zh-hant', 'hu'] as $code) {
+            $dictionary = require TALEA_ROOT . '/system/languages/' . $code . '.php';
+            $this->assertSame([], array_values(array_diff($keys, array_keys($dictionary))), $code . ' misses texts');
+            $this->assertSame([], array_keys(array_filter($dictionary, fn (string $v): bool => trim($v) === '')), $code . ' has empty texts');
+        }
     }
 
     /** installer: every text has a translation in all languages */
