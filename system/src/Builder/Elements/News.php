@@ -22,6 +22,7 @@ final class News extends Element
     public static function properties(): array
     {
         return [
+            'heading' => ['type' => 'text', 'label' => 'Heading above the list (optional)', 'default' => '', 'max' => 120],
             'count' => ['type' => 'number', 'label' => 'Number of news items', 'default' => 3, 'min' => 1, 'max' => 12],
             'category' => ['type' => 'text', 'label' => 'Only from category (address, optional)', 'default' => '', 'max' => 120],
             'images' => ['type' => 'boolean', 'label' => 'Show images', 'default' => true],
@@ -35,7 +36,8 @@ final class News extends Element
 
     public static function baseCss(): string
     {
-        return '.tl-news { display: flex; flex-direction: column; gap: var(--tl-space-xs); }
+        return ':where(.tl-news-heading) { grid-column: 1 / -1; margin: 0; } /* the heading spans the cards of the grid */
+.tl-news { display: flex; flex-direction: column; gap: var(--tl-space-xs); }
 .tl-news img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--tl-radius); margin-block-end: var(--tl-space-xs); }
 .tl-news time { font-size: var(--tl-step--1); color: var(--tl-color-muted); }
 .tl-news h3 { margin: 0; font-size: var(--tl-step-1); }
@@ -62,7 +64,8 @@ final class News extends Element
         if ($html === '' && $k->editor) {
             $html = '<p>' . e(t('There is no news yet.')) . '</p>';
         }
+        $heading = (string) ($o['heading'] ?? '') !== '' && $html !== '' ? '<h2 class="tl-news-heading">' . e((string) $o['heading']) . '</h2>' : ''; // no heading over an empty list
 
-        return '<div' . $a . '>' . $html . '</div>';
+        return '<div' . $a . '>' . $heading . $html . '</div>';
     }
 }
