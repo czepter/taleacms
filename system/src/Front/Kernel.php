@@ -672,7 +672,7 @@ final class Kernel
         foreach ($collection['fields'] as $field) {
             $h = (string) ($item['data'][$field['key']] ?? '');
             if ($description === '' && in_array($field['type'], ['lines', 'html'], true) && $h !== '') {
-                $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
+                $description = \Talea\Core\Html::plain($h, 300);
             }
             if ($image === '' && $field['type'] === 'image' && $h !== '') {
                 $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
@@ -860,7 +860,7 @@ final class Kernel
     {
         preg_match_all('#<p\b[^>]*>(.*?)</p>#si', $html, $m);
         foreach ($m[1] as $paragraph) {
-            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5)));
+            $text = \Talea\Core\Html::plain($paragraph);
             if (mb_strlen($text) >= 50) {
                 return mb_strimwidth($text, 0, 160, '…');
             }
@@ -900,7 +900,7 @@ final class Kernel
         return $this->page(
             $category['name'],
             $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
-            ['description' => strip_tags($category['description']), 'part' => 'list'],
+            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list'],
         );
     }
 
@@ -918,7 +918,7 @@ final class Kernel
         return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('list', [
             'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? self::authored(\Talea\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
-            'description' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
+            'description' => $colorScheme ? \Talea\Core\Html::plain((string) $tag['description'], 300) : '',
             'part' => 'list',
         ]);
     }
@@ -965,7 +965,7 @@ final class Kernel
 
         return $this->page($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title'], $content, [
             'article' => $newsItem,
-            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($newsItem['intro'])), 0, 300, '…'),
+            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : \Talea\Core\Html::plain($newsItem['intro'], 300),
             'keywords' => $newsItem['keywords'],
             'image' => $newsItem['image'],
             'noindex' => (bool) $newsItem['noindex'],

@@ -57,7 +57,7 @@ final class News extends Element
                 . ($o['images'] && $n['image'] !== '' ? '<img src="' . e($n['image']) . '" alt="" loading="lazy">' : '')
                 . '<time datetime="' . e(date('c', strtotime($n['published_at']))) . '">' . e(format_date($n['published_at'])) . '</time>'
                 . '<h3><a href="' . e($url) . '">' . e($n['title']) . '</a></h3>'
-                . '<p>' . e(mb_strimwidth(trim(html_entity_decode(strip_tags($n['intro']), ENT_QUOTES | ENT_HTML5)), 0, 180, '…')) . '</p></article>';
+                . '<p>' . e(\Talea\Core\Html::plain($n['intro'], 180)) . '</p></article>';
         }
         if ($html === '' && $k->editor) {
             $html = '<p>' . e(t('There is no news yet.')) . '</p>';
