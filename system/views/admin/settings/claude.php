@@ -11,9 +11,7 @@
 $mcpUrl = $app->request->origin() . $app->url('mcp');
 $accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS);
 ?>
-<?php if (!in_array('claude', $enabledExtensions, true)): ?>
-<p class="notice notice-error"><?= e(t('The Claude connection is switched off.')) ?> <a href="<?= e($app->url('admin.php?module=extensions')) ?>"><?= e(t('Features')) ?></a></p>
-<?php endif ?>
+<?= $app->view->render('admin/claude_panel', ['app' => $app]) ?>
 <h2><?= e(t('How to connect')) ?></h2>
 <ol class="guide">
 	<li><?= e(t('In the Claude app open Settings → Connectors → Add custom connector.')) ?></li>

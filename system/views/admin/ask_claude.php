@@ -5,18 +5,11 @@
  * latest requests. "Copy for the Claude app" copies the text with the site's address and opens Claude in a new tab.
  *
  * @var Talea\Core\App $app
- * @var array{connected: bool, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool, from?: string} $ask  from: where the box is ('dashboard' = Home)
+ * @var array{connected: bool, status: array{state: string, pickup: ?string, stalled_since: ?string}, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool, from?: string} $ask  from: where the box is ('dashboard' = Home)
  */
-use Talea\Core\AgentSchedules;
 use Talea\Core\Requests;
 
 $requestsUrl = fn (string $action = '', array $params = []): string => $app->url('admin.php?module=requests' . ($action !== '' ? '&action=' . $action : '') . ($params !== [] ? '&' . http_build_query($params) : ''));
-$routine = $ask['routine'];
-$when = $routine === null ? '' : match ($routine['cadence']) {
-    'weekly' => t('every %s at %s', t(AgentSchedules::WEEKDAYS[$routine['day']] ?? 'Monday'), $routine['time']),
-    'monthly' => t('on day %d of every month at %s', $routine['day'], $routine['time']),
-    default => t('every day at %s', $routine['time']),
-};
 ?>
 <section class="ask-claude" aria-labelledby="ask-claude-heading">
 	<h2 id="ask-claude-heading"><?= e(t('Ask AI')) ?></h2>
@@ -28,16 +21,14 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 		<label class="guide-hidden" for="ask-claude-text"><?= e(t('What should Claude do?')) ?></label>
 		<textarea class="textbox" id="ask-claude-text" name="text" rows="3" required maxlength="<?= Requests::MAX_TEXT ?>" placeholder="<?= e(t('e.g. Add the new opening hours to the contact page')) ?>"></textarea>
 		<div class="ask-claude-buttons">
-			<input class="btn" type="submit" value="<?= e($ask['connected'] ? t('Send to Claude') : t('Save the request')) ?>">
+			<input class="btn" type="submit" value="<?= e(Talea\Core\ClaudeConnection::blocked($ask['status']) ? t('Save the request') : t('Send to Claude')) ?>">
 			<label class="ask-claude-files"><span><?= e(t('Attach files')) ?></span> <input type="file" name="attachments[]" multiple></label>
 <?php if ($ask['connected']): ?>
 			<a class="navigation" href="https://claude.ai/new" target="_blank" rel="noopener" data-ask-claude-copy data-prompt="<?= e($ask['prompt']) ?>" data-copied="<?= e(t('Copied – paste it into Claude')) ?>"><?= e(t('Copy for the Claude app')) ?></a>
 <?php endif ?>
 		</div>
 	</form>
-<?php if (!$ask['connected']): ?>
-	<p class="notice ask-claude-disconnected"><?= e($ask['admin'] ? t('The AI is not connected to this site yet, so requests wait until it is.') : t('The AI is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Connect AI')) ?></a><?php endif ?></p>
-<?php endif ?>
+<?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $ask['status'], 'routine' => $ask['routine'], 'admin' => $ask['admin']]) ?>
 <?php if ($ask['examples'] !== []): ?>
 	<p class="small-text ask-claude-try"><?= e(t('For example – click one, change it and send:')) ?></p>
 	<ul class="ask-claude-examples">
@@ -46,15 +37,6 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 <?php endforeach ?>
 	</ul>
 <?php endif ?>
-	<p class="small-text ask-claude-when">
-<?php if ($routine !== null): ?>
-		<?= e(t('A scheduled run works through the requests %s.', $when)) ?><?php if ($routine['next_due'] !== null): ?> <?= e(t('Next: %s.', format_date($routine['next_due'], true))) ?><?php endif ?>
-<?php elseif ($ask['admin']): ?>
-		<?= e(t('No scheduled run works through the requests yet – Claude reads them when someone asks it to.')) ?> <a href="<?= e($app->url('admin.php?module=schedules')) ?>"><?= e(t('Schedule a run')) ?></a>
-<?php else: ?>
-		<?= e(t('Claude reads the requests the next time it works on the site.')) ?>
-<?php endif ?>
-	</p>
 <?php if ($ask['recent'] !== []): ?>
 	<h3><?= e(t('Your requests')) ?></h3>
 	<ul class="ask-claude-my">

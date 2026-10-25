@@ -63,7 +63,12 @@ final class Server
         if (count($batch) > 50) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'A batch has at most 50 messages.']], 400);
         }
-        $responses = array_values(array_filter(array_map($this->process(...), $batch)));
+        // only a call that is served counts as one (#154): a call refused above leaves no trace of use, so a connection whose
+        // every call is refused never shows as connected or used
+        $this->served($user);
+        // a message that is not an object is an invalid request, not an error page
+        $responses = array_values(array_filter(array_map(fn (mixed $z): ?array => is_array($z) ? $this->process($z)
+            : ['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'A message must be a JSON object.']], $batch)));
         if ($responses === []) {
             return new Response('', 202);
         }
@@ -75,9 +80,17 @@ final class Server
     private function process(array $z): ?array
     {
         $id = $z['id'] ?? null;
-        $method = (string) ($z['method'] ?? '');
+        $method = is_string($z['method'] ?? null) ? $z['method'] : '';
         if ($id === null) {
             return null;
+        }
+        // a name, address or arguments of the wrong type is invalid params – (string) on an array would warn and the error
+        // handler would answer with an error page
+        $params = $z['params'] ?? [];
+        foreach (['name' => 'is_string', 'uri' => 'is_string', 'arguments' => 'is_array'] as $key => $isValid) {
+            if (!is_array($params) || (isset($params[$key]) && !$isValid($params[$key]))) {
+                return ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32602, 'message' => is_array($params) ? 'params.' . $key . ' has the wrong type.' : 'params must be an object.']];
+            }
         }
         $ok = fn (array $result): array => ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result];
         $tools = new Tools($this->app);
@@ -373,7 +386,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'mcp' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.token_id, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
+        $token = $db->one("SELECT t.token_id, t.client_id AS connection_client, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             if (!$limited) {
@@ -382,8 +395,20 @@ final class Server
 
             return null;
         }
-        $db->run('UPDATE {api_tokens} SET used_at = NOW() WHERE token_id = ?', [$token['token_id']]);
 
         return $token;
+    }
+
+    /**
+     * Records a served call: the token's last use and, for an OAuth connection, its refresh row – the access row goes an
+     * hour after it expires (Core\ClaudeConnection).
+     *
+     * @param array<string, mixed> $token the row user() found
+     */
+    private function served(array $token): void
+    {
+        $db = $this->app->db();
+        $db->run('UPDATE {api_tokens} SET used_at = ? WHERE token_id = ?', [date('Y-m-d H:i:s'), $token['token_id']]);
+        \Talea\Core\ClaudeConnection::stamp($db, (int) $token['user_id'], $token['connection_client'] !== null ? (string) $token['connection_client'] : null);
     }
 }

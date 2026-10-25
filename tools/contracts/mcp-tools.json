@@ -164,6 +164,7 @@
     },
     "create_collection": {
         "parameters": {
+            "admin_menu": "boolean",
             "fields": "array",
             "item_pages": "boolean",
             "name": "string",
@@ -678,6 +679,19 @@
             "openWorldHint": false
         }
     },
+    "get_monthly_report": {
+        "parameters": {
+            "month": "string"
+        },
+        "required": [
+            "month"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_news": {
         "parameters": {
             "id": "string"
@@ -1081,6 +1095,15 @@
         }
     },
     "list_member_groups": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_monthly_reports": {
         "parameters": [],
         "required": [],
         "annotations": {
@@ -1916,6 +1939,7 @@
     },
     "update_collection": {
         "parameters": {
+            "admin_menu": "boolean",
             "collection": "string",
             "fields": "array",
             "item_pages": "boolean",

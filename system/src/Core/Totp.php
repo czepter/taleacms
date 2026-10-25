@@ -25,18 +25,27 @@ final class Totp
     /** Verifies a six-digit code; tolerates clock drift of one 30-second step. */
     public static function verify(string $secret, string $code, ?int $time = null): bool
     {
+        return self::step($secret, $code, $time) !== null;
+    }
+
+    /**
+     * The 30-second step a valid code belongs to, or null. The sign-in keeps the last one per account (users.totp_last_step),
+     * so a code seen once – over a shoulder, by a phishing page – does not sign in again while it is within the drift.
+     */
+    public static function step(string $secret, string $code, ?int $time = null): ?int
+    {
         $code = preg_replace('/\s+/', '', $code) ?? '';
         if (!preg_match('/^\d{6}$/', $code)) {
-            return false;
+            return null;
         }
         $step = intdiv($time ?? time(), 30);
         foreach ([0, -1, 1] as $offset) {
             if (hash_equals(self::code($secret, $step + $offset), $code)) {
-                return true;
+                return $step + $offset;
             }
         }
 
-        return false;
+        return null;
     }
 
     public static function code(string $secret, int $step): string

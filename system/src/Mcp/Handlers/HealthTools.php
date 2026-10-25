@@ -37,6 +37,9 @@ trait HealthTools
             'cron_last_run_minutes' => $cron > 0 ? (int) floor((time() - $cron) / 60) : null,
             'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['time']) : null,
             'events_last_7_days' => Events::problems($db, 168),
+            // #154: whether Claude is connected – state off | none | idle | active, the last served call, how requests are
+            // picked up (automatic | manual | stalled), the earliest end of a connection
+            'claude_connection' => \Talea\Core\ClaudeConnection::summary(\Talea\Core\ClaudeConnection::status($db, $this->app->settings(), true)),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',
         ];
     }

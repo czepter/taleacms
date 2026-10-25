@@ -136,7 +136,7 @@ final class Seo
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Talea\Core\Language::tag(\Talea\Core\Language::code()),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'news-' . $c['public_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
-                'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
+                'summary' => \Talea\Core\Html::plain($c['intro']), 'content_html' => $c['intro'] . $c['text'],
                 'image' => $c['image'] !== '' ? $this->absoluteUrl($c['image']) : null,
                 'date_published' => date('c', strtotime($c['published_at'])), 'date_modified' => $c['edited_at'] ? date('c', strtotime($c['edited_at'])) : null,
                 'authors' => $c['author_name'] !== null ? [['name' => $c['author_name']]] : null, 'tags' => [$c['category_name']],
@@ -204,7 +204,7 @@ final class Seo
                 $description = (string) $p['description']; // the item's own description (1.9) first
                 foreach ($description === '' ? $descriptiveFields : [] as $key) {
                     if (is_string($data[$key] ?? null) && trim(strip_tags($data[$key])) !== '') {
-                        $description = mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($data[$key]), ENT_QUOTES | ENT_HTML5))), 0, 200, '…');
+                        $description = \Talea\Core\Html::plain($data[$key], 200);
                         break;
                     }
                 }
@@ -216,7 +216,7 @@ final class Seo
         }
         array_push($rows, '', '## ' . t('News'));
         foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND noindex = FALSE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id') . ' AND language = ? ORDER BY published_at DESC LIMIT 30', [\Talea\Core\Language::siteColumn()]) as $c) {
-            $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('news/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
+            $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('news/') . $c['slug'], $md) . '): ' . \Talea\Core\Html::plain($c['intro'], 200);
         }
 
         return \Talea\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);

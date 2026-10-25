@@ -92,9 +92,25 @@ final class RegionalLanguagesTest extends TestCase
         $this->assertSame('de-at', Language::code());
         Language::set('en-gb');
         $this->assertSame('Monday', Language::t('Monday'));
+        Language::set('ja');
+        $this->assertSame('Monday', Language::t('Monday'), 'no Japanese dictionary: English texts');
+        $this->assertContains(Language::intlLocale(), [null, 'ja_JP'], 'the date in words comes from intl in the locale');
+    }
+
+    public function testARegionalDictionaryHoldsOnlyWhatDiffers(): void
+    {
+        Language::set('pt');
+        $this->assertSame(['Pesquisa', 'segunda-feira'], [Language::t('Search'), Language::t('Monday')]);
         Language::set('pt-br');
-        $this->assertSame('Monday', Language::t('Monday'), 'no Portuguese dictionary: English texts, like pt');
-        $this->assertContains(Language::intlLocale(), [null, 'pt_BR'], 'the date in words comes from intl in the regional locale');
+        $this->assertSame('Busca', Language::t('Search'), 'its own text');
+        $this->assertSame('segunda-feira', Language::t('Monday'), 'the rest from pt.php');
+        $this->assertNull(Language::intlLocale(), 'a dictionary, so the date in words comes from it');
+        $this->assertArrayNotHasKey('Monday', require TALEA_SYSTEM . '/languages/pt-br.php');
+    }
+
+    public function testVisitorTextsExistForALanguageOrItsRegionalVersion(): void
+    {
+        $this->assertSame([true, true, true, true, true, true, false, false], array_map(Language::hasVisitorTexts(...), ['en', 'cs', 'pt-br', 'de-at', 'zh-hant', 'hu', 'ja', 'nl']));
     }
 
     public function testBaseIsTheLanguageSubtag(): void

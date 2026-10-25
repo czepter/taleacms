@@ -100,7 +100,9 @@ final class NewsText
                 if ($text === '' || $h2->hasAttribute('id')) {
                     continue;
                 }
-                $id = $base = slugify($text, 60);
+                $base = slugify($text, 60);
+                $base = $base !== '' && !Html::isSafeId($base) ? 'h-' . $base : $base; // a heading "Main" must not take the id of the skip link target
+                $id = $base;
                 for ($i = 2; isset($used[$id]); $i++) {
                     $id = $base . '-' . $i;
                 }

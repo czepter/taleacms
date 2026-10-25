@@ -20,7 +20,7 @@ if (PHP_SAPI !== 'cli') {
 
 $root = dirname(__DIR__);
 $self = 'tools/sql-dialect-scan.php';
-$skip = ['system/src/Core/Dialect/', 'system/src/Core/MigrationSupport.php', 'tools/sql-dialect-scan.php'];
+$skip = ['system/src/Core/Dialect/', 'system/src/Core/MigrationSupport.php', 'system/src/Mcp/Prompts.php', 'tools/sql-dialect-scan.php']; // Prompts: runbook prose, `tool_names` in backticks
 
 /** boolean columns of the schema: PostgreSQL does not compare them with 0 and 1. */
 $booleans = [];

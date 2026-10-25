@@ -16,6 +16,27 @@ final class Files
     private const int MAX_BYTES = 200 * 1024 * 1024;
     private const string FORBIDDEN_TYPES = '#html|php|javascript|svg|x-sh|x-dosexec|x-executable|x-mach|x-msdownload#i';
 
+    /**
+     * Does the content say HTML, PHP, a script, SVG or a program, whatever the extension claims? The browser could open such
+     * a file as part of the site. Shared by uploads and the site import.
+     */
+    public static function forbiddenContent(string $path): bool
+    {
+        return preg_match(self::FORBIDDEN_TYPES, (string) (new \finfo(FILEINFO_MIME_TYPE))->file($path)) === 1;
+    }
+
+    /**
+     * Is there a file at this path of the site (relative: media/… or image/…)? Refuses a '..' segment, any other folder, a NUL
+     * byte and an over-long path before the disk is asked: outside open_basedir or past the platform's path limit is_file()
+     * warns, and the error handler turns that into a crash of the page. $root is another folder holding the same tree (the
+     * files waiting for approval, MediaStaging::root(true)).
+     */
+    public static function isFile(string $path, string $root = TALEA_ROOT): bool
+    {
+        return strlen($path) <= 500 && preg_match('#^(media|image)/#', $path) === 1 && !in_array('..', explode('/', $path), true)
+            && !str_contains($path, "\0") && strlen($root . '/' . $path) < PHP_MAXPATHLEN - 1 && is_file($root . '/' . $path);
+    }
+
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {
@@ -100,8 +121,7 @@ final class Files
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
             throw new \RuntimeException('This file type cannot be uploaded. Allowed are images and attachments: ' . implode(', ', self::FILE_EXTENSIONS) . '.');
         }
-        $type = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
-        if (preg_match(self::FORBIDDEN_TYPES, $type) || filesize($tmp) > self::MAX_BYTES) {
+        if (self::forbiddenContent($tmp) || filesize($tmp) > self::MAX_BYTES) {
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');

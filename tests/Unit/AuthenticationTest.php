@@ -21,6 +21,7 @@ final class AuthenticationTest extends TestCase
         $this->assertTrue(Totp::verify($totpSeed, '287082', 59 + 30), 'TOTP: the neighbouring window passes');
         $this->assertFalse(Totp::verify($totpSeed, '287082', 59 + 300), 'TOTP: an old code fails');
         $this->assertFalse(Totp::verify($totpSeed, 'abcdef', 59), 'TOTP: nesmysl neprojde');
+        $this->assertSame([1, 1, null], [Totp::step($totpSeed, '287082', 59), Totp::step($totpSeed, '287 082', 59 + 30), Totp::step($totpSeed, '287082', 59 + 300)], 'TOTP: step() names the step of the code, which the sign-in spends');
         $this->assertSame(32, strlen(Totp::newSecret()), 'TOTP: a new secret has 160 bits');
     }
 

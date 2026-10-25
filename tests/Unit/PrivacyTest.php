@@ -33,4 +33,46 @@ final class PrivacyTest extends TestCase
             \Talea\Core\Scheduler::JOBS['cookie_scan'], isset(\Talea\Core\Scheduler::jobs()['cookie_scan']), \Talea\Core\Settings::DEFAULTS['enquiries_expiry'], \Talea\Core\Settings::DEFAULTS['accessibility_toolbar'],
             \Talea\Mcp\Catalog::TOOLS['processing_record'], \Talea\Mcp\Catalog::TOOLS['accessibility_statement']], '2.14 Privacy::markdown – a title, the template notice and the sections as lists; the scheduler job and the settings are known');
     }
+
+    /** #153: the table names every cookie the code sets, by its name in the code; a scanned cookie is explained only by its exact name */
+    public function testTheTableNamesEveryCookieTheCodeSets(): void
+    {
+        $own = array_column(\Talea\Core\Privacy::OWN, 0);
+        $set = [];
+        $files = [...glob(TALEA_ROOT . '/image/*.js') ?: [], ...glob(TALEA_ROOT . '/extensions/*/*.php') ?: [], ...glob(TALEA_ROOT . '/extensions/*/*/*.php') ?: []];
+        foreach (['system/src', 'system/views'] as $dir) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/' . $dir, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                $files[] = (string) $file;
+            }
+        }
+        foreach ($files as $file) {
+            $code = (string) file_get_contents($file);
+            $class = preg_match('/^namespace ([\w\\\\]+);.*?^(?:final |abstract )?class (\w+)/ms', $code, $c) === 1 ? $c[1] . '\\' . $c[2] : '';
+            // setcookie(), the session's name, Session::cookie() and document.cookie = '…' in scripts
+            preg_match_all("/(?:\\bsetcookie\\(|\\bsession_name\\(|->cookie\\(|document\\.cookie\\s*=\\s*')\\s*([^,)=]+)/", $code, $m);
+            foreach ($m[1] as $argument) {
+                $argument = trim($argument);
+                if (basename($file) === 'Session.php' && $argument === '$name') {
+                    continue; // Session::cookie() itself: its callers are found by ->cookie(
+                }
+                if (preg_match("/^'([\\w-]+)'$|^([\\w-]+)$/", $argument, $literal) === 1) {
+                    $set[] = $literal[1] !== '' ? $literal[1] : $literal[2];
+                } elseif (preg_match('/^(self|\\\\?[\\w\\\\]+)::([A-Z_]+)(\s*\.)?/', $argument, $constant) === 1) {
+                    $set[] = constant(($constant[1] === 'self' ? $class : ltrim($constant[1], '\\')) . '::' . $constant[2]) . (isset($constant[3]) ? '*' : '');
+                } else {
+                    $set[] = basename($file) . ': ' . $argument;
+                }
+            }
+        }
+        $set = array_values(array_unique($set));
+        sort($set);
+        $this->assertSame(['talea', 'talea_consent', 'talea_consent_id', 'tl_member', 'tl_page_*', 'tl_preview', 'tl_preview_media', 'tl_remember'], $set, 'the code sets these cookies (a new one belongs in Privacy::OWN and here)');
+        $this->assertSame([], array_values(array_diff($set, $own)), 'Privacy::OWN names every cookie the code sets, by the same name');
+        $this->assertNotContains('PHPSESSID', $own, 'the session cookie is called talea');
+
+        $this->assertSame([true, true, false, true, false, true, false], [
+            \Talea\Core\Privacy::names('talea', 'talea'), \Talea\Core\Privacy::names('talea', 'TALEA'), \Talea\Core\Privacy::names('talea', 'talea_tracker'),
+            \Talea\Core\Privacy::names('_ga_*', '_ga_ABC123'), \Talea\Core\Privacy::names('_ga_*', '_gat'), \Talea\Core\Privacy::names('tl_page_*', 'tl_page_12'), \Talea\Core\Privacy::names('_ga', '_ga_ABC123'),
+        ], 'Privacy::names – a scanned cookie matches a row by its exact name; only a name ending in * is a prefix');
+    }
 }
