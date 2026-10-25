@@ -60,6 +60,20 @@ final class SiteSectionsBuilderTest extends SiteTestCase
         }
     }
 
+    public function testNewsWrappersHiddenWithoutTheNewsExtension(): void
+    {
+        $extensions = $this->site()->settingValue('extensions');
+        $this->site()->setting('extensions', 'enquiries,stats,redirects');
+        try {
+            $body = $this->site()->admin()->get('/admin.php?module=parts')->body;
+            $this->assertStringContainsString('type=not_found', $body, 'the 404 wrapper stays');
+            $this->assertStringNotContainsString('type=news_item', $body, 'no news item wrapper without news');
+            $this->assertStringNotContainsString('type=list', $body, 'no news list wrapper without news');
+        } finally {
+            $this->site()->setting('extensions', $extensions);
+        }
+    }
+
     public function testVersionsAndReturnToTheTemplate(): void
     {
         $this->partAction('build_save', 'header', ['build' => '{"v":1,"children":[{"type":"section","tag":"header","children":[{"type":"logo"}]}]}']);

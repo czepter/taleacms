@@ -42,7 +42,8 @@ final class SiteParts extends Module
         }
 
         return $this->view('list', 'Site parts', [
-            'types' => BuilderSiteParts::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
+            'types' => \Talea\Core\Extensions::isEnabled($siteSettings, 'news') ? BuilderSiteParts::TYPES : array_diff_key(BuilderSiteParts::TYPES, array_flip(BuilderSiteParts::NEWS)),
+            'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
             'pageNames' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title'),
             'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
