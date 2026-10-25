@@ -16,6 +16,7 @@ namespace Talea\Core;
  *  4. connection within 5 s, the whole download within 20 s, at most 15 MB (checked already while reading);
  *  5. only JPEG, PNG, GIF and WebP are accepted – by the response header AND by the actual content. Never SVG;
  *  6. no cookies, credentials or headers from the import are sent; the client identifies itself as „Talea-import“.
+ * downloadMany() fetches several at once (curl_multi) under the same rules: each request and each redirect step is checked and pinned on its own.
  * The downloaded data goes on only through Core\Images, which re-encodes the image.
  */
 final class ImageDownloader
@@ -24,6 +25,8 @@ final class ImageDownloader
     public const int MAX_REDIRECTS = 3;
     public const int CONNECT_TIMEOUT = 5;
     public const int TOTAL_TIMEOUT = 20;
+    /** downloadMany(): at most this many connections to one host at a time. */
+    public const int PARALLEL = 6;
     private const string USER_AGENT = 'Talea-import';
     private const array TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -171,46 +174,131 @@ final class ImageDownloader
      */
     public function download(string $url, bool $imagesOnly = true): string
     {
-        if (Demo::active()) {
-            throw new \RuntimeException('Downloading from other sites is switched off in the public demo.');
+        $result = $this->downloadMany([$url], $imagesOnly)[$url];
+        if ($result instanceof \RuntimeException) {
+            throw $result;
         }
-        for ($step = 0; $step <= self::MAX_REDIRECTS; $step++) {
-            $target = Outbound::url($url);
-            if ($target === null || !$this->isAllowedUrl($url)) {
-                throw new \RuntimeException('The address does not belong to the old site.');
-            }
-            $ip = $this->verifiedIp($target['host']);
-            if ($ip === null) {
-                throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
-            }
-            // the request goes to the URL with the normalized host – the one that was resolved and is pinned (3.3.3, N52)
-            $response = function_exists('curl_init') ? $this->curlRequest($target, $ip) : $this->streamRequest($target['url'], $ip);
-            if (in_array($response['code'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
-                $url = self::redirectTarget($url, $response['location']);
-                continue;
-            }
-            if ($response['code'] !== 200) {
-                throw new \RuntimeException('The old site did not return the image, it responded with error', $response['code']); // getCode() carries the response code
-            }
-            if ($imagesOnly && self::imageType($response['type'], $response['data']) === null) {
-                throw new \RuntimeException('The file is not a JPG, PNG, GIF or WebP image.');
-            }
 
-            return $response['data'];
-        }
-        throw new \RuntimeException('Too many redirects.');
+        return $result;
     }
 
     /**
-     * A single request via curl; the connection is pinned to the verified IP address (Outbound::pin).
+     * Downloads several files at once (curl_multi, at most PARALLEL connections): every address and every redirect step goes
+     * through points 1 to 6 like a single download – each request is checked, resolved and pinned on its own. Without curl
+     * one after another.
+     *
+     * @param list<string> $urls
+     * @return array<string, string|\RuntimeException> address => content, or why it could not be downloaded
+     */
+    public function downloadMany(array $urls, bool $imagesOnly = true): array
+    {
+        if (Demo::active()) {
+            throw new \RuntimeException('Downloading from other sites is switched off in the public demo.');
+        }
+        $results = [];
+        $pending = [];
+        foreach ($urls as $url) {
+            $pending[$url] = $url; // the address asked for => the address of the current redirect step
+        }
+        for ($step = 0; $pending !== []; $step++) {
+            $requests = [];
+            foreach ($pending as $url => $current) {
+                $target = Outbound::url($current);
+                $ip = $target !== null && $this->isAllowedUrl($current) ? $this->verifiedIp($target['host']) : null;
+                $results[$url] = match (true) {
+                    $step > self::MAX_REDIRECTS => new \RuntimeException('Too many redirects.'),
+                    $target === null || !$this->isAllowedUrl($current) => new \RuntimeException('The address does not belong to the old site.'),
+                    $ip === null => new \RuntimeException('The domain of the old site does not exist or points to an internal network.'),
+                    default => '',
+                };
+                if ($results[$url] === '') {
+                    $requests[$url] = [$target, $ip]; // the request goes to the URL with the normalized host – the one that was resolved and is pinned (3.3.3, N52)
+                }
+            }
+            $next = [];
+            foreach ($this->requests($requests) as $url => $response) {
+                if (!$response instanceof \RuntimeException && in_array($response['code'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
+                    $next[$url] = self::redirectTarget($pending[$url], $response['location']);
+                    continue;
+                }
+                $results[$url] = match (true) {
+                    $response instanceof \RuntimeException => $response,
+                    $response['code'] !== 200 => new \RuntimeException('The old site did not return the image, it responded with error', $response['code']), // getCode() carries the response code
+                    $imagesOnly && self::imageType($response['type'], $response['data']) === null => new \RuntimeException('The file is not a JPG, PNG, GIF or WebP image.'),
+                    default => $response['data'],
+                };
+            }
+            $pending = $next;
+        }
+
+        return $results;
+    }
+
+    /**
+     * One round of requests to verified addresses: in parallel through curl (Outbound::pin), else one after another.
+     *
+     * @param array<string, array{0: array{url: string, host: string, port: int, scheme: string}, 1: string}> $requests address => [Outbound::url(), verified IP]
+     * @return array<string, array{code:int, type:string, location:string, data:string}|\RuntimeException>
+     */
+    private function requests(array $requests): array
+    {
+        $out = [];
+        if (!function_exists('curl_multi_init')) {
+            foreach ($requests as $url => [$target, $ip]) {
+                try {
+                    $out[$url] = $this->streamRequest($target['url'], $ip);
+                } catch (\RuntimeException $e) {
+                    $out[$url] = $e;
+                }
+            }
+
+            return $out;
+        }
+        $multi = curl_multi_init();
+        curl_multi_setopt($multi, CURLMOPT_MAX_HOST_CONNECTIONS, self::PARALLEL);
+        $handles = [];
+        $responses = [];
+        foreach ($requests as $url => [$target, $ip]) {
+            $responses[$url] = new \stdClass();
+            $handles[$url] = $this->curlHandle($target, $ip, $responses[$url]);
+            curl_multi_add_handle($multi, $handles[$url]);
+        }
+        $errors = [];
+        do {
+            $status = curl_multi_exec($multi, $running);
+            while (($info = curl_multi_info_read($multi)) !== false) {
+                $errors[spl_object_id($info['handle'])] = (int) $info['result']; // curl_errno() says nothing about a handle in curl_multi
+            }
+            if ($running > 0) {
+                curl_multi_select($multi, 1.0);
+            }
+        } while ($running > 0 && $status === CURLM_OK);
+        foreach ($handles as $url => $ch) {
+            $response = $responses[$url];
+            $error = $errors[spl_object_id($ch)] ?? CURLE_RECV_ERROR;
+            $out[$url] = match (true) {
+                strlen($response->data) > self::MAX_BYTES || $error === CURLE_FILESIZE_EXCEEDED => new \RuntimeException('The image is larger than 15 MB.'),
+                $error !== CURLE_OK => new \RuntimeException('The old site is not responding.'),
+                default => ['code' => (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE), 'type' => $response->type, 'location' => $response->location, 'data' => $response->data],
+            };
+            curl_multi_remove_handle($multi, $ch);
+        }
+        curl_multi_close($multi);
+
+        return $out;
+    }
+
+    /**
+     * A curl handle for one request; the connection is pinned to the verified IP address (Outbound::pin), the answer is
+     * collected into $response (data, type, location) and cut off above MAX_BYTES.
      *
      * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
-     * @return array{code:int, type:string, location:string, data:string}
      */
-    private function curlRequest(array $target, string $ip): array
+    private function curlHandle(array $target, string $ip, \stdClass $response): \CurlHandle
     {
-        $data = '';
-        $headers = ['content-type' => '', 'location' => ''];
+        $response->data = '';
+        $response->type = '';
+        $response->location = '';
         $ch = curl_init($target['url']);
         Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
         curl_setopt_array($ch, [
@@ -220,31 +308,23 @@ final class ImageDownloader
             CURLOPT_TIMEOUT => self::TOTAL_TIMEOUT,
             CURLOPT_MAXFILESIZE => self::MAX_BYTES,
             CURLOPT_USERAGENT => self::USER_AGENT,
-            CURLOPT_HEADERFUNCTION => function ($ch, string $row) use (&$headers): int {
+            CURLOPT_HEADERFUNCTION => function ($ch, string $row) use ($response): int {
                 $parts = explode(':', $row, 2);
-                if (count($parts) === 2 && isset($headers[strtolower(trim($parts[0]))])) {
-                    $headers[strtolower(trim($parts[0]))] = trim($parts[1]);
+                $name = strtolower(trim($parts[0]));
+                if (count($parts) === 2 && ($name === 'content-type' || $name === 'location')) {
+                    $response->{$name === 'location' ? 'location' : 'type'} = trim($parts[1]);
                 }
 
                 return strlen($row);
             },
-            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data): int {
-                $data .= $chunk;
+            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use ($response): int {
+                $response->data .= $chunk;
 
-                return strlen($data) > self::MAX_BYTES ? -1 : strlen($chunk); // a value other than the length = curl stops the download
+                return strlen($response->data) > self::MAX_BYTES ? -1 : strlen($chunk); // a value other than the length = curl stops the download
             },
         ]);
-        curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $error = curl_errno($ch);
-        if (strlen($data) > self::MAX_BYTES || $error === CURLE_FILESIZE_EXCEEDED) {
-            throw new \RuntimeException('The image is larger than 15 MB.');
-        }
-        if ($error !== 0) {
-            throw new \RuntimeException('The old site is not responding.');
-        }
 
-        return ['code' => $code, 'type' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
+        return $ch;
     }
 
     /**

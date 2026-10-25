@@ -111,10 +111,10 @@ final class Prompts
                 - **Polylang and WPML:** each page, post, category and collection item goes to its language version, linked to
                   its original in the default language (the language switcher and hreflang follow), and the old /en/… and
                   ?lang= addresses redirect.
-                - **WooCommerce:** the products come over as a collection, with the other custom post types. Variations,
-                  orders, coupons, customers, payments and the shop's settings stay in WordPress – tell the user. Talea shows
-                  products as a catalogue with an enquiry basket, no checkout: if the user wants that, create a collection
-                  from the products preset (step 6) and move the products into it.
+                - **WooCommerce:** the products come over as a product catalogue (the products preset): code, price,
+                  availability, parameters and the picture; a product's first category becomes its category field, and old
+                  product addresses keep working. Variations, orders, coupons, customers, payments and the shop's settings
+                  stay in WordPress – tell the user. Talea shows products as a catalogue with an enquiry basket, no checkout.
 
                 **Any other platform, or WordPress without an export.** Call `import_website` with `url`, then again with
                 `import_id`. In the phase "preview", show the user what was found and send `confirm` true only on their

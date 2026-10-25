@@ -345,6 +345,10 @@ final class Audit
                 }
             }
         }
+        // a language version in a script the heading or text font has no letters for (Builder\FontScripts)
+        foreach (\Talea\Builder\FontScripts::problems($ds, [Language::defaults($s), ...Language::additional($s)]) as $problem) {
+            $this->add('accessibility', t('Site appearance'), \Talea\Builder\FontScripts::message($problem), 'admin.php?module=appearance#panel-font', null, ['look' => $problem['key'], 'script' => $problem['script']]);
+        }
         $home = (int) $s->get('home_page');
         $statement = false;
         foreach ($db->all('SELECT page_id, title, slug, text, build FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE') as $p) {

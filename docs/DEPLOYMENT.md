@@ -7,8 +7,8 @@ which ships a ZIP for PHP hosting and installs its updates from the administrati
 ## Install
 
 ```bash
-cp docker-compose.yaml compose.yaml        # or use docker-compose.coolify.yaml on Coolify
-docker compose up -d                       # builds the image from source, or set `image:` to a published tag
+cp docker-compose.yaml compose.yaml        # on Coolify: docker-compose.coolify-{mysql,mariadb,postgres}.yaml
+docker compose up -d                       # pulls ghcr.io/czepter/talea; TALEA_TAG pins a version (default latest)
 ```
 
 Open the site and walk through the installer. Configuration is environment variables (`TALEA_*`, every one also as

@@ -17,8 +17,9 @@ jobs:
   # Content that already passed CI runs nothing again: a pull request whose head passed (dev -> main after the push to dev), the
   # merge commit of an up-to-date pull request (same tree as the tested head), or a release bump (only the TALEA_VERSION line
   # differs from a tested parent). Anything else, and any doubt (API error), runs everything.
-  # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE) skips the
-  # test jobs (output tests=false, browser=false); a change of stylesheets (with or without documentation) runs the browser walk
+  # A change of documentation only (Markdown, docs/ apart from the add-on examples the tests install, NOTICE, LICENSE, and the
+  # docker-compose*.yaml files, which CI never reads) skips the test jobs (output tests=false, browser=false); a change of
+  # stylesheets (with or without documentation) runs the browser walk
   # but not the database suites and static analysis (tests=false). The repository checks (unit suite) and the security scan still run.
   gate:
     name: Not tested yet
@@ -89,7 +90,7 @@ jobs:
               | jq -r 'if (.files | length) < 300 then .files[].filename else empty end') || files=""
           fi
           tests=true; browser=true
-          code=$(grep -v -E '(\.md$|^docs/|^NOTICE$|^LICENSE$)' <<<"$files" || true)
+          code=$(grep -v -E '(\.md$|^docs/|^NOTICE$|^LICENSE$|^docker-compose[^/]*\.yaml$)' <<<"$files" || true)
           if grep -q . <<<"$files" && ! grep -q '^docs/examples/' <<<"$files"; then
             if ! grep -q . <<<"$code"; then
               tests=false; browser=false; echo "documentation only: the test jobs are skipped"
