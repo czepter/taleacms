@@ -439,6 +439,11 @@ the preview (it then shows in the language switcher at once); otherwise its post
 the same address in every language is off (Settings → General), an address another language already has gets a number, and
 the report lists those addresses.
 
+A **WooCommerce shop** arrives as a product catalogue (the Products collection, an enquiry basket instead of a checkout): each
+product keeps its address under `/product/…` with its code (SKU), current price, availability, attributes as parameters,
+summary, description and picture; its other old addresses redirect. Variations, orders and coupons stay in WordPress, and
+product categories become the category text of each product. The images are downloaded several at a time.
+
 **Moving a Talea site** to another host or starting a new site from an agency's starter kit: on the old site create
 **Import and export → Export of the whole site**, then install Talea on the new host and choose **Start from an export**
 in the installer. Sign in, open **Import and export → Import from Talea** and upload the `.zip` (a larger one over FTP

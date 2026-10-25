@@ -5133,6 +5133,7 @@ return [
     'Without a sign-in only published content is fetched; unpublished content needs user:password or a token.' => 'Ohne Anmeldung werden nur veröffentlichte Inhalte abgerufen; unveröffentlichte brauchen Benutzer:Passwort oder einen Token.',
     'Without it, updates work as before: security releases install themselves when that is on in Backups, others you install yourself.' => 'Ohne das funktionieren Updates wie bisher: Sicherheitsversionen installieren sich selbst, wenn das unter Sicherungen eingeschaltet ist, andere installieren Sie selbst.',
     'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)' => 'Ohne zusätzliche Spamprüfung (CAPTCHA aus Einstellungen → Datenschutz und Cookies)',
+    'WooCommerce products: %s items become a product catalogue with item pages at /%s/… – code, price, availability, parameters (attributes), summary, description and picture. Variations, orders and coupons stay in WordPress.' => 'WooCommerce-Produkte: %s Einträge werden zu einem Produktkatalog mit Eintragsseiten unter /%s/… – Artikelnummer, Preis, Verfügbarkeit, Parameter (Attribute), Zusammenfassung, Beschreibung und Bild. Varianten, Bestellungen und Gutscheine bleiben in WordPress.',
     'WordPress export' => 'WordPress-Export',
     'Work' => 'Arbeit',
     'Work as drafts and send me the preview links – do not publish anything.' => 'Arbeite nur mit Entwürfen und schick mir die Vorschaulinks – veröffentliche nichts.',

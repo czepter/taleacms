@@ -5128,6 +5128,7 @@ return [
     'Without a sign-in only published content is fetched; unpublished content needs user:password or a token.' => 'Bez přihlášení se stáhne jen publikovaný obsah; nepublikovaný potřebuje uživatel:heslo nebo token.',
     'Without it, updates work as before: security releases install themselves when that is on in Backups, others you install yourself.' => 'Bez toho fungují aktualizace jako dřív: bezpečnostní vydání se nainstalují sama, pokud je to zapnuté v Zálohách, ostatní instalujete sami.',
     'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)' => 'Bez dodatečné kontroly spamu (CAPTCHA z Nastavení → Soukromí a cookies)',
+    'WooCommerce products: %s items become a product catalogue with item pages at /%s/… – code, price, availability, parameters (attributes), summary, description and picture. Variations, orders and coupons stay in WordPress.' => 'Produkty WooCommerce: %s položek se stane katalogem produktů se stránkami položek na /%s/… – kód, cena, dostupnost, parametry (atributy), shrnutí, popis a obrázek. Varianty, objednávky a kupóny zůstanou ve WordPressu.',
     'WordPress export' => 'Export z WordPressu',
     'Work' => 'Práce',
     'Work as drafts and send me the preview links – do not publish anything.' => 'Pracuj jen v konceptech a pošli mi odkazy na náhledy – nic nepublikuj.',
