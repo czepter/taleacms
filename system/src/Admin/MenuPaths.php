@@ -25,6 +25,7 @@ final class MenuPaths
         [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
         [['Settings', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
         [['Settings', 'Mail'], 'settings', 'module=settings&tab=mail'],
+        [['Settings', 'Reports'], 'settings', 'module=settings&tab=reports'],
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
         [['Backups'], 'settings', 'module=settings&tab=backups'],

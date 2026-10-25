@@ -148,7 +148,7 @@ final class Kernel
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
         'Features' => [['extensions', '', 'Features and add-ons']],
-        'Data and system' => [['settings', 'backups', 'Backups'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
+        'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
     /** Home: the first steps in collapsible groups (step name => group); every step of firstSteps() is listed. */
