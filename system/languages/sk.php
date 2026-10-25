@@ -1126,6 +1126,7 @@ Odkaz platí %d dní.
     'once a week' => 'raz za týždeň',
     'once per visit' => 'raz za návštevu',
     'only people signed in to the administration' => 'len prihláseným do administrácie',
+    'open in a new window' => 'otvoriť v novom okne',
     'optional' => 'dobrovoľné',
     'out of 5 · 120 reviews' => 'z 5 · 120 recenzií',
     'out of 5 · [number] reviews' => 'z 5 · [počet] recenzií',

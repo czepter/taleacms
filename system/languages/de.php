@@ -1187,6 +1187,7 @@ Der Link gilt %d Tage.
     'once a week' => 'einmal pro Woche',
     'once per visit' => 'einmal pro Besuch',
     'only people signed in to the administration' => 'nur in der Administration Angemeldete',
+    'open in a new window' => 'in einem neuen Fenster öffnen',
     'open to anyone with a confirmed e-mail address' => 'offen für alle mit einer bestätigten E-Mail-Adresse',
     'optional' => 'freiwillig',
     'out of 5 · 120 reviews' => 'von 5 · 120 Bewertungen',

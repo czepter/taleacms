@@ -1132,6 +1132,7 @@ Le lien est valable %d jours.
     'once a week' => 'une fois par semaine',
     'once per visit' => 'une fois par visite',
     'only people signed in to the administration' => 'uniquement les personnes connectées à l’administration',
+    'open in a new window' => 'ouvrir dans une nouvelle fenêtre',
     'optional' => 'facultative',
     'out of 5 · 120 reviews' => 'sur 5 · 120 avis',
     'out of 5 · [number] reviews' => 'sur 5 · [nombre] avis',

@@ -1195,6 +1195,7 @@ The link works for %d days.
     'once a week' => 'مرة في الأسبوع',
     'once per visit' => 'مرة واحدة في كل زيارة',
     'only people signed in to the administration' => 'المسجلون في لوحة الإدارة فقط',
+    'open in a new window' => 'فتح في نافذة جديدة',
     'open to anyone with a confirmed e-mail address' => 'متاح لأي شخص لديه بريد إلكتروني مؤكد',
     'optional' => 'اختياري',
     'out of 5 · 120 reviews' => 'من 5 · 120 تقييمًا',

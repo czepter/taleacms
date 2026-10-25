@@ -95,6 +95,7 @@ final class Form extends Element
 .tl-field :focus-visible { outline: 2px solid var(--tl-color-primary); outline-offset: 1px; }
 .tl-field-consent label { display: flex; gap: var(--tl-space-xs); align-items: flex-start; }
 .tl-field-consent input { margin-block-start: 0.3em; accent-color: var(--tl-color-primary); }
+.tl-field input[type="file"]::file-selector-button { margin-inline-end: 0.8em; padding: 0.45em 1em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-surface); color: var(--tl-color-text); font: inherit; font-weight: 600; cursor: pointer; }
 .tl-step { display: grid; gap: var(--tl-space-s); margin: 0; padding: 0; border: 0; }
 .tl-step > legend { margin-bottom: var(--tl-space-xs); font-weight: 700; font-size: 1.1em; }
 .tl-steps-navigation { display: flex; flex-wrap: wrap; gap: var(--tl-space-xs); align-items: center; }
@@ -115,6 +116,8 @@ final class Form extends Element
 .tl-field fieldset label { display: flex; gap: var(--tl-space-xs); align-items: center; font-weight: 400; }
 .tl-field fieldset input { accent-color: var(--tl-color-primary); }
 .tl-field [aria-invalid="true"] { border-color: #c4281c !important; }
+/* a field the visitor has left wrong (an e-mail without @, a required field left empty) shows it once they interacted with it, not before */
+.tl-field :is(input, select, textarea):user-invalid:not([type="checkbox"]):not([type="radio"]) { border-color: #c4281c; box-shadow: 0 0 0 1px #c4281c; }
 .tl-field-help { color: var(--tl-color-muted); font-size: var(--tl-step--1); }
 .tl-field-error { color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); font-size: var(--tl-step--1); }
 .tl-form-done, .tl-form-error { margin: 0; padding: var(--tl-space-m); border-radius: var(--tl-radius); }
@@ -266,7 +269,7 @@ final class Form extends Element
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-error" autofocus' : '';
         $message = $error ? '<span class="tl-field-error" id="' . $id . '-error">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
         if ($field['type'] === 'checkbox') {
-            $link = $privacyPolicy !== '' ? ' <a class="tl-field-policy" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
+            $link = $privacyPolicy !== '' ? ' <a class="tl-field-policy" href="' . e($privacyPolicy) . '" target="_blank" rel="noopener" aria-label="' . e(t('Privacy policy') . ' (' . t('open in a new window') . ')') . '">' . e(t('Privacy policy')) . ' <span aria-hidden="true">↗</span></a>' : '';
 
             return '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }

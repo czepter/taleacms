@@ -1134,6 +1134,7 @@ Link jest ważny %d dni.
     'once a week' => 'raz w tygodniu',
     'once per visit' => 'raz na wizytę',
     'only people signed in to the administration' => 'tylko zalogowanym do panelu administracyjnego',
+    'open in a new window' => 'otwórz w nowym oknie',
     'optional' => 'dobrowolne',
     'out of 5 · 120 reviews' => 'na 5 · 120 opinii',
     'out of 5 · [number] reviews' => 'na 5 · [liczba] opinii',

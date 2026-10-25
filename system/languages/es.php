@@ -1137,6 +1137,7 @@ El enlace es válido %d días.
     'once a week' => 'una vez por semana',
     'once per visit' => 'una vez por visita',
     'only people signed in to the administration' => 'solo quienes han iniciado sesión en la administración',
+    'open in a new window' => 'abrir en una ventana nueva',
     'optional' => 'opcional',
     'out of 5 · 120 reviews' => 'de 5 · 120 reseñas',
     'out of 5 · [number] reviews' => 'de 5 · [número] reseñas',
