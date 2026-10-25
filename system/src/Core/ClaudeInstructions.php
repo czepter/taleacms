@@ -17,8 +17,11 @@ final class ClaudeInstructions
     /** The share of each text in the row's description (255 characters); the whole texts are in its detail. */
     private const int SHORT = 110;
 
-    /** Records a change; nothing when the text stayed the same. An administrator who typed it in the admin has seen it. */
-    public static function changed(App $app, string $before, string $after): void
+    /**
+     * Records a change; nothing when the text stayed the same. Only an administrator who typed the text in the admin ($typed)
+     * has seen it; a restore (undoing a Claude session) still asks for a check.
+     */
+    public static function changed(App $app, string $before, string $after, bool $typed = false): void
     {
         if ($before === $after) {
             return;
@@ -26,7 +29,7 @@ final class ClaudeInstructions
         $short = fn (string $text): string => $text === '' ? '–' : '“' . mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', $text)), 0, self::SHORT, '…') . '”';
         ChangeLog::write($app, 'claude_settings', 'instructions', $short($before) . ' → ' . $short($after),
             detail: (string) json_encode(['before' => $before, 'after' => $after], JSON_UNESCAPED_UNICODE));
-        if ($app->auth()->connection() === null && $app->auth()->isAdmin()) {
+        if ($typed && $app->auth()->connection() === null && $app->auth()->isAdmin()) {
             $app->settings()->set('claude_instructions_seen', self::fingerprint($after));
         }
     }
