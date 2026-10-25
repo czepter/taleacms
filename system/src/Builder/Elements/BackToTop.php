@@ -22,8 +22,11 @@ final class BackToTop extends Element
 
     public static function baseCss(): string
     {
-        return '.tl-back-to-top { position: fixed; inset: auto 1rem 1rem auto; z-index: 50; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--tl-color-text); color: var(--tl-color-background); box-shadow: var(--tl-shadow-m); }
+        return '.tl-back-to-top { position: fixed; inset-block: auto 1rem; inset-inline: auto 1rem; z-index: 50; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--tl-color-text); color: var(--tl-color-background); box-shadow: var(--tl-shadow-m); }
 .tl-back-to-top svg { width: 1.2rem; height: 1.2rem; }
+/* a flyout pill in the same corner (a popup, image/web.css) moves beside the button; on a phone it is a bar along the bottom, so the button rises above it */
+@media (min-width: 768px) { :root:has(.tl-back-to-top) .tl-popup--flyout { inset-inline-end: 4.5rem; } }
+@media (max-width: 767px) { :root:has(.tl-popup--flyout:popover-open, .tl-popup--flyout_left:popover-open) .tl-back-to-top { inset-block-end: 5.75rem; } }
 @supports (animation-timeline: scroll()) {
 	.tl-back-to-top { animation: tl-back-to-top linear both; animation-timeline: scroll(); animation-range: 0 40vh; }
 	@keyframes tl-back-to-top { from { opacity: 0; visibility: hidden; translate: 0 1rem; } }

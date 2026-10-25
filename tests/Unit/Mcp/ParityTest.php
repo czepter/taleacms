@@ -32,7 +32,8 @@ final class ParityTest extends TestCase
             'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
             'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
             'fleet_kit' => 'admin: receiving the console\'s design kit is an opt-in of the site (2.16); site_info reports the version that arrived',
-            'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health',
+            'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the archived months with get_monthly_report',
+            'report_view' => 'get_monthly_report', 'report_download' => 'get_monthly_report',
             'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
             'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement'];
         $parity = [
@@ -102,6 +103,7 @@ final class ParityTest extends TestCase
                 'source_fetch' => 'admin: structured import (3.0) – the API token is typed in the admin, kept in the session only, never over MCP'],
             'settings' => $settingsParity, 'extensions' => $settingsParity, 'business' => $settingsParity, 'status' => $settingsParity,
             'claude_settings' => $settingsParity + ['acknowledge_instructions' => 'admin: a person confirms having checked changed instructions for Claude (#149) – a connection must not clear the notice about a change it may have made itself'],
+            'assistant_settings' => $settingsParity, 'newsletter_settings' => $settingsParity,
             'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
             'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'],
             // 2.17: scheduled runs – what a routine in Claude does on the site and when is the administrator's decision; Claude only gets the due runs and reports them

@@ -448,7 +448,7 @@ final class Auth
     private function sessionUser(): ?array
     {
         // without a session cookie there is nobody who could be signed in - and no session is started for the check (the site stays cacheable)
-        if (!isset($_COOKIE['talea'])) {
+        if (!isset($_COOKIE[Session::COOKIE])) {
             return null;
         }
         $id = $this->session->get('user_id');

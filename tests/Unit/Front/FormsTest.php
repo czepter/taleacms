@@ -79,4 +79,13 @@ final class FormsTest extends TestCase
         $this->assertSame([['Zavoláme vám', 'Přijedeme na zaměření'], [], 'next_steps', 'reply_within_hours', 'who_replies'], [\Talea\Front\NextSteps::steps(['next_steps' => "Zavoláme vám\r\n\n  Přijedeme na zaměření \n"]), \Talea\Front\NextSteps::steps([]), // check-english: allow
             'next_steps', 'reply_within_hours', 'who_replies'], '2.12 NextSteps::steps – one step per line, empty lines dropped; the content keys have English names'); // check-english: allow
     }
+
+    /** a wrong field shows once the visitor interacted with it, the file button is styled, the privacy link says it opens a new window */
+    public function testFieldStatesAndPrivacyLink(): void
+    {
+        $css = FormElement::baseCss();
+        $this->assertSame([true, true], [str_contains($css, ':user-invalid'), str_contains($css, '::file-selector-button')], 'Form: :user-invalid and the file button have their style');
+        $consent = \Talea\Core\Language::runWith('de', fn (): string => (new \ReflectionMethod(FormElement::class, 'fields'))->invoke(null, ['label' => '[Consent]', 'type' => 'checkbox', 'required' => true], 0, 'abc', false, '/privacy'));
+        $this->assertStringContainsString('target="_blank" rel="noopener" aria-label="Datenschutzerklärung (in einem neuen Fenster öffnen)"', $consent, 'Form: the privacy link names the new window in the page language');
+    }
 }

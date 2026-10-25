@@ -144,6 +144,11 @@ final class PagesFlowTest extends SiteTestCase
         $site->mcp('save_build', ['part' => 'header', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'navigation', 'content' => ['language_switcher' => false]], ['type' => 'navigation', 'content' => ['menu' => 'footer']]]]]]]);
         $this->noCache();
         $this->assertSame(1, substr_count($this->visitor()->get('/')->body, '<nav class="tl-languages"'), 'navigation with the language switcher off has none, the other one does');
+        // a logo between the halves of the menu: the second half is marked so that it steps aside on a phone
+        $site->mcp('save_build', ['part' => 'header', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'navigation', 'content' => ['menu_part' => 'first', 'language_switcher' => false]], ['type' => 'logo'], ['type' => 'navigation', 'content' => ['menu_part' => 'second']]]]]]]);
+        $this->noCache();
+        $body = $this->visitor()->get('/')->body;
+        $this->assertSame([1, 1], [preg_match_all('/<nav[^>]* class="[^"]*\btl-nav--second\b/', $body), substr_count($body, '<nav class="tl-languages"')], 'the second half of the menu is marked, only it has the language switcher');
 
         // 2.7: a header transparent at the top and smaller after scrolling (English vocabulary)
         $site->mcp('save_build', ['part' => 'header', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'content' => ['on_scroll' => 'transparent_shrink', 'text_at_top' => 'light'],

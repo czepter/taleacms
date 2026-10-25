@@ -100,6 +100,14 @@ final class Kernel
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
     }
 
+    /** The maintenance notice (setting maintenance_text) with 503. */
+    private function maintenance(string $retryAfter): Response
+    {
+        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::tag(Language::code())) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
+            . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => $retryAfter]);
+    }
+
     /** 301 target when the request uses the non-preferred slash form (setting url_slash), else null. */
     private function slashRedirect(string $internal): ?string
     {
@@ -124,14 +132,17 @@ final class Kernel
         if (\Talea\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
             return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
         }
+        // a running Talea import (Core\SiteImport::work) replaces the content: everyone, signed in or not, and Claude (/mcp, OAuth) wait for it;
+        // the orchestrator probe and cron go on – cron carries the import forward
+        if (\Talea\Core\SiteImport::running() !== null && !in_array($request->path(), ['/health', '/tasks'], true)) {
+            return $this->maintenance('60');
+        }
         // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;
         }
         if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
-            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::tag(Language::code())) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
-                . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
-                . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
+            return $this->maintenance('3600');
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
@@ -672,7 +683,7 @@ final class Kernel
         foreach ($collection['fields'] as $field) {
             $h = (string) ($item['data'][$field['key']] ?? '');
             if ($description === '' && in_array($field['type'], ['lines', 'html'], true) && $h !== '') {
-                $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
+                $description = \Talea\Core\Html::plain($h, 300);
             }
             if ($image === '' && $field['type'] === 'image' && $h !== '') {
                 $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
@@ -860,7 +871,7 @@ final class Kernel
     {
         preg_match_all('#<p\b[^>]*>(.*?)</p>#si', $html, $m);
         foreach ($m[1] as $paragraph) {
-            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5)));
+            $text = \Talea\Core\Html::plain($paragraph);
             if (mb_strlen($text) >= 50) {
                 return mb_strimwidth($text, 0, 160, '…');
             }
@@ -900,7 +911,7 @@ final class Kernel
         return $this->page(
             $category['name'],
             $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
-            ['description' => strip_tags($category['description']), 'part' => 'list'],
+            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list'],
         );
     }
 
@@ -918,7 +929,7 @@ final class Kernel
         return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('list', [
             'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? self::authored(\Talea\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
-            'description' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
+            'description' => $colorScheme ? \Talea\Core\Html::plain((string) $tag['description'], 300) : '',
             'part' => 'list',
         ]);
     }
@@ -965,7 +976,7 @@ final class Kernel
 
         return $this->page($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title'], $content, [
             'article' => $newsItem,
-            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($newsItem['intro'])), 0, 300, '…'),
+            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : \Talea\Core\Html::plain($newsItem['intro'], 300),
             'keywords' => $newsItem['keywords'],
             'image' => $newsItem['image'],
             'noindex' => (bool) $newsItem['noindex'],
@@ -1246,14 +1257,14 @@ final class Kernel
         $r = $this->app->request;
         $cookiePath = $r->basePath() . '/';
         if ($r->get('preview_end') === '1') {
-            setcookie('tl_preview', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
-            unset($_COOKIE['tl_preview']);
+            setcookie(\Talea\Core\Preview::COOKIE, '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
+            unset($_COOKIE[\Talea\Core\Preview::COOKIE]);
         }
-        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE['tl_preview'] ?? '');
+        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE[\Talea\Core\Preview::COOKIE] ?? '');
         if ($key !== '' && \Talea\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
             $this->sitePreview = true;
             if ($r->get('preview_key') === $key && !headers_sent()) {
-                setcookie('tl_preview', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
+                setcookie(\Talea\Core\Preview::COOKIE, $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
         if ($this->sitePreview || ($r->get('build') === 'draft' && $this->app->auth()->isAdmin())) {

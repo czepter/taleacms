@@ -307,7 +307,7 @@ final class Mailing
         return array_map(fn (array $c): array => [
             'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'date' => (string) $c['published_at'],
             'url' => self::campaign($app, self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']), $n),
-            'intro' => mb_strimwidth(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], ' ', (string) $c['intro'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? ''), 0, 320, '…'),
+            'intro' => Html::plain((string) $c['intro'], 320),
             'image' => self::image($app, (string) $c['image']),
         ], $rows);
     }

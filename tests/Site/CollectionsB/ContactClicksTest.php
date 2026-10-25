@@ -66,6 +66,8 @@ final class ContactClicksTest extends SiteTestCase
         // the monthly report mentions calls and e-mails when the month had any
         $month = (new \DateTimeImmutable('first day of last month'))->format('Y-m-d');
         $site->exec("INSERT INTO tl_stats_conversions (day, path, type, count) VALUES (?, '/call-212', 'tel', 4), (?, '/call-212', 'mailto', 2)", [$month, $month]);
+        // the month may already be archived (#161, the hourly report_archive job): the preview would show the stored month
+        $site->exec('DELETE FROM tl_monthly_reports');
         $report = $this->assertPage('/admin.php?module=settings&action=report_preview', 200, 'Calls – clicks on a phone number', message: '2.12: the monthly report mentions the calls and e-mails of the month');
         $this->assertStringContainsString('E-mails – clicks on an e-mail address', $report->body, '2.12: the report lists e-mails');
         $this->assertStringNotContainsString('WhatsApp – clicks', $report->body, '2.12: the report lists only the kinds of clicks there were');
