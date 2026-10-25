@@ -135,6 +135,8 @@ body:not(.login) {
 	position: sticky;
 	top: 0;
 	align-self: start;
+	display: flex;
+	flex-direction: column;
 	height: 100vh;
 	overflow-y: auto;
 	padding: 20px 16px 16px 20px;
@@ -179,7 +181,7 @@ body:not(.login) {
 .menu-wrap {
 	display: flex;
 	flex-direction: column;
-	min-height: calc(100vh - 104px);
+	flex: 1 0 auto; /* fills the sidebar under the logo whatever its height, so the foot sits at the bottom without a scroll */
 }
 .menu {
 	list-style: none;
@@ -1321,7 +1323,6 @@ body.login {
 	}
 	.menu-wrap {
 		display: none;
-		min-height: 0;
 		padding: 4px 4px 16px;
 	}
 	.menu-open .menu-wrap {
