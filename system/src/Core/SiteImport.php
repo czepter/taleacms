@@ -719,11 +719,12 @@ final class SiteImport
 
     private function redirect(array $r): ?array
     {
-        // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL
+        // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL;
+        // an empty target is the home page (the module stores "/" so)
         $from = is_string($r['from_path'] ?? null) ? trim($r['from_path'], '/ ') : '';
         $to = is_string($r['to_path'] ?? null) ? trim($r['to_path']) : '';
 
-        return preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
+        return preg_match('#^[^\s/][^\s]{0,254}$#', $from) && is_string($r['to_path'] ?? null) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to)
             ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'type' => (int) ($r['type'] ?? 301) === 302 ? 302 : 301, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
