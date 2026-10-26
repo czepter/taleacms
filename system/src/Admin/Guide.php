@@ -50,6 +50,7 @@ final class Guide
         'members' => 'users-roles#members',
         'stats' => 'statistics',
         'experiments' => 'statistics#experiments',
+        'seo' => 'seo#overview',
         'redirects' => 'seo#redirects-and-404s',
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',

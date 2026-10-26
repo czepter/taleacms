@@ -2169,3 +2169,13 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .analytics-title { margin: 20px 0 10px; font-size: 15px; font-weight: 700; }
 .analytics-changes { margin: 0 0 24px; padding-inline-start: 20px; display: grid; gap: 6px; }
 .form:has(input[name="hosting"][value="cloud"]:checked) .analytics-own { display: none; } /* Plausible or Umami at the provider: no address */
+
+/* Search engines overview: one card per feature with its switch */
+.seo-features-title { margin: 24px 0 4px; }
+.seo-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; margin: 12px 0 20px; }
+.seo-feature { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.seo-feature-head { display: flex; align-items: center; gap: 10px; }
+.seo-feature-head h3 { margin: 0; font-size: 15px; }
+.seo-feature p { flex: 1; margin: 0; font-size: 13px; color: var(--text-weak); }
+.seo-feature-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.tiles-item strong small { font-size: 14px; font-weight: 500; color: var(--text-weak); }

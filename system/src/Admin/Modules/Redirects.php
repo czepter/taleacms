@@ -22,7 +22,7 @@ final class Redirects extends Module
     public const string IDENT = 'redirects';
     public const string TABLE = 'redirects';
     public const string NAME = 'Redirects';
-    public const string GROUP = 'Website';
+    public const string GROUP = 'Search engines';
     public const string ICON = 'redirects';
     public const string EXTENSION = 'redirects';
     public const bool ADMIN_ONLY = true;

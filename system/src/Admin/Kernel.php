@@ -99,8 +99,9 @@ final class Kernel
         Modules\Menu::class,
         Modules\Components::class,
         Modules\Popups::class,
-        Modules\Audit::class,
+        Modules\Seo::class,
         Modules\Redirects::class,
+        Modules\Audit::class,
         Modules\News::class,
         Modules\Categories::class,
         Modules\Tags::class,
@@ -137,7 +138,7 @@ final class Kernel
     ];
 
     /** Sections of the sidebar in their order (Module::GROUP); Settings is the gear at the bottom, not a section of the list. */
-    public const array SECTIONS = ['Website', 'Content', 'Enquiries', 'Customers', 'E-mail', 'Analytics', 'AI'];
+    public const array SECTIONS = ['Website', 'Search engines', 'Content', 'Enquiries', 'Customers', 'E-mail', 'Analytics', 'AI'];
 
     /** The periods "At a glance" on Home offers (days; Core\Report::PERIODS has a year too, Analytics shows that). */
     public const array GLANCE_PERIODS = [7, 30, 90];

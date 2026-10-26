@@ -19,7 +19,7 @@ $tabs = array_filter([
     isset($modules['appearance']) ? ['Style', $app->url('admin.php?module=appearance'), false] : null,
     ['SEO', $module->url('website', array_filter(['id' => $currentId, 'tab' => 'seo'])), $seo],
 ]);
-$more = $seo ? array_filter(['audit' => 'Site audit', 'redirects' => 'Redirects'], fn (string $ident): bool => isset($modules[$ident]), ARRAY_FILTER_USE_KEY) : null;
+$more = $seo ? array_filter(['seo' => 'Search engines', 'audit' => 'Site audit', 'redirects' => 'Redirects'], fn (string $ident): bool => isset($modules[$ident]), ARRAY_FILTER_USE_KEY) : null;
 $more ??= array_filter([
     'parts' => 'Header, footer and system pages', 'menu' => 'Menu', 'components' => 'Components', 'popups' => 'Pop-ups', 'redirects' => 'Redirects',
 ], fn (string $ident): bool => isset($modules[$ident]), ARRAY_FILTER_USE_KEY);
