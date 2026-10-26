@@ -322,8 +322,8 @@
 		});
 	});
 
-	// Warning before leaving a form with unsaved changes
-	document.querySelectorAll('form.form').forEach(function (form) {
+	// Warning before leaving a form with unsaved changes (the Website settings sidebar too: its own buttons post other forms)
+	document.querySelectorAll('form.form, form.website-settings-form').forEach(function (form) {
 		var changed = false;
 		form.addEventListener('input', function () { changed = true; });
 		form.addEventListener('change', function () { changed = true; });

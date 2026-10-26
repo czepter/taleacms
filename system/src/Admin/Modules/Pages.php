@@ -159,16 +159,21 @@ final class Pages extends Module
         }
         $keyword = $this->request->post('keyword');
         $keywords = \Talea\Core\SeoFields::keywords((string) $page['focus_keywords']);
-        if ($keyword === '') {
-            return $this->back();
+        if (!\Talea\Core\SeoFields::fitsAsKeyword($keyword)) {
+            return $this->back('This search cannot be a focus keyword: a keyword has no comma and up to 100 characters.', 'website', $back, 'error');
         }
         if (in_array(mb_strtolower($keyword), array_map(mb_strtolower(...), $keywords), true)) {
             return $this->back('This is already a focus keyword of the page.', 'website', $back);
         }
+        $new = \Talea\Core\SeoFields::keywords(implode("\n", [...$keywords, $keyword]));
+        // five keywords at most, and together they fit the column (SeoFields drops what does not): refused instead of dropped
         if (count($keywords) >= \Talea\Core\SeoFields::MAX_KEYWORDS) {
             return $this->back('A page has up to five focus keywords. Remove one to add another.', 'website', $back, 'error');
         }
-        ['errors' => $errors] = $this->persist($page, ['focus_keywords' => implode("\n", [...$keywords, $keyword])] + $this->formValues($page), true);
+        if (!in_array($keyword, $new, true)) {
+            return $this->back('The focus keywords of this page are too long together. Remove one to add another.', 'website', $back, 'error');
+        }
+        ['errors' => $errors] = $this->persist($page, ['focus_keywords' => implode("\n", $new)] + $this->formValues($page), true);
         if ($errors !== []) {
             return $this->back((string) reset($errors), 'website', $back, 'error');
         }

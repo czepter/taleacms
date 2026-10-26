@@ -58,6 +58,12 @@ final class SeoFields
         return self::split($stored);
     }
 
+    /** Whether a text (a search that led to a page) is stored as exactly one focus keyword: no comma or line, not too long. */
+    public static function fitsAsKeyword(string $text): bool
+    {
+        return trim($text) !== '' && !preg_match('~[,\r\n]~', $text) && mb_strlen(trim($text)) <= self::KEYWORD_LENGTH;
+    }
+
     /** @return list<string> */
     private static function split(mixed $value): array
     {
