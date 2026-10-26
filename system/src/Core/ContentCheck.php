@@ -26,7 +26,7 @@ final class ContentCheck
     /** How many words of the title make the focus keyword when none is given. */
     private const int KEYWORD_WORDS = 2;
 
-    /** @var array<string, string> group key => heading of the scored analysis */
+    /** @var array<string, string> group key => heading of the scored analysis; the renderer translates the headings with t() */
     public const array GROUPS = ['basics' => 'Basics', 'more' => 'More checks', 'title' => 'Title', 'readability' => 'Readability'];
 
     /** @var array<string, int> check => weight in the score */
@@ -47,6 +47,9 @@ final class ContentCheck
         'kw_title_start' => 'title', 'title_number' => 'title',
         'has_outline' => 'readability', 'short_paragraphs' => 'readability', 'media' => 'readability',
     ];
+
+    /** A word: letters, combining marks (vowelled Arabic, decomposed accents), digits, apostrophes and hyphens. */
+    private const string WORD = '/\p{L}[\p{L}\p{M}\p{N}\'’-]*/u';
 
     private const int WORDS_MIN = 600;
     private const int ADDRESS_MAX = 75;
@@ -158,7 +161,7 @@ final class ContentCheck
         }
 
         $plain = html_entity_decode((string) preg_replace('/<[^>]*>/', ' ', $html), ENT_QUOTES | ENT_HTML5);
-        preg_match_all('/\p{L}[\p{L}\p{N}\'’-]*/u', $plain, $m);
+        preg_match_all(self::WORD, $plain, $m);
         $words = $m[0];
         $wordCount = count($words);
         $add('word_count', $wordCount >= self::WORDS_MIN, t('The text has %d words.', $wordCount), t('Pages that rank well usually have %d or more.', self::WORDS_MIN));
@@ -182,7 +185,9 @@ final class ContentCheck
             }
         }
         $add('links_out', $external > 0, $external > 0 ? t('The text links to other websites.') : t('The text links to no other website.'), t('A link to a trustworthy source helps readers and search engines.'));
+        if ($external > 0) { // without an outgoing link there is nothing to follow: not applicable
         $add('links_out_follow', $externalFollow > 0, $externalFollow > 0 ? t('At least one outgoing link is followed by search engines.') : t('No outgoing link is followed by search engines.'), t('Links marked nofollow do not pass on trust.'));
+        }
         $add('links_in_text', $internal > 0, $internal > 0 ? t('The text links to other pages of this site.') : t('The text links to no other page of this site.'), t('Internal links help visitors and search engines find related pages.'));
 
         $add('title_number', (bool) preg_match('/\d/', $title), preg_match('/\d/', $title) ? t('The title contains a number.') : t('The title contains no number.'), t('Titles with a number often get more clicks.'));
@@ -190,7 +195,7 @@ final class ContentCheck
         $add('has_outline', (bool) ($input['has_outline'] ?? false), ($input['has_outline'] ?? false) ? t('The page has an outline.') : t('The page has no outline.'), t('Headings let readers jump to the part they need.'));
 
         preg_match_all('#<p\b[^>]*>(.*?)</p>#is', $html, $paragraphs);
-        $long = count(array_filter($paragraphs[1], fn (string $p): bool => preg_match_all('/\p{L}[\p{L}\p{N}\'’-]*/u', strip_tags($p)) > self::PARAGRAPH_MAX));
+        $long = count(array_filter($paragraphs[1], fn (string $p): bool => preg_match_all(self::WORD, strip_tags($p)) > self::PARAGRAPH_MAX));
         $add('short_paragraphs', $long === 0, $long === 0 ? t('The paragraphs are short.') : t('%d paragraphs have more than %d words.', $long, self::PARAGRAPH_MAX), t('Short paragraphs are easier to read on a phone.'));
 
         $hasMedia = (bool) preg_match('#<(?:img|video|iframe)\b#i', $html);
@@ -203,7 +208,7 @@ final class ContentCheck
             $ok = self::contains($description, $keyword);
             $add('kw_description', $ok, $has($ok, t('The focus keyword is in the description.'), t('The focus keyword is not in the description.')));
             $slugKeyword = slugify($keyword);
-            $ok = $slugKeyword !== '' && str_contains($slug, $slugKeyword);
+            $ok = $slugKeyword !== '' && str_contains('-' . $slug . '-', '-' . $slugKeyword . '-');
             $add('kw_address', $ok, $has($ok, t('The focus keyword is in the address.'), t('The focus keyword is not in the address.')));
             $start = implode(' ', array_slice($words, 0, max(1, (int) ceil($wordCount / 10))));
             $ok = $wordCount > 0 && self::contains($start, $keyword);
@@ -219,9 +224,9 @@ final class ContentCheck
             $add('kw_alt', $ok, $has($ok, t('The focus keyword is in an image description (alt).'), t('The focus keyword is in no image description (alt).')));
 
             $normal = self::normalize($keyword);
-            $keywordWords = max(1, preg_match_all('/\p{L}[\p{L}\p{N}\'’-]*/u', $keyword));
-            $density = $wordCount > 0 && $normal !== '' ? substr_count(self::normalize($plain), $normal) * $keywordWords / $wordCount * 100 : 0.0;
-            $add('kw_density', $density >= self::DENSITY_MIN && $density <= self::DENSITY_MAX, t('Keyword density is %s%%.', number_format(round($density, 1), 1, '.', '')), t('Between %s%% and %s%% reads naturally.', '1.0', '2.5'));
+            $keywordWords = max(1, preg_match_all(self::WORD, $keyword));
+            $density = round($wordCount > 0 && $normal !== '' ? substr_count(self::normalize($plain), $normal) * $keywordWords / $wordCount * 100 : 0.0, 1);
+            $add('kw_density', $density >= self::DENSITY_MIN && $density <= self::DENSITY_MAX, t('Keyword density is %s%%.', number_format($density, 1, '.', '')), t('Between %s%% and %s%% reads naturally.', '1.0', '2.5'));
 
             $ok = str_starts_with(self::normalize($title), self::normalize($keyword));
             $add('kw_title_start', $ok, $has($ok, t('The search title starts with the focus keyword.'), t('The search title does not start with the focus keyword.')));
@@ -298,7 +303,7 @@ final class ContentCheck
         if (trim($given) !== '') {
             return trim($given);
         }
-        preg_match_all('/\p{L}[\p{L}\p{N}\'’-]*/u', $title, $m);
+        preg_match_all(self::WORD, $title, $m);
         $phrase = [];
         $significant = 0;
         foreach ($m[0] as $word) {

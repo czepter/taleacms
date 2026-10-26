@@ -75,11 +75,45 @@ final class SeoAnalysisTest extends TestCase
 
     public function testDensity(): void
     {
-        $html = '<p>' . self::filler(400) . ' photo shoot</p><p>photo shoot</p>';
+        $html = '<p>' . self::filler(400) . ' photo shoot</p>';
         $result = self::flat(ContentCheck::analyse(self::input($html, ['keywords' => ['photo shoot']])));
 
         $this->assertFalse($result['kw_density']['ok']);
+        $this->assertStringContainsString('0.5%', $result['kw_density']['message']);
+    }
+
+    public function testDensityBoundaryUsesRoundedValue(): void
+    {
+        $html = '<p>' . trim(str_repeat('lorem ', 103)) . ' photo</p>'; // 1 of 104 words = 0.96 %
+        $result = self::flat(ContentCheck::analyse(self::input($html, ['keywords' => ['photo']])));
+
+        $this->assertTrue($result['kw_density']['ok']);
         $this->assertStringContainsString('1.0%', $result['kw_density']['message']);
+    }
+
+    public function testNoExternalLinksMakesFollowNotApplicable(): void
+    {
+        $result = self::flat(ContentCheck::analyse(self::input('<p>See <a href="/contact">contact</a>.</p>')));
+
+        $this->assertArrayNotHasKey('links_out_follow', $result);
+        $this->assertFalse($result['links_out']['ok']);
+    }
+
+    public function testAddressMatchesWholeSegments(): void
+    {
+        $match = fn (string $keyword, string $slug): bool => self::flat(ContentCheck::analyse(self::input('<p>x</p>', ['keywords' => [$keyword], 'slug' => $slug])))['kw_address']['ok'];
+
+        $this->assertTrue($match('wedding photographer', 'wedding-photographer-leipzig'));
+        $this->assertTrue($match('wedding photographer', 'best-wedding-photographer'));
+        $this->assertFalse($match('art', 'party'));
+    }
+
+    public function testVowelledArabicWords(): void
+    {
+        $result = self::flat(ContentCheck::analyse(self::input('<p>مَرْحَبًا بِكُمْ هُنَا</p>')));
+
+        $this->assertStringContainsString('3', $result['word_count']['message']);
+        $this->assertStringNotContainsString('9', $result['word_count']['message']);
     }
 
     public function testDiacriticsAndCase(): void
