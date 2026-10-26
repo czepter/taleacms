@@ -30,7 +30,7 @@ final class MissingPages extends Module
         $pending = NotFound::pending($this->app, 60, 200);
         $ignored = NotFound::ignored($this->app, 200);
         $rows = $status === 'ignored' ? $ignored : $pending;
-        if ($sort === 'new') {
+        if ($sort === 'new') { // sorts the (at most 200) rows loaded, not the whole log
             usort($rows, fn (array $a, array $b): int => strcmp((string) $b['first_seen_at'], (string) $a['first_seen_at']));
         }
         $week = date('Y-m-d H:i:s', time() - 7 * 86400);
@@ -46,7 +46,6 @@ final class MissingPages extends Module
                 'redirected' => (int) $this->db->value('SELECT COUNT(*) FROM {redirects} WHERE active = TRUE'),
                 'ignored' => count($ignored),
             ],
-            'ownSite' => fn (string $referrer): bool => str_starts_with($referrer, '/'),
         ]));
     }
 
@@ -90,7 +89,7 @@ final class MissingPages extends Module
     protected function actionClear(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {not_found}');
+            $this->db->run('DELETE FROM {not_found} WHERE ignored_at IS NULL');
         }
 
         return $this->back('The list of addresses not found is empty.');

@@ -70,6 +70,9 @@ final class NotFound
      */
     public static function referrer(string $referer, string $ownHost): string
     {
+        if (!mb_check_encoding($referer, 'UTF-8')) {
+            return ''; // a broken header must never make the 404 write fail
+        }
         $parts = parse_url(trim($referer));
         if (!is_array($parts) || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true) || ($parts['host'] ?? '') === '') {
             return '';

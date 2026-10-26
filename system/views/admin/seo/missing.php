@@ -9,7 +9,6 @@
  * @var array<string, array{to: string, score: int}> $suggestions  the page each address most likely meant (Core\RedirectMatcher)
  * @var array{pending: int, ignored: int} $counts
  * @var array{new: int, visits: int, redirected: int, ignored: int} $tiles
- * @var Closure $ownSite  whether a stored referrer is an address on this site
  */
 $icon = require __DIR__ . '/../icons.php';
 $view->slot('count', '');
@@ -41,7 +40,7 @@ $view->slot('actions', '<a class="navigation" href="' . e($app->url('admin.php?m
 	<td class="cell-main"><div class="cell-text"><code class="cell-title" title="/<?= e($n['path']) ?>">/<?= e($n['path']) ?></code><?php if ($n['first_seen_at'] !== null): ?><span class="cell-sub"><?= e(t('First seen %s', format_date($n['first_seen_at']))) ?></span><?php endif ?></div></td>
 	<td class="number"><strong><?= (int) $n['count'] ?></strong></td>
 	<td class="cell-weak"><?= e(format_ago($n['last_seen_at'])) ?></td>
-	<td class="cell-weak"><?= $n['referrer'] === '' ? '—' : ($ownSite($n['referrer']) ? e(t('your site: %s', $n['referrer'])) : '<bdi>' . e($n['referrer']) . '</bdi>') ?></td>
+	<td class="cell-weak"><?= $n['referrer'] === '' ? '—' : (str_starts_with($n['referrer'], '/') ? e(t('your site: %s', $n['referrer'])) : '<bdi>' . e($n['referrer']) . '</bdi>') ?></td>
 <?php if ($status === 'pending'): ?>
 	<td><?php if ($tip !== null): ?><?= $icon('out') ?> <code title="/<?= e($tip['to']) ?>">/<?= e($tip['to']) ?></code> <span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="cell-sub"><?= e(t('no similar page')) ?></span><?php endif ?></td>
 <?php endif ?>

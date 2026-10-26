@@ -47,4 +47,15 @@ final class MissingPagesTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertPageLacks('/admin.php?module=missing_pages', 'your site: /portraits', message: 'ignored leaves "To decide"');
         $this->assertPage('/admin.php?module=missing_pages&status=ignored', 200, ['/old-y', 'your site: /portraits'], message: 'and shows under Ignored');
     }
+
+    public function testClearKeepsIgnoredAddresses(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tl_not_found');
+        $site->exec("INSERT INTO tl_not_found (path, count, last_seen_at) VALUES ('wait-here', 5, NOW())");
+        $site->exec("INSERT INTO tl_not_found (path, count, last_seen_at, ignored_at) VALUES ('kept-ignored', 5, NOW(), NOW())");
+        $this->adminPost('/admin.php?module=missing_pages&action=clear', [], '/admin.php?module=missing_pages');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path = 'wait-here'"), 'a pending address is gone');
+        $this->assertPage('/admin.php?module=missing_pages&status=ignored', 200, '/kept-ignored', message: 'the ignored address stays');
+    }
 }
