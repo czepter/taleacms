@@ -96,7 +96,29 @@ final class WebsiteSidebarTest extends SiteTestCase
         $this->assertSame('2030-05-01 09:00:00', (string) $this->column($id, 'publish_at'), 'an administrator saving another tab');
         $this->save($id, ['tab' => 'sharing', 'share_title' => 'Shared again', 'share_description' => '', 'image' => ''], $this->user('web-author', 0));
         $this->assertSame('Shared again', $this->column($id, 'share_title'));
-        $this->assertSame('2030-05-01 09:00:00', (string) $this->column($id, 'publish_at'), 'an author saving another tab');
+        $this->assertNull($this->column($id, 'publish_at'), 'an author saving any tab clears the schedule: unreviewed changes never go live on their own');
+    }
+
+    public function testTheMoveCheckComputesTheAddressAsTheSaveDoes(): void
+    {
+        $site = $this->site();
+        $id = $this->page('long-page', false);
+        $author = $this->user('web-author', 0);
+        // the stored address is at the length limit: a longer input comes out as the same address, so it is no move
+        $site->exec('UPDATE tl_pages SET slug = ? WHERE public_id = ?', [str_repeat('a', 118), $id]);
+        $this->save($id, ['tab' => 'page', 'title' => 'Long by the author', 'slug' => str_repeat('a', 130), 'parent_id' => '0', 'in_menu' => '0', 'sort_order' => '100'], $author);
+        $this->assertSame('Long by the author', $this->column($id, 'title'), 'the same address is accepted');
+        $this->assertSame(str_repeat('a', 118), $this->column($id, 'slug'));
+
+        // under a parent the address gets its prefix: a stored address without it would move, so the save is refused
+        $parent = $this->page('parent-x');
+        $child = $this->page('child-x', false);
+        $site->exec('UPDATE tl_pages SET parent_id = (SELECT page_id FROM (SELECT page_id FROM tl_pages WHERE public_id = ?) p) WHERE public_id = ?', [$parent, $child]);
+        $this->save($child, ['tab' => 'page', 'title' => 'Child by the author', 'slug' => 'child-x', 'parent_id' => $parent, 'in_menu' => '0', 'sort_order' => '100'], $author);
+        $this->assertSame('child-x', $this->column($child, 'slug'), 'the computed address parent-x/child-x is a move');
+        $this->assertSame('About child-x', $this->column($child, 'title'));
+        $this->save($child, ['tab' => 'sharing', 'share_title' => 'Shared', 'share_description' => '', 'image' => ''], $author);
+        $this->assertNotSame('Shared', $this->column($child, 'share_title'), 'another tab would move it too');
     }
 
     public function testTheAdvancedTabStoresRobotsAndTheCanonicalAddress(): void

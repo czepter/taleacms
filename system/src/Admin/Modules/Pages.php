@@ -213,9 +213,9 @@ final class Pages extends Module
             return $this->back('Page does not exist.', 'website', [], 'error');
         }
         $in = array_intersect_key($_POST, array_flip(self::SETTINGS_TABS[$tab])) + $this->formValues($page);
-        // a new address: the slug as persist() makes it, or another parent (an empty slug is made anew from the title)
-        $slug = is_string($in['slug']) ? trim($in['slug']) : '';
-        $moved = $tab === 'page' && ($slug === '' || slugify(basename(str_replace('\\', '/', $slug))) !== basename((string) $page['slug']) || $this->db->internalId('pages', $in['parent_id']) !== (int) $page['parent_id']);
+        // a new address: the slug or the parent persist() will store differs from the stored one (on any tab)
+        $place = $this->placement((int) $page['page_id'], $in);
+        $moved = $place['slug'] !== (string) $page['slug'] || (int) ($place['parent']['page_id'] ?? 0) !== (int) $page['parent_id'];
         if (($refusal = $this->requirePublishPermission($page)) !== null || (($tab === 'publishing' || $moved) && ($refusal = $this->requirePublishPermission()) !== null)) {
             return $refusal;
         }
@@ -508,19 +508,11 @@ final class Pages extends Module
         $post = fn (string $key): string => is_string($in[$key] ?? null) ? trim($in[$key]) : '';
         $bool = fn (string $key): bool => !empty($in[$key]);
         $id = (int) ($page['page_id'] ?? 0);
-        $language = \Talea\Core\Language::column($this->app->settings(), $post('language'));
-        // parent page: the same language, not the page itself nor its subpage (otherwise a cycle would form)
-        $custom = $id > 0 ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$id]) : '';
-        $parent = ($parentId = $this->db->internalId('pages', $post('parent_id'))) > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, $id, $language]) : null;
-        if ($parent !== null && $custom !== '' && str_starts_with($parent['slug'] . '/', $custom . '/')) {
-            $parent = null;
-        }
-        $prefix = $parent !== null ? $parent['slug'] . '/' : '';
-        $slug = slugify($post('slug') !== '' ? basename(str_replace('\\', '/', $post('slug'))) : $post('title'), max(20, 118 - strlen($prefix)));
+        ['language' => $language, 'parent' => $parent, 'slug' => $slug] = $this->placement($id, $in);
         $sortOrder = is_int($in['sort_order'] ?? null) || preg_match('/^-?\d{1,18}$/', $post('sort_order')) ? (int) $in['sort_order'] : 100;
         $data = [
             'title' => mb_substr($post('title'), 0, 200),
-            'slug' => $prefix . $slug,
+            'slug' => $slug,
             'parent_id' => $parent !== null ? (int) $parent['page_id'] : null,
             'description' => mb_substr($post('description'), 0, 300),
             'seo_title' => mb_substr($post('seo_title'), 0, 200),
@@ -544,7 +536,7 @@ final class Pages extends Module
             $data['head_code'] = trim((string) ($in['head_code'] ?? '')) !== '' ? mb_substr((string) $in['head_code'], 0, 20000) : null;
         }
         // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away.
-        // Input without the field (a settings tab other than Publishing) keeps the stored schedule.
+        // Input without the field (a settings tab other than Publishing) keeps the stored schedule – for whoever may publish.
         $schedule = array_key_exists('publish_at', $in);
         if ($schedule) {
             $from = strtotime(str_replace('T', ' ', $post('publish_at'))) ?: null;
@@ -554,19 +546,15 @@ final class Pages extends Module
             }
         }
         if (!$this->app->auth()->canPublish()) {
-            $data['visible'] = 0; // without the permission to publish the page stays hidden, an editor publishes it
-            if ($schedule) {
-                $data['publish_at'] = null;
-            }
+            // without the permission to publish the page stays hidden, an editor publishes it; any save clears a schedule, so
+            // changes nobody reviewed never go live on their own
+            $data['visible'] = 0;
+            $data['publish_at'] = null;
         }
         $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ?", [$this->db->internalId('pages', $post('translation_of')), $id]) ?: null);
         $errors = [];
         if ($data['title'] === '') {
             $errors['title'] = 'Enter the page title.';
-        }
-        if ($post('slug') === '') {
-            // slug from the name: a taken one gets a number (o-nas-2), as with news
-            $data['slug'] = $this->availableSlug($data['slug'], $id, $data['language']);
         }
         $scope = \Talea\Core\Slug::scope($this->db, $data['language']);
         if ($parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
@@ -607,6 +595,30 @@ final class Pages extends Module
         \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
 
         return ['id' => $id, 'errors' => [], 'data' => $data];
+    }
+
+    /**
+     * Where a page goes from form fields: its language, the parent (the same language, not the page itself nor its subpage,
+     * otherwise a cycle would form) and the whole slug with the parent's prefix, cut to the length limit; an empty slug is
+     * made from the title, and a taken one gets a number (o-nas-2), as with news. persist() stores it, settings_save compares
+     * it with the stored address.
+     *
+     * @param array<string, mixed> $in fields as a form posts them
+     * @return array{language: string, parent: ?array<string, mixed>, slug: string}
+     */
+    private function placement(int $id, array $in): array
+    {
+        $post = fn (string $key): string => is_string($in[$key] ?? null) ? trim($in[$key]) : '';
+        $language = \Talea\Core\Language::column($this->app->settings(), $post('language'));
+        $custom = $id > 0 ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$id]) : '';
+        $parent = ($parentId = $this->db->internalId('pages', $post('parent_id'))) > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, $id, $language]) : null;
+        if ($parent !== null && $custom !== '' && str_starts_with($parent['slug'] . '/', $custom . '/')) {
+            $parent = null;
+        }
+        $prefix = $parent !== null ? $parent['slug'] . '/' : '';
+        $slug = $prefix . slugify($post('slug') !== '' ? basename(str_replace('\\', '/', $post('slug'))) : $post('title'), max(20, 118 - strlen($prefix)));
+
+        return ['language' => $language, 'parent' => $parent, 'slug' => $post('slug') === '' ? $this->availableSlug($slug, $id, $language) : $slug];
     }
 
     /* ---------- builder (actions in Admin\BuilderActions) ---------- */
