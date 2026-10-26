@@ -2179,3 +2179,20 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .seo-feature p { flex: 1; margin: 0; font-size: 13px; color: var(--text-weak); }
 .seo-feature-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
 .tiles-item strong small { font-size: 14px; font-weight: 500; color: var(--text-weak); }
+
+/* Search engines → Titles: separator choice, variable buttons, robots limits, the "Reads as" line */
+.seo-seps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.seo-seps label { display: inline-grid; place-items: center; min-width: 38px; height: 34px; padding: 0 8px; border: 1px solid var(--line-field); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
+.seo-seps label:has(:checked) { border-color: var(--accent); background: var(--accent-light); font-weight: 600; }
+.seo-seps label:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seo-seps input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.seo-vars { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.seo-var { padding: 2px 8px; border: 1px solid var(--line-field); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.seo-var:hover, .seo-var:focus-visible { border-color: var(--accent); background: var(--accent-light); }
+.seo-sample { margin: 8px 0 0; font-size: 14px; color: var(--text-weak); }
+.seo-sample b { color: var(--text); }
+.seo-options { display: flex; flex-direction: column; gap: 6px; }
+.seo-limits { display: flex; flex-wrap: wrap; gap: 12px; }
+.seo-limits label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.seo-limits .help { flex-basis: 100%; }
+.seo-reset { margin: -4px 0 20px; }

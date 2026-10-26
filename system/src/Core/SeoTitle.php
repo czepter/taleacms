@@ -12,7 +12,9 @@ final class SeoTitle
     /** @param array<string, string> $vars */
     public static function render(string $template, array $vars, bool $capitalize = false): string
     {
-        $text = (string) preg_replace_callback('/%([a-z]+)%/', static fn (array $m): string => in_array($m[1], self::VARIABLES, true) ? trim((string) ($vars[$m[1]] ?? '')) : '', $template);
+        // capital letters apply to the title only: the site name and the tagline keep the case their owner wrote
+        $text = (string) preg_replace_callback('/%([a-z]+)%/', static fn (array $m): string => in_array($m[1], self::VARIABLES, true)
+            ? ($capitalize && $m[1] === 'title' ? mb_convert_case(trim((string) ($vars['title'] ?? '')), MB_CASE_TITLE) : trim((string) ($vars[$m[1]] ?? ''))) : '', $template);
         $text = trim((string) preg_replace('/\s+/u', ' ', $text));
         $sep = trim((string) ($vars['sep'] ?? ''));
         if ($sep !== '') {
@@ -20,9 +22,6 @@ final class SeoTitle
             $q = preg_quote($sep, '/');
             $text = (string) preg_replace('/(?:' . $q . ' )+(?=' . $q . ')/u', '', $text);
             $text = trim((string) preg_replace(['/^(?:' . $q . ' ?)+/u', '/(?: ?' . $q . ')+$/u'], '', $text));
-        }
-        if ($capitalize) {
-            $text = mb_convert_case($text, MB_CASE_TITLE);
         }
         $text = mb_substr($text, 0, 200);
 

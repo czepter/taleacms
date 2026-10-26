@@ -28,6 +28,7 @@ final class SeoTitleTest extends TestCase
     public function testCapitalize(): void
     {
         $this->assertSame('Wedding Photos In Jena', SeoTitle::render('%title%', ['title' => 'wedding photos in jena'], true));
+        $this->assertSame('Wedding Photos | my studio on the lake', SeoTitle::render('%title% %sep% %sitename%', ['title' => 'wedding photos', 'sep' => '|', 'sitename' => 'my studio on the lake'], true), 'only the title takes capitals, the site name keeps its case');
     }
 
     public function testCutsAt200(): void

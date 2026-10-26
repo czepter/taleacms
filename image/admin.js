@@ -46,6 +46,16 @@
 		if (empty) { empty.hidden = any; }
 	});
 
+	// Variable buttons of the title templates: data-insert="%title%" data-insert-into="field id" puts the variable at the cursor of that field.
+	document.addEventListener('click', function (e) {
+		var button = e.target.closest('[data-insert]');
+		var field = button && document.getElementById(button.getAttribute('data-insert-into'));
+		if (!field) { return; }
+		field.setRangeText(button.getAttribute('data-insert'), field.selectionStart, field.selectionEnd, 'end');
+		field.focus();
+		field.dispatchEvent(new Event('input', { bubbles: true }));
+	});
+
 	// Confirmation of irreversible actions: data-confirm="text" on a form or a button.
 	// A custom dialog instead of window.confirm(), which embedded browsers (e.g. in apps) silently suppress.
 	var confirmDialog = null;
