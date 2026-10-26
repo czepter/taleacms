@@ -101,6 +101,8 @@ final class Settings
         'seo_robots' => '',                              // site-wide robots directives (Core\Robots::normalize)
         'seo_hide_empty_terms' => '1',                   // categories and tags without published news are noindex
         'seo_card' => 'large',                           // large | small: the twitter:card of pages with a share image
+        'seo_audit_score' => '',                         // the last site audit score and the one before; written only by Core\Audit::scored()
+        'seo_audit_previous' => '',
         'ai_crawlers' => 'allow',   // allow | block (GPTBot, ClaudeBot, PerplexityBot...)
         'url_slash' => 'none',         // none (/path) | slash (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',

@@ -2208,3 +2208,16 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .seo-limits label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .seo-limits .help { flex-basis: 100%; }
 .seo-reset { margin: -4px 0 20px; }
+
+/* site audit: the score ring (conic gradient of --pct, a hole made by the inner disc) */
+.audit-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin: 0 0 20px; }
+.audit-ring { --ring: var(--ok); display: grid; place-items: center; flex: none; width: 112px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--pct) * 1%), var(--line) 0); }
+.audit-ring::before { content: ""; grid-area: 1 / 1; width: 82%; aspect-ratio: 1; border-radius: 50%; background: var(--surface); }
+.audit-ring strong { grid-area: 1 / 1; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.audit-ring.audit-work { --ring: var(--warning-text); }
+.audit-ring.audit-poor { --ring: var(--error); }
+.audit-pill.audit-good { color: var(--ok); }
+.audit-pill.audit-work { color: var(--warning-text); }
+.audit-pill.audit-poor { color: var(--error); }
+.audit-passed { margin: 16px 0; }
+.audit-passed summary { cursor: pointer; font-weight: 600; }

@@ -42,6 +42,19 @@ final class Audit
         'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
+    /** Points of a kind that has no finding; the weights sum to 100 (the site score). */
+    public const array WEIGHT = [
+        'sample' => 10, 'link' => 10, 'description' => 10, 'title' => 8, 'build' => 8, 'accessibility' => 8, 'speed' => 8, 'orphan' => 6, 'not_found' => 6,
+        'handover' => 6, 'menu' => 4, 'blueprint' => 4, 'review' => 3, 'job' => 3, 'document' => 3, 'fact' => 3,
+    ];
+
+    /** The tab of each kind on the audit screen. */
+    public const array CATEGORY = [
+        'sample' => 'basics', 'description' => 'basics', 'title' => 'basics', 'build' => 'basics', 'orphan' => 'basics', 'menu' => 'basics',
+        'link' => 'advanced', 'not_found' => 'advanced', 'review' => 'advanced', 'job' => 'advanced', 'document' => 'advanced', 'fact' => 'advanced', 'blueprint' => 'advanced',
+        'speed' => 'speed', 'handover' => 'security', 'accessibility' => 'security',
+    ];
+
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
     private const int PER_KIND = 100;
 
@@ -89,6 +102,42 @@ final class Audit
         usort($out, fn (array $a, array $b): int => $order[$a['kind']] <=> $order[$b['kind']]);
 
         return $out;
+    }
+
+    /**
+     * The score of a run: the weights of the kinds without a finding.
+     *
+     * @param list<array{kind: string}> $findings
+     * @return array{score: int, passed: list<string>, failed: array<string, int>}
+     */
+    public static function score(array $findings): array
+    {
+        $failed = array_count_values(array_column($findings, 'kind'));
+        $passed = array_values(array_diff(array_keys(self::KINDS), array_keys($failed)));
+
+        return ['score' => array_sum(array_intersect_key(self::WEIGHT, array_flip($passed))), 'passed' => $passed, 'failed' => $failed];
+    }
+
+    /**
+     * The audit as the screen and site_audit show it: the SEO scores are refreshed first (keyword uniqueness), the score is stored
+     * (the one before it becomes seo_audit_previous).
+     *
+     * @return array{findings: list<array<string, mixed>>, score: int, previous: ?int, passed: list<string>, failed: array<string, int>}
+     */
+    public function scored(): array
+    {
+        SeoScore::refreshAll($this->app);
+        $findings = $this->run();
+        $result = self::score($findings);
+        $settings = $this->app->settings();
+        $before = $settings->get('seo_audit_score');
+        if ($before !== '') {
+            $settings->set('seo_audit_previous', $before);
+        }
+        $settings->set('seo_audit_score', (string) $result['score']);
+        $previous = $settings->get('seo_audit_previous');
+
+        return ['findings' => $findings, 'previous' => $previous === '' ? null : (int) $previous] + $result;
     }
 
     /**

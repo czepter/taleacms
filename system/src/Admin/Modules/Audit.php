@@ -18,12 +18,18 @@ final class Audit extends Module
 
     protected function actionList(): Response
     {
-        $findings = (new \Talea\Core\Audit($this->app))->run();
+        $audit = (new \Talea\Core\Audit($this->app))->scored();
+        $category = $this->request->get('category');
+        $category = in_array($category, \Talea\Core\Audit::CATEGORY, true) ? $category : '';
         $groups = [];
-        foreach ($findings as $f) {
-            $groups[$f['kind']][] = $f;
+        $counts = [];
+        foreach ($audit['findings'] as $f) {
+            $counts[\Talea\Core\Audit::CATEGORY[$f['kind']]] = ($counts[\Talea\Core\Audit::CATEGORY[$f['kind']]] ?? 0) + 1;
+            if ($category === '' || \Talea\Core\Audit::CATEGORY[$f['kind']] === $category) {
+                $groups[$f['kind']][] = $f;
+            }
         }
 
-        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($findings)]);
+        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($audit['findings']), 'audit' => $audit, 'category' => $category, 'counts' => $counts]);
     }
 }

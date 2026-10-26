@@ -269,13 +269,14 @@ trait SettingsTools
         };
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
-        $findings = (new \Talea\Core\Audit($this->app))->run();
+        $audit = (new \Talea\Core\Audit($this->app))->scored();
+        $findings = $audit['findings'];
         if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
             $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
         }
         $counts = array_count_values(array_column($findings, 'kind'));
 
-        return ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+        return ['score' => $audit['score'], 'previous_score' => $audit['previous'], 'passed' => $audit['passed'], 'total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
     }
 
     /** get_stats (2.3): the same report as the Statistics screen */
