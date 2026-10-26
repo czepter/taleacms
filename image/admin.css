@@ -1624,10 +1624,10 @@ body.login {
 .tabs.website-tabs { width: 100%; margin: 0 0 22px; }
 .tabs.website-tabs a { flex: 1; justify-content: center; }
 .website-pages { gap: 18px; }
-.website-group { display: flex; align-items: center; justify-content: space-between; }
+.website-group { display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
 .website-add { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 8px; color: var(--text); }
 .website-add:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
-.website-pages .menu-sub { margin: 2px -8px 0; padding: 0; }
+.website-pages .menu-sub { margin: 2px 0 0; padding: 0; }
 .website-page a { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 38px; padding: 0 8px 0 calc(8px + var(--level, 0) * 18px); border-radius: 8px; font-size: 14px; color: var(--text); }
 .website-page a:hover { background: color-mix(in srgb, var(--text) 6%, transparent); text-decoration: none; }
 .website-page.active a { background: var(--accent-light); font-weight: 600; }
@@ -1669,7 +1669,7 @@ body.login {
 .website-score-mid { color: var(--warning-text); }
 .website-score-low { color: var(--error); }
 .website-settings-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-.website-settings-tabs a { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; padding: 6px 2px; border-radius: 8px; color: var(--text-weak); font-size: 12px; font-weight: 500; text-decoration: none; }
+.website-settings-tabs a { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; padding: 6px 2px; min-width: 0; text-align: center; overflow-wrap: anywhere; hyphens: auto; border-radius: 8px; color: var(--text-weak); font-size: 12px; font-weight: 500; text-decoration: none; }
 .website-settings-tabs a:hover { background: var(--accent-light); color: var(--text); }
 .website-settings-tabs a[aria-current] { background: var(--accent-light); color: var(--text); font-weight: 600; }
 .website-settings-body { flex: 1; min-height: 0; overflow-y: auto; }

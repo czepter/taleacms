@@ -182,11 +182,13 @@ final class ContentCheck
                 continue; // a video element: media, not a link
             }
             $host = strtolower((string) parse_url($href, PHP_URL_HOST));
-            if ($host !== '' && $host !== $siteHost) {
+            if ($host === '') { // a relative address is internal, an anchor or another scheme (mailto:, tel:) is no link
+                $internal += $href !== '' && $href[0] !== '#' && !preg_match('/^[a-z][a-z0-9+.-]*:/i', $href) ? 1 : 0;
+            } elseif ($host === $siteHost) {
+                $internal++;
+            } else {
                 $external++;
                 $externalFollow += preg_match('/\brel\s*=\s*["\'][^"\']*\bnofollow\b/i', $attributes) ? 0 : 1;
-            } elseif ($host === $siteHost && $host !== '' || ($host === '' && $href !== '' && $href[0] !== '#' && !preg_match('/^[a-z][a-z0-9+.-]*:/i', $href))) {
-                $internal++;
             }
         }
         $add('links_out', $external > 0, $external > 0 ? t('The text links to other websites.') : t('The text links to no other website.'), t('A link to a trustworthy source helps readers and search engines.'));
