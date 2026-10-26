@@ -511,6 +511,7 @@ return [
     'After a number of seconds without activity' => 'Po zadaném počtu sekund nečinnosti',
     'After a sign-up is confirmed (double opt-in), the site adds the address to the list in your service and removes it after unsubscribing. Sending, deliverability and unsubscribing from e-mails stay with the service. The transfer runs in the background – visitors do not wait.' => 'Po potvrzení odběru (double opt-in) přidá web adresu do seznamu ve vaší službě, po odhlášení ji odebere. Rozesílání, doručitelnost a odhlašování z e-mailů zůstávají u služby. Přenos běží na pozadí – návštěvník nečeká.',
     'After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.' => 'Po povolení se vrátíte do aplikace na adrese %s. Připojení kdykoli zrušíte v Můj účet → Připojené aplikace.',
+    'After booking, go to a page (empty = thank-you message in place of the form; a request that still needs confirmation always shows its message)' => 'Po rezervaci přejít na stránku (prázdné = poděkování místo formuláře; žádost, která ještě čeká na potvrzení, vždy ukáže svou zprávu)',
     'After consent to analytics' => 'Po souhlasu s měřením',
     'After consent to analytics or marketing' => 'Po souhlasu s měřením nebo marketingem',
     'After consent to marketing' => 'Po souhlasu s marketingem',

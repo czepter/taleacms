@@ -513,6 +513,7 @@ return [
     'After a number of seconds without activity' => 'Nach einer bestimmten Anzahl von Sekunden ohne Aktivität',
     'After a sign-up is confirmed (double opt-in), the site adds the address to the list in your service and removes it after unsubscribing. Sending, deliverability and unsubscribing from e-mails stay with the service. The transfer runs in the background – visitors do not wait.' => 'Nachdem eine Anmeldung bestätigt wurde (Double-Opt-in), fügt die Website die Adresse zur Liste in Ihrem Dienst hinzu und entfernt sie nach der Abmeldung. Versand, Zustellbarkeit und Abmeldung von E-Mails bleiben beim Dienst. Die Übertragung läuft im Hintergrund – Besucher müssen nicht warten.',
     'After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.' => 'Nach der Freigabe kehren Sie zur Anwendung unter %s zurück. Sie können die Verbindung jederzeit unter Mein Konto → Verbundene Anwendungen widerrufen.',
+    'After booking, go to a page (empty = thank-you message in place of the form; a request that still needs confirmation always shows its message)' => 'Nach der Buchung zu einer Seite weiterleiten (leer = Dankesnachricht anstelle des Formulars; eine Anfrage, die noch bestätigt werden muss, zeigt immer ihre Nachricht)',
     'After consent to analytics' => 'Nach Einwilligung in Analyse',
     'After consent to analytics or marketing' => 'Nach Einwilligung in Analyse oder Marketing',
     'After consent to marketing' => 'Nach Einwilligung in Marketing',
