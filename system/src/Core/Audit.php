@@ -121,7 +121,8 @@ final class Audit
     /**
      * The audit as the screen and site_audit show it. $persist (the admin screen only): the SEO scores are refreshed first
      * (keyword uniqueness) and the score is stored; the one it replaces becomes seo_audit_previous when it differs.
-     * Without it nothing is written and the stored values are only read.
+     * Without it nothing is written and the stored values are only read. So the admin screen refreshes the row scores on
+     * each open, while MCP site_audit stores nothing.
      *
      * @return array{findings: list<array<string, mixed>>, score: int, previous: ?int, passed: list<string>, failed: array<string, int>}
      */
