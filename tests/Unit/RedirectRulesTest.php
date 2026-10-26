@@ -66,6 +66,28 @@ final class RedirectRulesTest extends TestCase
         $this->assertNull(RedirectRules::target(self::rule('starts', 'go/', '/'), 'go//evil.example'), 'the rest of a starts rule is checked too');
     }
 
+    public function testAnExternalTemplateKeepsItsHost(): void
+    {
+        $shop = self::rule('regex', '^shop(.*)$', 'https://shop.example.com$1');
+        $this->assertNull(RedirectRules::target($shop, 'shop@evil.example'), 'userinfo: the browser would go to evil.example');
+        $this->assertNull(RedirectRules::target($shop, 'shop.evil.example'), 'a longer host');
+        $this->assertNull(RedirectRules::target($shop, 'shop:x@evil.example'));
+        $this->assertSame('https://shop.example.com/cart', RedirectRules::target($shop, 'shop/cart'));
+        $this->assertSame('https://shop.example.com', RedirectRules::target($shop, 'shop'));
+        $inPath = self::rule('regex', '^p/(.*)$', 'https://new.example/a/$1');
+        $this->assertSame('https://new.example/a/x@y.example', RedirectRules::target($inPath, 'p/x@y.example'), 'a capture inside the path stays on the host');
+        $this->assertNull(RedirectRules::target(self::rule('regex', '^(\w+)$', 'https://$1.example.com/'), 'evil'), 'the host itself from a capture');
+    }
+
+    public function testSlashIsTheHomePage(): void
+    {
+        $this->assertSame(['from' => 'old-shop', 'to' => ''], \Talea\Admin\Modules\Redirects::normalize('/old-shop', '/', 'exact', 301));
+        $this->assertSame(['from' => '\.php$', 'to' => ''], \Talea\Admin\Modules\Redirects::normalize('\.php$', '/', 'regex', 301));
+        $this->assertSame(['from' => 'blog/', 'to' => ''], \Talea\Admin\Modules\Redirects::normalize('/blog/', '/', 'starts', 302));
+        $this->assertIsString(\Talea\Admin\Modules\Redirects::normalize('/old-shop', '', 'exact', 301), 'no target at all is still refused');
+        $this->assertIsString(\Talea\Admin\Modules\Redirects::normalize('/old-shop', '   ', 'exact', 301));
+    }
+
     public function testNoCatchAllRules(): void
     {
         foreach (['contains', 'starts', 'ends'] as $match) {

@@ -63,9 +63,12 @@ final class Redirects extends Module
     public static function normalize(string $from, string $to, string $match, int $type): array|string
     {
         $from = self::normalizeFrom($from, $match);
-        $to = $type >= 400 ? '' : (preg_match('#^https?://#i', trim($to)) ? trim($to) : ($match === 'starts' ? ltrim(trim($to), '/') : trim(trim($to), '/')));
+        $typed = trim($to);
+        $to = $type >= 400 ? '' : (preg_match('#^https?://#i', $typed) ? $typed : ($match === 'starts' ? ltrim($typed, '/') : trim($typed, '/')));
+        // "/" is the home page: stored as '' (the front sends '' to url('')), checked as "/" so it is not taken for a missing target
+        $home = $type < 400 && $typed !== '' && $to === '';
 
-        return RedirectRules::validate($from, $to, $match, $type) ?? ['from' => $from, 'to' => $to];
+        return RedirectRules::validate($from, $home ? '/' : $to, $match, $type) ?? ['from' => $from, 'to' => $to];
     }
 
     /** Stores a checked rule (see normalize()): a new one replaces a rule with the same old address. Returns the refusal, null when stored. */

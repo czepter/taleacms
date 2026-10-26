@@ -85,7 +85,8 @@ final class RedirectRules
 
     /**
      * The expanded target, null when substituting the visitor's text made it something the template did not say: only a template that
-     * starts with http:// or https:// may leave the site; otherwise the result must stay a path of this site (no //host, no \, no scheme).
+     * starts with http:// or https:// may leave the site, and only to the host the template names (a capture right after the host must
+     * not turn https://shop.example.com$1 into …@evil.example); otherwise the result must stay a path of this site (no //host, no \, no scheme).
      */
     private static function safe(string $template, ?string $result): ?string
     {
@@ -93,7 +94,10 @@ final class RedirectRules
             return null;
         }
         if (preg_match('#^https?://#i', $template)) {
-            return $result;
+            $host = parse_url((string) preg_replace('/\$[1-9]/', '', $template), PHP_URL_HOST);
+            preg_match('#^https?://([^/?\#]*)#i', $result, $authority);
+
+            return is_string($host) && $host !== '' && !str_contains($authority[1] ?? '@', '@') && strcasecmp((string) parse_url($result, PHP_URL_HOST), $host) === 0 ? $result : null;
         }
 
         return preg_match('#^(\\s|/[/\\\\]|\\\\|[a-z][a-z0-9+.-]*:)#i', $result) ? null : $result;
