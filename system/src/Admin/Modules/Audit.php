@@ -18,7 +18,7 @@ final class Audit extends Module
 
     protected function actionList(): Response
     {
-        $audit = (new \Talea\Core\Audit($this->app))->scored();
+        $audit = (new \Talea\Core\Audit($this->app))->scored(true);
         $category = $this->request->get('category');
         $category = in_array($category, \Talea\Core\Audit::CATEGORY, true) ? $category : '';
         $groups = [];

@@ -119,22 +119,27 @@ final class Audit
     }
 
     /**
-     * The audit as the screen and site_audit show it: the SEO scores are refreshed first (keyword uniqueness), the score is stored
-     * (the one before it becomes seo_audit_previous).
+     * The audit as the screen and site_audit show it. $persist (the admin screen only): the SEO scores are refreshed first
+     * (keyword uniqueness) and the score is stored; the one it replaces becomes seo_audit_previous when it differs.
+     * Without it nothing is written and the stored values are only read.
      *
      * @return array{findings: list<array<string, mixed>>, score: int, previous: ?int, passed: list<string>, failed: array<string, int>}
      */
-    public function scored(): array
+    public function scored(bool $persist = false): array
     {
-        SeoScore::refreshAll($this->app);
+        if ($persist) {
+            SeoScore::refreshAll($this->app);
+        }
         $findings = $this->run();
         $result = self::score($findings);
         $settings = $this->app->settings();
-        $before = $settings->get('seo_audit_score');
-        if ($before !== '') {
-            $settings->set('seo_audit_previous', $before);
+        if ($persist) {
+            $before = $settings->get('seo_audit_score');
+            if ($before !== '' && $before !== (string) $result['score']) {
+                $settings->set('seo_audit_previous', $before);
+            }
+            $settings->set('seo_audit_score', (string) $result['score']);
         }
-        $settings->set('seo_audit_score', (string) $result['score']);
         $previous = $settings->get('seo_audit_previous');
 
         return ['findings' => $findings, 'previous' => $previous === '' ? null : (int) $previous] + $result;

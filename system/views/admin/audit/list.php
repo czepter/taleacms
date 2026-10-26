@@ -13,6 +13,8 @@ use Talea\Core\Audit;
 
 $score = $audit['score'];
 $level = $score >= 80 ? 'good' : ($score >= 50 ? 'work' : 'poor');
+$shown = array_filter($audit['passed'], fn (string $k): bool => $category === '' || Audit::CATEGORY[$k] === $category);
+$problems = $category === '' ? $total : ($counts[$category] ?? 0);
 $tabs = ['' => t('All'), 'basics' => t('Basics'), 'advanced' => t('Advanced'), 'speed' => t('Speed'), 'security' => t('Security')];
 ?>
 <div class="audit-summary">
@@ -20,8 +22,8 @@ $tabs = ['' => t('All'), 'basics' => t('Basics'), 'advanced' => t('Advanced'), '
 	<div>
 		<p><span class="badge audit-pill audit-<?= $level ?>"><?= e($level === 'good' ? t('Good') : ($level === 'work' ? t('Needs work') : t('Poor'))) ?></span><?php if ($audit['previous'] !== null): ?> <span class="small-text"><?= e(t('Last time: %d', $audit['previous'])) ?></span><?php endif ?></p>
 		<div class="tiles">
-			<div class="tiles-item"><strong><?= $total ?></strong><span><?= e(t('problems')) ?></span></div>
-			<div class="tiles-item"><strong><?= count($audit['passed']) ?></strong><span><?= e(t('checks passed')) ?></span></div>
+			<div class="tiles-item"><strong><?= $problems ?></strong><span><?= e(t('problems')) ?></span></div>
+			<div class="tiles-item"><strong><?= count($shown) ?></strong><span><?= e(t('checks passed')) ?></span></div>
 		</div>
 	</div>
 </div>
@@ -45,7 +47,7 @@ $tabs = ['' => t('All'), 'basics' => t('Basics'), 'advanced' => t('Advanced'), '
 <?php endforeach ?>
 </tbody></table></div>
 <?php endforeach ?>
-<?php $shown = array_filter($audit['passed'], fn (string $k): bool => $category === '' || Audit::CATEGORY[$k] === $category); if ($shown !== []): ?>
+<?php if ($shown !== []): ?>
 <details class="audit-passed">
 <summary><?= e(t('%d checks passed', count($shown))) ?></summary>
 <ul>

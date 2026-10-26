@@ -24,7 +24,22 @@ final class AuditScoreTest extends SiteTestCase
         $this->assertStringContainsString('"passed":', $text);
         $stored = $this->site()->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'");
         $this->assertNotSame('', (string) $stored, 'the score is stored');
-        $this->site()->mcpText('site_audit');
-        $this->assertNotSame('', (string) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_previous'"), 'the previous score is kept');
+    }
+
+    public function testPreviousIsTheLastDifferentScoreAndMcpWritesNothing(): void
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_settings WHERE name IN ('seo_audit_score', 'seo_audit_previous')");
+        $this->assertPage('/admin.php?module=audit');
+        $first = (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'");
+        $site->exec("INSERT INTO tl_settings (name, value) VALUES ('seo_audit_previous', '')");
+        $site->exec("UPDATE tl_settings SET value = '1' WHERE name = 'seo_audit_score'");
+        $site->mcpText('site_audit');
+        $this->assertSame('1', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'"), 'site_audit stores nothing');
+        $this->assertPage('/admin.php?module=audit');
+        $this->assertSame('1', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_previous'"), 'a changed score moves the old one to previous');
+        $this->assertPage('/admin.php?module=audit');
+        $this->assertSame('1', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_previous'"), 'an identical run keeps previous');
+        $this->assertSame($first, (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'"));
     }
 }
