@@ -66,7 +66,7 @@ final class WebsiteSidebarTest extends SiteTestCase
         $pages = $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=page', 200)->body;
         $this->assertMatchesRegularExpression('#href="[^"]*/admin/pages/website/' . $id . '" class="active"#', $pages, 'the Pages tab keeps the page');
         $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo', 200, ['name="focus_keywords"', 'name="key_page"']);
-        $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=advanced', 200, ['name="canonical_url"', 'name="robots[]"']);
+        $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=advanced', 200, ['name="canonical_url"', 'name="robots[]"', 'Web page']);
     }
 
     public function testThePageTabChangesTheAddressAndLeavesTheSearchFields(): void

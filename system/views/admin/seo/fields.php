@@ -12,7 +12,7 @@
 <div class="row"><label for="focus_keywords"><?= e(t('Focus keywords')) ?></label><div><textarea class="textbox low" id="focus_keywords" name="focus_keywords" rows="3" data-chips<?= $dir ?>><?= e((string) ($row['focus_keywords'] ?? '')) ?></textarea>
 	<span class="help"><?= e(t('One per line, up to five. The page is checked against the first.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Key page')) ?></span><div class="options"><input type="hidden" name="key_page" value="0"><label><input type="checkbox" name="key_page" value="1"<?= !empty($row['key_page']) ? ' checked' : '' ?>> <?= e(t('Key page')) ?></label>
-	<span class="help"><?= e(t('Other pages are checked for a link to a key page.')) ?></span></div></div>
+	<span class="help"><?= e(t('Marks one of the most important pages of the site.')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Robots')) ?></span><div class="options options-stacked">
 <?= $app->view->render('admin/seo/robots', ['robots' => (string) ($row['robots'] ?? ''), 'labelClass' => '']) ?>
 </div></div>

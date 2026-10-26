@@ -37,6 +37,7 @@ $dir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->se
 </form>
 <section class="website-settings-section" aria-labelledby="ws-structured">
 	<h3 id="ws-structured"><?= e(t('Structured data')) ?></h3>
+	<div class="website-type"><?= e(t('Web page')) ?> <span class="help"><?= e(t('always added')) ?></span></div>
 <?php foreach ($structured as $type): ?>
 	<div class="website-type"><?= e($type) ?></div>
 <?php endforeach ?>

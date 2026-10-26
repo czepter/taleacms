@@ -34,7 +34,7 @@ final class SeoTabTest extends SiteTestCase
         $id = $this->home();
         $this->site()->setting('site_name', 'Studio');
         $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo', 200,
-            ['name="focus_keywords"', 'data-seo-checks', 'data-seo-live="', 'data-chips', 'Photos for couples – Studio', 'data-check="kw_title"']);
+            ['name="focus_keywords"', '<div aria-live="polite"><div class="seo-checks" data-seo-checks>', 'data-seo-live="', 'data-chips', 'Photos for couples – Studio', 'data-check="kw_title"']);
         $this->assertStringNotContainsString('data-insert', $this->site()->admin()->get('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo')->body, 'an own title is literal: no variables to insert');
     }
 

@@ -23,7 +23,7 @@ $meter = function (string $value, int $max): string {
 $shareTitle = (string) $page['share_title'] !== '' ? (string) $page['share_title'] : ((string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : (string) $page['title']);
 $image = (string) $page['image'] !== '' ? (string) $page['image'] : $app->settings()->get('share_image');
 ?>
-<?= $app->view->render('admin/seo/checks', ['app' => $app, 'scored' => $scored] + $seo) ?>
+<div aria-live="polite"><?= $app->view->render('admin/seo/checks', ['app' => $app, 'scored' => $scored] + $seo) ?></div>
 <?= $formStart ?>
 <section class="website-settings-section" aria-labelledby="seo-serp-heading">
 	<h3 class="seo-heading" id="seo-serp-heading"><span><?= e(t('Search result')) ?></span><a href="<?= e($link('advanced')) ?>"><?= e(t('Advanced')) ?></a></h3>
@@ -33,7 +33,7 @@ $image = (string) $page['image'] !== '' ? (string) $page['image'] : $app->settin
 </section>
 <section class="website-settings-section" aria-label="<?= e(t('Focus keywords')) ?>">
 	<div class="website-field"><label for="ws-keywords"><?= e(t('Focus keywords')) ?></label><textarea class="textbox" id="ws-keywords" name="focus_keywords" rows="3" data-chips<?= $dir ?>><?= e((string) $page['focus_keywords']) ?></textarea><span class="help"><?= e(t('One per line, up to five. The page is checked against the first.')) ?></span></div>
-	<div class="website-field"><input type="hidden" name="key_page" value="0"><label class="website-option"><input type="checkbox" name="key_page" value="1"<?= $page['key_page'] ? ' checked' : '' ?>> <?= e(t('Key page')) ?></label><span class="help"><?= e(t('Other pages are checked for a link to a key page.')) ?></span></div>
+	<div class="website-field"><input type="hidden" name="key_page" value="0"><label class="website-option"><input type="checkbox" name="key_page" value="1"<?= $page['key_page'] ? ' checked' : '' ?>> <?= e(t('Key page')) ?></label><span class="help"><?= e(t('Marks one of the most important pages of the site.')) ?></span></div>
 </section>
 </form>
 <?php /* "In search · 28 days" (clicks, impressions and the queries of the page) goes here, with the search data of a later task */ ?>
