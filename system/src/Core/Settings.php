@@ -181,7 +181,9 @@ final class Settings
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set
         'mail_mode' => 'mail',      // mail = the server's mail() function | smtp = own SMTP server
         'mail_from' => '',             // sender address; empty = the site e-mail
+        'mail_from_name' => '',        // sender name; empty = the site name
         'mail_reply_to' => '',        // address for replies (Reply-To)
+        'mail_reply_to_name' => '',   // name shown with the reply address
         'smtp_host' => '',
         'smtp_port' => '587',
         'smtp_encryption' => 'tls',    // tls (STARTTLS, port 587) | ssl (port 465) | none

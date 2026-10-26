@@ -169,10 +169,10 @@ final class Mail
             return false;
         }
         unset($headers['Bcc']);
-        $displayName = '=?UTF-8?B?' . base64_encode($siteSettings->get('site_name')) . '?=';
-        $h = ['From' => "{$displayName} <{$from}>", 'MIME-Version' => '1.0'] + $headers;
+        $name = $siteSettings->get('mail_from_name') !== '' ? $siteSettings->get('mail_from_name') : $siteSettings->get('site_name');
+        $h = ['From' => self::mailbox($name, $from), 'MIME-Version' => '1.0'] + $headers;
         if ($siteSettings->get('mail_reply_to') !== '') {
-            $h['Reply-To'] = $siteSettings->get('mail_reply_to');
+            $h['Reply-To'] ??= self::mailbox($siteSettings->get('mail_reply_to_name'), $siteSettings->get('mail_reply_to')); // a form's own Reply-To (the visitor) wins
         }
         if ($html === '') {
             $h['Content-Type'] = 'text/plain; charset=utf-8';
@@ -218,6 +218,12 @@ final class Mail
         }
 
         return $ok;
+    }
+
+    /** "Name <address>" with the name MIME-encoded; only the address when there is no name. */
+    private static function mailbox(string $name, string $address): string
+    {
+        return $name === '' ? $address : '=?UTF-8?B?' . base64_encode($name) . "?= <{$address}>";
     }
 
     /**
