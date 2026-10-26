@@ -32,7 +32,9 @@ final class SiteExport
         'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
         'time_zone', 'site_language', 'additional_languages', 'home_page', 'news_slug', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
-        'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock']; // the screen mode without its secret (2.11)
+        'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock',
+        'seo_separator', 'seo_title_home', 'seo_title_page', 'seo_title_news', 'seo_title_item', 'seo_title_category', 'seo_title_tag', 'seo_description_page', 'seo_description_news', 'seo_description_item',
+        'seo_capitalize', 'seo_robots', 'seo_hide_empty_terms', 'seo_card']; // the screen mode without its secret (2.11)
 
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
     private const array EXCLUDED_ARTICLE_COLUMNS = ['search_text', 'links_checked_at', 'announced_at', 'author_id', 'author_name'];

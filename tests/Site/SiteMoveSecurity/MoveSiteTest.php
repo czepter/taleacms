@@ -67,6 +67,8 @@ final class MoveSiteTest extends SiteTestCase
         $site->setting('social_linkedin', 'https://www.linkedin.com/company/n55');
         $site->exec("INSERT INTO tl_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', NOW()), ('n55note', '', 'N55', 'text', 'Note: open daily', NOW())");
 
+        $site->setting('seo_title_page', '%title% / %sitename%'); // the "Search engines" templates travel with the site
+
         $this->adminPost('/admin.php?module=transfer&action=export', [], '/admin.php?module=transfer');
 
         $site->exec("DELETE FROM tl_settings WHERE name IN ('company_map', 'social_facebook', 'social_linkedin')");
@@ -157,6 +159,7 @@ final class MoveSiteTest extends SiteTestCase
 
         $this->assertSame($this->counts($old), $this->counts($new), 'the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)');
         $this->assertSame($this->sameNumbers($old), $this->sameNumbers($new), 'same public ids and values: home page, site name and the design system came along');
+        $this->assertSame('%title% / %sitename%', (string) $new->value("SELECT value FROM tl_settings WHERE name = 'seo_title_page'"), 'the SEO title templates came along');
         $this->assertSame('1/0', (string) $new->value("SELECT CONCAT(SUM(text LIKE '%<p class=\"n6\">N6 check</p>%'), '/', SUM(text LIKE '%onclick%' OR text LIKE '%<script%')) FROM tl_news WHERE text LIKE '%N6 check%'"),
             '3.3.2: news HTML from the export is sanitized, its structure and classes kept');
         $old->exec('UPDATE tl_news SET text = REPLACE(text, ?, \'\')', [self::N6_PAYLOAD]);

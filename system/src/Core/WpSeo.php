@@ -75,7 +75,7 @@ final class WpSeo
                 'noindex' => isset($keys['robots']) ? self::robotsNoindex($values['robots'] ?? '') : ($values['noindex'] ?? '') === '1',
                 'canonical' => $values['canonical'] ?? '',
                 // Rank Math keeps the main keyword first and the extra ones behind commas; only the main one is scored
-                'focus_keyword' => $plugin === 'Rank Math' ? trim(explode(',', $values['focus'] ?? '')[0]) : ($values['focus'] ?? ''),
+                'focus_keyword' => $values['focus'] ?? '',
             ];
         }
 

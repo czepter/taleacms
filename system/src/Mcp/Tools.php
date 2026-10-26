@@ -67,7 +67,7 @@ final class Tools
         // the "Search engines" fields of pages, news items and collection items (Core\SeoFields)
         $seo = [
             'focus_keywords' => $text('comma separated, the first is scored, at most 5'),
-            'key_page' => ['type' => 'boolean', 'description' => 'true = a key page of the site (checked more strictly)'],
+            'key_page' => ['type' => 'boolean', 'description' => 'true = marks a key page of the site: other pages are checked for a link to it'],
             'robots' => $text('nofollow,noarchive,noimageindex,nosnippet,max-snippet:N,max-video-preview:N,max-image-preview:large|standard|none'),
             'canonical_url' => $text('Canonical address when the content lives elsewhere (absolute http(s) address; empty = this page)'),
             'breadcrumb_title' => $text('Name in the breadcrumb trail (empty = the title)'),

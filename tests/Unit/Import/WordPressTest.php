@@ -59,7 +59,7 @@ final class WordPressTest extends TestCase
         $this->assertSame('', \Talea\Core\WpSeo::description('%%excerpt%%', $wpSeoContext), 'WpSeo::description: only %%excerpt%% is the default pattern – the site builds the description itself');
         $this->assertSame('Sýr & víno v Podhorský zpravodaj', \Talea\Core\WpSeo::description('Sýr &amp; <b>víno</b> v %sitename%', $wpSeoContext), 'WpSeo::description: tags and entities gone'); // check-english: allow
         $this->assertSame([15, true], [count(\Talea\Core\WpSeo::keys()), in_array('rank_math_robots', \Talea\Core\WpSeo::keys(), true)], 'WpSeo::keys: one key list from all plugins');
-        $this->assertSame(['lávka', 'a, b'], [\Talea\Core\WpSeo::raw(['rank_math_focus_keyword' => 'lávka, b'])['focus_keyword'], \Talea\Core\WpSeo::raw(['_wds_focus-keywords' => 'a, b'])['focus_keyword']], 'WpSeo::raw: Rank Math keeps the first keyword, others the field as it is'); // check-english: allow
+        $this->assertSame(['lávka, b', 'a, b'], [\Talea\Core\WpSeo::raw(['rank_math_focus_keyword' => 'lávka, b'])['focus_keyword'], \Talea\Core\WpSeo::raw(['_wds_focus-keywords' => 'a, b'])['focus_keyword']], 'WpSeo::raw: the keywords of every plugin are kept as they are'); // check-english: allow
         // import from WordPress: content cleanup
         $wpClean = \Talea\Core\WpContent::sanitize(...);
         $this->assertSame("<p>První řádek<br>\ndruhý řádek</p>\n<p>Druhý odstavec</p>", $wpClean("První řádek\ndruhý řádek\n\nDruhý odstavec"), 'WpContent: classic editor – paragraphs from empty lines, <br> from line ends'); // check-english: allow
