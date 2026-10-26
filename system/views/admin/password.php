@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(TALEA_VERSION) ?>"></script>
+<script src="<?= e($app->url('image/password.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <title><?= e(t('Forgotten password')) ?> – Talea</title>
 <link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/talea-mark.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/talea-mark-32.png">
@@ -35,8 +36,8 @@
 <?= $app->session->csrfField() ?>
 <input type="hidden" name="token" value="<?= e($token) ?>">
 <p><?= e(t('Account: %s', $account)) ?></p>
-<div class="login-field"><label for="password"><?= e(t('New password')) ?></label> <input class="textfield" type="password" id="password" name="password" size="20" minlength="10" autocomplete="new-password" required autofocus></div>
-<div class="login-field"><label for="password2"><?= e(t('Repeat password')) ?></label> <input class="textfield" type="password" id="password2" name="password2" size="20" minlength="10" autocomplete="new-password" required></div>
+<div class="login-field"><label for="password"><?= e(t('New password')) ?></label> <span class="password-field"><input class="textfield" type="password" id="password" name="password" size="20" minlength="10" autocomplete="new-password" required autofocus><?= $app->view->render('admin/password_toggle', ['for' => 'password']) ?></span></div>
+<div class="login-field"><label for="password2"><?= e(t('Repeat password')) ?></label> <span class="password-field"><input class="textfield" type="password" id="password2" name="password2" size="20" minlength="10" autocomplete="new-password" required><?= $app->view->render('admin/password_toggle', ['for' => 'password2']) ?></span></div>
 <p class="small-text"><?= e(t('At least 10 characters. Two-factor sign-in stays on.')) ?></p>
 <p><input class="btn" type="submit" value="<?= e(t('Set password')) ?>"></p>
 </form>

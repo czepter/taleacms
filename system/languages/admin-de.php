@@ -3894,6 +3894,7 @@ return [
     'Show on the site' => 'Auf der Website anzeigen',
     'Show only when the field labelled…' => 'Nur anzeigen, wenn das Feld mit der Bezeichnung…',
     'Show pages' => 'Seiten anzeigen',
+    'Show password' => 'Passwort anzeigen',
     'Show preview' => 'Vorschau anzeigen',
     'Show the average rating and the count' => 'Durchschnittsbewertung und Anzahl anzeigen',
     'Show the enquiry' => 'Anfrage anzeigen',

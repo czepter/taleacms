@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(TALEA_VERSION) ?>"></script>
+<script src="<?= e($app->url('image/password.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <title><?= e(t('Sign in')) ?> – Talea</title>
 <link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/talea-mark.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/talea-mark-32.png">
@@ -44,7 +45,7 @@
 <div class="login-field"><label for="code"><?= e(t('Verification code:')) ?></label> <input class="textfield" type="text" id="code" name="code" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
 <?php else: ?>
 <div class="login-field"><label for="user"><?= e(t('User name or e-mail')) ?></label> <input class="textfield" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="190" autocomplete="username" required autofocus></div>
-<div class="login-field"><label for="password"><?= e(t('Password')) ?></label> <input class="textfield" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
+<div class="login-field"><label for="password"><?= e(t('Password')) ?></label> <span class="password-field"><input class="textfield" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>><?= $app->view->render('admin/password_toggle', ['for' => 'password']) ?></span></div>
 <p class="login-remember"><label><input type="checkbox" name="remember" value="1"<?= $remember ? ' checked' : '' ?>> <?= e(t('Stay signed in for %s days', (string) Talea\Core\Auth::REMEMBER_DAYS)) ?></label></p>
 <?php endif ?>
 <p><input class="btn" type="submit" value="<?= e(t($code ? 'Verify code' : 'Sign in')) ?>"></p>
