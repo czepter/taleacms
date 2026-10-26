@@ -703,7 +703,7 @@ final class Kernel
             'description' => $description, 'image' => $image, 'build' => true, 'noindex' => $draft || !empty($item['noindex']),
             'item' => $item !== null ? ['collection' => $collection, 'item' => $item] : null,
             'markdown' => $item !== null && $collection['detail'] && $item['visible'] && !$this->gated ? $collection['slug'] . '/' . $item['slug'] : null,
-        ]);
+        ] + $this->seoMeta('item', $item ?? [], ['category' => (string) $collection['name']]));
     }
 
     /**
@@ -731,6 +731,24 @@ final class Kernel
     }
 
     /** Home page ID in the shown site version's language (counterpart of the page from Settings); 0 = the news listing is home. */
+    /**
+     * What the SEO fields of a row add to $meta: the kind that picks the title template, the page's robots directives, the
+     * canonical override, the sharing texts and the breadcrumb name. A row's own SEO title is shown as written.
+     *
+     * @param array<string, mixed> $row
+     * @param array<string, string> $vars extra title template variables (category, excerpt)
+     * @return array<string, mixed>
+     */
+    private function seoMeta(string $kind, array $row = [], array $vars = []): array
+    {
+        return [
+            'seo_kind' => $kind, 'own_title' => (string) ($row['seo_title'] ?? '') !== '', 'title_vars' => $vars,
+            'robots' => (string) ($row['robots'] ?? ''), 'canonical' => \Talea\Core\Robots::canonical((string) ($row['canonical_url'] ?? '')),
+            'share_title' => (string) ($row['share_title'] ?? ''), 'share_description' => (string) ($row['share_description'] ?? ''),
+            'breadcrumb_title' => (string) ($row['breadcrumb_title'] ?? ''),
+        ];
+    }
+
     private function homePageId(): int
     {
         $id = $this->app->settings()->int('home_page');
@@ -797,7 +815,7 @@ final class Kernel
             'main' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
             'head_code' => (string) ($page['head_code'] ?? ''), // code in <head> of this page only (2.3)
             'markdown' => $locked || $this->gated || !$page['visible'] ? null : (string) $page['slug'], // markdownVersion() answers none of them
-        ];
+        ] + $this->seoMeta($home ? 'home' : 'page', $page);
         // preview of the draft build for the editor: ?build=draft (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
         $draft = $this->wantsDraft() && $this->canSeeDraft('page:' . (int) $page['page_id']);
@@ -894,7 +912,7 @@ final class Kernel
             'description' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
                 : mb_strimwidth(t('News') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'title')) : ''), 0, 160, '…'),
             'part' => 'list',
-        ]);
+        ] + $this->seoMeta($home ? 'home' : 'other'));
     }
 
     private function category(string $seo): Response
@@ -911,7 +929,8 @@ final class Kernel
         return $this->page(
             $category['name'],
             $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
-            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list'],
+            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list', 'noindex' => $total === 0 && $this->app->settings()->bool('seo_hide_empty_terms')]
+                + $this->seoMeta('category', [], ['category' => (string) $category['name']]),
         );
     }
 
@@ -931,7 +950,8 @@ final class Kernel
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
             'description' => $colorScheme ? \Talea\Core\Html::plain((string) $tag['description'], 300) : '',
             'part' => 'list',
-        ]);
+            'noindex' => $total === 0 && $this->app->settings()->bool('seo_hide_empty_terms'),
+        ] + $this->seoMeta('tag'));
     }
 
     private function newsItem(string $seo): Response
@@ -982,7 +1002,7 @@ final class Kernel
             'noindex' => (bool) $newsItem['noindex'],
             'type' => 'article',
             'part' => 'news_item',
-        ]);
+        ] + $this->seoMeta('news', $newsItem, ['category' => (string) $newsItem['category_name']]));
     }
 
     private function search(): Response
@@ -1510,6 +1530,7 @@ final class Kernel
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('page', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?page=' . $listPageNumber : '');
+        $meta['title_vars']['page'] = $listPageNumber > 1 ? (string) $listPageNumber : '';
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
         }

@@ -37,17 +37,27 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <script>try{var t=localStorage.getItem('tl-theme'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-theme');else if(t==='light'||t==='dark')r.setAttribute('data-theme',t)}catch(e){}</script>
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($title === '' ? $siteName : (str_contains(mb_strtolower($title), mb_strtolower($siteName)) ? $title : $title . ' – ' . $siteName)) ?></title>
+<?php
+// a page's own SEO title is used as written (the site name is added unless it is in it); the title templates serve the rest
+$kind = (string) ($meta['seo_kind'] ?? 'other');
+$tagline = trim(preg_replace('/\s+/u', ' ', $web->get('site_description')));
+$pageTitle = $kind === 'other' || !empty($meta['own_title'])
+    ? ($title === '' ? $siteName : (str_contains(mb_strtolower($title), mb_strtolower($siteName)) ? $title : $title . ' – ' . $siteName))
+    : Talea\Core\SeoTitle::render($web->get('seo_title_' . $kind), ($meta['title_vars'] ?? []) + ['title' => $title, 'sep' => $web->get('seo_separator'), 'sitename' => $siteName, 'tagline' => $tagline, 'year' => date('Y')], $web->bool('seo_capitalize'));
+?>
+<title><?= e($pageTitle) ?></title>
 <?php if ($meta['description'] !== ''): ?>
 <meta name="description" content="<?= e($meta['description']) ?>">
 <?php endif ?>
-<?php if ($meta['noindex']): ?>
-<meta name="robots" content="noindex, follow">
-<?php else: ?>
-<link rel="canonical" href="<?= e($canonical) ?>">
+<?php $robots = Talea\Core\Robots::meta((bool) $meta['noindex'], (string) ($meta['robots'] ?? ''), $web->get('seo_robots')); ?>
+<?php if ($robots !== ''): ?>
+<meta name="robots" content="<?= e($robots === 'noindex' ? 'noindex, follow' : $robots) ?>">
+<?php endif ?>
+<?php if (!$meta['noindex']): ?>
+<link rel="canonical" href="<?= e(($meta['canonical'] ?? '') !== '' ? $meta['canonical'] : $canonical) ?>">
 <?php endif ?>
 <meta property="og:type" content="<?= e($meta['type']) ?>">
-<meta property="og:title" content="<?= e($title !== '' ? $title : $siteName) ?>">
+<meta property="og:title" content="<?= e(($meta['share_title'] ?? '') !== '' ? $meta['share_title'] : ($title !== '' ? $title : $siteName)) ?>">
 <meta property="og:site_name" content="<?= e($siteName) ?>">
 <meta property="og:url" content="<?= e($canonical) ?>">
 <?php if ($meta['image'] !== ''): ?>

@@ -331,10 +331,10 @@ final class Seo
             }
         }
         $h[] = '<meta property="og:locale" content="' . \Talea\Core\Language::AVAILABLE[\Talea\Core\Language::code()][1] . '">';
-        if (($meta['description'] ?? '') !== '') {
-            $h[] = '<meta property="og:description" content="' . e($meta['description']) . '">';
+        if (($meta['description'] ?? '') !== '' || ($meta['share_description'] ?? '') !== '') {
+            $h[] = '<meta property="og:description" content="' . e(($meta['share_description'] ?? '') !== '' ? $meta['share_description'] : $meta['description'] ?? '') . '">';
         }
-        $h[] = '<meta name="twitter:card" content="' . (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
+        $h[] = '<meta name="twitter:card" content="' . ($s->get('seo_card') !== 'small' && (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null) ? 'summary_large_image' : 'summary') . '">';
         // the Markdown version: a news item, or the path a page or collection item hands over in $meta['markdown']
         $markdown = $meta['markdown'] ?? ($newsItem !== null ? $this->path('news/') . $newsItem['slug'] : null);
         if ($markdown !== null && $s->bool('markdown_versions')) {
@@ -574,7 +574,7 @@ final class Seo
             }
             if (count($meta['breadcrumbs'] ?? []) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([
-                    '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
+                    '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[1] === '' && ($meta['breadcrumb_title'] ?? '') !== '' ? $meta['breadcrumb_title'] : $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
                 ]), $meta['breadcrumbs'], array_keys($meta['breadcrumbs']))];
             }
 
@@ -603,7 +603,7 @@ final class Seo
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
                 ['@type' => 'ListItem', 'position' => 2, 'name' => t('News'), 'item' => $this->page($this->path('news'))],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['category_name'], 'item' => $this->page($this->path('news/category/') . $newsItem['category_slug'])],
-                ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['title']],
+                ['@type' => 'ListItem', 'position' => 4, 'name' => ($newsItem['breadcrumb_title'] ?? '') !== '' ? $newsItem['breadcrumb_title'] : $newsItem['title']],
             ]],
         ]];
     }

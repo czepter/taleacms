@@ -64,6 +64,8 @@ class Settings extends Module
         'seo' => [
             'indexing' => 'flag', 'schema_org' => 'flag', 'share_image' => 'text', 'share_image_auto' => 'flag', 'verification_google' => 'pattern:/^[A-Za-z0-9_-]{0,100}$/',
             'verification_bing' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'lines', 'ai_crawlers' => 'choice:allow|block', 'url_slash' => 'choice:none|slash|html', 'llms_txt' => 'flag', 'markdown_versions' => 'flag', 'indexnow' => 'flag',
+            'seo_separator' => 'pattern:/^.{1,3}$/u', 'seo_title_home' => 'text', 'seo_title_page' => 'text', 'seo_title_news' => 'text', 'seo_title_item' => 'text', 'seo_title_category' => 'text', 'seo_title_tag' => 'text',
+            'seo_description_page' => 'text', 'seo_description_news' => 'text', 'seo_description_item' => 'text', 'seo_capitalize' => 'flag', 'seo_robots' => 'text', 'seo_hide_empty_terms' => 'flag', 'seo_card' => 'choice:large|small',
             'security_contact' => 'pattern:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
         'analytics' => [
