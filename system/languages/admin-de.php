@@ -3746,6 +3746,7 @@ return [
     'Sentence' => 'Satz',
     'Sentences with numbers that are not facts yet' => 'Sätze mit Zahlen, die noch keine Fakten sind',
     'Sentences with numbers, years and amounts written as plain text. When one of them changes – a new year, another project – you have to find every place yourself. Make it a fact and write {{fact.key}} instead.' => 'Sätze mit Zahlen, Jahren und Beträgen als reiner Text. Wenn sich einer ändert – ein neues Jahr, ein weiteres Projekt –, müssen Sie jede Stelle selbst finden. Machen Sie daraus einen Fakt und schreiben Sie stattdessen {{fact.schluessel}}.',
+    'Separator' => 'Trennzeichen',
     'September' => 'September',
     'Serif' => 'Serifenschrift',
     'Server address' => 'Serveradresse',

@@ -3739,6 +3739,7 @@ return [
     'Sentence' => 'Věta',
     'Sentences with numbers that are not facts yet' => 'Věty s čísly, které ještě nejsou fakty',
     'Sentences with numbers, years and amounts written as plain text. When one of them changes – a new year, another project – you have to find every place yourself. Make it a fact and write {{fact.key}} instead.' => 'Věty s čísly, roky a částkami napsanými jako prostý text. Když se některé změní – nový rok, další zakázka – musíte každé místo najít sami. Udělejte z nich fakt a napište místo nich {{fact.klic}}.',
+    'Separator' => 'Oddělovač',
     'September' => 'září',
     'Serif' => 'Patkové',
     'Server address' => 'Adresa serveru',
