@@ -27,6 +27,8 @@ final class BackToTop extends Element
 /* a flyout pill in the same corner (a popup, image/web.css) moves beside the button; on a phone it is a bar along the bottom, so the button rises above it */
 @media (min-width: 768px) { :root:has(.tl-back-to-top) .tl-popup--flyout { inset-inline-end: 4.5rem; } }
 @media (max-width: 767px) { :root:has(.tl-popup--flyout:popover-open, .tl-popup--flyout_left:popover-open) .tl-back-to-top { inset-block-end: 5.75rem; } }
+/* the "Edit here" pill of a signed-in editor (image/web.css) sits in the same corner: the button rises above it */
+:root:has(.tl-edit-here) .tl-back-to-top { inset-block-end: 4.5rem; }
 @supports (animation-timeline: scroll()) {
 	.tl-back-to-top { animation: tl-back-to-top linear both; animation-timeline: scroll(); animation-range: 0 40vh; }
 	@keyframes tl-back-to-top { from { opacity: 0; visibility: hidden; translate: 0 1rem; } }
