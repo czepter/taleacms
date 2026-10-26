@@ -6100,6 +6100,7 @@ return [
     'strong' => 'výrazný',
     'strong (1.333)' => 'výrazný (1,333)',
     'stronger parallax' => 'výraznější paralaxa',
+    'structured data added' => 'přidání strukturovaných dat',
     'subtle' => 'jemné',
     'subtle (1.125)' => 'jemný (1,125)',
     'switched off' => 'vypnuto',

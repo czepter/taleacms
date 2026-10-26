@@ -134,6 +134,8 @@ final class Pages extends Module
             'translations' => $tab !== 'page' || $language !== '' ? [] : array_map(fn (string $code): array => ['code' => $code, 'name' => \Talea\Core\Language::AVAILABLE[$code][0] ?? $code,
                 'page' => $this->db->one('SELECT public_id, visible FROM {pages} WHERE translation_of = ? AND language = ? AND deleted_at IS NULL', [$id, $code])], \Talea\Core\Language::additional($this->app->settings())),
             'versions' => $tab !== 'publishing' || $build !== null ? [] : $this->db->all('SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = \'\' THEN u.username ELSE u.name END AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [$id]),
+            // the draft the Advanced tab's "Add a type" builds on (BuilderActions' version check)
+            'version' => $tab !== 'advanced' ? '' : self::computeBuildVersion($current['build_draft'] ?? $current['build']),
             'structured' => $tab !== 'advanced' || $build === null ? [] : array_values(array_filter(array_map(fn (array $element): string => (string) ($element['content']['data']['type'] ?? ''), Build::elementsOfType($build, fn (string $className): bool => $className === \Talea\Builder\Elements\StructuredData::class)))),
             'seo' => $tab === 'seo' ? $this->seoTab($current) : [],
         ]);
@@ -248,7 +250,9 @@ final class Pages extends Module
 
     /**
      * The Advanced tab's "Add a type": a structured-data element of a schema.org type at the end of the draft, then the builder
-     * with it selected to fill in. A text page has no build to add it to.
+     * with it selected to fill in. A text page has no build to add it to. The draft is written as the builder writes it: the
+     * form carries the version it was rendered from, so a draft changed since (an open editor's autosave, Claude) is not
+     * overwritten, and that editor's next autosave meets the new version as a conflict.
      */
     protected function actionSeoAddType(): Response
     {
@@ -257,6 +261,7 @@ final class Pages extends Module
             return $this->back('Page does not exist.', 'website', [], 'error');
         }
         $back = ['id' => (string) $page['public_id'], 'tab' => 'advanced'];
+        $target = ['row' => $page, 'build' => $page['build'], 'draft' => $page['build_draft']];
         $previous = Build::fromJson($page['build_draft'] ?? $page['build']);
         $type = $this->request->post('type');
         if ($previous === null) {
@@ -265,9 +270,14 @@ final class Pages extends Module
         if (!in_array($type, \Talea\Builder\StructuredData::types(), true)) {
             return $this->back('Choose a type of structured data.', 'website', $back, 'error');
         }
+        if ($this->checkVersionConflict($target) !== null) {
+            return $this->back('Someone else has edited this page in the meantime (or you opened it in another window).', 'website', $back, 'error');
+        }
         $element = Build::fresh('structured_data', ['data' => ['type' => $type, 'fields' => []]]);
         [$build] = Build::sanitize(['children' => [...$previous['children'], $element]] + $previous, $this->app->auth()->isAdmin(), $previous);
-        $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $page['page_id']]);
+        $this->saveDraft($target, Build::toJson($build));
+        $this->db->update('pages', ['updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'structured data added', mb_substr($page['title'], 0, 80) . ' (' . $type . ')');
 
         return \Talea\Core\Response::redirect($this->url('builder', ['id' => (string) $page['public_id'], 'select' => $element['id']]));
     }

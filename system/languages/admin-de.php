@@ -6110,6 +6110,7 @@ return [
     'strong' => 'deutlich',
     'strong (1.333)' => 'kräftig (1,333)',
     'stronger parallax' => 'stärkere Parallaxe',
+    'structured data added' => 'strukturierte Daten hinzugefügt',
     'subtle' => 'dezent',
     'subtle (1.125)' => 'dezent (1,125)',
     'switched off' => 'ausgeschaltet',

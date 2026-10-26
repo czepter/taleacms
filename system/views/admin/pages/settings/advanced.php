@@ -11,6 +11,7 @@
  * @var string $formStart
  * @var bool $hasBuild
  * @var list<string> $structured the structured-data types in the page's build
+ * @var string $version the version of the draft "Add a type" builds on
  */
 $dir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) $page['language']));
 ?>
@@ -39,7 +40,7 @@ $dir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->se
 <?php foreach ($structured as $type): ?>
 	<div class="website-type"><?= e($type) ?></div>
 <?php endforeach ?>
-	<form class="website-add-type" method="post" action="<?= e($module->url('seo_add_type')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($page['public_id']) ?>">
+	<form class="website-add-type" method="post" action="<?= e($module->url('seo_add_type')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($page['public_id']) ?>"><input type="hidden" name="version" value="<?= e($version) ?>">
 		<select name="type" aria-label="<?= e(t('Type')) ?>"<?= $hasBuild ? '' : ' disabled' ?>>
 <?php foreach (Talea\Builder\StructuredData::types() as $type): ?>
 			<option><?= e($type) ?></option>

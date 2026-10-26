@@ -238,12 +238,27 @@ final class WebsiteSidebarTest extends SiteTestCase
         $this->assertNull($this->column($id, 'build_draft'), 'a text page gets no build from here');
         $this->assertStringNotContainsString('builder', $refused->redirect);
 
-        $this->site()->exec('UPDATE tl_pages SET build_draft = ? WHERE public_id = ?', ['{"v":1,"children":[]}', $id]);
-        $response = $this->adminPost('/admin.php?module=pages&action=seo_add_type', ['id' => $id, 'type' => 'Event']);
+        $site = $this->site();
+        $site->exec('UPDATE tl_pages SET build_draft = ?, updated_at = ? WHERE public_id = ?', ['{"v":1,"children":[]}', '2020-01-01 00:00:00', $id]);
+        $client = $site->admin();
+        $tab = $client->get('/admin.php?module=pages&action=website&id=' . $id . '&tab=advanced')->body;
+        $this->assertSame(1, preg_match('/name="version" value="([0-9a-f]+)"/', $tab, $version), 'the form carries the version of the draft');
+
+        // the draft changed since the tab was rendered (an open editor's autosave): nothing is overwritten
+        $site->exec('UPDATE tl_pages SET build_draft = ? WHERE public_id = ?', ['{"v":1,"children":[{"id":"keep1","type":"text","content":{"text":"<p>Newer.</p>"}}]}', $id]);
+        $conflict = $client->post('/admin.php?module=pages&action=seo_add_type', ['_csrf' => $client->get('/admin.php?module=pages&action=website&id=' . $id)->csrf(), 'id' => $id, 'type' => 'Event', 'version' => $version[1]]);
+        $this->assertStringContainsString('/admin/pages/website/' . $id . '?tab=advanced', $conflict->redirect);
+        $this->assertStringContainsString('Someone else has edited this page', $client->get($conflict->redirect)->body);
+        $this->assertStringNotContainsString('structured_data', (string) $this->column($id, 'build_draft'), 'the newer draft stays as it is');
+
+        $site->exec('UPDATE tl_pages SET build_draft = ? WHERE public_id = ?', ['{"v":1,"children":[]}', $id]);
+        $response = $this->adminPost('/admin.php?module=pages&action=seo_add_type', ['id' => $id, 'type' => 'Event', 'version' => $version[1]]);
         $draft = json_decode((string) $this->column($id, 'build_draft'), true);
         $this->assertSame('structured_data', $draft['children'][0]['type'] ?? null);
         $this->assertSame('Event', $draft['children'][0]['content']['data']['type'] ?? null);
         $this->assertStringContainsString('builder', $response->redirect);
         $this->assertStringContainsString('select=' . $draft['children'][0]['id'], $response->redirect);
+        $this->assertNotSame('2020-01-01 00:00:00', (string) $this->column($id, 'updated_at'), 'the page counts as edited');
+        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM tl_change_log WHERE module = 'pages' AND action = 'structured data added' AND description LIKE ?", ['%(Event)']));
     }
 }
