@@ -56,14 +56,17 @@ if (preg_match('#^/webmaster/api.svc/json/(GetQueryStats|GetPageStats|GetRankAnd
     }
     $date = '/Date(' . ((time() - 5 * 86400) * 1000) . ')/';
     $old = '/Date(' . ((time() - 60 * 86400) * 1000) . ')/';
+    $fresh = '/Date(' . ((time() - 86400) * 1000) . ')/'; // after the last day Google reports: left out, so both engines cover the same days
     if ($m[1] === 'GetRankAndTrafficStats') {
-        return $reply(200, ['d' => [['Date' => $date, 'Clicks' => 6, 'Impressions' => 120], ['Date' => '/Date(' . ((time() - 6 * 86400) * 1000) . ')/', 'Clicks' => 3, 'Impressions' => 60], ['Date' => $old, 'Clicks' => 9, 'Impressions' => 90]]]);
+        return $reply(200, ['d' => [['Date' => $date, 'Clicks' => 6, 'Impressions' => 120], ['Date' => '/Date(' . ((time() - 6 * 86400) * 1000) . ')/', 'Clicks' => 3, 'Impressions' => 60], ['Date' => $old, 'Clicks' => 9, 'Impressions' => 90], ['Date' => $fresh, 'Clicks' => 70, 'Impressions' => 700]]]);
     }
     $rows = $m[1] === 'GetPageStats'
-        ? [['Query' => 'https://example.com/contact', 'Clicks' => 4, 'Impressions' => 50, 'AvgImpressionPosition' => 5.0, 'AvgClickPosition' => 3.0, 'Date' => $date]]
+        ? [['Query' => 'https://example.com/contact', 'Clicks' => 4, 'Impressions' => 50, 'AvgImpressionPosition' => 5.0, 'AvgClickPosition' => 3.0, 'Date' => $date],
+            ['Query' => 'https://example.com/contact', 'Clicks' => 40, 'Impressions' => 500, 'AvgImpressionPosition' => 1.0, 'AvgClickPosition' => 1.0, 'Date' => $fresh]]
         : [['Query' => 'talea bing', 'Clicks' => 5, 'Impressions' => 100, 'AvgImpressionPosition' => 4.0, 'AvgClickPosition' => 2.0, 'Date' => $date],
             ['Query' => 'talea bing', 'Clicks' => 1, 'Impressions' => 20, 'AvgImpressionPosition' => 10.0, 'AvgClickPosition' => 8.0, 'Date' => $date],
-            ['Query' => 'stale query', 'Clicks' => 9, 'Impressions' => 90, 'AvgImpressionPosition' => 1.0, 'AvgClickPosition' => 1.0, 'Date' => $old]];
+            ['Query' => 'stale query', 'Clicks' => 9, 'Impressions' => 90, 'AvgImpressionPosition' => 1.0, 'AvgClickPosition' => 1.0, 'Date' => $old],
+            ['Query' => 'talea bing', 'Clicks' => 50, 'Impressions' => 500, 'AvgImpressionPosition' => 1.0, 'AvgClickPosition' => 1.0, 'Date' => $fresh]];
 
     return $reply(200, ['d' => $rows]);
 }

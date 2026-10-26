@@ -23,6 +23,8 @@ use Talea\Connectors\Google;
 final class SearchData
 {
     public const int DAYS = 28;
+    /** A snapshot's last day lies this many days before the day it is taken (window()). */
+    public const int LAG_DAYS = 3;
     public const int ROW_LIMIT = 250;
     /** Rows asked for the per-page queries (kind page_query). */
     public const int PAGE_QUERY_LIMIT = 1000;
@@ -128,12 +130,24 @@ final class SearchData
         return array_values(array_unique($sites));
     }
 
+    /**
+     * The days a snapshot taken on $day covers, the same for both engines (so "Both" adds like to like): 28 days ending
+     * three days earlier, as Google's numbers are not final before that.
+     *
+     * @return array{0: string, 1: string} first and last day, YYYY-MM-DD
+     */
+    public static function window(string $day): array
+    {
+        $end = date('Y-m-d', (int) strtotime($day . ' -' . self::LAG_DAYS . ' days'));
+
+        return [date('Y-m-d', (int) strtotime($end . ' -' . (self::DAYS - 1) . ' days')), $end];
+    }
+
     /** @return list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float}> */
     private static function fetchGoogle(App $app): array
     {
         $base = self::GOOGLE_API . '/' . rawurlencode(self::googleProperty($app));
-        $end = date('Y-m-d', strtotime('-3 days'));
-        $start = date('Y-m-d', strtotime($end . ' -' . (self::DAYS - 1) . ' days'));
+        [$start, $end] = self::window(date('Y-m-d'));
         $rows = [];
         $query = $base . '/searchAnalytics/query';
         $dates = ['startDate' => $start, 'endDate' => $end];
@@ -170,19 +184,21 @@ final class SearchData
     private static function fetchBing(App $app): array
     {
         $site = self::bingSite($app);
-        $since = strtotime('-' . self::DAYS . ' days');
+        [$start, $end] = self::window(date('Y-m-d'));
+        $since = (int) strtotime($start);
+        $until = (int) strtotime($end . ' +1 day');
         $rows = [];
         foreach (['query' => 'GetQueryStats', 'page' => 'GetPageStats'] as $kind => $method) {
             $answer = Connectors::request($app, Bing::KEY, 'GET', self::BING_API . $method . '?' . http_build_query(['siteUrl' => $site]), null, [], 'search.' . $kind);
             if ($answer['error'] !== '') {
                 throw new \RuntimeException($answer['error']);
             }
-            $rows = [...$rows, ...self::bingRows($answer['json'] ?? [], $kind, $since)];
+            $rows = [...$rows, ...self::bingRows($answer['json'] ?? [], $kind, $since, $until)];
         }
         // the days (and their total) are a bonus: when only they fail, the queries and pages still count
         $answer = Connectors::request($app, Bing::KEY, 'GET', self::BING_API . 'GetRankAndTrafficStats?' . http_build_query(['siteUrl' => $site]), null, [], 'search.day');
         if ($answer['error'] === '') {
-            $days = self::bingDays($answer['json'] ?? [], $since);
+            $days = self::bingDays($answer['json'] ?? [], $since, $until);
             if ($days !== []) {
                 $clicks = array_sum(array_column($days, 'clicks'));
                 $impressions = array_sum(array_column($days, 'impressions'));
@@ -244,13 +260,13 @@ final class SearchData
 
     /**
      * Bing GetQueryStats / GetPageStats: {"d": [{Query, Clicks, Impressions, AvgImpressionPosition, Date}]} – one row per
-     * query (or page) and day, the date as /Date(ms)/ or ISO. Days before $since are left out, the rest is summed per key
+     * query (or page) and day, the date as /Date(ms)/ or ISO. Days before $since or from $until on are left out, the rest is summed per key
      * with the position weighted by impressions, so it means the same as Google's.
      *
      * @param array<mixed> $json
      * @return list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float}>
      */
-    public static function bingRows(array $json, string $kind, ?int $since = null): array
+    public static function bingRows(array $json, string $kind, ?int $since = null, ?int $until = null): array
     {
         $sums = [];
         $list = is_array($json['d'] ?? null) ? $json['d'] : (array_is_list($json) ? $json : []);
@@ -259,7 +275,8 @@ final class SearchData
                 continue;
             }
             $key = (string) ($r['Query'] ?? $r['Page'] ?? $r['Url'] ?? '');
-            if ($key === '' || ($since !== null && ($day = self::bingDate($r['Date'] ?? null)) !== null && $day < $since)) {
+            $time = self::bingDate($r['Date'] ?? null);
+            if ($key === '' || ($time !== null && (($since !== null && $time < $since) || ($until !== null && $time >= $until)))) {
                 continue;
             }
             $clicks = (int) round((float) ($r['Clicks'] ?? 0));
@@ -332,18 +349,18 @@ final class SearchData
     }
 
     /**
-     * Bing GetRankAndTrafficStats: {"d": [{Date, Clicks, Impressions}]}, one row per day from $since on (no position).
+     * Bing GetRankAndTrafficStats: {"d": [{Date, Clicks, Impressions}]}, one row per day from $since to before $until (no position).
      *
      * @param array<mixed> $json
      * @return list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float, page: string}>
      */
-    public static function bingDays(array $json, int $since): array
+    public static function bingDays(array $json, int $since, ?int $until = null): array
     {
         $rows = [];
         $list = is_array($json['d'] ?? null) ? $json['d'] : (array_is_list($json) ? $json : []);
         foreach ($list as $r) {
             $time = is_array($r) ? self::bingDate($r['Date'] ?? null) : null;
-            if ($time === null || $time < $since) {
+            if ($time === null || $time < $since || ($until !== null && $time >= $until)) {
                 continue;
             }
             $clicks = (int) round((float) ($r['Clicks'] ?? 0));
