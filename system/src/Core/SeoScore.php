@@ -62,12 +62,11 @@ final class SeoScore
             'samples' => array_values(array_filter(ContentCheck::run($input), fn (array $r): bool => $r['check'] === 'sample_content' && !$r['ok']))];
     }
 
-    /** Stores the score (null without a focus keyword) and the time of the check; never throws – a failure is logged. */
+    /** Stores the score (null without a focus keyword) and the time of the check; never throws – a failure is logged, a failed check keeps the stored score. */
     public static function refresh(App $app, string $kind, int $id): ?int
     {
         [$table, $key] = self::TABLES[$kind];
         $db = $app->db();
-        $score = null;
         try {
             $row = $db->one("SELECT * FROM {{$table}} WHERE $key = ?", [$id]);
             if ($row === null) {
@@ -76,6 +75,8 @@ final class SeoScore
             $score = ContentCheck::analyse(self::input($app, $kind, $row))['score'];
         } catch (\Throwable $e) {
             error_log('Talea: SEO score of ' . $kind . ' ' . $id . ' failed: ' . $e->getMessage());
+
+            return null;
         }
         try {
             $db->run("UPDATE {{$table}} SET seo_score = ?, seo_checked_at = ? WHERE $key = ?", [$score, date('Y-m-d H:i:s'), $id]);
