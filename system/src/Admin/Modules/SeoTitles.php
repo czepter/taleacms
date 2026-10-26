@@ -147,7 +147,7 @@ final class SeoTitles extends Module
             return $this->back('', '', ['kind' => $kind]);
         }
         foreach (self::KINDS[$kind][1] as $key) {
-            $this->app->settings()->set($key, Settings::DEFAULTS[$key] ?? '');
+            $this->app->settings()->set($key, Settings::DEFAULTS[$key]);
         }
 
         return $this->back('The section is back to the defaults.', '', ['kind' => $kind]);
