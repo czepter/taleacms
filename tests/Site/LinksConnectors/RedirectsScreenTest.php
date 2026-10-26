@@ -37,6 +37,37 @@ final class RedirectsScreenTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertSame(0, $this->rows("from_path = 'mail-old'"), 'a target that could never be used is refused');
     }
 
+    public function testTheHomePageIsATarget(): void
+    {
+        $site = $this->site();
+        $r = $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/old-shop', 'to_path' => '/', 'type' => '301', 'match' => 'exact'], '/admin.php?module=redirects');
+        $this->assertSame(302, $r->status);
+        $this->assertSame(1, $this->rows("from_path = 'old-shop' AND to_path = ''"), 'stored as the home page');
+        $site->mcp('save_redirect', ['from' => '/old-mcp', 'to' => '/']);
+        $this->assertSame(1, $this->rows("from_path = 'old-mcp' AND to_path = ''"), 'MCP takes / too');
+        $site->clearPageCache();
+        $moved = $site->client('visitor')->get('/old-shop');
+        $this->assertSame([301, $site->base . '/'], [$moved->status, $moved->redirect]);
+    }
+
+    public function testARefusedSaveKeepsTheFormAndPagesKeepTheTab(): void
+    {
+        $site = $this->site();
+        $r = $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '^gallery/(\d+', 'to_path' => '/projects/$1', 'type' => '302', 'match' => 'regex'], '/admin.php?module=redirects');
+        $form = $site->admin()->get((string) $r->redirect)->body;
+        $this->assertStringContainsString('The regular expression is not valid.', $form);
+        $this->assertStringContainsString('>^gallery/(\d+</textarea>', $form, 'the pattern comes back as typed, without a leading slash');
+        $this->assertMatchesRegularExpression('/value="regex" selected/', $form);
+        $this->assertMatchesRegularExpression('/value="302" selected/', $form);
+        $this->assertStringContainsString('value="/projects/$1"', $form);
+
+        $site->exec('DELETE FROM tl_redirects');
+        for ($i = 0; $i < 51; $i++) {
+            $site->exec('INSERT INTO tl_redirects (public_id, from_path, to_path, active, created_at) VALUES (?, ?, ?, FALSE, ?)', [bin2hex(random_bytes(16)), 'off-' . $i, 'x', date('Y-m-d H:i:s')]);
+        }
+        $this->assertPage('/admin.php?module=redirects&status=off', 200, 'status=off&amp;page=2', message: 'page links keep the tab');
+    }
+
     public function testToggleDuplicateTestAndTabs(): void
     {
         $site = $this->site();

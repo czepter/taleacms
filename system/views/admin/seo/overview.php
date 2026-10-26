@@ -23,7 +23,7 @@ $open = fn (string $ident): string => $app->url('admin.php?module=' . $ident);
 	<?= $tile($score !== '' ? $score : '—', $score !== '' ? '/ 100' : '', t('Site check'), isset($modules['audit']) ? $open('audit') : '') ?>
 	<?= $tile((string) $keywords, t('of %d', $pages), t('Pages with a focus keyword'), isset($modules['pages']) ? $open('pages') : '') ?>
 	<?= $tile((string) $redirects, '', t('Active redirects'), isset($modules['redirects']) ? $open('redirects') : '') ?>
-	<?= $tile((string) $missing, '', t('Missing pages this week'), isset($modules['redirects']) ? $open('redirects') : '') ?>
+	<?= $tile((string) $missing, '', t('Missing pages this week'), isset($modules['missing_pages']) ? $open('missing_pages') : '') ?>
 </div>
 <?php if ($noDescription > 0): ?>
 <div class="notice notice-warning notice-actions"><p><?= e(t('%d pages have no description. Search results then show a sentence the search engine picks itself.', $noDescription)) ?></p>

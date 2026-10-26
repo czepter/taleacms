@@ -7,13 +7,17 @@
  * @var string $csrf
  * @var ?array<string, mixed> $edit the redirect (null = a new one)
  * @var string $fromUrl pre-filled old address
+ * @var ?array{match_type: string, from_path: string, to_path: string, type: int, active: bool} $typed what a refused save sent, shown as typed
  */
 $u = $edit;
-$from = $u !== null ? (($u['match_type'] ?? 'exact') === 'regex' ? $u['from_path'] : '/' . $u['from_path']) : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '');
-$match = $u['match_type'] ?? 'exact';
+$typed ??= null;
+$match = $typed['match_type'] ?? $u['match_type'] ?? 'exact';
+$from = $typed !== null ? $typed['from_path'] : ($u !== null ? ($match === 'regex' ? $u['from_path'] : '/' . $u['from_path']) : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : ''));
 $matches = ['exact' => 'Exactly this address', 'starts' => 'Starts with', 'ends' => 'Ends with', 'contains' => 'Contains', 'regex' => 'Regular expression'];
 $types = [301 => 'Permanent (301)', 302 => 'Temporary (302)', 307 => 'Temporary, keeps the request method (307)', 410 => 'Gone (410)', 451 => 'Unavailable for legal reasons (451)'];
-$to = $u === null ? '' : (preg_match('#^https?://#i', $u['to_path']) ? $u['to_path'] : '/' . $u['to_path']);
+$to = $typed !== null ? $typed['to_path'] : ($u === null ? '' : (preg_match('#^https?://#i', $u['to_path']) ? $u['to_path'] : '/' . $u['to_path']));
+$type = (int) ($typed['type'] ?? $u['type'] ?? 301);
+$active = $typed !== null ? $typed['active'] : (int) ($u['active'] ?? 1) === 1;
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('Redirects')) ?></a></p>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
@@ -30,10 +34,10 @@ $to = $u === null ? '' : (preg_match('#^https?://#i', $u['to_path']) ? $u['to_pa
 <div class="row"><label for="to_path"><?= e(t('Redirect to')) ?></label><div><input class="textfield wide" type="text" id="to_path" name="to_path" value="<?= e($to) ?>" maxlength="255" placeholder="<?= e(t('/new-address or https://…')) ?>"<?= $u === null && $from !== '' ? ' autofocus' : '' ?>><span class="help"><?= e(t('Not needed for Gone (410) and Unavailable for legal reasons (451).')) ?></span></div></div>
 <div class="row"><label for="type"><?= e(t('Type')) ?></label><div><select id="type" name="type">
 <?php foreach ($types as $code => $label): ?>
-	<option value="<?= $code ?>"<?= (int) ($u['type'] ?? 301) === $code ? ' selected' : '' ?>><?= e(t($label)) ?></option>
+	<option value="<?= $code ?>"<?= $type === $code ? ' selected' : '' ?>><?= e(t($label)) ?></option>
 <?php endforeach ?>
 </select><span class="help"><?= e(t('Permanent tells search engines that the page has moved for good. Temporary suits a promotion or a seasonal offer.')) ?></span></div></div>
-<div class="row"><label for="active"><?= e(t('Active')) ?></label><div><input type="hidden" name="active" value="0"><label><input type="checkbox" id="active" name="active" value="1"<?= (int) ($u['active'] ?? 1) === 1 ? ' checked' : '' ?>> <?= e(t('The rule is in use')) ?></label></div></div>
+<div class="row"><label for="active"><?= e(t('Active')) ?></label><div><input type="hidden" name="active" value="0"><label><input type="checkbox" id="active" name="active" value="1"<?= $active ? ' checked' : '' ?>> <?= e(t('The rule is in use')) ?></label></div></div>
 </fieldset>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Cancel')) ?></a>
 <?php if ($u !== null): ?><button class="navigation danger buttons-end" type="submit" form="redirect-delete" data-confirm="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= e(t('Delete')) ?></button><?php endif ?></p>

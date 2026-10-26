@@ -30,6 +30,10 @@ final class SeoSectionTest extends SiteTestCase
             $this->assertStringContainsString('name="feature" value="' . $feature . '"', $body, "a switch for $feature");
         }
         $this->assertStringNotContainsString('onclick=', $body);
+        $this->assertMatchesRegularExpression('#href="[^"]*missing_pages"[^>]*>\s*<strong>\d+</strong><span>Missing pages this week#', $body, 'the missing pages tile opens Missing pages');
+        $site->exec("INSERT INTO tl_redirects (public_id, from_path, to_path, active, created_at) VALUES ('" . bin2hex(random_bytes(16)) . "', 'tile-off', 'x', FALSE, NOW())");
+        $before = (int) $site->value('SELECT COUNT(*) FROM tl_redirects WHERE active = TRUE');
+        $this->assertMatchesRegularExpression('#<strong>' . $before . '</strong><span>Active redirects#', $this->assertPage('/admin.php?module=seo', 200)->body, 'a switched-off rule is not counted');
     }
 
     public function testSwitchingPageCheckOffRemovesTheScoreFromTheWebsiteSidebar(): void

@@ -150,11 +150,9 @@ final class Kernel
         // also Polylang's language home ?lang=en, stored as ?lang=en by the WordPress import
         $lang = preg_match('/^' . Language::TAG . '$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
         if (($request->getInt('p') > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
-            $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
+            $target = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path = ? AND active = TRUE', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
             if ($target !== null) {
-                $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
-
-                return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), 301);
+                return $this->followRule($target + ['target' => $target['to_path']]);
             }
         }
         // a file waiting for approval (#150, Core\MediaStaging): for signed-in users and draft previews; everyone else gets the
@@ -1105,13 +1103,7 @@ final class Kernel
         // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
         $target = $this->redirectRule($this->app->request->path());
         if ($target !== null) {
-            $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1, last_hit_at = ? WHERE redirect_id = ?', [date('Y-m-d H:i:s'), $target['redirect_id']]);
-            $status = (int) ($target['type'] ?? 301);
-            if ($status >= 400) {
-                return $this->notFoundPage($status); // gone (410) or unavailable for legal reasons (451): the 404 page with that status
-            }
-
-            return Response::redirect(preg_match('#^https?://#i', $target['target']) ? $target['target'] : $this->app->url($target['target']), in_array($status, [302, 307], true) ? $status : 301);
+            return $this->followRule($target);
         }
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
@@ -1141,6 +1133,18 @@ final class Kernel
         }
 
         return $this->notFoundPage(404);
+    }
+
+    /** The answer of a matched redirect rule (with its expanded `target`): counted, then the redirect or the 410/451 page. */
+    private function followRule(array $rule): Response
+    {
+        $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1, last_hit_at = ? WHERE redirect_id = ?', [date('Y-m-d H:i:s'), $rule['redirect_id']]);
+        $status = (int) ($rule['type'] ?? 301);
+        if ($status >= 400) {
+            return $this->notFoundPage($status); // gone (410) or unavailable for legal reasons (451): the 404 page with that status
+        }
+
+        return Response::redirect(preg_match('#^https?://#i', $rule['target']) ? $rule['target'] : $this->app->url($rule['target']), in_array($status, [302, 307], true) ? $status : 301);
     }
 
     private function notFoundPage(int $status): Response

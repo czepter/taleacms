@@ -64,4 +64,43 @@ final class RedirectMatchTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertSame(451, $visitor->get('/legal/x')->status);
         $this->assertSame(404, $visitor->get('/go/' . rawurlencode('//evil.example'))->status, 'a capture cannot make a protocol-relative target');
     }
+
+    public function testOtherKindsOnlyAnswerAMissingAddress(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tl_redirects');
+        $site->mcp('create_page', ['title' => 'Live page', 'slug' => 'live-page', 'visible' => true, 'in_menu' => false, 'content' => '<p>Live.</p>']);
+        $this->rule('live', 'elsewhere', 'starts', 301);
+        $this->rule('^live-(.*)$', 'other/$1', 'regex', 301);
+        $site->clearPageCache();
+        $visitor = $site->client('visitor');
+
+        $this->assertSame(200, $visitor->get('/live-page')->status, 'a live page is never shadowed by a non-exact rule');
+        $slash = $visitor->get('/live-page/');
+        $this->assertSame(301, $slash->status, 'the slash redirect still runs with non-exact rules present');
+        $this->assertStringEndsWith('/live-page', (string) $slash->redirect);
+        $this->assertSame('0', (string) $site->value('SELECT SUM(hits) FROM tl_redirects'), 'no rule was used for the live page');
+        $this->assertStringEndsWith('/elsewhere', (string) $visitor->get('/live-gone')->redirect, 'a missing address still meets them');
+    }
+
+    public function testLegacyQueryRulesAndSlugChanges(): void
+    {
+        $site = $this->site();
+        $this->rule('?p=7', 'news', 'exact', 301, false);
+        $this->rule('?p=8', '', 'exact', 410);
+        $this->rule('?p=9', 'news', 'exact', 302);
+        $site->clearPageCache();
+        $visitor = $site->client('visitor');
+        $this->assertSame(200, $visitor->get('/?p=7')->status, 'a switched-off ?p= rule does not apply');
+        $this->assertSame(410, $visitor->get('/?p=8')->status, 'a ?p= rule may say gone');
+        $this->assertSame(302, $visitor->get('/?p=9')->status, 'and keeps its type');
+
+        // a slug change over an address marked gone makes it a plain 301 again
+        $this->rule('summer', '', 'exact', 410);
+        $site->mcp('create_page', ['title' => 'Summer', 'slug' => 'summer', 'visible' => true, 'in_menu' => false, 'content' => '<p>Sun.</p>']);
+        $site->mcp('update_page', ['id' => (string) $site->value("SELECT public_id FROM tl_pages WHERE slug = 'summer'"), 'slug' => 'summer-two']);
+        $this->assertSame('summer-two|301|1|exact', $site->value("SELECT CONCAT(to_path, '|', type, '|', active, '|', match_type) FROM tl_redirects WHERE from_path = 'summer'"));
+        $site->clearPageCache();
+        $this->assertStringEndsWith('/summer-two', (string) $visitor->get('/summer')->redirect);
+    }
 }

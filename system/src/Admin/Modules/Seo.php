@@ -68,7 +68,7 @@ final class Seo extends Module
 
         return $this->view('overview', 'Search engines', [
             'score' => $settings->get('seo_audit_score'), 'pages' => $pages, 'keywords' => $keywords,
-            'redirects' => (int) $this->db->value('SELECT COUNT(*) FROM {redirects}'), 'missing' => count(NotFound::pending($this->app, 7)),
+            'redirects' => (int) $this->db->value('SELECT COUNT(*) FROM {redirects} WHERE active = TRUE'), 'missing' => count(NotFound::pending($this->app, 7)),
             'noDescription' => $noDescription, 'state' => $state, 'modules' => $this->kernel->modules(),
         ]);
     }

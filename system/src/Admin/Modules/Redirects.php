@@ -36,7 +36,9 @@ final class Redirects extends Module
         // the new target URL also takes over older redirects, so that no chains form
         $db->run("UPDATE {redirects} SET to_path = ? WHERE to_path = ? AND match_type = 'exact'", [$commandName, $z]);
         $db->run("DELETE FROM {redirects} WHERE from_path = ? AND match_type = 'exact'", [trim($commandName, '/ ')]);
-        $db->upsert('redirects', ['from_path' => mb_substr($z, 0, 255), 'to_path' => mb_substr($commandName, 0, 255), 'created_at' => date('Y-m-d H:i:s')], ['from_path'], ['to_path']);
+        // a row already there for the old address (switched off, 410, another match kind) becomes this plain 301
+        $db->upsert('redirects', ['from_path' => mb_substr($z, 0, 255), 'to_path' => mb_substr($commandName, 0, 255), 'match_type' => 'exact', 'type' => 301, 'active' => true, 'created_at' => date('Y-m-d H:i:s')],
+            ['from_path'], ['to_path', 'match_type', 'type', 'active']);
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
         \Talea\Core\LinkHealing::heal($db, $z, $commandName);
     }
@@ -103,7 +105,11 @@ final class Redirects extends Module
                 return $this->error('The redirect does not exist.', 404);
             }
 
-            return $this->view('edit', $edit !== null ? 'Edit redirect' : 'New redirect', ['edit' => $edit, 'fromUrl' => mb_substr($r->get('from'), 0, 255)]);
+            // after a refused save the form shows what was typed (match, to, type and active come only from there)
+            $typed = $r->get('match') !== '' ? ['match_type' => in_array($r->get('match'), RedirectRules::MATCHES, true) ? $r->get('match') : 'exact', 'from_path' => mb_substr($r->get('from'), 0, 2000),
+                'to_path' => mb_substr($r->get('to'), 0, 255), 'type' => $r->getInt('type', 301), 'active' => $r->get('active') !== '0'] : null;
+
+            return $this->view('edit', $edit !== null ? 'Edit redirect' : 'New redirect', ['edit' => $edit, 'typed' => $typed, 'fromUrl' => mb_substr($r->get('from'), 0, 2000)]);
         }
         $search = mb_substr(trim($r->get('search')), 0, 100);
         $status = in_array($r->get('status'), ['active', 'off', 'auto'], true) ? $r->get('status') : 'all';
@@ -152,8 +158,9 @@ final class Redirects extends Module
         $match = $post->post('match') !== '' ? $post->post('match') : 'exact';
         $type = $post->postInt('type') > 0 ? $post->postInt('type') : 301;
         $active = $post->post('active') !== '0';
-        // a refused save goes back to the form it came from
-        $form = $editing ? ['edit' => $post->post('redirect_id')] : ['new' => 1, 'from' => $post->post('from_path')];
+        // a refused save goes back to the form it came from, with what was typed
+        $form = ($editing ? ['edit' => $post->post('redirect_id')] : ['new' => 1])
+            + ['from' => $post->post('from_path'), 'match' => $match, 'to' => $post->post('to_path'), 'type' => $type, 'active' => $active ? 1 : 0];
         if (($guard = $this->refuseUnknownId('redirect_id', 'Enter the old address and the target. The target is a path on this site or a full https://… address.')) !== null) {
             return $guard;
         }

@@ -50,7 +50,7 @@ echo $app->view->render('admin/list/head', ['count' => (string) $total, 'primary
 <?php if ($pageCount > 1): ?>
 <p class="pagination">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $status === 'all' ? '' : $status, 'search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>
