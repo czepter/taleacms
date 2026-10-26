@@ -79,12 +79,21 @@ final class Pages extends Module
         }
         unset($s);
 
+        $pages = $status !== '' || $search !== '' || $score !== '' ? $pages : self::sortAsTree($pages);
+        // "Edit titles in the list" works on one page of rows at a time, so its form stays under max_input_vars
+        $seoEdit = !$trash && $this->request->get('seo_edit') === '1';
+        $pageCount = $seoEdit ? max(1, (int) ceil(count($pages) / self::LIST_EDIT_ROWS)) : 1;
+        $pageNumber = min($pageCount, max(1, $this->request->getInt('page', 1)));
+        if ($seoEdit) {
+            $pages = array_slice($pages, ($pageNumber - 1) * self::LIST_EDIT_ROWS, self::LIST_EDIT_ROWS);
+        }
+
         return $this->view('list', 'Pages', [
-            'pages' => $status !== '' || $search !== '' || $score !== '' ? $pages : self::sortAsTree($pages),
+            'pages' => $pages, 'pageCount' => $pageCount, 'pageNumber' => $pageNumber,
             'trash' => $trash, 'status' => $status, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'scored' => $scored, 'score' => $score, 'links' => $scored ? \Talea\Core\InternalLinks::pageCounts($this->app) : [],
             'orphans' => $scored ? array_flip(array_column(array_filter(\Talea\Core\InternalLinks::orphans($this->app), fn (array $o): bool => $o['kind'] === 'page'), 'id')) : [],
-            'seoEdit' => !$trash && $this->request->get('seo_edit') === '1',
+            'seoEdit' => $seoEdit,
             'comments' => $trash ? [] : \Talea\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
             'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
@@ -94,20 +103,31 @@ final class Pages extends Module
     /** The fields "Edit titles in the list" sends per row. */
     private const array LIST_FIELDS = ['seo_title', 'description', 'focus_keywords', 'key_page', 'noindex'];
 
+    /** Rows per page of "Edit titles in the list": 50 rows of up to 7 fields stay well under PHP's default max_input_vars (1000). */
+    private const int LIST_EDIT_ROWS = 50;
+
     /**
-     * "Edit titles in the list" (?seo_edit=1): rows[<public id>][seo_title|description|focus_keywords|key_page|noindex], each
-     * over the page's stored values and saved as settings_save saves a tab (SeoFields::fromInput, SeoScore::refresh). A row
-     * that changes nothing is left alone; nothing is published that was not before.
+     * "Edit titles in the list" (?seo_edit=1, LIST_EDIT_ROWS rows per list page): rows[<public id>][seo_title|description|
+     * focus_keywords|key_page|noindex], each over the page's stored values and saved as settings_save saves a tab
+     * (SeoFields::fromInput, SeoScore::refresh). A row that changes nothing is left alone; nothing is published that was not
+     * before. A form cut short by max_input_vars saves nothing; a row that fails is named in an error. The list filters
+     * come back as hidden fields, so the redirect returns to the same edit page.
      */
     protected function actionSeoBulkSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
         }
+        $return = array_filter(['status' => $this->request->post('status'), 'language' => $this->request->post('language'), 'score' => $this->request->post('score'),
+            'search' => $this->request->post('search'), 'page' => $this->request->post('page')]) + ['seo_edit' => '1'];
+        // PHP drops every field past max_input_vars without an error: a form that reaches the limit may have lost rows
+        if ($this->request->postFieldCount() >= (int) ini_get('max_input_vars')) {
+            return $this->back(t('The form sent more fields than the server accepts, so nothing was saved. Edit fewer pages at once.'), '', $return, 'error');
+        }
         $saved = 0;
         foreach ($this->request->postArray('rows') as $publicId => $row) {
             $page = is_array($row) ? $this->loadPage($this->db->internalId('pages', (string) $publicId)) : null;
-            if ($page === null || $this->requirePublishPermission($page) !== null) {
+            if ($page === null) {
                 continue;
             }
             $in = array_intersect_key($row, array_flip(self::LIST_FIELDS));
@@ -116,8 +136,14 @@ final class Pages extends Module
                 'focus_keywords' => (string) \Talea\Core\SeoFields::fromInput([$key => $value])[$key],
                 default => trim(\Talea\Core\Robots::scalar($value)),
             };
-            $changed = array_filter($in, fn (mixed $value, string $key): bool => $clean($key, $value) !== $clean($key, $page[$key]), ARRAY_FILTER_USE_BOTH);
-            if ($changed === [] || $this->persist($page, $in + $this->formValues($page))['errors'] !== []) {
+            if (array_filter($in, fn (mixed $value, string $key): bool => $clean($key, $value) !== $clean($key, $page[$key]), ARRAY_FILTER_USE_BOTH) === []) {
+                continue;
+            }
+            // the publish permission without requirePublishPermission(), which would flash once per row
+            $errors = $this->app->auth()->canPublish() || !$page['visible'] ? $this->persist($page, $in + $this->formValues($page))['errors']
+                : ['visible' => 'Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.'];
+            if ($errors !== []) {
+                $this->app->session->flash('error', t('Not saved – %s: %s', (string) $page['title'] !== '' ? $page['title'] : '/' . $page['slug'], implode(' ', array_map(t(...), $errors))));
                 continue;
             }
             $saved++;
@@ -126,7 +152,7 @@ final class Pages extends Module
             \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search titles edited in the list', (string) $saved);
         }
 
-        return $this->back(t('Pages saved: %d.', $saved));
+        return $this->back(t('Pages saved: %d.', $saved), '', $return);
     }
 
     /**

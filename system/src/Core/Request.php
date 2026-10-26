@@ -113,6 +113,18 @@ final class Request
         return is_array($value) ? $value : [];
     }
 
+    /** How many fields the form sent (each name[…] counts once, as for max_input_vars). */
+    public function postFieldCount(): int
+    {
+        $count = 0;
+        $post = $this->post; // array_walk_recursive() takes a reference, the property is readonly
+        array_walk_recursive($post, function () use (&$count): void {
+            $count++;
+        });
+
+        return $count;
+    }
+
     /** @return array<string, mixed>|null */
     public function file(string $key): ?array
     {

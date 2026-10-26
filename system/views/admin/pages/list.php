@@ -19,6 +19,8 @@
  * @var array<int, array{in: int, out: int}> $links  links in and out per page id (Core\InternalLinks::pageCounts)
  * @var array<int, int> $orphans  page ids nothing links to (the keys)
  * @var bool $seoEdit  "Edit titles in the list": an edit row under every page, saved together by the form #seo-bulk
+ * @var int $pageCount  pages of rows in edit mode (Pages::LIST_EDIT_ROWS each); 1 otherwise
+ * @var int $pageNumber
  */
 $icon = require __DIR__ . '/../icons.php';
 $home = $app->settings()->int('home_page');
@@ -76,8 +78,11 @@ echo $app->view->render('admin/list/head', [
 </table>
 </div>
 <?php else: $columns = $scored ? 9 : 6; ?>
-<?php if ($seoEdit): ?>
+<?php if ($seoEdit): $editFilters = array_filter(['status' => $status, 'search' => $search]) + $keep; ?>
 <form class="seo-bulk" id="seo-bulk" method="post" action="<?= e($module->url('seo_bulk_save')) ?>"><?= $csrf ?>
+<?php foreach ($editFilters + ['page' => (string) $pageNumber] as $name => $value): // the save returns to this page of the list ?>
+	<input type="hidden" name="<?= e($name) ?>" value="<?= e((string) $value) ?>">
+<?php endforeach ?>
 	<button class="btn" type="submit"><?= e(t('Save all changes')) ?></button>
 	<a class="navigation" href="<?= e($module->url('', $keep + ($status !== '' ? ['status' => $status] : []))) ?>"><?= e(t('Cancel')) ?></a>
 	<span class="help"><?= e(t('Only the rows you change are saved; nothing is published that was not before.')) ?></span>
@@ -154,6 +159,13 @@ echo $app->view->render('admin/list/head', [
 </tbody>
 </table>
 </div>
+<?php if ($seoEdit && $pageCount > 1): ?>
+<p class="pagination">
+<?php for ($n = 1; $n <= $pageCount; $n++): ?>
+	<?= $n === $pageNumber ? '<strong>[' . $n . ']</strong>' : '<a href="' . e($module->url('', $editFilters + ['seo_edit' => '1', 'page' => $n])) . '">' . $n . '</a>' ?>
+<?php endfor ?>
+</p>
+<?php endif ?>
 <?php
 $languageSelect = '';
 if ($siteLanguages !== []) {

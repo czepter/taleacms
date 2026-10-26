@@ -18,7 +18,7 @@ final class PagesListSeoTest extends SiteTestCase
         $ids = [];
         foreach (['plain' => '', 'weak' => 'weak words', 'strong' => 'strong words'] as $slug => $keyword) {
             $site->mcp('create_page', ['title' => ucfirst($slug), 'slug' => $slug, 'visible' => true, 'in_menu' => false, 'content' => '<p>' . ucfirst($slug) . ' text. <a href="/plain">Plain</a></p>']);
-            $site->exec('UPDATE tl_pages SET focus_keywords = ?, seo_score = ?, key_page = TRUE, noindex = FALSE WHERE slug = ?', [$keyword, ['plain' => null, 'weak' => 42, 'strong' => 91][$slug], $slug]);
+            $site->exec("UPDATE tl_pages SET title = ?, seo_title = '', description = '', visible = TRUE, focus_keywords = ?, seo_score = ?, key_page = TRUE, noindex = FALSE WHERE slug = ?", [ucfirst($slug), $keyword, ['plain' => null, 'weak' => 42, 'strong' => 91][$slug], $slug]);
             $ids[$slug] = $site->publicId('pages', (int) $site->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$slug]));
         }
 
@@ -63,6 +63,57 @@ final class PagesListSeoTest extends SiteTestCase
         $this->assertSame(['Weak title', "weak words\nweak", 1, 1, 0], [$weak['seo_title'], $weak['focus_keywords'], (int) $weak['key_page'], (int) $weak['noindex'], (int) $weak['visible']], 'a hidden page stays hidden');
         $this->assertNotNull($weak['seo_score'], 'the score is computed again');
         $this->assertSame($before, $site->rows("SELECT seo_title, description, visible FROM tl_pages WHERE slug = 'strong'")[0], 'a row not sent stays as it was');
+    }
+
+    public function testBulkSaveRefusesAFormThatReachesMaxInputVars(): void
+    {
+        $ids = $this->pages();
+        $limit = (int) ini_get('max_input_vars'); // the CI image runs the test and the site with one php.ini
+        $row = ['seo_title' => 'Lost title', 'description' => '', 'focus_keywords' => 'weak words', 'key_page' => '1', 'noindex' => '0'];
+        // _csrf + the five fields of the row + score + padding = exactly the limit: PHP still delivers all of them
+        $response = $this->adminPost('/admin.php?module=pages&action=seo_bulk_save', ['score' => 'low', 'rows' => [$ids['weak'] => $row],
+            'pad' => array_fill(0, $limit - 7, 'x')], '/admin.php?module=pages&seo_edit=1');
+        $this->assertSame(302, $response->status);
+        $this->assertStringContainsString('seo_edit=1', $response->redirect, 'back to the edit mode');
+        $this->assertStringContainsString('score=low', $response->redirect, 'with its filter');
+        $this->assertSame('', (string) $this->site()->value("SELECT seo_title FROM tl_pages WHERE slug = 'weak'"), 'nothing is saved half');
+        $this->assertStringContainsString('nothing was saved', $this->site()->admin()->get(str_replace($this->site()->base, '', $response->redirect))->body);
+
+        $response = $this->adminPost('/admin.php?module=pages&action=seo_bulk_save', ['rows' => [$ids['weak'] => $row], 'pad' => array_fill(0, $limit - 8, 'x')], '/admin.php?module=pages&seo_edit=1');
+        $this->assertSame('Lost title', (string) $this->site()->value("SELECT seo_title FROM tl_pages WHERE slug = 'weak'"), 'one field under the limit saves');
+    }
+
+    public function testTheEditModeShowsFiftyRowsAPage(): void
+    {
+        $site = $this->site();
+        for ($i = 1; $i <= 55; $i++) {
+            $site->exec('INSERT INTO tl_pages (public_id, slug, title, text, visible, updated_at) VALUES (?, ?, ?, ?, FALSE, NOW())', [\Talea\Core\Uuid::v4(), sprintf('bulk-%02d', $i), sprintf('Bulk %02d', $i), '']);
+        }
+        $total = (int) $site->value('SELECT COUNT(*) FROM tl_pages WHERE deleted_at IS NULL');
+        $first = $this->assertPage('/admin.php?module=pages&seo_edit=1&status=hidden', 200, ['class="pagination"', 'seo_edit=1&amp;page=2'])->body;
+        $this->assertSame(50, substr_count($first, 'class="seo-edit-row"'), 'one page of edit rows');
+        $this->assertStringContainsString('name="status" value="hidden"', $first, 'the save comes back to the same filter');
+        $second = $this->assertPage('/admin.php?module=pages&seo_edit=1&status=hidden&page=2', 200, 'name="page" value="2"')->body;
+        $this->assertSame((int) $site->value('SELECT COUNT(*) FROM tl_pages WHERE deleted_at IS NULL AND visible = FALSE') - 50, substr_count($second, 'class="seo-edit-row"'));
+        $this->assertPageLacks('/admin.php?module=pages', 'class="pagination"', message: "the list without edit mode shows all $total pages");
+    }
+
+    public function testBulkSaveNamesTheRowsItCouldNotSave(): void
+    {
+        $ids = $this->pages();
+        $site = $this->site();
+        $site->exec("UPDATE tl_pages SET title = '' WHERE slug = 'plain'");
+        $response = $this->adminPost('/admin.php?module=pages&action=seo_bulk_save', ['score' => 'none', 'rows' => [
+            $ids['plain'] => ['seo_title' => 'Plain title', 'description' => '', 'focus_keywords' => '', 'key_page' => '1', 'noindex' => '0'],
+            $ids['strong'] => ['seo_title' => 'Strong title', 'description' => '', 'focus_keywords' => 'strong words', 'key_page' => '1', 'noindex' => '0'],
+        ]], '/admin.php?module=pages&seo_edit=1');
+        $this->assertStringContainsString('seo_edit=1', $response->redirect);
+        $this->assertStringContainsString('score=none', $response->redirect);
+        $body = $site->admin()->get(str_replace($site->base, '', $response->redirect))->body;
+        $this->assertStringContainsString('notice-error', $body);
+        $this->assertStringContainsString('Not saved – /plain: Enter the page title.', $body, 'the row and what is wrong');
+        $this->assertStringContainsString('Pages saved: 1.', $body);
+        $this->assertSame('Strong title', (string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'strong'"));
     }
 
     public function testListPagesCarriesScoreAndKeyword(): void
