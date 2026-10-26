@@ -3964,6 +3964,7 @@ return [
     'Tab name' => 'Název karty',
     'Table prefix' => 'Předpona tabulek',
     'Tables with this prefix already exist in the database. Choose another prefix or remove them first.' => 'V databázi už tabulky s touto předponou existují. Zvolte jinou předponu, nebo je nejprve odstraňte.',
+    'Tablet' => 'Tablet',
     'Tabs' => 'Karty',
     'Tag' => 'Štítek',
     'Tag deleted. The news items remain, they just no longer carry it.' => 'Štítek byl smazán. Novinky zůstaly, jen ho už nemají.',

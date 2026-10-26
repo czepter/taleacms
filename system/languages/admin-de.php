@@ -3971,6 +3971,7 @@ return [
     'Tab name' => 'Name des Tabs',
     'Table prefix' => 'Tabellenpräfix',
     'Tables with this prefix already exist in the database. Choose another prefix or remove them first.' => 'In der Datenbank existieren bereits Tabellen mit diesem Präfix. Wählen Sie ein anderes Präfix oder entfernen Sie die Tabellen zuerst.',
+    'Tablet' => 'Tablet',
     'Tabs' => 'Tabs',
     'Tag' => 'Schlagwort',
     'Tag deleted. The news items remain, they just no longer carry it.' => 'Schlagwort gelöscht. Die News-Beiträge bleiben erhalten, sie tragen es nur nicht mehr.',
