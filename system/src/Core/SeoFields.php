@@ -14,6 +14,7 @@ final class SeoFields
 
     private const int MAX_KEYWORDS = 5;
     private const int KEYWORD_LENGTH = 100;
+    private const int COLUMN_LENGTH = 500;
 
     /** @return array<string, string|int> */
     public static function fromInput(array $in): array
@@ -69,6 +70,11 @@ final class SeoFields
             }
         }
 
-        return array_slice(array_values($seen), 0, self::MAX_KEYWORDS);
+        $kept = array_slice(array_values($seen), 0, self::MAX_KEYWORDS);
+        while (count($kept) > 1 && mb_strlen(implode("\n", $kept)) > self::COLUMN_LENGTH) {
+            array_pop($kept); // the column holds 500 characters: drop trailing keywords, never cut one
+        }
+
+        return $kept;
     }
 }

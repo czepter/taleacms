@@ -16,6 +16,14 @@ final class SeoFieldsTest extends TestCase
         $this->assertSame("a\nb", SeoFields::fromInput(['focus_keywords' => ['a', ' A ', 'b']])['focus_keywords']);
     }
 
+    public function testKeywordsFitTheColumn(): void
+    {
+        $in = implode(',', array_map(fn (string $c): string => str_repeat($c, 100), ['a', 'b', 'c', 'd', 'e']));
+        $stored = SeoFields::fromInput(['focus_keywords' => $in])['focus_keywords'];
+        $this->assertLessThanOrEqual(500, mb_strlen($stored));
+        $this->assertSame([str_repeat('a', 100), str_repeat('b', 100), str_repeat('c', 100), str_repeat('d', 100)], explode("\n", $stored));
+    }
+
     public function testOnlyPresentKeys(): void
     {
         $this->assertSame(['robots' => 'nofollow'], SeoFields::fromInput(['robots' => 'nofollow']));
