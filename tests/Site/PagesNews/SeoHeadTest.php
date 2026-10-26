@@ -23,6 +23,7 @@ final class SeoHeadTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('<title>About | My website</title>', $body);
         $this->assertStringContainsString('<meta name="robots" content="index, nofollow">', $body);
         $this->assertStringContainsString('<link rel="canonical" href="https://example.org/x">', $body);
+        $this->assertStringContainsString('<meta property="og:url" content="https://example.org/x">', $body, 'og:url follows the canonical override');
         $this->assertStringContainsString('<meta property="og:title" content="Share me">', $body);
 
         $site->setting('seo_card', 'small');

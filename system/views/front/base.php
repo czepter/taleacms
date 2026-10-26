@@ -48,13 +48,14 @@ $pageTitle = Talea\Core\SeoTitle::compose($web, (string) ($meta['seo_kind'] ?? '
 <?php if ($robots !== ''): ?>
 <meta name="robots" content="<?= e($robots === 'noindex' ? 'noindex, follow' : $robots) ?>">
 <?php endif ?>
+<?php $mainUrl = ($meta['canonical'] ?? '') !== '' ? $meta['canonical'] : $canonical; // an override is the address of the page, for sharing too ?>
 <?php if (!$meta['noindex']): ?>
-<link rel="canonical" href="<?= e(($meta['canonical'] ?? '') !== '' ? $meta['canonical'] : $canonical) ?>">
+<link rel="canonical" href="<?= e($mainUrl) ?>">
 <?php endif ?>
 <meta property="og:type" content="<?= e($meta['type']) ?>">
 <meta property="og:title" content="<?= e(($meta['share_title'] ?? '') !== '' ? $meta['share_title'] : ($title !== '' ? $title : $siteName)) ?>">
 <meta property="og:site_name" content="<?= e($siteName) ?>">
-<meta property="og:url" content="<?= e($canonical) ?>">
+<meta property="og:url" content="<?= e($mainUrl) ?>">
 <?php if ($meta['image'] !== ''): ?>
 <meta property="og:image" content="<?= e($meta['image']) ?>">
 <?php endif ?>
