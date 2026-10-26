@@ -53,6 +53,18 @@ final class Pages extends Module
             'changes' => 'build_draft IS NOT NULL',
             default => 'TRUE',
         };
+        // the Page check columns and their filter (good from 80, mid from 50, low below; none = no focus keyword, hidden = noindex)
+        $scored = $this->scored() && !$trash;
+        $score = $scored ? $this->request->get('score') : '';
+        $where[] = match ($score) {
+            'good' => 'noindex = FALSE AND seo_score >= 80',
+            'mid' => 'noindex = FALSE AND seo_score >= 50 AND seo_score < 80',
+            'low' => 'noindex = FALSE AND seo_score < 50',
+            'none' => "noindex = FALSE AND focus_keywords = ''",
+            'hidden' => 'noindex = TRUE',
+            default => 'TRUE',
+        };
+        $score = in_array($score, ['good', 'mid', 'low', 'none', 'hidden'], true) ? $score : '';
         if ($search !== '') {
             $where[] = '(' . $this->db->dialect()->likeInsensitive('title') . ' OR ' . $this->db->dialect()->likeInsensitive('slug') . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
@@ -68,12 +80,53 @@ final class Pages extends Module
         unset($s);
 
         return $this->view('list', 'Pages', [
-            'pages' => $status !== '' || $search !== '' ? $pages : self::sortAsTree($pages),
+            'pages' => $status !== '' || $search !== '' || $score !== '' ? $pages : self::sortAsTree($pages),
             'trash' => $trash, 'status' => $status, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'scored' => $scored, 'score' => $score, 'links' => $scored ? \Talea\Core\InternalLinks::pageCounts($this->app) : [],
+            'orphans' => $scored ? array_flip(array_column(array_filter(\Talea\Core\InternalLinks::orphans($this->app), fn (array $o): bool => $o['kind'] === 'page'), 'id')) : [],
+            'seoEdit' => !$trash && $this->request->get('seo_edit') === '1',
             'comments' => $trash ? [] : \Talea\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
             'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
         ]);
+    }
+
+    /** The fields "Edit titles in the list" sends per row. */
+    private const array LIST_FIELDS = ['seo_title', 'description', 'focus_keywords', 'key_page', 'noindex'];
+
+    /**
+     * "Edit titles in the list" (?seo_edit=1): rows[<public id>][seo_title|description|focus_keywords|key_page|noindex], each
+     * over the page's stored values and saved as settings_save saves a tab (SeoFields::fromInput, SeoScore::refresh). A row
+     * that changes nothing is left alone; nothing is published that was not before.
+     */
+    protected function actionSeoBulkSave(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $saved = 0;
+        foreach ($this->request->postArray('rows') as $publicId => $row) {
+            $page = is_array($row) ? $this->loadPage($this->db->internalId('pages', (string) $publicId)) : null;
+            if ($page === null || $this->requirePublishPermission($page) !== null) {
+                continue;
+            }
+            $in = array_intersect_key($row, array_flip(self::LIST_FIELDS));
+            $clean = fn (string $key, mixed $value): string => match ($key) {
+                'key_page', 'noindex' => !empty($value) ? '1' : '0',
+                'focus_keywords' => (string) \Talea\Core\SeoFields::fromInput([$key => $value])[$key],
+                default => trim(\Talea\Core\Robots::scalar($value)),
+            };
+            $changed = array_filter($in, fn (mixed $value, string $key): bool => $clean($key, $value) !== $clean($key, $page[$key]), ARRAY_FILTER_USE_BOTH);
+            if ($changed === [] || $this->persist($page, $in + $this->formValues($page))['errors'] !== []) {
+                continue;
+            }
+            $saved++;
+        }
+        if ($saved > 0) {
+            \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search titles edited in the list', (string) $saved);
+        }
+
+        return $this->back(t('Pages saved: %d.', $saved));
     }
 
     /**

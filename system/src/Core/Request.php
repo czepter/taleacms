@@ -105,6 +105,14 @@ final class Request
         return is_array($value) ? array_values(array_filter($value, is_string(...))) : [];
     }
 
+    /** A group of fields posted as name[key][…] (rows of a list form); anything else is []. @return array<array-key, mixed> */
+    public function postArray(string $key): array
+    {
+        $value = $this->post[$key] ?? [];
+
+        return is_array($value) ? $value : [];
+    }
+
     /** @return array<string, mixed>|null */
     public function file(string $key): ?array
     {

@@ -802,6 +802,17 @@ table.listing td.cell-actions { width: 1%; white-space: nowrap; }
 }
 table.listing a.status-note { font-weight: 400; }
 .status-note-warning { color: var(--warning-text); }
+
+/* Pages list with the Page check columns and "Edit titles in the list" */
+table.listing td.cell-links { font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.listing td.cell-links .status-note { padding-inline-start: 0; }
+.seo-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
+table.listing tr.seo-edit-row td { padding: 12px 16px 16px; background: color-mix(in oklch, var(--text) 3%, transparent); }
+.seo-edit-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, .8fr); gap: 12px; align-items: start; }
+.seo-edit-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.seo-edit-grid label.option { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; }
+.seo-edit-options { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 900px) { .seo-edit-grid { grid-template-columns: minmax(0, 1fr); } }
 .status-note-error { color: var(--error); }
 .status-note-neutral { color: var(--text-weak); }
 .row-actions {

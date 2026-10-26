@@ -71,9 +71,11 @@ trait PageTools
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
         return array_map(fn (array $r): array => ['id' => (int) $r['page_id'], 'title' => $r['title'], 'url' => $this->app->request->origin()
             . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['page_id'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
-            'home' => (int) $r['page_id'] === $home, 'visible' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
+            'home' => (int) $r['page_id'] === $home, 'visible' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language'],
+            // the search score (null without a focus keyword) and the keyword it was checked against
+            'seo_score' => $r['seo_score'] === null ? null : (int) $r['seo_score'], 'focus_keyword' => \Talea\Core\SeoFields::keywords((string) $r['focus_keywords'])[0] ?? ''],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . $auth->pageListScope() . ' ORDER BY language, sort_order, title'));
+            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of, seo_score, focus_keywords FROM {pages} WHERE deleted_at IS NULL' . $auth->pageListScope() . ' ORDER BY language, sort_order, title'));
     }
 
     /** get_page */

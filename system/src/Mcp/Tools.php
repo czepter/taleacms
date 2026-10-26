@@ -121,7 +121,7 @@ final class Tools
         ];
         $tools = [
             ['site_info', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions.', $s([])],
-            ['list_pages', 'Pages of the site (Home, About, Services, Contact…) with their addresses.', $s([])],
+            ['list_pages', 'Pages of the site (Home, About, Services, Contact…) with their addresses, search score (0–100, null without a focus keyword) and focus keyword.', $s([])],
             ['get_page', 'The whole page including its HTML content.', $s(['id' => $pid('Page ID')], ['id'])],
             ['create_page', 'Creates a page (editors and administrators). Without "visible": true it stays hidden.', $s($page, ['title'])],
             ['update_page', 'Changes the given fields of a page; the others stay.', $s(['id' => $pid('Page ID')] + $page, ['id'])],
