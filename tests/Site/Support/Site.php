@@ -93,7 +93,7 @@ final class Site
         $this->mcpToken = 'talea_' . bin2hex(random_bytes(24));
         $this->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
         $this->setting('tasks_token', $this->tasksToken());
-        $this->setting('extensions', $this->options['enabledExtensions'] ?? 'news,enquiries,newsletter_signup,stats,redirects,assistant,languages,claude');
+        $this->setting('extensions', $this->options['enabledExtensions'] ?? 'news,enquiries,newsletter_signup,stats,redirects,page_check,assistant,languages,claude');
     }
 
     // ---- installed-site template (built once per run, cloned per class)
@@ -532,7 +532,7 @@ final class Site
             'db_driver' => $server['driver'], 'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
             'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
             'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
-            'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects'],
+            'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects', 'page_check'],
         ];
         $fields['language'] = $this->options['language'] ?? 'en';
         // extra or replaced installer fields (German register, site language, e-mail …); a null value drops the field

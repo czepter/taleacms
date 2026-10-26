@@ -44,6 +44,44 @@ final class InternalLinks
         return $orphans;
     }
 
+    /**
+     * Links in and out per page for the pages list: out = the other pages a page's content links to, in = the published pages
+     * that link to it. Only page content counts; orphans() also knows the menus, site parts and lists.
+     *
+     * @return array<int, array{in: int, out: int}> page id => counts
+     */
+    public static function pageCounts(App $app): array
+    {
+        $s = $app->settings();
+        $home = (int) $s->get('home_page');
+        $additional = Language::additional($s);
+        // ponytail: every page's content is read on each list view; a cache like orphans() once sites have thousands of pages
+        $pages = $app->db()->all('SELECT page_id, slug, language, visible, translation_of, text, build, build_draft FROM {pages} WHERE deleted_at IS NULL');
+        $byPath = [];
+        $counts = [];
+        foreach ($pages as $p) {
+            $prefix = in_array($p['language'], $additional, true) ? (string) $p['language'] : '';
+            $isHome = (int) $p['page_id'] === $home || ($home > 0 && (int) $p['translation_of'] === $home);
+            $byPath[$isHome ? $prefix : ltrim($prefix . '/' . $p['slug'], '/')] = (int) $p['page_id'];
+            $counts[(int) $p['page_id']] = ['in' => 0, 'out' => 0];
+        }
+        foreach ($pages as $p) {
+            $id = (int) $p['page_id'];
+            $targets = [];
+            foreach (self::paths($app, (string) ($p['build'] ?? $p['build_draft'] ?? $p['text'])) as $path) {
+                if (isset($byPath[$path]) && $byPath[$path] !== $id) {
+                    $targets[$byPath[$path]] = true;
+                }
+            }
+            $counts[$id]['out'] = count($targets);
+            foreach ($p['visible'] ? array_keys($targets) : [] as $target) {
+                $counts[$target]['in']++;
+            }
+        }
+
+        return $counts;
+    }
+
     public static function forget(): void
     {
         @unlink(self::CACHE);

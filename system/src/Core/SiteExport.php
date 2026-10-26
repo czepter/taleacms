@@ -32,7 +32,9 @@ final class SiteExport
         'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
         'time_zone', 'site_language', 'additional_languages', 'home_page', 'news_slug', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
-        'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock']; // the screen mode without its secret (2.11)
+        'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock',
+        'seo_separator', 'seo_title_home', 'seo_title_page', 'seo_title_news', 'seo_title_item', 'seo_title_category', 'seo_title_tag', 'seo_description_page', 'seo_description_news', 'seo_description_item',
+        'seo_capitalize', 'seo_robots', 'seo_hide_empty_terms', 'seo_card']; // the screen mode without its secret (2.11)
 
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
     private const array EXCLUDED_ARTICLE_COLUMNS = ['search_text', 'links_checked_at', 'announced_at', 'author_id', 'author_name'];
@@ -126,7 +128,7 @@ final class SiteExport
         self::fields($f, 'categories', $one('categories', 'SELECT category_id, public_id, name, slug, description, weight, language, translation_of FROM {categories} WHERE category_id > ? ORDER BY category_id LIMIT 500', 'category_id', ['translation_of' => 'categories']));
         self::fields($f, 'tags', $one('tags', 'SELECT tag_id, public_id, name, slug, description, image FROM {tags} WHERE tag_id > ? ORDER BY tag_id LIMIT 500', 'tag_id'));
         self::fields($f, 'news', self::articles($db, $authors));
-        self::fields($f, 'redirects', $one('redirects', 'SELECT redirect_id, public_id, from_path, to_path, type, auto_score FROM {redirects} WHERE redirect_id > ? ORDER BY redirect_id LIMIT 1000', 'redirect_id'));
+        self::fields($f, 'redirects', $one('redirects', 'SELECT redirect_id, public_id, from_path, to_path, match_type, type, active, auto_score FROM {redirects} WHERE redirect_id > ? ORDER BY redirect_id LIMIT 1000', 'redirect_id'));
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
         self::fields($f, 'classes', $db->all('SELECT name, style, css FROM {classes} ORDER BY name'));
         // the drafts go along (build_draft): a site moved in the middle of a redesign keeps its unfinished work
@@ -139,7 +141,7 @@ final class SiteExport
         self::fields($f, 'collection_templates', $all('collection_templates', 'SELECT collection_id, language, build, build_draft FROM {collection_templates} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY collection_id, language', ['collection_id' => 'collections'], $builds));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, 'popups', $all('popups', 'SELECT popup_id, public_id, name, slug, type, trigger_type, value, rules, frequency, days, active, sort_order, valid_until, review_by, build, build_draft FROM {popups} ORDER BY popup_id', [], ['rules' => 'rules'] + $builds));
-        self::fields($f, 'collection_items', $one('collection_items', 'SELECT item_id, public_id, collection_id, name, slug, data, seo_title, description, image, noindex, sort_order, visible, publish_at, valid_until, review_by, language, created_at FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'item_id', ['collection_id' => 'collections']));
+        self::fields($f, 'collection_items', $one('collection_items', 'SELECT item_id, public_id, collection_id, name, slug, data, seo_title, description, image, noindex, focus_keywords, key_page, robots, canonical_url, breadcrumb_title, share_title, share_description, sort_order, visible, publish_at, valid_until, review_by, language, created_at FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'item_id', ['collection_id' => 'collections']));
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name FROM {media_folders} ORDER BY folder_id'));
@@ -323,6 +325,8 @@ final class SiteExport
         if (isset($selection['home_page'])) {
             $selection['home_page'] = $db->publicId('pages', (int) $selection['home_page']); // a public id like every reference (empty = none)
         }
+        // the features switched off by name, so an import tells them from features this site did not have yet (SiteImport)
+        $selection['extensions_off'] = implode(',', array_diff(array_keys(Extensions::CATALOG), Extensions::fromValue((string) ($all['extensions'] ?? ''))));
         ksort($selection);
 
         return $selection;
@@ -370,7 +374,8 @@ final class SiteExport
             . ($withMedia ? "media/      uploaded images and files; the paths match the \"image\" columns and the media rows\n" : "media/      NOT in the archive (too large or too little disk space) – download the media/ folder from the site over FTP\n")
             . "\ncontent.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
             . "format, format_version, talea, created_at   header (format \"talea-export\", format version, Talea version, created)\n"
-            . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page\n"
+            . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page,\n"
+            . "                 the features switched on (extensions) and off (extensions_off)\n"
             . "Public ids: every row of pages, categories, tags, news, redirects, components, sections, collections, collection_items, popups, media,\n"
             . "                 media_folders, booking_services and booking_staff has a public_id (UUID v4). The integer keys of the database are not in the file;\n"
             . "                 every reference between rows (parent_id, translation_of, category_id, folder_id, collection_id, item_id, tags, staff_id, service_id,\n"
@@ -381,7 +386,7 @@ final class SiteExport
             . "tags             tags: public_id, name, slug, description, image\n"
             . "news             news: public_id, title, intro and text (HTML), published_at, visible (1 = published), category_id (public id of the category), language,\n"
             . "                 translation_of (public id of the news item it translates), author (a name), tags (list of public ids of tags) and more\n"
-            . "redirects        redirects: from_path -> to_path, type (301 or 302), auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
+            . "redirects        redirects: from_path -> to_path, match_type (exact, contains, starts, ends or regex), type (301, 302, 307, 410 or 451), active, auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
             . "classes          shared classes of the builder: name, style (JSON), css\n"
             . "site_parts       site parts (header, footer, wrappers): type, language, variant, pages, build, build_draft\n"
             . "components       components: public_id, name, properties, build, build_draft (the \"component\" element refers to a public_id), kit_key (from a fleet kit, 2.16)\n"

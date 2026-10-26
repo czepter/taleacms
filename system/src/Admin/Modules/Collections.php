@@ -212,6 +212,7 @@ final class Collections extends Module
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
+            'seoCheck' => $k['detail'] && $p['item_id'] > 0 && \Talea\Core\ContentCheck::enabled($this->app->settings()) ? \Talea\Core\SeoScore::panel($this->app, 'item', $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $p['item_id']])) : null,
             'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);
@@ -241,7 +242,7 @@ final class Collections extends Module
         $row = ['collection_id' => $k['collection_id'], 'name' => $name, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'sort_order' => max(-9999, min(9999, $r->postInt('sort_order'))), 'language' => $language, 'updated_at' => date('Y-m-d H:i:s'),
             'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')), 'review_by' => \Talea\Core\Validity::date($r->post('review_by'))] // 2.10
-            + KolekceObsahu::pageFields($_POST, $r->postBool('visible'));
+            + KolekceObsahu::pageFields($_POST, $r->postBool('visible')) + \Talea\Core\SeoFields::fromInput($_POST);
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['visible'])) {
             return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
@@ -256,6 +257,7 @@ final class Collections extends Module
         }
         \Talea\Core\Members::saveFromForm($this->app, 'item', $idp);
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
+        \Talea\Core\SeoScore::refresh($this->app, 'item', $idp);
         \Talea\Front\Cache::clear();
         if ($errors !== []) {
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
@@ -355,6 +357,7 @@ final class Collections extends Module
         }
         KolekceObsahu::saveVersion($this->app, $item, $version);
         $this->db->update('collection_items', $version + ['updated_at' => date('Y-m-d H:i:s')], ['item_id' => $idp]);
+        \Talea\Core\SeoScore::refresh($this->app, 'item', $idp);
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
         \Talea\Front\Cache::clear();
 
@@ -400,8 +403,8 @@ final class Collections extends Module
     protected function actionRestoreItem(): Response
     {
         $idk = $this->idParam('collection_id');
-        if ($this->request->isPost()) {
-            self::restoreItem($this->db, $this->idParam('item_id', 'collection_items'), $idk);
+        if ($this->request->isPost() && self::restoreItem($this->db, $idp = $this->idParam('item_id', 'collection_items'), $idk)) {
+            \Talea\Core\SeoScore::refresh($this->app, 'item', $idp);
         }
 
         return $this->back('The item was restored as hidden.', 'items', ['id' => $this->publicId($idk)]);

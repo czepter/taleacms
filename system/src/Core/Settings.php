@@ -87,6 +87,22 @@ final class Settings
         'verification_google' => '',
         'verification_bing' => '',
         'robots_extra' => '',
+        'seo_separator' => '–',                          // %sep% in the title templates
+        'seo_title_home' => '%sitename% %sep% %tagline%', // title templates (Core\SeoTitle); a page's own SEO title is used as written
+        'seo_title_page' => '%title% %sep% %sitename%',
+        'seo_title_news' => '%title% %sep% %sitename%',
+        'seo_title_item' => '%title% %sep% %sitename%',
+        'seo_title_category' => '%title% %sep% %sitename%',
+        'seo_title_tag' => '%title% %sep% %sitename%',
+        'seo_description_page' => '',                    // '' = the current fallback: the intro, then the first text field
+        'seo_description_news' => '',
+        'seo_description_item' => '',
+        'seo_capitalize' => '0',                         // Title Case in generated titles
+        'seo_robots' => '',                              // site-wide robots directives (Core\Robots::normalize)
+        'seo_hide_empty_terms' => '1',                   // categories and tags without published news are noindex
+        'seo_card' => 'large',                           // large | small: the twitter:card of pages with a share image
+        'seo_audit_score' => '',                         // the last site audit score and the one before; written only by the admin Site audit screen (Audit::scored(true)); MCP never stores it
+        'seo_audit_previous' => '',
         'ai_crawlers' => 'allow',   // allow | block (GPTBot, ClaudeBot, PerplexityBot...)
         'url_slash' => 'none',         // none (/path) | slash (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',

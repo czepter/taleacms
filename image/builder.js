@@ -2192,6 +2192,8 @@
 	new ResizeObserver(() => previewSize(preview)).observe(frame2);
 	root.hidden = false;
 	redraw();
+	const chosen = new URLSearchParams(window.location.search).get('select'); // Website mode's "Add a type" opens with the new element selected
+	if (chosen) { selection(chosen); }
 	refreshPreview();
 	document.addEventListener('keydown', keys);
 	document.addEventListener('paste', onPaste);

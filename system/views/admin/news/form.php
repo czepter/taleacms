@@ -5,6 +5,7 @@
  * @var Talea\Admin\Modules\News $module
  * @var string $csrf
  * @var array<string, mixed> $newsItem
+ * @var ?array<string, mixed> $seoCheck  SEO score panel of a saved news item (Core\SeoScore::panel)
  * @var array<string, string> $errors
  * @var list<array<string, mixed>> $category
  * @var array<int, string> $authors
@@ -181,10 +182,10 @@ $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($
 <div data-check-result aria-live="polite"><p class="help"><?= e(t('The check runs while you write (needs JavaScript).')) ?></p></div>
 </fieldset>
 <?php if ($newsItem['news_id']): ?>
-<?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
+<?= $app->view->render('admin/content_check', ['app' => $app, 'results' => $contentCheck, 'seo' => $seoCheck]) ?>
 <?php endif ?>
 
-<details class="advanced"<?= $newsItem['seo_title'] !== '' || $newsItem['seo_description'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
+<details class="advanced"<?= $newsItem['seo_title'] !== '' || $newsItem['seo_description'] !== '' || ($newsItem['focus_keywords'] ?? '') !== '' || ($newsItem['canonical_url'] ?? '') !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('SEO and more settings')) ?></summary>
 <div class="row">
 	<label for="slug"><?= e(t('URL')) ?></label>
@@ -213,6 +214,7 @@ $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($
 	<span class="caption"><?= e(t('Options')) ?></span>
 	<div class="options"><label><input type="checkbox" name="noindex" value="1"<?= $newsItem['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>
 </div>
+<?= $app->view->render('admin/seo/fields', ['app' => $app, 'row' => $newsItem, 'dir' => $contentDir]) ?>
 <?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'news', 'row' => (int) ($newsItem['news_id'] ?? 0)]) ?>
 </details>
 <?php if ($versions !== []): ?>

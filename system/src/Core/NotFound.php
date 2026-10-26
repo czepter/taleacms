@@ -35,14 +35,14 @@ final class NotFound
      * Addresses that still end in 404, were hit repeatedly in the last $days days and were not ignored. On the way, rows
      * that work again, have a redirect or are bot probes recorded by an older version are removed.
      *
-     * @return list<array{path: string, count: int, last_seen_at: string}>
+     * @return list<array{path: string, count: int, last_seen_at: string, referrer: string, first_seen_at: ?string}>
      */
     public static function pending(App $app, int $days = 7, int $limit = 100): array
     {
         $db = $app->db();
         $audit = new Audit($app);
         $out = [];
-        foreach ($db->all('SELECT path, count, last_seen_at FROM {not_found} WHERE ignored_at IS NULL AND last_seen_at > NOW() - INTERVAL ? DAY AND count >= ? ORDER BY count DESC, last_seen_at DESC LIMIT 500', [$days, self::HITS]) as $r) {
+        foreach ($db->all('SELECT path, count, last_seen_at, referrer, first_seen_at FROM {not_found} WHERE ignored_at IS NULL AND last_seen_at > NOW() - INTERVAL ? DAY AND count >= ? ORDER BY count DESC, last_seen_at DESC LIMIT 500', [$days, self::HITS]) as $r) {
             $path = (string) $r['path'];
             if (self::isBot($path) || $audit->resolves('/' . $path)) {
                 $db->delete('not_found', ['path' => $path]); // nothing to do about it any more
@@ -50,11 +50,39 @@ final class NotFound
                 continue;
             }
             if (count($out) < $limit) {
-                $out[] = ['path' => $path, 'count' => (int) $r['count'], 'last_seen_at' => (string) $r['last_seen_at']];
+                $out[] = ['path' => $path, 'count' => (int) $r['count'], 'last_seen_at' => (string) $r['last_seen_at'], 'referrer' => (string) $r['referrer'], 'first_seen_at' => $r['first_seen_at'] !== null ? (string) $r['first_seen_at'] : null];
             }
         }
 
         return $out;
+    }
+
+    /** Addresses the administrator ignored, newest first. @return list<array{path: string, count: int, last_seen_at: string, referrer: string, first_seen_at: ?string}> */
+    public static function ignored(App $app, int $limit = 100): array
+    {
+        return array_map(fn (array $r): array => ['path' => (string) $r['path'], 'count' => (int) $r['count'], 'last_seen_at' => (string) $r['last_seen_at'], 'referrer' => (string) $r['referrer'], 'first_seen_at' => $r['first_seen_at'] !== null ? (string) $r['first_seen_at'] : null],
+            $app->db()->all('SELECT path, count, last_seen_at, referrer, first_seen_at FROM {not_found} WHERE ignored_at IS NOT NULL ORDER BY ignored_at DESC LIMIT ' . max(1, $limit)));
+    }
+
+    /**
+     * What is kept of a Referer header: host and path without query or fragment ("other.example/list"), an address on this site as its path
+     * ("/portraits"), '' for none. Nothing about the visitor is stored.
+     */
+    public static function referrer(string $referer, string $ownHost): string
+    {
+        if (!mb_check_encoding($referer, 'UTF-8')) {
+            return ''; // a broken header must never make the 404 write fail
+        }
+        $parts = parse_url(trim($referer));
+        if (!is_array($parts) || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true) || ($parts['host'] ?? '') === '') {
+            return '';
+        }
+        $port = (int) ($parts['port'] ?? 0); // a missing port is the scheme's default
+        $host = strtolower($parts['host']) . ($port > 0 && $port !== (strtolower($parts['scheme']) === 'https' ? 443 : 80) ? ':' . $port : '');
+        $path = (string) ($parts['path'] ?? '');
+        $path = $path === '/' ? '' : $path;
+
+        return mb_substr($host === strtolower($ownHost) ? ($path === '' ? '/' : $path) : $host . $path, 0, 255);
     }
 
     /** Hides addresses from the warning and the list; with no paths all addresses waiting now. Returns how many. */

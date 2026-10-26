@@ -693,7 +693,7 @@ final class SiteImport
             'text' => self::html($r['text'] ?? '', 4_000_000), 'visible' => (int) !empty($r['visible']), 'publish_at' => self::date($r['publish_at'] ?? null),
             'in_menu' => (int) !empty($r['in_menu']), 'sort_order' => (int) ($r['sort_order'] ?? 0), 'updated_at' => self::date($r['updated_at'] ?? null) ?? date('Y-m-d H:i:s'),
             'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('pages', $r['translation_of'] ?? null) ?: null, 'parent_id' => $this->ref('pages', $r['parent_id'] ?? null) ?: null,
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r);
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
     }
 
     private function newsItem(array $r): ?array
@@ -710,7 +710,7 @@ final class SiteImport
             'visit' => (int) ($r['visit'] ?? 0), 'edited_at' => self::date($r['edited_at'] ?? null), 'updated_at' => self::date($r['updated_at'] ?? null),
             // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
             'announced_at' => date('Y-m-d H:i:s'), 'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('news', $r['translation_of'] ?? null) ?: null, 'search_text' => null,
-            '_tags' => array_values(array_filter(array_map(fn (mixed $t): int => $this->ref('tags', $t), is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r);
+            '_tags' => array_values(array_filter(array_map(fn (mixed $t): int => $this->ref('tags', $t), is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r) + SeoFields::fromInput($r);
         if (is_string($r['faq'] ?? null)) {
             $row['faq'] = self::text($r['faq'], 60_000);
         }
@@ -721,12 +721,24 @@ final class SiteImport
     private function redirect(array $r): ?array
     {
         // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL;
-        // an empty target is the home page (the module stores "/" so)
-        $from = is_string($r['from_path'] ?? null) ? trim($r['from_path'], '/ ') : '';
+        // an empty target (or "/") is the home page, stored as '' and checked as "/" like the module does
+        // an archive from before match types (or a converted Kaleta export) has no match_type: an exact rule
+        $match = in_array($r['match_type'] ?? null, RedirectRules::MATCHES, true) ? $r['match_type'] : 'exact';
+        $type = in_array((int) ($r['type'] ?? 301), RedirectRules::TYPES, true) ? (int) ($r['type'] ?? 301) : 301;
+        $from = is_string($r['from_path'] ?? null) ? ($match === 'exact' ? trim($r['from_path'], '/ ') : $r['from_path']) : '';
         $to = is_string($r['to_path'] ?? null) ? trim($r['to_path']) : '';
+        $home = $type < 400 && trim($to, '/') === '';
+        if ($home) {
+            $to = '';
+        }
 
-        return preg_match('#^[^\s/][^\s]{0,254}$#', $from) && is_string($r['to_path'] ?? null) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to)
-            ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'type' => (int) ($r['type'] ?? 301) === 302 ? 302 : 301, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
+        $valid = ($match !== 'exact' || preg_match('#^[^\s/][^\s]{0,254}$#', $from))
+            && RedirectRules::validate($from, $home ? '/' : $to, $match, $type) === null
+            && is_string($r['to_path'] ?? null)
+            && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to);
+
+        return $valid
+            ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'match_type' => $match, 'type' => $type, 'active' => empty($r['active'] ?? 1) ? 0 : 1, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
@@ -832,7 +844,7 @@ final class SiteImport
             'sort_order' => (int) ($r['sort_order'] ?? 0), 'visible' => (int) !empty($r['visible']), 'language' => self::language($r['language'] ?? ''),
             'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
             'seo_title' => self::text($r['seo_title'] ?? '', 200), 'description' => self::text($r['description'] ?? '', 300), 'image' => self::file($r['image'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r);
+            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */
@@ -907,7 +919,7 @@ final class SiteImport
                 // a regional language of the archive keeps the language the new site already has (en-gb into an English site stays English)
                 'site_language' => isset(Language::AVAILABLE[$value]) && Language::forSite($value, [Language::defaults($this->settings)]) === $value ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),
-                'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
+                'extensions' => $value === '-' ? '-' : implode(',', Extensions::imported($value, $values['extensions_off'] ?? null)),
                 // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*
                 // "javascript:…" from a crafted archive is dropped and the setting keeps its value
                 default => \Talea\Admin\Modules\Settings::checkable($key) ? \Talea\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),

@@ -9,6 +9,8 @@ use Talea\Admin\Modules\Categories;
 use Talea\Admin\Modules\Pages;
 use Talea\Core\App;
 use Talea\Core\Language;
+use Talea\Core\SearchData;
+use Talea\Core\SearchInsights;
 use Talea\Front\SiteIdentity;
 use Talea\Builder\SiteParts;
 use Talea\Builder\DesignSystem;
@@ -151,6 +153,7 @@ trait SettingsTools
         if (isset($stored['company_hours'])) {
             \Talea\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
         }
+        \Talea\Admin\Modules\Seo::ensureIndexNowKey($siteSettings); // instant indexing switched on here gets its key too
         if (($stored['screen_mode'] ?? '') === '1') {
             \Talea\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
         }
@@ -188,21 +191,37 @@ trait SettingsTools
         }
         if ($name === 'save_redirect') {
             $adminOnly();
-            $from = trim((string) parse_url((string) ($a['from'] ?? ''), PHP_URL_PATH), '/ ');
+            $rawFrom = trim((string) ($a['from'] ?? ''));
+            // an existing rule keeps what the call leaves out; a new one starts with exact, 301 and on. The row is found by its own
+            // normalised address: with a match type only that one; without, the address as typed (a regex is never parsed as a URL)
+            $given = isset($a['match']) ? (string) $a['match'] : null;
+            $typed = preg_match('#^https?://#i', $rawFrom) ? \Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, 'exact') : ltrim($rawFrom, '/');
+            $old = $given !== null
+                ? $db->one('SELECT redirect_id, match_type, type, active FROM {redirects} WHERE from_path = ?', [\Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, $given)])
+                : $db->one('SELECT redirect_id, match_type, type, active FROM {redirects} WHERE from_path = ? OR from_path = ? ORDER BY CASE WHEN from_path = ? THEN 0 ELSE 1 END', [$typed, $rawFrom, $typed]);
+            if ($old !== null && $given !== null && $old['match_type'] !== $given) {
+                $old = null; // the address is taken by a rule of another kind: it is replaced with the defaults of a new one
+            }
+            $match = $given ?? (string) ($old['match_type'] ?? 'exact');
+            $type = (int) ($a['code'] ?? $old['type'] ?? 301);
+            $active = isset($a['active']) ? (filter_var($a['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true) : (bool) ($old['active'] ?? true);
+            $from = \Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, $match);
             $to = trim((string) ($a['to'] ?? ''));
-            if ($from === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $from)) {
+            if ($from === '' || ($match === 'exact' && !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $from))) {
                 throw new \InvalidArgumentException('The old path must be a path on this site, e.g. /old-page.');
             }
             if (!empty($a['delete'])) {
                 $db->delete('redirects', ['from_path' => $from]);
             } else {
-                if (!preg_match('#^https?://[^\s]{3,240}$#i', $to) && !preg_match('#^/?[^\s:]{0,250}$#', $to)) {
+                if (!preg_match('#^https?://[^\s]{3,240}$#i', $to) && !preg_match('#^/?[^\s:]{0,250}$#', $to) && $type < 400) {
                     throw new \InvalidArgumentException('The new address must be a path (/new) or an https://… address.');
                 }
-                $to = preg_match('#^https?://#i', $to) ? $to : trim($to, '/');
-                \Talea\Admin\Modules\Redirects::add($db, $from, $to);
-                $db->run('UPDATE {redirects} SET type = ? WHERE from_path = ?', [(int) ($a['code'] ?? 301) === 302 ? 302 : 301, $from]);
-                $db->delete('not_found', ['path' => $from]);
+                $rule = \Talea\Admin\Modules\Redirects::normalize($from, $to, $match, $type);
+                if (is_string($rule)) {
+                    throw new \InvalidArgumentException($rule);
+                }
+                // the old address names the row, so it cannot clash with another one
+                \Talea\Admin\Modules\Redirects::store($db, $rule['from'], $rule['to'], $match, $type, $active);
             }
             \Talea\Front\Cache::clear();
         }
@@ -211,9 +230,9 @@ trait SettingsTools
         $pending = \Talea\Core\NotFound::pending($this->app, 60, 30);
         $suggestions = \Talea\Core\RedirectMatcher::suggestions($this->app, $pending);
 
-        return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
-                $db->all('SELECT from_path, to_path, type, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
-            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
+        return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'match' => $r['match_type'], 'active' => (bool) $r['active'], 'last_hit_at' => $r['last_hit_at'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
+                $db->all('SELECT from_path, to_path, type, match_type, active, last_hit_at, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at'], 'referrer' => $n['referrer'], 'first_seen_at' => $n['first_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Talea\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 
@@ -252,13 +271,14 @@ trait SettingsTools
         };
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
-        $findings = (new \Talea\Core\Audit($this->app))->run();
+        $audit = (new \Talea\Core\Audit($this->app))->scored();
+        $findings = $audit['findings'];
         if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
             $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
         }
         $counts = array_count_values(array_column($findings, 'kind'));
 
-        return ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+        return ['score' => $audit['score'], 'previous_score' => $audit['previous'], 'passed' => $audit['passed'], 'total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
     }
 
     /** get_stats (2.3): the same report as the Statistics screen */
@@ -270,6 +290,55 @@ trait SettingsTools
         }
 
         return \Talea\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
+    }
+
+    /** get_search_performance: what Search engines → Performance shows, for whoever may open it (the Statistics right) */
+    private function toolGetSearchPerformance(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        if (!$auth->isAdmin() && !$auth->hasModule('stats')) {
+            throw new \DomainException('Search data is for administrators and users with access to Statistics.');
+        }
+        $db = $this->app->db();
+        [$connected, $engine] = SearchInsights::choose($db, (string) ($a['engine'] ?? ''));
+        $out = ['engine' => $engine];
+        $notes = [];
+        foreach (SearchData::ENGINES as $e) {
+            $day = SearchInsights::snapshots($db, $e)[$e] ?? null;
+            $out[$e] = $day === null ? null : ['day' => $day];
+            if ($day === null) {
+                $notes[] = $e . ': ' . (in_array($e, $connected, true) ? 'connected; the first data arrives after the nightly update.' : 'not connected – the owner connects it in Administration → Connections.');
+            }
+        }
+        if ($notes !== []) {
+            $out['note'] = implode(' ', $notes);
+        }
+        $summary = SearchInsights::summary($db, $engine);
+        if ($summary === null) {
+            return $out;
+        }
+        $root = SearchInsights::root($this->app);
+        $pages = $db->all('SELECT page_id, public_id, slug, language, translation_of FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL');
+        $byKey = array_combine(SearchInsights::pageKeys($this->app, $pages, $root), array_column($pages, 'public_id'));
+        $top = SearchInsights::byPath($db, $engine, $root);
+        uasort($top, fn (array $x, array $y): int => $y['clicks'] <=> $x['clicks'] ?: $y['impressions'] <=> $x['impressions']);
+        $queries = SearchInsights::rows($db, $engine, 'query');
+        $numbers = fn (array $r): array => ['clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions'], 'ctr' => (float) $r['ctr'], 'position' => (float) $r['position'] > 0 ? (float) $r['position'] : null];
+
+        $out += [
+            'summary' => $summary,
+            'queries' => array_map(fn (array $r): array => ['query' => (string) $r['key']] + $numbers($r), array_slice($queries, 0, SearchData::TOP)),
+            'pages' => array_map(fn (string $path, array $r): array => ['path' => '/' . $path, 'page_id' => $byKey[$path] ?? null] + $r, array_keys(array_slice($top, 0, SearchData::TOP, true)), array_slice($top, 0, SearchData::TOP, true)),
+            'opportunities' => SearchInsights::opportunities($queries, SearchInsights::rows($db, $engine, 'page_query')),
+            'low_ctr' => SearchInsights::lowCtr(SearchInsights::rows($db, $engine, 'page')),
+            'sitemaps' => in_array(\Talea\Connectors\Google::KEY, $connected, true) ? SearchData::report($db, date('Y-m-d', strtotime('-30 days')))[\Talea\Connectors\Google::KEY]['sitemaps'] ?? [] : [],
+        ];
+        if (!empty($a['page'])) {
+            $page = $db->one('SELECT page_id, slug, language, translation_of FROM {pages} WHERE page_id = ?', [(int) $a['page']]);
+            $out['page'] = $page === null ? null : SearchInsights::forPath($db, SearchInsights::pageKeys($this->app, [$page], $root)[(int) $page['page_id']], $root);
+        }
+
+        return $out;
     }
 
     /** list_changes (2.2): the change log, people and Claude told apart */

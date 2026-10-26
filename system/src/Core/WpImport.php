@@ -468,6 +468,7 @@ final class WpImport
             'published_at' => self::date($p),
             'visible' => $articleStatus['visible'],
             'seo_title' => $plugin['title'], 'seo_description' => $plugin['description'], 'noindex' => $plugin['noindex'],
+            'focus_keywords' => $plugin['focus_keywords'], 'canonical_url' => $plugin['canonical_url'],
             'edited_at' => $now,
             'announced_at' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
@@ -516,6 +517,7 @@ final class WpImport
             'build' => ($state['options']['builder'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
             'description' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['excerpt']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'seo_title' => $plugin['title'], 'noindex' => $plugin['noindex'],
+            'focus_keywords' => $plugin['focus_keywords'], 'canonical_url' => $plugin['canonical_url'],
             'visible' => $articleStatus['visible'],
             'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
@@ -583,6 +585,7 @@ final class WpImport
         $row = [
             'collection_id' => $idk, 'name' => $title, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'seo_title' => $plugin['title'], 'description' => $plugin['description'], 'noindex' => $plugin['noindex'],
+            'focus_keywords' => $plugin['focus_keywords'], 'canonical_url' => $plugin['canonical_url'],
             'visible' => $articleStatus['visible'], 'language' => $language, 'created_at' => self::date($p), 'updated_at' => date('Y-m-d H:i:s'),
         ];
         $idp = $this->db->insert('collection_items', $row);
@@ -668,13 +671,15 @@ final class WpImport
      *
      * @param array<string, mixed> $p
      * @param array<string, mixed> $state
-     * @return array{title:string, description:string, noindex:int}
+     * The focus keyword and the canonical address go along; a canonical that points at the old site itself is dropped.
+     *
+     * @return array{title:string, description:string, noindex:int, focus_keywords:string, canonical_url:string}
      */
     private function seo(array $p, string $category, int $titleLimit, int $descriptionLimit, array &$state): array
     {
         $raw = WpSeo::raw($p['meta'] ?? []);
         if ($raw['plugin'] === '') {
-            return ['title' => '', 'description' => '', 'noindex' => 0];
+            return ['title' => '', 'description' => '', 'noindex' => 0, 'focus_keywords' => '', 'canonical_url' => ''];
         }
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('/\[[^\]]*\]/', '', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $excerpt = $plain($p['excerpt']);
@@ -682,12 +687,21 @@ final class WpImport
             'title' => $p['title'], 'sitename' => $this->settings->get('site_name'), 'sitedesc' => $this->settings->get('site_description'),
             'excerpt' => mb_strimwidth($excerpt !== '' ? $excerpt : $plain($p['content']), 0, 160, '…'), 'category' => $category,
         ];
-        $result = ['title' => WpSeo::title($raw['title'], $context, $titleLimit), 'description' => WpSeo::description($raw['description'], $context, $descriptionLimit), 'noindex' => (int) $raw['noindex']];
+        $result = ['title' => WpSeo::title($raw['title'], $context, $titleLimit), 'description' => WpSeo::description($raw['description'], $context, $descriptionLimit), 'noindex' => (int) $raw['noindex']]
+            + SeoFields::fromInput(['focus_keywords' => $raw['focus_keyword'], 'canonical_url' => self::foreignCanonical($raw['canonical'], (string) ($p['link'] ?? ''))]);
         if ($result['title'] !== '' || $result['description'] !== '' || $result['noindex'] === 1) {
             $state['result']['seo']++;
         }
 
         return $result;
+    }
+
+    /** The canonical address when it points to another host than the old post itself, otherwise ''. */
+    private static function foreignCanonical(string $canonical, string $postLink): string
+    {
+        $host = fn (string $url): string => (string) preg_replace('~^www\.~', '', strtolower((string) parse_url($url, PHP_URL_HOST)));
+
+        return $host($canonical) === $host($postLink) ? '' : $canonical;
     }
 
     /**

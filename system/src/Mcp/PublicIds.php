@@ -23,6 +23,7 @@ final class PublicIds
     /** Arguments naming a row: tool => path => rule. A value that is not the UUID of an existing row is refused. */
     private const array IN = [
         'get_page' => ['id' => 'pages'], 'trash_page' => ['id' => 'pages'],
+        'get_search_performance' => ['page' => 'pages'],
         'create_page' => ['parent' => 'pages', 'translation_of' => 'pages'],
         'update_page' => ['id' => 'pages', 'parent' => 'pages', 'translation_of' => 'pages'],
         'save_menu' => ['items.*.page_id' => 'pages', 'items.*.children.*.page_id' => 'pages', 'items.*.children.*.children.*.page_id' => 'pages'],

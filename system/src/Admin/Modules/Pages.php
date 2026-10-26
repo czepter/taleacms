@@ -6,6 +6,7 @@ namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
 use Talea\Core\Response;
+use Talea\Core\SearchInsights;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
 
@@ -53,6 +54,18 @@ final class Pages extends Module
             'changes' => 'build_draft IS NOT NULL',
             default => 'TRUE',
         };
+        // the Page check columns and their filter (good from 80, mid from 50, low below; none = no focus keyword, hidden = noindex)
+        $scored = $this->scored() && !$trash;
+        $score = $scored ? $this->request->get('score') : '';
+        $where[] = match ($score) {
+            'good' => 'noindex = FALSE AND seo_score >= 80',
+            'mid' => 'noindex = FALSE AND seo_score >= 50 AND seo_score < 80',
+            'low' => 'noindex = FALSE AND seo_score < 50',
+            'none' => "noindex = FALSE AND focus_keywords = ''",
+            'hidden' => 'noindex = TRUE',
+            default => 'TRUE',
+        };
+        $score = in_array($score, ['good', 'mid', 'low', 'none', 'hidden'], true) ? $score : '';
         if ($search !== '') {
             $where[] = '(' . $this->db->dialect()->likeInsensitive('title') . ' OR ' . $this->db->dialect()->likeInsensitive('slug') . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
@@ -67,13 +80,161 @@ final class Pages extends Module
         }
         unset($s);
 
+        $pages = $status !== '' || $search !== '' || $score !== '' ? $pages : self::sortAsTree($pages);
+        // "Edit titles in the list" works on one page of rows at a time, so its form stays under max_input_vars
+        $seoEdit = !$trash && $this->request->get('seo_edit') === '1';
+        $pageCount = $seoEdit ? max(1, (int) ceil(count($pages) / self::LIST_EDIT_ROWS)) : 1;
+        $pageNumber = min($pageCount, max(1, $this->request->getInt('page', 1)));
+        if ($seoEdit) {
+            $pages = array_slice($pages, ($pageNumber - 1) * self::LIST_EDIT_ROWS, self::LIST_EDIT_ROWS);
+        }
+
         return $this->view('list', 'Pages', [
-            'pages' => $status !== '' || $search !== '' ? $pages : self::sortAsTree($pages),
+            'pages' => $pages, 'pageCount' => $pageCount, 'pageNumber' => $pageNumber, 'inSearch' => $trash ? null : $this->searchColumn($pages),
             'trash' => $trash, 'status' => $status, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'scored' => $scored, 'score' => $score, 'links' => $scored ? \Talea\Core\InternalLinks::pageCounts($this->app) : [],
+            'orphans' => $scored ? array_flip(array_column(array_filter(\Talea\Core\InternalLinks::orphans($this->app), fn (array $o): bool => $o['kind'] === 'page'), 'id')) : [],
+            'seoEdit' => $seoEdit,
             'comments' => $trash ? [] : \Talea\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
             'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
         ]);
+    }
+
+    /**
+     * The list's "Clicks · place" column (both engines' snapshot), for whoever may open Search engines → Performance: per
+     * page its numbers, false for a page the sitemap lists that has not appeared in search yet, null when nothing is known.
+     * Null without the right or without a snapshot.
+     *
+     * @param list<array<string, mixed>> $pages
+     * @return array<int, array{clicks: int, impressions: int, position: ?float}|false|null>|null
+     */
+    private function searchColumn(array $pages): ?array
+    {
+        if (!isset($this->kernel->modules()['search_performance']) || SearchInsights::snapshots($this->db, 'both') === []) {
+            return null;
+        }
+        $root = SearchInsights::root($this->app);
+        $seen = SearchInsights::byPath($this->db, 'both', $root);
+        $notInSearch = array_flip(array_map(fn (string $a): string => SearchInsights::key($a, $root),
+            SearchInsights::notInSearch($this->db, $root, array_map('strval', array_keys((new \Talea\Front\Seo($this->app))->sitemapPages()))) ?? []));
+        $column = [];
+        foreach (SearchInsights::pageKeys($this->app, $pages, $root) as $id => $key) {
+            $column[$id] = $seen[$key] ?? (isset($notInSearch[$key]) ? false : null);
+        }
+
+        return $column;
+    }
+
+    /**
+     * The SEO tab's "In search · 28 days": Google's numbers and queries for the page (SearchInsights::forPath), for whoever
+     * may open Search engines → Performance; null without the right or without a Google snapshot.
+     *
+     * @param array<string, mixed> $page
+     * @return array{totals: ?array{clicks: int, impressions: int, position: ?float}, queries: list<array{query: string, clicks: int, impressions: int, position: float}>}|null
+     */
+    private function searchFor(array $page): ?array
+    {
+        if (!isset($this->kernel->modules()['search_performance']) || SearchInsights::snapshots($this->db, \Talea\Connectors\Google::KEY) === []) {
+            return null;
+        }
+        $root = SearchInsights::root($this->app);
+
+        return SearchInsights::forPath($this->db, SearchInsights::pageKeys($this->app, [$page], $root)[(int) $page['page_id']], $root);
+    }
+
+    /**
+     * "Add as keyword" in the SEO tab's search block: a search that led to the page joins its focus keywords (up to five),
+     * saved as the SEO tab saves them, so the score follows.
+     */
+    protected function actionSeoKeywordAdd(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        if ($page === null) {
+            return $this->back('Page does not exist.', 'website', [], 'error');
+        }
+        $back = ['id' => (string) $page['public_id'], 'tab' => 'seo'];
+        if (($refusal = $this->requirePublishPermission($page, $back)) !== null) {
+            return $refusal;
+        }
+        $keyword = $this->request->post('keyword');
+        $keywords = \Talea\Core\SeoFields::keywords((string) $page['focus_keywords']);
+        if (!\Talea\Core\SeoFields::fitsAsKeyword($keyword)) {
+            return $this->back('This search cannot be a focus keyword: a keyword has no comma and up to 100 characters.', 'website', $back, 'error');
+        }
+        if (in_array(mb_strtolower($keyword), array_map(mb_strtolower(...), $keywords), true)) {
+            return $this->back('This is already a focus keyword of the page.', 'website', $back);
+        }
+        $new = \Talea\Core\SeoFields::keywords(implode("\n", [...$keywords, $keyword]));
+        // five keywords at most, and together they fit the column (SeoFields drops what does not): refused instead of dropped
+        if (count($keywords) >= \Talea\Core\SeoFields::MAX_KEYWORDS) {
+            return $this->back('A page has up to five focus keywords. Remove one to add another.', 'website', $back, 'error');
+        }
+        if (!in_array($keyword, $new, true)) {
+            return $this->back('The focus keywords of this page are too long together. Remove one to add another.', 'website', $back, 'error');
+        }
+        ['errors' => $errors] = $this->persist($page, ['focus_keywords' => implode("\n", $new)] + $this->formValues($page), true);
+        if ($errors !== []) {
+            return $this->back((string) reset($errors), 'website', $back, 'error');
+        }
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'focus keyword added', mb_substr($page['title'], 0, 80));
+
+        return $this->back('Saved.', 'website', $back);
+    }
+
+    /** The fields "Edit titles in the list" sends per row. */
+    private const array LIST_FIELDS = ['seo_title', 'description', 'focus_keywords', 'key_page', 'noindex'];
+
+    /** Rows per page of "Edit titles in the list": 50 rows of up to 7 fields stay well under PHP's default max_input_vars (1000). */
+    private const int LIST_EDIT_ROWS = 50;
+
+    /**
+     * "Edit titles in the list" (?seo_edit=1, LIST_EDIT_ROWS rows per list page): rows[<public id>][seo_title|description|
+     * focus_keywords|key_page|noindex], each over the page's stored values and saved as settings_save saves a tab
+     * (SeoFields::fromInput, SeoScore::refresh). A row that changes nothing is left alone; nothing is published that was not
+     * before. A form cut short by max_input_vars saves nothing; a row that fails is named in an error. The list filters
+     * come back as hidden fields, so the redirect returns to the same edit page.
+     */
+    protected function actionSeoBulkSave(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $return = array_filter(['status' => $this->request->post('status'), 'language' => $this->request->post('language'), 'score' => $this->request->post('score'),
+            'search' => $this->request->post('search'), 'page' => $this->request->post('page')]) + ['seo_edit' => '1'];
+        // PHP drops every field past max_input_vars without an error: a form that reaches the limit may have lost rows
+        if ($this->request->postFieldCount() >= (int) ini_get('max_input_vars')) {
+            return $this->back(t('The form sent more fields than the server accepts, so nothing was saved. Edit fewer pages at once.'), '', $return, 'error');
+        }
+        $saved = 0;
+        foreach ($this->request->postArray('rows') as $publicId => $row) {
+            $page = is_array($row) ? $this->loadPage($this->db->internalId('pages', (string) $publicId)) : null;
+            if ($page === null) {
+                continue;
+            }
+            $in = array_filter(array_intersect_key($row, array_flip(self::LIST_FIELDS)), is_scalar(...)); // a field sent as an array keeps its value
+            $clean = fn (string $key, mixed $value): string => match ($key) {
+                'key_page', 'noindex' => !empty($value) ? '1' : '0',
+                'focus_keywords' => (string) \Talea\Core\SeoFields::fromInput([$key => $value])[$key],
+                default => trim(\Talea\Core\Robots::scalar($value)),
+            };
+            if (array_filter($in, fn (mixed $value, string $key): bool => $clean($key, $value) !== $clean($key, $page[$key]), ARRAY_FILTER_USE_BOTH) === []) {
+                continue;
+            }
+            // the publish permission without requirePublishPermission(), which would flash once per row
+            $errors = $this->app->auth()->canPublish() || !$page['visible'] ? $this->persist($page, $in + $this->formValues($page))['errors']
+                : ['visible' => 'Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.'];
+            if ($errors !== []) {
+                $this->app->session->flash('error', t('Not saved – %s: %s', (string) $page['title'] !== '' ? $page['title'] : '/' . $page['slug'], implode(' ', array_map(t(...), $errors))));
+                continue;
+            }
+            $saved++;
+        }
+        if ($saved > 0) {
+            \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search titles edited in the list', (string) $saved);
+        }
+
+        return $this->back(t('Pages saved: %d.', $saved), '', $return);
     }
 
     /**
@@ -83,57 +244,205 @@ final class Pages extends Module
      * @return list<array<string, mixed>>
      */
     /**
-     * Website mode: the sidebar holds the site's pages grouped by the menu (in it or not), the content is a live preview of
-     * the chosen page with the way into the builder. The draft is shown where a page has one.
+     * Website mode: the sidebar holds the site's pages grouped by the menu (in it or not), the content is a framed preview of
+     * the chosen page (its draft where there is one) with the settings sidebar beside it, one tab at a time (?tab=).
      */
     protected function actionWebsite(): Response
     {
         $home = $this->app->settings()->int('home_page');
-        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
+        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, seo_score, COALESCE(focus_keywords, '') <> '' AS has_keyword, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
         $groups = ['menu' => [], 'other' => []];
         foreach (self::sortAsTree($pages) as $page) {
             $inMenu = \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], '', (string) $page['slug']) ?? (bool) $page['in_menu'];
             $groups[$inMenu ? 'menu' : 'other'][] = $page + ['home' => (int) $page['page_id'] === $home];
         }
         $chosen = $this->idParam('id', null, true);
-        $current = array_values(array_filter($pages, fn (array $p): bool => (int) $p['page_id'] === ($chosen > 0 ? $chosen : $home)))[0] ?? $pages[0] ?? null;
-        $url = $current === null ? '' : $this->app->url((int) $current['page_id'] === $home ? '' : (string) $current['slug']);
-        $seo = $this->request->get('view') === 'seo' && $current !== null; // the SEO tab: how the chosen page appears outside the site
+        // the full row: a language version opens here too (from the Page tab), it is only not in the tree
+        $current = ($chosen > 0 ? $this->loadPage($chosen) : null) ?? $this->loadPage($home) ?? ($pages !== [] ? $this->loadPage((int) $pages[0]['page_id']) : null);
+        $asked = $this->request->get('tab');
+        $tab = isset(self::SETTINGS_TABS[$asked]) ? $asked : 'seo';
+        $scored = $this->scored();
         $this->kernel->sidebar = $this->app->view->render('admin/pages/website_sidebar', [
             'app' => $this->app, 'module' => $this, 'groups' => $groups, 'current' => $current === null ? 0 : (int) $current['page_id'], 'modules' => $this->kernel->modules(),
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $seo,
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $asked === 'seo', 'tab' => isset(self::SETTINGS_TABS[$asked]) ? $asked : '', 'currentId' => (string) ($current['public_id'] ?? ''), 'scored' => $scored,
         ]);
-        if ($seo) {
-            $fields = $this->db->one('SELECT seo_title, description, image, noindex FROM {pages} WHERE page_id = ?', [(int) $current['page_id']]) ?? [];
-
-            return $this->view('website_seo', '', ['page' => $current + $fields, 'url' => $url, 'home' => (int) $current['page_id'] === $home,
-                'siteName' => $this->app->settings()->get('site_name'), 'origin' => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/')]);
+        if ($current === null) {
+            return $this->view('website', '', ['page' => null]);
         }
+        $id = (int) $current['page_id'];
+        $url = self::address($this->app, $current);
+        $build = Build::fromJson($current['build_draft'] ?? $current['build']);
+        $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
+        $language = (string) $current['language'];
+        // "SEO on the page": the preview of a build page with the SEO check's marks on its elements (?marks=1)
+        $marks = $build === null ? null : \Talea\Core\ContentCheck::marks($build, \Talea\Core\SeoFields::keywords((string) $current['focus_keywords']));
+        $marksOn = $marks !== null && $this->request->get('marks') === '1';
+        // the draft where there is one; a hidden page is seen only as a preview, and the marks only on one
+        $preview = $current['build_draft'] !== null || !$current['visible'] || $marksOn ? $url . '?build=draft' : $url;
 
-        return $this->view('website', '', ['page' => $current, 'url' => $url, 'preview' => $current !== null && $current['has_draft'] ? $url . '?build=draft' : $url]);
+        return $this->view('website', '', [
+            'page' => $current, 'url' => $url, 'tab' => $tab, 'home' => $id === $home, 'scored' => $scored,
+            'preview' => $marksOn ? $preview . '&seo_marks=1' : $preview,
+            'marks' => $marks, 'marksOn' => $marksOn,
+            'host' => ($site['host'] ?? '') . (isset($site['port']) ? ':' . $site['port'] : ''),
+            'comments' => count(\Talea\Core\DraftComments::list($this->db, 'page:' . $id)),
+            'canPublish' => $this->app->auth()->canPublish(),
+            'hasBuild' => $build !== null,
+            'parents' => $tab !== 'page' ? [] : array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, $id]),
+                fn (array $s): bool => !str_starts_with($s['slug'] . '/', $current['slug'] . '/'))),
+            'inMenu' => \Talea\Core\Menu::hasPage($this->db, $id, $language) ?? (bool) $current['in_menu'],
+            // the language versions the page form offered: each additional language with this page's translation or a way to create it
+            'translations' => $tab !== 'page' || $language !== '' ? [] : array_map(fn (string $code): array => ['code' => $code, 'name' => \Talea\Core\Language::AVAILABLE[$code][0] ?? $code,
+                'page' => $this->db->one('SELECT public_id, visible FROM {pages} WHERE translation_of = ? AND language = ? AND deleted_at IS NULL', [$id, $code])], \Talea\Core\Language::additional($this->app->settings())),
+            'versions' => $tab !== 'publishing' || $build !== null ? [] : $this->db->all('SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = \'\' THEN u.username ELSE u.name END AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [$id]),
+            // the draft the Advanced tab's "Add a type" builds on (BuilderActions' version check)
+            'version' => $tab !== 'advanced' ? '' : self::computeBuildVersion($current['build_draft'] ?? $current['build']),
+            'structured' => $tab !== 'advanced' || $build === null ? [] : array_values(array_filter(array_map(fn (array $element): string => (string) ($element['content']['data']['type'] ?? ''), Build::elementsOfType($build, fn (string $className): bool => $className === \Talea\Builder\Elements\StructuredData::class)))),
+            'seo' => $tab === 'seo' ? $this->seoTab($current) : [],
+            'inSearch' => $tab === 'seo' ? $this->searchFor($current) : null,
+        ]);
     }
 
-    /** The SEO tab of Website mode saves only how the page appears outside the site: title, description, sharing image, noindex. */
-    protected function actionSeoSave(): Response
+    /**
+     * The live check of the SEO tab (admin.js, data-seo-live): the posted title, description and keywords over the page's
+     * current content give the checks and the search result preview again, as an HTML fragment. Nothing is saved.
+     */
+    protected function actionSeoCheck(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        if ($page === null) {
+            return Response::html('', 404);
+        }
+        $data = $this->seoTab(['seo_title' => $this->request->post('seo_title'), 'description' => $this->request->post('description'),
+            'focus_keywords' => implode("\n", \Talea\Core\SeoFields::keywords($this->request->post('focus_keywords')))] + $page);
+
+        return Response::html(($this->scored() ? $this->app->view->render('admin/seo/checks', ['app' => $this->app] + $data) : '')
+            . $this->app->view->render('admin/seo/serp', ['app' => $this->app] + $data));
+    }
+
+    /**
+     * What the SEO tab shows of a page row (the saved one, or the live check's fields over it): the scored analysis, open
+     * placeholders, the marks a build would get on the preview and the search result as the site composes it.
+     *
+     * @param array<string, mixed> $page
+     * @return array<string, mixed>
+     */
+    private function seoTab(array $page): array
+    {
+        $build = Build::fromJson($page['build_draft'] ?? $page['build']);
+        $home = $this->app->settings()->int('home_page') === (int) $page['page_id'];
+        $settings = $this->app->settings();
+        $description = (string) $page['description'] !== '' ? (string) $page['description'] : ($home ? $settings->get('site_description') : '');
+        $site = parse_url($settings->get('site_url') ?: $this->app->request->origin()) ?: [];
+
+        // the analysis only with the Page check feature on; the search result preview always
+        return ($this->scored() ? \Talea\Core\SeoScore::panel($this->app, 'page', $page) : ['analysis' => null, 'samples' => [], 'keywords' => []]) + [
+            'marksUrl' => $build === null ? '' : $this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'seo', 'marks' => '1']),
+            // the title and description exactly as Front\Kernel hands them to the page head
+            'serpTitle' => \Talea\Core\SeoTitle::compose($settings, $home ? 'home' : 'page', (string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : ($home ? '' : (string) $page['title']),
+                (string) $page['seo_title'] !== '', ['excerpt' => mb_substr($description, 0, 160)]),
+            'serpDescription' => $description,
+            'dir' => \Talea\Core\Language::dirAttribute(\Talea\Core\Language::ofContent($settings, (string) $page['language'])),
+            'serpAddress' => ($site['host'] ?? '') . preg_replace('#^' . preg_quote($this->app->request->basePath(), '#') . '#', '', self::address($this->app, $page)),
+        ];
+    }
+
+    /** The Page check feature is on: the score parts (tree dots, the sidebar pill) and the SEO tab's checks are computed and shown. */
+    private function scored(): bool
+    {
+        return \Talea\Core\ContentCheck::enabled($this->app->settings());
+    }
+
+    /** The tabs of Website mode's settings sidebar and the fields each one saves (pages/settings_save). */
+    private const array SETTINGS_TABS = [
+        'seo' => ['seo_title', 'description', 'focus_keywords', 'key_page'],
+        'page' => ['title', 'slug', 'parent_id', 'in_menu', 'sort_order'],
+        'publishing' => ['visible', 'publish_at', 'valid_until', 'review_by', 'page_password', 'remove_password', 'member_groups_present', 'member_groups'],
+        'sharing' => ['share_title', 'share_description', 'image'],
+        'advanced' => ['noindex', 'robots', 'canonical_url', 'breadcrumb_title', 'head_code'],
+    ];
+
+    /**
+     * Saves one tab of the settings sidebar: its fields over the page's stored values, so a field the tab does not show is
+     * never cleared. Visibility, dates and the password, like a changed address, need the permission to publish.
+     */
+    protected function actionSettingsSave(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        $tab = $this->request->post('tab');
+        if ($page === null || !isset(self::SETTINGS_TABS[$tab])) {
+            return $this->back('Page does not exist.', 'website', [], 'error');
+        }
+        $in = array_intersect_key($_POST, array_flip(self::SETTINGS_TABS[$tab])) + $this->formValues($page);
+        // only the Page tab places the page; a new address there (the slug or the parent persist() will store differs from
+        // the stored one) needs the permission to publish
+        $keepPlace = $tab !== 'page';
+        $place = $keepPlace ? null : $this->placement((int) $page['page_id'], $in);
+        $moved = $place !== null && ($place['slug'] !== (string) $page['slug'] || (int) ($place['parent']['page_id'] ?? 0) !== (int) $page['parent_id']);
+        $back = ['id' => (string) $page['public_id'], 'tab' => $tab];
+        if (($refusal = $this->requirePublishPermission($page, $back)) !== null || (($tab === 'publishing' || $moved) && ($refusal = $this->requirePublishPermission(null, $back)) !== null)) {
+            return $refusal;
+        }
+        if ($tab === 'advanced') {
+            // the page's own address is no override: stored empty, so the page keeps following its address
+            $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
+            $own = ($site['scheme'] ?? 'http') . '://' . ($site['host'] ?? '') . (isset($site['port']) ? ':' . $site['port'] : '') . self::address($this->app, $page);
+            if (\Talea\Core\Robots::sameAddress(\Talea\Core\Robots::scalar($in['canonical_url']), $own)) {
+                $in['canonical_url'] = '';
+            }
+        }
+        ['errors' => $errors, 'data' => $data] = $this->persist($page, $in, $keepPlace);
+        if ($errors !== []) {
+            return $this->back((string) reset($errors), 'website', $back, 'error');
+        }
+        \Talea\Core\Menu::setPage($this->db, (int) $page['page_id'], $data['language'], (bool) $data['in_menu']);
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'settings edited (' . $tab . ')', mb_substr($page['title'], 0, 80));
+
+        return $this->back('Saved.', 'website', $back);
+    }
+
+    /** The page's stored values as its form posts them: what settings_save lays one tab's fields over. @return array<string, mixed> */
+    private function formValues(array $page): array
+    {
+        return array_intersect_key($page, array_flip(['title', 'slug', 'description', 'seo_title', 'image', 'noindex', 'visible', 'sort_order', 'language', 'valid_until', 'review_by', 'head_code', ...\Talea\Core\SeoFields::COLUMNS])) + [
+            'parent_id' => $this->publicId((int) $page['parent_id']),
+            'translation_of' => $this->publicId((int) $page['translation_of']),
+            'in_menu' => \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) $page['language']) ?? (bool) $page['in_menu'],
+        ];
+    }
+
+    /**
+     * The Advanced tab's "Add a type": a structured-data element of a schema.org type at the end of the draft, then the builder
+     * with it selected to fill in. A text page has no build to add it to. The draft is written as the builder writes it: the
+     * form carries the version it was rendered from, so a draft changed since (an open editor's autosave, Claude) is not
+     * overwritten, and that editor's next autosave meets the new version as a conflict.
+     */
+    protected function actionSeoAddType(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
         if ($page === null) {
             return $this->back('Page does not exist.', 'website', [], 'error');
         }
-        if (($refusal = $this->requirePublishPermission($page)) !== null) {
-            return $refusal;
+        $back = ['id' => (string) $page['public_id'], 'tab' => 'advanced'];
+        $target = ['row' => $page, 'build' => $page['build'], 'draft' => $page['build_draft']];
+        $previous = Build::fromJson($page['build_draft'] ?? $page['build']);
+        $type = $this->request->post('type');
+        if ($previous === null) {
+            return $this->back('Open the page in the builder to add structured data.', 'website', $back, 'error');
         }
-        $r = $this->request;
-        $this->db->update('pages', [
-            'seo_title' => mb_substr(trim($r->post('seo_title')), 0, 200),
-            'description' => mb_substr(trim($r->post('description')), 0, 300),
-            'image' => mb_substr(trim($r->post('image')), 0, 255),
-            'noindex' => (int) $r->postBool('noindex'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ], ['page_id' => (int) $page['page_id']]);
-        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search appearance edited', mb_substr($page['title'], 0, 80));
+        if (!in_array($type, \Talea\Builder\StructuredData::types(), true)) {
+            return $this->back('Choose a type of structured data.', 'website', $back, 'error');
+        }
+        if ($this->checkVersionConflict($target) !== null) {
+            return $this->back('Someone else has edited this page in the meantime (or you opened it in another window).', 'website', $back, 'error');
+        }
+        $element = Build::fresh('structured_data', ['data' => ['type' => $type, 'fields' => []]]);
+        [$build] = Build::sanitize(['children' => [...$previous['children'], $element]] + $previous, $this->app->auth()->isAdmin(), $previous);
+        $this->saveDraft($target, Build::toJson($build));
+        $this->db->update('pages', ['updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'structured data added', mb_substr($page['title'], 0, 80) . ' (' . $type . ')');
 
-        return $this->back('Saved.', 'website', ['view' => 'seo', 'id' => (string) $page['public_id']]);
+        return \Talea\Core\Response::redirect($this->url('builder', ['id' => (string) $page['public_id'], 'select' => $element['id']]));
     }
 
     private static function sortAsTree(array $pages): array
@@ -238,11 +547,15 @@ final class Pages extends Module
             . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'error');
     }
 
+    /** A builder page's settings live in Website mode's sidebar; a text page keeps its form (the text is edited there). */
     protected function actionEdit(): Response
     {
-        $page = $this->db->one('SELECT * FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$this->idParam()]);
+        $page = $this->loadPage($this->idParam());
+        if ($page === null) {
+            return $this->error('Page does not exist.', 404);
+        }
 
-        return $page === null ? $this->error('Page does not exist.', 404) : $this->form($page);
+        return $page['build'] !== null || $page['build_draft'] !== null ? \Talea\Core\Response::redirect($this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'page'])) : $this->form($page);
     }
 
     /** Saving from editing "directly on the site" (views/front/edit.php): only the page's name and text. */
@@ -262,6 +575,7 @@ final class Pages extends Module
             $this->saveVersion((int) $page['page_id'], $page['title'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
         $this->db->update('pages', ['title' => $title, 'text' => $text, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('back'));
@@ -269,15 +583,18 @@ final class Pages extends Module
 
     /**
      * Roles at the author level (custom roles without the permission to publish too) can prepare pages, but not publish them,
-     * change published ones or delete them. Returns a response with the refusal, or null when allowed.
+     * change published ones or delete them. Returns a response with the refusal (back to the list, or with $website to that
+     * page in Website mode), or null when allowed.
+     *
+     * @param array<string, string>|null $website the Website mode parameters (id, tab) to go back to
      */
-    private function requirePublishPermission(?array $page = null): ?Response
+    private function requirePublishPermission(?array $page = null, ?array $website = null): ?Response
     {
         if ($this->app->auth()->canPublish() || ($page !== null && !$page['visible'])) {
             return null;
         }
 
-        return $this->back('Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.', '', [], 'error');
+        return $this->back('Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.', $website !== null ? 'website' : '', $website ?? [], 'error');
     }
 
     protected function actionSave(): Response
@@ -293,64 +610,126 @@ final class Pages extends Module
         if ($id > 0 && ($refusal = $this->requirePublishPermission($this->db->one('SELECT visible FROM {pages} WHERE page_id = ?', [$id]) ?? ['visible' => 1])) !== null) {
             return $refusal;
         }
-        $language = \Talea\Core\Language::column($this->app->settings(), $r->post('language'));
-        // parent page: the same language, not the page itself nor its subpage (otherwise a cycle would form)
-        $custom = $id > 0 ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$id]) : '';
-        $parent = ($parentId = $this->idParam('parent_id')) > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, $id, $language]) : null;
-        if ($parent !== null && $custom !== '' && str_starts_with($parent['slug'] . '/', $custom . '/')) {
-            $parent = null;
+        $new = $id === 0;
+        ['id' => $id, 'errors' => $errors, 'data' => $data] = $this->persist($new ? null : ['page_id' => $id], $_POST);
+        if ($errors !== []) {
+            $previous = $id > 0 ? $this->db->one('SELECT build, build_draft, password_hash FROM {pages} WHERE page_id = ?', [$id]) : null;
+
+            return $this->form(['page_id' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
         }
-        $prefix = $parent !== null ? $parent['slug'] . '/' : '';
-        $slug = slugify($r->post('slug') !== '' ? basename(str_replace('\\', '/', $r->post('slug'))) : $r->post('title'), max(20, 118 - strlen($prefix)));
+        if ($new) { // a translation of a builder page or a template opens in the builder
+            $original = $data['translation_of'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [$data['translation_of']]) : null;
+            if ($original !== null && ($original['build_draft'] ?? $original['build']) !== null) {
+                // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
+                $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+                \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
+                $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
+
+                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+            }
+            $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
+            if ($template !== null && $template[1] !== []) {
+                // new page from a template: sections from the library as a draft and straight into the builder
+                $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($data['language']));
+                $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+                \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
+
+                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+            }
+            if ($template !== null && $data['text'] === '') { // the privacy policy outline stays out of a built menu, as it always did
+                // in the page's language, from what the site has switched on (1.9)
+                $text = \Talea\Core\Language::runWith($this->contentLanguage($data['language']), fn (): string => \Talea\Builder\Library::privacyPolicyText($this->app->settings()));
+                $this->db->update('pages', ['text' => $text], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+
+                return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $this->publicId($id)]);
+            }
+        }
+        // assembled menu (Appearance → Menu): the checkbox "in navigation" adds the page to the menu or removes it
+        \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
+        if ($r->post('after_save') === 'builder') {
+            return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+        }
+
+        return $this->back('Page saved.');
+    }
+
+    /**
+     * Validates and stores a page from form fields: actionSave posts the whole form, settings_save the page's stored values
+     * with the fields of one tab over them. Checks permissions only as far as the fields go (visibility, head code); the
+     * caller decides who may edit the page at all. Leaves the text alone when $in has none for an existing page.
+     *
+     * @param array<string, mixed>|null $page the page (its page_id; with $keepPlace the full row), null = a new one
+     * @param array<string, mixed> $in fields as a form posts them (ids are public ids)
+     * @param bool $keepPlace the stored language, parent and slug stay, whatever $in says (a settings tab other than Page)
+     * @return array{id: int, errors: array<string, string>, data: array<string, mixed>} the page's id (0 when a new page failed), the errors by field, the cleaned values
+     */
+    private function persist(?array $page, array $in, bool $keepPlace = false): array
+    {
+        $post = fn (string $key): string => is_string($in[$key] ?? null) ? trim($in[$key]) : '';
+        $bool = fn (string $key): bool => !empty($in[$key]);
+        $id = (int) ($page['page_id'] ?? 0);
+        ['language' => $language, 'parent' => $parent, 'slug' => $slug] = $keepPlace && $page !== null
+            ? ['language' => (string) $page['language'], 'parent' => (int) $page['parent_id'] > 0 ? ['page_id' => (int) $page['parent_id']] : null, 'slug' => (string) $page['slug']]
+            : $this->placement($id, $in);
+        $sortOrder = is_int($in['sort_order'] ?? null) || preg_match('/^-?\d{1,18}$/', $post('sort_order')) ? (int) $in['sort_order'] : 100;
         $data = [
-            'title' => mb_substr($r->post('title'), 0, 200),
-            'slug' => $prefix . $slug,
+            'title' => mb_substr($post('title'), 0, 200),
+            'slug' => $slug,
             'parent_id' => $parent !== null ? (int) $parent['page_id'] : null,
-            'description' => mb_substr($r->post('description'), 0, 300),
-            'seo_title' => mb_substr(trim($r->post('seo_title')), 0, 200),
-            'image' => mb_substr(trim($r->post('image')), 0, 255),
-            'noindex' => (int) $r->postBool('noindex'),
-            'text' => \Talea\Core\Html::forUser($r->post('text'), $this->app->auth()),
-            'visible' => (int) $r->postBool('visible'),
-            'in_menu' => (int) $r->postBool('in_menu'),
-            'sort_order' => max(0, min(65535, $r->postInt('sort_order', 100))),
+            'description' => mb_substr($post('description'), 0, 300),
+            'seo_title' => mb_substr($post('seo_title'), 0, 200),
+            'image' => mb_substr($post('image'), 0, 255),
+            'noindex' => (int) $bool('noindex'),
+            'visible' => (int) $bool('visible'),
+            'in_menu' => (int) $bool('in_menu'),
+            'sort_order' => max(0, min(65535, $sortOrder)),
             'updated_at' => date('Y-m-d H:i:s'),
             'language' => $language,
             // true until and review by (2.10, Core\Validity): empty or not a date = none
-            'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')),
-            'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
-        ];
+            'valid_until' => \Talea\Core\Validity::date($post('valid_until')),
+            'review_by' => \Talea\Core\Validity::date($post('review_by')),
+        ] + \Talea\Core\SeoFields::fromInput($in);
+        if ($id === 0 || array_key_exists('text', $in)) {
+            // settings_save sends no text: cleaning it again for someone who may not write code would change it
+            $data['text'] = \Talea\Core\Html::forUser($post('text'), $this->app->auth());
+        }
         if ($this->app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
-            $data['head_code'] = trim((string) ($_POST['head_code'] ?? '')) !== '' ? mb_substr((string) $_POST['head_code'], 0, 20000) : null;
+            $data['head_code'] = trim((string) ($in['head_code'] ?? '')) !== '' ? mb_substr((string) $in['head_code'], 0, 20000) : null;
         }
-        // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away
-        $from = strtotime(str_replace('T', ' ', $r->post('publish_at'))) ?: null;
-        $data['publish_at'] = !$data['visible'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;
-        if (!$data['visible'] && $from !== null && $from <= time()) {
-            $data['visible'] = 1;
+        // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away.
+        // Input without the field (a settings tab other than Publishing) keeps the stored schedule – for whoever may publish.
+        $schedule = array_key_exists('publish_at', $in);
+        if ($schedule) {
+            $from = strtotime(str_replace('T', ' ', $post('publish_at'))) ?: null;
+            $data['publish_at'] = !$data['visible'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;
+            if (!$data['visible'] && $from !== null && $from <= time()) {
+                $data['visible'] = 1;
+            }
         }
         if (!$this->app->auth()->canPublish()) {
-            $data['visible'] = 0; // without the permission to publish the page stays hidden, an editor publishes it
+            // without the permission to publish the page stays hidden, an editor publishes it; any save clears a schedule, so
+            // changes nobody reviewed never go live on their own
+            $data['visible'] = 0;
             $data['publish_at'] = null;
         }
-        $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ?", [$this->idParam('translation_of'), $id]) ?: null);
+        $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ?", [$this->db->internalId('pages', $post('translation_of')), $id]) ?: null);
         $errors = [];
         if ($data['title'] === '') {
             $errors['title'] = 'Enter the page title.';
         }
-        if ($r->post('slug') === '') {
-            // slug from the name: a taken one gets a number (o-nas-2), as with news
-            $data['slug'] = $this->availableSlug($data['slug'], $id, $data['language']);
-        }
         $scope = \Talea\Core\Slug::scope($this->db, $data['language']);
-        if ($parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
+        // a kept address is not checked again: the save does not change it
+        if (!$keepPlace && $parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
             $errors['slug'] = 'This URL is used by the system, choose another one.';
-        } elseif (($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?' . $scope[0], [$data['slug'], $id, ...$scope[1]])) !== null) {
+        } elseif (!$keepPlace && ($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?' . $scope[0], [$data['slug'], $id, ...$scope[1]])) !== null) {
             $errors['slug'] = $other['deleted_at'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
-        [$passwordHash, $passwordError] = \Talea\Core\PageLock::fromForm($r->post('page_password'), $r->postBool('remove_password'));
+        [$passwordHash, $passwordError] = \Talea\Core\PageLock::fromForm($post('page_password'), $bool('remove_password'));
         if ($passwordError !== '') {
             $errors['page_password'] = $passwordError;
         } elseif ($passwordHash !== null) {
@@ -360,57 +739,52 @@ final class Pages extends Module
             $errors['visible'] = 'The home page cannot be hidden. First choose another home page in Settings → General.';
         }
         if ($errors !== []) {
-            $previous = $id > 0 ? $this->db->one('SELECT build, build_draft, password_hash FROM {pages} WHERE page_id = ?', [$id]) : null;
-
-            return $this->form(['page_id' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
+            return ['id' => $id, 'errors' => $errors, 'data' => $data];
         }
         if ($id > 0) {
             $previous = $this->db->one('SELECT slug, visible, title, text, language FROM {pages} WHERE page_id = ?', [$id]);
-            if ($previous !== null && ($previous['text'] !== $data['text'] || $previous['title'] !== $data['title'])) {
+            if ($previous !== null && ($previous['text'] !== ($data['text'] ?? $previous['text']) || $previous['title'] !== $data['title'])) {
                 $this->saveVersion($id, $previous['title'], (string) $previous['text']);
             }
             $this->db->update('pages', $data, ['page_id' => $id]);
-            \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
             if ($previous !== null && $previous['slug'] !== $data['slug']) {
                 self::move($this->db, $previous['slug'], $data['slug'], (bool) $previous['visible'], (string) $previous['language']);
             }
         } else {
             $id = $this->db->insert('pages', $data);
             \Talea\Core\Slug::fromId($this->db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
-            \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
-            $original = $data['translation_of'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [$data['translation_of']]) : null;
-            if ($original !== null && ($original['build_draft'] ?? $original['build']) !== null) {
-                // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
-                $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
-                \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
-                $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
-
-                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
-            }
-            $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
-            if ($template !== null && $template[1] !== []) {
-                // new page from a template: sections from the library as a draft and straight into the builder
-                $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($language));
-                $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
-                \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
-
-                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
-            }
-            if ($template !== null && $data['text'] === '') {
-                // in the page's language, from what the site has switched on (1.9)
-                $text = \Talea\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Talea\Builder\Library::privacyPolicyText($this->app->settings()));
-                $this->db->update('pages', ['text' => $text], ['page_id' => $id]);
-
-                return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $this->publicId($id)]);
-            }
         }
-        // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
-        \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
-        if ($r->post('after_save') === 'builder') {
-            return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+        if (($in['member_groups_present'] ?? '') === '1') {
+            // as Members::saveFromForm, from $in: a settings tab cannot carry groups it does not own
+            \Talea\Core\Members::setContentGroups($this->db, 'page', $id, is_array($in['member_groups'] ?? null) ? array_values(array_filter($in['member_groups'], is_string(...))) : []);
         }
+        \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
 
-        return $this->back('Page saved.');
+        return ['id' => $id, 'errors' => [], 'data' => $data];
+    }
+
+    /**
+     * Where a page goes from form fields: its language, the parent (the same language, not the page itself nor its subpage,
+     * otherwise a cycle would form) and the whole slug with the parent's prefix, cut to the length limit; an empty slug is
+     * made from the title, and a taken one gets a number (o-nas-2), as with news. persist() stores it, settings_save compares
+     * it with the stored address.
+     *
+     * @param array<string, mixed> $in fields as a form posts them
+     * @return array{language: string, parent: ?array<string, mixed>, slug: string}
+     */
+    private function placement(int $id, array $in): array
+    {
+        $post = fn (string $key): string => is_string($in[$key] ?? null) ? trim($in[$key]) : '';
+        $language = \Talea\Core\Language::column($this->app->settings(), $post('language'));
+        $custom = $id > 0 ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$id]) : '';
+        $parent = ($parentId = $this->db->internalId('pages', $post('parent_id'))) > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, $id, $language]) : null;
+        if ($parent !== null && $custom !== '' && str_starts_with($parent['slug'] . '/', $custom . '/')) {
+            $parent = null;
+        }
+        $prefix = $parent !== null ? $parent['slug'] . '/' : '';
+        $slug = $prefix . slugify($post('slug') !== '' ? basename(str_replace('\\', '/', $post('slug'))) : $post('title'), max(20, 118 - strlen($prefix)));
+
+        return ['language' => $language, 'parent' => $parent, 'slug' => $post('slug') === '' ? $this->availableSlug($slug, $id, $language) : $slug];
     }
 
     /* ---------- builder (actions in Admin\BuilderActions) ---------- */
@@ -453,7 +827,7 @@ final class Pages extends Module
 
         return [
             'id' => (string) $page['public_id'], 'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true, 'description' => (string) $page['description'], 'image' => (string) $page['image'],
-            'back' => ['url' => $this->url('website', ['id' => (string) $page['public_id']]), 'text' => t('Website')], 'settings' => $this->url('edit', ['id' => (string) $page['public_id']]),
+            'back' => ['url' => $this->url('website', ['id' => (string) $page['public_id']]), 'text' => t('Website')], 'settings' => $this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'page']),
             'signature' => 'page:' . (int) $page['page_id'],
         ];
     }
@@ -479,6 +853,7 @@ final class Pages extends Module
         if ($page !== null && $page['build'] !== null) {
             $this->db->insert('build_revisions', ['page_id' => $page['page_id'], 'created_at' => date('Y-m-d H:i:s'), 'user_id' => $this->app->auth()->id(), 'build' => $page['build']]);
             $this->db->update('pages', ['build' => null, 'build_draft' => null], ['page_id' => $page['page_id']]);
+            \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
         }
 
         return $this->back('The page shows the text from the editor (the build\'s content without the layout). You will find the build in versions when you open the builder.', 'edit', ['id' => (string) ($page['public_id'] ?? '')]);
@@ -537,6 +912,7 @@ final class Pages extends Module
         }
         $this->saveVersion((int) $page['page_id'], $page['title'], (string) $page['text']);
         $this->db->update('pages', ['title' => $version['title'], 'text' => $version['text'], 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
 
         return $this->back(t('Version from %s restored.', format_date($version['created_at'], true)), 'edit', ['id' => (string) $page['public_id']]);
     }
@@ -635,6 +1011,7 @@ final class Pages extends Module
     {
         if ($this->request->isPost()) {
             $this->db->run('UPDATE {pages} SET deleted_at = NULL WHERE page_id = ?', [$this->idParam('page_id')]);
+            \Talea\Core\SeoScore::refresh($this->app, 'page', $this->idParam('page_id'));
         }
 
         return $this->back('The page has been restored as hidden – publish it in its settings.');
@@ -674,6 +1051,9 @@ final class Pages extends Module
         $copy['updated_at'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('pages', $copy);
         \Talea\Core\Members::copyGroups($this->db, 'page', (int) $page['page_id'], $id);
+        // the copy carries the focus keyword: both now share it (kw_unique)
+        \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
 
         return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $this->publicId($id)]);
     }

@@ -37,19 +37,25 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <script>try{var t=localStorage.getItem('tl-theme'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-theme');else if(t==='light'||t==='dark')r.setAttribute('data-theme',t)}catch(e){}</script>
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($title === '' ? $siteName : (str_contains(mb_strtolower($title), mb_strtolower($siteName)) ? $title : $title . ' – ' . $siteName)) ?></title>
+<?php
+$pageTitle = Talea\Core\SeoTitle::compose($web, (string) ($meta['seo_kind'] ?? 'other'), (string) $title, !empty($meta['own_title']), $meta['title_vars'] ?? []);
+?>
+<title><?= e($pageTitle) ?></title>
 <?php if ($meta['description'] !== ''): ?>
 <meta name="description" content="<?= e($meta['description']) ?>">
 <?php endif ?>
-<?php if ($meta['noindex']): ?>
-<meta name="robots" content="noindex, follow">
-<?php else: ?>
-<link rel="canonical" href="<?= e($canonical) ?>">
+<?php $robots = $web->bool('indexing') ? Talea\Core\Robots::meta((bool) $meta['noindex'], (string) ($meta['robots'] ?? ''), $web->get('seo_robots')) : ''; // with indexing off Seo::head prints the one robots tag ?>
+<?php if ($robots !== ''): ?>
+<meta name="robots" content="<?= e($robots === 'noindex' ? 'noindex, follow' : $robots) ?>">
+<?php endif ?>
+<?php $mainUrl = ($meta['canonical'] ?? '') !== '' ? $meta['canonical'] : $canonical; // an override is the address of the page, for sharing too ?>
+<?php if (!$meta['noindex']): ?>
+<link rel="canonical" href="<?= e($mainUrl) ?>">
 <?php endif ?>
 <meta property="og:type" content="<?= e($meta['type']) ?>">
-<meta property="og:title" content="<?= e($title !== '' ? $title : $siteName) ?>">
+<meta property="og:title" content="<?= e(($meta['share_title'] ?? '') !== '' ? $meta['share_title'] : ($title !== '' ? $title : $siteName)) ?>">
 <meta property="og:site_name" content="<?= e($siteName) ?>">
-<meta property="og:url" content="<?= e($canonical) ?>">
+<meta property="og:url" content="<?= e($mainUrl) ?>">
 <?php if ($meta['image'] !== ''): ?>
 <meta property="og:image" content="<?= e($meta['image']) ?>">
 <?php endif ?>

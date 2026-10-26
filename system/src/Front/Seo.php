@@ -79,32 +79,69 @@ final class Seo
         return $this->siteSettings . $path . $suffix . $after;
     }
 
+    /**
+     * The address of a site path under the site root, as the sitemap and the links give it: the custom news address, the
+     * language prefix and the url_slash ending ('services.html', 'de/kontakt', 'de/' for a language's home page).
+     */
+    public function address(string $path, string $language = ''): string
+    {
+        $public = \Talea\Core\Routes::publicPath($path, $this->app->db());
+
+        return ($language !== '' ? $language . '/' : '') . $public . (\Talea\Core\Routes::pageLike('/' . $public) ? \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '');
+    }
+
+    /**
+     * The pages the sitemap lists, by address(): the home page, its published language versions, and every visible,
+     * indexable page without a password and not for members only, of a published language, whose canonical address is
+     * its own. Search engines → Performance counts the same pages.
+     *
+     * @return array<string, array{changed: ?string, priority: string}>
+     */
+    public function sitemapPages(): array
+    {
+        $db = $this->app->db();
+        // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
+        $languages = ['', ...\Talea\Core\Language::published($this->app->settings(), $db)];
+        $pages = ['' => ['changed' => null, 'priority' => '1.0']];
+        foreach (array_slice($languages, 1) as $language) {
+            $pages[$this->address('', $language)] = ['changed' => null, 'priority' => '0.9'];
+        }
+        $home = $this->app->settings()->int('home_page');
+        foreach ($db->all('SELECT slug, updated_at, language, canonical_url FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?) AND language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')', [$home, $home, ...$languages]) as $r) {
+            $address = $this->address($r['slug'], $r['language']);
+            // a row whose canonical address is another one is not listed (like noindex rows)
+            if ((string) $r['canonical_url'] === '' || \Talea\Core\Robots::sameAddress($r['canonical_url'], $this->root . $address)) {
+                $pages[$address] = ['changed' => $r['updated_at'], 'priority' => '0.8'];
+            }
+        }
+
+        return $pages;
+    }
+
     public function sitemapXml(): string
     {
         $db = $this->app->db();
         // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
-        $suffix = \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash'));
-        $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
-            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Talea\Core\Routes::publicPath($path, $db))
-                . (\Talea\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
+        // a row whose canonical address is another one is not listed (like noindex rows): '' is filtered out below
+        $entry = fn (string $loc, ?string $change, string $priority): string => '<url><loc>' . e($loc) . '</loc>'
             . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
+        $url = function (string $path, ?string $change = null, string $priority = '0.5', string $language = '', string $canonical = '') use ($entry): string {
+            $loc = $this->root . $this->address($path, $language);
 
-        // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
+            return $canonical !== '' && !\Talea\Core\Robots::sameAddress($canonical, $loc) ? '' : $entry($loc, $change, $priority);
+        };
+
         $languages = ['', ...\Talea\Core\Language::published($this->app->settings(), $db)];
         $inLanguages = ' AND language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')';
-        $xml = [$url('', null, '1.0')];
-        foreach (array_slice($languages, 1) as $language) {
-            $xml[] = $url('', null, '0.9', $language);
+        $xml = [];
+        foreach ($this->sitemapPages() as $address => $page) {
+            $xml[] = $entry($this->root . $address, $page['changed'], $page['priority']);
         }
-        $home = $this->app->settings()->int('home_page');
-        foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
-            $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language']);
-        }
-        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
-            $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language']);
+        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed, p.canonical_url FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+            $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language'], $r['canonical_url']);
         }
         if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
-            return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
+            return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", array_filter($xml)) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
         $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'); // gated news is never in the sitemap
@@ -114,11 +151,11 @@ final class Seo
         foreach ($db->all("SELECT k.slug, k.language FROM {categories} k WHERE EXISTS (SELECT 1 FROM {news} n WHERE n.category_id = k.category_id AND n.{$published}) AND k.language IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
             $xml[] = $url('news/category/' . $r['slug'], null, '0.4', $r['language']);
         }
-        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS changed FROM {news} WHERE {$published} AND noindex = FALSE{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
-            $xml[] = $url('news/' . $r['slug'], $r['changed'], '0.5', $r['language']);
+        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS changed, canonical_url FROM {news} WHERE {$published} AND noindex = FALSE{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
+            $xml[] = $url('news/' . $r['slug'], $r['changed'], '0.5', $r['language'], $r['canonical_url']);
         }
 
-        return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
+        return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", array_filter($xml)) . "\n</urlset>\n";
     }
 
     /**
@@ -331,10 +368,10 @@ final class Seo
             }
         }
         $h[] = '<meta property="og:locale" content="' . \Talea\Core\Language::AVAILABLE[\Talea\Core\Language::code()][1] . '">';
-        if (($meta['description'] ?? '') !== '') {
-            $h[] = '<meta property="og:description" content="' . e($meta['description']) . '">';
+        if (($meta['description'] ?? '') !== '' || ($meta['share_description'] ?? '') !== '') {
+            $h[] = '<meta property="og:description" content="' . e(($meta['share_description'] ?? '') !== '' ? $meta['share_description'] : $meta['description'] ?? '') . '">';
         }
-        $h[] = '<meta name="twitter:card" content="' . (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
+        $h[] = '<meta name="twitter:card" content="' . ($s->get('seo_card') !== 'small' && (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null) ? 'summary_large_image' : 'summary') . '">';
         // the Markdown version: a news item, or the path a page or collection item hands over in $meta['markdown']
         $markdown = $meta['markdown'] ?? ($newsItem !== null ? $this->path('news/') . $newsItem['slug'] : null);
         if ($markdown !== null && $s->bool('markdown_versions')) {
@@ -354,6 +391,9 @@ final class Seo
         // shared site elements (photo gallery, photo viewer, video, sharing…) for all templates
         $version = rawurlencode(TALEA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $version . '">';
+        if (!empty($meta['seo_marks'])) { // "SEO on the page" in Website mode (Front\Kernel::showPage)
+            $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/seo-marks.css')) . '?v=' . $version . '">';
+        }
         // blocking="render": the page is first rendered only with the script loaded (it loads in parallel with the styles, which
         // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
@@ -603,7 +643,7 @@ final class Seo
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
                 ['@type' => 'ListItem', 'position' => 2, 'name' => t('News'), 'item' => $this->page($this->path('news'))],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['category_name'], 'item' => $this->page($this->path('news/category/') . $newsItem['category_slug'])],
-                ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['title']],
+                ['@type' => 'ListItem', 'position' => 4, 'name' => ($newsItem['breadcrumb_title'] ?? '') !== '' ? $newsItem['breadcrumb_title'] : $newsItem['title']],
             ]],
         ]];
     }

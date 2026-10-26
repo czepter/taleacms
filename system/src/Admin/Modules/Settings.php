@@ -66,6 +66,11 @@ class Settings extends Module
             'verification_bing' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'lines', 'ai_crawlers' => 'choice:allow|block', 'url_slash' => 'choice:none|slash|html', 'llms_txt' => 'flag', 'markdown_versions' => 'flag', 'indexnow' => 'flag',
             'security_contact' => 'pattern:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
+        // title templates and the like have no screen on the SEO tab yet; kept apart so saving that tab never switches their flags off. Types for checking values from the Claude connection
+        'seo_titles' => [
+            'seo_separator' => 'pattern:/^.{1,3}$/u', 'seo_title_home' => 'text', 'seo_title_page' => 'text', 'seo_title_news' => 'text', 'seo_title_item' => 'text', 'seo_title_category' => 'text', 'seo_title_tag' => 'text',
+            'seo_description_page' => 'text', 'seo_description_news' => 'text', 'seo_description_item' => 'text', 'seo_capitalize' => 'flag', 'seo_robots' => 'text', 'seo_hide_empty_terms' => 'flag', 'seo_card' => 'choice:large|small',
+        ],
         'analytics' => [
             'ga4_id' => 'pattern:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'pattern:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'number:0:99999',
             'plausible_domain' => 'pattern:/^([a-z0-9.-]{3,100})?$/', 'plausible_url' => 'url', 'umami_url' => 'url',
@@ -300,8 +305,8 @@ class Settings extends Module
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Talea\Core\Demo::active()) {
             \Talea\Core\MailServices::settle($settings, $this->request->post('smtp_ses_region'));
         }
-        if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
-            $settings->set('indexnow_key', bin2hex(random_bytes(16)));
+        if ($tab === 'seo') {
+            Seo::ensureIndexNowKey($settings);
         }
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('extensions'));

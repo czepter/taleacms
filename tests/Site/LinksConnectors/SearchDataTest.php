@@ -42,19 +42,24 @@ final class SearchDataTest extends SiteTestCase
         $this->assertSame('1|0|https://example.com/', $site->value("SELECT CONCAT(connected_at IS NOT NULL, '|', secret LIKE '%bing-test-key%', '|', JSON_UNQUOTE(JSON_EXTRACT(config, '$.site_url'))) FROM tl_connectors WHERE service = 'bing'"), 'search: Bing is connected with its key stored encrypted and its site in the settings');
 
         $tasks = $this->runJob('search_data');
-        $this->assertStringContainsString('search_data: google 5, bing 2', $tasks, 'search: the daily job loaded 2 queries, 2 pages and a sitemap from Google and 1 query and 1 page from Bing');
+        $this->assertStringContainsString('search_data: google 37, bing 5', $tasks, 'search: the daily job loaded 2 queries, 2 pages, a sitemap, the total, 28 days and 3 page searches from Google and 1 query, 1 page, 2 days and the total from Bing');
 
         $today = $this->siteDate('today');
         $this->assertSame('bing:page:https://example.com/contact:4:50:8.00:5.0 bing:query:talea bing:6:120:5.00:5.0 google:page:https://example.com/services:31:640:4.84:6.2 google:page:https://example.com/:12:200:6.00:2.1 google:query:talea cms:42:900:4.67:3.4 google:query:company website free:7:310:2.26:11.8 google:sitemap:https://example.com/sitemap.xml:10:15:66.67:0.0',
-            $site->value("SELECT GROUP_CONCAT(CONCAT(engine, ':', kind, ':', `key`, ':', clicks, ':', impressions, ':', ctr, ':', position) ORDER BY engine, kind, clicks DESC SEPARATOR ' ') FROM tl_search_stats WHERE day = ?", [$today]),
+            $site->value("SELECT GROUP_CONCAT(CONCAT(engine, ':', kind, ':', `key`, ':', clicks, ':', impressions, ':', ctr, ':', position) ORDER BY engine, kind, clicks DESC SEPARATOR ' ') FROM tl_search_stats WHERE day = ? AND kind IN ('query', 'page', 'sitemap')", [$today]),
             'search: the snapshot of today – Google\'s CTR in per cent, Bing\'s days summed with the position weighted by impressions, the stale day dropped, the sitemap counts');
+
+        $this->assertSame('bing:total::9:180:5.00:0.0 google:total::50:1200:4.17:5.5 google:page_query:talea services:20:300:6.67:4.0:https://example.com/services google:page_query:talea cms:12:200:6.00:2.1:https://example.com/ google:page_query:company website free:5:120:4.17:9.5:https://example.com/services',
+            $site->value("SELECT GROUP_CONCAT(CONCAT(engine, ':', kind, ':', `key`, ':', clicks, ':', impressions, ':', ctr, ':', position, IF(page = '', '', CONCAT(':', page))) ORDER BY kind DESC, engine, clicks DESC SEPARATOR ' ') FROM tl_search_stats WHERE day = ? AND kind IN ('total', 'page_query')", [$today]),
+            'search: the totals and the searches per page (the page in its own column)');
+        $this->assertSame('bing:2 google:28', $site->value("SELECT GROUP_CONCAT(CONCAT(engine, ':', n) ORDER BY engine SEPARATOR ' ') FROM (SELECT engine, COUNT(*) AS n FROM tl_search_stats WHERE day = ? AND kind = 'day' GROUP BY engine) d", [$today]), 'search: Google gives 28 days, Bing the 2 days inside the period');
 
         $log = $this->fakeLogContents('search.log');
         $this->assertStringContainsString('"site":"sc-domain:example.com","dimension":"query"', $log, 'search: Google was asked for the chosen property');
         $this->assertStringContainsString('"limit":250', $log, 'search: Google was asked for 250 rows per dimension');
         $this->assertStringContainsString('"bing":"GetPageStats","site":"https://example.com/","has_key":true', $log, 'search: Bing was asked for the registered site with the key');
 
-        $this->assertSame('search.page,search.query,search.sitemaps,search.sites|0', $site->value("SELECT CONCAT(GROUP_CONCAT(DISTINCT action ORDER BY action), '|', SUM(action LIKE '%bing-test-key%' OR error LIKE '%bing-test-key%')) FROM tl_connector_log WHERE action LIKE 'search.%'"), 'search: the calls are logged by their action, and the Bing key is in no log row');
+        $this->assertSame('search.day,search.page,search.page_query,search.query,search.sitemaps,search.sites,search.total|0', $site->value("SELECT CONCAT(GROUP_CONCAT(DISTINCT action ORDER BY action), '|', SUM(action LIKE '%bing-test-key%' OR error LIKE '%bing-test-key%')) FROM tl_connector_log WHERE action LIKE 'search.%'"), 'search: the calls are logged by their action, and the Bing key is in no log row');
     }
 
     #[Depends('testTheDailyJobLoadsBothEnginesIntoOneSnapshot')]
@@ -100,8 +105,8 @@ final class SearchDataTest extends SiteTestCase
         $site = $this->site();
         $this->adminPost('/admin.php?module=connectors&action=save', ['service' => 'bing', 'client_id' => '', 'account' => '', 'secret' => 'wrong-key', 'config' => ['site_url' => 'https://example.com/']], self::CONNECTORS);
         $tasks = $this->runJob('search_data');
-        $this->assertStringContainsString('search_data: google 5, bing: HTTP 401', $tasks, 'search: the job reports the refused Bing key and does not fail');
-        $this->assertSame('1|2|0',$site->value("SELECT CONCAT(last_error LIKE '%401%', '|', (SELECT COUNT(*) FROM tl_search_stats WHERE engine = 'bing' AND day = ?), '|', (SELECT failures FROM tl_jobs WHERE name = 'search_data')) FROM tl_connectors WHERE service = 'bing'", [$this->siteDate('today')]),
+        $this->assertStringContainsString('search_data: google 37, bing: HTTP 401', $tasks, 'search: the job reports the refused Bing key and does not fail');
+        $this->assertSame('1|5|0', $site->value("SELECT CONCAT(last_error LIKE '%401%', '|', (SELECT COUNT(*) FROM tl_search_stats WHERE engine = 'bing' AND day = ?), '|', (SELECT failures FROM tl_jobs WHERE name = 'search_data')) FROM tl_connectors WHERE service = 'bing'", [$this->siteDate('today')]),
             'search: a refused Bing key is reported on the connection, the day\'s Bing snapshot stays, the job has no failure');
 
         $screen = $site->admin()->get(self::CONNECTORS)->body;

@@ -57,6 +57,12 @@ final class Request
         return array_key_exists($key, $this->query);
     }
 
+    /** Whether the form sent the field at all (also empty). */
+    public function hasPost(string $key): bool
+    {
+        return array_key_exists($key, $this->post);
+    }
+
     /** Text value from GET; an array or a missing key returns the default value. */
     public function get(string $key, string $default = ''): string
     {
@@ -97,6 +103,26 @@ final class Request
         $value = $this->post[$key] ?? [];
 
         return is_array($value) ? array_values(array_filter($value, is_string(...))) : [];
+    }
+
+    /** A group of fields posted as name[key][…] (rows of a list form); anything else is []. @return array<array-key, mixed> */
+    public function postArray(string $key): array
+    {
+        $value = $this->post[$key] ?? [];
+
+        return is_array($value) ? $value : [];
+    }
+
+    /** How many fields the form sent (each name[…] counts once, as for max_input_vars). */
+    public function postFieldCount(): int
+    {
+        $count = 0;
+        $post = $this->post; // array_walk_recursive() takes a reference, the property is readonly
+        array_walk_recursive($post, function () use (&$count): void {
+            $count++;
+        });
+
+        return $count;
     }
 
     /** @return array<string, mixed>|null */

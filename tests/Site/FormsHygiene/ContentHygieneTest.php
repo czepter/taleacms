@@ -85,7 +85,7 @@ final class ContentHygieneTest extends SiteTestCase
 
         $this->assertSame('10000', (int) $ok['single_h1'] . (int) $ok['heading_order'] . (int) $ok['images_alt'] . (int) $ok['title_length'] . (int) $ok['description_length'],
             'MCP: get_page content_check – one H1 (the title), a skipped level, an image without alt, a short title, no description');
-        $this->assertPage('/admin.php?module=pages&action=edit&id=' . $this->site()->publicId('pages', self::$page), 200, 'data-check="heading_order"', message: 'the page editor shows the content check of the saved version');
+        $this->assertPage('/admin.php?module=pages&action=website&tab=seo&id=' . $this->site()->publicId('pages', self::$page), 200, 'data-check="heading_order"', message: 'the SEO tab of Website mode shows the content check of the saved version');
     }
 
     public function testTheTranslationOverview(): void

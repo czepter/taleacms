@@ -46,6 +46,18 @@
 		if (empty) { empty.hidden = any; }
 	});
 
+	// Variable buttons (Titles and descriptions): data-insert="%title%" data-insert-into="field id" puts the variable at
+	// the cursor of that field; their group is rendered hidden and appears only with this script.
+	document.querySelectorAll('[data-insert]').forEach(function (b) { b.parentNode.hidden = false; });
+	document.addEventListener('click', function (e) {
+		var button = e.target.closest('[data-insert]');
+		var field = button && document.getElementById(button.getAttribute('data-insert-into'));
+		if (!field) { return; }
+		field.setRangeText(button.getAttribute('data-insert'), field.selectionStart, field.selectionEnd, 'end');
+		field.focus();
+		field.dispatchEvent(new Event('input', { bubbles: true }));
+	});
+
 	// Confirmation of irreversible actions: data-confirm="text" on a form or a button.
 	// A custom dialog instead of window.confirm(), which embedded browsers (e.g. in apps) silently suppress.
 	var confirmDialog = null;
@@ -310,8 +322,8 @@
 		});
 	});
 
-	// Warning before leaving a form with unsaved changes
-	document.querySelectorAll('form.form').forEach(function (form) {
+	// Warning before leaving a form with unsaved changes (the Website settings sidebar too: its own buttons post other forms)
+	document.querySelectorAll('form.form, form.website-settings-form').forEach(function (form) {
 		var changed = false;
 		form.addEventListener('input', function () { changed = true; });
 		form.addEventListener('change', function () { changed = true; });
@@ -598,6 +610,91 @@
 	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { showTip(el); } });
 	document.addEventListener('focusout', hideTip);
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
+
+	// Website mode: the settings sidebar folds to a rail with a link per tab; the browser remembers it (without a script it stays open)
+	var website = document.querySelector('.website'), settingsToggles = document.querySelectorAll('[data-settings-toggle]');
+	if (website && settingsToggles.length) {
+		var foldSettings = function (closed) {
+			website.classList.toggle('settings-closed', closed);
+			settingsToggles.forEach(function (b) { b.setAttribute('aria-expanded', closed ? 'false' : 'true'); });
+			try { localStorage.setItem('talea.websiteSettings', closed ? 'closed' : 'open'); } catch (e) { /* private mode */ }
+		};
+		try { if (localStorage.getItem('talea.websiteSettings') === 'closed') { foldSettings(true); } } catch (e) { /* private mode */ }
+		settingsToggles.forEach(function (b) { b.addEventListener('click', function () { foldSettings(!website.classList.contains('settings-closed')); }); });
+		document.querySelectorAll('.website-settings-rail a').forEach(function (a) { a.addEventListener('click', function () { foldSettings(false); }); });
+	}
+
+	// Website mode, SEO tab: the unsaved fields are checked 600 ms after the last change (pages/seo_check returns the checks and
+	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins);
+	// the length meters follow the typing
+	var seoForm = document.querySelector('[data-seo-live]');
+	if (seoForm) {
+		var seoTimer = null, seoRequest = null;
+		seoForm.addEventListener('input', function (e) {
+			var meter = e.target.parentNode.querySelector('[data-meter]');
+			if (meter) {
+				var max = +meter.getAttribute('data-meter'), length = e.target.value.length;
+				meter.classList.toggle('warning', length > max);
+				meter.querySelector('i').style.setProperty('--fill', Math.min(100, Math.round(length / max * 100)) + '%');
+				meter.lastChild.textContent = length + ' / ' + max;
+			}
+			clearTimeout(seoTimer);
+			seoTimer = setTimeout(function () {
+				if (seoRequest) { seoRequest.abort(); }
+				seoRequest = new AbortController();
+				fetch(seoForm.getAttribute('data-seo-live'), { method: 'POST', body: new FormData(seoForm), credentials: 'same-origin', signal: seoRequest.signal })
+					.then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+					.then(function (html) {
+						var fresh = document.createElement('template');
+						fresh.innerHTML = html;
+						['[data-seo-checks]', '[data-seo-serp]'].forEach(function (selector) {
+							var now = document.querySelector(selector), next = fresh.content.querySelector(selector);
+							if (now && next) { now.replaceWith(next); }
+						});
+					})
+					.catch(function () { /* aborted, offline or signed out: the shown state stays */ });
+			}, 600);
+		});
+	}
+
+	// focus keywords (the SEO tab, the news and collection item forms): chips over their textarea (one per line, which is what is submitted)
+	document.querySelectorAll('[data-chips]').forEach(function (area) {
+		var box = document.createElement('div'), chips = document.createElement('span'), input = document.createElement('input');
+		var list = function () { return area.value.split(/[\n,]/).map(function (k) { return k.trim(); }).filter(Boolean); };
+		var draw = function () {
+			chips.textContent = '';
+			list().forEach(function (keyword, i) {
+				var chip = document.createElement('span'), remove = document.createElement('button');
+				chip.className = 'seo-chip' + (i === 0 ? ' primary' : '');
+				chip.textContent = keyword;
+				remove.type = 'button';
+				remove.textContent = '×';
+				remove.setAttribute('aria-label', T('Remove %s').replace('%s', keyword));
+				remove.addEventListener('click', function () { var l = list(); l.splice(i, 1); set(l); input.focus(); });
+				chip.appendChild(remove);
+				chips.appendChild(chip);
+			});
+			input.hidden = list().length >= 5;
+		};
+		var set = function (keywords) { area.value = keywords.join('\n'); draw(); area.dispatchEvent(new Event('input', { bubbles: true })); };
+		var add = function () { if (input.value.trim() !== '') { set(list().concat(input.value.trim())); input.value = ''; } };
+		box.className = 'seo-chips-edit';
+		input.className = 'seo-chip-input';
+		input.placeholder = T('+ Keyword');
+		input.id = area.id; // the label now names the input
+		area.removeAttribute('id');
+		area.hidden = true;
+		box.append(chips, input);
+		area.after(box);
+		input.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+			else if (e.key === 'Backspace' && input.value === '' && list().length) { set(list().slice(0, -1)); }
+		});
+		input.addEventListener('input', function (e) { e.stopPropagation(); }); // only a finished keyword is checked
+		input.addEventListener('blur', add);
+		if (area.form) { area.form.addEventListener('submit', add); }
+		draw();
+	});
 
 	// Save at hand: the Save row of the screen's one edit form is repeated in the page heading, which stays on top while scrolling.
 	// The copies submit that form (form="…"), so their name/value, data-confirm and the field validation work as on the originals.

@@ -88,8 +88,9 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
-        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form first
-        if ($this->redirect === null && $this->redirectRule($internal) === null && ($slash = $this->slashRedirect($internal)) !== null) {
+        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form first;
+        // only the indexed exact lookup runs on every request, the other match types wait for the 404 (notFound())
+        if ($this->redirect === null && $this->redirectRule($internal, true) === null && ($slash = $this->slashRedirect($internal)) !== null) {
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
@@ -149,11 +150,9 @@ final class Kernel
         // also Polylang's language home ?lang=en, stored as ?lang=en by the WordPress import
         $lang = preg_match('/^' . Language::TAG . '$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
         if (($request->getInt('p') > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
-            $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
+            $target = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path = ? AND active = TRUE', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
             if ($target !== null) {
-                $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
-
-                return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), 301);
+                return $this->followRule($target + ['target' => $target['to_path']]);
             }
         }
         // a file waiting for approval (#150, Core\MediaStaging): for signed-in users and draft previews; everyone else gets the
@@ -661,7 +660,7 @@ final class Kernel
             $parentPage = $db->one('SELECT slug, title FROM {pages} WHERE (page_id = ? OR translation_of = ?) AND language = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
         }
         $this->breadcrumbs([$parentPage !== null && $parentPage['title'] !== '' ? (string) $parentPage['title'] : $collection['name'], $parentPage !== null ? $this->app->url((string) $parentPage['slug']) : ''],
-            [$item['name'] ?? t('Sample item'), '']);
+            [($item['breadcrumb_title'] ?? '') !== '' ? $item['breadcrumb_title'] : ($item['name'] ?? t('Sample item')), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['collection_id'], (string) $collection['slug'], (string) $item['slug']] : null;
         $k = $this->context();
         if (\Talea\Core\Notices::isBoard($collection)) {
@@ -703,7 +702,7 @@ final class Kernel
             'description' => $description, 'image' => $image, 'build' => true, 'noindex' => $draft || !empty($item['noindex']),
             'item' => $item !== null ? ['collection' => $collection, 'item' => $item] : null,
             'markdown' => $item !== null && $collection['detail'] && $item['visible'] && !$this->gated ? $collection['slug'] . '/' . $item['slug'] : null,
-        ]);
+        ] + $this->seoMeta('item', $item ?? [], ['category' => (string) $collection['name']]));
     }
 
     /**
@@ -728,6 +727,24 @@ final class Kernel
             : null;
 
         return $item === null || \Talea\Core\Members::isGated($db, 'item', (int) $item['item_id']) ? null : $seo->itemMarkdown($collection, $item);
+    }
+
+    /**
+     * What the SEO fields of a row add to $meta: the kind that picks the title template, the page's robots directives, the
+     * canonical override and the sharing texts. A row's own SEO title is shown as written.
+     *
+     * @param array<string, mixed> $row
+     * @param array<string, string> $vars extra title template variables (category, excerpt)
+     * @return array<string, mixed>
+     */
+    private function seoMeta(string $kind, array $row = [], array $vars = []): array
+    {
+        return [
+            'seo_kind' => $kind, 'own_title' => (string) ($row['seo_title'] ?? '') !== '', 'title_vars' => $vars,
+            'robots' => (string) ($row['robots'] ?? ''), 'canonical' => \Talea\Core\Robots::canonical((string) ($row['canonical_url'] ?? '')),
+            'share_title' => (string) ($row['share_title'] ?? ''), 'share_description' => (string) ($row['share_description'] ?? ''),
+            'own_description' => (string) ($row['description'] ?? $row['seo_description'] ?? '') !== '',
+        ];
     }
 
     /** Home page ID in the shown site version's language (counterpart of the page from Settings); 0 = the news listing is home. */
@@ -771,7 +788,7 @@ final class Kernel
                     $levels[] = [$parent['title'], $this->app->url($parent['slug'])];
                 }
             }
-            $this->breadcrumbs(...[...$levels, [$page['title'], '']]);
+            $this->breadcrumbs(...[...$levels, [(string) ($page['breadcrumb_title'] ?? '') !== '' ? $page['breadcrumb_title'] : $page['title'], '']]);
         }
         // a password-protected page (2.14, Core\PageLock): the password form until the visitor enters it; editors see it
         // without one. Protected pages are noindex, so they never enter the page cache
@@ -797,7 +814,7 @@ final class Kernel
             'main' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
             'head_code' => (string) ($page['head_code'] ?? ''), // code in <head> of this page only (2.3)
             'markdown' => $locked || $this->gated || !$page['visible'] ? null : (string) $page['slug'], // markdownVersion() answers none of them
-        ];
+        ] + $this->seoMeta($home ? 'home' : 'page', $page);
         // preview of the draft build for the editor: ?build=draft (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
         $draft = $this->wantsDraft() && $this->canSeeDraft('page:' . (int) $page['page_id']);
@@ -815,6 +832,14 @@ final class Kernel
             if ($k->markIds) {
                 $meta['comments'] = (new DraftComments($this->app))->widget('page:' . $this->app->db()->publicId('pages', (int) $page['page_id']), $previewKey, $path);
             }
+            // "SEO on the page" (Website mode, ?seo_marks=1): what the SEO check finds, marked on the elements of the draft preview
+            // for whoever edits pages, in the language of their administration; a visitor's request ignores it (and a signed-in
+            // request is never cached)
+            if ($draft && !$k->editor && $this->app->request->get('seo_marks') === '1' && ($auth = $this->app->auth())->hasModule('pages')) {
+                $k->seoMarks = Language::runWith(Language::adminCode($auth->user(), $this->app->settings()), fn (): array => \Talea\Core\ContentCheck::marks($build, \Talea\Core\SeoFields::keywords((string) $page['focus_keywords'])),
+                    'admin-', Language::normalizeRegister((string) ($auth->user()['register'] ?? '')));
+                $meta['seo_marks'] = true;
+            }
             $k->source = 'page:' . $this->app->db()->publicId('pages', (int) $page['page_id']);
             // A/B tests (Builder\Experiments): the published page carries both versions, the head picks one in the browser
             if (!$draft) {
@@ -829,6 +854,7 @@ final class Kernel
             $html = \Talea\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
+            $k->seoMarks = [];
             $k->focus = null;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
                 $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $page['page_id']));
@@ -894,7 +920,7 @@ final class Kernel
             'description' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
                 : mb_strimwidth(t('News') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'title')) : ''), 0, 160, '…'),
             'part' => 'list',
-        ]);
+        ] + $this->seoMeta($home ? 'home' : 'other'));
     }
 
     private function category(string $seo): Response
@@ -911,7 +937,8 @@ final class Kernel
         return $this->page(
             $category['name'],
             $this->view->render('list', ['heading' => $category['name'], 'description' => self::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
-            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list'],
+            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list', 'noindex' => $total === 0 && $this->app->settings()->bool('seo_hide_empty_terms')]
+                + $this->seoMeta('category', [], ['category' => (string) $category['name']]),
         );
     }
 
@@ -931,7 +958,8 @@ final class Kernel
         ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
             'description' => $colorScheme ? \Talea\Core\Html::plain((string) $tag['description'], 300) : '',
             'part' => 'list',
-        ]);
+            'noindex' => $total === 0 && $this->app->settings()->bool('seo_hide_empty_terms'),
+        ] + $this->seoMeta('tag'));
     }
 
     private function newsItem(string $seo): Response
@@ -962,7 +990,7 @@ final class Kernel
             $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['news_id']]);
         }
 
-        $this->breadcrumbs([t('News'), $this->app->url('news')], [$newsItem['category_name'], $this->app->url('news/category/' . $newsItem['category_slug'])], [$newsItem['title'], '']);
+        $this->breadcrumbs([t('News'), $this->app->url('news')], [$newsItem['category_name'], $this->app->url('news/category/' . $newsItem['category_slug'])], [(string) ($newsItem['breadcrumb_title'] ?? '') !== '' ? $newsItem['breadcrumb_title'] : $newsItem['title'], '']);
         $newsItem['faq_html'] = (new View([TALEA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['tags'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);
@@ -982,7 +1010,7 @@ final class Kernel
             'noindex' => (bool) $newsItem['noindex'],
             'type' => 'article',
             'part' => 'news_item',
-        ]);
+        ] + $this->seoMeta('news', $newsItem, ['category' => (string) $newsItem['category_name']]));
     }
 
     private function search(): Response
@@ -1036,9 +1064,10 @@ final class Kernel
 
     /**
      * The stored redirect for an old address, null when there is none. The path may have lost its .html (url_slash), while
-     * imports store old addresses as they were (/2019/05/post.html), so both forms are tried.
+     * imports store old addresses as they were (/2019/05/post.html), so both forms are tried. `$exactOnly` skips the other match types:
+     * they are tried only for an address that would otherwise end with 404, so they never shadow a live page and cost nothing on one.
      */
-    private function redirectRule(string $path): ?array
+    private function redirectRule(string $path, bool $exactOnly = false): ?array
     {
         if (!Extensions::isEnabled($this->app->settings(), 'redirects')) {
             return null;
@@ -1049,9 +1078,20 @@ final class Kernel
         $sources = $this->app->languagePrefix !== '' ? [$this->app->languagePrefix . '/' . $path, $path] : [$path];
         foreach ($sources as $source) {
             $plain = (string) preg_replace('#\.html$#', '', $source);
-            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
+            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) AND active = TRUE AND match_type = \'exact\' ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
             if ($rule !== null) {
-                return $rule;
+                return $rule + ['target' => $rule['to_path']];
+            }
+        }
+        if ($exactOnly) {
+            return null;
+        }
+        // no exact rule: the other match types, in the order they were made (a few hundred at most)
+        foreach ($this->app->db()->all('SELECT * FROM {redirects} WHERE active = TRUE AND match_type <> \'exact\' ORDER BY redirect_id LIMIT 500') as $rule) {
+            foreach ($sources as $source) {
+                if (($target = \Talea\Core\RedirectRules::target($rule, $source)) !== null) {
+                    return $rule + ['target' => $target];
+                }
             }
         }
 
@@ -1063,9 +1103,7 @@ final class Kernel
         // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
         $target = $this->redirectRule($this->app->request->path());
         if ($target !== null) {
-            $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
-
-            return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), (int) ($target['type'] ?? 301) === 302 ? 302 : 301);
+            return $this->followRule($target);
         }
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
@@ -1076,7 +1114,15 @@ final class Kernel
         if ($path !== '' && $this->app->request->get('part') === '' && !\Talea\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {not_found}') < 2000 || $this->app->db()->value('SELECT 1 FROM {not_found} WHERE path = ?', [$path]) !== null) {
-                    $this->app->db()->upsert('not_found', ['path' => $path, 'count' => 1, 'last_seen_at' => date('Y-m-d H:i:s')], ['path'], ['count' => '{old.count} + 1', 'last_seen_at']);
+                    $request = $this->app->request;
+                    $now = date('Y-m-d H:i:s');
+                    $own = parse_url($this->app->settings()->get('site_url') ?: $request->origin());
+                    $ownPort = (int) ($own['port'] ?? 0);
+                    $ownHost = (string) ($own['host'] ?? '') . ($ownPort > 0 && $ownPort !== (($own['scheme'] ?? '') === 'https' ? 443 : 80) ? ':' . $ownPort : '');
+                    $referrer = \Talea\Core\NotFound::referrer($request->referer(), $ownHost);
+                    // the last known referrer stays when this visit has none; first_seen_at is written on insert only
+                    $this->app->db()->upsert('not_found', ['path' => $path, 'count' => 1, 'last_seen_at' => $now, 'referrer' => $referrer, 'first_seen_at' => $now], ['path'],
+                        ['count' => '{old.count} + 1', 'last_seen_at', 'referrer' => "CASE WHEN {new.referrer} <> '' THEN {new.referrer} ELSE {old.referrer} END"]);
                     if ((int) $this->app->db()->value('SELECT count FROM {not_found} WHERE path = ?', [$path]) === \Talea\Core\NotFound::SPIKE) {
                         \Talea\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Talea\Core\NotFound::SPIKE), ['path' => $path]);
                     }
@@ -1086,7 +1132,24 @@ final class Kernel
             }
         }
 
-        return $this->page(t('Page not found'), $this->view->render('not-found', ['url' => $this->app->url(...), 'pages' => $this->menuPages(), 'news' => Extensions::isEnabled($this->app->settings(), 'news')]), ['noindex' => true, 'part' => 'not_found'], 404);
+        return $this->notFoundPage(404);
+    }
+
+    /** The answer of a matched redirect rule (with its expanded `target`): counted, then the redirect or the 410/451 page. */
+    private function followRule(array $rule): Response
+    {
+        $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1, last_hit_at = ? WHERE redirect_id = ?', [date('Y-m-d H:i:s'), $rule['redirect_id']]);
+        $status = (int) ($rule['type'] ?? 301);
+        if ($status >= 400) {
+            return $this->notFoundPage($status); // gone (410) or unavailable for legal reasons (451): the 404 page with that status
+        }
+
+        return Response::redirect(preg_match('#^https?://#i', $rule['target']) ? $rule['target'] : $this->app->url($rule['target']), in_array($status, [302, 307], true) ? $status : 301);
+    }
+
+    private function notFoundPage(int $status): Response
+    {
+        return $this->page(t('Page not found'), $this->view->render('not-found', ['url' => $this->app->url(...), 'pages' => $this->menuPages(), 'news' => Extensions::isEnabled($this->app->settings(), 'news')]), ['noindex' => true, 'part' => 'not_found'], $status);
     }
 
     /**
@@ -1510,6 +1573,14 @@ final class Kernel
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('page', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?page=' . $listPageNumber : '');
+        // %excerpt%: the start of the description the row ends up with; a description template fills a row without its own one
+        $meta['title_vars']['excerpt'] = mb_substr((string) ($meta['description'] ?? ''), 0, 160);
+        $descriptionTemplate = in_array($meta['seo_kind'] ?? '', ['page', 'news', 'item'], true) ? $siteSettings->get('seo_description_' . $meta['seo_kind']) : '';
+        if ($descriptionTemplate !== '' && empty($meta['own_description'])) {
+            $rendered = \Talea\Core\SeoTitle::render($descriptionTemplate, ($meta['title_vars'] ?? []) + ['title' => $title, 'sep' => $siteSettings->get('seo_separator'), 'sitename' => $siteSettings->get('site_name'), 'tagline' => $siteSettings->get('site_description'), 'year' => date('Y')]);
+            $meta['description'] = $rendered !== $title || $title === '' ? $rendered : $meta['description'];
+        }
+        $meta['title_vars']['page'] = $listPageNumber > 1 ? (string) $listPageNumber : '';
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
         }

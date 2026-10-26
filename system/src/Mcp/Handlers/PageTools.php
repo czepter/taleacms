@@ -71,9 +71,11 @@ trait PageTools
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
         return array_map(fn (array $r): array => ['id' => (int) $r['page_id'], 'title' => $r['title'], 'url' => $this->app->request->origin()
             . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['page_id'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
-            'home' => (int) $r['page_id'] === $home, 'visible' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
+            'home' => (int) $r['page_id'] === $home, 'visible' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language'],
+            // the search score (null without a focus keyword) and the keyword it was checked against
+            'seo_score' => $r['seo_score'] === null ? null : (int) $r['seo_score'], 'focus_keyword' => \Talea\Core\SeoFields::keywords((string) $r['focus_keywords'])[0] ?? ''],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . $auth->pageListScope() . ' ORDER BY language, sort_order, title'));
+            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of, seo_score, focus_keywords FROM {pages} WHERE deleted_at IS NULL' . $auth->pageListScope() . ' ORDER BY language, sort_order, title'));
     }
 
     /** get_page */
@@ -100,6 +102,15 @@ trait PageTools
         // content check of the saved version (2.14, Core\ContentCheck), read-only – the same list the editor shows
         $builds = $this->app->db()->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]) ?? [];
         $page['content_check'] = Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::forPage($page + $builds), 'admin-');
+
+        $page['seo_analysis'] = Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::analyse(\Talea\Core\SeoScore::input($this->app, 'page', $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]))), 'admin-');
+
+        // Google's numbers and the searches that led to the page (get_search_performance), for whoever may see search data
+        $root = \Talea\Core\SearchInsights::root($this->app);
+        $page['search'] = ($auth->isAdmin() || $auth->hasModule('stats')) && \Talea\Core\SearchInsights::snapshots($this->app->db(), \Talea\Connectors\Google::KEY) !== []
+            ? \Talea\Core\SearchInsights::forPath($this->app->db(), \Talea\Core\SearchInsights::pageKeys($this->app, [$page], $root)[(int) $page['page_id']], $root) : null;
+
+        $page = \Talea\Core\SeoFields::output($page) + $page;
 
         return ['id' => $page['page_id'], 'visible' => $page['visible'], 'order' => $page['sort_order'], 'parent' => $page['parent_id']]
             + array_diff_key($page, ['page_id' => 1, 'visible' => 1, 'sort_order' => 1, 'parent_id' => 1, 'text' => 1]) + ['content' => $page['text']];
@@ -256,6 +267,7 @@ trait PageTools
         if (!$ok) {
             throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
         }
+        \Talea\Core\SeoScore::refresh($this->app, $type === 'collection_item' ? 'item' : $type, $id);
 
         return ['restored' => $type, 'id' => $id, 'visible' => false];
     }

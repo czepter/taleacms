@@ -207,17 +207,24 @@
     },
     "create_news": {
         "parameters": {
+            "breadcrumb_title": "string",
+            "canonical_url": "string",
             "category": "string",
             "content": "string",
             "date": "string",
             "faq": "string",
+            "focus_keywords": "string",
             "image": "string",
             "image_caption": "string",
             "intro": "string",
+            "key_page": "boolean",
             "publish": "boolean",
             "review_by": "string",
+            "robots": "string",
             "seo_description": "string",
             "seo_title": "string",
+            "share_description": "string",
+            "share_title": "string",
             "tags": "string",
             "title": "string",
             "valid_until": "string"
@@ -234,19 +241,26 @@
     },
     "create_page": {
         "parameters": {
+            "breadcrumb_title": "string",
+            "canonical_url": "string",
             "content": "string",
             "copy_build": "boolean",
             "description": "string",
+            "focus_keywords": "string",
             "head_code": "string",
             "in_menu": "boolean",
+            "key_page": "boolean",
             "language": "string",
             "noindex": "boolean",
             "order": "integer",
             "parent": "string",
             "publish_at": "string",
             "review_by": "string",
+            "robots": "string",
             "seo_title": "string",
+            "share_description": "string",
             "share_image": "string",
+            "share_title": "string",
             "slug": "string",
             "title": "string",
             "translation_of": "string",
@@ -712,6 +726,18 @@
         "required": [
             "id"
         ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_search_performance": {
+        "parameters": {
+            "engine": "string",
+            "page": "string"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
@@ -1590,17 +1616,24 @@
     },
     "save_collection_item": {
         "parameters": {
+            "breadcrumb_title": "string",
+            "canonical_url": "string",
             "collection": "string",
             "description": "string",
+            "focus_keywords": "string",
             "id": "string",
+            "key_page": "boolean",
             "language": "string",
             "name": "string",
             "noindex": "boolean",
             "order": "integer",
             "publish_at": "string",
             "review_by": "string",
+            "robots": "string",
             "seo_title": "string",
+            "share_description": "string",
             "share_image": "string",
+            "share_title": "string",
             "slug": "string",
             "valid_until": "string",
             "values": "object",
@@ -1743,9 +1776,11 @@
     },
     "save_redirect": {
         "parameters": {
+            "active": "boolean",
             "code": "integer",
             "delete": "boolean",
             "from": "string",
+            "match": "string",
             "to": "string"
         },
         "required": [
@@ -2020,18 +2055,25 @@
     },
     "update_news": {
         "parameters": {
+            "breadcrumb_title": "string",
+            "canonical_url": "string",
             "category": "string",
             "content": "string",
             "date": "string",
             "faq": "string",
+            "focus_keywords": "string",
             "id": "string",
             "image": "string",
             "image_caption": "string",
             "intro": "string",
+            "key_page": "boolean",
             "publish": "boolean",
             "review_by": "string",
+            "robots": "string",
             "seo_description": "string",
             "seo_title": "string",
+            "share_description": "string",
+            "share_title": "string",
             "tags": "string",
             "title": "string",
             "valid_until": "string"
@@ -2047,20 +2089,27 @@
     },
     "update_page": {
         "parameters": {
+            "breadcrumb_title": "string",
+            "canonical_url": "string",
             "content": "string",
             "copy_build": "boolean",
             "description": "string",
+            "focus_keywords": "string",
             "head_code": "string",
             "id": "string",
             "in_menu": "boolean",
+            "key_page": "boolean",
             "language": "string",
             "noindex": "boolean",
             "order": "integer",
             "parent": "string",
             "publish_at": "string",
             "review_by": "string",
+            "robots": "string",
             "seo_title": "string",
+            "share_description": "string",
             "share_image": "string",
+            "share_title": "string",
             "slug": "string",
             "title": "string",
             "translation_of": "string",

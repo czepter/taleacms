@@ -22,6 +22,7 @@ final class Publisher
         self::version($app, ['page_id' => $page['page_id']], $page['build'], $new, $page['updated_at'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
         $app->db()->update('pages', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['page_id' => $page['page_id']]);
+        \Talea\Core\SeoScore::refresh($app, 'page', (int) $page['page_id']);
         \Talea\Front\Cache::clear();
     }
 

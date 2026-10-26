@@ -12,18 +12,24 @@ final class Audit extends Module
 {
     public const string IDENT = 'audit';
     public const string NAME = 'Site audit';
-    public const string GROUP = 'Website';
+    public const string GROUP = 'Search engines';
     public const string ICON = 'audit';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
     {
-        $findings = (new \Talea\Core\Audit($this->app))->run();
+        $audit = (new \Talea\Core\Audit($this->app))->scored(true);
+        $category = $this->request->get('category');
+        $category = in_array($category, \Talea\Core\Audit::CATEGORY, true) ? $category : '';
         $groups = [];
-        foreach ($findings as $f) {
-            $groups[$f['kind']][] = $f;
+        $counts = [];
+        foreach ($audit['findings'] as $f) {
+            $counts[\Talea\Core\Audit::CATEGORY[$f['kind']]] = ($counts[\Talea\Core\Audit::CATEGORY[$f['kind']]] ?? 0) + 1;
+            if ($category === '' || \Talea\Core\Audit::CATEGORY[$f['kind']] === $category) {
+                $groups[$f['kind']][] = $f;
+            }
         }
 
-        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($findings)]);
+        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($audit['findings']), 'audit' => $audit, 'category' => $category, 'counts' => $counts]);
     }
 }

@@ -255,7 +255,7 @@ final class News extends Module
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')),
             'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
-        ];
+        ] + \Talea\Core\SeoFields::fromInput($_POST);
 
         $errors = [];
         if ($data['title'] === '') {
@@ -301,6 +301,7 @@ final class News extends Module
 
         Media::recordUsage($this->db, $id, $data['image'], $data['intro'], $data['text']);
         \Talea\Core\Search::index($this->db, $id);
+        \Talea\Core\SeoScore::refresh($this->app, 'news', $id);
         // a saved news item clears the unsaved state on the server (for a new one it is kept under the number 0)
         $this->db->run('DELETE FROM {news_drafts} WHERE user_id = ? AND news_id IN (0, ?)', [$auth->id(), $id]);
         self::tags($this->db, $id, $r->post('tags'));
@@ -337,6 +338,7 @@ final class News extends Module
             self::version($this->db, $newsItem, $this->app->auth()->id());
         }
         $this->db->update('news', $data + ['edited_at' => date('Y-m-d H:i:s')], ['news_id' => $newsItem['news_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'news', (int) $newsItem['news_id']);
         Media::recordUsage($this->db, (int) $newsItem['news_id'], (string) $newsItem['image'], $data['intro'], $data['text']);
         \Talea\Core\Search::index($this->db, (int) $newsItem['news_id']);
         \Talea\Admin\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['title'], 0, 80));
@@ -644,6 +646,7 @@ final class News extends Module
                 continue;
             }
             $restored += $this->db->update('news', ['deleted_at' => null], ['news_id' => $newsItem['news_id']]);
+            \Talea\Core\SeoScore::refresh($this->app, 'news', (int) $newsItem['news_id']);
             \Talea\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['title'], 0, 80));
         }
 
@@ -708,6 +711,7 @@ final class News extends Module
             'assistant' => (new \Talea\Core\Assistant($this->app->settings()))->isReady(),
             // content check of the saved version (2.14, Core\ContentCheck); a news item not saved yet has nothing to check
             'contentCheck' => $newsItem['news_id'] && !$this->request->isPost() ? \Talea\Core\ContentCheck::forNews($newsItem) : [],
+            'seoCheck' => $newsItem['news_id'] && !$this->request->isPost() && \Talea\Core\ContentCheck::enabled($this->app->settings()) ? \Talea\Core\SeoScore::panel($this->app, 'news', $this->db->one('SELECT * FROM {news} WHERE news_id = ?', [(int) $newsItem['news_id']]) ?? $newsItem) : null,
             'tags' => $this->request->isPost() ? $this->request->post('tags') : implode(', ', array_column(
                 $this->db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [(int) $newsItem['news_id']]),
                 'name',

@@ -17,6 +17,9 @@ namespace Talea\Core;
  */
 final class KaletaExport
 {
+    /** Features (Extensions::CATALOG) Kaleta does not have: its archive cannot name them, so the import keeps their default. */
+    private const array TALEA_ONLY_FEATURES = ['page_check'];
+
     /** Talea table => the column that held the row's integer key in the export (after renaming). */
     private const KEYS = ['pages' => 'page_id', 'categories' => 'category_id', 'tags' => 'tag_id', 'news' => 'news_id', 'redirects' => 'redirect_id',
         'components' => 'component_id', 'sections' => 'section_id', 'collections' => 'collection_id', 'collection_items' => 'item_id', 'popups' => 'popup_id',
@@ -403,6 +406,8 @@ final class KaletaExport
         }
         if (isset($settings['extensions']) && $settings['extensions'] !== '-') {
             $settings['extensions'] = implode(',', array_map(fn (string $e): string => $v['extensions'][$e] ?? $e, explode(',', (string) $settings['extensions'])));
+            // what Kaleta has and left off stays off; a feature only Talea has keeps its default (SiteImport)
+            $settings['extensions_off'] = implode(',', array_diff(array_keys(Extensions::CATALOG), self::TALEA_ONLY_FEATURES, Extensions::fromValue($settings['extensions'])));
         }
         if (isset($settings['design_system'])) {
             $settings['design_system'] = $designSystem($settings['design_system']);

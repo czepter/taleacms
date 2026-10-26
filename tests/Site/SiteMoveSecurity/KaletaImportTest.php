@@ -60,8 +60,8 @@ final class KaletaImportTest extends SiteTestCase
         $this->assertSame((string) $home, $new->settingValue('home_page'), 'the home page setting points at the imported page');
         $this->assertSame((string) $home, (string) $new->value('SELECT parent_id FROM tl_pages WHERE page_id = ?', [$about]), 'parent page');
         $ds = json_decode($new->settingValue('design_system'), true);
-        $this->assertSame(['off', 'news,enquiries,stats', '#123456', 'classic', 300], [$new->settingValue('dark_mode'), $new->settingValue('extensions'),
-            $ds['colors']['primary'] ?? '', $ds['font_heading'] ?? '', $ds['typography']['lead']['weight'] ?? 0], 'settings: dark mode, extensions and the design system in Talea words');
+        $this->assertSame(['off', 'news,enquiries,stats,page_check', '#123456', 'classic', 300], [$new->settingValue('dark_mode'), $new->settingValue('extensions'),
+            $ds['colors']['primary'] ?? '', $ds['font_heading'] ?? '', $ds['typography']['lead']['weight'] ?? 0], 'settings: dark mode, extensions (Page check, which Kaleta does not have, keeps its default; Redirects stays off) and the design system in Talea words');
 
         $menu = json_decode((string) $new->value("SELECT items FROM tl_menus WHERE location = 'main'"), true);
         $this->assertSame(['page', $about, 'link', true], [$menu[0]['type'] ?? '', $menu[0]['page_id'] ?? 0, $menu[1]['type'] ?? '', isset($menu[1]['description'])], 'menu: a page item points at the page');

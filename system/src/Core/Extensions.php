@@ -30,13 +30,23 @@ final class Extensions
         'members' => ['Member login', 'Visitor accounts without passwords: members sign in with a link sent by e-mail, belong to groups, and pages, collection items and news can be restricted to chosen groups. Gated content is never cached, indexed or searchable. Members are invited by you or sign up themselves (your choice). No payments.', false],
         'fleet' => ['Fleet console', 'Makes this installation the console of your other Talea sites: they report to it every hour, it shows all of them on one screen sorted by what needs attention, checks that they are up and decides when they install a new version – test sites first, the rest two days later. It never gets into the sites.', false],
         'notice_board' => ['Official notice board', 'The official notice board preset for municipalities and other offices: notices with posting and takedown dates, a permanent archive and an append-only audit trail (the list_notice_log tool). Applying the Municipality blueprint turns it on. Switching it off hides it but never deletes notices or their log.', false],
+        'page_check' => ['Page check', 'A focus keyword, a score from 0 to 100 and a list of what to fix for every page, news item and collection item.', true],
         'claude' => ['AI connection', 'MCP server at /mcp: Claude builds pages in the builder with your account\'s permissions, edits the header, footer, collections and look, and writes news. Pages and news are saved as drafts that you publish, the menu and look go into the draft look; settings apply straight away. Everyone creates their access token under My account.', true],
     ];
 
     /** @return list<string> */
     public static function enabled(Settings $settings): array
     {
-        $stored = $settings->get('extensions');
+        return self::fromValue($settings->get('extensions'));
+    }
+
+    /**
+     * The features a stored "extensions" value switches on: '' = the default set, '-' = none.
+     *
+     * @return list<string>
+     */
+    public static function fromValue(string $stored): array
+    {
         if ($stored === '') {
             return array_keys(array_filter(self::CATALOG, fn (array $r): bool => $r[2]));
         }
@@ -47,6 +57,20 @@ final class Extensions
     public static function isEnabled(Settings $settings, string $key): bool
     {
         return $key === '' || in_array($key, self::enabled($settings), true);
+    }
+
+    /**
+     * The features a site imported from an archive switches on (SiteImport): those the archive switched on, and those on by
+     * default that the archive names neither on nor off – they are newer than the site it came from, so they keep their
+     * default. An archive without an off list (exported before the list existed) names every feature.
+     *
+     * @return list<string>
+     */
+    public static function imported(string $on, mixed $off): array
+    {
+        $on = array_values(array_intersect(explode(',', $on), array_keys(self::CATALOG)));
+
+        return is_string($off) ? array_values(array_unique([...$on, ...array_diff(self::fromValue(''), explode(',', $off))])) : $on;
     }
 
     /** @param list<string> $keys */

@@ -56,6 +56,7 @@ final class MoveSiteTest extends SiteTestCase
         $this->createTeam($site);
         $this->uploadPhoto($site);
         $site->admin()->post('/admin.php?module=redirects&action=save', ['_csrf' => $site->csrf(), 'from_path' => '/akce-leto', 'to_path' => '/kontakty', 'type' => 302]);
+        $site->exec('INSERT INTO tl_redirects (public_id, from_path, to_path, match_type, type, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', ['0f5c1d52-6a53-4c8f-9a52-7d1f3c1b9e01', '^gallery/(\\d+)$', 'projects/$1', 'regex', 307, 0, date('Y-m-d H:i:s')]); // a rule beyond the exact address, switched off
         $site->mcp('write_notebook', ['topic' => 'history', 'title' => 'Redesign history', 'text' => 'The site moved to Talea in October 2026.']); // 2.15: the notebook moves with the site
         $site->exec("INSERT INTO tl_booking_services (name) VALUES ('Move test')"); // 3.2: a booking set-up travels with the site
         $site->exec('UPDATE tl_news SET text = CONCAT(text, ?) WHERE news_id IN (SELECT news_id FROM (SELECT MIN(news_id) AS news_id FROM tl_news WHERE deleted_at IS NULL) AS first_news)', [self::N6_PAYLOAD]); // 3.3.2: an archive from anywhere brings no script
@@ -66,6 +67,8 @@ final class MoveSiteTest extends SiteTestCase
         $site->setting('social_facebook', ' JavaScript:alert(2)');
         $site->setting('social_linkedin', 'https://www.linkedin.com/company/n55');
         $site->exec("INSERT INTO tl_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', NOW()), ('n55note', '', 'N55', 'text', 'Note: open daily', NOW())");
+
+        $site->setting('seo_title_page', '%title% / %sitename%'); // the "Search engines" templates travel with the site
 
         $this->adminPost('/admin.php?module=transfer&action=export', [], '/admin.php?module=transfer');
 
@@ -156,7 +159,9 @@ final class MoveSiteTest extends SiteTestCase
         $this->assertSame('', $admin->get('/admin.php?module=pages')->redirect, 'after the import the administration is open again');
 
         $this->assertSame($this->counts($old), $this->counts($new), 'the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)');
+        $this->assertSame('regex|307|projects/$1|0', (string) $new->value("SELECT CONCAT_WS('|', match_type, type, to_path, (SELECT COUNT(*) FROM tl_redirects WHERE match_type = 'regex' AND active = TRUE)) FROM tl_redirects WHERE match_type = 'regex'"), 'a redirect rule keeps its match type, type and switch');
         $this->assertSame($this->sameNumbers($old), $this->sameNumbers($new), 'same public ids and values: home page, site name and the design system came along');
+        $this->assertSame('%title% / %sitename%', (string) $new->value("SELECT value FROM tl_settings WHERE name = 'seo_title_page'"), 'the SEO title templates came along');
         $this->assertSame('1/0', (string) $new->value("SELECT CONCAT(SUM(text LIKE '%<p class=\"n6\">N6 check</p>%'), '/', SUM(text LIKE '%onclick%' OR text LIKE '%<script%')) FROM tl_news WHERE text LIKE '%N6 check%'"),
             '3.3.2: news HTML from the export is sanitized, its structure and classes kept');
         $old->exec('UPDATE tl_news SET text = REPLACE(text, ?, \'\')', [self::N6_PAYLOAD]);

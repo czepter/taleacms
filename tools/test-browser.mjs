@@ -69,7 +69,7 @@ async function nothingSpillsOut() {
   if (spilled.length) { throw new Error('content spills out of its box: ' + spilled.join(' | ')); }
 }
 
-const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', `/admin.php?module=pages&action=edit&id=${PAGE}`,
+const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', `/admin.php?module=pages&action=edit&id=${PAGE}`, `/admin.php?module=pages&action=website&id=${PAGE}&tab=publishing`, `/admin.php?module=pages&action=website&id=${PAGE}&tab=advanced`,
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',

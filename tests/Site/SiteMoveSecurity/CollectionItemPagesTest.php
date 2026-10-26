@@ -142,12 +142,12 @@ final class CollectionItemPagesTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path IN ('wp/v2/users', '_next')"), '404 log: bot probes are not recorded');
 
         $start = $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 2.', message: 'the start screen explains the 404 warning and offers to review it');
-        $this->assertStringContainsString('/admin/redirects#not-found', $start->body, 'the warning links to the list');
-        $this->assertStringContainsString('/admin/redirects/ignore_all', $start->body, 'the warning can be dismissed');
+        $this->assertStringContainsString('/admin/missing_pages', $start->body, 'the warning links to the list');
+        $this->assertStringContainsString('/admin/missing_pages/ignore_all', $start->body, 'the warning can be dismissed');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path = 'about-us'"), 'an address that works again drops out of the log');
-        $this->assertPage('/admin.php?module=redirects', 200, 'Ignore – nothing replaces it', message: 'the 404 list says what to do');
+        $this->assertPage('/admin.php?module=missing_pages', 200, 'Ignore – nothing replaces it', message: 'the 404 list says what to do');
 
-        $this->adminPost('/admin.php?module=redirects&action=ignore', ['path' => 'old-contact'], '/admin.php?module=redirects');
+        $this->adminPost('/admin.php?module=missing_pages&action=ignore', ['path' => 'old-contact'], '/admin.php?module=missing_pages');
         $this->assertSame('1', (string) $site->value("SELECT ignored_at IS NOT NULL FROM tl_not_found WHERE path = 'old-contact'"), 'Ignore hides one address for good');
         $visitor->get('/old-contact');
         $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 1.', message: 'an ignored address does not come back in the warning');
@@ -159,7 +159,7 @@ final class CollectionItemPagesTest extends SiteTestCase
             $visitor->get('/brand-new-address');
         }
         $this->assertPage('/admin.php', 200, 'repeatedly ended with “page not found” this week: 1.', message: 'a new address brings the warning back');
-        $this->adminPost('/admin.php?module=redirects&action=ignore_all', ['back' => 'overview'], '/admin.php?module=redirects');
+        $this->adminPost('/admin.php?module=missing_pages&action=ignore_all', ['back' => 'overview'], '/admin.php?module=missing_pages');
     }
 
     #[Depends('testFixture')]

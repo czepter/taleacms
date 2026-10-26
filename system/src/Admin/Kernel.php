@@ -19,10 +19,10 @@ final class Kernel
     public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
 
     /**
-     * The editors' ongoing requests (unsaved state, assistant, build draft): they do not change the site, so they neither clear the
+     * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
      * page cache (it would be cold all the time during work) nor publish files waiting for approval (Core\MediaStaging).
      */
-    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'];
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask', 'seo_check'];
 
     /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
     private const string SEGMENT = '[A-Za-z0-9_.-]+';
@@ -99,8 +99,12 @@ final class Kernel
         Modules\Menu::class,
         Modules\Components::class,
         Modules\Popups::class,
-        Modules\Audit::class,
+        Modules\Seo::class,
+        Modules\SearchPerformance::class,
+        Modules\SeoTitles::class,
         Modules\Redirects::class,
+        Modules\MissingPages::class,
+        Modules\Audit::class,
         Modules\News::class,
         Modules\Categories::class,
         Modules\Tags::class,
@@ -137,7 +141,7 @@ final class Kernel
     ];
 
     /** Sections of the sidebar in their order (Module::GROUP); Settings is the gear at the bottom, not a section of the list. */
-    public const array SECTIONS = ['Website', 'Content', 'Enquiries', 'Customers', 'E-mail', 'Analytics', 'AI'];
+    public const array SECTIONS = ['Website', 'Search engines', 'Content', 'Enquiries', 'Customers', 'E-mail', 'Analytics', 'AI'];
 
     /** The periods "At a glance" on Home offers (days; Core\Report::PERIODS has a year too, Analytics shows that). */
     public const array GLANCE_PERIODS = [7, 30, 90];
@@ -382,12 +386,12 @@ final class Kernel
 
         $modules = $this->modules();
         $warnings = [];
-        if (isset($modules['redirects'])) {
+        if (isset($modules['missing_pages'])) {
             // only addresses that still end in 404 and nobody ignored (Core\NotFound cleans the rest up)
             $missing = count(\Talea\Core\NotFound::pending($this->app));
             if ($missing > 0) {
                 $warnings[] = [t('Addresses on your site that repeatedly ended with “page not found” this week: %d. Visitors came from an old link or a typo – send each one to the right page with a redirect, or ignore it.', $missing),
-                    $this->app->url('admin.php?module=redirects#not-found'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
+                    $this->app->url('admin.php?module=missing_pages'), t('Review the addresses'), $this->app->url('admin.php?module=missing_pages&action=ignore_all')];
             }
         }
         if ($this->app->auth()->isAdmin()) {
