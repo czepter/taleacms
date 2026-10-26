@@ -746,6 +746,7 @@ final class Kernel
             'robots' => (string) ($row['robots'] ?? ''), 'canonical' => \Talea\Core\Robots::canonical((string) ($row['canonical_url'] ?? '')),
             'share_title' => (string) ($row['share_title'] ?? ''), 'share_description' => (string) ($row['share_description'] ?? ''),
             'breadcrumb_title' => (string) ($row['breadcrumb_title'] ?? ''),
+            'own_description' => (string) ($row['description'] ?? $row['seo_description'] ?? '') !== '',
         ];
     }
 
@@ -1530,6 +1531,13 @@ final class Kernel
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('page', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?page=' . $listPageNumber : '');
+        // %excerpt%: the start of the description the row ends up with; a description template fills a row without its own one
+        $meta['title_vars']['excerpt'] = mb_substr((string) ($meta['description'] ?? ''), 0, 160);
+        $descriptionTemplate = in_array($meta['seo_kind'] ?? '', ['page', 'news', 'item'], true) ? $siteSettings->get('seo_description_' . $meta['seo_kind']) : '';
+        if ($descriptionTemplate !== '' && empty($meta['own_description'])) {
+            $rendered = \Talea\Core\SeoTitle::render($descriptionTemplate, ($meta['title_vars'] ?? []) + ['title' => $title, 'sep' => $siteSettings->get('seo_separator'), 'sitename' => $siteSettings->get('site_name'), 'tagline' => $siteSettings->get('site_description'), 'year' => date('Y')]);
+            $meta['description'] = $rendered !== $title || $title === '' ? $rendered : $meta['description'];
+        }
         $meta['title_vars']['page'] = $listPageNumber > 1 ? (string) $listPageNumber : '';
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
