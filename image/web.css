@@ -35,13 +35,9 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 /* ---------- buttons ---------- */
 .tl-form button, .tl-btn { display: inline-block; justify-self: start; padding: 10px 18px; border: 1px solid var(--tl-accent, #1f4fe0); border-radius: 4px; background: var(--tl-accent, #1f4fe0); color: #fff; font: 600 15px/1.2 system-ui, sans-serif; text-decoration: none; cursor: pointer; }
 .tl-form button.tl-btn-secondary, .tl-btn.tl-btn-secondary { background: transparent; color: inherit; border-color: rgb(128 128 128 / 0.6); }
-.text a.tl-btn, a.tl-btn { color: #fff; text-decoration: none; }
-.text a.tl-btn-secondary, a.tl-btn-secondary { color: inherit; }
 
 
 /* ---------- editing a page or news item right on the site (only for signed-in users) ---------- */
-.tl-edit-here { position: fixed; inset-inline-end: 18px; bottom: 18px; z-index: 60; padding: 10px 16px; border-radius: 999px; background: #14171F; color: #fff; font: 600 14px/1.2 system-ui, sans-serif; text-decoration: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
-.tl-edit-here:hover { background: var(--tl-accent, #1f4fe0); color: #fff; }
 .tl-edit-text { max-width: 860px; margin: 0 auto; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 .tl-edit-text label { display: block; margin: 0 0 4px; font-size: 13px; font-weight: 600; opacity: 0.7; }
 .tl-edit-text p { margin: 0 0 18px; }
@@ -134,9 +130,15 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 :root[data-dark][data-theme="dark"] .tl-edit-here { border: 1px solid rgb(255 255 255 / 0.25); }
 }
 
-/* The language switcher is a system element: layer builder, so the layout's menu rules (nav ul, nav a) do not override it;
+/* The language switcher and the link buttons are system elements: layer builder, so the layout's menu rules (nav ul, nav a, a) do not override them;
    the site's shared classes (layer classes) can adjust it further. */
 @layer builder {
+	/* ---------- link buttons and the "Edit here" button: the layout's link colour (a) must not reach them ---------- */
+	.text a.tl-btn, a.tl-btn { color: #fff; text-decoration: none; }
+	.text a.tl-btn-secondary, a.tl-btn-secondary { color: inherit; }
+	.tl-edit-here { position: fixed; inset-inline-end: 18px; bottom: 18px; z-index: 60; padding: 10px 16px; border-radius: 999px; background: #14171F; color: #fff; font: 600 14px/1.2 system-ui, sans-serif; text-decoration: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
+	.tl-edit-here:hover { background: var(--tl-accent, #1f4fe0); color: #fff; }
+
 	/* ---------- language switcher (design system tokens: colors, radii, site font) ---------- */
 	.tl-languages { display: inline-flex; gap: 2px; margin-inline-start: var(--tl-space-s, 12px); padding: 3px; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius-full, 999px); font-size: 0.8125rem; font-weight: 600; line-height: 1; letter-spacing: 0.04em; vertical-align: middle; }
 	.tl-languages a { display: block; min-width: 2.25em; padding: 0.45em 0.6em; border-radius: var(--tl-radius-full, 999px); color: inherit; text-align: center; text-decoration: none; }
