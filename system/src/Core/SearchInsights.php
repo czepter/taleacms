@@ -62,7 +62,11 @@ final class SearchInsights
             }
         }
         ksort($days);
+        // the same engines as the totals, or no comparison at all
         $previous = array_values(array_filter(array_column($parts, 'previous')));
+        if (count($previous) !== count($parts)) {
+            $previous = [];
+        }
 
         return [
             'day' => max(array_column($parts, 'day')),
@@ -277,12 +281,14 @@ final class SearchInsights
             return null;
         }
 
-        return trim($parts['path'] ?? '', '/');
+        return trim(rawurldecode($parts['path'] ?? ''), '/'); // the path keeps its case; stored URLs are percent-encoded
     }
 
     /** A caller's path in the form the stored URLs have (cut at 255 characters, so a long address still matches). */
     private static function inputKey(string $path, string $origin): string
     {
-        return self::pathKey(mb_substr(rtrim($origin, '/') . '/' . ltrim($path, '/'), 0, self::URL_LENGTH), $origin) ?? '';
+        $encoded = implode('/', array_map('rawurlencode', explode('/', trim(rawurldecode($path), '/'))));
+
+        return self::pathKey(mb_substr(rtrim($origin, '/') . '/' . $encoded, 0, self::URL_LENGTH), $origin) ?? '';
     }
 }

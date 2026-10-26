@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\LinksConnectors;
 
 use PHPUnit\Framework\Attributes\Group;
+use Talea\Core\SearchData;
 use Talea\Tests\Site\Support\SiteTestCase;
 
 /** Core\SearchInsights reading tl_search_stats. */
@@ -39,6 +40,7 @@ final class SearchInsightsTest extends SiteTestCase
     public function testSummaryPreviousAndBothEngines(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->site()->exec("DELETE FROM tl_search_stats");
         $today = date('Y-m-d', strtotime('-5 days'));
         $this->row($today, 'google', 'total', '', 50, 1000, 5.0);
         $this->row($today, 'google', 'day', $today, 50, 1000, 5.0);
@@ -61,6 +63,7 @@ final class SearchInsightsTest extends SiteTestCase
     public function testPathsAndMissingPages(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->site()->exec("DELETE FROM tl_search_stats");
         $o = self::ORIGIN;
         $day = date('Y-m-d');
         $this->row($day, 'google', 'page', 'https://www.example.com/services/', 30, 600, 4.0);
@@ -80,11 +83,38 @@ final class SearchInsightsTest extends SiteTestCase
         $this->assertSame(['about'], $this->insights("notInSearch($db, '$o', ['/services', '', 'about'])"));
     }
 
+    public function testEncodedPathsMatchRawOnes(): void
+    {
+        $db = '(Talea\\Core\\App::boot())->db()';
+        $this->site()->exec("DELETE FROM tl_search_stats");
+        $o = self::ORIGIN;
+        $day = date('Y-m-d');
+        $this->row($day, 'google', 'page', 'https://example.com/caf%C3%A9', 3, 50, 4.0);
+        $this->row($day, 'google', 'page_query', 'kaffee', 1, 20, 4.0, 'https://example.com/caf%C3%A9');
+        $this->assertSame(['café'], array_keys($this->insights("byPath($db, 'google', '$o')")));
+        $this->assertSame(3, $this->insights("forPath($db, 'café', '$o')")['totals']['clicks']);
+        $this->assertSame(['kaffee'], array_column($this->insights("forPath($db, '/café', '$o')")['queries'], 'query'));
+        $this->assertSame(['other'], $this->insights("notInSearch($db, '$o', ['café', 'other'])"));
+    }
+
+    public function testPreviousNeedsEveryEngineOfTheTotals(): void
+    {
+        $db = '(Talea\\Core\\App::boot())->db()';
+        $this->site()->exec("DELETE FROM tl_search_stats");
+        $day = date('Y-m-d', strtotime('-5 days'));
+        $this->row($day, 'google', 'total', '', 50, 1000, 5.0);
+        $this->row($day, 'bing', 'total', '', 10, 500, 0.0);
+        $this->row(date('Y-m-d', strtotime($day . ' -28 days')), 'google', 'total', '', 40, 800, 6.0);
+        $this->assertNull($this->insights("summary($db, 'both')")['previous']);
+        $this->assertSame(40, $this->insights("summary($db, 'google')")['previous']['clicks']);
+    }
+
     public function testFullPageListCannotSayWhichPagesAreMissing(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->site()->exec("DELETE FROM tl_search_stats");
         $day = date('Y-m-d');
-        for ($i = 0; $i < 250; $i++) {
+        for ($i = 0; $i < SearchData::ROW_LIMIT; $i++) {
             $this->row($day, 'google', 'page', self::ORIGIN . '/p' . $i, 1, 10, 5.0);
         }
         $this->assertNull($this->insights("notInSearch($db, '" . self::ORIGIN . "', ['a'])"));
