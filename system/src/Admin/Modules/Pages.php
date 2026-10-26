@@ -295,39 +295,99 @@ final class Pages extends Module
         if ($id > 0 && ($refusal = $this->requirePublishPermission($this->db->one('SELECT visible FROM {pages} WHERE page_id = ?', [$id]) ?? ['visible' => 1])) !== null) {
             return $refusal;
         }
-        $language = \Talea\Core\Language::column($this->app->settings(), $r->post('language'));
+        $new = $id === 0;
+        ['id' => $id, 'errors' => $errors, 'data' => $data] = $this->persist($new ? null : ['page_id' => $id], $_POST);
+        if ($errors !== []) {
+            $previous = $id > 0 ? $this->db->one('SELECT build, build_draft, password_hash FROM {pages} WHERE page_id = ?', [$id]) : null;
+
+            return $this->form(['page_id' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
+        }
+        if ($new) { // a translation of a builder page or a template opens in the builder
+            $original = $data['translation_of'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [$data['translation_of']]) : null;
+            if ($original !== null && ($original['build_draft'] ?? $original['build']) !== null) {
+                // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
+                $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+                $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
+
+                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+            }
+            $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
+            if ($template !== null && $template[1] !== []) {
+                // new page from a template: sections from the library as a draft and straight into the builder
+                $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($data['language']));
+                $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+
+                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+            }
+            if ($template !== null && $data['text'] === '') {
+                // in the page's language, from what the site has switched on (1.9)
+                $text = \Talea\Core\Language::runWith($this->contentLanguage($data['language']), fn (): string => \Talea\Builder\Library::privacyPolicyText($this->app->settings()));
+                $this->db->update('pages', ['text' => $text], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+
+                return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $this->publicId($id)]);
+            }
+        }
+        if ($r->post('after_save') === 'builder') {
+            return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+        }
+
+        return $this->back('Page saved.');
+    }
+
+    /**
+     * Validates and stores a page from form fields: actionSave posts the whole form, settings_save the page's stored values
+     * with the fields of one tab over them. Checks permissions only as far as the fields go (visibility, head code); the
+     * caller decides who may edit the page at all. Leaves the text alone when $in has none for an existing page.
+     *
+     * @param array<string, mixed>|null $page the page (its page_id), null = a new one
+     * @param array<string, mixed> $in fields as a form posts them (ids are public ids)
+     * @return array{id: int, errors: array<string, string>, data: array<string, mixed>} the page's id (0 when a new page failed), the errors by field, the cleaned values
+     */
+    private function persist(?array $page, array $in): array
+    {
+        $post = fn (string $key): string => is_string($in[$key] ?? null) ? trim($in[$key]) : '';
+        $bool = fn (string $key): bool => !empty($in[$key]);
+        $id = (int) ($page['page_id'] ?? 0);
+        $language = \Talea\Core\Language::column($this->app->settings(), $post('language'));
         // parent page: the same language, not the page itself nor its subpage (otherwise a cycle would form)
         $custom = $id > 0 ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$id]) : '';
-        $parent = ($parentId = $this->idParam('parent_id')) > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, $id, $language]) : null;
+        $parent = ($parentId = $this->db->internalId('pages', $post('parent_id'))) > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, $id, $language]) : null;
         if ($parent !== null && $custom !== '' && str_starts_with($parent['slug'] . '/', $custom . '/')) {
             $parent = null;
         }
         $prefix = $parent !== null ? $parent['slug'] . '/' : '';
-        $slug = slugify($r->post('slug') !== '' ? basename(str_replace('\\', '/', $r->post('slug'))) : $r->post('title'), max(20, 118 - strlen($prefix)));
+        $slug = slugify($post('slug') !== '' ? basename(str_replace('\\', '/', $post('slug'))) : $post('title'), max(20, 118 - strlen($prefix)));
+        $sortOrder = is_int($in['sort_order'] ?? null) || preg_match('/^-?\d{1,18}$/', $post('sort_order')) ? (int) $in['sort_order'] : 100;
         $data = [
-            'title' => mb_substr($r->post('title'), 0, 200),
+            'title' => mb_substr($post('title'), 0, 200),
             'slug' => $prefix . $slug,
             'parent_id' => $parent !== null ? (int) $parent['page_id'] : null,
-            'description' => mb_substr($r->post('description'), 0, 300),
-            'seo_title' => mb_substr(trim($r->post('seo_title')), 0, 200),
-            'image' => mb_substr(trim($r->post('image')), 0, 255),
-            'noindex' => (int) $r->postBool('noindex'),
-            'text' => \Talea\Core\Html::forUser($r->post('text'), $this->app->auth()),
-            'visible' => (int) $r->postBool('visible'),
-            'in_menu' => (int) $r->postBool('in_menu'),
-            'sort_order' => max(0, min(65535, $r->postInt('sort_order', 100))),
+            'description' => mb_substr($post('description'), 0, 300),
+            'seo_title' => mb_substr($post('seo_title'), 0, 200),
+            'image' => mb_substr($post('image'), 0, 255),
+            'noindex' => (int) $bool('noindex'),
+            'visible' => (int) $bool('visible'),
+            'in_menu' => (int) $bool('in_menu'),
+            'sort_order' => max(0, min(65535, $sortOrder)),
             'updated_at' => date('Y-m-d H:i:s'),
             'language' => $language,
             // true until and review by (2.10, Core\Validity): empty or not a date = none
-            'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')),
-            'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
-        ] + \Talea\Core\SeoFields::fromInput($_POST);
+            'valid_until' => \Talea\Core\Validity::date($post('valid_until')),
+            'review_by' => \Talea\Core\Validity::date($post('review_by')),
+        ] + \Talea\Core\SeoFields::fromInput($in);
+        if ($id === 0 || array_key_exists('text', $in)) {
+            // settings_save sends no text: cleaning it again for someone who may not write code would change it
+            $data['text'] = \Talea\Core\Html::forUser($post('text'), $this->app->auth());
+        }
         if ($this->app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
-            $data['head_code'] = trim((string) ($_POST['head_code'] ?? '')) !== '' ? mb_substr((string) $_POST['head_code'], 0, 20000) : null;
+            $data['head_code'] = trim((string) ($in['head_code'] ?? '')) !== '' ? mb_substr((string) $in['head_code'], 0, 20000) : null;
         }
         // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away
-        $from = strtotime(str_replace('T', ' ', $r->post('publish_at'))) ?: null;
+        $from = strtotime(str_replace('T', ' ', $post('publish_at'))) ?: null;
         $data['publish_at'] = !$data['visible'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;
         if (!$data['visible'] && $from !== null && $from <= time()) {
             $data['visible'] = 1;
@@ -336,12 +396,12 @@ final class Pages extends Module
             $data['visible'] = 0; // without the permission to publish the page stays hidden, an editor publishes it
             $data['publish_at'] = null;
         }
-        $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ?", [$this->idParam('translation_of'), $id]) ?: null);
+        $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ?", [$this->db->internalId('pages', $post('translation_of')), $id]) ?: null);
         $errors = [];
         if ($data['title'] === '') {
             $errors['title'] = 'Enter the page title.';
         }
-        if ($r->post('slug') === '') {
+        if ($post('slug') === '') {
             // slug from the name: a taken one gets a number (o-nas-2), as with news
             $data['slug'] = $this->availableSlug($data['slug'], $id, $data['language']);
         }
@@ -352,7 +412,7 @@ final class Pages extends Module
             $errors['slug'] = $other['deleted_at'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
-        [$passwordHash, $passwordError] = \Talea\Core\PageLock::fromForm($r->post('page_password'), $r->postBool('remove_password'));
+        [$passwordHash, $passwordError] = \Talea\Core\PageLock::fromForm($post('page_password'), $bool('remove_password'));
         if ($passwordError !== '') {
             $errors['page_password'] = $passwordError;
         } elseif ($passwordHash !== null) {
@@ -362,61 +422,29 @@ final class Pages extends Module
             $errors['visible'] = 'The home page cannot be hidden. First choose another home page in Settings → General.';
         }
         if ($errors !== []) {
-            $previous = $id > 0 ? $this->db->one('SELECT build, build_draft, password_hash FROM {pages} WHERE page_id = ?', [$id]) : null;
-
-            return $this->form(['page_id' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
+            return ['id' => $id, 'errors' => $errors, 'data' => $data];
         }
         if ($id > 0) {
             $previous = $this->db->one('SELECT slug, visible, title, text, language FROM {pages} WHERE page_id = ?', [$id]);
-            if ($previous !== null && ($previous['text'] !== $data['text'] || $previous['title'] !== $data['title'])) {
+            if ($previous !== null && ($previous['text'] !== ($data['text'] ?? $previous['text']) || $previous['title'] !== $data['title'])) {
                 $this->saveVersion($id, $previous['title'], (string) $previous['text']);
             }
             $this->db->update('pages', $data, ['page_id' => $id]);
-            \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
             if ($previous !== null && $previous['slug'] !== $data['slug']) {
                 self::move($this->db, $previous['slug'], $data['slug'], (bool) $previous['visible'], (string) $previous['language']);
             }
         } else {
             $id = $this->db->insert('pages', $data);
             \Talea\Core\Slug::fromId($this->db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
-            \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
-            $original = $data['translation_of'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [$data['translation_of']]) : null;
-            if ($original !== null && ($original['build_draft'] ?? $original['build']) !== null) {
-                // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
-                $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
-                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
-                \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
-                $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
-
-                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
-            }
-            $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
-            if ($template !== null && $template[1] !== []) {
-                // new page from a template: sections from the library as a draft and straight into the builder
-                $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($language));
-                $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
-                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
-                \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
-
-                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
-            }
-            if ($template !== null && $data['text'] === '') {
-                // in the page's language, from what the site has switched on (1.9)
-                $text = \Talea\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Talea\Builder\Library::privacyPolicyText($this->app->settings()));
-                $this->db->update('pages', ['text' => $text], ['page_id' => $id]);
-                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
-
-                return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $this->publicId($id)]);
-            }
+        }
+        if (($in['member_groups_present'] ?? '') === '1') {
+            \Talea\Core\Members::setContentGroups($this->db, 'page', $id, array_values(array_filter((array) ($in['member_groups'] ?? []), is_string(...))));
         }
         \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
         // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
         \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
-        if ($r->post('after_save') === 'builder') {
-            return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
-        }
 
-        return $this->back('Page saved.');
+        return ['id' => $id, 'errors' => [], 'data' => $data];
     }
 
     /* ---------- builder (actions in Admin\BuilderActions) ---------- */
