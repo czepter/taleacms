@@ -10,6 +10,7 @@
  * @var array<string, mixed> $page
  * @var string $tab the open tab: seo | page | publishing | sharing | advanced
  * @var bool $scored the score parts are shown
+ * @var array<string, mixed> $seo Pages::seoTab() on the SEO tab, [] on the others
  */
 $tabs = [
     'seo' => ['SEO', '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'],
@@ -20,7 +21,8 @@ $tabs = [
 ];
 $icon = fn (string $paths): string => '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $paths . '</svg>';
 $link = fn (string $to): string => $module->url('website', ['id' => $page['public_id'], 'tab' => $to]);
-$score = $page['seo_score'] === null ? null : (int) $page['seo_score'];
+// the SEO tab computes the analysis anyway: its score (the ring's) rather than the stored one, which is as old as the last save
+$score = isset($seo['analysis']) ? $seo['analysis']['score'] : ($page['seo_score'] === null ? null : (int) $page['seo_score']);
 $band = Talea\Core\ContentCheck::band($score);
 // the tab's form starts here; the tab view closes it and adds what must stay outside (forms of other actions); the SEO tab's
 // fields are checked live (admin.js posts them to pages/seo_check)

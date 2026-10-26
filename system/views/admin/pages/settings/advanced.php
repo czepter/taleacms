@@ -2,7 +2,7 @@
 /**
  * The Advanced tab of the settings sidebar: robots, the main (canonical) address, the name in breadcrumbs and an
  * administrator's code in the head, then the page's structured data with a way to add a type in the builder.
- * The empty robots[] marker clears unticked directives; limits set elsewhere (max-snippet …) are carried along.
+ * The robots directives are seo/robots.php.
  *
  * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\Pages $module
@@ -13,24 +13,13 @@
  * @var list<string> $structured the structured-data types in the page's build
  */
 $dir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) $page['language']));
-$robots = array_filter(explode(',', (string) $page['robots']));
-$flags = [
-    'nofollow' => 'Do not follow links (nofollow)', 'noarchive' => 'No cached copy (noarchive)',
-    'noimageindex' => 'Do not index the images (noimageindex)', 'nosnippet' => 'No text excerpt (nosnippet)',
-];
 ?>
 <?= $formStart ?>
 <section class="website-settings-section" aria-labelledby="ws-robots">
 	<h3 id="ws-robots"><?= e(t('Robots')) ?></h3>
 	<label class="website-option"><input type="radio" name="noindex" value="0"<?= $page['noindex'] ? '' : ' checked' ?>> <?= e(t('Show in search results')) ?></label>
 	<label class="website-option"><input type="radio" name="noindex" value="1"<?= $page['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label>
-	<input type="hidden" name="robots[]" value="">
-<?php foreach (array_diff($robots, array_keys($flags)) as $limit): ?>
-	<input type="hidden" name="robots[]" value="<?= e($limit) ?>">
-<?php endforeach ?>
-<?php foreach ($flags as $flag => $label): ?>
-	<label class="website-option"><input type="checkbox" name="robots[]" value="<?= $flag ?>"<?= in_array($flag, $robots, true) ? ' checked' : '' ?>> <?= e(t($label)) ?></label>
-<?php endforeach ?>
+<?= $app->view->render('admin/seo/robots', ['robots' => (string) $page['robots'], 'labelClass' => 'website-option']) ?>
 </section>
 <section class="website-settings-section" aria-labelledby="ws-addresses">
 	<h3 id="ws-addresses"><?= e(t('Addresses')) ?></h3>

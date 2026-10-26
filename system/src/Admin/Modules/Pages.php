@@ -165,17 +165,13 @@ final class Pages extends Module
      */
     private function seoTab(array $page): array
     {
-        $input = \Talea\Core\SeoScore::input($this->app, 'page', $page);
         $build = Build::fromJson($page['build_draft'] ?? $page['build']);
         $home = $this->app->settings()->int('home_page') === (int) $page['page_id'];
         $settings = $this->app->settings();
         $description = (string) $page['description'] !== '' ? (string) $page['description'] : ($home ? $settings->get('site_description') : '');
         $site = parse_url($settings->get('site_url') ?: $this->app->request->origin()) ?: [];
 
-        return [
-            'analysis' => \Talea\Core\ContentCheck::analyse($input),
-            'samples' => array_values(array_filter(\Talea\Core\ContentCheck::run($input), fn (array $row): bool => $row['check'] === 'sample_content' && !$row['ok'])),
-            'keywords' => $input['keywords'],
+        return \Talea\Core\SeoScore::panel($this->app, 'page', $page) + [
             'marksUrl' => $build === null ? '' : $this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'seo', 'marks' => '1']),
             // the title and description exactly as Front\Kernel hands them to the page head
             'serpTitle' => \Talea\Core\SeoTitle::compose($settings, $home ? 'home' : 'page', (string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : ($home ? '' : (string) $page['title']),

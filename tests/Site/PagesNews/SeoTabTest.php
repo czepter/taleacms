@@ -38,6 +38,17 @@ final class SeoTabTest extends SiteTestCase
         $this->assertStringNotContainsString('data-insert', $this->site()->admin()->get('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo')->body, 'an own title is literal: no variables to insert');
     }
 
+    public function testTheSidebarScoreIsTheRingsOnTheSeoTab(): void
+    {
+        $id = $this->home();
+        $this->site()->exec('UPDATE tl_pages SET seo_score = 3 WHERE public_id = ?', [$id]); // as old as the last save
+        $body = $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo', 200)->body;
+        $this->assertSame(1, preg_match('#<strong><span class="guide-hidden">[^<]*</span>(\d+)</strong>#', $body, $ring), 'the ring shows a score');
+        $this->assertNotSame('3', $ring[1]);
+        $this->assertStringContainsString('>' . $ring[1] . ' / 100</span>', $body, 'the pill shows the number of the ring');
+        $this->assertStringContainsString('>3 / 100</span>', $this->site()->admin()->get('/admin.php?module=pages&action=website&id=' . $id . '&tab=page')->body, 'another tab shows the stored score');
+    }
+
     public function testTheLiveCheckJudgesTheUnsavedFieldsAndSavesNothing(): void
     {
         $id = $this->home();
