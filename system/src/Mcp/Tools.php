@@ -502,6 +502,7 @@ final class Tools
             $db->update('news', $data, ['news_id' => $id]);
         }
         \Talea\Core\Search::index($db, $id);
+        \Talea\Core\SeoScore::refresh($this->app, 'news', $id);
         if (array_key_exists('tags', $a)) {
             \Talea\Admin\Modules\News::tags($db, $id, (string) $a['tags']);
         }
@@ -638,6 +639,7 @@ final class Tools
                 Pages::move($db, $previous['slug'], $data['slug'], (bool) $previous['visible'], (string) $previous['language']);
             }
         }
+        \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
         $saved = $this->page($id);
 
         return ['id' => $id, 'status' => $saved['visible'] ? 'published' : ($saved['publish_at'] !== null ? 'hidden, will be published ' . substr((string) $saved['publish_at'], 0, 16) : 'hidden')]

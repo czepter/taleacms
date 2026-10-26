@@ -131,6 +131,7 @@ final class Pages extends Module
             'noindex' => (int) $r->postBool('noindex'),
             'updated_at' => date('Y-m-d H:i:s'),
         ] + \Talea\Core\SeoFields::fromInput($_POST), ['page_id' => (int) $page['page_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search appearance edited', mb_substr($page['title'], 0, 80));
 
         return $this->back('Saved.', 'website', ['view' => 'seo', 'id' => (string) $page['public_id']]);
@@ -371,6 +372,7 @@ final class Pages extends Module
             }
             $this->db->update('pages', $data, ['page_id' => $id]);
             \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
+            \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
             if ($previous !== null && $previous['slug'] !== $data['slug']) {
                 self::move($this->db, $previous['slug'], $data['slug'], (bool) $previous['visible'], (string) $previous['language']);
             }
@@ -382,6 +384,7 @@ final class Pages extends Module
             if ($original !== null && ($original['build_draft'] ?? $original['build']) !== null) {
                 // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
                 $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
                 \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
                 $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
 
@@ -392,6 +395,7 @@ final class Pages extends Module
                 // new page from a template: sections from the library as a draft and straight into the builder
                 $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($language));
                 $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
                 \Talea\Core\Menu::setPage($this->db, $id, $language, (bool) $data['in_menu']);
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
@@ -400,10 +404,12 @@ final class Pages extends Module
                 // in the page's language, from what the site has switched on (1.9)
                 $text = \Talea\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Talea\Builder\Library::privacyPolicyText($this->app->settings()));
                 $this->db->update('pages', ['text' => $text], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
 
                 return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $this->publicId($id)]);
             }
         }
+        \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
         // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
         \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
         if ($r->post('after_save') === 'builder') {

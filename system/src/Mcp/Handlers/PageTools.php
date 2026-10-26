@@ -101,6 +101,8 @@ trait PageTools
         $builds = $this->app->db()->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]) ?? [];
         $page['content_check'] = Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::forPage($page + $builds), 'admin-');
 
+        $page['seo_analysis'] = Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::analyse(\Talea\Core\SeoScore::input($this->app, 'page', $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]))), 'admin-');
+
         $page = \Talea\Core\SeoFields::output($page) + $page;
 
         return ['id' => $page['page_id'], 'visible' => $page['visible'], 'order' => $page['sort_order'], 'parent' => $page['parent_id']]

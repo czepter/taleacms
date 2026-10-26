@@ -71,6 +71,7 @@ trait NewsTools
         return ['id' => $c['news_id'], 'date' => $c['published_at'], 'title' => $c['title'], 'slug' => $c['slug'], 'intro' => $c['intro'], 'content' => $c['text'], 'image' => $c['image'],
             'image_caption' => $c['image_caption'], 'published' => $c['visible'], 'faq' => $c['faq'], 'seo_title' => $c['seo_title'], 'seo_description' => $c['seo_description']] + \Talea\Core\SeoFields::output($c)
             + ($generated !== null ? ['share_image_generated' => $generated] : [])
+            + ['seo_analysis' => Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::analyse(\Talea\Core\SeoScore::input($this->app, 'news', $c)), 'admin-')]
             + self::validityOutput($c) + ['member_groups' => array_column($db->all('SELECT g.name FROM {content_groups} c JOIN {member_groups} g ON g.group_id = c.group_id WHERE c.content_type = \'news\' AND c.content_id = ? ORDER BY g.name', [(int) $c['news_id']]), 'name'), 'category' => $db->value('SELECT name FROM {categories} WHERE category_id = ?', [$c['category_id']]),
                 'tags' => array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$c['news_id']]), 'name'),
                 'url' => $this->app->request->origin() . $this->app->url('news/' . $c['slug'])];

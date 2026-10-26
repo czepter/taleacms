@@ -256,14 +256,25 @@ final class ContentCheck
      */
     public static function forPage(array $page): array
     {
+        return self::run(self::pageInput($page));
+    }
+
+    /**
+     * run()'s input for a page row: the draft build, else the published build, else the text.
+     *
+     * @param array<string, mixed> $page
+     * @return array{title: string, description: string, html: string, title_is_h1: bool}
+     */
+    public static function pageInput(array $page): array
+    {
         $build = Build::fromJson($page['build_draft'] ?? $page['build'] ?? null);
 
-        return self::run([
+        return [
             'title' => (string) ($page['seo_title'] !== '' ? $page['seo_title'] : $page['title']),
             'description' => (string) ($page['description'] ?? ''),
             'html' => $build !== null ? Build::asText($build) : (string) ($page['text'] ?? ''),
             'title_is_h1' => $build === null,
-        ]);
+        ];
     }
 
     /**
@@ -275,14 +286,25 @@ final class ContentCheck
      */
     public static function forNews(array $newsItem): array
     {
+        return self::run(self::newsInput($newsItem));
+    }
+
+    /**
+     * run()'s input for a news row.
+     *
+     * @param array<string, mixed> $newsItem
+     * @return array{title: string, description: string, html: string, title_is_h1: bool}
+     */
+    public static function newsInput(array $newsItem): array
+    {
         $lead = (string) ($newsItem['intro'] ?? '');
 
-        return self::run([
+        return [
             'title' => (string) ($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title']),
             'description' => (string) ($newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : Html::plain($lead, 300)),
             'html' => $lead . "\n" . (string) ($newsItem['text'] ?? ''),
             'title_is_h1' => true,
-        ]);
+        ];
     }
 
     /** @return list<int> heading levels in document order; the title first when the site prints it as the H1 */

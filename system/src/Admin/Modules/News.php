@@ -301,6 +301,7 @@ final class News extends Module
 
         Media::recordUsage($this->db, $id, $data['image'], $data['intro'], $data['text']);
         \Talea\Core\Search::index($this->db, $id);
+        \Talea\Core\SeoScore::refresh($this->app, 'news', $id);
         // a saved news item clears the unsaved state on the server (for a new one it is kept under the number 0)
         $this->db->run('DELETE FROM {news_drafts} WHERE user_id = ? AND news_id IN (0, ?)', [$auth->id(), $id]);
         self::tags($this->db, $id, $r->post('tags'));
@@ -337,6 +338,7 @@ final class News extends Module
             self::version($this->db, $newsItem, $this->app->auth()->id());
         }
         $this->db->update('news', $data + ['edited_at' => date('Y-m-d H:i:s')], ['news_id' => $newsItem['news_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'news', (int) $newsItem['news_id']);
         Media::recordUsage($this->db, (int) $newsItem['news_id'], (string) $newsItem['image'], $data['intro'], $data['text']);
         \Talea\Core\Search::index($this->db, (int) $newsItem['news_id']);
         \Talea\Admin\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['title'], 0, 80));
