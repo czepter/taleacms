@@ -145,6 +145,13 @@ final class WebsiteSidebarTest extends SiteTestCase
         $this->save($child, ['tab' => 'advanced', 'noindex' => '0', 'robots' => [''], 'canonical_url' => '', 'breadcrumb_title' => 'Crumb by the author'], $author);
         $this->assertSame('Crumb by the author', $this->column($child, 'breadcrumb_title'));
         $this->assertSame('parent-y/child-y', $this->column($child, 'slug'));
+        $this->assertSame(0, (int) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path LIKE '%child-y%'"), 'no redirect');
+
+        // an address the system took over later (a stored root slug that is reserved now) does not block another tab
+        $old = $this->page('old-feed');
+        $site->exec("UPDATE tl_pages SET slug = 'feed' WHERE public_id = ?", [$old]);
+        $this->save($old, ['tab' => 'seo', 'seo_title' => 'Still saved', 'description' => 'All about us.', 'focus_keywords' => '', 'key_page' => '0']);
+        $this->assertSame('Still saved', $this->column($old, 'seo_title'));
     }
 
     public function testTheAdvancedTabStoresRobotsAndTheCanonicalAddress(): void

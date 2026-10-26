@@ -559,9 +559,10 @@ final class Pages extends Module
             $errors['title'] = 'Enter the page title.';
         }
         $scope = \Talea\Core\Slug::scope($this->db, $data['language']);
-        if ($parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
+        // a kept address is not checked again: the save does not change it
+        if (!$keepPlace && $parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
             $errors['slug'] = 'This URL is used by the system, choose another one.';
-        } elseif (($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?' . $scope[0], [$data['slug'], $id, ...$scope[1]])) !== null) {
+        } elseif (!$keepPlace && ($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?' . $scope[0], [$data['slug'], $id, ...$scope[1]])) !== null) {
             $errors['slug'] = $other['deleted_at'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
