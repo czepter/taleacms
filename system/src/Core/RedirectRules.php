@@ -39,7 +39,8 @@ final class RedirectRules
             return t('A redirect needs a target.');
         }
         // a target that target() would never use: it could be saved and then silently never match
-        if ($to !== '' && (preg_match('/[\x00-\x1f\x7f]/', $to) || (!preg_match('#^https?://#i', $to) && preg_match('#^(/[/\\\\]|\\\\|[a-z][a-z0-9+.-]*:)#i', $to)))) {
+        // (a path has no spaces: "not a path" is a typo, not an address)
+        if ($to !== '' && (preg_match('/[\x00-\x1f\x7f]/', $to) || (!preg_match('#^https?://#i', $to) && preg_match('#^(/[/\\\\]|\\\\|[a-z][a-z0-9+.-]*:)|\s#i', $to)))) {
             return t('The target must be a path on this site or a full https://… address.');
         }
         if (trim($from, '/') === trim($to, '/') && $to !== '') {

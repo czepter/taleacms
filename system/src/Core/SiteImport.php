@@ -721,17 +721,19 @@ final class SiteImport
     private function redirect(array $r): ?array
     {
         // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL;
-        // an empty target is the home page (the module stores "/" so)
-        $match = in_array($r['match_type'] ?? 'exact', RedirectRules::MATCHES, true) ? $r['match_type'] : 'exact';
+        // an empty target (or "/") is the home page, stored as '' and checked as "/" like the module does
+        // an archive from before match types (or a converted Kaleta export) has no match_type: an exact rule
+        $match = in_array($r['match_type'] ?? null, RedirectRules::MATCHES, true) ? $r['match_type'] : 'exact';
         $type = in_array((int) ($r['type'] ?? 301), RedirectRules::TYPES, true) ? (int) ($r['type'] ?? 301) : 301;
         $from = is_string($r['from_path'] ?? null) ? ($match === 'exact' ? trim($r['from_path'], '/ ') : $r['from_path']) : '';
         $to = is_string($r['to_path'] ?? null) ? trim($r['to_path']) : '';
-        if ($to === '' && $type < 400) {
-            $to = '/';
+        $home = $type < 400 && trim($to, '/') === '';
+        if ($home) {
+            $to = '';
         }
 
         $valid = ($match !== 'exact' || preg_match('#^[^\s/][^\s]{0,254}$#', $from))
-            && RedirectRules::validate($from, $to, $match, $type) === null
+            && RedirectRules::validate($from, $home ? '/' : $to, $match, $type) === null
             && is_string($r['to_path'] ?? null)
             && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to);
 
