@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Talea\Core;
 
-use Talea\Connectors\Bing;
 use Talea\Connectors\Google;
 
 /**
@@ -12,8 +11,10 @@ use Talea\Connectors\Google;
  * totals against four weeks earlier, queries that almost rank, pages that are shown but rarely clicked, the numbers of one
  * page, and published pages that do not appear in search yet.
  *
+ * Only engines that are connected now are read; a disconnected engine's kept snapshots drop out. "Both" reads every
+ * engine's snapshot of the same day (snapshots()), so the totals, the chart and the lists cover the same days.
  * A position of 0 on a total or day row means "unknown" (always so for Bing): it is never shown as a place and never
- * averaged in. The pure parts (opportunities, lowCtr) take plain rows and are tested without a database.
+ * averaged in. The pure parts (opportunities, lowCtr, path) take plain values and are tested without a database.
  */
 final class SearchInsights
 {
@@ -26,11 +27,12 @@ final class SearchInsights
     private const int LIST = 10;
     private const int URL_LENGTH = 255;
 
-    /** The day of the engine's latest snapshot (same rule as SearchData::report), null without one. */
-    public static function latestDay(Db $db, string $engine): ?string
+    /** The day of the engine's latest snapshot (same rule as SearchData::report), on or before $upTo when given; null without one. */
+    public static function latestDay(Db $db, string $engine, ?string $upTo = null): ?string
     {
         try {
-            $day = $db->value('SELECT MAX(day) FROM {search_stats} WHERE engine = ?', [$engine]);
+            $day = $upTo === null ? $db->value('SELECT MAX(day) FROM {search_stats} WHERE engine = ?', [$engine])
+                : $db->value('SELECT MAX(day) FROM {search_stats} WHERE engine = ? AND day <= ?', [$engine, $upTo]);
         } catch (\Throwable) {
             return null;
         }
@@ -39,16 +41,42 @@ final class SearchInsights
     }
 
     /**
+     * The snapshot day each connected engine is read from: its latest one; with more than one engine the latest on or
+     * before the earliest of theirs, so all cover the same days (an engine without one by then is left out).
+     *
      * @param string $engine google | bing | both
-     * @return array{day: string, totals: array{clicks: int, impressions: int, ctr: float, position: ?float}, previous: ?array{clicks: int, impressions: int, ctr: float, position: ?float}, days: list<array{day: string, clicks: int, impressions: int}>}|null
+     * @return array<string, string> engine => day
+     */
+    public static function snapshots(Db $db, string $engine): array
+    {
+        $days = [];
+        foreach ($engine === 'both' ? SearchData::ENGINES : [$engine] as $e) {
+            if (Connectors::isConnected($db, $e) && ($day = self::latestDay($db, $e)) !== null) {
+                $days[$e] = $day;
+            }
+        }
+        if (count($days) > 1) {
+            $common = min($days);
+            foreach ($days as $e => $day) {
+                $days[$e] = $day === $common ? $day : self::latestDay($db, $e, $common);
+            }
+        }
+
+        return array_filter($days, fn (?string $d): bool => $d !== null);
+    }
+
+    /**
+     * The totals of the snapshots(), four weeks earlier and by day. `day` is the (earliest) snapshot day, `to` the last day
+     * the numbers cover; totals are null when a snapshot has neither a total nor days.
+     *
+     * @param string $engine google | bing | both
+     * @return array{day: string, to: string, totals: ?array{clicks: int, impressions: int, ctr: float, position: ?float}, previous: ?array{clicks: int, impressions: int, ctr: float, position: ?float}, days: list<array{day: string, clicks: int, impressions: int}>}|null
      */
     public static function summary(Db $db, string $engine): ?array
     {
         $parts = [];
-        foreach (self::engines($engine) as $e) {
-            if (($part = self::engineSummary($db, $e)) !== null) {
-                $parts[] = $part;
-            }
+        foreach (self::snapshots($db, $engine) as $e => $day) {
+            $parts[] = self::engineSummary($db, $e, $day);
         }
         if ($parts === []) {
             return null;
@@ -62,32 +90,30 @@ final class SearchInsights
             }
         }
         ksort($days);
+        $totals = array_values(array_filter(array_column($parts, 'totals')));
         // the same engines as the totals, or no comparison at all
         $previous = array_values(array_filter(array_column($parts, 'previous')));
-        if (count($previous) !== count($parts)) {
+        if (count($previous) !== count($parts) || count($totals) !== count($parts)) {
             $previous = [];
         }
+        $day = min(array_column($parts, 'day'));
 
         return [
-            'day' => max(array_column($parts, 'day')),
-            'totals' => self::combine(array_column($parts, 'totals')),
+            'day' => $day,
+            'to' => SearchData::window($day)[1],
+            'totals' => $totals === [] ? null : self::combine($totals),
             'previous' => $previous === [] ? null : self::combine($previous),
             'days' => array_values($days),
         ];
     }
 
-    /** @return array{day: string, totals: array<string, mixed>, previous: ?array<string, mixed>, days: list<array{day: string, clicks: int, impressions: int}>}|null */
-    private static function engineSummary(Db $db, string $engine): ?array
+    /** @return array{day: string, totals: ?array<string, mixed>, previous: ?array<string, mixed>, days: list<array{day: string, clicks: int, impressions: int}>} */
+    private static function engineSummary(Db $db, string $engine, string $day): array
     {
-        $day = self::latestDay($db, $engine);
-        if ($day === null) {
-            return null;
-        }
         $total = fn (string $on): ?array => ($r = $db->all('SELECT clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ?', [$engine, 'total', $on])[0] ?? null) === null ? null : self::numbers($r);
-        $totals = $total($day);
-        if ($totals === null) {
-            return null; // no total in the window (Bing without data): nothing is derived
-        }
+        $dayRows = $db->all('SELECT ' . $db->dialect()->quote('key') . ', clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY ' . $db->dialect()->quote('key'), [$engine, 'day', $day]);
+        // the total is a bonus call: without it the days add up to the same numbers; without either there is nothing to show
+        $totals = $total($day) ?? ($dayRows === [] ? null : self::combine(array_map(self::numbers(...), $dayRows)));
         $previous = null;
         $target = strtotime($day . ' -28 days');
         $best = null;
@@ -100,8 +126,7 @@ final class SearchInsights
         if ($best !== null) {
             $previous = $total($best[1]);
         }
-        $days = array_map(fn (array $r): array => ['day' => (string) $r['key'], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions']],
-            $db->all('SELECT ' . $db->dialect()->quote('key') . ', clicks, impressions FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY ' . $db->dialect()->quote('key'), [$engine, 'day', $day]));
+        $days = array_map(fn (array $r): array => ['day' => (string) $r['key'], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions']], $dayRows);
 
         return ['day' => $day, 'totals' => $totals, 'previous' => $previous, 'days' => $days];
     }
@@ -165,21 +190,18 @@ final class SearchInsights
     }
 
     /**
-     * The page rows of the latest snapshot by path (no leading slash, '' = home), for pages of this site only. URLs that
-     * differ only by query or scheme are summed.
+     * The page rows of the snapshots() by path (path(): no leading slash, '' = home), for pages of this site only. URLs
+     * that differ only by query or scheme are summed.
      *
+     * @param string $root the site's address with the installation's folder (https://example.com/magazin)
      * @return array<string, array{clicks: int, impressions: int, position: ?float}>
      */
-    public static function byPath(Db $db, string $engine, string $origin): array
+    public static function byPath(Db $db, string $engine, string $root): array
     {
         $sums = [];
-        foreach (self::engines($engine) as $e) {
-            $day = self::latestDay($db, $e);
-            if ($day === null) {
-                continue;
-            }
+        foreach (self::snapshots($db, $engine) as $e => $day) {
             foreach ($db->all('SELECT ' . $db->dialect()->quote('key') . ', clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ?', [$e, 'page', $day]) as $r) {
-                if (($path = self::pathKey((string) $r['key'], $origin)) !== null) {
+                if (($path = self::path((string) $r['key'], $root)) !== null) {
                     $sums[$path][] = self::numbers($r);
                 }
             }
@@ -198,48 +220,77 @@ final class SearchInsights
      *
      * @return array{totals: ?array{clicks: int, impressions: int, position: ?float}, queries: list<array{query: string, clicks: int, impressions: int, position: float}>}
      */
-    public static function forPath(Db $db, string $path, string $origin): array
+    public static function forPath(Db $db, string $path, string $root): array
     {
-        $want = self::inputKey($path, $origin);
-        $day = self::latestDay($db, Google::KEY);
+        $want = self::key($path, $root);
+        $day = self::snapshots($db, Google::KEY)[Google::KEY] ?? null;
         $queries = [];
         if ($day !== null) {
             $key = $db->dialect()->quote('key');
             foreach ($db->all('SELECT ' . $key . ', page, clicks, impressions, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, ' . $key, [Google::KEY, 'page_query', $day]) as $r) {
-                if (self::pathKey((string) $r['page'], $origin) === $want) {
+                if (self::path((string) $r['page'], $root) === $want) {
                     $queries[] = ['query' => (string) $r['key'], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions'], 'position' => (float) $r['position']];
                 }
             }
         }
 
-        return ['totals' => self::byPath($db, Google::KEY, $origin)[$want] ?? null, 'queries' => array_slice($queries, 0, SearchData::TOP)];
+        return ['totals' => self::byPath($db, Google::KEY, $root)[$want] ?? null, 'queries' => array_slice($queries, 0, SearchData::TOP)];
     }
 
     /**
-     * Published paths without a row among Google's pages. Null when that cannot be said: no snapshot, or the list was cut
-     * at the row limit (a page may be missing only from the cut).
+     * The addresses (under the site root, as Front\Seo::sitemapPages() gives them) without a row among Google's pages.
+     * Null when that cannot be said: Google not connected, no snapshot, or the list was cut at the row limit (a page may
+     * be missing only from the cut).
      *
-     * @param list<string> $publishedPaths
+     * @param list<string> $addresses
      * @return list<string>|null
      */
-    public static function notInSearch(Db $db, string $origin, array $publishedPaths): ?array
+    public static function notInSearch(Db $db, string $root, array $addresses): ?array
     {
-        $day = self::latestDay($db, Google::KEY);
+        $day = self::snapshots($db, Google::KEY)[Google::KEY] ?? null;
         if ($day === null || (int) $db->value('SELECT COUNT(*) FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ?', [Google::KEY, 'page', $day]) >= SearchData::ROW_LIMIT) {
             return null;
         }
-        $seen = self::byPath($db, Google::KEY, $origin);
+        $seen = self::byPath($db, Google::KEY, $root);
 
-        return array_values(array_filter($publishedPaths, fn (string $p): bool => !isset($seen[self::inputKey($p, $origin)])));
+        return array_values(array_filter($addresses, fn (string $a): bool => !isset($seen[self::key($a, $root)])));
+    }
+
+    /**
+     * The path of a URL under the site root, as byPath() keys it: decoded, without the root's folder and without leading
+     * or trailing slashes ('' = the home page). Null for another host or a URL outside the root's folder. A "www." in
+     * front of the host does not count.
+     *
+     * @param string $root the site's address with the installation's folder (https://example.com/magazin)
+     */
+    public static function path(string $url, string $root): ?string
+    {
+        $host = fn (?string $h): string => preg_replace('/^www\./', '', mb_strtolower((string) $h)) ?? '';
+        $parts = parse_url($url);
+        if (!is_array($parts) || $host($parts['host'] ?? null) === '' || $host($parts['host']) !== $host(parse_url($root, PHP_URL_HOST) ?: null)) {
+            return null;
+        }
+        $path = '/' . trim(rawurldecode($parts['path'] ?? ''), '/'); // the path keeps its case; stored URLs are percent-encoded
+        $folder = rtrim(rawurldecode((string) parse_url($root, PHP_URL_PATH)), '/');
+        if ($folder !== '' && $path !== $folder && !str_starts_with($path, $folder . '/')) {
+            return null;
+        }
+
+        return trim(substr($path, strlen($folder)), '/');
+    }
+
+    /**
+     * An address under the site root ('services', 'de/kontakt.html', '' = home) as path() keys the stored URL for it –
+     * encoded and cut at 255 characters like the stored URLs, so a long address still matches.
+     */
+    public static function key(string $address, string $root): string
+    {
+        $encoded = implode('/', array_map('rawurlencode', explode('/', trim(rawurldecode($address), '/'))));
+
+        return self::path(mb_substr(rtrim($root, '/') . '/' . $encoded, 0, self::URL_LENGTH), $root) ?? '';
     }
 
     /* ---------- helpers ---------- */
-
-    /** @return list<string> */
-    private static function engines(string $engine): array
-    {
-        return $engine === 'both' ? [Google::KEY, Bing::KEY] : [$engine];
-    }
 
     /** @param array<string, mixed> $r @return array{clicks: int, impressions: int, ctr: float, position: ?float} */
     private static function numbers(array $r): array
@@ -270,25 +321,5 @@ final class SearchInsights
         }
 
         return ['clicks' => $clicks, 'impressions' => $impressions, 'ctr' => $impressions > 0 ? round(100 * $clicks / $impressions, 2) : 0.0, 'position' => $weight > 0 ? round($placed / $weight, 1) : null];
-    }
-
-    /** The path (no leading or trailing slash) of a URL on this site, null for another host. */
-    private static function pathKey(string $url, string $origin): ?string
-    {
-        $host = fn (?string $h): string => preg_replace('/^www\./', '', mb_strtolower((string) $h)) ?? '';
-        $parts = parse_url($url);
-        if (!is_array($parts) || $host($parts['host'] ?? null) === '' || $host($parts['host']) !== $host(parse_url($origin, PHP_URL_HOST) ?: null)) {
-            return null;
-        }
-
-        return trim(rawurldecode($parts['path'] ?? ''), '/'); // the path keeps its case; stored URLs are percent-encoded
-    }
-
-    /** A caller's path in the form the stored URLs have (cut at 255 characters, so a long address still matches). */
-    private static function inputKey(string $path, string $origin): string
-    {
-        $encoded = implode('/', array_map('rawurlencode', explode('/', trim(rawurldecode($path), '/'))));
-
-        return self::pathKey(mb_substr(rtrim($origin, '/') . '/' . $encoded, 0, self::URL_LENGTH), $origin) ?? '';
     }
 }

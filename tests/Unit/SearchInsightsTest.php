@@ -34,4 +34,20 @@ final class SearchInsightsTest extends TestCase
         ];
         $this->assertSame([['page' => 'low', 'impressions' => 500, 'ctr' => 0.9, 'position' => 6.1]], SearchInsights::lowCtr($rows));
     }
+
+    public function testPathKeepsToTheSiteHostAndFolder(): void
+    {
+        $root = 'https://example.com/magazin';
+        $this->assertSame('services.html', SearchInsights::path('https://www.example.com/magazin/services.html?x=1', $root));
+        $this->assertSame('', SearchInsights::path('https://example.com/magazin/', $root), 'the folder itself is the home page');
+        $this->assertSame('de', SearchInsights::path('http://example.com/magazin/de/', $root));
+        $this->assertSame('café', SearchInsights::path('https://example.com/magazin/caf%C3%A9', $root));
+        $this->assertNull(SearchInsights::path('https://shop.example.com/magazin/services', $root), 'another host');
+        $this->assertNull(SearchInsights::path('https://example.com/services', $root), 'outside the folder');
+        $this->assertNull(SearchInsights::path('https://example.com/magazinx/services', $root), 'a folder that only starts like it');
+        $this->assertSame('services', SearchInsights::path('https://example.com/services/', 'https://example.com'));
+        $this->assertSame('de/kontakt.html', SearchInsights::key('de/kontakt.html', $root));
+        $this->assertSame('café', SearchInsights::key('/café', $root));
+        $this->assertSame('', SearchInsights::key('', $root));
+    }
 }

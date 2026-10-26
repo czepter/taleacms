@@ -11,6 +11,7 @@ use Talea\Core\Connectors;
 use Talea\Core\Response;
 use Talea\Core\SearchData;
 use Talea\Core\SearchInsights;
+use Talea\Front\Seo;
 
 /**
  * Search engines → Performance: the daily Google and Bing snapshot (Core\SearchData) read through Core\SearchInsights –
@@ -31,29 +32,32 @@ final class SearchPerformance extends Module
     protected function actionList(): Response
     {
         $engines = array_values(array_filter([Google::KEY, Bing::KEY], fn (string $k): bool => Connectors::isConnected($this->db, $k)));
+        // "Both" only when both are connected; a disconnected engine's kept snapshots never count (SearchInsights)
         $engine = $this->request->get('engine');
-        $engine = in_array($engine, ['google', 'bing'], true) && in_array($engine, $engines, true) ? $engine : 'both';
+        $engine = count($engines) === 1 ? $engines[0] : (in_array($engine, $engines, true) ? $engine : 'both');
         $data = ['connected' => $engines, 'engine' => $engine];
         $summary = $engines === [] ? null : SearchInsights::summary($this->db, $engine);
         if ($summary === null) {
             return $this->view('performance', 'Performance', $data + ['summary' => null]);
         }
 
-        $origin = rtrim((string) ($this->app->settings()->get('site_url') ?: $this->request->origin()), '/');
-        // queries and their pages come from one engine: Google gives the page of each query, Bing only the query
+        $root = rtrim((string) ($this->app->settings()->get('site_url') ?: $this->request->origin()), '/') . $this->request->basePath();
+        // queries and their pages come from one engine (Google gives the page of each query, Bing only the query), from
+        // the snapshot of the same day as the totals
         $source = $engine === Bing::KEY || !in_array(Google::KEY, $engines, true) ? Bing::KEY : Google::KEY;
-        $day = SearchInsights::latestDay($this->db, $source);
+        $day = SearchInsights::snapshots($this->db, $engine)[$source] ?? null;
         $key = $this->db->dialect()->quote('key');
         $rows = fn (string $kind): array => $day === null ? [] : $this->db->all('SELECT ' . $key . ', page, clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, ' . $key, [$source, $kind, $day]);
         $queries = $rows('query');
 
-        // published pages by the address the sitemap gives them
+        // published pages by the address the site gives them, keyed like the search rows (SearchInsights::path)
+        $seo = new Seo($this->app);
         $home = $this->app->settings()->int('home_page');
         $pages = [];
         foreach ($this->db->all('SELECT page_id, public_id, title, slug, language, translation_of, seo_score, focus_keywords FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL') as $p) {
-            // the home page is '' ; a language version of it lives at /<lang>/ ; other pages at /<lang>/<slug>
+            // the home page and its language versions live at the root of their language
             $isHome = (int) $p['page_id'] === $home || ($p['language'] !== '' && (int) $p['translation_of'] === $home);
-            $pages[($p['language'] !== '' ? $p['language'] . ($isHome ? '' : '/') : '') . ($isHome ? '' : $p['slug'])] = $p;
+            $pages[SearchInsights::key($seo->address($isHome ? '' : $p['slug'], $p['language']), $root)] = $p;
         }
         $focus = [];
         foreach ($pages as $p) {
@@ -62,21 +66,23 @@ final class SearchPerformance extends Module
                 $focus[$first] = true;
             }
         }
-        $top = SearchInsights::byPath($this->db, $engine, $origin);
+        $top = SearchInsights::byPath($this->db, $engine, $root);
         uasort($top, fn (array $a, array $b): int => $b['clicks'] <=> $a['clicks'] ?: $b['impressions'] <=> $a['impressions']);
 
         return $this->view('performance', 'Performance', $data + [
             'summary' => $summary,
-            'stale' => strtotime($summary['day']) < strtotime('-' . self::STALE_DAYS . ' days'),
+            // in "Both" the day is the older engine's, so a stale engine is flagged too
+            'stale' => $summary['day'] < date('Y-m-d', (int) strtotime('-' . self::STALE_DAYS . ' days')),
             'opportunities' => SearchInsights::opportunities($queries, $rows('page_query')),
             'lowCtr' => SearchInsights::lowCtr($rows('page')),
             'queries' => array_slice($queries, 0, SearchData::TOP),
             'focus' => $focus,
             'pages' => $pages,
             'top' => array_slice($top, 0, 10, true),
-            'sitemaps' => SearchData::report($this->db, date('Y-m-d', strtotime('-30 days')))[Google::KEY]['sitemaps'] ?? [],
-            'notInSearch' => in_array(Google::KEY, $engines, true) ? SearchInsights::notInSearch($this->db, $origin, array_keys($pages)) : null,
-            'origin' => $origin,
+            'sitemaps' => in_array(Google::KEY, $engines, true) ? SearchData::report($this->db, date('Y-m-d', strtotime('-30 days')))[Google::KEY]['sitemaps'] ?? [] : [],
+            // the pages the sitemap lists: not the ones kept out of search on purpose
+            'notInSearch' => SearchInsights::notInSearch($this->db, $root, array_map('strval', array_keys($seo->sitemapPages()))),
+            'root' => $root,
         ]);
     }
 }

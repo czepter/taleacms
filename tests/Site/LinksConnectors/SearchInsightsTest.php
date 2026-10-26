@@ -27,6 +27,13 @@ final class SearchInsightsTest extends SiteTestCase
             [$day, $engine, $kind, $key, $page, $clicks, $impressions, $impressions > 0 ? round(100 * $clicks / $impressions, 2) : 0, $position]);
     }
 
+    /** Both services connected: the insights read only engines that are connected now. */
+    private function connectBoth(): void
+    {
+        $this->site()->exec('DELETE FROM tl_connectors');
+        $this->site()->exec("INSERT INTO tl_connectors (service, connected_at) VALUES ('google', NOW()), ('bing', NOW())");
+    }
+
     public function testWithoutDataEverythingIsEmpty(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
@@ -40,6 +47,7 @@ final class SearchInsightsTest extends SiteTestCase
     public function testSummaryPreviousAndBothEngines(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
         $this->site()->exec("DELETE FROM tl_search_stats");
         $today = date('Y-m-d', strtotime('-5 days'));
         $this->row($today, 'google', 'total', '', 50, 1000, 5.0);
@@ -63,6 +71,7 @@ final class SearchInsightsTest extends SiteTestCase
     public function testPathsAndMissingPages(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
         $this->site()->exec("DELETE FROM tl_search_stats");
         $o = self::ORIGIN;
         $day = date('Y-m-d');
@@ -86,6 +95,7 @@ final class SearchInsightsTest extends SiteTestCase
     public function testEncodedPathsMatchRawOnes(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
         $this->site()->exec("DELETE FROM tl_search_stats");
         $o = self::ORIGIN;
         $day = date('Y-m-d');
@@ -100,6 +110,7 @@ final class SearchInsightsTest extends SiteTestCase
     public function testPreviousNeedsEveryEngineOfTheTotals(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
         $this->site()->exec("DELETE FROM tl_search_stats");
         $day = date('Y-m-d', strtotime('-5 days'));
         $this->row($day, 'google', 'total', '', 50, 1000, 5.0);
@@ -112,11 +123,54 @@ final class SearchInsightsTest extends SiteTestCase
     public function testFullPageListCannotSayWhichPagesAreMissing(): void
     {
         $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
         $this->site()->exec("DELETE FROM tl_search_stats");
         $day = date('Y-m-d');
         for ($i = 0; $i < SearchData::ROW_LIMIT; $i++) {
             $this->row($day, 'google', 'page', self::ORIGIN . '/p' . $i, 1, 10, 5.0);
         }
         $this->assertNull($this->insights("notInSearch($db, '" . self::ORIGIN . "', ['a'])"));
+    }
+
+    public function testBothReadsEveryEngineUpToTheCommonDay(): void
+    {
+        $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
+        $this->site()->exec("DELETE FROM tl_search_stats");
+        $older = date('Y-m-d', strtotime('-1 day'));
+        $newer = date('Y-m-d');
+        $shown = fn (string $day): string => date('Y-m-d', strtotime($day . ' -3 days'));
+        foreach ([['google', $older, 50, 1000], ['bing', $older, 7, 100], ['bing', $newer, 100, 2000]] as [$engine, $day, $clicks, $impressions]) {
+            $this->row($day, $engine, 'total', '', $clicks, $impressions, $engine === 'google' ? 5.0 : 0.0);
+            $this->row($day, $engine, 'day', $shown($day), $clicks, $impressions, $engine === 'google' ? 5.0 : 0.0);
+            $this->row($day, $engine, 'page', self::ORIGIN . '/' . $engine . '-' . $day, $clicks, $impressions, 4.0);
+        }
+        $both = $this->insights("summary($db, 'both')");
+        $this->assertSame($older, $both['day'], 'both: the earliest of the engines\' latest snapshots, so a stale engine is flagged');
+        $this->assertSame($shown($older), $both['to'], 'both: the last day the data covers');
+        $this->assertSame(57, $both['totals']['clicks'], 'both: Bing is read from its snapshot of the same day as Google');
+        $this->assertSame([['day' => $shown($older), 'clicks' => 57, 'impressions' => 1100]], $both['days'], 'both: the chart has no Bing-only days at its end');
+        $this->assertSame(['google-' . $older, 'bing-' . $older], array_keys($this->insights("byPath($db, 'both', '" . self::ORIGIN . "')")), 'both: the pages of the same snapshots');
+        $this->assertSame(100, $this->insights("summary($db, 'bing')")['totals']['clicks'], 'one engine: its latest snapshot');
+
+        $this->site()->exec("DELETE FROM tl_connectors WHERE service = 'google'");
+        $this->assertSame(100, $this->insights("summary($db, 'both')")['totals']['clicks'], 'a disconnected engine drops out');
+        $this->assertNull($this->insights("summary($db, 'google')"), 'a disconnected engine has no summary');
+    }
+
+    public function testASnapshotWithoutTotalStillHasData(): void
+    {
+        $db = '(Talea\\Core\\App::boot())->db()';
+        $this->connectBoth();
+        $this->site()->exec("DELETE FROM tl_search_stats");
+        $day = date('Y-m-d');
+        $this->row($day, 'google', 'day', date('Y-m-d', strtotime('-4 days')), 3, 60, 4.0);
+        $this->row($day, 'google', 'day', date('Y-m-d', strtotime('-3 days')), 1, 40, 6.0);
+        $this->row($day, 'bing', 'page', self::ORIGIN . '/a', 2, 30, 0.0);
+        $google = $this->insights("summary($db, 'google')");
+        $this->assertEquals(['clicks' => 4, 'impressions' => 100, 'ctr' => 4.0, 'position' => 4.8], $google['totals'], 'without a total row the days are summed');
+        $bing = $this->insights("summary($db, 'bing')");
+        $this->assertNotNull($bing, 'a snapshot without totals and days is still a snapshot');
+        $this->assertNull($bing['totals'], 'it has no totals to show');
     }
 }

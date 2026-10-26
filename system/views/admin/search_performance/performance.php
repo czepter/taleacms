@@ -7,6 +7,7 @@
  * @var list<string> $connected connected search services
  * @var string $engine both | google | bing
  * @var array<string, mixed>|null $summary SearchInsights::summary
+ * @var string $root the site's address with the installation's folder (SearchInsights::path)
  */
 if ($connected === []): ?>
 <div class="notice notice-warning">
@@ -16,7 +17,7 @@ if ($connected === []): ?>
 <?php return; endif ?>
 <div class="search-head">
 <nav class="list-tabs" aria-label="<?= e(t('Search engine')) ?>">
-<?php foreach (['both' => 'Both', 'google' => 'Google', 'bing' => 'Bing'] as $key => $name): if ($key !== 'both' && !in_array($key, $connected, true)) { continue; } ?>
+<?php foreach (['both' => 'Both', 'google' => 'Google', 'bing' => 'Bing'] as $key => $name): if ($key === 'both' ? count($connected) < 2 : !in_array($key, $connected, true)) { continue; } ?>
 	<a href="<?= e($module->url('', ['engine' => $key])) ?>"<?= $engine === $key ? ' aria-current="page"' : '' ?>><?= e($key === 'both' ? t($name) : $name) ?></a>
 <?php endforeach ?>
 </nav>
@@ -30,11 +31,14 @@ if ($connected === []): ?>
 <p><?= e(t('The first data arrives after tonight’s update.')) ?></p>
 <?php return; endif;
 if ($stale): ?>
-<p class="warning-text"><?= e(t('Last updated on %s.', format_date($summary['day']))) ?></p>
+<p class="notice notice-warning"><?= e(t('Last updated on %s.', format_date($summary['day']))) ?></p>
 <?php endif;
-$totals = $summary['totals'];
-$previous = $summary['previous'];
 $position = fn (?float $p): string => $p === null || $p <= 0 ? '—' : format_count($p, 1);
+$totals = $summary['totals'];
+if ($totals === null): ?>
+<p><?= e(t('No search data for the last 28 days.')) ?></p>
+<?php else:
+$previous = $summary['previous'];
 // change against four weeks earlier: a percentage; for the position, places (lower is better)
 $change = function (string $field) use ($totals, $previous): string {
     if ($previous === null) {
@@ -63,19 +67,21 @@ $tiles = [['Clicks', format_count($totals['clicks']), 'clicks'], ['Impressions',
 	<div class="tiles-item"><strong><?= e($value) ?></strong><span><?= e(t($name)) ?><?php if (($c = $change($field)) !== ''): ?> · <?= e($c) ?><?php endif ?></span></div>
 <?php endforeach ?>
 </div>
-<?php if ($previous !== null): ?><p class="small-text"><?= e(t('Last 28 days, compared with the 28 days before.')) ?></p><?php endif ?>
-<div class="search-box"><?= $app->view->render('admin/search_performance/chart', ['days' => $summary['days']]) ?></div>
+<?php if ($previous !== null): ?><p class="small-text"><?= e(t('28 days up to %s, compared with the 28 days before.', format_date($summary['to']))) ?></p><?php endif ?>
+<?php if (count($summary['days']) > 1): ?><div class="search-box"><?= $app->view->render('admin/search_performance/chart', ['days' => $summary['days']]) ?></div><?php endif ?>
+<?php endif ?>
 
 <?php
-$pageLink = function (?string $url) use ($pages, $app, $origin): string {
+$pageAnchor = fn (array $page): string => '<a href="' . e($app->url('admin.php?module=pages&action=website&id=' . $page['public_id'])) . '">' . e($page['title']) . '</a>';
+// a search URL to its page: this site's host and folder only, keyed like $pages (SearchInsights::path)
+$pageLink = function (?string $url) use ($pages, $root, $pageAnchor): string {
     if ($url === null || $url === '') {
         return '';
     }
-    $path = trim(rawurldecode((string) parse_url($url, PHP_URL_PATH)), '/');
-    $page = $pages[$path] ?? null;
+    $path = Talea\Core\SearchInsights::path($url, $root);
+    $page = $path === null ? null : $pages[$path] ?? null;
 
-    return $page === null ? '<code>' . e($url) . '</code>'
-        : '<a href="' . e($app->url('admin.php?module=pages&action=website&id=' . $page['public_id'])) . '">' . e($page['title']) . '</a>';
+    return $page === null ? '<code>' . e($url) . '</code>' : $pageAnchor($page);
 };
 ?>
 <div class="search-columns">
@@ -115,7 +121,7 @@ $pageLink = function (?string $url) use ($pages, $app, $origin): string {
 <?php if ($top === []): ?><p><?= e(t('No data yet.')) ?></p><?php else: ?>
 <div class="tab-wrap"><table class="listing"><thead><tr><th scope="col"><?= e(t('Page')) ?></th><th scope="col" class="number"><?= e(t('Clicks')) ?></th><th scope="col" class="number"><?= e(t('Impressions')) ?></th><th scope="col" class="number"><?= e(t('Position')) ?></th><th scope="col" class="number"><?= e(t('Score')) ?></th></tr></thead><tbody>
 <?php foreach ($top as $path => $r): $page = $pages[$path] ?? null ?>
-	<tr><td><?= $page === null ? '<code>/' . e($path) . '</code>' : $pageLink($origin . '/' . $path) ?></td><td class="number"><?= e(format_count($r['clicks'])) ?></td><td class="number"><?= e(format_count($r['impressions'])) ?></td><td class="number"><?= e($position($r['position'])) ?></td><td class="number"><?= $page === null || $page['seo_score'] === null ? '—' : e((string) $page['seo_score']) ?></td></tr>
+	<tr><td><?= $page === null ? '<code>/' . e((string) $path) . '</code>' : $pageAnchor($page) ?></td><td class="number"><?= e(format_count($r['clicks'])) ?></td><td class="number"><?= e(format_count($r['impressions'])) ?></td><td class="number"><?= e($position($r['position'])) ?></td><td class="number"><?= $page === null || $page['seo_score'] === null ? '—' : e((string) $page['seo_score']) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>

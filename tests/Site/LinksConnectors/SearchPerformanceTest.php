@@ -55,6 +55,56 @@ final class SearchPerformanceTest extends SiteTestCase
         $this->assertPage(self::SCREEN, 200, 'Last updated on', message: 'performance: an old snapshot is flagged');
     }
 
+    /** Creates a page over MCP, which answers over HTTPS only once site_url is the https address the search rows use. @param array<string, mixed> $page */
+    private function createPage(array $page): void
+    {
+        $site = $this->site();
+        $url = $site->settingValue('site_url');
+        $site->setting('site_url', '');
+        $this->assertArrayHasKey('result', $site->mcp('create_page', $page + ['content' => '<p>Text</p>', 'visible' => 1]), 'performance: the page is created');
+        $site->setting('site_url', $url);
+    }
+
+    /** How many published pages the screen says have not appeared in search (0 for "every page"). */
+    private function notInSearchCount(): int
+    {
+        $body = $this->assertPage(self::SCREEN . '&engine=google', 200, 'In the search index', message: 'performance: the index block')->body;
+
+        return preg_match('/(\d+) published pages have not appeared in search yet/', $body, $m) === 1 ? (int) $m[1] : 0;
+    }
+
+    #[Depends('testTheScreenShowsTheSnapshotAndNeverTheKey')]
+    public function testNotInSearchCountsOnlySitemapPages(): void
+    {
+        $site = $this->site();
+        $before = $this->notInSearchCount();
+        $this->createPage(['title' => 'Thank you', 'slug' => 'thank-you']);
+        $this->createPage(['title' => 'Elsewhere', 'slug' => 'elsewhere']);
+        $site->exec("UPDATE tl_pages SET noindex = 1 WHERE slug = 'thank-you'");
+        $site->exec("UPDATE tl_pages SET canonical_url = 'https://other.test/elsewhere' WHERE slug = 'elsewhere'");
+        $this->assertSame($before, $this->notInSearchCount(), 'performance: a noindex page and a page with a foreign canonical address are not counted as missing from search');
+        $this->createPage(['title' => 'Indexable', 'slug' => 'indexable']);
+        $this->assertSame($before + 1, $this->notInSearchCount(), 'performance: a new indexable page is counted');
+    }
+
+    #[Depends('testTheScreenShowsTheSnapshotAndNeverTheKey')]
+    public function testHtmlAddressesMatchTheirPages(): void
+    {
+        $site = $this->site();
+        $this->createPage(['title' => 'Prices', 'slug' => 'prices']);
+        $site->setting('url_slash', 'html');
+        $uuid = (string) $site->value("SELECT public_id FROM tl_pages WHERE slug = 'prices'");
+        $day = (string) $site->value("SELECT MAX(day) FROM tl_search_stats WHERE engine = 'google'");
+        $site->exec("DELETE FROM tl_search_stats WHERE engine = 'google' AND day = ? AND kind = 'page'", [$day]);
+        $insert = 'INSERT INTO tl_search_stats (day, engine, kind, `key`, page, clicks, impressions, ctr, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        $site->exec($insert, [$day, 'google', 'page', 'https://example.com/prices.html', '', 77, 700, 11, 2]);
+        $site->exec($insert, [$day, 'google', 'page', 'https://other.test/prices.html', '', 1, 900, 0.1, 3]);
+        $screen = $this->assertPage(self::SCREEN . '&engine=google', 200, message: 'performance: addresses ending in .html');
+        $this->assertMatchesRegularExpression('#<a href="[^"]*/admin/pages/website/' . $uuid . '">Prices</a></td><td class="number">77<#', $screen->body, 'performance: a Top pages row ending in .html links its page');
+        $this->assertStringContainsString('<code>https://other.test/prices.html</code>', $screen->body, 'performance: a page of another host links no page of this site');
+        $site->setting('url_slash', '');
+    }
+
     #[Depends('testTheScreenShowsTheSnapshotAndNeverTheKey')]
     public function testBingOnlyLanguageHomeEscapingAndAccess(): void
     {
@@ -62,10 +112,14 @@ final class SearchPerformanceTest extends SiteTestCase
         $this->adminPost('/admin.php?module=connectors&action=disconnect', ['service' => 'google'], self::SCREEN);
         $screen = $this->assertPage(self::SCREEN, 200, 'talea bing', message: 'performance: with only Bing connected the lists come from Bing');
         $this->assertStringNotContainsString('talea cms', $screen->body, 'performance: no Google query without Google');
+        $this->assertStringNotContainsString('>59<', $screen->body, 'performance: the disconnected Google snapshot is not added to the totals');
+        $this->assertStringContainsString('<strong>9</strong>', $screen->body, 'performance: the totals are Bing\'s alone');
+        $this->assertStringNotContainsString('addresses indexed', $screen->body, 'performance: no Google sitemaps without Google');
 
         $home = (int) $site->settingValue('home_page');
         $site->setting('additional_languages', 'de');
-        $site->mcp('create_page', ['title' => 'Startseite', 'slug' => 'start-de', 'language' => 'de', 'translation_of' => $site->publicId('pages', $home), 'content' => '<p>Hallo</p>', 'visible' => 1]);
+        $this->createPage(['title' => 'Startseite', 'slug' => 'start-de', 'language' => 'de', 'translation_of' => $site->publicId('pages', $home)]);
+        $this->assertNotSame('', (string) $site->value("SELECT public_id FROM tl_pages WHERE slug = 'start-de'"), 'performance: the German home page exists');
         $uuid = (string) $site->value("SELECT public_id FROM tl_pages WHERE slug = 'start-de'");
         $day = (string) $site->value("SELECT MAX(day) FROM tl_search_stats WHERE engine = 'bing'");
         $insert = 'INSERT INTO tl_search_stats (day, engine, kind, `key`, page, clicks, impressions, ctr, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
