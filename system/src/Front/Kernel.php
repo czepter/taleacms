@@ -88,8 +88,9 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
-        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form first
-        if ($this->redirect === null && $this->redirectRule($internal) === null && ($slash = $this->slashRedirect($internal)) !== null) {
+        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form first;
+        // only the indexed exact lookup runs on every request, the other match types wait for the 404 (notFound())
+        if ($this->redirect === null && $this->redirectRule($internal, true) === null && ($slash = $this->slashRedirect($internal)) !== null) {
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
@@ -1065,9 +1066,10 @@ final class Kernel
 
     /**
      * The stored redirect for an old address, null when there is none. The path may have lost its .html (url_slash), while
-     * imports store old addresses as they were (/2019/05/post.html), so both forms are tried.
+     * imports store old addresses as they were (/2019/05/post.html), so both forms are tried. `$exactOnly` skips the other match types:
+     * they are tried only for an address that would otherwise end with 404, so they never shadow a live page and cost nothing on one.
      */
-    private function redirectRule(string $path): ?array
+    private function redirectRule(string $path, bool $exactOnly = false): ?array
     {
         if (!Extensions::isEnabled($this->app->settings(), 'redirects')) {
             return null;
@@ -1082,6 +1084,9 @@ final class Kernel
             if ($rule !== null) {
                 return $rule + ['target' => $rule['to_path']];
             }
+        }
+        if ($exactOnly) {
+            return null;
         }
         // no exact rule: the other match types, in the order they were made (a few hundred at most)
         foreach ($this->app->db()->all('SELECT * FROM {redirects} WHERE active = TRUE AND match_type <> \'exact\' ORDER BY redirect_id LIMIT 500') as $rule) {

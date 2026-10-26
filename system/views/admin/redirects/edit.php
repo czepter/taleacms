@@ -23,7 +23,7 @@ $to = $u === null ? '' : (preg_match('#^https?://#i', $u['to_path']) ? $u['to_pa
 <?php foreach ($matches as $key => $label): ?>
 	<option value="<?= e($key) ?>"<?= $match === $key ? ' selected' : '' ?>><?= e(t($label)) ?></option>
 <?php endforeach ?>
-</select><span class="help"><?= e(t('An exact address wins over the other kinds. With a regular expression, $1 in the target is the first captured part. Starts with: a target ending in a slash keeps the rest of the address.')) ?></span></div></div>
+</select><span class="help"><?= e(t('An exact address wins over the other kinds. With a regular expression, $1 in the target is the first captured part. Starts with: a target ending in a slash keeps the rest of the address.')) . ' ' . e(t('The kinds other than an exact address are checked only when nothing exists at the address, so they cannot hide a live page.')) ?></span></div></div>
 <div class="row"><label for="from_path"><?= e(t('Old address')) ?></label><div>
 <?php if ($u === null): ?><textarea class="textfield wide" id="from_path" name="from_path" rows="3" required placeholder="<?= e(t('/old-page.html')) ?>"><?= e($from) ?></textarea><span class="help"><?= e(t('One address per line; each becomes its own redirect.')) ?></span>
 <?php else: ?><input class="textfield wide" type="text" id="from_path" name="from_path" value="<?= e($from) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="help"><?= e(t('A path on this site that no longer exists.')) ?></span><?php endif ?></div></div>
