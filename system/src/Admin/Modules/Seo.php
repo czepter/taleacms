@@ -46,15 +46,21 @@ final class Seo extends Module
         return $kind === 'extension' ? Extensions::isEnabled($settings, $key) : $settings->bool($key);
     }
 
+    /** Instant indexing needs a key the search engines can fetch back; made once, when the feature is on. */
+    public static function ensureIndexNowKey(\Talea\Core\Settings $settings): void
+    {
+        if ($settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
+            $settings->set('indexnow_key', bin2hex(random_bytes(16)));
+        }
+    }
+
     protected function actionList(): Response
     {
         $settings = $this->app->settings();
         $pages = (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE');
         $keywords = (int) $this->db->value("SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE AND focus_keywords <> ''");
-        $noDescription = 0;
-        foreach ((new \Talea\Core\Audit($this->app))->run() as $finding) {
-            $noDescription += $finding['kind'] === 'description' ? 1 : 0;
-        }
+        // the pages the site check flags as "Missing descriptions"
+        $noDescription = (int) $this->db->value("SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE AND noindex = FALSE AND TRIM(description) = ''");
         $state = [];
         foreach (array_keys(self::FEATURES) as $feature) {
             $state[$feature] = self::featureOn($settings, $feature);
@@ -81,6 +87,7 @@ final class Seo extends Module
             Extensions::save($settings, $on ? [...$enabled, $key] : $enabled);
         } else {
             $settings->set($key, $on ? '1' : '0');
+            self::ensureIndexNowKey($settings);
         }
 
         return $this->back($on ? t('%s is on.', t($name)) : t('%s is off.', t($name)));

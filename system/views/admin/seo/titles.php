@@ -16,7 +16,7 @@ use Talea\Admin\Modules\SeoTitles;
 use Talea\Core\SeoTitle;
 
 $variables = fn (string $id, bool $excerpt = false): string => '<div class="seo-vars">' . implode('', array_map(
-    fn (string $v): string => '<button class="seo-var" type="button" data-insert="%' . e($v) . '%" data-insert-into="' . e($id) . '">%' . e($v) . '%</button>',
+    fn (string $v): string => '<button class="seo-var" type="button" hidden data-insert="%' . e($v) . '%" data-insert-into="' . e($id) . '">%' . e($v) . '%</button>',
     $excerpt ? SeoTitle::VARIABLES : array_values(array_diff(SeoTitle::VARIABLES, ['excerpt'])),
 )) . '</div>';
 $template = function (string $key, string $label, bool $description = false) use ($values, $variables): void {
@@ -90,5 +90,7 @@ $template = function (string $key, string $label, bool $description = false) use
 </form>
 <form class="inline seo-reset" method="post" action="<?= e($module->url('reset')) ?>"><?= $csrf ?>
 	<input type="hidden" name="kind" value="<?= e($kind) ?>">
+<?php if ($kind === 'defaults'): ?>	<span class="help"><?= e(t('Reset puts the settings above back to the defaults; the sharing image stays.')) ?></span>
+<?php endif ?>
 	<button class="navigation" type="submit" data-confirm="<?= e(t('Reset this section to the defaults?')) ?>"><?= e(t('Reset to defaults')) ?></button>
 </form>

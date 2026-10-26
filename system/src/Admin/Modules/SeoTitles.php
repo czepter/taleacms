@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
+use Talea\Admin\Modules\Settings as SettingsScreen;
 use Talea\Core\Robots;
 use Talea\Core\Response;
 use Talea\Core\SeoTitle;
@@ -122,11 +123,11 @@ final class SeoTitles extends Module
                 $clean[$key] = Robots::normalize($tokens);
                 continue;
             }
-            if (!in_array($key, ['seo_capitalize', 'seo_hide_empty_terms'], true) && !array_key_exists($key, $_POST) && !($key === 'seo_separator' && $r->post('seo_separator_own') !== '')) {
+            if (!in_array($key, ['seo_capitalize', 'seo_hide_empty_terms'], true) && !$r->hasPost($key) && !($key === 'seo_separator' && $r->post('seo_separator_own') !== '')) {
                 continue; // a field the form did not send keeps its value; an unticked box is simply not sent
             }
             $value = $key === 'seo_separator' && $r->post('seo_separator_own') !== '' ? $r->post('seo_separator_own') : $r->post($key);
-            $verified = \Talea\Admin\Modules\Settings::verifyValue($key, in_array($key, ['seo_capitalize', 'seo_hide_empty_terms'], true) ? ($r->postBool($key) ? '1' : '0') : $value);
+            $verified = SettingsScreen::verifyValue($key, in_array($key, ['seo_capitalize', 'seo_hide_empty_terms'], true) ? ($r->postBool($key) ? '1' : '0') : $value);
             if ($verified === null) {
                 return $this->back('The value of a field is not valid, nothing was saved. A separator has up to three characters.', '', ['kind' => $kind], 'error');
             }
@@ -142,10 +143,11 @@ final class SeoTitles extends Module
     protected function actionReset(): Response
     {
         $kind = $this->kind();
-        if ($this->request->isPost()) {
-            foreach (self::KINDS[$kind][1] as $key) {
-                $this->app->settings()->set($key, Settings::DEFAULTS[$key] ?? '');
-            }
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['kind' => $kind]);
+        }
+        foreach (self::KINDS[$kind][1] as $key) {
+            $this->app->settings()->set($key, Settings::DEFAULTS[$key] ?? '');
         }
 
         return $this->back('The section is back to the defaults.', '', ['kind' => $kind]);

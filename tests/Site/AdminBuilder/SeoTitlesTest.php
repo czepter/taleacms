@@ -93,7 +93,34 @@ final class SeoTitlesTest extends SiteTestCase
         $response = $this->save(['seo_separator' => 'toolong', 'seo_card' => 'small'], 'defaults');
         $this->assertSame($before, $site->settingValue('seo_separator'));
         $this->assertNotSame('small', $site->settingValue('seo_card'), 'one wrong field saves none of the section');
-        $this->assertContains($response->status, [200, 302]);
+        $this->assertSame(302, $response->status);
+    }
+
+    public function testAKeyOutsideTheSectionIsNeverWritten(): void
+    {
+        $site = $this->site();
+        $site->setting('site_name', 'My website');
+        $this->save(['site_name' => 'Hacked', 'seo_title_page' => '%title%'], 'page');
+        $this->assertSame('My website', $site->settingValue('site_name'));
+        $this->assertSame('%title%', $site->settingValue('seo_title_page'));
+    }
+
+    public function testCapitalLettersWorkOnMultibyteWords(): void
+    {
+        $this->aboutPage();
+        $site = $this->site();
+        $site->exec("UPDATE tl_pages SET title = 'ölmühle zürich' WHERE slug = 'about'");
+        $this->save(['seo_capitalize' => '1'], 'defaults');
+        $site->clearPageCache();
+        $this->assertStringContainsString('Ölmühle Zürich', $site->client('visitor')->get('/about')->body);
+    }
+
+    public function testResetByGetChangesNothing(): void
+    {
+        $site = $this->site();
+        $this->save(['seo_title_page' => '%title%'], 'page');
+        $this->assertPage('/admin.php?module=seo_titles&action=reset&kind=page', 302);
+        $this->assertSame('%title%', $site->settingValue('seo_title_page'));
     }
 
     public function testResetRestoresTheDefaultsOfOneKind(): void

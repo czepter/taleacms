@@ -37,7 +37,11 @@ $open = fn (string $ident): string => $app->url('admin.php?module=' . $ident);
 		<div class="seo-feature-head"><span class="cell-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><?= $icon ?></svg></span><h3><?= e(t($name)) ?></h3></div>
 		<p><?= e(t($text)) ?></p>
 		<div class="seo-feature-foot">
+<?php if (isset($modules[$screen]) || str_starts_with($screen, 'settings')): ?>
 			<a href="<?= e($open($screen)) ?>"><?= e(t($linkText)) ?></a>
+<?php else: ?>
+			<span></span>
+<?php endif ?>
 			<?= $app->view->render('admin/list/switch', ['action' => $module->url('feature'), 'fields' => ['feature' => $feature, 'on' => $on ? '0' : '1'], 'on' => $on, 'label' => t('%s on', t($name)), 'csrf' => $csrf]) ?>
 		</div>
 	</article>

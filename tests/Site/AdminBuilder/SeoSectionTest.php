@@ -53,6 +53,10 @@ final class SeoSectionTest extends SiteTestCase
         $this->assertSame('0', $site->settingValue('schema_org'));
         $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'llms_txt', 'on' => '1'], '/admin.php?module=seo');
         $this->assertSame('1', $site->settingValue('llms_txt'));
+        $site->setting('indexnow', '0');
+        $site->setting('indexnow_key', '');
+        $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'indexnow', 'on' => '1'], '/admin.php?module=seo');
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $site->settingValue('indexnow_key'), 'instant indexing gets its key from the overview too');
         $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'redirects', 'on' => '0'], '/admin.php?module=seo');
         $this->assertStringNotContainsString('redirects', $site->settingValue('extensions'));
         $this->assertSame(302, $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'nonsense', 'on' => '0'], '/admin.php?module=seo')->status, 'an unknown feature changes nothing');

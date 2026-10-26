@@ -3455,6 +3455,7 @@ return [
     'Required' => 'Povinné',
     'Requirements' => 'Požadavky',
     'Requires confirmation' => 'Vyžaduje potvrzení',
+    'Reset puts the settings above back to the defaults; the sharing image stays.' => 'Obnovení vrátí nastavení výše na výchozí hodnoty; obrázek pro sdílení zůstane.',
     'Reset the counters' => 'Vynulovat počitadla',
     'Reset the counters of views, closes and conversions?' => 'Vynulovat počitadla zobrazení, zavření a konverzí?',
     'Reset this section to the defaults?' => 'Vrátit tuto sekci na výchozí hodnoty?',

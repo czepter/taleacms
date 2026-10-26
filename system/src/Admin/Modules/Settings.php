@@ -305,8 +305,8 @@ class Settings extends Module
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Talea\Core\Demo::active()) {
             \Talea\Core\MailServices::settle($settings, $this->request->post('smtp_ses_region'));
         }
-        if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
-            $settings->set('indexnow_key', bin2hex(random_bytes(16)));
+        if ($tab === 'seo') {
+            Seo::ensureIndexNowKey($settings);
         }
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('extensions'));

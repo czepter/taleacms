@@ -3461,6 +3461,7 @@ return [
     'Required' => 'Pflichtfeld',
     'Requirements' => 'Anforderungen',
     'Requires confirmation' => 'Erfordert Bestätigung',
+    'Reset puts the settings above back to the defaults; the sharing image stays.' => 'Zurücksetzen stellt die obigen Einstellungen auf die Standardwerte zurück; das Bild zum Teilen bleibt erhalten.',
     'Reset the counters' => 'Zähler zurücksetzen',
     'Reset the counters of views, closes and conversions?' => 'Die Zähler für Aufrufe, Schließungen und Conversions zurücksetzen?',
     'Reset this section to the defaults?' => 'Diesen Bereich auf die Standardwerte zurücksetzen?',

@@ -57,6 +57,12 @@ final class Request
         return array_key_exists($key, $this->query);
     }
 
+    /** Whether the form sent the field at all (also empty). */
+    public function hasPost(string $key): bool
+    {
+        return array_key_exists($key, $this->post);
+    }
+
     /** Text value from GET; an array or a missing key returns the default value. */
     public function get(string $key, string $default = ''): string
     {

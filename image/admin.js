@@ -47,6 +47,7 @@
 	});
 
 	// Variable buttons of the title templates: data-insert="%title%" data-insert-into="field id" puts the variable at the cursor of that field.
+	document.querySelectorAll('[data-insert][hidden]').forEach(function (b) { b.hidden = false; });
 	document.addEventListener('click', function (e) {
 		var button = e.target.closest('[data-insert]');
 		var field = button && document.getElementById(button.getAttribute('data-insert-into'));
