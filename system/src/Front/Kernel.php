@@ -661,7 +661,7 @@ final class Kernel
             $parentPage = $db->one('SELECT slug, title FROM {pages} WHERE (page_id = ? OR translation_of = ?) AND language = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
         }
         $this->breadcrumbs([$parentPage !== null && $parentPage['title'] !== '' ? (string) $parentPage['title'] : $collection['name'], $parentPage !== null ? $this->app->url((string) $parentPage['slug']) : ''],
-            [$item['name'] ?? t('Sample item'), '']);
+            [($item['breadcrumb_title'] ?? '') !== '' ? $item['breadcrumb_title'] : ($item['name'] ?? t('Sample item')), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['collection_id'], (string) $collection['slug'], (string) $item['slug']] : null;
         $k = $this->context();
         if (\Talea\Core\Notices::isBoard($collection)) {
@@ -730,10 +730,9 @@ final class Kernel
         return $item === null || \Talea\Core\Members::isGated($db, 'item', (int) $item['item_id']) ? null : $seo->itemMarkdown($collection, $item);
     }
 
-    /** Home page ID in the shown site version's language (counterpart of the page from Settings); 0 = the news listing is home. */
     /**
      * What the SEO fields of a row add to $meta: the kind that picks the title template, the page's robots directives, the
-     * canonical override, the sharing texts and the breadcrumb name. A row's own SEO title is shown as written.
+     * canonical override and the sharing texts. A row's own SEO title is shown as written.
      *
      * @param array<string, mixed> $row
      * @param array<string, string> $vars extra title template variables (category, excerpt)
@@ -745,11 +744,11 @@ final class Kernel
             'seo_kind' => $kind, 'own_title' => (string) ($row['seo_title'] ?? '') !== '', 'title_vars' => $vars,
             'robots' => (string) ($row['robots'] ?? ''), 'canonical' => \Talea\Core\Robots::canonical((string) ($row['canonical_url'] ?? '')),
             'share_title' => (string) ($row['share_title'] ?? ''), 'share_description' => (string) ($row['share_description'] ?? ''),
-            'breadcrumb_title' => (string) ($row['breadcrumb_title'] ?? ''),
             'own_description' => (string) ($row['description'] ?? $row['seo_description'] ?? '') !== '',
         ];
     }
 
+    /** Home page ID in the shown site version's language (counterpart of the page from Settings); 0 = the news listing is home. */
     private function homePageId(): int
     {
         $id = $this->app->settings()->int('home_page');
@@ -790,7 +789,7 @@ final class Kernel
                     $levels[] = [$parent['title'], $this->app->url($parent['slug'])];
                 }
             }
-            $this->breadcrumbs(...[...$levels, [$page['title'], '']]);
+            $this->breadcrumbs(...[...$levels, [(string) ($page['breadcrumb_title'] ?? '') !== '' ? $page['breadcrumb_title'] : $page['title'], '']]);
         }
         // a password-protected page (2.14, Core\PageLock): the password form until the visitor enters it; editors see it
         // without one. Protected pages are noindex, so they never enter the page cache
@@ -983,7 +982,7 @@ final class Kernel
             $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['news_id']]);
         }
 
-        $this->breadcrumbs([t('News'), $this->app->url('news')], [$newsItem['category_name'], $this->app->url('news/category/' . $newsItem['category_slug'])], [$newsItem['title'], '']);
+        $this->breadcrumbs([t('News'), $this->app->url('news')], [$newsItem['category_name'], $this->app->url('news/category/' . $newsItem['category_slug'])], [(string) ($newsItem['breadcrumb_title'] ?? '') !== '' ? $newsItem['breadcrumb_title'] : $newsItem['title'], '']);
         $newsItem['faq_html'] = (new View([TALEA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['tags'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);

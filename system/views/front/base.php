@@ -38,18 +38,13 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php
-// a page's own SEO title is used as written (the site name is added unless it is in it); the title templates serve the rest
-$kind = (string) ($meta['seo_kind'] ?? 'other');
-$tagline = trim(preg_replace('/\s+/u', ' ', $web->get('site_description')));
-$pageTitle = $kind === 'other' || !empty($meta['own_title'])
-    ? ($title === '' ? $siteName : (str_contains(mb_strtolower($title), mb_strtolower($siteName)) ? $title : $title . ' – ' . $siteName))
-    : Talea\Core\SeoTitle::render($web->get('seo_title_' . $kind), ($meta['title_vars'] ?? []) + ['title' => $title, 'sep' => $web->get('seo_separator'), 'sitename' => $siteName, 'tagline' => $tagline, 'year' => date('Y')], $web->bool('seo_capitalize'));
+$pageTitle = Talea\Core\SeoTitle::compose($web, (string) ($meta['seo_kind'] ?? 'other'), (string) $title, !empty($meta['own_title']), $meta['title_vars'] ?? []);
 ?>
 <title><?= e($pageTitle) ?></title>
 <?php if ($meta['description'] !== ''): ?>
 <meta name="description" content="<?= e($meta['description']) ?>">
 <?php endif ?>
-<?php $robots = Talea\Core\Robots::meta((bool) $meta['noindex'], (string) ($meta['robots'] ?? ''), $web->get('seo_robots')); ?>
+<?php $robots = $web->bool('indexing') ? Talea\Core\Robots::meta((bool) $meta['noindex'], (string) ($meta['robots'] ?? ''), $web->get('seo_robots')) : ''; // with indexing off Seo::head prints the one robots tag ?>
 <?php if ($robots !== ''): ?>
 <meta name="robots" content="<?= e($robots === 'noindex' ? 'noindex, follow' : $robots) ?>">
 <?php endif ?>

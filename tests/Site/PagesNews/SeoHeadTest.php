@@ -109,6 +109,14 @@ final class SeoHeadTest extends \Talea\Tests\Site\Support\SiteTestCase
         $body = $site->client('visitor')->get('/crew/jane-doe')->body;
         $this->assertStringContainsString('<meta name="robots" content="index, nosnippet">', $body);
         $this->assertStringContainsString('<link rel="canonical" href="https://example.org/jane">', $body);
+
+        // a collection without a parent page: the trail is the collection, then the item (or its breadcrumb title)
+        $crumbs = $this->breadcrumbs($body);
+        $this->assertSame(['Home', 'Crew', 'Jane Doe'], array_column($crumbs, 'name'));
+        $site->exec("UPDATE tl_collection_items SET breadcrumb_title = 'Jane' WHERE slug = 'jane-doe'");
+        $site->clearPageCache();
+        $crumbs = $this->breadcrumbs($site->client('visitor')->get('/crew/jane-doe')->body);
+        $this->assertSame(['Home', 'Crew', 'Jane'], array_column($crumbs, 'name'));
     }
 
     public function testHomePageUsesTheHomeTemplate(): void
@@ -148,5 +156,39 @@ final class SeoHeadTest extends \Talea\Tests\Site\Support\SiteTestCase
         $site->clearPageCache();
         $this->assertStringContainsString('<meta name="description" content="Own text">', $site->client('visitor')->get('/offers')->body);
         $site->setting('seo_description_page', '');
+    }
+
+    public function testSavingTheSeoTabKeepsTheTitleSettings(): void
+    {
+        $site = $this->site();
+        $site->setting('seo_hide_empty_terms', '1');
+        $site->setting('seo_capitalize', '1');
+        $site->admin()->post('/admin.php?module=settings&action=save', ['_csrf' => $site->csrf(), 'tab' => 'seo', 'indexing' => '1']);
+        $this->assertSame('1', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_hide_empty_terms'"));
+        $this->assertSame('1', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_capitalize'"));
+    }
+
+    public function testWithIndexingOffThereIsExactlyOneRobotsTag(): void
+    {
+        $site = $this->site();
+        $site->mcp('create_page', ['title' => 'Quiet', 'slug' => 'quiet', 'visible' => true, 'in_menu' => false, 'content' => '<p>Quiet.</p>']);
+        $site->exec("UPDATE tl_pages SET robots = 'nofollow' WHERE slug = 'quiet'");
+        $site->setting('indexing', '0');
+        $site->clearPageCache();
+        $body = $site->client('visitor')->get('/quiet')->body;
+        $site->setting('indexing', '1');
+        $this->assertSame(1, substr_count($body, '<meta name="robots"'));
+    }
+
+    public function testAForeignCanonicalLeavesTheSitemap(): void
+    {
+        $site = $this->site();
+        $site->mcp('create_page', ['title' => 'Moved', 'slug' => 'moved', 'visible' => true, 'in_menu' => false, 'content' => '<p>Moved.</p>']);
+        $site->mcp('create_page', ['title' => 'Stays', 'slug' => 'stays', 'visible' => true, 'in_menu' => false, 'content' => '<p>Stays.</p>']);
+        $site->exec("UPDATE tl_pages SET canonical_url = 'https://example.org/elsewhere' WHERE slug = 'moved'");
+        $site->clearPageCache();
+        $sitemap = $site->client('visitor')->get('/sitemap.xml')->body;
+        $this->assertStringNotContainsString('/moved</loc>', $sitemap);
+        $this->assertStringContainsString('/stays</loc>', $sitemap);
     }
 }

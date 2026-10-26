@@ -22,7 +22,7 @@ final class Robots
     public static function normalize(string|array $input): string
     {
         [$flags, $limits] = self::parse($input);
-        return implode(',', self::list($flags, $limits));
+        return implode(',', self::ordered($flags, $limits));
     }
 
     /** The content of <meta name="robots">, or '' when nothing differs from the default (indexed, no limits). */
@@ -30,7 +30,7 @@ final class Robots
     {
         [$pageFlags, $pageLimits] = self::parse($pageRobots);
         [$siteFlags, $siteLimits] = self::parse($siteRobots);
-        $parts = self::list(array_merge($pageFlags, $siteFlags), $pageLimits + $siteLimits);
+        $parts = self::ordered(array_merge($pageFlags, $siteFlags), $pageLimits + $siteLimits);
         if ($parts === [] && !$noindex) {
             return '';
         }
@@ -41,10 +41,16 @@ final class Robots
     public static function canonical(string $url): string
     {
         $url = trim($url);
-        if ($url === '' || strlen($url) > 500 || !preg_match('~^https?://[^\s/?#]+~i', $url) || preg_match('~\s~', $url)) {
+        if ($url === '' || strlen($url) > 500 || !preg_match('~^https?://[^\s/?#]+~i', $url) || (string) parse_url($url, PHP_URL_HOST) === '' || preg_match('~\s~', $url)) {
             return '';
         }
         return $url;
+    }
+
+    /** A string, number or boolean as text; anything else (an array from a crafted request) as ''. */
+    public static function scalar(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /** @return array{0: list<string>, 1: array<string, string>} flags and limit values (the first of a kind wins) */
@@ -54,7 +60,7 @@ final class Robots
         $flags = [];
         $limits = [];
         foreach ($tokens as $token) {
-            $token = strtolower(trim((string) $token));
+            $token = strtolower(trim(self::scalar($token)));
             if (in_array($token, self::FLAGS, true)) {
                 $flags[] = $token;
                 continue;
@@ -74,7 +80,7 @@ final class Robots
     }
 
     /** @param list<string> $flags @param array<string, string> $limits */
-    private static function list(array $flags, array $limits): array
+    private static function ordered(array $flags, array $limits): array
     {
         $parts = array_values(array_filter(self::FLAGS, static fn(string $flag): bool => in_array($flag, $flags, true)));
         foreach (self::LIMITS as $name) {

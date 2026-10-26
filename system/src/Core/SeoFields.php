@@ -27,14 +27,14 @@ final class SeoFields
             $out['key_page'] = (int) filter_var($in['key_page'], FILTER_VALIDATE_BOOLEAN);
         }
         if (array_key_exists('robots', $in)) {
-            $out['robots'] = Robots::normalize(is_array($in['robots']) ? $in['robots'] : (string) $in['robots']);
+            $out['robots'] = Robots::normalize(is_array($in['robots']) ? $in['robots'] : Robots::scalar($in['robots']));
         }
         if (array_key_exists('canonical_url', $in)) {
-            $out['canonical_url'] = Robots::canonical((string) $in['canonical_url']);
+            $out['canonical_url'] = Robots::canonical(Robots::scalar($in['canonical_url']));
         }
         foreach (['breadcrumb_title' => 200, 'share_title' => 200, 'share_description' => 320] as $key => $length) {
             if (array_key_exists($key, $in)) {
-                $out[$key] = mb_substr(trim((string) $in[$key]), 0, $length);
+                $out[$key] = mb_substr(trim(Robots::scalar($in[$key])), 0, $length);
             }
         }
 
@@ -61,10 +61,10 @@ final class SeoFields
     /** @return list<string> */
     private static function split(mixed $value): array
     {
-        $list = is_array($value) ? $value : preg_split('~[,\r\n]+~', (string) $value);
+        $list = is_array($value) ? $value : preg_split('~[,\r\n]+~', Robots::scalar($value));
         $seen = [];
         foreach ($list as $keyword) {
-            $keyword = mb_substr(trim((string) $keyword), 0, self::KEYWORD_LENGTH);
+            $keyword = mb_substr(trim(Robots::scalar($keyword)), 0, self::KEYWORD_LENGTH);
             if ($keyword !== '') {
                 $seen[mb_strtolower($keyword)] ??= $keyword;
             }

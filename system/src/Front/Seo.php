@@ -84,10 +84,14 @@ final class Seo
         $db = $this->app->db();
         // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
         $suffix = \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash'));
-        $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
-            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Talea\Core\Routes::publicPath($path, $db))
-                . (\Talea\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
-            . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
+        // a row whose canonical address is another one is not listed (like noindex rows): '' is filtered out below
+        $url = function (string $path, ?string $change = null, string $priority = '0.5', string $language = '', string $canonical = '') use ($db, $suffix): string {
+            $public = \Talea\Core\Routes::publicPath($path, $db);
+            $loc = $this->root . ($language !== '' ? $language . '/' : '') . $public . (\Talea\Core\Routes::pageLike('/' . $public) ? $suffix : '');
+
+            return $canonical !== '' && $canonical !== $loc ? '' : '<url><loc>' . e($loc) . '</loc>'
+                . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
+        };
 
         // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
         $languages = ['', ...\Talea\Core\Language::published($this->app->settings(), $db)];
@@ -97,14 +101,14 @@ final class Seo
             $xml[] = $url('', null, '0.9', $language);
         }
         $home = $this->app->settings()->int('home_page');
-        foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
-            $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language']);
+        foreach ($db->all('SELECT slug, updated_at, language, canonical_url FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
+            $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language'], $r['canonical_url']);
         }
-        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
-            $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language']);
+        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed, p.canonical_url FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+            $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language'], $r['canonical_url']);
         }
         if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
-            return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
+            return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", array_filter($xml)) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
         $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'); // gated news is never in the sitemap
@@ -114,8 +118,8 @@ final class Seo
         foreach ($db->all("SELECT k.slug, k.language FROM {categories} k WHERE EXISTS (SELECT 1 FROM {news} n WHERE n.category_id = k.category_id AND n.{$published}) AND k.language IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
             $xml[] = $url('news/category/' . $r['slug'], null, '0.4', $r['language']);
         }
-        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS changed FROM {news} WHERE {$published} AND noindex = FALSE{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
-            $xml[] = $url('news/' . $r['slug'], $r['changed'], '0.5', $r['language']);
+        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS changed, canonical_url FROM {news} WHERE {$published} AND noindex = FALSE{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
+            $xml[] = $url('news/' . $r['slug'], $r['changed'], '0.5', $r['language'], $r['canonical_url']);
         }
 
         return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
@@ -574,7 +578,7 @@ final class Seo
             }
             if (count($meta['breadcrumbs'] ?? []) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([
-                    '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[1] === '' && ($meta['breadcrumb_title'] ?? '') !== '' ? $meta['breadcrumb_title'] : $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
+                    '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
                 ]), $meta['breadcrumbs'], array_keys($meta['breadcrumbs']))];
             }
 

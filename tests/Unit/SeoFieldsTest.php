@@ -41,4 +41,10 @@ final class SeoFieldsTest extends TestCase
         $this->assertSame(['key_page' => 0], SeoFields::fromInput(['key_page' => false]));
         $this->assertSame(320, mb_strlen(SeoFields::fromInput(['share_description' => str_repeat('x', 400)])['share_description']));
     }
+
+    public function testArraysFromACraftedRequestAreCleaned(): void
+    {
+        $out = SeoFields::fromInput(['canonical_url' => ['x'], 'share_title' => [], 'robots' => ['nofollow', ['y']], 'focus_keywords' => ['a', ['b'], 'c']]);
+        $this->assertSame(['focus_keywords' => "a\nc", 'robots' => 'nofollow', 'canonical_url' => '', 'share_title' => ''], $out);
+    }
 }

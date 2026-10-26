@@ -34,4 +34,23 @@ final class RobotsTest extends TestCase
         $this->assertSame('', Robots::canonical('/relative'));
         $this->assertSame('', Robots::canonical('https://example.com/' . str_repeat('a', 481)));
     }
+
+    public function testEdgeCases(): void
+    {
+        $this->assertNotSame('', Robots::canonical('https://example.com/' . str_repeat('a', 480)), '500 characters pass');
+        $this->assertSame(500, strlen('https://example.com/' . str_repeat('a', 480)));
+        $this->assertSame('', Robots::canonical('https://example.com/' . str_repeat('a', 481)), '501 are refused');
+        $this->assertSame('', Robots::canonical('http://:80'));
+        $this->assertSame('nofollow', Robots::normalize('nofollow nofollow,NOFOLLOW'));
+        $this->assertSame('noindex, max-snippet:20', Robots::meta(true, 'max-snippet:20', ''));
+        $this->assertSame('', Robots::normalize('evil, junk'));
+        $this->assertSame('', Robots::meta(false, 'evil', 'junk'));
+    }
+
+    public function testArraysFromACraftedRequestAreIgnored(): void
+    {
+        $this->assertSame('nofollow', Robots::normalize(['nofollow', ['x'], 'bad']));
+        $this->assertSame('', Robots::scalar(['x']));
+        $this->assertSame('5', Robots::scalar(5));
+    }
 }

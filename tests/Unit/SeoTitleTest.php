@@ -34,4 +34,23 @@ final class SeoTitleTest extends TestCase
     {
         $this->assertSame(200, mb_strlen(SeoTitle::render('%title%', ['title' => str_repeat('a', 300)])));
     }
+
+    private function settings(array $values): \Talea\Core\Settings
+    {
+        $settings = (new \ReflectionClass(\Talea\Core\Settings::class))->newInstanceWithoutConstructor();
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($settings, $values + ['site_name' => 'Studio', 'seo_separator' => '|', 'seo_title_page' => '%title% %sep% %sitename%', 'site_description' => '']);
+
+        return $settings;
+    }
+
+    public function testComposeOwnTitleTemplateOtherAndEmpty(): void
+    {
+        $s = $this->settings([]);
+        $this->assertSame('Our prices – Studio', SeoTitle::compose($s, 'page', 'Our prices', true));
+        $this->assertSame('Our Studio prices', SeoTitle::compose($s, 'page', 'Our Studio prices', true), 'the site name is not added twice');
+        $this->assertSame('About | Studio', SeoTitle::compose($s, 'page', 'About', false));
+        $this->assertSame('Login – Studio', SeoTitle::compose($s, 'other', 'Login', false));
+        $this->assertSame('Studio', SeoTitle::compose($s, 'other', '', false));
+        $this->assertSame('Studio', SeoTitle::compose($this->settings(['seo_title_page' => '%category%']), 'page', '', false), 'an empty result falls back to the site name');
+    }
 }
