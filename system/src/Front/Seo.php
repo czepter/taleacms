@@ -358,6 +358,9 @@ final class Seo
         // shared site elements (photo gallery, photo viewer, video, sharing…) for all templates
         $version = rawurlencode(TALEA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $version . '">';
+        if (!empty($meta['seo_marks'])) { // "SEO on the page" in Website mode (Front\Kernel::showPage)
+            $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/seo-marks.css')) . '?v=' . $version . '">';
+        }
         // blocking="render": the page is first rendered only with the script loaded (it loads in parallel with the styles, which
         // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.

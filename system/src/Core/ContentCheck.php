@@ -248,6 +248,47 @@ final class ContentCheck
     }
 
     /**
+     * What Website mode marks on the preview of a build ("SEO on the page"): images without alt, the first H1 heading when
+     * it lacks the first focus keyword, every further H1. Pure; a broken build has no marks.
+     *
+     * @param list<string> $keywords
+     * @return array<string, string> element id => message
+     */
+    public static function marks(array $build, array $keywords): array
+    {
+        $keyword = trim((string) ($keywords[0] ?? ''));
+        $marks = [];
+        $h1 = 0;
+        $walk = function (mixed $elements) use (&$walk, &$marks, &$h1, $keyword): void {
+            foreach (is_array($elements) ? $elements : [] as $p) {
+                if (!is_array($p) || !is_string($p['id'] ?? null)) {
+                    continue;
+                }
+                $content = is_array($p['content'] ?? null) ? $p['content'] : [];
+                if (($p['type'] ?? '') === 'image' && trim((string) ($content['alt'] ?? '')) === '') {
+                    $marks[$p['id']] = t('Image without description (alt)');
+                } elseif (($p['type'] ?? '') === 'heading' && ($p['tag'] ?? '') === 'h1') {
+                    if ($h1++ > 0) {
+                        $marks[$p['id']] = t('A second main heading');
+                    } elseif ($keyword !== '' && !self::contains((string) ($content['text'] ?? ''), $keyword)) {
+                        $marks[$p['id']] = t('Main heading without the focus keyword “%s”', $keyword);
+                    }
+                }
+                $walk($p['children'] ?? []);
+            }
+        };
+        $walk($build['children'] ?? []);
+
+        return $marks;
+    }
+
+    /** The band of a score for its colour and label: good from 80, mid from 50, low below, none without a focus keyword. */
+    public static function band(?int $score): string
+    {
+        return match (true) { $score === null => 'none', $score >= 80 => 'good', $score >= 50 => 'mid', default => 'low' };
+    }
+
+    /**
      * The check of a page row (tl_pages): a build page is judged by the content of its draft (otherwise the published
      * build), a text page by its text with the title as the H1 the site prints above it.
      *

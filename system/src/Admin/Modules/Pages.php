@@ -89,7 +89,7 @@ final class Pages extends Module
     protected function actionWebsite(): Response
     {
         $home = $this->app->settings()->int('home_page');
-        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
+        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, seo_score, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
         $groups = ['menu' => [], 'other' => []];
         foreach (self::sortAsTree($pages) as $page) {
             $inMenu = \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], '', (string) $page['slug']) ?? (bool) $page['in_menu'];
@@ -100,9 +100,10 @@ final class Pages extends Module
         $current = ($chosen > 0 ? $this->loadPage($chosen) : null) ?? $this->loadPage($home) ?? ($pages !== [] ? $this->loadPage((int) $pages[0]['page_id']) : null);
         $asked = $this->request->get('tab');
         $tab = isset(self::SETTINGS_TABS[$asked]) ? $asked : 'seo';
+        $scored = $this->scored();
         $this->kernel->sidebar = $this->app->view->render('admin/pages/website_sidebar', [
             'app' => $this->app, 'module' => $this, 'groups' => $groups, 'current' => $current === null ? 0 : (int) $current['page_id'], 'modules' => $this->kernel->modules(),
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $asked === 'seo', 'tab' => isset(self::SETTINGS_TABS[$asked]) ? $asked : '', 'currentId' => (string) ($current['public_id'] ?? ''),
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $asked === 'seo', 'tab' => isset(self::SETTINGS_TABS[$asked]) ? $asked : '', 'currentId' => (string) ($current['public_id'] ?? ''), 'scored' => $scored,
         ]);
         if ($current === null) {
             return $this->view('website', '', ['page' => null]);
@@ -112,11 +113,16 @@ final class Pages extends Module
         $build = Build::fromJson($current['build_draft'] ?? $current['build']);
         $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
         $language = (string) $current['language'];
+        // "SEO on the page": the preview of a build page with the SEO check's marks on its elements (?marks=1)
+        $marks = $build === null ? null : \Talea\Core\ContentCheck::marks($build, \Talea\Core\SeoFields::keywords((string) $current['focus_keywords']));
+        $marksOn = $marks !== null && $this->request->get('marks') === '1';
+        // the draft where there is one; a hidden page is seen only as a preview, and the marks only on one
+        $preview = $current['build_draft'] !== null || !$current['visible'] || $marksOn ? $url . '?build=draft' : $url;
 
         return $this->view('website', '', [
-            'page' => $current, 'url' => $url, 'tab' => $tab, 'home' => $id === $home,
-            // the draft where there is one; a hidden page is seen only as a preview
-            'preview' => $current['build_draft'] !== null || !$current['visible'] ? $url . '?build=draft' : $url,
+            'page' => $current, 'url' => $url, 'tab' => $tab, 'home' => $id === $home, 'scored' => $scored,
+            'preview' => $marksOn ? $preview . '&seo_marks=1' : $preview,
+            'marks' => $marks, 'marksOn' => $marksOn,
             'host' => ($site['host'] ?? '') . (isset($site['port']) ? ':' . $site['port'] : ''),
             'comments' => count(\Talea\Core\DraftComments::list($this->db, 'page:' . $id)),
             'canPublish' => $this->app->auth()->canPublish(),
@@ -129,8 +135,61 @@ final class Pages extends Module
                 'page' => $this->db->one('SELECT public_id, visible FROM {pages} WHERE translation_of = ? AND language = ? AND deleted_at IS NULL', [$id, $code])], \Talea\Core\Language::additional($this->app->settings())),
             'versions' => $tab !== 'publishing' || $build !== null ? [] : $this->db->all('SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = \'\' THEN u.username ELSE u.name END AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [$id]),
             'structured' => $tab !== 'advanced' || $build === null ? [] : array_values(array_filter(array_map(fn (array $element): string => (string) ($element['content']['data']['type'] ?? ''), Build::elementsOfType($build, fn (string $className): bool => $className === \Talea\Builder\Elements\StructuredData::class)))),
-            'contentCheck' => $tab === 'seo' ? \Talea\Core\ContentCheck::forPage($current) : [],
+            'seo' => $tab === 'seo' ? $this->seoTab($current) : [],
         ]);
+    }
+
+    /**
+     * The live check of the SEO tab (admin.js, data-seo-live): the posted title, description and keywords over the page's
+     * current content give the checks and the search result preview again, as an HTML fragment. Nothing is saved.
+     */
+    protected function actionSeoCheck(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        if ($page === null) {
+            return Response::html('', 404);
+        }
+        $data = $this->seoTab(['seo_title' => $this->request->post('seo_title'), 'description' => $this->request->post('description'),
+            'focus_keywords' => implode("\n", \Talea\Core\SeoFields::keywords($this->request->post('focus_keywords')))] + $page);
+
+        return Response::html($this->app->view->render('admin/seo/checks', ['app' => $this->app, 'scored' => $this->scored()] + $data)
+            . $this->app->view->render('admin/seo/serp', ['app' => $this->app] + $data));
+    }
+
+    /**
+     * What the SEO tab shows of a page row (the saved one, or the live check's fields over it): the scored analysis, open
+     * placeholders, the marks a build would get on the preview and the search result as the site composes it.
+     *
+     * @param array<string, mixed> $page
+     * @return array<string, mixed>
+     */
+    private function seoTab(array $page): array
+    {
+        $input = \Talea\Core\SeoScore::input($this->app, 'page', $page);
+        $build = Build::fromJson($page['build_draft'] ?? $page['build']);
+        $home = $this->app->settings()->int('home_page') === (int) $page['page_id'];
+        $settings = $this->app->settings();
+        $description = (string) $page['description'] !== '' ? (string) $page['description'] : ($home ? $settings->get('site_description') : '');
+        $site = parse_url($settings->get('site_url') ?: $this->app->request->origin()) ?: [];
+
+        return [
+            'analysis' => \Talea\Core\ContentCheck::analyse($input),
+            'samples' => array_values(array_filter(\Talea\Core\ContentCheck::run($input), fn (array $row): bool => $row['check'] === 'sample_content' && !$row['ok'])),
+            'keywords' => $input['keywords'],
+            'marksUrl' => $build === null ? '' : $this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'seo', 'marks' => '1']),
+            // the title and description exactly as Front\Kernel hands them to the page head
+            'serpTitle' => \Talea\Core\SeoTitle::compose($settings, $home ? 'home' : 'page', (string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : ($home ? '' : (string) $page['title']),
+                (string) $page['seo_title'] !== '', ['excerpt' => mb_substr($description, 0, 160)]),
+            'serpDescription' => $description,
+            'dir' => \Talea\Core\Language::dirAttribute(\Talea\Core\Language::ofContent($settings, (string) $page['language'])),
+            'serpAddress' => ($site['host'] ?? '') . preg_replace('#^' . preg_quote($this->app->request->basePath(), '#') . '#', '', self::address($this->app, $page)),
+        ];
+    }
+
+    /** The score parts are shown (tree dots, the sidebar pill, the SEO tab's score): the one place that can switch them off. */
+    private function scored(): bool
+    {
+        return true;
     }
 
     /** The tabs of Website mode's settings sidebar and the fields each one saves (pages/settings_save). */

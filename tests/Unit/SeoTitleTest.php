@@ -48,6 +48,7 @@ final class SeoTitleTest extends TestCase
         $s = $this->settings([]);
         $this->assertSame('Our prices – Studio', SeoTitle::compose($s, 'page', 'Our prices', true));
         $this->assertSame('Our Studio prices', SeoTitle::compose($s, 'page', 'Our Studio prices', true), 'the site name is not added twice');
+        $this->assertSame('Our prices | Studio', SeoTitle::compose($s, 'page', 'Our prices %sep% %sitename%', true), 'variables in an own title');
         $this->assertSame('About | Studio', SeoTitle::compose($s, 'page', 'About', false));
         $this->assertSame('Login – Studio', SeoTitle::compose($s, 'other', 'Login', false));
         $this->assertSame('Studio', SeoTitle::compose($s, 'other', '', false));

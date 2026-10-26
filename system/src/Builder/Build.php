@@ -656,10 +656,15 @@ final class Build
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
             . $custom
             . ($k->marks[$p['id'] ?? ''] ?? '')
+            . (isset($k->seoMarks[$p['id'] ?? '']) ? ' data-seo-mark="' . e($k->seoMarks[$p['id']]) . '"' : '')
             . ($k->editor || $k->markIds ? ' data-tl-id="' . e((string) $p['id']) . '"' : '')
             . ($k->editor ? ' data-tl-type="' . e($className::TYPE) . '"' . (!empty($p['locked']) ? ' data-tl-lock' : '') : '');
 
         $html = $className::render($p, $a, $children, $k);
+        if (isset($k->seoMarks[$p['id'] ?? '']) && str_starts_with($html, '<img')) {
+            // an image has no ::before for the label of its mark: a wrapper carries it (marks are only on a signed-in preview)
+            $html = '<span class="tl-seo-mark" data-seo-mark="' . e($k->seoMarks[$p['id']]) . '">' . $html . '</span>';
+        }
 
         return $custom === '' ? $html : self::customAttributesLast($html, $custom);
     }

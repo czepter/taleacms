@@ -833,6 +833,14 @@ final class Kernel
             if ($k->markIds) {
                 $meta['comments'] = (new DraftComments($this->app))->widget('page:' . $this->app->db()->publicId('pages', (int) $page['page_id']), $previewKey, $path);
             }
+            // "SEO on the page" (Website mode, ?seo_marks=1): what the SEO check finds, marked on the elements of the draft preview
+            // for whoever edits pages, in the language of their administration; a visitor's request ignores it (and a signed-in
+            // request is never cached)
+            if ($draft && !$k->editor && $this->app->request->get('seo_marks') === '1' && ($auth = $this->app->auth())->hasModule('pages')) {
+                $k->seoMarks = Language::runWith(Language::adminCode($auth->user(), $this->app->settings()), fn (): array => \Talea\Core\ContentCheck::marks($build, \Talea\Core\SeoFields::keywords((string) $page['focus_keywords'])),
+                    'admin-', Language::normalizeRegister((string) ($auth->user()['register'] ?? '')));
+                $meta['seo_marks'] = true;
+            }
             $k->source = 'page:' . $this->app->db()->publicId('pages', (int) $page['page_id']);
             // A/B tests (Builder\Experiments): the published page carries both versions, the head picks one in the browser
             if (!$draft) {
@@ -847,6 +855,7 @@ final class Kernel
             $html = \Talea\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
+            $k->seoMarks = [];
             $k->focus = null;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
                 $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . $this->app->db()->publicId('pages', (int) $page['page_id']));

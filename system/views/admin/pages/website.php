@@ -13,6 +13,8 @@
  * @var bool $home it is the home page
  * @var bool $hasBuild the page is built in the builder (has a build or a draft)
  * @var int $comments unresolved comments on the draft
+ * @var array<string, string>|null $marks what "SEO on the page" marks on the preview; null for a text page
+ * @var bool $marksOn the preview shows the marks
  */
 if ($page === null) {
     echo $app->view->render('admin/empty', ['icon' => 'pages', 'heading' => t('No pages yet.'), 'text' => t('Create the first page of your site.'), 'action' => [$module->url('new'), t('New page')]]);
@@ -41,6 +43,9 @@ $path = (string) preg_replace('#^' . preg_quote($app->request->basePath(), '#') 
 					<label title="<?= e(t($label)) ?>"><input type="radio" name="device" value="<?= $value ?>"<?= $value === 'desktop' ? ' checked' : '' ?>><span class="guide-hidden"><?= e(t($label)) ?></span><svg class="icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><?= $icon ?></svg></label>
 <?php endforeach ?>
 				</fieldset>
+<?php if ($marks !== null): ?>
+				<a class="website-tool" href="<?= e($module->url('website', array_filter(['id' => $page['public_id'], 'tab' => $tab, 'marks' => $marksOn ? '' : '1']))) ?>"<?= $marksOn ? ' aria-current="true"' : '' ?> title="<?= e(t('Mark what the SEO check finds on the page')) ?>"><svg class="icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v3.5M11 14h.01"/></svg><?= e(t('SEO on the page')) ?><?php if ($marks !== []): ?><span class="website-tool-badge"><span class="guide-hidden">: </span><?= count($marks) ?></span><?php endif ?></a>
+<?php endif ?>
 				<a class="menu-tool" href="<?= e($url) ?>" target="_blank" rel="noopener" title="<?= e(t('Open the live page')) ?>" aria-label="<?= e(t('Open the live page')) ?>"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg></a>
 				<button class="menu-tool" type="button" data-settings-toggle aria-expanded="true" aria-controls="website-settings" title="<?= e(t('Page settings')) ?>" aria-label="<?= e(t('Page settings')) ?>"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
 				<a class="btn" href="<?= e($builder) ?>"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><?= e(t('Edit')) ?></a>

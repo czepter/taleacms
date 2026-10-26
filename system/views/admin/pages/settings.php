@@ -9,6 +9,7 @@
  * @var string $csrf
  * @var array<string, mixed> $page
  * @var string $tab the open tab: seo | page | publishing | sharing | advanced
+ * @var bool $scored the score parts are shown
  */
 $tabs = [
     'seo' => ['SEO', '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'],
@@ -20,15 +21,19 @@ $tabs = [
 $icon = fn (string $paths): string => '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $paths . '</svg>';
 $link = fn (string $to): string => $module->url('website', ['id' => $page['public_id'], 'tab' => $to]);
 $score = $page['seo_score'] === null ? null : (int) $page['seo_score'];
-$band = match (true) { $score === null => 'none', $score >= 80 => 'good', $score >= 50 => 'mid', default => 'low' };
-// the tab's form starts here; the tab view closes it and adds what must stay outside (forms of other actions)
-$formStart = '<form class="website-settings-form" id="website-settings-form" method="post" action="' . e($module->url('settings_save')) . '">' . $csrf
+$band = Talea\Core\ContentCheck::band($score);
+// the tab's form starts here; the tab view closes it and adds what must stay outside (forms of other actions); the SEO tab's
+// fields are checked live (admin.js posts them to pages/seo_check)
+$formStart = '<form class="website-settings-form" id="website-settings-form" method="post" action="' . e($module->url('settings_save')) . '"'
+    . ($tab === 'seo' ? ' data-seo-live="' . e($module->url('seo_check')) . '"' : '') . '>' . $csrf
     . '<input type="hidden" name="id" value="' . e($page['public_id']) . '"><input type="hidden" name="tab" value="' . e($tab) . '">';
 ?>
 <aside class="website-settings" id="website-settings" data-settings-panel aria-label="<?= e(t('Page settings')) ?>">
 	<div class="website-settings-head">
 		<h2><?= e(t('Page settings')) ?></h2>
+<?php if ($scored): ?>
 		<span class="website-score website-score-<?= $band ?>" title="<?= e(t('SEO score')) ?>"><?= $score === null ? '–' : $score . ' / 100' ?></span>
+<?php endif ?>
 		<button class="menu-tool" type="button" data-settings-toggle aria-expanded="true" aria-controls="website-settings" title="<?= e(t('Hide the sidebar')) ?>" aria-label="<?= e(t('Hide the sidebar')) ?>"><?= $icon('<path d="m9 18 6-6-6-6"/>') ?></button>
 	</div>
 	<nav class="website-settings-tabs" aria-label="<?= e(t('Settings')) ?>">
@@ -41,7 +46,9 @@ $formStart = '<form class="website-settings-form" id="website-settings-form" met
 	</div>
 	<div class="website-settings-foot"><button class="btn" type="submit" form="website-settings-form"><?= e(t('Save')) ?></button></div>
 	<nav class="website-settings-rail" aria-label="<?= e(t('Page settings')) ?>">
+<?php if ($scored): ?>
 		<a class="website-score website-score-<?= $band ?>" href="<?= e($link('seo')) ?>" title="<?= e(t('SEO score')) ?>"><?= $score ?? '–' ?></a>
+<?php endif ?>
 <?php foreach ($tabs as $key => [$label, $paths]): ?>
 		<a class="menu-tool" href="<?= e($link($key)) ?>" title="<?= e(t($label)) ?>" aria-label="<?= e(t($label)) ?>"><?= $icon($paths) ?></a>
 <?php endforeach ?>

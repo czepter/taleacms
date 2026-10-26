@@ -612,6 +612,82 @@
 		document.querySelectorAll('.website-settings-rail a').forEach(function (a) { a.addEventListener('click', function () { foldSettings(false); }); });
 	}
 
+	// Website mode, SEO tab: the unsaved fields are checked 600 ms after the last change (pages/seo_check returns the checks and
+	// the search result preview, nothing is saved); the length meters follow the typing; variable buttons insert at the cursor;
+	// the focus keywords become chips over their textarea (one per line, which is what is submitted)
+	var seoForm = document.querySelector('[data-seo-live]');
+	if (seoForm) {
+		var seoTimer = null;
+		seoForm.addEventListener('input', function (e) {
+			var meter = e.target.parentNode.querySelector('[data-meter]');
+			if (meter) {
+				var max = +meter.getAttribute('data-meter'), length = e.target.value.length;
+				meter.classList.toggle('warning', length > max);
+				meter.querySelector('i').style.setProperty('--fill', Math.min(100, Math.round(length / max * 100)) + '%');
+				meter.lastChild.textContent = length + ' / ' + max;
+			}
+			clearTimeout(seoTimer);
+			seoTimer = setTimeout(function () {
+				fetch(seoForm.getAttribute('data-seo-live'), { method: 'POST', body: new FormData(seoForm), credentials: 'same-origin' })
+					.then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+					.then(function (html) {
+						var fresh = document.createElement('template');
+						fresh.innerHTML = html;
+						['[data-seo-checks]', '[data-seo-serp]'].forEach(function (selector) {
+							var now = document.querySelector(selector), next = fresh.content.querySelector(selector);
+							if (now && next) { now.replaceWith(next); }
+						});
+					})
+					.catch(function () { /* offline or signed out: the saved state stays */ });
+			}, 600);
+		});
+		seoForm.querySelectorAll('[data-insert]').forEach(function (button) {
+			button.addEventListener('click', function () {
+				var field = button.closest('.website-field').querySelector('input, textarea');
+				field.setRangeText(button.getAttribute('data-insert'), field.selectionStart, field.selectionEnd, 'end');
+				field.focus();
+				field.dispatchEvent(new Event('input', { bubbles: true }));
+			});
+		});
+		seoForm.querySelectorAll('[data-chips]').forEach(function (area) {
+			var box = document.createElement('div'), chips = document.createElement('span'), input = document.createElement('input');
+			var list = function () { return area.value.split(/[\n,]/).map(function (k) { return k.trim(); }).filter(Boolean); };
+			var draw = function () {
+				chips.textContent = '';
+				list().forEach(function (keyword, i) {
+					var chip = document.createElement('span'), remove = document.createElement('button');
+					chip.className = 'seo-chip' + (i === 0 ? ' primary' : '');
+					chip.textContent = keyword;
+					remove.type = 'button';
+					remove.textContent = '×';
+					remove.setAttribute('aria-label', T('Remove %s').replace('%s', keyword));
+					remove.addEventListener('click', function () { var l = list(); l.splice(i, 1); set(l); input.focus(); });
+					chip.appendChild(remove);
+					chips.appendChild(chip);
+				});
+				input.hidden = list().length >= 5;
+			};
+			var set = function (keywords) { area.value = keywords.join('\n'); draw(); area.dispatchEvent(new Event('input', { bubbles: true })); };
+			var add = function () { if (input.value.trim() !== '') { set(list().concat(input.value.trim())); input.value = ''; } };
+			box.className = 'seo-chips-edit';
+			input.className = 'seo-chip-input';
+			input.placeholder = T('+ Keyword');
+			input.id = area.id; // the label now names the input
+			area.removeAttribute('id');
+			area.hidden = true;
+			box.append(chips, input);
+			area.after(box);
+			input.addEventListener('keydown', function (e) {
+				if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+				else if (e.key === 'Backspace' && input.value === '' && list().length) { set(list().slice(0, -1)); }
+			});
+			input.addEventListener('input', function (e) { e.stopPropagation(); }); // only a finished keyword is checked
+			input.addEventListener('blur', add);
+			seoForm.addEventListener('submit', add);
+			draw();
+		});
+	}
+
 	// Save at hand: the Save row of the screen's one edit form is repeated in the page heading, which stays on top while scrolling.
 	// The copies submit that form (form="…"), so their name/value, data-confirm and the field validation work as on the originals.
 	var head = document.querySelector('.header-pages'), rows = [];

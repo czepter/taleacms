@@ -1,0 +1,14 @@
+/* "SEO on the page" in Website mode: elements the SEO check found wanting carry data-seo-mark="<message>" (Builder\Build).
+   Linked by Front\Seo::head only on a signed-in preview with ?seo_marks=1. Fixed colours, so the marks read on any look; in the layer
+   template, so an element's own position or outline still wins. */
+@layer template {
+	[data-seo-mark]:not(img) { position: relative; outline: 2px dashed #f79009; outline-offset: 4px; }
+	[data-seo-mark]:not(img)::before {
+		content: attr(data-seo-mark);
+		position: absolute; z-index: 2; inset-block-start: 8px; inset-inline-start: 8px; max-inline-size: calc(100% - 16px);
+		padding: 5px 10px; border-radius: 8px; background: #121212; color: #fdfdfd;
+		font: 600 12px/1.3 system-ui, sans-serif; letter-spacing: normal; text-align: start; text-transform: none;
+		box-shadow: 0 4px 14px rgb(0 0 0 / 25%); pointer-events: none;
+	}
+	.tl-seo-mark { display: block; }
+}

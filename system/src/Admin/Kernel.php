@@ -19,10 +19,10 @@ final class Kernel
     public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
 
     /**
-     * The editors' ongoing requests (unsaved state, assistant, build draft): they do not change the site, so they neither clear the
+     * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
      * page cache (it would be cold all the time during work) nor publish files waiting for approval (Core\MediaStaging).
      */
-    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'];
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask', 'seo_check'];
 
     /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
     private const string SEGMENT = '[A-Za-z0-9_.-]+';
