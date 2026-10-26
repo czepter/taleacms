@@ -83,7 +83,7 @@ final class PublicIdsAdminTest extends SiteTestCase
 
         // a form of one record: the hidden field and the links carry the public id
         $pageId = (int) $site->value('SELECT page_id FROM tl_pages WHERE deleted_at IS NULL ORDER BY page_id LIMIT 1');
-        foreach (['page', 'publishing', 'advanced'] as $tab) {
+        foreach (['seo', 'page', 'publishing', 'sharing', 'advanced'] as $tab) {
             $form = $this->assertPage('/admin.php?module=pages&action=website&tab=' . $tab . '&id=' . $site->publicId('pages', $pageId), 200)->body;
             $this->assertSame(0, preg_match(self::INTEGER_ID, $form, $match, PREG_OFFSET_CAPTURE), "the page's $tab tab carries no integer id: " . substr($form, max(0, (int) ($match[0][1] ?? 0) - 120), 200));
             $this->assertStringContainsString('name="id" value="' . $site->publicId('pages', $pageId) . '"', $form);

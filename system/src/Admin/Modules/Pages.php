@@ -154,7 +154,9 @@ final class Pages extends Module
             return $this->back('Page does not exist.', 'website', [], 'error');
         }
         $in = array_intersect_key($_POST, array_flip(self::SETTINGS_TABS[$tab])) + $this->formValues($page);
-        $moved = $tab === 'page' && (\Talea\Core\Robots::scalar($in['slug']) !== basename((string) $page['slug']) || $this->db->internalId('pages', $in['parent_id']) !== (int) $page['parent_id']);
+        // a new address: the slug as persist() makes it, or another parent (an empty slug is made anew from the title)
+        $slug = is_string($in['slug']) ? trim($in['slug']) : '';
+        $moved = $tab === 'page' && ($slug === '' || slugify(basename(str_replace('\\', '/', $slug))) !== basename((string) $page['slug']) || $this->db->internalId('pages', $in['parent_id']) !== (int) $page['parent_id']);
         if (($refusal = $this->requirePublishPermission($page)) !== null || (($tab === 'publishing' || $moved) && ($refusal = $this->requirePublishPermission()) !== null)) {
             return $refusal;
         }
@@ -167,10 +169,11 @@ final class Pages extends Module
                 $in['canonical_url'] = '';
             }
         }
-        $errors = $this->persist($page, $in)['errors'];
+        ['errors' => $errors, 'data' => $data] = $this->persist($page, $in);
         if ($errors !== []) {
             return $this->back((string) reset($errors), 'website', $back, 'error');
         }
+        \Talea\Core\Menu::setPage($this->db, (int) $page['page_id'], $data['language'], (bool) $data['in_menu']);
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'settings edited (' . $tab . ')', mb_substr($page['title'], 0, 80));
 
         return $this->back('Saved.', 'website', $back);
@@ -179,7 +182,7 @@ final class Pages extends Module
     /** The page's stored values as its form posts them: what settings_save lays one tab's fields over. @return array<string, mixed> */
     private function formValues(array $page): array
     {
-        return array_intersect_key($page, array_flip(['title', 'slug', 'description', 'seo_title', 'image', 'noindex', 'visible', 'sort_order', 'language', 'valid_until', 'review_by', 'publish_at', 'head_code', ...\Talea\Core\SeoFields::COLUMNS])) + [
+        return array_intersect_key($page, array_flip(['title', 'slug', 'description', 'seo_title', 'image', 'noindex', 'visible', 'sort_order', 'language', 'valid_until', 'review_by', 'head_code', ...\Talea\Core\SeoFields::COLUMNS])) + [
             'parent_id' => $this->publicId((int) $page['parent_id']),
             'translation_of' => $this->publicId((int) $page['translation_of']),
             'in_menu' => \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) $page['language']) ?? (bool) $page['in_menu'],
@@ -326,12 +329,15 @@ final class Pages extends Module
             . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'error');
     }
 
-    /** An existing page's settings live in Website mode's sidebar; the form stays for new pages (pages/new). */
+    /** A builder page's settings live in Website mode's sidebar; a text page keeps its form (the text is edited there). */
     protected function actionEdit(): Response
     {
         $page = $this->loadPage($this->idParam());
+        if ($page === null) {
+            return $this->error('Page does not exist.', 404);
+        }
 
-        return $page === null ? $this->error('Page does not exist.', 404) : \Talea\Core\Response::redirect($this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'page']));
+        return $page['build'] !== null || $page['build_draft'] !== null ? \Talea\Core\Response::redirect($this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'page'])) : $this->form($page);
     }
 
     /** Saving from editing "directly on the site" (views/front/edit.php): only the page's name and text. */
@@ -396,6 +402,7 @@ final class Pages extends Module
                 // the translation of a builder page: the draft is a copy of the original's build and opens in the builder
                 $this->db->update('pages', ['build_draft' => $original['build_draft'] ?? $original['build']], ['page_id' => $id]);
                 \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+                \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
                 $this->app->session->flash('ok', t('The translation starts as a copy of the original – replace the texts, then publish.'));
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
@@ -406,10 +413,11 @@ final class Pages extends Module
                 $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($data['language']));
                 $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
                 \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+                \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
             }
-            if ($template !== null && $data['text'] === '') {
+            if ($template !== null && $data['text'] === '') { // the privacy policy outline stays out of a built menu, as it always did
                 // in the page's language, from what the site has switched on (1.9)
                 $text = \Talea\Core\Language::runWith($this->contentLanguage($data['language']), fn (): string => \Talea\Builder\Library::privacyPolicyText($this->app->settings()));
                 $this->db->update('pages', ['text' => $text], ['page_id' => $id]);
@@ -418,6 +426,8 @@ final class Pages extends Module
                 return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $this->publicId($id)]);
             }
         }
+        // assembled menu (Appearance → Menu): the checkbox "in navigation" adds the page to the menu or removes it
+        \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
         if ($r->post('after_save') === 'builder') {
             return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
         }
@@ -474,15 +484,21 @@ final class Pages extends Module
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
             $data['head_code'] = trim((string) ($in['head_code'] ?? '')) !== '' ? mb_substr((string) $in['head_code'], 0, 20000) : null;
         }
-        // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away
-        $from = strtotime(str_replace('T', ' ', $post('publish_at'))) ?: null;
-        $data['publish_at'] = !$data['visible'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;
-        if (!$data['visible'] && $from !== null && $from <= time()) {
-            $data['visible'] = 1;
+        // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away.
+        // Input without the field (a settings tab other than Publishing) keeps the stored schedule.
+        $schedule = array_key_exists('publish_at', $in);
+        if ($schedule) {
+            $from = strtotime(str_replace('T', ' ', $post('publish_at'))) ?: null;
+            $data['publish_at'] = !$data['visible'] && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null;
+            if (!$data['visible'] && $from !== null && $from <= time()) {
+                $data['visible'] = 1;
+            }
         }
         if (!$this->app->auth()->canPublish()) {
             $data['visible'] = 0; // without the permission to publish the page stays hidden, an editor publishes it
-            $data['publish_at'] = null;
+            if ($schedule) {
+                $data['publish_at'] = null;
+            }
         }
         $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ?", [$this->db->internalId('pages', $post('translation_of')), $id]) ?: null);
         $errors = [];
@@ -526,11 +542,10 @@ final class Pages extends Module
             \Talea\Core\Slug::fromId($this->db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
         }
         if (($in['member_groups_present'] ?? '') === '1') {
-            \Talea\Core\Members::setContentGroups($this->db, 'page', $id, array_values(array_filter((array) ($in['member_groups'] ?? []), is_string(...))));
+            // as Members::saveFromForm, from $in: a settings tab cannot carry groups it does not own
+            \Talea\Core\Members::setContentGroups($this->db, 'page', $id, is_array($in['member_groups'] ?? null) ? array_values(array_filter($in['member_groups'], is_string(...))) : []);
         }
         \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
-        // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
-        \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
 
         return ['id' => $id, 'errors' => [], 'data' => $data];
     }
