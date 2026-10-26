@@ -21,13 +21,13 @@ final class SeoScore
     {
         $db = $app->db();
         [$table, $key] = self::TABLES[$kind];
-        $outline = false;
+        $outline = null; // only a build holds an outline element: text pages, news and items are not judged on it
         if ($kind === 'page') {
             $input = ContentCheck::pageInput($row);
-            $outline = self::hasOutline(Build::fromJson($row['build_draft'] ?? $row['build'] ?? null)['children'] ?? []);
+            $build = Build::fromJson($row['build_draft'] ?? $row['build'] ?? null);
+            $outline = $build === null ? null : self::hasOutline($build['children'] ?? []);
         } elseif ($kind === 'news') {
             $input = ContentCheck::newsInput($row);
-            $outline = $app->settings()->get('article_outline') === '1';
         } else {
             $collection = Collections::byId($db, (int) $row['collection_id']);
             $data = json_decode((string) $row['data'], true) ?: [];
@@ -62,7 +62,7 @@ final class SeoScore
             'samples' => array_values(array_filter(ContentCheck::run($input), fn (array $r): bool => $r['check'] === 'sample_content' && !$r['ok']))];
     }
 
-    /** Stores the score (null without a focus keyword) and the time of the check; never throws. */
+    /** Stores the score (null without a focus keyword) and the time of the check; never throws – a failure is logged. */
     public static function refresh(App $app, string $kind, int $id): ?int
     {
         [$table, $key] = self::TABLES[$kind];
@@ -77,7 +77,11 @@ final class SeoScore
         } catch (\Throwable $e) {
             error_log('Talea: SEO score of ' . $kind . ' ' . $id . ' failed: ' . $e->getMessage());
         }
-        $db->run("UPDATE {{$table}} SET seo_score = ?, seo_checked_at = ? WHERE $key = ?", [$score, date('Y-m-d H:i:s'), $id]);
+        try {
+            $db->run("UPDATE {{$table}} SET seo_score = ?, seo_checked_at = ? WHERE $key = ?", [$score, date('Y-m-d H:i:s'), $id]);
+        } catch (\Throwable $e) {
+            error_log('Talea: storing the SEO score of ' . $kind . ' ' . $id . ' failed: ' . $e->getMessage());
+        }
 
         return $score;
     }
