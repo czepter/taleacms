@@ -1304,6 +1304,13 @@ body.login {
 	width: 100%;
 }
 .login-remember { margin: 0 0 8px; font-size: 13px; }
+/* the eye button inside a password field (views/admin/password_toggle.php) */
+.password-field { position: relative; display: block; }
+.password-field .textfield { padding-right: 40px; }
+.password-toggle { position: absolute; top: 0; right: 0; bottom: 0; display: grid; place-items: center; width: 38px; padding: 0; border: 0; background: none; color: var(--text-weak); cursor: pointer; }
+.password-toggle:hover, .password-toggle:focus-visible { color: var(--text); }
+.password-toggle[aria-pressed="true"] .password-hidden, .password-toggle[aria-pressed="false"] .password-shown { display: none; }
+.password-toggle span { display: contents; }
 .login-card .btn {
 	width: 100%;
 	margin-top: 6px;

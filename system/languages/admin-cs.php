@@ -3887,6 +3887,7 @@ return [
     'Show on the site' => 'Zobrazit na webu',
     'Show only when the field labelled…' => 'Zobrazit jen tehdy, když pole s popiskem…',
     'Show pages' => 'Zobrazit stránky',
+    'Show password' => 'Zobrazit heslo',
     'Show preview' => 'Zobrazit náhled',
     'Show the average rating and the count' => 'Zobrazit průměrné hodnocení a počet',
     'Show the enquiry' => 'Zobrazit poptávku',
