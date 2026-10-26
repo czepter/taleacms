@@ -614,7 +614,7 @@
 
 	// Website mode, SEO tab: the unsaved fields are checked 600 ms after the last change (pages/seo_check returns the checks and
 	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins);
-	// the length meters follow the typing; the focus keywords become chips over their textarea (one per line, which is what is submitted)
+	// the length meters follow the typing
 	var seoForm = document.querySelector('[data-seo-live]');
 	if (seoForm) {
 		var seoTimer = null, seoRequest = null;
@@ -643,44 +643,46 @@
 					.catch(function () { /* aborted, offline or signed out: the shown state stays */ });
 			}, 600);
 		});
-		seoForm.querySelectorAll('[data-chips]').forEach(function (area) {
-			var box = document.createElement('div'), chips = document.createElement('span'), input = document.createElement('input');
-			var list = function () { return area.value.split(/[\n,]/).map(function (k) { return k.trim(); }).filter(Boolean); };
-			var draw = function () {
-				chips.textContent = '';
-				list().forEach(function (keyword, i) {
-					var chip = document.createElement('span'), remove = document.createElement('button');
-					chip.className = 'seo-chip' + (i === 0 ? ' primary' : '');
-					chip.textContent = keyword;
-					remove.type = 'button';
-					remove.textContent = '×';
-					remove.setAttribute('aria-label', T('Remove %s').replace('%s', keyword));
-					remove.addEventListener('click', function () { var l = list(); l.splice(i, 1); set(l); input.focus(); });
-					chip.appendChild(remove);
-					chips.appendChild(chip);
-				});
-				input.hidden = list().length >= 5;
-			};
-			var set = function (keywords) { area.value = keywords.join('\n'); draw(); area.dispatchEvent(new Event('input', { bubbles: true })); };
-			var add = function () { if (input.value.trim() !== '') { set(list().concat(input.value.trim())); input.value = ''; } };
-			box.className = 'seo-chips-edit';
-			input.className = 'seo-chip-input';
-			input.placeholder = T('+ Keyword');
-			input.id = area.id; // the label now names the input
-			area.removeAttribute('id');
-			area.hidden = true;
-			box.append(chips, input);
-			area.after(box);
-			input.addEventListener('keydown', function (e) {
-				if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
-				else if (e.key === 'Backspace' && input.value === '' && list().length) { set(list().slice(0, -1)); }
-			});
-			input.addEventListener('input', function (e) { e.stopPropagation(); }); // only a finished keyword is checked
-			input.addEventListener('blur', add);
-			seoForm.addEventListener('submit', add);
-			draw();
-		});
 	}
+
+	// focus keywords (the SEO tab, the news and collection item forms): chips over their textarea (one per line, which is what is submitted)
+	document.querySelectorAll('[data-chips]').forEach(function (area) {
+		var box = document.createElement('div'), chips = document.createElement('span'), input = document.createElement('input');
+		var list = function () { return area.value.split(/[\n,]/).map(function (k) { return k.trim(); }).filter(Boolean); };
+		var draw = function () {
+			chips.textContent = '';
+			list().forEach(function (keyword, i) {
+				var chip = document.createElement('span'), remove = document.createElement('button');
+				chip.className = 'seo-chip' + (i === 0 ? ' primary' : '');
+				chip.textContent = keyword;
+				remove.type = 'button';
+				remove.textContent = '×';
+				remove.setAttribute('aria-label', T('Remove %s').replace('%s', keyword));
+				remove.addEventListener('click', function () { var l = list(); l.splice(i, 1); set(l); input.focus(); });
+				chip.appendChild(remove);
+				chips.appendChild(chip);
+			});
+			input.hidden = list().length >= 5;
+		};
+		var set = function (keywords) { area.value = keywords.join('\n'); draw(); area.dispatchEvent(new Event('input', { bubbles: true })); };
+		var add = function () { if (input.value.trim() !== '') { set(list().concat(input.value.trim())); input.value = ''; } };
+		box.className = 'seo-chips-edit';
+		input.className = 'seo-chip-input';
+		input.placeholder = T('+ Keyword');
+		input.id = area.id; // the label now names the input
+		area.removeAttribute('id');
+		area.hidden = true;
+		box.append(chips, input);
+		area.after(box);
+		input.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+			else if (e.key === 'Backspace' && input.value === '' && list().length) { set(list().slice(0, -1)); }
+		});
+		input.addEventListener('input', function (e) { e.stopPropagation(); }); // only a finished keyword is checked
+		input.addEventListener('blur', add);
+		if (area.form) { area.form.addEventListener('submit', add); }
+		draw();
+	});
 
 	// Save at hand: the Save row of the screen's one edit form is repeated in the page heading, which stays on top while scrolling.
 	// The copies submit that form (form="…"), so their name/value, data-confirm and the field validation work as on the originals.
