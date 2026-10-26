@@ -106,6 +106,19 @@ final class SeoAnalysisTest extends TestCase
         $this->assertTrue($match('wedding photographer', 'wedding-photographer-leipzig'));
         $this->assertTrue($match('wedding photographer', 'best-wedding-photographer'));
         $this->assertFalse($match('art', 'party'));
+        $this->assertTrue($match('wedding photographer', 'services/wedding-photographer'), 'a subpage: the parent\'s part of the path counts as a boundary');
+        $this->assertTrue($match('services', 'services/wedding-photographer'));
+        $this->assertFalse($match('photographer', 'services/wedding-photographers'));
+    }
+
+    public function testOutlineIsNotApplicableWithoutABuild(): void
+    {
+        $without = ContentCheck::analyse(self::input('<p>x</p>', ['has_outline' => null]));
+        $missing = ContentCheck::analyse(self::input('<p>x</p>', ['has_outline' => false]));
+
+        $this->assertArrayNotHasKey('has_outline', self::flat($without), 'a text page, news or an item has no build to hold an outline');
+        $this->assertFalse(self::flat($missing)['has_outline']['ok']);
+        $this->assertGreaterThan($missing['score'], $without['score'], 'a check that does not apply costs no points');
     }
 
     public function testVowelledArabicWords(): void

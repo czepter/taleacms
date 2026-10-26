@@ -138,7 +138,7 @@ final class ContentCheck
      * readability checks, grouped by GROUPS. Pure – the caller (SeoScore::input) reads the content and the database.
      * The score is the share of the weights of the checks that pass; null without a focus keyword.
      *
-     * @param array{title: string, description: string, html: string, title_is_h1?: bool, keywords?: list<string>, slug?: string, site_host?: string, keyword_taken?: bool, has_outline?: bool} $input
+     * @param array{title: string, description: string, html: string, title_is_h1?: bool, keywords?: list<string>, slug?: string, site_host?: string, keyword_taken?: bool, has_outline?: ?bool} $input
      * @return array{score: ?int, groups: array<string, list<array{check: string, ok: bool, message: string, why?: string}>>}
      */
     public static function analyse(array $input): array
@@ -186,13 +186,15 @@ final class ContentCheck
         }
         $add('links_out', $external > 0, $external > 0 ? t('The text links to other websites.') : t('The text links to no other website.'), t('A link to a trustworthy source helps readers and search engines.'));
         if ($external > 0) { // without an outgoing link there is nothing to follow: not applicable
-        $add('links_out_follow', $externalFollow > 0, $externalFollow > 0 ? t('At least one outgoing link is followed by search engines.') : t('No outgoing link is followed by search engines.'), t('Links marked nofollow do not pass on trust.'));
+            $add('links_out_follow', $externalFollow > 0, $externalFollow > 0 ? t('At least one outgoing link is followed by search engines.') : t('No outgoing link is followed by search engines.'), t('Links marked nofollow do not pass on trust.'));
         }
         $add('links_in_text', $internal > 0, $internal > 0 ? t('The text links to other pages of this site.') : t('The text links to no other page of this site.'), t('Internal links help visitors and search engines find related pages.'));
 
         $add('title_number', (bool) preg_match('/\d/', $title), preg_match('/\d/', $title) ? t('The title contains a number.') : t('The title contains no number.'), t('Titles with a number often get more clicks.'));
 
-        $add('has_outline', (bool) ($input['has_outline'] ?? false), ($input['has_outline'] ?? false) ? t('The page has an outline.') : t('The page has no outline.'), t('Headings let readers jump to the part they need.'));
+        if (($input['has_outline'] ?? null) !== null) { // null: the content has no build to hold an outline element, not applicable
+            $add('has_outline', $input['has_outline'], $input['has_outline'] ? t('The page has an outline.') : t('The page has no outline.'), t('Headings let readers jump to the part they need.'));
+        }
 
         preg_match_all('#<p\b[^>]*>(.*?)</p>#is', $html, $paragraphs);
         $long = count(array_filter($paragraphs[1], fn (string $p): bool => preg_match_all(self::WORD, strip_tags($p)) > self::PARAGRAPH_MAX));
@@ -208,7 +210,8 @@ final class ContentCheck
             $ok = self::contains($description, $keyword);
             $add('kw_description', $ok, $has($ok, t('The focus keyword is in the description.'), t('The focus keyword is not in the description.')));
             $slugKeyword = slugify($keyword);
-            $ok = $slugKeyword !== '' && str_contains('-' . $slug . '-', '-' . $slugKeyword . '-');
+            // a subpage's address carries its parent's: every part of the path counts (services/wedding-photographer)
+            $ok = $slugKeyword !== '' && str_contains('-' . strtr($slug, '/', '-') . '-', '-' . $slugKeyword . '-');
             $add('kw_address', $ok, $has($ok, t('The focus keyword is in the address.'), t('The focus keyword is not in the address.')));
             $start = implode(' ', array_slice($words, 0, max(1, (int) ceil($wordCount / 10))));
             $ok = $wordCount > 0 && self::contains($start, $keyword);
