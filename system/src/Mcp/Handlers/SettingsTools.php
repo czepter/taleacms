@@ -230,7 +230,7 @@ trait SettingsTools
 
         return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'match' => $r['match_type'], 'active' => (bool) $r['active'], 'last_hit_at' => $r['last_hit_at'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
                 $db->all('SELECT from_path, to_path, type, match_type, active, last_hit_at, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
-            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at'], 'referrer' => $n['referrer'], 'first_seen_at' => $n['first_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Talea\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 

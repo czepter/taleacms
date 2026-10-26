@@ -1117,7 +1117,12 @@ final class Kernel
         if ($path !== '' && $this->app->request->get('part') === '' && !\Talea\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {not_found}') < 2000 || $this->app->db()->value('SELECT 1 FROM {not_found} WHERE path = ?', [$path]) !== null) {
-                    $this->app->db()->upsert('not_found', ['path' => $path, 'count' => 1, 'last_seen_at' => date('Y-m-d H:i:s')], ['path'], ['count' => '{old.count} + 1', 'last_seen_at']);
+                    $request = $this->app->request;
+                    $now = date('Y-m-d H:i:s');
+                    $referrer = \Talea\Core\NotFound::referrer($request->referer(), (string) ($request->serverValues()['HTTP_HOST'] ?? ''));
+                    // the last known referrer stays when this visit has none; first_seen_at is written on insert only
+                    $this->app->db()->upsert('not_found', ['path' => $path, 'count' => 1, 'last_seen_at' => $now, 'referrer' => $referrer, 'first_seen_at' => $now], ['path'],
+                        ['count' => '{old.count} + 1', 'last_seen_at', 'referrer' => "CASE WHEN {new.referrer} <> '' THEN {new.referrer} ELSE {old.referrer} END"]);
                     if ((int) $this->app->db()->value('SELECT count FROM {not_found} WHERE path = ?', [$path]) === \Talea\Core\NotFound::SPIKE) {
                         \Talea\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Talea\Core\NotFound::SPIKE), ['path' => $path]);
                     }

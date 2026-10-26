@@ -53,6 +53,7 @@ final class Guide
         'seo' => 'seo#overview',
         'seo_titles' => 'seo#titles-and-descriptions',
         'redirects' => 'seo#redirects-and-404s',
+        'missing_pages' => 'seo#redirects-and-404s',
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',
         'notebook' => 'claude-capabilities',

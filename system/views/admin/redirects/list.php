@@ -4,8 +4,6 @@
  * @var Talea\Admin\Modules\Redirects $module
  * @var string $csrf
  * @var list<array<string, mixed>> $records
- * @var list<array<string, mixed>> $notFound  urls that ended with a 404 error in the last 60 days
- * @var array<string, array{to: string, score: int}> $suggestions  the page each missing address most likely meant (Core\RedirectMatcher)
  * @var bool $autoOn  the daily job creates the sure redirects by itself
  * @var int $threshold  the score a candidate needs for that
  * @var int $total
@@ -19,24 +17,6 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 $icon = require __DIR__ . '/../icons.php';
 echo $app->view->render('admin/list/head', ['count' => (string) $total, 'primary' => [$module->url('', ['new' => 1]), t('New redirect')]]);
 ?>
-<?php if ($notFound !== []):
-    ob_start();
-    foreach ($notFound as $n): $tip = $suggestions[$n['path']] ?? null; ?>
-<div class="attention-row">
-	<code class="attention-path" title="/<?= e($n['path']) ?>">/<?= e($n['path']) ?></code>
-	<span class="cell-sub"><?= e(t('%d hits', (int) $n['count'])) ?> · <?= e(format_ago($n['last_seen_at'])) ?></span>
-	<span class="attention-tip"><?php if ($tip !== null): ?><?= $icon('out') ?> <code title="/<?= e($tip['to']) ?>">/<?= e($tip['to']) ?></code> <span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="cell-sub"><?= e(t('no similar page')) ?></span><?php endif ?></span>
-	<span class="row-actions">
-		<?php if ($tip !== null): ?><form class="inline" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="from_path" value="<?= e('/' . $n['path']) ?>"><input type="hidden" name="to_path" value="<?= e('/' . $tip['to']) ?>"><input type="hidden" name="type" value="301"><button class="btn" type="submit"><?= e(t('Create redirect')) ?></button></form><?php endif ?>
-		<a class="<?= $tip !== null ? 'quiet-link' : 'navigation' ?>" href="<?= e($module->url('', ['from' => $n['path']])) ?>" title="<?= e(t('Opens a new redirect with this old address filled in. You add the page that replaced it.')) ?>"><?= e(t($tip !== null ? 'Elsewhere' : 'Redirect')) ?></a>
-		<form class="inline" method="post" action="<?= e($module->url('ignore')) ?>"><?= $csrf ?><input type="hidden" name="path" value="<?= e($n['path']) ?>"><button class="icon-btn" type="submit" aria-label="<?= e(t('Ignore: %s', '/' . $n['path'])) ?>" title="<?= e(t('Ignore – nothing replaces it, or it is a bot probing for other systems. It will not come back.')) ?>"><?= $icon('close') ?></button></form>
-	</span>
-</div>
-<?php endforeach;
-    $rows = (string) ob_get_clean();
-    echo $app->view->render('admin/list/attention', ['id' => 'not-found', 'title' => t('Addresses visitors could not find (404)') . ' · ' . count($notFound), 'meta' => t('last 60 days'), 'rows' => $rows,
-        'aside' => '<form class="inline attention-aside" method="post" action="' . e($module->url('ignore_all')) . '" data-confirm="' . e(t('Ignore all these addresses? The warning on the start screen goes away until a new address appears.')) . '">' . $csrf . '<button class="navigation" type="submit">' . e(t('Ignore all')) . '</button></form>']);
-endif ?>
 <?= $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Redirects'), 'action' => $app->url('admin.php'), 'hidden' => ['module' => 'redirects', 'status' => $status],
     'tabs' => array_map(fn (string $key, string $name): array => ['label' => t($name), 'count' => $counts[$key], 'url' => $module->url('', array_filter(['status' => $key === 'all' ? '' : $key, 'search' => $search])), 'active' => $status === $key],
         ['all', 'active', 'off', 'auto'], ['All', 'Active', 'Off', 'Made by Talea']),

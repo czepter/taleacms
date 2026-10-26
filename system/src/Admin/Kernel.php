@@ -102,6 +102,7 @@ final class Kernel
         Modules\Seo::class,
         Modules\SeoTitles::class,
         Modules\Redirects::class,
+        Modules\MissingPages::class,
         Modules\Audit::class,
         Modules\News::class,
         Modules\Categories::class,
@@ -384,12 +385,12 @@ final class Kernel
 
         $modules = $this->modules();
         $warnings = [];
-        if (isset($modules['redirects'])) {
+        if (isset($modules['missing_pages'])) {
             // only addresses that still end in 404 and nobody ignored (Core\NotFound cleans the rest up)
             $missing = count(\Talea\Core\NotFound::pending($this->app));
             if ($missing > 0) {
                 $warnings[] = [t('Addresses on your site that repeatedly ended with “page not found” this week: %d. Visitors came from an old link or a typo – send each one to the right page with a redirect, or ignore it.', $missing),
-                    $this->app->url('admin.php?module=redirects#not-found'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
+                    $this->app->url('admin.php?module=missing_pages'), t('Review the addresses'), $this->app->url('admin.php?module=missing_pages&action=ignore_all')];
             }
         }
         if ($this->app->auth()->isAdmin()) {

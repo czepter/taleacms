@@ -35,9 +35,9 @@ final class LinksTest extends \Talea\Tests\Site\Support\SiteTestCase
             }
         }
 
-        $screen = $this->assertPage('/admin.php?module=redirects', 200, '/services/reference-portfolio', message: 'Redirects: the 404 list shows the page the visitor probably meant');
-        $this->assertStringContainsString('name="redirect_auto"', $screen->body, 'the setting for redirects by themselves');
-        $this->assertStringContainsString('Create redirect', $screen->body, 'one-click create');
+        $screen = $this->assertPage('/admin.php?module=missing_pages', 200, '/services/reference-portfolio', message: 'Missing pages: the list shows the page the visitor probably meant');
+        $this->assertStringContainsString('Redirect</button>', $screen->body, 'one-click redirect');
+        $this->assertPage('/admin.php?module=redirects', 200, 'name="redirect_auto"', message: 'the setting for redirects by themselves stays with Redirects');
         $this->assertStringContainsString('no similar page', $screen->body, 'no suggestion for a random address');
 
         $json = $this->mcpJson('list_redirects');

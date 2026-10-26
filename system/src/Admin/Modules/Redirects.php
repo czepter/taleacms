@@ -14,9 +14,8 @@ use Talea\Core\Response;
  * manually useful after moving from another system. Used only when the site finds nothing for the URL. Every new
  * redirect also heals the site's own links to the old address (Core\LinkHealing).
  *
- * Since 2.14 the screen also shows, for every address visitors could not find, the page the site thinks they meant
- * (Core\RedirectMatcher) with one click to create the redirect, and the setting that lets the daily job create the
- * sure ones by itself; such a redirect is marked automatic with its score and deleting it is the undo.
+ * Since 2.14 the screen also has the setting that lets the daily job create the redirects the site is sure about
+ * (Core\RedirectMatcher; the addresses themselves are listed in Missing pages); such a redirect is marked automatic with its score and deleting it is the undo.
  */
 final class Redirects extends Module
 {
@@ -117,14 +116,10 @@ final class Redirects extends Module
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $r->getInt('page', 1)));
         $counts = $this->db->one('SELECT COUNT(*) AS n_all, SUM(CASE WHEN active = TRUE THEN 1 ELSE 0 END) AS n_active, SUM(CASE WHEN active = FALSE THEN 1 ELSE 0 END) AS n_off, SUM(CASE WHEN auto_score IS NOT NULL THEN 1 ELSE 0 END) AS n_auto FROM {redirects}') ?? [];
 
-        $notFound = \Talea\Core\NotFound::pending($this->app, 60, 50);
-
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {redirects} ' . $whereParts . ' ORDER BY redirect_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search, 'status' => $status,
             'counts' => ['all' => (int) ($counts['n_all'] ?? 0), 'active' => (int) ($counts['n_active'] ?? 0), 'off' => (int) ($counts['n_off'] ?? 0), 'auto' => (int) ($counts['n_auto'] ?? 0)],
-            'notFound' => $notFound,
-            'suggestions' => \Talea\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
             'threshold' => \Talea\Core\RedirectMatcher::threshold($this->app->settings()),
         ]);
@@ -225,35 +220,6 @@ final class Redirects extends Module
         $path = mb_substr(trim($this->request->get('path')), 0, 255);
 
         return $this->view('test', 'Test redirect', ['rule' => $row, 'path' => $path, 'result' => $path === '' ? null : RedirectRules::target($row, $path)]);
-    }
-
-    /** An address visitors could not find, left alone for good (a bot probe, something nobody needs). */
-    protected function actionIgnore(): Response
-    {
-        if ($this->request->isPost()) {
-            \Talea\Core\NotFound::ignore($this->app, [$this->request->post('path')]);
-        }
-
-        return Response::redirect($this->url() . '#not-found');
-    }
-
-    /** All addresses waiting now – the warning on the start screen goes away until a new address appears. */
-    protected function actionIgnoreAll(): Response
-    {
-        $count = $this->request->isPost() ? \Talea\Core\NotFound::ignore($this->app) : 0;
-        $this->app->session->flash('ok', t('%d addresses ignored. A new address that visitors cannot find will show up again.', $count));
-
-        return Response::redirect($this->request->post('back') === 'overview' ? $this->app->url('admin.php') : $this->url() . '#not-found');
-    }
-
-    /** Empties the overview of not-found URLs. */
-    protected function actionClear(): Response
-    {
-        if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {not_found}');
-        }
-
-        return $this->back('The list of addresses not found is empty.');
     }
 
     protected function actionDelete(): Response
