@@ -190,12 +190,17 @@ trait SettingsTools
         if ($name === 'save_redirect') {
             $adminOnly();
             $rawFrom = trim((string) ($a['from'] ?? ''));
-            // an existing rule keeps what the call leaves out; a new one starts with exact, 301 and on
-            $old = null;
-            foreach (array_unique([trim((string) parse_url($rawFrom, PHP_URL_PATH), '/ '), ltrim($rawFrom, '/'), $rawFrom]) as $candidate) {
-                $old ??= $candidate !== '' ? $db->one('SELECT redirect_id, match_type, type, active FROM {redirects} WHERE from_path = ?', [$candidate]) : null;
+            // an existing rule keeps what the call leaves out; a new one starts with exact, 301 and on. The row is found by its own
+            // normalised address: with a match type only that one; without, the address as typed (a regex is never parsed as a URL)
+            $given = isset($a['match']) ? (string) $a['match'] : null;
+            $typed = preg_match('#^https?://#i', $rawFrom) ? \Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, 'exact') : ltrim($rawFrom, '/');
+            $old = $given !== null
+                ? $db->one('SELECT redirect_id, match_type, type, active FROM {redirects} WHERE from_path = ?', [\Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, $given)])
+                : $db->one('SELECT redirect_id, match_type, type, active FROM {redirects} WHERE from_path = ? OR from_path = ? ORDER BY CASE WHEN from_path = ? THEN 0 ELSE 1 END', [$typed, $rawFrom, $typed]);
+            if ($old !== null && $given !== null && $old['match_type'] !== $given) {
+                $old = null; // the address is taken by a rule of another kind: it is replaced with the defaults of a new one
             }
-            $match = (string) ($a['match'] ?? $old['match_type'] ?? 'exact');
+            $match = $given ?? (string) ($old['match_type'] ?? 'exact');
             $type = (int) ($a['code'] ?? $old['type'] ?? 301);
             $active = isset($a['active']) ? (filter_var($a['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true) : (bool) ($old['active'] ?? true);
             $from = \Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, $match);

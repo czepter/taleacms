@@ -128,4 +128,29 @@ final class RedirectsScreenTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('search=ke', (string) $r->redirect);
         $this->assertStringContainsString('Redirect switched off.', $site->admin()->get((string) $r->redirect)->body);
     }
+
+    public function testUpdateFindsTheRuleByItsOwnAddress(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tl_redirects');
+        $site->mcp('save_redirect', ['from' => '/section', 'to' => '/exact-target', 'code' => 302]);
+        $site->mcp('save_redirect', ['from' => '/section/', 'to' => '/starts-target/', 'match' => 'starts', 'code' => 307]);
+        $this->assertSame(2, $this->rows());
+
+        $site->mcp('save_redirect', ['from' => '/section/', 'to' => '/starts-two/', 'match' => 'starts']);
+        $this->assertSame('exact-target|302', $site->value("SELECT CONCAT(to_path, '|', type) FROM tl_redirects WHERE from_path = 'section'"), 'the exact rule is untouched');
+        $this->assertSame('starts-two/|307', $site->value("SELECT CONCAT(to_path, '|', type) FROM tl_redirects WHERE from_path = 'section/'"), 'the starts rule keeps its type');
+
+        $site->mcp('save_redirect', ['from' => '/section', 'to' => '/exact-two']);
+        $this->assertSame('exact-two|302|exact', $site->value("SELECT CONCAT(to_path, '|', type, '|', match_type) FROM tl_redirects WHERE from_path = 'section'"), 'no match given: the exact rule is found by its own address');
+        $this->assertSame('starts-two/', $site->value("SELECT to_path FROM tl_redirects WHERE from_path = 'section/'"));
+
+        $site->mcp('save_redirect', ['from' => '/section/', 'to' => '/starts-three/']);
+        $this->assertSame('starts-three/|starts|307', $site->value("SELECT CONCAT(to_path, '|', match_type, '|', type) FROM tl_redirects WHERE from_path = 'section/'"), 'no match given: /section/ finds the starts rule');
+
+        $site->mcp('save_redirect', ['from' => '^find/(\d+)\?x$', 'to' => '/a/$1', 'match' => 'regex', 'code' => 302]);
+        $site->mcp('save_redirect', ['from' => '^find/(\d+)\?x$', 'to' => '/b/$1']);
+        $this->assertSame('b/$1|regex|302', $site->value("SELECT CONCAT(to_path, '|', match_type, '|', type) FROM tl_redirects WHERE match_type = 'regex'"), 'a regex with ? is found by its exact from');
+        $this->assertSame(3, $this->rows());
+    }
 }
