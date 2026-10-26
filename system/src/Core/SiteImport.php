@@ -693,7 +693,7 @@ final class SiteImport
             'text' => self::html($r['text'] ?? '', 4_000_000), 'visible' => (int) !empty($r['visible']), 'publish_at' => self::date($r['publish_at'] ?? null),
             'in_menu' => (int) !empty($r['in_menu']), 'sort_order' => (int) ($r['sort_order'] ?? 0), 'updated_at' => self::date($r['updated_at'] ?? null) ?? date('Y-m-d H:i:s'),
             'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('pages', $r['translation_of'] ?? null) ?: null, 'parent_id' => $this->ref('pages', $r['parent_id'] ?? null) ?: null,
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r);
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
     }
 
     private function newsItem(array $r): ?array
@@ -710,7 +710,7 @@ final class SiteImport
             'visit' => (int) ($r['visit'] ?? 0), 'edited_at' => self::date($r['edited_at'] ?? null), 'updated_at' => self::date($r['updated_at'] ?? null),
             // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
             'announced_at' => date('Y-m-d H:i:s'), 'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('news', $r['translation_of'] ?? null) ?: null, 'search_text' => null,
-            '_tags' => array_values(array_filter(array_map(fn (mixed $t): int => $this->ref('tags', $t), is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r);
+            '_tags' => array_values(array_filter(array_map(fn (mixed $t): int => $this->ref('tags', $t), is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r) + SeoFields::fromInput($r);
         if (is_string($r['faq'] ?? null)) {
             $row['faq'] = self::text($r['faq'], 60_000);
         }
@@ -832,7 +832,7 @@ final class SiteImport
             'sort_order' => (int) ($r['sort_order'] ?? 0), 'visible' => (int) !empty($r['visible']), 'language' => self::language($r['language'] ?? ''),
             'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
             'seo_title' => self::text($r['seo_title'] ?? '', 200), 'description' => self::text($r['description'] ?? '', 300), 'image' => self::file($r['image'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r);
+            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */

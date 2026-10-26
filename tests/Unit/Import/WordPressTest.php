@@ -38,11 +38,11 @@ final class WordPressTest extends TestCase
         $this->assertSame([['_wds_title', '_wds_metadesc', '_wds_meta-robots-noindex'], []], [array_keys($wpItems[0]['meta']), $wpItems[3]['meta']], 'WpFile: reads only the SEO plugins\' meta keys');
         $this->assertSame([
             'SmartCrawl' => ['title' => 2, 'description' => 2, 'noindex' => 0, 'canonical' => 1],
-            'Yoast SEO' => ['title' => 0, 'description' => 1, 'noindex' => 1, 'canonical' => 0],
+            'Yoast SEO' => ['title' => 0, 'description' => 1, 'noindex' => 1, 'canonical' => 1],
             'Rank Math' => ['title' => 1, 'description' => 1, 'noindex' => 1, 'canonical' => 1],
         ], $wpState['overview']['seo'], 'WpImport preview: SEO data by plugin (the default Yoast pattern is not counted)');
         $wpSeoContext = ['title' => 'Lávka přes Bystřinu', 'sitename' => 'Podhorský zpravodaj', 'sitedesc' => 'Zprávy z údolí', 'excerpt' => 'Po roce oprav.', 'category' => 'Z radnice']; // check-english: allow
-        $this->assertSame(['plugin' => 'Yoast SEO', 'title' => 'T', 'description' => '', 'noindex' => false, 'canonical' => ''], \Talea\Core\WpSeo::raw(['_yoast_wpseo_meta-robots-noindex' => '2', '_yoast_wpseo_title' => ' T ']), 'WpSeo::raw: the first plugin with a filled value; Yoast 2 = index');
+        $this->assertSame(['plugin' => 'Yoast SEO', 'title' => 'T', 'description' => '', 'noindex' => false, 'canonical' => '', 'focus_keyword' => ''], \Talea\Core\WpSeo::raw(['_yoast_wpseo_meta-robots-noindex' => '2', '_yoast_wpseo_title' => ' T ']), 'WpSeo::raw: the first plugin with a filled value; Yoast 2 = index');
         $this->assertSame('', \Talea\Core\WpSeo::raw(['_thumbnail_id' => '5'])['plugin'], 'WpSeo::raw: bez SEO meta');
         $this->assertSame([true, false, false, true, false, false], array_map(\Talea\Core\WpSeo::robotsNoindex(...), ['a:2:{i:0;s:7:"noindex";i:1;s:8:"nofollow";}', 'a:1:{i:0;s:5:"index";}', 'a:1:{i:0;s:12:"noimageindex";}', 'noindex,nofollow', 'O:8:"stdClass":0:{}', '']), 'WpSeo::robotsNoindex: a serialized Rank Math array only as text');
         $this->assertSame([true, true, true, true, true, true, false, false], array_map(\Talea\Core\WpSeo::isDefaultPattern(...), ['%%title%% %%sep%% %%sitename%%', '%%title%% %%page%% %%sep%% %%sitename%%', '%title% %sep% %sitename%', '%%title%% | %%sitename%%', '%%title%%', '', 'Blog – %%sitename%%', 'Nabídka %%title%%']), 'WpSeo::isDefaultPattern: only variables and separators = the plugin\'s default pattern'); // check-english: allow
@@ -58,7 +58,8 @@ final class WordPressTest extends TestCase
         $this->assertSame('Po roce oprav. Více v rubrice Z radnice.', \Talea\Core\WpSeo::description('%%excerpt%% Více v rubrice %%primary_category%%.', $wpSeoContext), 'WpSeo::description: excerpt and main category'); // check-english: allow
         $this->assertSame('', \Talea\Core\WpSeo::description('%%excerpt%%', $wpSeoContext), 'WpSeo::description: only %%excerpt%% is the default pattern – the site builds the description itself');
         $this->assertSame('Sýr & víno v Podhorský zpravodaj', \Talea\Core\WpSeo::description('Sýr &amp; <b>víno</b> v %sitename%', $wpSeoContext), 'WpSeo::description: tags and entities gone'); // check-english: allow
-        $this->assertSame([12, true], [count(\Talea\Core\WpSeo::keys()), in_array('rank_math_robots', \Talea\Core\WpSeo::keys(), true)], 'WpSeo::keys: one key list from all plugins');
+        $this->assertSame([15, true], [count(\Talea\Core\WpSeo::keys()), in_array('rank_math_robots', \Talea\Core\WpSeo::keys(), true)], 'WpSeo::keys: one key list from all plugins');
+        $this->assertSame(['lávka', 'a, b'], [\Talea\Core\WpSeo::raw(['rank_math_focus_keyword' => 'lávka, b'])['focus_keyword'], \Talea\Core\WpSeo::raw(['_wds_focus-keywords' => 'a, b'])['focus_keyword']], 'WpSeo::raw: Rank Math keeps the first keyword, others the field as it is'); // check-english: allow
         // import from WordPress: content cleanup
         $wpClean = \Talea\Core\WpContent::sanitize(...);
         $this->assertSame("<p>První řádek<br>\ndruhý řádek</p>\n<p>Druhý odstavec</p>", $wpClean("První řádek\ndruhý řádek\n\nDruhý odstavec"), 'WpContent: classic editor – paragraphs from empty lines, <br> from line ends'); // check-english: allow

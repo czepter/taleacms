@@ -255,7 +255,7 @@ final class News extends Module
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')),
             'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
-        ];
+        ] + \Talea\Core\SeoFields::fromInput($_POST);
 
         $errors = [];
         if ($data['title'] === '') {

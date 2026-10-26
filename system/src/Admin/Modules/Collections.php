@@ -241,7 +241,7 @@ final class Collections extends Module
         $row = ['collection_id' => $k['collection_id'], 'name' => $name, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'sort_order' => max(-9999, min(9999, $r->postInt('sort_order'))), 'language' => $language, 'updated_at' => date('Y-m-d H:i:s'),
             'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')), 'review_by' => \Talea\Core\Validity::date($r->post('review_by'))] // 2.10
-            + KolekceObsahu::pageFields($_POST, $r->postBool('visible'));
+            + KolekceObsahu::pageFields($_POST, $r->postBool('visible')) + \Talea\Core\SeoFields::fromInput($_POST);
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['visible'])) {
             return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');

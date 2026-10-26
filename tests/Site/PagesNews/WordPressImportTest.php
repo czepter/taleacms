@@ -98,6 +98,12 @@ final class WordPressImportTest extends SiteTestCase
             $this->seo("SELECT CONCAT(seo_title, '|', description, '|', noindex) FROM tl_pages WHERE slug = 'o-zpravodaji'"),
             'SmartCrawl on a page: title and description');
         $this->assertPage('/news/slavnosti-syra', 200, 'noindex', message: 'imported news with noindex from the plugin prints it');
+        $this->assertSame("lávka přes Bystřinu||", // check-english: allow (Czech WordPress fixture)
+            $this->seo("SELECT CONCAT(focus_keywords, '|', canonical_url, '|', robots) FROM tl_news WHERE slug = 'lavka-pres-bystrinu-2'"),
+            'Rank Math: the first focus keyword only; a canonical that points at the old site itself is dropped');
+        $this->assertSame("slavnosti sýra|https://syrove-slavnosti.example/rekord", // check-english: allow (Czech WordPress fixture)
+            $this->seo("SELECT CONCAT(focus_keywords, '|', canonical_url) FROM tl_news WHERE slug = 'slavnosti-syra'"),
+            'Yoast: focus keyword, and a canonical to another host is kept');
     }
 
     #[Depends('testImportOfAWordPressExport')]

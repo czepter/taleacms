@@ -223,7 +223,7 @@ trait CollectionTools
 
         return ['total' => count($rows), 'page' => $pageNumber, 'pages' => max(1, (int) ceil(count($rows) / 50)), 'items' => array_map(fn (array $r): array => ['id' => (int) $r['item_id'], 'name' => $r['name'], 'slug' => $r['slug'], 'order' => (int) $r['sort_order'], 'visible' => (bool) $r['visible'],
             'language' => $r['language'], 'values' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_title' => $r['seo_title'], 'description' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_title' => $r['seo_title'], 'description' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + \Talea\Core\SeoFields::output($r) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item */
@@ -300,6 +300,7 @@ trait CollectionTools
             }
         }
         $row += self::validityDates($a); // true until and review by (2.10)
+        $row += \Talea\Core\SeoFields::fromInput($a);
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($collection, $data, (bool) ($row['visible'] ?? $previous['visible'] ?? 0))) {
             throw new \DomainException(Notices::REFUSAL_HIDE . ($draftsOnly ? ' This connection can only save hidden drafts: give a posting date in the future, or propose the notice in the note for a person.' : ' Pass visible true, or a posting date in the future.'));

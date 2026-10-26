@@ -163,6 +163,8 @@ https://vimeo.com/76979871
 		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key><wp:meta_value><![CDATA[%%title%% %%page%% %%sep%% %%sitename%%]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key><wp:meta_value><![CDATA[Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_meta-robots-noindex]]></wp:meta_key><wp:meta_value><![CDATA[1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_canonical]]></wp:meta_key><wp:meta_value><![CDATA[https://syrove-slavnosti.example/rekord]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_focuskw]]></wp:meta_key><wp:meta_value><![CDATA[slavnosti sýra]]></wp:meta_value></wp:postmeta>
 	</item>
 
 	<!-- 3. vydaný příspěvek bez rubriky; adresa se shoduje s prvním příspěvkem, aby se ověřilo číslování adres -->
@@ -191,6 +193,7 @@ Vybrali jsme ty nejlepší. [sic] Další přidáme příští týden.]]></conte
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_title]]></wp:meta_key><wp:meta_value><![CDATA[Fotografie čtenářů: lávka přes Bystřinu %sep% %sitename%]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_description]]></wp:meta_key><wp:meta_value><![CDATA[Nejlepší snímky čtenářů z otevření lávky přes Bystřinu.]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_robots]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{i:0;s:7:"noindex";i:1;s:8:"nofollow";}]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_focus_keyword]]></wp:meta_key><wp:meta_value><![CDATA[lávka přes Bystřinu,otevření lávky]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_canonical_url]]></wp:meta_key><wp:meta_value><![CDATA[https://www.podhorsky-zpravodaj.example/2026/05/lavka-pres-bystrinu/]]></wp:meta_value></wp:postmeta>
 	</item>
 

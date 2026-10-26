@@ -26,9 +26,9 @@ final class WpSeo
      * To support another plugin, add a row here.
      */
     public const array PLUGINS = [
-        'SmartCrawl' => ['title' => '_wds_title', 'description' => '_wds_metadesc', 'noindex' => '_wds_meta-robots-noindex', 'canonical' => '_wds_canonical'],
-        'Yoast SEO' => ['title' => '_yoast_wpseo_title', 'description' => '_yoast_wpseo_metadesc', 'noindex' => '_yoast_wpseo_meta-robots-noindex', 'canonical' => '_yoast_wpseo_canonical'],
-        'Rank Math' => ['title' => 'rank_math_title', 'description' => 'rank_math_description', 'robots' => 'rank_math_robots', 'canonical' => 'rank_math_canonical_url'],
+        'SmartCrawl' => ['title' => '_wds_title', 'description' => '_wds_metadesc', 'noindex' => '_wds_meta-robots-noindex', 'canonical' => '_wds_canonical', 'focus' => '_wds_focus-keywords'],
+        'Yoast SEO' => ['title' => '_yoast_wpseo_title', 'description' => '_yoast_wpseo_metadesc', 'noindex' => '_yoast_wpseo_meta-robots-noindex', 'canonical' => '_yoast_wpseo_canonical', 'focus' => '_yoast_wpseo_focuskw'],
+        'Rank Math' => ['title' => 'rank_math_title', 'description' => 'rank_math_description', 'robots' => 'rank_math_robots', 'canonical' => 'rank_math_canonical_url', 'focus' => 'rank_math_focus_keyword'],
     ];
 
     /** Variables that have a value of ours (the key is the variable name without the percent signs, in any plugin's syntax). */
@@ -55,7 +55,7 @@ final class WpSeo
      * usually keeps the old meta behind).
      *
      * @param array<string, string> $meta  postmeta key => value (only the keys from keys())
-     * @return array{plugin:string, title:string, description:string, noindex:bool, canonical:string}
+     * @return array{plugin:string, title:string, description:string, noindex:bool, canonical:string, focus_keyword:string}
      */
     public static function raw(array $meta): array
     {
@@ -74,10 +74,12 @@ final class WpSeo
                 'description' => $values['description'] ?? '',
                 'noindex' => isset($keys['robots']) ? self::robotsNoindex($values['robots'] ?? '') : ($values['noindex'] ?? '') === '1',
                 'canonical' => $values['canonical'] ?? '',
+                // Rank Math keeps the main keyword first and the extra ones behind commas; only the main one is scored
+                'focus_keyword' => $plugin === 'Rank Math' ? trim(explode(',', $values['focus'] ?? '')[0]) : ($values['focus'] ?? ''),
             ];
         }
 
-        return ['plugin' => '', 'title' => '', 'description' => '', 'noindex' => false, 'canonical' => ''];
+        return ['plugin' => '', 'title' => '', 'description' => '', 'noindex' => false, 'canonical' => '', 'focus_keyword' => ''];
     }
 
     /**

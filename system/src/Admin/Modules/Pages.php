@@ -130,7 +130,7 @@ final class Pages extends Module
             'image' => mb_substr(trim($r->post('image')), 0, 255),
             'noindex' => (int) $r->postBool('noindex'),
             'updated_at' => date('Y-m-d H:i:s'),
-        ], ['page_id' => (int) $page['page_id']]);
+        ] + \Talea\Core\SeoFields::fromInput($_POST), ['page_id' => (int) $page['page_id']]);
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search appearance edited', mb_substr($page['title'], 0, 80));
 
         return $this->back('Saved.', 'website', ['view' => 'seo', 'id' => (string) $page['public_id']]);
@@ -319,7 +319,7 @@ final class Pages extends Module
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')),
             'review_by' => \Talea\Core\Validity::date($r->post('review_by')),
-        ];
+        ] + \Talea\Core\SeoFields::fromInput($_POST);
         if ($this->app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
             $data['head_code'] = trim((string) ($_POST['head_code'] ?? '')) !== '' ? mb_substr((string) $_POST['head_code'], 0, 20000) : null;
