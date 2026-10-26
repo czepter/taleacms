@@ -1119,7 +1119,10 @@ final class Kernel
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {not_found}') < 2000 || $this->app->db()->value('SELECT 1 FROM {not_found} WHERE path = ?', [$path]) !== null) {
                     $request = $this->app->request;
                     $now = date('Y-m-d H:i:s');
-                    $referrer = \Talea\Core\NotFound::referrer($request->referer(), (string) (parse_url($this->app->settings()->get('site_url') ?: $request->origin(), PHP_URL_HOST) . (($port = parse_url($this->app->settings()->get('site_url') ?: $request->origin(), PHP_URL_PORT)) ? ':' . $port : '')));
+                    $own = parse_url($this->app->settings()->get('site_url') ?: $request->origin());
+                    $ownPort = (int) ($own['port'] ?? 0);
+                    $ownHost = (string) ($own['host'] ?? '') . ($ownPort > 0 && $ownPort !== (($own['scheme'] ?? '') === 'https' ? 443 : 80) ? ':' . $ownPort : '');
+                    $referrer = \Talea\Core\NotFound::referrer($request->referer(), $ownHost);
                     // the last known referrer stays when this visit has none; first_seen_at is written on insert only
                     $this->app->db()->upsert('not_found', ['path' => $path, 'count' => 1, 'last_seen_at' => $now, 'referrer' => $referrer, 'first_seen_at' => $now], ['path'],
                         ['count' => '{old.count} + 1', 'last_seen_at', 'referrer' => "CASE WHEN {new.referrer} <> '' THEN {new.referrer} ELSE {old.referrer} END"]);

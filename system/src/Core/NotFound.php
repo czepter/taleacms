@@ -77,7 +77,8 @@ final class NotFound
         if (!is_array($parts) || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true) || ($parts['host'] ?? '') === '') {
             return '';
         }
-        $host = strtolower($parts['host']) . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        $port = (int) ($parts['port'] ?? 0); // a missing port is the scheme's default
+        $host = strtolower($parts['host']) . ($port > 0 && $port !== (strtolower($parts['scheme']) === 'https' ? 443 : 80) ? ':' . $port : '');
         $path = (string) ($parts['path'] ?? '');
         $path = $path === '/' ? '' : $path;
 

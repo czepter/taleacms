@@ -92,6 +92,6 @@ final class MissingPages extends Module
             $this->db->run('DELETE FROM {not_found} WHERE ignored_at IS NULL');
         }
 
-        return $this->back('The list of addresses not found is empty.');
+        return $this->back('Addresses waiting for a decision were removed; ignored ones stay ignored.');
     }
 }
