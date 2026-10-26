@@ -19,6 +19,7 @@ use Talea\Core\SearchInsights;
  */
 final class SearchPerformance extends Module
 {
+    public const string SHARES_PERMISSION_OF = 'stats'; // whoever may open Statistics; the data does not depend on the stats extension
     public const string IDENT = 'search_performance';
     public const string NAME = 'Performance';
     public const string GROUP = 'Search engines';
@@ -40,7 +41,7 @@ final class SearchPerformance extends Module
 
         $origin = rtrim((string) ($this->app->settings()->get('site_url') ?: $this->request->origin()), '/');
         // queries and their pages come from one engine: Google gives the page of each query, Bing only the query
-        $source = $engine === Bing::KEY ? Bing::KEY : Google::KEY;
+        $source = $engine === Bing::KEY || !in_array(Google::KEY, $engines, true) ? Bing::KEY : Google::KEY;
         $day = SearchInsights::latestDay($this->db, $source);
         $key = $this->db->dialect()->quote('key');
         $rows = fn (string $kind): array => $day === null ? [] : $this->db->all('SELECT ' . $key . ', page, clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, ' . $key, [$source, $kind, $day]);
@@ -49,8 +50,10 @@ final class SearchPerformance extends Module
         // published pages by the address the sitemap gives them
         $home = $this->app->settings()->int('home_page');
         $pages = [];
-        foreach ($this->db->all('SELECT page_id, public_id, title, slug, language, seo_score, focus_keywords FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL') as $p) {
-            $pages[($p['language'] !== '' ? $p['language'] . '/' : '') . ((int) $p['page_id'] === $home ? '' : $p['slug'])] = $p;
+        foreach ($this->db->all('SELECT page_id, public_id, title, slug, language, translation_of, seo_score, focus_keywords FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL') as $p) {
+            // the home page is '' ; a language version of it lives at /<lang>/ ; other pages at /<lang>/<slug>
+            $isHome = (int) $p['page_id'] === $home || ($p['language'] !== '' && (int) $p['translation_of'] === $home);
+            $pages[($p['language'] !== '' ? $p['language'] . ($isHome ? '' : '/') : '') . ($isHome ? '' : $p['slug'])] = $p;
         }
         $focus = [];
         foreach ($pages as $p) {

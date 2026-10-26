@@ -34,7 +34,7 @@ if ($stale): ?>
 <?php endif;
 $totals = $summary['totals'];
 $previous = $summary['previous'];
-$position = fn (?float $p): string => $p === null ? '–' : format_count($p, 1);
+$position = fn (?float $p): string => $p === null || $p <= 0 ? '—' : format_count($p, 1);
 // change against four weeks earlier: a percentage; for the position, places (lower is better)
 $change = function (string $field) use ($totals, $previous): string {
     if ($previous === null) {
@@ -84,7 +84,7 @@ $pageLink = function (?string $url) use ($pages, $app, $origin): string {
 	<?php if ($opportunities === []): ?><p><?= e(t('No search is close to the first page yet.')) ?></p><?php else: ?>
 	<div class="tab-wrap"><table class="listing"><thead><tr><th scope="col"><?= e(t('Search')) ?></th><th scope="col" class="number"><?= e(t('Position')) ?></th><th scope="col" class="number"><?= e(t('Impressions')) ?></th><th scope="col"><?= e(t('Page')) ?></th></tr></thead><tbody>
 	<?php foreach ($opportunities as $o): ?>
-		<tr><td><?= e($o['query']) ?></td><td class="number"><?= e(format_count($o['position'], 1)) ?></td><td class="number"><?= e(format_count($o['impressions'])) ?></td><td><?= $pageLink($o['page']) ?></td></tr>
+		<tr><td><?= e($o['query']) ?></td><td class="number"><?= e($position($o['position'])) ?></td><td class="number"><?= e(format_count($o['impressions'])) ?></td><td><?= $pageLink($o['page']) ?></td></tr>
 	<?php endforeach ?>
 	</tbody></table></div>
 	<?php endif ?>
@@ -94,7 +94,7 @@ $pageLink = function (?string $url) use ($pages, $app, $origin): string {
 	<?php if ($lowCtr === []): ?><p><?= e(t('No page stands out.')) ?></p><?php else: ?>
 	<div class="tab-wrap"><table class="listing"><thead><tr><th scope="col"><?= e(t('Page')) ?></th><th scope="col" class="number"><?= e(t('Impressions')) ?></th><th scope="col" class="number"><?= e(t('Click-through rate')) ?></th><th scope="col" class="number"><?= e(t('Position')) ?></th></tr></thead><tbody>
 	<?php foreach ($lowCtr as $r): ?>
-		<tr><td><?= $pageLink($r['page']) ?></td><td class="number"><?= e(format_count($r['impressions'])) ?></td><td class="number"><?= e(format_count($r['ctr'], 1)) ?> %</td><td class="number"><?= e(format_count($r['position'], 1)) ?></td></tr>
+		<tr><td><?= $pageLink($r['page']) ?></td><td class="number"><?= e(format_count($r['impressions'])) ?></td><td class="number"><?= e(format_count($r['ctr'], 1)) ?> %</td><td class="number"><?= e($position($r['position'])) ?></td></tr>
 	<?php endforeach ?>
 	</tbody></table></div>
 	<?php endif ?>
@@ -105,7 +105,7 @@ $pageLink = function (?string $url) use ($pages, $app, $origin): string {
 <?php if ($queries === []): ?><p><?= e(t('No data yet.')) ?></p><?php else: ?>
 <div class="tab-wrap"><table class="listing"><thead><tr><th scope="col"><?= e(t('Search')) ?></th><th scope="col" class="number"><?= e(t('Clicks')) ?></th><th scope="col" class="number"><?= e(t('Impressions')) ?></th><th scope="col" class="number"><?= e(t('Position')) ?></th><th scope="col"></th></tr></thead><tbody>
 <?php foreach ($queries as $q): ?>
-	<tr><td><?= e($q['key']) ?></td><td class="number"><?= e(format_count((int) $q['clicks'])) ?></td><td class="number"><?= e(format_count((int) $q['impressions'])) ?></td><td class="number"><?= e($position((float) $q['position'] > 0 ? (float) $q['position'] : null)) ?></td>
+	<tr><td><?= e($q['key']) ?></td><td class="number"><?= e(format_count((int) $q['clicks'])) ?></td><td class="number"><?= e(format_count((int) $q['impressions'])) ?></td><td class="number"><?= e($position((float) $q['position'])) ?></td>
 	<td><?php if (isset($focus[mb_strtolower((string) $q['key'])])): ?><span class="badge badge-published"><?= e(t('Focus keyword')) ?></span><?php else: ?><a href="<?= e($app->url('admin.php?' . http_build_query(['module' => 'pages', 'search' => $q['key']]))) ?>"><?= e(t('Use for a page')) ?></a><?php endif ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
@@ -115,7 +115,7 @@ $pageLink = function (?string $url) use ($pages, $app, $origin): string {
 <?php if ($top === []): ?><p><?= e(t('No data yet.')) ?></p><?php else: ?>
 <div class="tab-wrap"><table class="listing"><thead><tr><th scope="col"><?= e(t('Page')) ?></th><th scope="col" class="number"><?= e(t('Clicks')) ?></th><th scope="col" class="number"><?= e(t('Impressions')) ?></th><th scope="col" class="number"><?= e(t('Position')) ?></th><th scope="col" class="number"><?= e(t('Score')) ?></th></tr></thead><tbody>
 <?php foreach ($top as $path => $r): $page = $pages[$path] ?? null ?>
-	<tr><td><?= $page === null ? '<code>/' . e($path) . '</code>' : $pageLink($origin . '/' . $path) ?></td><td class="number"><?= e(format_count($r['clicks'])) ?></td><td class="number"><?= e(format_count($r['impressions'])) ?></td><td class="number"><?= e($position($r['position'])) ?></td><td class="number"><?= $page === null || $page['seo_score'] === null ? '–' : e((string) $page['seo_score']) ?></td></tr>
+	<tr><td><?= $page === null ? '<code>/' . e($path) . '</code>' : $pageLink($origin . '/' . $path) ?></td><td class="number"><?= e(format_count($r['clicks'])) ?></td><td class="number"><?= e(format_count($r['impressions'])) ?></td><td class="number"><?= e($position($r['position'])) ?></td><td class="number"><?= $page === null || $page['seo_score'] === null ? '—' : e((string) $page['seo_score']) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
