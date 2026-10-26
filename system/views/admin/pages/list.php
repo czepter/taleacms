@@ -21,6 +21,8 @@
  * @var bool $seoEdit  "Edit titles in the list": an edit row under every page, saved together by the form #seo-bulk
  * @var int $pageCount  pages of rows in edit mode (Pages::LIST_EDIT_ROWS each); 1 otherwise
  * @var int $pageNumber
+ * @var array<int, array{clicks: int, impressions: int, position: ?float}|false|null>|null $inSearch  "Clicks · place" per page id
+ *      (false: listed in the sitemap, not in search yet); null hides the column (Pages::searchColumn)
  */
 $icon = require __DIR__ . '/../icons.php';
 $home = $app->settings()->int('home_page');
@@ -77,7 +79,7 @@ echo $app->view->render('admin/list/head', [
 </tbody>
 </table>
 </div>
-<?php else: $columns = $scored ? 9 : 6; ?>
+<?php else: $columns = ($scored ? 9 : 6) + ($inSearch !== null ? 1 : 0); ?>
 <?php if ($seoEdit): $editFilters = array_filter(['status' => $status, 'search' => $search]) + $keep; ?>
 <form class="seo-bulk" id="seo-bulk" method="post" action="<?= e($module->url('seo_bulk_save')) ?>"><?= $csrf ?>
 <?php foreach ($editFilters + ['page' => (string) $pageNumber] as $name => $value): // the save returns to this page of the list ?>
@@ -90,7 +92,7 @@ echo $app->view->render('admin/list/head', [
 <?php endif ?>
 <div class="tab-wrap">
 <table class="listing">
-<thead><tr><th scope="col" class="cell-select"><input type="checkbox" data-select-all="bulk" form="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Page')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($scored): ?><th scope="col"><?= e(t('Search score')) ?></th><th scope="col"><?= e(t('Focus keyword')) ?></th><th scope="col" title="<?= e(t('Links from your pages · links out')) ?>"><?= e(t('Links in · out')) ?></th><?php endif ?><th scope="col"><?= e(t('In navigation')) ?></th><th scope="col"><?= e(t('Changed')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
+<thead><tr><th scope="col" class="cell-select"><input type="checkbox" data-select-all="bulk" form="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Page')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($scored): ?><th scope="col"><?= e(t('Search score')) ?></th><th scope="col"><?= e(t('Focus keyword')) ?></th><th scope="col" title="<?= e(t('Links from your pages · links out')) ?>"><?= e(t('Links in · out')) ?></th><?php endif ?><?php if ($inSearch !== null): ?><th scope="col" title="<?= e(t('Clicks from search and the average place, last 28 days')) ?>"><?= e(t('Clicks · place')) ?></th><?php endif ?><th scope="col"><?= e(t('In navigation')) ?></th><th scope="col"><?= e(t('Changed')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
 <?php foreach ($pages as $s):
     $isHome = (int) $s['page_id'] === $home;
@@ -139,6 +141,9 @@ echo $app->view->render('admin/list/head', [
 	<td><?php if ($s['noindex']): ?><span class="tag"><?= e(t('Hidden from search')) ?></span><?php elseif ($keyword === ''): ?><span class="website-score"><?= e(t('No keyword')) ?></span><?php elseif ($s['seo_score'] !== null): ?><span class="website-score website-score-<?= Talea\Core\ContentCheck::band((int) $s['seo_score']) ?>"><?= (int) $s['seo_score'] ?></span><?php else: ?><span class="cell-weak">–</span><?php endif ?></td>
 	<td<?= $keyword === '' ? ' class="cell-weak"' : '' ?>><?= $keyword === '' ? '—' : bdi($keyword) ?></td>
 	<td class="cell-links"><?= $count['in'] ?> · <?= $count['out'] ?><?php if (isset($orphans[(int) $s['page_id']])): ?><span class="status-note status-note-warning"><?= e(t('Nothing links here')) ?></span><?php endif ?></td>
+<?php endif ?>
+<?php if ($inSearch !== null): $found = $inSearch[(int) $s['page_id']] ?? null; ?>
+	<td class="cell-links"><?php if (is_array($found)): ?><?= format_count($found['clicks']) ?> · <?= $found['position'] !== null ? format_count($found['position'], 1) : '—' ?><?php elseif ($found === false): ?><span class="status-note status-note-warning"><?= e(t('Not in search yet')) ?></span><?php else: ?><span class="cell-weak">—</span><?php endif ?></td>
 <?php endif ?>
 	<td><?php if ($s['in_menu']): ?><span title="<?= e(t('In navigation')) ?>"><?= $icon('check') ?><span class="visually-hidden"><?= e(t('Yes')) ?></span></span><?php else: ?><span class="visually-hidden"><?= e(t('No')) ?></span><?php endif ?></td>
 	<td class="cell-weak"><?= e(format_ago($s['updated_at'] ?? null)) ?></td>

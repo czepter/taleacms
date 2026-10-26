@@ -12,7 +12,7 @@ final class SeoFields
 {
     public const array COLUMNS = ['focus_keywords', 'key_page', 'robots', 'canonical_url', 'breadcrumb_title', 'share_title', 'share_description'];
 
-    private const int MAX_KEYWORDS = 5;
+    public const int MAX_KEYWORDS = 5;
     private const int KEYWORD_LENGTH = 100;
     private const int COLUMN_LENGTH = 500;
 

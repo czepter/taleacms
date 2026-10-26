@@ -126,6 +126,7 @@ final class Catalog
         'undo_agent_session' => ['destructive', ''],
         'list_changes' => ['read', ''],
         'get_stats' => ['read', ''],
+        'get_search_performance' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
         // A site that runs itself (2.8)

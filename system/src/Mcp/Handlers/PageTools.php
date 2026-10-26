@@ -105,6 +105,11 @@ trait PageTools
 
         $page['seo_analysis'] = Language::runWith('en', fn (): array => \Talea\Core\ContentCheck::analyse(\Talea\Core\SeoScore::input($this->app, 'page', $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]))), 'admin-');
 
+        // Google's numbers and the searches that led to the page (get_search_performance), for whoever may see search data
+        $root = \Talea\Core\SearchInsights::root($this->app);
+        $page['search'] = ($auth->isAdmin() || $auth->hasModule('stats')) && \Talea\Core\SearchInsights::snapshots($this->app->db(), \Talea\Connectors\Google::KEY) !== []
+            ? \Talea\Core\SearchInsights::forPath($this->app->db(), \Talea\Core\SearchInsights::pageKeys($this->app, [$page], $root)[(int) $page['page_id']], $root) : null;
+
         $page = \Talea\Core\SeoFields::output($page) + $page;
 
         return ['id' => $page['page_id'], 'visible' => $page['visible'], 'order' => $page['sort_order'], 'parent' => $page['parent_id']]

@@ -732,6 +732,18 @@
             "openWorldHint": false
         }
     },
+    "get_search_performance": {
+        "parameters": {
+            "engine": "string",
+            "page": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_site": {
         "parameters": {
             "id": "string"

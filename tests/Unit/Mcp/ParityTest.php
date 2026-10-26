@@ -37,7 +37,7 @@ final class ParityTest extends TestCase
             'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
             'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement'];
         $parity = [
-            'pages' => $builderParity + ['list' => $readOnly, 'website' => $readOnly, 'settings_save' => 'update_page', 'seo_bulk_save' => 'update_page', 'seo_add_type' => 'edit_build', 'seo_check' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
+            'pages' => $builderParity + ['list' => $readOnly, 'website' => $readOnly, 'settings_save' => 'update_page', 'seo_bulk_save' => 'update_page', 'seo_add_type' => 'edit_build', 'seo_keyword_add' => 'update_page', 'seo_check' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
                 'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
                 'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page', 'compare' => $readOnly,
@@ -89,7 +89,7 @@ final class ParityTest extends TestCase
             'members' => ['list' => 'list_member_groups', 'invite' => 'admin: an invitation e-mails a person and member addresses are personal data – they stay out of MCP', 'save_member' => 'admin: members\' addresses and names are personal data and stay out of MCP',
                 'remove' => 'admin: removing a person and ending their access is the owner\'s decision about personal data', 'group_save' => 'save_member_group', 'group_delete' => 'delete_member_group',
                 'settings' => 'admin: who may sign up (invited or open) is a security decision of the owner'],
-            'stats' => ['list' => 'get_stats'], 'search_performance' => ['list' => $readOnly], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
+            'stats' => ['list' => 'get_stats'], 'search_performance' => ['list' => 'get_search_performance'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
             'seo_titles' => ['list' => $readOnly, 'save' => 'update_settings', 'reset' => 'admin: resets a section in one step'],
             'seo' => ['list' => $readOnly, 'feature' => 'admin: switching features changes what the site offers; MCP uses update_settings'],
             'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'uninstall' => 'admin: removing an add-on and its data is the administrator’s decision (API 2)', 'page' => 'admin: pages add-ons add to the administration'],

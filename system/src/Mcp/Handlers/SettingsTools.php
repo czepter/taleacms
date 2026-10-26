@@ -9,6 +9,8 @@ use Talea\Admin\Modules\Categories;
 use Talea\Admin\Modules\Pages;
 use Talea\Core\App;
 use Talea\Core\Language;
+use Talea\Core\SearchData;
+use Talea\Core\SearchInsights;
 use Talea\Front\SiteIdentity;
 use Talea\Builder\SiteParts;
 use Talea\Builder\DesignSystem;
@@ -288,6 +290,55 @@ trait SettingsTools
         }
 
         return \Talea\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
+    }
+
+    /** get_search_performance: what Search engines → Performance shows, for whoever may open it (the Statistics right) */
+    private function toolGetSearchPerformance(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        if (!$auth->isAdmin() && !$auth->hasModule('stats')) {
+            throw new \DomainException('Search data is for administrators and users with access to Statistics.');
+        }
+        $db = $this->app->db();
+        [$connected, $engine] = SearchInsights::choose($db, (string) ($a['engine'] ?? ''));
+        $out = ['engine' => $engine];
+        $notes = [];
+        foreach (SearchData::ENGINES as $e) {
+            $day = SearchInsights::snapshots($db, $e)[$e] ?? null;
+            $out[$e] = $day === null ? null : ['day' => $day];
+            if ($day === null) {
+                $notes[] = $e . ': ' . (in_array($e, $connected, true) ? 'connected; the first data arrives after the nightly update.' : 'not connected – the owner connects it in Administration → Connections.');
+            }
+        }
+        if ($notes !== []) {
+            $out['note'] = implode(' ', $notes);
+        }
+        $summary = SearchInsights::summary($db, $engine);
+        if ($summary === null) {
+            return $out;
+        }
+        $root = SearchInsights::root($this->app);
+        $pages = $db->all('SELECT page_id, public_id, slug, language, translation_of FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL');
+        $byKey = array_combine(SearchInsights::pageKeys($this->app, $pages, $root), array_column($pages, 'public_id'));
+        $top = SearchInsights::byPath($db, $engine, $root);
+        uasort($top, fn (array $x, array $y): int => $y['clicks'] <=> $x['clicks'] ?: $y['impressions'] <=> $x['impressions']);
+        $queries = SearchInsights::rows($db, $engine, 'query');
+        $numbers = fn (array $r): array => ['clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions'], 'ctr' => (float) $r['ctr'], 'position' => (float) $r['position'] > 0 ? (float) $r['position'] : null];
+
+        $out += [
+            'summary' => $summary,
+            'queries' => array_map(fn (array $r): array => ['query' => (string) $r['key']] + $numbers($r), array_slice($queries, 0, SearchData::TOP)),
+            'pages' => array_map(fn (string $path, array $r): array => ['path' => '/' . $path, 'page_id' => $byKey[$path] ?? null] + $r, array_keys(array_slice($top, 0, SearchData::TOP, true)), array_slice($top, 0, SearchData::TOP, true)),
+            'opportunities' => SearchInsights::opportunities($queries, SearchInsights::rows($db, $engine, 'page_query')),
+            'low_ctr' => SearchInsights::lowCtr(SearchInsights::rows($db, $engine, 'page')),
+            'sitemaps' => in_array(\Talea\Connectors\Google::KEY, $connected, true) ? SearchData::report($db, date('Y-m-d', strtotime('-30 days')))[\Talea\Connectors\Google::KEY]['sitemaps'] ?? [] : [],
+        ];
+        if (!empty($a['page'])) {
+            $page = $db->one('SELECT page_id, slug, language, translation_of FROM {pages} WHERE page_id = ?', [(int) $a['page']]);
+            $out['page'] = $page === null ? null : SearchInsights::forPath($db, SearchInsights::pageKeys($this->app, [$page], $root)[(int) $page['page_id']], $root);
+        }
+
+        return $out;
     }
 
     /** list_changes (2.2): the change log, people and Claude told apart */

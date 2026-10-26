@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Core;
 
+use Talea\Connectors\Bing;
 use Talea\Connectors\Google;
 
 /**
@@ -132,6 +133,36 @@ final class SearchInsights
     }
 
     /**
+     * The connected search services and the engine to read: the one asked for when it is connected, "both" when both are
+     * and nothing else is asked, else the only one ('both' with none, which reads nothing).
+     *
+     * @return array{0: list<string>, 1: string} connected engines, the engine
+     */
+    public static function choose(Db $db, string $asked): array
+    {
+        $engines = array_values(array_filter(SearchData::ENGINES, fn (string $e): bool => Connectors::isConnected($db, $e)));
+
+        return [$engines, count($engines) === 1 ? $engines[0] : (in_array($asked, $engines, true) ? $asked : 'both')];
+    }
+
+    /**
+     * The rows of one kind (query, page, page_query) for the lists, most clicked first: queries and their pages come from one
+     * engine – Google when it is asked for and connected (it gives the page of each query), else Bing – from the snapshot of
+     * the same day as the totals.
+     *
+     * @param string $engine google | bing | both
+     * @return list<array<string, mixed>> key, page, clicks, impressions, ctr, position
+     */
+    public static function rows(Db $db, string $engine, string $kind): array
+    {
+        $source = $engine !== Bing::KEY && Connectors::isConnected($db, Google::KEY) ? Google::KEY : Bing::KEY;
+        $day = self::snapshots($db, $engine)[$source] ?? null;
+        $key = $db->dialect()->quote('key');
+
+        return $day === null ? [] : $db->all('SELECT ' . $key . ', page, clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, ' . $key, [$source, $kind, $day]);
+    }
+
+    /**
      * Queries that almost rank: a place between 8 and 20 with enough impressions, the most seen first, with the page that
      * gets most of that query's impressions.
      *
@@ -254,6 +285,60 @@ final class SearchInsights
         $seen = self::byPath($db, Google::KEY, $root);
 
         return array_values(array_filter($addresses, fn (string $a): bool => !isset($seen[self::key($a, $root)])));
+    }
+
+    /** The site's address with the installation's folder (https://example.com/magazin): what search URLs are matched against. */
+    public static function root(App $app): string
+    {
+        return rtrim((string) ($app->settings()->get('site_url') ?: $app->request->origin()), '/') . $app->request->basePath();
+    }
+
+    /**
+     * The key of each page row's address as path() keys the search URLs; the home page and its language versions live at
+     * the root of their language.
+     *
+     * @param list<array<string, mixed>> $pages rows with page_id, slug, language and translation_of
+     * @return array<int, string> page id => key
+     */
+    public static function pageKeys(App $app, array $pages, string $root): array
+    {
+        $seo = new \Talea\Front\Seo($app);
+        $home = $app->settings()->int('home_page');
+        $keys = [];
+        foreach ($pages as $p) {
+            $isHome = (int) $p['page_id'] === $home || ($p['language'] !== '' && (int) $p['translation_of'] === $home);
+            $keys[(int) $p['page_id']] = self::key($seo->address($isHome ? '' : (string) $p['slug'], (string) $p['language']), $root);
+        }
+
+        return $keys;
+    }
+
+    /**
+     * A total's change against four weeks earlier for a tile: a percentage; for the position, places (lower is better).
+     * '' when there is nothing to compare.
+     *
+     * @param array{clicks: int, impressions: int, ctr: float, position: ?float} $totals
+     * @param array{clicks: int, impressions: int, ctr: float, position: ?float}|null $previous
+     */
+    public static function change(array $totals, ?array $previous, string $field): string
+    {
+        if ($previous === null) {
+            return '';
+        }
+        if ($field === 'position') {
+            if ($totals['position'] === null || $previous['position'] === null || abs($previous['position'] - $totals['position']) < 0.05) {
+                return '';
+            }
+            $places = $previous['position'] - $totals['position'];
+
+            return $places > 0 ? t('%s higher', format_count($places, 1)) : t('%s lower', format_count(-$places, 1));
+        }
+        if ((float) $previous[$field] <= 0) {
+            return '';
+        }
+        $pct = 100 * ($totals[$field] - $previous[$field]) / $previous[$field];
+
+        return ($pct >= 0 ? '+' : '–') . format_count(abs($pct), 0) . ' %';
     }
 
     /**

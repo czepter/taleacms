@@ -6,6 +6,7 @@ namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
 use Talea\Core\Response;
+use Talea\Core\SearchInsights;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
 
@@ -89,7 +90,7 @@ final class Pages extends Module
         }
 
         return $this->view('list', 'Pages', [
-            'pages' => $pages, 'pageCount' => $pageCount, 'pageNumber' => $pageNumber,
+            'pages' => $pages, 'pageCount' => $pageCount, 'pageNumber' => $pageNumber, 'inSearch' => $trash ? null : $this->searchColumn($pages),
             'trash' => $trash, 'status' => $status, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'scored' => $scored, 'score' => $score, 'links' => $scored ? \Talea\Core\InternalLinks::pageCounts($this->app) : [],
             'orphans' => $scored ? array_flip(array_column(array_filter(\Talea\Core\InternalLinks::orphans($this->app), fn (array $o): bool => $o['kind'] === 'page'), 'id')) : [],
@@ -98,6 +99,82 @@ final class Pages extends Module
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
             'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
         ]);
+    }
+
+    /**
+     * The list's "Clicks · place" column (both engines' snapshot), for whoever may open Search engines → Performance: per
+     * page its numbers, false for a page the sitemap lists that has not appeared in search yet, null when nothing is known.
+     * Null without the right or without a snapshot.
+     *
+     * @param list<array<string, mixed>> $pages
+     * @return array<int, array{clicks: int, impressions: int, position: ?float}|false|null>|null
+     */
+    private function searchColumn(array $pages): ?array
+    {
+        if (!isset($this->kernel->modules()['search_performance']) || SearchInsights::snapshots($this->db, 'both') === []) {
+            return null;
+        }
+        $root = SearchInsights::root($this->app);
+        $seen = SearchInsights::byPath($this->db, 'both', $root);
+        $notInSearch = array_flip(array_map(fn (string $a): string => SearchInsights::key($a, $root),
+            SearchInsights::notInSearch($this->db, $root, array_map('strval', array_keys((new \Talea\Front\Seo($this->app))->sitemapPages()))) ?? []));
+        $column = [];
+        foreach (SearchInsights::pageKeys($this->app, $pages, $root) as $id => $key) {
+            $column[$id] = $seen[$key] ?? (isset($notInSearch[$key]) ? false : null);
+        }
+
+        return $column;
+    }
+
+    /**
+     * The SEO tab's "In search · 28 days": Google's numbers and queries for the page (SearchInsights::forPath), for whoever
+     * may open Search engines → Performance; null without the right or without a Google snapshot.
+     *
+     * @param array<string, mixed> $page
+     * @return array{totals: ?array{clicks: int, impressions: int, position: ?float}, queries: list<array{query: string, clicks: int, impressions: int, position: float}>}|null
+     */
+    private function searchFor(array $page): ?array
+    {
+        if (!isset($this->kernel->modules()['search_performance']) || SearchInsights::snapshots($this->db, \Talea\Connectors\Google::KEY) === []) {
+            return null;
+        }
+        $root = SearchInsights::root($this->app);
+
+        return SearchInsights::forPath($this->db, SearchInsights::pageKeys($this->app, [$page], $root)[(int) $page['page_id']], $root);
+    }
+
+    /**
+     * "Add as keyword" in the SEO tab's search block: a search that led to the page joins its focus keywords (up to five),
+     * saved as the SEO tab saves them, so the score follows.
+     */
+    protected function actionSeoKeywordAdd(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        if ($page === null) {
+            return $this->back('Page does not exist.', 'website', [], 'error');
+        }
+        $back = ['id' => (string) $page['public_id'], 'tab' => 'seo'];
+        if (($refusal = $this->requirePublishPermission($page, $back)) !== null) {
+            return $refusal;
+        }
+        $keyword = $this->request->post('keyword');
+        $keywords = \Talea\Core\SeoFields::keywords((string) $page['focus_keywords']);
+        if ($keyword === '') {
+            return $this->back();
+        }
+        if (in_array(mb_strtolower($keyword), array_map(mb_strtolower(...), $keywords), true)) {
+            return $this->back('This is already a focus keyword of the page.', 'website', $back);
+        }
+        if (count($keywords) >= \Talea\Core\SeoFields::MAX_KEYWORDS) {
+            return $this->back('A page has up to five focus keywords. Remove one to add another.', 'website', $back, 'error');
+        }
+        ['errors' => $errors] = $this->persist($page, ['focus_keywords' => implode("\n", [...$keywords, $keyword])] + $this->formValues($page), true);
+        if ($errors !== []) {
+            return $this->back((string) reset($errors), 'website', $back, 'error');
+        }
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'focus keyword added', mb_substr($page['title'], 0, 80));
+
+        return $this->back('Saved.', 'website', $back);
     }
 
     /** The fields "Edit titles in the list" sends per row. */
@@ -217,6 +294,7 @@ final class Pages extends Module
             'version' => $tab !== 'advanced' ? '' : self::computeBuildVersion($current['build_draft'] ?? $current['build']),
             'structured' => $tab !== 'advanced' || $build === null ? [] : array_values(array_filter(array_map(fn (array $element): string => (string) ($element['content']['data']['type'] ?? ''), Build::elementsOfType($build, fn (string $className): bool => $className === \Talea\Builder\Elements\StructuredData::class)))),
             'seo' => $tab === 'seo' ? $this->seoTab($current) : [],
+            'inSearch' => $tab === 'seo' ? $this->searchFor($current) : null,
         ]);
     }
 

@@ -1771,6 +1771,15 @@ body.login {
 .seo-groups span { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-weak); font-size: 12px; }
 .seo-groups b { color: var(--warning-text); }
 .seo-groups b.none { color: var(--text-weak); font-weight: 500; }
+.seo-search-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
+.seo-search-stats div { display: flex; flex-direction: column-reverse; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.seo-search-stats dt { color: var(--text-weak); font-size: 12px; }
+.seo-search-stats dd { margin: 0; font-size: 18px; font-weight: 600; }
+.seo-search-queries { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+.seo-search-queries li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.seo-search-queries li > span:first-child { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.seo-search-queries form { margin: 0; }
+.seo-search-queries .navigation { padding: 2px 8px; font-size: 12px; }
 .seo-check-list { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .seo-check-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 9px; font-size: 13.5px; line-height: 1.45; }
 .seo-check-list .icon { color: var(--warning-text); }

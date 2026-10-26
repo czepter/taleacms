@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
-use Talea\Connectors\Bing;
 use Talea\Connectors\Google;
-use Talea\Core\Connectors;
 use Talea\Core\Response;
 use Talea\Core\SearchData;
 use Talea\Core\SearchInsights;
@@ -31,34 +29,21 @@ final class SearchPerformance extends Module
 
     protected function actionList(): Response
     {
-        $engines = array_values(array_filter([Google::KEY, Bing::KEY], fn (string $k): bool => Connectors::isConnected($this->db, $k)));
         // "Both" only when both are connected; a disconnected engine's kept snapshots never count (SearchInsights)
-        $engine = $this->request->get('engine');
-        $engine = count($engines) === 1 ? $engines[0] : (in_array($engine, $engines, true) ? $engine : 'both');
+        [$engines, $engine] = SearchInsights::choose($this->db, $this->request->get('engine'));
         $data = ['connected' => $engines, 'engine' => $engine];
         $summary = $engines === [] ? null : SearchInsights::summary($this->db, $engine);
         if ($summary === null) {
             return $this->view('performance', 'Performance', $data + ['summary' => null]);
         }
 
-        $root = rtrim((string) ($this->app->settings()->get('site_url') ?: $this->request->origin()), '/') . $this->request->basePath();
-        // queries and their pages come from one engine (Google gives the page of each query, Bing only the query), from
-        // the snapshot of the same day as the totals
-        $source = $engine === Bing::KEY || !in_array(Google::KEY, $engines, true) ? Bing::KEY : Google::KEY;
-        $day = SearchInsights::snapshots($this->db, $engine)[$source] ?? null;
-        $key = $this->db->dialect()->quote('key');
-        $rows = fn (string $kind): array => $day === null ? [] : $this->db->all('SELECT ' . $key . ', page, clicks, impressions, ctr, position FROM {search_stats} WHERE engine = ? AND kind = ? AND day = ? ORDER BY clicks DESC, impressions DESC, ' . $key, [$source, $kind, $day]);
+        $root = SearchInsights::root($this->app);
+        $rows = fn (string $kind): array => SearchInsights::rows($this->db, $engine, $kind);
         $queries = $rows('query');
 
         // published pages by the address the site gives them, keyed like the search rows (SearchInsights::path)
-        $seo = new Seo($this->app);
-        $home = $this->app->settings()->int('home_page');
-        $pages = [];
-        foreach ($this->db->all('SELECT page_id, public_id, title, slug, language, translation_of, seo_score, focus_keywords FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL') as $p) {
-            // the home page and its language versions live at the root of their language
-            $isHome = (int) $p['page_id'] === $home || ($p['language'] !== '' && (int) $p['translation_of'] === $home);
-            $pages[SearchInsights::key($seo->address($isHome ? '' : $p['slug'], $p['language']), $root)] = $p;
-        }
+        $published = $this->db->all('SELECT page_id, public_id, title, slug, language, translation_of, seo_score, focus_keywords FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND password_hash IS NULL');
+        $pages = array_combine(SearchInsights::pageKeys($this->app, $published, $root), $published);
         $focus = [];
         foreach ($pages as $p) {
             $first = mb_strtolower(trim(strtok((string) $p['focus_keywords'], "\n") ?: ''));
@@ -81,7 +66,7 @@ final class SearchPerformance extends Module
             'top' => array_slice($top, 0, 10, true),
             'sitemaps' => in_array(Google::KEY, $engines, true) ? SearchData::report($this->db, date('Y-m-d', strtotime('-30 days')))[Google::KEY]['sitemaps'] ?? [] : [],
             // the pages the sitemap lists: not the ones kept out of search on purpose
-            'notInSearch' => SearchInsights::notInSearch($this->db, $root, array_map('strval', array_keys($seo->sitemapPages()))),
+            'notInSearch' => SearchInsights::notInSearch($this->db, $root, array_map('strval', array_keys((new Seo($this->app))->sitemapPages()))),
             'root' => $root,
         ]);
     }

@@ -39,26 +39,7 @@ if ($totals === null): ?>
 <p><?= e(t('No search data for the last 28 days.')) ?></p>
 <?php else:
 $previous = $summary['previous'];
-// change against four weeks earlier: a percentage; for the position, places (lower is better)
-$change = function (string $field) use ($totals, $previous): string {
-    if ($previous === null) {
-        return '';
-    }
-    if ($field === 'position') {
-        if ($totals['position'] === null || $previous['position'] === null || abs($previous['position'] - $totals['position']) < 0.05) {
-            return '';
-        }
-        $places = $previous['position'] - $totals['position'];
-
-        return $places > 0 ? t('%s higher', format_count($places, 1)) : t('%s lower', format_count(-$places, 1));
-    }
-    if ((float) $previous[$field] <= 0) {
-        return '';
-    }
-    $pct = 100 * ($totals[$field] - $previous[$field]) / $previous[$field];
-
-    return ($pct >= 0 ? '+' : '–') . format_count(abs($pct), 0) . ' %';
-};
+$change = fn (string $field): string => Talea\Core\SearchInsights::change($totals, $previous, $field);
 $tiles = [['Clicks', format_count($totals['clicks']), 'clicks'], ['Impressions', format_count($totals['impressions']), 'impressions'],
     ['Click-through rate', format_count($totals['ctr'], 1) . ' %', 'ctr'], ['Average position', $position($totals['position']), 'position']];
 ?>

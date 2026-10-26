@@ -12,6 +12,9 @@
  * @var string $host
  * @var bool $scored the Page check feature is on: the score and what to fix are shown
  * @var array<string, mixed> $seo Pages::seoTab()
+ * @var array<string, mixed>|null $inSearch Google's numbers and searches for the page (Pages::searchFor); null hides the block
+ * @var Talea\Admin\Modules\Pages $module
+ * @var string $csrf
  */
 $dir = $seo['dir'];
 // characters against what search results show in full; the bar turns to a warning past it (admin.js keeps it current)
@@ -38,7 +41,34 @@ $image = (string) $page['image'] !== '' ? (string) $page['image'] : $app->settin
 	<div class="website-field"><input type="hidden" name="key_page" value="0"><label class="website-option"><input type="checkbox" name="key_page" value="1"<?= $page['key_page'] ? ' checked' : '' ?>> <?= e(t('Key page')) ?></label><span class="help"><?= e(t('Marks one of the most important pages of the site.')) ?></span></div>
 </section>
 </form>
-<?php /* "In search · 28 days" (clicks, impressions and the queries of the page) goes here, with the search data of a later task */ ?>
+<?php if ($inSearch !== null): $focus = array_map(mb_strtolower(...), Talea\Core\SeoFields::keywords((string) $page['focus_keywords'])); $totals = $inSearch['totals']; ?>
+<section class="website-settings-section" aria-labelledby="seo-search-heading">
+	<h3 class="seo-heading" id="seo-search-heading"><span><?= e(t('In search · 28 days')) ?></span><a href="<?= e($app->url('admin.php?module=search_performance')) ?>"><?= e(t('All searches')) ?></a></h3>
+<?php if ($totals === null && $inSearch['queries'] === []): ?>
+	<p class="help"><?= e(t('Google Search Console has not shown this page in search in these 28 days.')) ?></p>
+<?php else: ?>
+	<dl class="seo-search-stats">
+		<div><dt><?= e(t('Clicks')) ?></dt><dd><?= format_count($totals['clicks'] ?? 0) ?></dd></div>
+		<div><dt><?= e(t('Shown')) ?></dt><dd><?= format_count($totals['impressions'] ?? 0) ?></dd></div>
+		<div><dt><?= e(t('Place')) ?></dt><dd><?= ($totals['position'] ?? null) !== null ? format_count($totals['position'], 1) : '—' ?></dd></div>
+	</dl>
+<?php if ($inSearch['queries'] !== []): ?>
+	<ul class="seo-search-queries" aria-label="<?= e(t('Searches that led to this page')) ?>">
+<?php foreach ($inSearch['queries'] as $q): ?>
+		<li><span<?= $dir ?>><?= e($q['query']) ?></span><span class="small-text" title="<?= e(t('Clicks · place')) ?>"><?= format_count($q['clicks']) ?> · <?= format_count($q['position'], 1) ?></span>
+<?php if (in_array(mb_strtolower($q['query']), $focus, true)): ?>
+			<span class="tag"><?= e(t('Focus keyword')) ?></span>
+<?php else: ?>
+			<form method="post" action="<?= e($module->url('seo_keyword_add')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($page['public_id']) ?>"><input type="hidden" name="keyword" value="<?= e($q['query']) ?>"><button class="navigation" type="submit" aria-label="<?= e(t('Add “%s” as a focus keyword', $q['query'])) ?>"><?= e(t('Add as keyword')) ?></button></form>
+<?php endif ?>
+		</li>
+<?php endforeach ?>
+	</ul>
+<?php endif ?>
+	<p class="help"><?= e(t('From Google Search Console.')) ?></p>
+<?php endif ?>
+</section>
+<?php endif ?>
 <section class="website-settings-section" aria-labelledby="seo-share-heading">
 	<h3 class="seo-heading" id="seo-share-heading"><span><?= e(t('When shared')) ?></span><a href="<?= e($link('sharing')) ?>"><?= e(t('Edit')) ?></a></h3>
 	<a class="seo-share" href="<?= e($link('sharing')) ?>">

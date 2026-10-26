@@ -66,8 +66,11 @@ final class Seo extends Module
             $state[$feature] = self::featureOn($settings, $feature);
         }
 
+        $connected = count(array_filter(\Talea\Core\SearchData::ENGINES, fn (string $e): bool => \Talea\Core\Connectors::isConnected($this->db, $e)));
+
         return $this->view('overview', 'Search engines', [
             'score' => $settings->get('seo_audit_score'), 'pages' => $pages, 'keywords' => $keywords,
+            'search' => $connected > 0 ? \Talea\Core\SearchInsights::summary($this->db, 'both') : null, 'connected' => $connected,
             'redirects' => (int) $this->db->value('SELECT COUNT(*) FROM {redirects} WHERE active = TRUE'), 'missing' => count(NotFound::pending($this->app, 7)),
             'noDescription' => $noDescription, 'state' => $state, 'modules' => $this->kernel->modules(),
         ]);

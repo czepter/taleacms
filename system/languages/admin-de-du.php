@@ -56,6 +56,7 @@ return [
     'A new secret has been created. Paste it into every receiver that checks the signature.' => 'Ein neuer Schlüssel wurde erstellt. Füge ihn in jeden Empfänger ein, der die Signatur prüft.',
     'A new version %s is available – install it in Settings → Backups.' => 'Eine neue Version %s ist verfügbar – installiere sie unter Einstellungen → Backups.',
     'A notice that is or was posted cannot be hidden – it stays on the board until its takedown date and then in the archive. Change the dates instead.' => 'Eine Bekanntmachung, die ausgehängt ist oder war, kann nicht ausgeblendet werden – sie bleibt bis zum Abnahmedatum auf der Tafel und danach im Archiv. Ändere stattdessen die Daten.',
+    'A page has up to five focus keywords. Remove one to add another.' => 'Eine Seite hat höchstens fünf Fokus-Keywords. Entferne eines, um ein weiteres hinzuzufügen.',
     'A page in the trash uses this address – restore it or delete it permanently.' => 'Diese Adresse hat eine Seite im Papierkorb – stelle sie wieder her oder lösche sie endgültig.',
     'A path from Media, e.g. media/2026/10/agency.svg – click the file in Media to open it, its address starts with media/.' => 'Ein Pfad aus den Medien, z. B. media/2026/10/agency.svg – klicke in den Medien auf die Datei, um sie zu öffnen; ihre Adresse beginnt mit media/.',
     'A row of logos of companies you work with.' => 'Eine Reihe von Logos der Unternehmen, mit denen du zusammenarbeitest.',
