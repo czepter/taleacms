@@ -24,8 +24,16 @@ final class RedirectRules
         if ($from === '' || mb_strlen($from) > 255) {
             return t('The address or pattern must be 1 to 255 characters.');
         }
-        if ($match === 'regex' && @preg_match(self::pattern($from), '') === false) {
-            return t('The regular expression is not valid.');
+        if ($match === 'regex') {
+            if (@preg_match(self::pattern($from), '') === false) {
+                return t('The regular expression is not valid.');
+            }
+            // a rule that answers every address (or, for 410 and 451, the empty one) would swallow the whole site
+            if (($type >= 400 && preg_match(self::pattern($from), '') === 1) || array_sum(array_map(fn (string $p): int => (int) preg_match(self::pattern($from), $p), ['x', 'a/b', 'zq-9'])) === 3) {
+                return t('The pattern matches every address.');
+            }
+        } elseif (trim($from, '/') === '') {
+            return t('The address or pattern must be 1 to 255 characters.');
         }
         if ($type < 400 && $to === '') {
             return t('A redirect needs a target.');
@@ -52,7 +60,7 @@ final class RedirectRules
                 return null; // no match, or a PCRE error (backtrack limit): never a failure
             }
 
-            return preg_replace_callback('/\$([1-9])/', fn (array $x): string => $m[(int) $x[1]] ?? '', $to);
+            return self::safe($to, preg_replace_callback('/\$([1-9])/', fn (array $x): string => $m[(int) $x[1]] ?? '', $to));
         }
         $from = trim($from, '/') . (str_ends_with($from, '/') && $match === 'starts' ? '/' : '');
         $lower = mb_strtolower($path);
@@ -68,7 +76,23 @@ final class RedirectRules
             return null;
         }
 
-        return $match === 'starts' && str_ends_with($to, '/') ? $to . mb_substr($path, mb_strlen($from)) : $to;
+        return self::safe($to, $match === 'starts' && str_ends_with($to, '/') ? $to . mb_substr($path, mb_strlen($from)) : $to);
+    }
+
+    /**
+     * The expanded target, null when substituting the visitor's text made it something the template did not say: only a template that
+     * starts with http:// or https:// may leave the site; otherwise the result must stay a path of this site (no //host, no \, no scheme).
+     */
+    private static function safe(string $template, ?string $result): ?string
+    {
+        if ($result === null || preg_match('/[\x00-\x1f\x7f]/', $result)) {
+            return null;
+        }
+        if (preg_match('#^https?://#i', $template)) {
+            return $result;
+        }
+
+        return preg_match('#^(\\s|/[/\\\\]|\\\\|[a-z][a-z0-9+.-]*:)#i', $result) ? null : $result;
     }
 
     private static function pattern(string $from): string

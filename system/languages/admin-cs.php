@@ -4643,6 +4643,7 @@ return [
     'The password must be at least 10 characters long.' => 'Heslo musí mít alespoň 10 znaků.',
     'The passwords do not match.' => 'Hesla se neshodují.',
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Cesta ke stránce (Úvod › Novinky › …) – sestaví se sama podle zobrazené stránky.',
+    'The pattern matches every address.' => 'Vzor odpovídá každé adrese.',
     'The person does not exist.' => 'Člověk neexistuje.',
     'The person gets an e-mail with a link that signs them in; it works once for a few days.' => 'Člověk dostane e-mail s odkazem, který ho přihlásí; funguje jednou a několik dní.',
     'The person has upcoming bookings – cancel or move them first, or switch the person off instead.' => 'Člověk má nadcházející rezervace – nejdřív je zrušte nebo přesuňte, nebo ho místo toho vypněte.',

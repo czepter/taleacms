@@ -4650,6 +4650,7 @@ return [
     'The password must be at least 10 characters long.' => 'Das Passwort muss mindestens 10 Zeichen lang sein.',
     'The passwords do not match.' => 'Die Passwörter stimmen nicht überein.',
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Der Pfad zur Seite (Startseite › News › …) – wird für die angezeigte Seite automatisch erstellt.',
+    'The pattern matches every address.' => 'Das Muster passt auf jede Adresse.',
     'The person does not exist.' => 'Die Person existiert nicht.',
     'The person gets an e-mail with a link that signs them in; it works once for a few days.' => 'Die Person erhält eine E-Mail mit einem Link, der sie anmeldet; er funktioniert einmal und einige Tage lang.',
     'The person has upcoming bookings – cancel or move them first, or switch the person off instead.' => 'Die Person hat bevorstehende Buchungen – stornieren oder verschieben Sie sie zuerst oder schalten Sie die Person stattdessen aus.',

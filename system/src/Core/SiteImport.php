@@ -730,8 +730,13 @@ final class SiteImport
             $to = '/';
         }
 
-        return ($match !== 'exact' || preg_match('#^[^\s/][^\s]{0,254}$#', $from)) && RedirectRules::validate($from, $to, $match, $type) === null && is_string($r['to_path'] ?? null) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to)
-            ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'match_type' => $match, 'type' => $type, 'active' => (int) ($r['active'] ?? true), 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
+        $valid = ($match !== 'exact' || preg_match('#^[^\s/][^\s]{0,254}$#', $from))
+            && RedirectRules::validate($from, $to, $match, $type) === null
+            && is_string($r['to_path'] ?? null)
+            && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to);
+
+        return $valid
+            ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'match_type' => $match, 'type' => $type, 'active' => empty($r['active'] ?? 1) ? 0 : 1, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
