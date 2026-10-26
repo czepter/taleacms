@@ -32,7 +32,7 @@ $tabs = ['' => t('All'), 'basics' => t('Basics'), 'advanced' => t('Advanced'), '
 	<a href="<?= e($module->url('', $slug === '' ? [] : ['category' => $slug])) ?>"<?= $slug === $category ? ' aria-current="page"' : '' ?>><?= e($label) ?> <span class="list-tab-count"><?= $slug === '' ? $total : ($counts[$slug] ?? 0) ?></span></a>
 <?php endforeach ?>
 </nav>
-<p class="notice<?= $total === 0 ? ' notice-ok' : '' ?>"><?= e($total === 0 ? t('No problems found – links lead where they should, pages have descriptions and the builder checks pass.') : t('Found %d things to fix. Each one links to where you fix it; Claude can go through them too (site_audit).', $total)) ?></p>
+<p class="notice<?= $problems === 0 ? ' notice-ok' : '' ?>"><?= e($problems === 0 ? t('No problems found – links lead where they should, pages have descriptions and the builder checks pass.') : t('Found %d things to fix. Each one links to where you fix it; Claude can go through them too (site_audit).', $problems)) ?></p>
 <?php foreach (Audit::KINDS as $kind => $name): if (($groups[$kind] ?? []) === []) { continue; } ?>
 <h2><?= e(t($name)) ?> <span class="badge"><?= count($groups[$kind]) ?></span></h2>
 <div class="tab-wrap"><table class="listing">

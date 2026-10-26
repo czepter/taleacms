@@ -42,4 +42,28 @@ final class AuditScoreTest extends SiteTestCase
         $this->assertSame('1', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_previous'"), 'an identical run keeps previous');
         $this->assertSame($first, (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'"));
     }
+
+    public function testCategoryFilterShowsOnlyItsFindings(): void
+    {
+        $this->site()->mcp('create_page', ['title' => 'Undescribed audit page', 'slug' => 'undescribed-audit', 'visible' => true]);
+        $basics = $this->assertPage('/admin.php?module=audit&category=basics', 200, 'No description for search engines', message: 'a basics finding');
+        $this->assertStringContainsString('things to fix', $basics->body);
+        $speed = $this->assertPage('/admin.php?module=audit&category=speed', 200, message: 'another category');
+        $this->assertStringNotContainsString('No description for search engines', $speed->body, 'a finding of another category is hidden');
+        $this->assertStringNotContainsString('things to fix', $speed->body, 'the banner follows the selected category');
+        $this->assertPage('/admin.php?module=audit&category=nonsense', 200, 'No description for search engines', message: 'an unknown category falls back to all');
+    }
+
+    public function testPreviousScoreIsReportedAfterAChange(): void
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_settings WHERE name IN ('seo_audit_score', 'seo_audit_previous')");
+        $this->assertPage('/admin.php?module=audit');
+        $now = (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'");
+        $site->exec("UPDATE tl_settings SET value = '7' WHERE name = 'seo_audit_score'");
+        $this->assertPage('/admin.php?module=audit');
+        $this->assertSame('7', (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_previous'"));
+        $this->assertStringContainsString('"previous_score":7', $site->mcpText('site_audit'));
+        $this->assertSame($now, (string) $site->value("SELECT value FROM tl_settings WHERE name = 'seo_audit_score'"));
+    }
 }
