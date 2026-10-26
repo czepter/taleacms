@@ -72,12 +72,12 @@ final class ValidityTest extends SiteTestCase
         }
         $this->assertPage('/admin.php?module=audit', 200, 'Expired offer', message: 'Administration → Site audit shows the review-by findings');
 
-        $form = $this->assertPage('/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', self::$page), 200, 'name="valid_until" value="' . self::$yesterday . '"', message: 'the page form shows true until and review by');
-        $this->assertStringContainsString('name="review_by" value="' . self::$today . '"', $form->body, 'the page form shows the review-by date');
+        $form = $this->assertPage('/admin.php?module=pages&action=website&tab=publishing&id=' . $site->publicId('pages', self::$page), 200, 'name="valid_until" value="' . self::$yesterday . '"', message: 'the Publishing tab shows true until and review by');
+        $this->assertStringContainsString('name="review_by" value="' . self::$today . '"', $form->body, 'the Publishing tab shows the review-by date');
 
         $this->adminPost('/admin.php?module=pages&action=save', [
             'page_id' => $site->publicId('pages', self::$page), 'title' => 'Expired offer', 'slug' => 'expired-offer', 'text' => '<p>x</p>', 'poradi' => 100, 'valid_until' => '', 'review_by' => '2030-01-01',
-        ], '/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', self::$page));
+        ], '/admin.php?module=pages&action=website&id=' . $site->publicId('pages', self::$page));
         $this->sameValue('null|2030-01-01', $site->value("SELECT CONCAT(IFNULL(valid_until, 'null'), '|', IFNULL(review_by, 'null')) FROM tl_pages WHERE page_id = ?", [self::$page]), 'saving the page form clears true until and keeps the new review-by date');
 
         $this->assertPage('/admin.php?module=pages', 200, '<span class="status-note status-note-warning">review by ', message: 'the pages list shows the review-by note');

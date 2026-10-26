@@ -599,6 +599,19 @@
 	document.addEventListener('focusout', hideTip);
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
 
+	// Website mode: the settings sidebar folds to a rail with a link per tab; the browser remembers it (without a script it stays open)
+	var website = document.querySelector('.website'), settingsToggles = document.querySelectorAll('[data-settings-toggle]');
+	if (website && settingsToggles.length) {
+		var foldSettings = function (closed) {
+			website.classList.toggle('settings-closed', closed);
+			settingsToggles.forEach(function (b) { b.setAttribute('aria-expanded', closed ? 'false' : 'true'); });
+			try { localStorage.setItem('talea.websiteSettings', closed ? 'closed' : 'open'); } catch (e) { /* private mode */ }
+		};
+		try { if (localStorage.getItem('talea.websiteSettings') === 'closed') { foldSettings(true); } } catch (e) { /* private mode */ }
+		settingsToggles.forEach(function (b) { b.addEventListener('click', function () { foldSettings(!website.classList.contains('settings-closed')); }); });
+		document.querySelectorAll('.website-settings-rail a').forEach(function (a) { a.addEventListener('click', function () { foldSettings(false); }); });
+	}
+
 	// Save at hand: the Save row of the screen's one edit form is repeated in the page heading, which stays on top while scrolling.
 	// The copies submit that form (form="…"), so their name/value, data-confirm and the field validation work as on the originals.
 	var head = document.querySelector('.header-pages'), rows = [];

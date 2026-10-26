@@ -48,7 +48,10 @@ final class SeoFieldsMcpTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_page', ['title' => 'Form page', 'slug' => 'form-page', 'content' => '<p>x</p>']);
         $id = (string) $site->value("SELECT public_id FROM tl_pages WHERE slug = 'form-page'");
-        $this->adminPost('/admin.php?module=pages&action=seo_save&id=' . $id, ['seo_title' => 'T', 'focus_keywords' => "x\ny", 'robots' => ['noarchive', 'nofollow'], 'key_page' => '1', 'share_title' => 'S']);
+        $save = fn (array $fields) => $this->adminPost('/admin.php?module=pages&action=settings_save', ['id' => $id] + $fields);
+        $save(['tab' => 'seo', 'seo_title' => 'T', 'focus_keywords' => "x\ny", 'key_page' => '1']);
+        $save(['tab' => 'advanced', 'robots' => ['', 'noarchive', 'nofollow']]);
+        $save(['tab' => 'sharing', 'share_title' => 'S']);
         $this->assertSame("x\ny|nofollow,noarchive|1|S", $site->value("SELECT CONCAT(focus_keywords, '|', robots, '|', key_page, '|', share_title) FROM tl_pages WHERE slug = 'form-page'"));
     }
 

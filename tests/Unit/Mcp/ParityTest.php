@@ -37,7 +37,7 @@ final class ParityTest extends TestCase
             'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
             'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement'];
         $parity = [
-            'pages' => $builderParity + ['list' => $readOnly, 'website' => $readOnly, 'seo_save' => 'update_page', 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
+            'pages' => $builderParity + ['list' => $readOnly, 'website' => $readOnly, 'settings_save' => 'update_page', 'seo_add_type' => 'edit_build', 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
                 'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
                 'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page', 'compare' => $readOnly,

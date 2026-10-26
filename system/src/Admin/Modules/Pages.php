@@ -83,8 +83,8 @@ final class Pages extends Module
      * @return list<array<string, mixed>>
      */
     /**
-     * Website mode: the sidebar holds the site's pages grouped by the menu (in it or not), the content is a live preview of
-     * the chosen page with the way into the builder. The draft is shown where a page has one.
+     * Website mode: the sidebar holds the site's pages grouped by the menu (in it or not), the content is a framed preview of
+     * the chosen page (its draft where there is one) with the settings sidebar beside it, one tab at a time (?tab=).
      */
     protected function actionWebsite(): Response
     {
@@ -96,45 +96,132 @@ final class Pages extends Module
             $groups[$inMenu ? 'menu' : 'other'][] = $page + ['home' => (int) $page['page_id'] === $home];
         }
         $chosen = $this->idParam('id', null, true);
-        $current = array_values(array_filter($pages, fn (array $p): bool => (int) $p['page_id'] === ($chosen > 0 ? $chosen : $home)))[0] ?? $pages[0] ?? null;
-        $url = $current === null ? '' : $this->app->url((int) $current['page_id'] === $home ? '' : (string) $current['slug']);
-        $seo = $this->request->get('view') === 'seo' && $current !== null; // the SEO tab: how the chosen page appears outside the site
+        // the full row: a language version opens here too (from the Page tab), it is only not in the tree
+        $current = ($chosen > 0 ? $this->loadPage($chosen) : null) ?? $this->loadPage($home) ?? ($pages !== [] ? $this->loadPage((int) $pages[0]['page_id']) : null);
+        $asked = $this->request->get('tab');
+        $tab = isset(self::SETTINGS_TABS[$asked]) ? $asked : 'seo';
         $this->kernel->sidebar = $this->app->view->render('admin/pages/website_sidebar', [
             'app' => $this->app, 'module' => $this, 'groups' => $groups, 'current' => $current === null ? 0 : (int) $current['page_id'], 'modules' => $this->kernel->modules(),
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $seo,
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'), 'seo' => $asked === 'seo', 'tab' => isset(self::SETTINGS_TABS[$asked]) ? $asked : '', 'currentId' => (string) ($current['public_id'] ?? ''),
         ]);
-        if ($seo) {
-            $fields = $this->db->one('SELECT seo_title, description, image, noindex FROM {pages} WHERE page_id = ?', [(int) $current['page_id']]) ?? [];
-
-            return $this->view('website_seo', '', ['page' => $current + $fields, 'url' => $url, 'home' => (int) $current['page_id'] === $home,
-                'siteName' => $this->app->settings()->get('site_name'), 'origin' => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/')]);
+        if ($current === null) {
+            return $this->view('website', '', ['page' => null]);
         }
+        $id = (int) $current['page_id'];
+        $url = self::address($this->app, $current);
+        $build = Build::fromJson($current['build_draft'] ?? $current['build']);
+        $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
+        $language = (string) $current['language'];
 
-        return $this->view('website', '', ['page' => $current, 'url' => $url, 'preview' => $current !== null && $current['has_draft'] ? $url . '?build=draft' : $url]);
+        return $this->view('website', '', [
+            'page' => $current, 'url' => $url, 'tab' => $tab, 'home' => $id === $home,
+            // the draft where there is one; a hidden page is seen only as a preview
+            'preview' => $current['build_draft'] !== null || !$current['visible'] ? $url . '?build=draft' : $url,
+            'host' => ($site['host'] ?? '') . (isset($site['port']) ? ':' . $site['port'] : ''),
+            'comments' => count(\Talea\Core\DraftComments::list($this->db, 'page:' . $id)),
+            'canPublish' => $this->app->auth()->canPublish(),
+            'hasBuild' => $build !== null,
+            'parents' => $tab !== 'page' ? [] : array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, $id]),
+                fn (array $s): bool => !str_starts_with($s['slug'] . '/', $current['slug'] . '/'))),
+            'inMenu' => \Talea\Core\Menu::hasPage($this->db, $id, $language) ?? (bool) $current['in_menu'],
+            // the language versions the page form offered: each additional language with this page's translation or a way to create it
+            'translations' => $tab !== 'page' || $language !== '' ? [] : array_map(fn (string $code): array => ['code' => $code, 'name' => \Talea\Core\Language::AVAILABLE[$code][0] ?? $code,
+                'page' => $this->db->one('SELECT public_id, visible FROM {pages} WHERE translation_of = ? AND language = ? AND deleted_at IS NULL', [$id, $code])], \Talea\Core\Language::additional($this->app->settings())),
+            'versions' => $tab !== 'publishing' || $build !== null ? [] : $this->db->all('SELECT r.revision_id, r.created_at, r.title, CASE WHEN u.name = \'\' THEN u.username ELSE u.name END AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [$id]),
+            'structured' => $tab !== 'advanced' || $build === null ? [] : array_values(array_filter(array_map(fn (array $element): string => (string) ($element['content']['data']['type'] ?? ''), Build::elementsOfType($build, fn (string $className): bool => $className === \Talea\Builder\Elements\StructuredData::class)))),
+            'contentCheck' => $tab === 'seo' ? \Talea\Core\ContentCheck::forPage($current) : [],
+        ]);
     }
 
-    /** The SEO tab of Website mode saves only how the page appears outside the site: title, description, sharing image, noindex. */
-    protected function actionSeoSave(): Response
+    /** The tabs of Website mode's settings sidebar and the fields each one saves (pages/settings_save). */
+    private const array SETTINGS_TABS = [
+        'seo' => ['seo_title', 'description', 'focus_keywords', 'key_page'],
+        'page' => ['title', 'slug', 'parent_id', 'in_menu', 'sort_order'],
+        'publishing' => ['visible', 'publish_at', 'valid_until', 'review_by', 'page_password', 'remove_password', 'member_groups_present', 'member_groups'],
+        'sharing' => ['share_title', 'share_description', 'image'],
+        'advanced' => ['noindex', 'robots', 'canonical_url', 'breadcrumb_title', 'head_code'],
+    ];
+
+    /**
+     * Saves one tab of the settings sidebar: its fields over the page's stored values, so a field the tab does not show is
+     * never cleared. Visibility, dates and the password, like a changed address, need the permission to publish.
+     */
+    protected function actionSettingsSave(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
+        $tab = $this->request->post('tab');
+        if ($page === null || !isset(self::SETTINGS_TABS[$tab])) {
+            return $this->back('Page does not exist.', 'website', [], 'error');
+        }
+        $in = array_intersect_key($_POST, array_flip(self::SETTINGS_TABS[$tab])) + $this->formValues($page);
+        $moved = $tab === 'page' && (\Talea\Core\Robots::scalar($in['slug']) !== basename((string) $page['slug']) || $this->db->internalId('pages', $in['parent_id']) !== (int) $page['parent_id']);
+        if (($refusal = $this->requirePublishPermission($page)) !== null || (($tab === 'publishing' || $moved) && ($refusal = $this->requirePublishPermission()) !== null)) {
+            return $refusal;
+        }
+        $back = ['id' => (string) $page['public_id'], 'tab' => $tab];
+        if ($tab === 'advanced') {
+            // the page's own address is no override: stored empty, so the page keeps following its address
+            $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
+            $own = ($site['scheme'] ?? 'http') . '://' . ($site['host'] ?? '') . (isset($site['port']) ? ':' . $site['port'] : '') . self::address($this->app, $page);
+            if (self::sameAddress(\Talea\Core\Robots::scalar($in['canonical_url']), $own)) {
+                $in['canonical_url'] = '';
+            }
+        }
+        $errors = $this->persist($page, $in)['errors'];
+        if ($errors !== []) {
+            return $this->back((string) reset($errors), 'website', $back, 'error');
+        }
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'settings edited (' . $tab . ')', mb_substr($page['title'], 0, 80));
+
+        return $this->back('Saved.', 'website', $back);
+    }
+
+    /** The page's stored values as its form posts them: what settings_save lays one tab's fields over. @return array<string, mixed> */
+    private function formValues(array $page): array
+    {
+        return array_intersect_key($page, array_flip(['title', 'slug', 'description', 'seo_title', 'image', 'noindex', 'visible', 'sort_order', 'language', 'valid_until', 'review_by', 'publish_at', 'head_code', ...\Talea\Core\SeoFields::COLUMNS])) + [
+            'parent_id' => $this->publicId((int) $page['parent_id']),
+            'translation_of' => $this->publicId((int) $page['translation_of']),
+            'in_menu' => \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) $page['language']) ?? (bool) $page['in_menu'],
+        ];
+    }
+
+    /** Two addresses are the same when scheme and host match in any case, the path and query exactly; a trailing slash does not count. */
+    private static function sameAddress(string $a, string $b): bool
+    {
+        $key = static function (string $url): string {
+            $u = parse_url($url) ?: [];
+
+            return strtolower(($u['scheme'] ?? '') . '://' . ($u['host'] ?? '') . (isset($u['port']) ? ':' . $u['port'] : '')) . rtrim($u['path'] ?? '', '/') . (isset($u['query']) ? '?' . $u['query'] : '');
+        };
+
+        return $a !== '' && $key($a) === $key($b);
+    }
+
+    /**
+     * The Advanced tab's "Add a type": a structured-data element of a schema.org type at the end of the draft, then the builder
+     * with it selected to fill in. A text page has no build to add it to.
+     */
+    protected function actionSeoAddType(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->idParam()) : null;
         if ($page === null) {
             return $this->back('Page does not exist.', 'website', [], 'error');
         }
-        if (($refusal = $this->requirePublishPermission($page)) !== null) {
-            return $refusal;
+        $back = ['id' => (string) $page['public_id'], 'tab' => 'advanced'];
+        $previous = Build::fromJson($page['build_draft'] ?? $page['build']);
+        $type = $this->request->post('type');
+        if ($previous === null) {
+            return $this->back('Open the page in the builder to add structured data.', 'website', $back, 'error');
         }
-        $r = $this->request;
-        $this->db->update('pages', [
-            'seo_title' => mb_substr(trim($r->post('seo_title')), 0, 200),
-            'description' => mb_substr(trim($r->post('description')), 0, 300),
-            'image' => mb_substr(trim($r->post('image')), 0, 255),
-            'noindex' => (int) $r->postBool('noindex'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ] + \Talea\Core\SeoFields::fromInput($_POST), ['page_id' => (int) $page['page_id']]);
-        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
-        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'search appearance edited', mb_substr($page['title'], 0, 80));
+        if (!in_array($type, \Talea\Builder\StructuredData::types(), true)) {
+            return $this->back('Choose a type of structured data.', 'website', $back, 'error');
+        }
+        $element = Build::fresh('structured_data', ['data' => ['type' => $type, 'fields' => []]]);
+        [$build] = Build::sanitize(['children' => [...$previous['children'], $element]] + $previous, $this->app->auth()->isAdmin(), $previous);
+        $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $page['page_id']]);
 
-        return $this->back('Saved.', 'website', ['view' => 'seo', 'id' => (string) $page['public_id']]);
+        return \Talea\Core\Response::redirect($this->url('builder', ['id' => (string) $page['public_id'], 'select' => $element['id']]));
     }
 
     private static function sortAsTree(array $pages): array
@@ -239,11 +326,12 @@ final class Pages extends Module
             . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'error');
     }
 
+    /** An existing page's settings live in Website mode's sidebar; the form stays for new pages (pages/new). */
     protected function actionEdit(): Response
     {
-        $page = $this->db->one('SELECT * FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$this->idParam()]);
+        $page = $this->loadPage($this->idParam());
 
-        return $page === null ? $this->error('Page does not exist.', 404) : $this->form($page);
+        return $page === null ? $this->error('Page does not exist.', 404) : \Talea\Core\Response::redirect($this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'page']));
     }
 
     /** Saving from editing "directly on the site" (views/front/edit.php): only the page's name and text. */
@@ -487,7 +575,7 @@ final class Pages extends Module
 
         return [
             'id' => (string) $page['public_id'], 'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true, 'description' => (string) $page['description'], 'image' => (string) $page['image'],
-            'back' => ['url' => $this->url('website', ['id' => (string) $page['public_id']]), 'text' => t('Website')], 'settings' => $this->url('edit', ['id' => (string) $page['public_id']]),
+            'back' => ['url' => $this->url('website', ['id' => (string) $page['public_id']]), 'text' => t('Website')], 'settings' => $this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'page']),
             'signature' => 'page:' . (int) $page['page_id'],
         ];
     }

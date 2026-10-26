@@ -49,12 +49,13 @@ final class AdministrationTest extends SiteTestCase
         $this->assertStringContainsString('<span class="menu-heading">Main navigation</span>', $website->body, 'Website mode: the sidebar groups the pages by the menu');
         $this->assertStringContainsString('/admin/pages/builder/', $website->body, 'Website mode: Edit opens the builder of the shown page');
         $homeId = $this->site()->publicId('pages', (int) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'home_page'"));
-        $this->assertPage('/admin.php?module=pages&action=website&view=seo&id=' . $homeId, 200, 'class="seo-result"', message: 'Website mode, SEO: the search result of the page');
+        $this->assertPage('/admin.php?module=pages&action=website&tab=seo&id=' . $homeId, 200, ['data-settings-panel', 'name="seo_title"'], message: 'Website mode, SEO: the settings sidebar opens on its SEO tab');
         $installed = (array) $this->site()->rows('SELECT seo_title, description, image FROM tl_pages WHERE public_id = ?', [$homeId])[0];
         $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
-        $this->site()->admin()->post('/admin.php?module=pages&action=seo_save', ['_csrf' => $csrf, 'id' => $homeId, 'seo_title' => 'Search title', 'description' => 'A description for search', 'image' => '', 'noindex' => '']);
-        $this->assertSame('Search title|A description for search|0', (string) $this->site()->value("SELECT CONCAT(seo_title, '|', description, '|', noindex) FROM tl_pages WHERE public_id = ?", [$homeId]), 'Website mode, SEO: the tab saves only the search appearance');
-        $this->site()->admin()->post('/admin.php?module=pages&action=seo_save', ['_csrf' => $csrf, 'id' => $homeId, 'noindex' => ''] + $installed); // the later tests see the home page as installed
+        $this->site()->admin()->post('/admin.php?module=pages&action=settings_save', ['_csrf' => $csrf, 'id' => $homeId, 'tab' => 'seo', 'seo_title' => 'Search title', 'description' => 'A description for search', 'image' => 'ignored.jpg', 'noindex' => '1']);
+        $this->assertSame('Search title|A description for search|0', (string) $this->site()->value("SELECT CONCAT(seo_title, '|', description, '|', noindex) FROM tl_pages WHERE public_id = ?", [$homeId]), 'Website mode, SEO: the tab saves only its own fields');
+        $this->assertSame((string) $installed['image'], (string) $this->site()->value('SELECT image FROM tl_pages WHERE public_id = ?', [$homeId]), 'Website mode, SEO: the sharing image belongs to another tab');
+        $this->site()->admin()->post('/admin.php?module=pages&action=settings_save', ['_csrf' => $csrf, 'id' => $homeId, 'tab' => 'seo'] + $installed); // the later tests see the home page as installed
 
         foreach (['pages', 'pages&action=new', 'enquiries', 'parts', 'components', 'components&action=new', 'collections', 'collections&action=new', 'news', 'news&action=new', 'news&action=links', 'categories', 'categories&action=new', 'tags', 'media', 'stats', 'appearance', 'users', 'users&action=new', 'redirects', 'changelog', 'transfer', 'extensions'] as $module) {
             $this->assertPage("/admin.php?module=$module", 200, message: "module $module");

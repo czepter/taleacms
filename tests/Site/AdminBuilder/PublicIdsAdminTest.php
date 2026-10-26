@@ -27,7 +27,7 @@ final class PublicIdsAdminTest extends SiteTestCase
         $this->assertGreaterThan(0, $pageId);
         $this->assertGreaterThan(0, $newsId);
 
-        $this->assertPage('/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', $pageId), 200, 'name="page_id"', message: 'a page opens by its public id');
+        $this->assertPage('/admin.php?module=pages&action=website&id=' . $site->publicId('pages', $pageId), 200, 'name="id" value="' . $site->publicId('pages', $pageId) . '"', message: 'a page opens by its public id');
         $this->assertPage('/admin.php?module=pages&action=edit&id=' . $pageId, 404, message: 'a page does not open by its integer key');
         $this->assertPage('/admin.php?module=news&action=edit&id=' . $site->publicId('news', $newsId), 200, 'name="news_id"', message: 'a news item opens by its public id');
         $this->assertPage('/admin.php?module=news&action=edit&id=' . $newsId, 404, message: 'a news item does not open by its integer key');
@@ -83,9 +83,11 @@ final class PublicIdsAdminTest extends SiteTestCase
 
         // a form of one record: the hidden field and the links carry the public id
         $pageId = (int) $site->value('SELECT page_id FROM tl_pages WHERE deleted_at IS NULL ORDER BY page_id LIMIT 1');
-        $form = $this->assertPage('/admin.php?module=pages&action=edit&id=' . $site->publicId('pages', $pageId), 200)->body;
-        $this->assertSame(0, preg_match(self::INTEGER_ID, $form, $match, PREG_OFFSET_CAPTURE), 'the page form carries no integer id: ' . substr($form, max(0, (int) ($match[0][1] ?? 0) - 120), 200));
-        $this->assertStringContainsString('name="page_id" value="' . $site->publicId('pages', $pageId) . '"', $form);
+        foreach (['page', 'publishing', 'advanced'] as $tab) {
+            $form = $this->assertPage('/admin.php?module=pages&action=website&tab=' . $tab . '&id=' . $site->publicId('pages', $pageId), 200)->body;
+            $this->assertSame(0, preg_match(self::INTEGER_ID, $form, $match, PREG_OFFSET_CAPTURE), "the page's $tab tab carries no integer id: " . substr($form, max(0, (int) ($match[0][1] ?? 0) - 120), 200));
+            $this->assertStringContainsString('name="id" value="' . $site->publicId('pages', $pageId) . '"', $form);
+        }
 
         // the JSON of the media library
         $json = json_decode($this->assertPage('/admin.php?module=media&action=listing', 200)->body, true);

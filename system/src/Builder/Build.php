@@ -506,7 +506,7 @@ final class Build
     }
 
     /** @return array<string, array<string, mixed>> id => element for all elements whose class meets the condition */
-    private static function elementsOfType(array $build, callable $condition): array
+    public static function elementsOfType(array $build, callable $condition): array
     {
         $found = [];
         $walk = function (array $children) use (&$walk, &$found, $condition): void {
