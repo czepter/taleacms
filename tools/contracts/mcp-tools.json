@@ -1764,9 +1764,11 @@
     },
     "save_redirect": {
         "parameters": {
+            "active": "boolean",
             "code": "integer",
             "delete": "boolean",
             "from": "string",
+            "match": "string",
             "to": "string"
         },
         "required": [

@@ -35,6 +35,10 @@ final class RedirectRulesTest extends TestCase
         $this->assertNotNull(RedirectRules::validate('a', 'x', 'fuzzy', 301));
         $this->assertNotNull(RedirectRules::validate('a', 'x', 'exact', 303));
         $this->assertNull(RedirectRules::validate('blog/', 'news/', 'starts', 301));
+        foreach (['//evil.example/x', '\\evil', 'mailto:a@b.c', 'javascript:alert(1)', "/a\x01b"] as $to) {
+            $this->assertNotNull(RedirectRules::validate('a', $to, 'exact', 301), 'unusable target ' . json_encode($to));
+        }
+        $this->assertNull(RedirectRules::validate('a', 'https://example.com/x', 'exact', 301));
     }
 
     public function testBacktrackingReturnsNull(): void

@@ -6,6 +6,7 @@ namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
 use Talea\Core\Db;
+use Talea\Core\RedirectRules;
 use Talea\Core\Response;
 
 /**
@@ -43,6 +44,40 @@ final class Redirects extends Module
 
     private const int PER_PAGE = 50;
 
+    /**
+     * The rule as it is stored, or the refusal message (Core\RedirectRules::validate). An exact address is a bare path; the other
+     * kinds keep what was typed (a pattern, or a part of an address with its slashes). `$id` > 0 changes that row.
+     *
+     * @return array{from: string, to: string}|string
+     */
+    public static function normalize(string $from, string $to, string $match, int $type): array|string
+    {
+        $from = trim($from);
+        if ($match !== 'regex') {
+            $from = $match === 'exact' || preg_match('#^https?://#i', $from) ? trim((string) parse_url($from, PHP_URL_PATH), '/ ') : ltrim($from, '/');
+        }
+        $to = $type >= 400 ? '' : (preg_match('#^https?://#i', trim($to)) ? trim($to) : ($match === 'starts' ? ltrim(trim($to), '/') : trim(trim($to), '/')));
+
+        return RedirectRules::validate($from, $to, $match, $type) ?? ['from' => $from, 'to' => $to];
+    }
+
+    /** Stores a checked rule (see normalize()): a new one replaces a rule with the same old address. */
+    public static function store(Db $db, string $from, string $to, string $match, int $type, bool $active, int $id = 0): void
+    {
+        $fields = ['from_path' => mb_substr($from, 0, 255), 'to_path' => mb_substr($to, 0, 255), 'match_type' => $match, 'type' => $type, 'active' => $active, 'auto_score' => null];
+        if ($id > 0) {
+            $db->update('redirects', $fields, ['redirect_id' => $id]);
+        } elseif ($match === 'exact' && $type < 400) {
+            self::add($db, $from, $to); // no chains, and the site's own links are healed
+            $db->update('redirects', $fields, ['from_path' => $from]);
+        } else {
+            $db->upsert('redirects', $fields + ['created_at' => date('Y-m-d H:i:s')], ['from_path'], ['to_path', 'match_type', 'type', 'active', 'auto_score']);
+        }
+        if ($match === 'exact') {
+            $db->delete('not_found', ['path' => $from]);
+        }
+    }
+
     protected function actionList(): Response
     {
         // one redirect on its own page: new, edited, or prefilled with an address visitors could not find (?from=)
@@ -56,16 +91,25 @@ final class Redirects extends Module
             return $this->view('edit', $edit !== null ? 'Edit redirect' : 'New redirect', ['edit' => $edit, 'fromUrl' => mb_substr($r->get('from'), 0, 255)]);
         }
         $search = mb_substr(trim($r->get('search')), 0, 100);
-        $whereParts = $search !== '' ? 'WHERE ' . $this->db->dialect()->likeInsensitive('from_path') . ' OR ' . $this->db->dialect()->likeInsensitive('to_path') : '';
-        $params = $search !== '' ? array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%') : [];
+        $status = in_array($r->get('status'), ['active', 'off', 'auto'], true) ? $r->get('status') : 'all';
+        $where = [];
+        $params = [];
+        if ($search !== '') {
+            $where[] = '(' . $this->db->dialect()->likeInsensitive('from_path') . ' OR ' . $this->db->dialect()->likeInsensitive('to_path') . ')';
+            $params = array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%');
+        }
+        $where[] = ['all' => 'TRUE', 'active' => 'active = TRUE', 'off' => 'active = FALSE', 'auto' => 'auto_score IS NOT NULL'][$status];
+        $whereParts = 'WHERE ' . implode(' AND ', $where);
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {redirects} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $r->getInt('page', 1)));
+        $counts = $this->db->one('SELECT COUNT(*) AS n_all, SUM(CASE WHEN active = TRUE THEN 1 ELSE 0 END) AS n_active, SUM(CASE WHEN active = FALSE THEN 1 ELSE 0 END) AS n_off, SUM(CASE WHEN auto_score IS NOT NULL THEN 1 ELSE 0 END) AS n_auto FROM {redirects}') ?? [];
 
         $notFound = \Talea\Core\NotFound::pending($this->app, 60, 50);
 
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {redirects} ' . $whereParts . ' ORDER BY redirect_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
+            'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search, 'status' => $status,
+            'counts' => ['all' => (int) ($counts['n_all'] ?? 0), 'active' => (int) ($counts['n_active'] ?? 0), 'off' => (int) ($counts['n_off'] ?? 0), 'auto' => (int) ($counts['n_auto'] ?? 0)],
             'notFound' => $notFound,
             'suggestions' => \Talea\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
@@ -92,28 +136,73 @@ final class Redirects extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $z = (string) parse_url($this->request->post('from_path'), PHP_URL_PATH);
-        $commandName = $this->request->post('to_path');
+        $post = $this->request;
+        $editing = $post->post('redirect_id') !== '';
+        $match = $post->post('match') !== '' ? $post->post('match') : 'exact';
+        $type = $post->postInt('type') > 0 ? $post->postInt('type') : 301;
+        $active = $post->post('active') !== '0';
         // a refused save goes back to the form it came from
-        $form = $this->request->post('redirect_id') !== '' ? ['edit' => $this->request->post('redirect_id')] : ['new' => 1, 'from' => $this->request->post('from_path')];
-        if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#', $commandName))) {
-            return $this->back('Enter the old address and the target. The target is a path on this site or a full https://… address.', '', array_filter($form), 'error');
-        }
-        $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
+        $form = $editing ? ['edit' => $post->post('redirect_id')] : ['new' => 1, 'from' => $post->post('from_path')];
         if (($guard = $this->refuseUnknownId('redirect_id', 'Enter the old address and the target. The target is a path on this site or a full https://… address.')) !== null) {
             return $guard;
         }
-        $idp = $this->idParam('redirect_id');
-        if ($idp > 0) {
-            // editing an existing record
-            $this->db->update('redirects', ['from_path' => mb_substr(trim($z, '/ '), 0, 255), 'to_path' => mb_substr($target, 0, 255)], ['redirect_id' => $idp]);
-        } else {
-            self::add($this->db, $z, $target);
+        // one old address per line; one refused line refuses them all
+        $lines = $editing ? [$post->post('from_path')] : array_values(array_filter(array_map('trim', preg_split('/\R/u', $post->post('from_path')) ?: [])));
+        $rules = [];
+        foreach ($lines as $line) {
+            $rule = self::normalize($line, $post->post('to_path'), $match, $type);
+            if (is_string($rule)) {
+                return $this->back($rule, '', $form, 'error');
+            }
+            $rules[] = $rule;
         }
-        $this->db->run('UPDATE {redirects} SET type = ?, auto_score = NULL WHERE from_path = ?', [$this->request->postInt('type') === 302 ? 302 : 301, trim($z, '/ ')]);
-        $this->db->delete('not_found', ['path' => trim($z, '/')]);
+        if ($rules === []) {
+            return $this->back('Enter the old address and the target. The target is a path on this site or a full https://… address.', '', $form, 'error');
+        }
+        $id = $this->idParam('redirect_id');
+        foreach ($rules as $rule) {
+            self::store($this->db, $rule['from'], $rule['to'], $match, $type, $active, $id);
+        }
 
         return $this->back('Redirect saved.');
+    }
+
+    /** Switches a rule off or on (Turn off / Turn on in the row menu). */
+    protected function actionToggle(): Response
+    {
+        if ($this->request->isPost() && ($id = $this->idParam('redirect_id')) > 0) {
+            $this->db->run('UPDATE {redirects} SET active = CASE WHEN active = TRUE THEN FALSE ELSE TRUE END WHERE redirect_id = ?', [$id]);
+        }
+
+        return $this->back('Redirect saved.');
+    }
+
+    /** A copy of a rule to edit: the old address gets a free "-copy" ending (the old address is unique). */
+    protected function actionDuplicate(): Response
+    {
+        $row = $this->request->isPost() ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$this->idParam('redirect_id')]) : null;
+        if ($row === null) {
+            return $this->back();
+        }
+        $from = mb_substr($row['from_path'], 0, 250) . '-copy';
+        for ($i = 2; $this->db->value('SELECT COUNT(*) FROM {redirects} WHERE from_path = ?', [$from]) > 0; $i++) {
+            $from = mb_substr($row['from_path'], 0, 245) . '-copy-' . $i;
+        }
+        $this->db->insert('redirects', ['from_path' => $from, 'to_path' => $row['to_path'], 'match_type' => $row['match_type'], 'type' => $row['type'], 'active' => (bool) $row['active'], 'created_at' => date('Y-m-d H:i:s')]);
+
+        return $this->back('Redirect saved.', '', ['edit' => $this->db->value('SELECT public_id FROM {redirects} WHERE from_path = ?', [$from])]);
+    }
+
+    /** What a rule does with a sample path (read-only). */
+    protected function actionTest(): Response
+    {
+        $row = $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$this->idParam('id')]);
+        if ($row === null) {
+            return $this->error('The redirect does not exist.', 404);
+        }
+        $path = mb_substr(trim($this->request->get('path')), 0, 255);
+
+        return $this->view('test', 'Test redirect', ['rule' => $row, 'path' => $path, 'result' => $path === '' ? null : RedirectRules::target($row, $path)]);
     }
 
     /** An address visitors could not find, left alone for good (a bot probe, something nobody needs). */

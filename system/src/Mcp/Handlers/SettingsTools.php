@@ -189,21 +189,24 @@ trait SettingsTools
         }
         if ($name === 'save_redirect') {
             $adminOnly();
-            $from = trim((string) parse_url((string) ($a['from'] ?? ''), PHP_URL_PATH), '/ ');
+            $match = (string) ($a['match'] ?? 'exact');
+            $type = (int) ($a['code'] ?? 301);
+            $from = $match === 'exact' ? trim((string) parse_url((string) ($a['from'] ?? ''), PHP_URL_PATH), '/ ') : trim((string) ($a['from'] ?? ''));
             $to = trim((string) ($a['to'] ?? ''));
-            if ($from === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $from)) {
+            if ($from === '' || ($match === 'exact' && !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $from))) {
                 throw new \InvalidArgumentException('The old path must be a path on this site, e.g. /old-page.');
             }
             if (!empty($a['delete'])) {
-                $db->delete('redirects', ['from_path' => $from]);
+                $db->delete('redirects', ['from_path' => $match === 'exact' ? $from : ltrim($from, '/')]);
             } else {
-                if (!preg_match('#^https?://[^\s]{3,240}$#i', $to) && !preg_match('#^/?[^\s:]{0,250}$#', $to)) {
+                if (!preg_match('#^https?://[^\s]{3,240}$#i', $to) && !preg_match('#^/?[^\s:]{0,250}$#', $to) && $type < 400) {
                     throw new \InvalidArgumentException('The new address must be a path (/new) or an https://… address.');
                 }
-                $to = preg_match('#^https?://#i', $to) ? $to : trim($to, '/');
-                \Talea\Admin\Modules\Redirects::add($db, $from, $to);
-                $db->run('UPDATE {redirects} SET type = ? WHERE from_path = ?', [(int) ($a['code'] ?? 301) === 302 ? 302 : 301, $from]);
-                $db->delete('not_found', ['path' => $from]);
+                $rule = \Talea\Admin\Modules\Redirects::normalize($from, $to, $match, $type);
+                if (is_string($rule)) {
+                    throw new \InvalidArgumentException($rule);
+                }
+                \Talea\Admin\Modules\Redirects::store($db, $rule['from'], $rule['to'], $match, $type, ($a['active'] ?? true) !== false);
             }
             \Talea\Front\Cache::clear();
         }
@@ -212,8 +215,8 @@ trait SettingsTools
         $pending = \Talea\Core\NotFound::pending($this->app, 60, 30);
         $suggestions = \Talea\Core\RedirectMatcher::suggestions($this->app, $pending);
 
-        return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
-                $db->all('SELECT from_path, to_path, type, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
+        return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'match' => $r['match_type'], 'active' => (bool) $r['active'], 'last_hit_at' => $r['last_hit_at'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
+                $db->all('SELECT from_path, to_path, type, match_type, active, last_hit_at, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
             'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Talea\Core\RedirectMatcher::threshold($siteSettings)]];
     }
