@@ -84,4 +84,48 @@ final class RedirectsScreenTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('The regular expression is not valid.', json_encode($bad));
         $this->assertSame(0, $this->rows("from_path = '('"));
     }
+
+    public function testUpdatesKeepSettingsAndClashesAreRefused(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tl_redirects');
+        $site->mcp('save_redirect', ['from' => '/keep', 'to' => '/a', 'code' => 302, 'active' => 'false']);
+        $this->assertSame('302|0', $site->value("SELECT CONCAT(type, '|', active) FROM tl_redirects WHERE from_path = 'keep'"), 'active parsed as a real boolean');
+        $site->mcp('save_redirect', ['from' => '/keep', 'to' => '/b']);
+        $this->assertSame('b|302|0', $site->value("SELECT CONCAT(to_path, '|', type, '|', active) FROM tl_redirects WHERE from_path = 'keep'"), 'an update without active and code keeps them');
+        $site->mcp('save_redirect', ['from' => '/keep', 'to' => '/b', 'active' => true]);
+        $this->assertSame('1', (string) $site->value("SELECT active FROM tl_redirects WHERE from_path = 'keep'"));
+
+        // delete a non-exact rule by its from
+        $site->mcp('save_redirect', ['from' => '^gone/(\d+)$', 'to' => '/x/$1', 'match' => 'regex']);
+        $this->assertSame(1, $this->rows("match_type = 'regex'"));
+        $site->mcp('save_redirect', ['from' => '^gone/(\d+)$', 'match' => 'regex', 'delete' => true]);
+        $this->assertSame(0, $this->rows("match_type = 'regex'"), 'a regex rule is deleted by its from');
+
+        // an unrelated exact add leaves the other kinds alone
+        $site->mcp('save_redirect', ['from' => '/section/', 'to' => '/new-section/', 'match' => 'starts']);
+        $site->mcp('save_redirect', ['from' => '/something', 'to' => '/section/']);
+        $this->assertSame(1, $this->rows("match_type = 'starts' AND to_path = 'new-section/'"));
+
+        // editing onto an address another row uses
+        $one = $this->publicId('keep');
+        $this->adminPost('/admin.php?module=redirects&action=save', ['redirect_id' => $one, 'from_path' => '/something', 'to_path' => '/b', 'type' => '301', 'match' => 'exact'], '/admin.php?module=redirects');
+        $this->assertSame(1, $this->rows("from_path = 'keep'"), 'the edit was refused');
+        $this->assertStringContainsString('Another redirect already uses this old address.', $site->admin()->get('/admin.php?module=redirects')->body);
+
+        // a duplicate starts switched off and an invalid copy is refused
+        $this->adminPost('/admin.php?module=redirects&action=duplicate', ['redirect_id' => $one], '/admin.php?module=redirects');
+        $this->assertSame(1, $this->rows("from_path = 'keep-copy' AND active = 0"));
+        $before = $this->rows();
+        $site->exec("INSERT INTO tl_redirects (public_id, from_path, to_path, match_type, type, created_at) VALUES ('" . bin2hex(random_bytes(16)) . "', 'ab', 'ab-copy', 'exact', 301, '" . date('Y-m-d H:i:s') . "')");
+        $loop = $this->publicId('ab');
+        $this->adminPost('/admin.php?module=redirects&action=duplicate', ['redirect_id' => $loop], '/admin.php?module=redirects');
+        $this->assertSame($before + 1, $this->rows(), 'a copy that would be invalid is not stored');
+
+        // toggle keeps the tab and says what happened
+        $r = $this->adminPost('/admin.php?module=redirects&action=toggle', ['redirect_id' => $one, 'status' => 'active', 'search' => 'ke'], '/admin.php?module=redirects');
+        $this->assertStringContainsString('status=active', (string) $r->redirect);
+        $this->assertStringContainsString('search=ke', (string) $r->redirect);
+        $this->assertStringContainsString('Redirect switched off.', $site->admin()->get((string) $r->redirect)->body);
+    }
 }

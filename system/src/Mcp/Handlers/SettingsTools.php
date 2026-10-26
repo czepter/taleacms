@@ -189,15 +189,22 @@ trait SettingsTools
         }
         if ($name === 'save_redirect') {
             $adminOnly();
-            $match = (string) ($a['match'] ?? 'exact');
-            $type = (int) ($a['code'] ?? 301);
-            $from = $match === 'exact' ? trim((string) parse_url((string) ($a['from'] ?? ''), PHP_URL_PATH), '/ ') : trim((string) ($a['from'] ?? ''));
+            $rawFrom = trim((string) ($a['from'] ?? ''));
+            // an existing rule keeps what the call leaves out; a new one starts with exact, 301 and on
+            $old = null;
+            foreach (array_unique([trim((string) parse_url($rawFrom, PHP_URL_PATH), '/ '), ltrim($rawFrom, '/'), $rawFrom]) as $candidate) {
+                $old ??= $candidate !== '' ? $db->one('SELECT redirect_id, match_type, type, active FROM {redirects} WHERE from_path = ?', [$candidate]) : null;
+            }
+            $match = (string) ($a['match'] ?? $old['match_type'] ?? 'exact');
+            $type = (int) ($a['code'] ?? $old['type'] ?? 301);
+            $active = isset($a['active']) ? (filter_var($a['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true) : (bool) ($old['active'] ?? true);
+            $from = \Talea\Admin\Modules\Redirects::normalizeFrom($rawFrom, $match);
             $to = trim((string) ($a['to'] ?? ''));
             if ($from === '' || ($match === 'exact' && !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $from))) {
                 throw new \InvalidArgumentException('The old path must be a path on this site, e.g. /old-page.');
             }
             if (!empty($a['delete'])) {
-                $db->delete('redirects', ['from_path' => $match === 'exact' ? $from : ltrim($from, '/')]);
+                $db->delete('redirects', ['from_path' => $from]);
             } else {
                 if (!preg_match('#^https?://[^\s]{3,240}$#i', $to) && !preg_match('#^/?[^\s:]{0,250}$#', $to) && $type < 400) {
                     throw new \InvalidArgumentException('The new address must be a path (/new) or an https://… address.');
@@ -206,7 +213,8 @@ trait SettingsTools
                 if (is_string($rule)) {
                     throw new \InvalidArgumentException($rule);
                 }
-                \Talea\Admin\Modules\Redirects::store($db, $rule['from'], $rule['to'], $match, $type, ($a['active'] ?? true) !== false);
+                // the old address names the row, so it cannot clash with another one
+                \Talea\Admin\Modules\Redirects::store($db, $rule['from'], $rule['to'], $match, $type, $active);
             }
             \Talea\Front\Cache::clear();
         }

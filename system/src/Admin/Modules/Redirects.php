@@ -35,14 +35,25 @@ final class Redirects extends Module
             return;
         }
         // the new target URL also takes over older redirects, so that no chains form
-        $db->run('UPDATE {redirects} SET to_path = ? WHERE to_path = ?', [$commandName, $z]);
-        $db->run('DELETE FROM {redirects} WHERE from_path = ?', [trim($commandName, '/ ')]);
+        $db->run("UPDATE {redirects} SET to_path = ? WHERE to_path = ? AND match_type = 'exact'", [$commandName, $z]);
+        $db->run("DELETE FROM {redirects} WHERE from_path = ? AND match_type = 'exact'", [trim($commandName, '/ ')]);
         $db->upsert('redirects', ['from_path' => mb_substr($z, 0, 255), 'to_path' => mb_substr($commandName, 0, 255), 'created_at' => date('Y-m-d H:i:s')], ['from_path'], ['to_path']);
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
         \Talea\Core\LinkHealing::heal($db, $z, $commandName);
     }
 
     private const int PER_PAGE = 50;
+
+    /** The old address as it is stored (see normalize()). */
+    public static function normalizeFrom(string $from, string $match): string
+    {
+        $from = trim($from);
+        if ($match === 'regex') {
+            return $from;
+        }
+
+        return $match === 'exact' || preg_match('#^https?://#i', $from) ? trim((string) parse_url($from, PHP_URL_PATH), '/ ') : ltrim($from, '/');
+    }
 
     /**
      * The rule as it is stored, or the refusal message (Core\RedirectRules::validate). An exact address is a bare path; the other
@@ -52,18 +63,18 @@ final class Redirects extends Module
      */
     public static function normalize(string $from, string $to, string $match, int $type): array|string
     {
-        $from = trim($from);
-        if ($match !== 'regex') {
-            $from = $match === 'exact' || preg_match('#^https?://#i', $from) ? trim((string) parse_url($from, PHP_URL_PATH), '/ ') : ltrim($from, '/');
-        }
+        $from = self::normalizeFrom($from, $match);
         $to = $type >= 400 ? '' : (preg_match('#^https?://#i', trim($to)) ? trim($to) : ($match === 'starts' ? ltrim(trim($to), '/') : trim(trim($to), '/')));
 
         return RedirectRules::validate($from, $to, $match, $type) ?? ['from' => $from, 'to' => $to];
     }
 
-    /** Stores a checked rule (see normalize()): a new one replaces a rule with the same old address. */
-    public static function store(Db $db, string $from, string $to, string $match, int $type, bool $active, int $id = 0): void
+    /** Stores a checked rule (see normalize()): a new one replaces a rule with the same old address. Returns the refusal, null when stored. */
+    public static function store(Db $db, string $from, string $to, string $match, int $type, bool $active, int $id = 0): ?string
     {
+        if ($id > 0 && (int) $db->value('SELECT COUNT(*) FROM {redirects} WHERE from_path = ? AND redirect_id <> ?', [mb_substr($from, 0, 255), $id]) > 0) {
+            return t('Another redirect already uses this old address.');
+        }
         $fields = ['from_path' => mb_substr($from, 0, 255), 'to_path' => mb_substr($to, 0, 255), 'match_type' => $match, 'type' => $type, 'active' => $active, 'auto_score' => null];
         if ($id > 0) {
             $db->update('redirects', $fields, ['redirect_id' => $id]);
@@ -76,6 +87,8 @@ final class Redirects extends Module
         if ($match === 'exact') {
             $db->delete('not_found', ['path' => $from]);
         }
+
+        return null;
     }
 
     protected function actionList(): Response
@@ -161,20 +174,25 @@ final class Redirects extends Module
         }
         $id = $this->idParam('redirect_id');
         foreach ($rules as $rule) {
-            self::store($this->db, $rule['from'], $rule['to'], $match, $type, $active, $id);
+            if (($refused = self::store($this->db, $rule['from'], $rule['to'], $match, $type, $active, $id)) !== null) {
+                return $this->back($refused, '', $form, 'error');
+            }
         }
 
         return $this->back('Redirect saved.');
     }
 
-    /** Switches a rule off or on (Turn off / Turn on in the row menu). */
+    /** Switches a rule off or on (Turn off / Turn on in the row menu), back to the same tab and search. */
     protected function actionToggle(): Response
     {
-        if ($this->request->isPost() && ($id = $this->idParam('redirect_id')) > 0) {
-            $this->db->run('UPDATE {redirects} SET active = CASE WHEN active = TRUE THEN FALSE ELSE TRUE END WHERE redirect_id = ?', [$id]);
+        $row = $this->request->isPost() ? $this->db->one('SELECT redirect_id, active FROM {redirects} WHERE redirect_id = ?', [$this->idParam('redirect_id')]) : null;
+        $message = '';
+        if ($row !== null) {
+            $this->db->update('redirects', ['active' => !$row['active']], ['redirect_id' => $row['redirect_id']]);
+            $message = $row['active'] ? 'Redirect switched off.' : 'Redirect switched on.';
         }
 
-        return $this->back('Redirect saved.');
+        return $this->back($message, '', array_filter(['status' => $this->request->post('status'), 'search' => $this->request->post('search')]));
     }
 
     /** A copy of a rule to edit: the old address gets a free "-copy" ending (the old address is unique). */
@@ -188,7 +206,11 @@ final class Redirects extends Module
         for ($i = 2; $this->db->value('SELECT COUNT(*) FROM {redirects} WHERE from_path = ?', [$from]) > 0; $i++) {
             $from = mb_substr($row['from_path'], 0, 245) . '-copy-' . $i;
         }
-        $this->db->insert('redirects', ['from_path' => $from, 'to_path' => $row['to_path'], 'match_type' => $row['match_type'], 'type' => $row['type'], 'active' => (bool) $row['active'], 'created_at' => date('Y-m-d H:i:s')]);
+        // the copy starts switched off, so it never answers before it was edited
+        if (($refused = RedirectRules::validate($from, (string) $row['to_path'], $row['match_type'], (int) $row['type'])) !== null) {
+            return $this->back($refused, '', [], 'error');
+        }
+        $this->db->insert('redirects', ['from_path' => $from, 'to_path' => $row['to_path'], 'match_type' => $row['match_type'], 'type' => $row['type'], 'active' => false, 'created_at' => date('Y-m-d H:i:s')]);
 
         return $this->back('Redirect saved.', '', ['edit' => $this->db->value('SELECT public_id FROM {redirects} WHERE from_path = ?', [$from])]);
     }

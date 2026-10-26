@@ -58,7 +58,7 @@ endif ?>
 	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $z['public_id'], 'name' => '/' . $z['from_path'], 'edit' => $editUrl, 'csrf' => $csrf, 'menu' => [
         ['url' => $module->url('test', ['id' => $z['public_id']]), 'label' => t('Test'), 'icon' => 'b-search'],
         ['post' => $module->url('duplicate'), 'fields' => ['redirect_id' => $z['public_id']], 'label' => t('Duplicate'), 'icon' => 'copy'],
-        ['post' => $module->url('toggle'), 'fields' => ['redirect_id' => $z['public_id']], 'label' => t($z['active'] ? 'Turn off' : 'Turn on'), 'icon' => 'check'],
+        ['post' => $module->url('toggle'), 'fields' => ['redirect_id' => $z['public_id'], 'status' => $status === 'all' ? '' : $status, 'search' => $search], 'label' => t($z['active'] ? 'Turn off' : 'Turn on'), 'icon' => 'check'],
         '-',
         ['post' => $module->url('delete'), 'fields' => ['redirect_id' => $z['public_id'], 'title' => '/' . $z['from_path']], 'label' => t('Delete'), 'confirm' => t('Delete the redirect? The old address will then end with a 404 error.'), 'danger' => true],
     ]]) ?></td>
