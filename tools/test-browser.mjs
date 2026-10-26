@@ -328,11 +328,20 @@ const expect = (condition, message) => { if (!condition) { throw new Error(messa
 async function openBuilder(p, kind) {
   await p.goto(`${BASE}/admin.php?module=pages&action=builder&id=${COMPOSE[kind]}`, { waitUntil: 'networkidle' });
   await p.waitForFunction(() => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id="cs1"], [data-tl-id="cf1"]'));
-  await p.waitForTimeout(500);
+  await idle(p);
 }
+/** waitForFunction that fails with what it waited for, never swallowed. */
+async function until(p, fn, arg, what, timeout = 15000) {
+  await p.waitForFunction(fn, arg, { timeout }).catch((e) => { throw new Error(`timed out waiting until ${what}: ${e.message.split('\n')[0]}`); });
+}
+/**
+ * The editor at rest: no autosave pending or running, no gesture, and no fresh canvas loading (a finished save reloads the canvas:
+ * the new iframe carries .bd-loading until it is swapped in, and an overlay handle or a size taken before the swap is stale).
+ */
+const idle = (p) => until(p, () => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && !s.gesture && !document.querySelector('.bd-frame iframe.bd-loading'); }, null, 'the autosave is done and the canvas is swapped');
 /** The draft as the server has it: wait until the autosave is done, then read it from a fresh load. */
 async function savedBuild(p, kind) {
-  await p.waitForFunction(() => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && s.saved === JSON.stringify(s.build); }, null, { timeout: 15000 });
+  await until(p, () => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && s.saved === JSON.stringify(s.build); }, null, 'the draft is saved');
   await openBuilder(p, kind);
   return p.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build);
 }
@@ -341,12 +350,16 @@ async function savedBuild(p, kind) {
  * while it is rebuilt is lost: wait for the save, click, and click again until the builder is on that breakpoint.
  */
 async function device(p, name, bp) {
-  await p.waitForFunction(() => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries; }, null, { timeout: 15000 });
+  await idle(p);
   for (let attempt = 0; attempt < 3 && await p.evaluate(() => window.taleaBuilder.state.bp) !== bp; attempt++) {
     await p.getByRole('button', { name }).first().click();
-    await p.waitForFunction((x) => window.taleaBuilder.state.bp === x, bp, { timeout: 3000 }).catch(() => {});
+    await p.waitForFunction((x) => window.taleaBuilder.state.bp === x, bp, { timeout: 3000 }).catch(() => {}); // a lost click: the loop clicks again
   }
   expect(await p.evaluate(() => window.taleaBuilder.state.bp) === bp, `the canvas did not switch to ${name}`);
+  // the canvas has the device's width, so the site's own breakpoints (tablet ≤1023 px, phone ≤767 px) apply in it
+  const query = { base: '(min-width: 1024px)', tablet: '(min-width: 768px) and (max-width: 1023px)', mobile: '(max-width: 767px)' }[bp];
+  await idle(p);
+  await until(p, (q) => { const d = window.taleaBuilder.previewDoc(); return !!d && d.defaultView.matchMedia(q).matches; }, query, `the canvas is as wide as ${name} ${query}`);
 }
 async function pick(p, id, corner = false) {
   const b = await node(p, id).boundingBox();
@@ -578,11 +591,11 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
     for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * i / 10, y: from.y + (to.y - from.y) * i / 10 }] }); }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await tp.waitForTimeout(350);
+    await idle(tp); // the autosave reloads the canvas: the next finger must not land on the old one
   };
   // the focus mode's canvas is wider (#115), so a target may lie below the fold: it is scrolled into view before the finger goes down
   const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
-  const tap = async (id, corner) => { await node(tp, id).scrollIntoViewIfNeeded().catch(() => {}); const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
+  const tap = async (id, corner) => { await idle(tp); await node(tp, id).scrollIntoViewIfNeeded().catch(() => {}); const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
   await openBuilder(tp, 'touch');
 
   await tap('cs1', true);
@@ -628,22 +641,19 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
 
 // free placement: a Compose section (phase B)
 await step('compose (free placement): convert, resize and move by grid lines, overlap with a layer, stack on a phone, tidy up, back to a stack', async () => {
-  await page.goto(`${BASE}/admin.php?module=pages&action=builder&id=${COMPOSE.free}`, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id="cf1"]'));
-  await page.waitForTimeout(500);
+  await openBuilder(page, 'free');
   const buildNow = () => page.evaluate(() => JSON.parse(JSON.stringify(window.taleaBuilder.state.build)));
   const cell = async (id) => { const s = find((await buildNow()).children, id).style?.base ?? {}; return { c0: +s.grid_column_start, c1: +s.grid_column_end, r0: +s.grid_row_start, r1: +s.grid_row_end, layer: s.layer ?? '' }; };
   // the canvas is swapped once the autosave is done: wait for it before the next gesture
-  const settle = async () => { await page.waitForFunction(() => { const st = window.taleaBuilder.state; return !st.timer && !st.saving && !st.retries; }, null, { timeout: 15000 }); await page.waitForTimeout(1200); };
-  const select = async (id, wait) => { await settle(); await page.evaluate((x) => window.taleaBuilder.selection(x), id); await handle(page, wait).waitFor({ timeout: 5000 }); await page.waitForTimeout(400); };
+  const select = async (id, wait) => { await idle(page); await page.evaluate((x) => window.taleaBuilder.selection(x), id); await handle(page, wait).waitFor({ timeout: 5000 }); await page.waitForTimeout(400); };
   const pitch = async () => page.evaluate(() => { const d = window.taleaBuilder.previewDoc(); const c = d.querySelector('.tl-compose'); const cs = d.defaultView.getComputedStyle(c); return (c.getBoundingClientRect().width + parseFloat(cs.columnGap)) / 12 * window.taleaBuilder.scale(); });
   const toggle = () => frameIn(page).locator('#tl-bd-overlay [data-bdo="compose"]').first();
 
   // Stack -> Compose keeps the positions: every child gets a cell
   await select('cf1', 'compose');
   await toggle().click();
-  await page.waitForFunction(() => window.taleaBuilder.previewDoc().querySelector('.tl-compose'), null, { timeout: 15000 });
-  await page.waitForTimeout(1200);
+  await idle(page);
+  await until(page, () => window.taleaBuilder.previewDoc().querySelector('.tl-compose'), null, 'the canvas shows the compose section');
   let a = await cell('cfa');
   let b = await cell('cfb');
   expect(a.c0 === 1 && a.c1 === 13 && a.r0 >= 1 && a.r1 > a.r0 && b.r0 >= a.r1 - 1 && b.r1 > b.r0, `the conversion gave no sane cells: ${JSON.stringify([a, b])}`);
@@ -662,7 +672,7 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
   // the arrow keys step one cell
   await handle(page, 'compose-move').focus();
   await page.keyboard.press('ArrowRight');
-  await page.waitForTimeout(500);
+  await idle(page);
   a = await cell('cfa');
   expect(a.c0 === 5 && a.c1 === 11, `ArrowRight should move the text one column, it is ${a.c0}–${a.c1}`);
 
@@ -675,23 +685,20 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
   b = await cell('cfb');
   expect(b.r0 < a.r1 && a.r0 < b.r1 && b.c0 < a.c1 && a.c0 < b.c1, `the image does not overlap the text: ${JSON.stringify([a, b])}`);
   await frameIn(page).locator('#tl-bd-overlay [data-bdo="layer-up"]').first().click();
-  await page.waitForTimeout(400);
+  await idle(page);
   expect((await cell('cfb')).layer === 'above', 'the layer button did not set "above"');
 
   // phone: the canvas stacks the section in source order, no overlap
   await device(page, 'Mobile', 'mobile');
-  // the canvas narrows and the grid re-lays out after the switch: wait for the stack
-  await page.waitForFunction(() => { const d = window.taleaBuilder.previewDoc(); const [a, b] = ['cfa', 'cfb'].map((x) => d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect()); return a.bottom <= b.top + 1; }, null, { timeout: 15000 }).catch(() => {});
   const boxes = await page.evaluate(() => { const d = window.taleaBuilder.previewDoc(); return ['cfa', 'cfb'].map((x) => { const r = d.querySelector(`[data-tl-id="${x}"]`).getBoundingClientRect(); return [r.top, r.bottom]; }); });
   expect(boxes[0][1] <= boxes[1][0] + 1, `at phone width the elements still overlap: ${JSON.stringify(boxes)}`);
   expect(await page.evaluate(() => window.taleaBuilder.previewDoc().defaultView.getComputedStyle(window.taleaBuilder.previewDoc().querySelector('.tl-compose')).display) === 'flex', 'the compose section does not stack on a phone');
   await device(page, 'Desktop', 'base');
-  await page.waitForTimeout(1500);
 
   // tidy up: one clean column in reading order, no overlap
   await select('cf1', 'tidy');
   await frameIn(page).locator('#tl-bd-overlay [data-bdo="tidy"]').first().click();
-  await page.waitForTimeout(600);
+  await idle(page);
   a = await cell('cfa');
   b = await cell('cfb');
   const [upper, lower] = a.r0 < b.r0 ? [a, b] : [b, a];
@@ -702,12 +709,11 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
   // back to a stack drops every placement; compose again places them anew
   await select('cf1', 'compose');
   await toggle().click();
-  await page.waitForTimeout(800);
+  await idle(page);
   let tree = await buildNow();
   expect(find(tree.children, 'cf1').content.layout === 'stack' && !find(tree.children, 'cfa').style?.base?.grid_column_start && !find(tree.children, 'cfb').style?.base?.layer, 'switching back to a stack left placements behind');
   await select('cf1', 'compose');
   await toggle().click();
-  await page.waitForTimeout(1200);
   tree = await savedBuild(page, 'free');
   expect(find(tree.children, 'cf1').content.layout === 'compose' && find(tree.children, 'cfa').style?.base?.grid_row_end && find(tree.children, 'cfb').style?.base?.grid_column_end, 'the saved draft lacks the compose layout or the placements');
 });

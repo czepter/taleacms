@@ -347,6 +347,7 @@
 			if (preview) { preview.remove(); }
 			fresh.classList.remove('bd-loading');
 			preview = fresh;
+			previewSize(fresh); // the device or the zoom may have changed while it loaded: it was sized for the old one
 			markInPreview(false);
 			const retry = previewPending === 'again';
 			previewPending = false;
