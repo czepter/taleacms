@@ -24,6 +24,8 @@ final class SearchData
 {
     public const int DAYS = 28;
     public const int ROW_LIMIT = 250;
+    /** Rows asked for the per-page queries (kind page_query). */
+    public const int PAGE_QUERY_LIMIT = 1000;
     public const int KEEP_MONTHS = 16;
     /** Rows shown per table in Statistics and get_stats. */
     public const int TOP = 25;
@@ -133,12 +135,27 @@ final class SearchData
         $end = date('Y-m-d', strtotime('-3 days'));
         $start = date('Y-m-d', strtotime($end . ' -' . (self::DAYS - 1) . ' days'));
         $rows = [];
+        $query = $base . '/searchAnalytics/query';
+        $dates = ['startDate' => $start, 'endDate' => $end];
         foreach (['query', 'page'] as $kind) {
-            $answer = Connectors::request($app, Google::KEY, 'POST', $base . '/searchAnalytics/query', ['startDate' => $start, 'endDate' => $end, 'dimensions' => [$kind], 'rowLimit' => self::ROW_LIMIT], [], 'search.' . $kind);
+            $answer = Connectors::request($app, Google::KEY, 'POST', $query, $dates + ['dimensions' => [$kind], 'rowLimit' => self::ROW_LIMIT], [], 'search.' . $kind);
             if ($answer['error'] !== '') {
                 throw new \RuntimeException($answer['error']);
             }
             $rows = [...$rows, ...self::googleRows($answer['json'] ?? [], $kind)];
+        }
+        // the total, the days and the searches per page are bonuses like the sitemaps: one failing keeps the rest
+        $answer = Connectors::request($app, Google::KEY, 'POST', $query, $dates, [], 'search.total');
+        if ($answer['error'] === '') {
+            $rows = [...$rows, ...array_filter([self::googleTotal($answer['json'] ?? [])])];
+        }
+        $answer = Connectors::request($app, Google::KEY, 'POST', $query, $dates + ['dimensions' => ['date'], 'rowLimit' => self::DAYS], [], 'search.day');
+        if ($answer['error'] === '') {
+            $rows = [...$rows, ...self::googleDays($answer['json'] ?? [])];
+        }
+        $answer = Connectors::request($app, Google::KEY, 'POST', $query, $dates + ['dimensions' => ['page', 'query'], 'rowLimit' => self::PAGE_QUERY_LIMIT], [], 'search.page_query');
+        if ($answer['error'] === '') {
+            $rows = [...$rows, ...self::googlePageQueries($answer['json'] ?? [])];
         }
         // the sitemaps are a bonus: when only they fail, the queries and pages still count (the call is in the log)
         $answer = Connectors::request($app, Google::KEY, 'GET', $base . '/sitemaps', null, [], 'search.sitemaps');
@@ -161,6 +178,16 @@ final class SearchData
                 throw new \RuntimeException($answer['error']);
             }
             $rows = [...$rows, ...self::bingRows($answer['json'] ?? [], $kind, $since)];
+        }
+        // the days (and their total) are a bonus: when only they fail, the queries and pages still count
+        $answer = Connectors::request($app, Bing::KEY, 'GET', self::BING_API . 'GetRankAndTrafficStats?' . http_build_query(['siteUrl' => $site]), null, [], 'search.day');
+        if ($answer['error'] === '') {
+            $days = self::bingDays($answer['json'] ?? [], $since);
+            if ($days !== []) {
+                $clicks = array_sum(array_column($days, 'clicks'));
+                $impressions = array_sum(array_column($days, 'impressions'));
+                $rows = [...$rows, ...$days, self::row('total', '', $clicks, $impressions, $impressions > 0 ? round(100 * $clicks / $impressions, 2) : 0.0, 0.0)];
+            }
         }
 
         return $rows;
@@ -251,6 +278,93 @@ final class SearchData
         return array_slice($rows, 0, self::ROW_LIMIT);
     }
 
+    /**
+     * Search Console searchAnalytics.query without dimensions: one row without keys, the whole period.
+     *
+     * @param array<mixed> $json
+     * @return array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float, page: string}|array{}
+     */
+    public static function googleTotal(array $json): array
+    {
+        $r = $json['rows'][0] ?? null;
+
+        return is_array($r) ? self::metrics('total', '', $r) : [];
+    }
+
+    /**
+     * Search Console with dimension date: keys[0] is YYYY-MM-DD.
+     *
+     * @param array<mixed> $json
+     * @return list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float, page: string}>
+     */
+    public static function googleDays(array $json): array
+    {
+        $rows = [];
+        foreach ((array) ($json['rows'] ?? []) as $r) {
+            $day = is_array($r) && is_array($r['keys'] ?? null) ? (string) ($r['keys'][0] ?? '') : '';
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) === 1) {
+                $rows[] = self::metrics('day', $day, $r);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Search Console with dimensions page and query: keys [page, query]; the key is the query, the page its own column.
+     *
+     * @param array<mixed> $json
+     * @return list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float, page: string}>
+     */
+    public static function googlePageQueries(array $json): array
+    {
+        $rows = [];
+        foreach ((array) ($json['rows'] ?? []) as $r) {
+            $keys = is_array($r) && is_array($r['keys'] ?? null) ? $r['keys'] : [];
+            $page = trim((string) ($keys[0] ?? ''));
+            $query = trim((string) ($keys[1] ?? ''));
+            if ($page !== '' && $query !== '') {
+                $rows[] = self::metrics('page_query', $query, $r, mb_substr($page, 0, 255));
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Bing GetRankAndTrafficStats: {"d": [{Date, Clicks, Impressions}]}, one row per day from $since on (no position).
+     *
+     * @param array<mixed> $json
+     * @return list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float, page: string}>
+     */
+    public static function bingDays(array $json, int $since): array
+    {
+        $rows = [];
+        $list = is_array($json['d'] ?? null) ? $json['d'] : (array_is_list($json) ? $json : []);
+        foreach ($list as $r) {
+            $time = is_array($r) ? self::bingDate($r['Date'] ?? null) : null;
+            if ($time === null || $time < $since) {
+                continue;
+            }
+            $clicks = (int) round((float) ($r['Clicks'] ?? 0));
+            $impressions = (int) round((float) ($r['Impressions'] ?? 0));
+            $rows[] = self::row('day', date('Y-m-d', $time), $clicks, $impressions, $impressions > 0 ? round(100 * $clicks / $impressions, 2) : 0.0, 0.0) + ['page' => ''];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * One Search Console row's numbers as a stored row.
+     *
+     * @param array<mixed> $r
+     * @return array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float, page: string}
+     */
+    private static function metrics(string $kind, string $key, array $r, string $page = ''): array
+    {
+        return self::row($kind, $key, (int) round((float) ($r['clicks'] ?? 0)), (int) round((float) ($r['impressions'] ?? 0)), round(100 * (float) ($r['ctr'] ?? 0), 2), round((float) ($r['position'] ?? 0), 1)) + ['page' => $page];
+    }
+
     /** Bing's dates: "/Date(1696291200000-0700)/" (WCF) or an ISO string; null when unreadable. */
     public static function bingDate(mixed $value): ?int
     {
@@ -273,16 +387,16 @@ final class SearchData
 
     /* ---------- storage and reading ---------- */
 
-    /** Today's snapshot of an engine is replaced as a whole. @param list<array{kind: string, key: string, clicks: int, impressions: int, ctr: float, position: float}> $rows */
+    /** Today's snapshot of an engine is replaced as a whole. @param list<array<string, mixed>> $rows */
     private static function store(Db $db, string $day, string $engine, array $rows): void
     {
         $db->run('DELETE FROM {search_stats} WHERE engine = ? AND day = ?', [$engine, $day]);
         foreach (array_chunk($rows, 100) as $chunk) {
             $params = [];
             foreach ($chunk as $r) {
-                array_push($params, $day, $engine, $r['kind'], $r['key'], $r['clicks'], $r['impressions'], $r['ctr'], $r['position']);
+                array_push($params, $day, $engine, $r['kind'], $r['key'], $r['page'] ?? '', $r['clicks'], $r['impressions'], $r['ctr'], $r['position']);
             }
-            $db->run('INSERT INTO {search_stats} (day, engine, kind, ' . $db->dialect()->quote('key') . ', clicks, impressions, ctr, position) VALUES ' . implode(', ', array_fill(0, count($chunk), '(?, ?, ?, ?, ?, ?, ?, ?)')), $params);
+            $db->run('INSERT INTO {search_stats} (day, engine, kind, ' . $db->dialect()->quote('key') . ', page, clicks, impressions, ctr, position) VALUES ' . implode(', ', array_fill(0, count($chunk), '(?, ?, ?, ?, ?, ?, ?, ?, ?)')), $params);
         }
     }
 
