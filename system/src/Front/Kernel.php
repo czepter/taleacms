@@ -1078,9 +1078,17 @@ final class Kernel
         $sources = $this->app->languagePrefix !== '' ? [$this->app->languagePrefix . '/' . $path, $path] : [$path];
         foreach ($sources as $source) {
             $plain = (string) preg_replace('#\.html$#', '', $source);
-            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
+            $rule = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path IN (?, ?, ?) AND active = TRUE AND match_type = \'exact\' ORDER BY from_path = ? DESC LIMIT 1', [$source, $plain, $plain . '.html', $source]);
             if ($rule !== null) {
-                return $rule;
+                return $rule + ['target' => $rule['to_path']];
+            }
+        }
+        // no exact rule: the other match types, in the order they were made (a few hundred at most)
+        foreach ($this->app->db()->all('SELECT * FROM {redirects} WHERE active = TRUE AND match_type <> \'exact\' ORDER BY redirect_id LIMIT 500') as $rule) {
+            foreach ($sources as $source) {
+                if (($target = \Talea\Core\RedirectRules::target($rule, $source)) !== null) {
+                    return $rule + ['target' => $target];
+                }
             }
         }
 
@@ -1092,9 +1100,13 @@ final class Kernel
         // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
         $target = $this->redirectRule($this->app->request->path());
         if ($target !== null) {
-            $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
+            $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1, last_hit_at = ? WHERE redirect_id = ?', [date('Y-m-d H:i:s'), $target['redirect_id']]);
+            $status = (int) ($target['type'] ?? 301);
+            if ($status >= 400) {
+                return $this->notFoundPage($status); // gone (410) or unavailable for legal reasons (451): the 404 page with that status
+            }
 
-            return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), (int) ($target['type'] ?? 301) === 302 ? 302 : 301);
+            return Response::redirect(preg_match('#^https?://#i', $target['target']) ? $target['target'] : $this->app->url($target['target']), in_array($status, [302, 307], true) ? $status : 301);
         }
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
@@ -1115,7 +1127,12 @@ final class Kernel
             }
         }
 
-        return $this->page(t('Page not found'), $this->view->render('not-found', ['url' => $this->app->url(...), 'pages' => $this->menuPages(), 'news' => Extensions::isEnabled($this->app->settings(), 'news')]), ['noindex' => true, 'part' => 'not_found'], 404);
+        return $this->notFoundPage(404);
+    }
+
+    private function notFoundPage(int $status): Response
+    {
+        return $this->page(t('Page not found'), $this->view->render('not-found', ['url' => $this->app->url(...), 'pages' => $this->menuPages(), 'news' => Extensions::isEnabled($this->app->settings(), 'news')]), ['noindex' => true, 'part' => 'not_found'], $status);
     }
 
     /**

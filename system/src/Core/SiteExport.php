@@ -128,7 +128,7 @@ final class SiteExport
         self::fields($f, 'categories', $one('categories', 'SELECT category_id, public_id, name, slug, description, weight, language, translation_of FROM {categories} WHERE category_id > ? ORDER BY category_id LIMIT 500', 'category_id', ['translation_of' => 'categories']));
         self::fields($f, 'tags', $one('tags', 'SELECT tag_id, public_id, name, slug, description, image FROM {tags} WHERE tag_id > ? ORDER BY tag_id LIMIT 500', 'tag_id'));
         self::fields($f, 'news', self::articles($db, $authors));
-        self::fields($f, 'redirects', $one('redirects', 'SELECT redirect_id, public_id, from_path, to_path, type, auto_score FROM {redirects} WHERE redirect_id > ? ORDER BY redirect_id LIMIT 1000', 'redirect_id'));
+        self::fields($f, 'redirects', $one('redirects', 'SELECT redirect_id, public_id, from_path, to_path, match_type, type, active, auto_score FROM {redirects} WHERE redirect_id > ? ORDER BY redirect_id LIMIT 1000', 'redirect_id'));
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
         self::fields($f, 'classes', $db->all('SELECT name, style, css FROM {classes} ORDER BY name'));
         // the drafts go along (build_draft): a site moved in the middle of a redesign keeps its unfinished work
@@ -386,7 +386,7 @@ final class SiteExport
             . "tags             tags: public_id, name, slug, description, image\n"
             . "news             news: public_id, title, intro and text (HTML), published_at, visible (1 = published), category_id (public id of the category), language,\n"
             . "                 translation_of (public id of the news item it translates), author (a name), tags (list of public ids of tags) and more\n"
-            . "redirects        redirects: from_path -> to_path, type (301 or 302), auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
+            . "redirects        redirects: from_path -> to_path, match_type (exact, contains, starts, ends or regex), type (301, 302, 307, 410 or 451), active, auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
             . "classes          shared classes of the builder: name, style (JSON), css\n"
             . "site_parts       site parts (header, footer, wrappers): type, language, variant, pages, build, build_draft\n"
             . "components       components: public_id, name, properties, build, build_draft (the \"component\" element refers to a public_id), kit_key (from a fleet kit, 2.16)\n"
