@@ -49,6 +49,7 @@ final class Guide
         'roles' => 'users-roles#custom-roles',
         'members' => 'users-roles#members',
         'stats' => 'statistics',
+        'search_performance' => 'statistics',
         'experiments' => 'statistics#experiments',
         'seo' => 'seo#overview',
         'seo_titles' => 'seo#titles-and-descriptions',

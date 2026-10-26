@@ -2221,3 +2221,16 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .audit-pill.audit-poor { color: var(--error); }
 .audit-passed { margin: 16px 0; }
 .audit-passed summary { cursor: pointer; font-weight: 600; }
+
+/* Search engines → Performance: the chart is an inline SVG built on the server */
+.search-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+.search-connections { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; }
+.search-box { margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.search-chart { display: block; width: 100%; height: 200px; }
+.search-chart polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.search-chart-clicks { stroke: var(--accent); }
+.search-chart-impressions { stroke: var(--text-weak); stroke-dasharray: 5 4; }
+.search-legend { display: flex; gap: 16px; margin: 8px 0 0; }
+.search-legend-clicks::before, .search-legend-impressions::before { content: ""; display: inline-block; width: 16px; margin-inline-end: 6px; vertical-align: middle; border-top: 2px solid var(--accent); }
+.search-legend-impressions::before { border-top: 2px dashed var(--text-weak); }
+.search-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }

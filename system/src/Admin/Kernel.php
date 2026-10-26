@@ -100,6 +100,7 @@ final class Kernel
         Modules\Components::class,
         Modules\Popups::class,
         Modules\Seo::class,
+        Modules\SearchPerformance::class,
         Modules\SeoTitles::class,
         Modules\Redirects::class,
         Modules\MissingPages::class,
