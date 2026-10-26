@@ -91,7 +91,7 @@ final class SeoScore
         foreach (self::TABLES as [$table, $key]) {
             $rows = $db->all("SELECT focus_keywords FROM {{$table}} WHERE deleted_at IS NULL AND $like" . ($table === $ownTable ? " AND $key <> ?" : ''), $table === $ownTable ? [$pattern, $ownId] : [$pattern]);
             foreach ($rows as $row) {
-                if (mb_strtolower(explode("\n", (string) $row['focus_keywords'])[0]) === mb_strtolower($keyword)) {
+                if (mb_strtolower(trim(explode("\n", (string) $row['focus_keywords'])[0])) === mb_strtolower($keyword)) {
                     return true;
                 }
             }

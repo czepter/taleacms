@@ -263,6 +263,7 @@ final class Pages extends Module
             $this->saveVersion((int) $page['page_id'], $page['title'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
         $this->db->update('pages', ['title' => $title, 'text' => $text, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('back'));
@@ -372,7 +373,6 @@ final class Pages extends Module
             }
             $this->db->update('pages', $data, ['page_id' => $id]);
             \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
-            \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
             if ($previous !== null && $previous['slug'] !== $data['slug']) {
                 self::move($this->db, $previous['slug'], $data['slug'], (bool) $previous['visible'], (string) $previous['language']);
             }

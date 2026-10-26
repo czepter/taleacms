@@ -54,4 +54,31 @@ final class SeoScoreTest extends SiteTestCase
         $analysis = $site->mcpResult('get_news', ['id' => $site->publicId('news', $id)])['seo_analysis'];
         $this->assertIsInt($analysis['score']);
     }
+
+    public function testEditInPlaceRefreshesTheScore(): void
+    {
+        $site = $this->site();
+        $this->savePage(['title' => 'Inline page', 'slug' => 'inline-page', 'focus_keywords' => 'inline page']);
+        $id = (int) $this->row('inline-page')['page_id'];
+        $site->exec("UPDATE tl_pages SET seo_checked_at = '2000-01-01 00:00:00', seo_score = 1 WHERE page_id = ?", [$id]);
+        $this->adminPost('/admin.php?module=pages&action=save_text&id=' . $site->publicId('pages', $id), ['title' => 'Inline page', 'text' => '<p>Inline page, edited in place.</p>', 'back' => '/inline-page'], '/admin.php?module=pages');
+        $row = $this->row('inline-page');
+        $this->assertGreaterThan('2000-01-01 00:00:00', $row['seo_checked_at']);
+        $this->assertNotSame(1, (int) $row['seo_score']);
+    }
+
+    public function testKeywordTakenIgnoresWildcardsAndLaterLines(): void
+    {
+        $site = $this->site();
+        $this->savePage(['title' => 'Sale a', 'slug' => 'sale-a', 'focus_keywords' => '50x off']);
+        $this->savePage(['title' => 'Sale b', 'slug' => 'sale-b', 'focus_keywords' => "something\n50% off"]);
+        $this->savePage(['title' => 'Sale c', 'slug' => 'sale-c', 'focus_keywords' => '50% off']);
+        $kw = fn (string $slug): bool => array_column(array_merge(...array_values($site->mcpResult('get_page', ['id' => $site->publicId('pages', (int) $this->row($slug)['page_id'])])['seo_analysis']['groups'])), 'ok', 'check')['kw_unique'];
+        $this->assertTrue($kw('sale-c'), '% is not a wildcard, and a second line does not count');
+        $this->assertTrue($kw('sale-a'), '"50x off" is not taken by "50% off"');
+        $this->savePage(['title' => 'Sale d', 'slug' => 'sale-d', 'focus_keywords' => '50% OFF']);
+        $this->assertFalse($kw('sale-c'), 'a real first-line match counts');
+        $site->exec("UPDATE tl_pages SET focus_keywords = ? WHERE slug = 'sale-d'", ["50% off\r\nx"]);
+        $this->assertFalse($kw('sale-c'), 'CRLF stored value still matches');
+    }
 }
