@@ -130,7 +130,7 @@ final class Pages extends Module
             if ($page === null) {
                 continue;
             }
-            $in = array_intersect_key($row, array_flip(self::LIST_FIELDS));
+            $in = array_filter(array_intersect_key($row, array_flip(self::LIST_FIELDS)), is_scalar(...)); // a field sent as an array keeps its value
             $clean = fn (string $key, mixed $value): string => match ($key) {
                 'key_page', 'noindex' => !empty($value) ? '1' : '0',
                 'focus_keywords' => (string) \Talea\Core\SeoFields::fromInput([$key => $value])[$key],

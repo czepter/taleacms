@@ -94,5 +94,13 @@ final class SeoSectionTest extends SiteTestCase
         $response = $author->post('/admin.php?module=seo&action=feature', ['_csrf' => $this->site()->csrf($author), 'feature' => 'page_check', 'on' => '0']);
         $this->assertSame(403, $response->status);
         $this->assertSame(403, $author->get('/admin.php?module=seo')->status);
+
+        $site = $this->site();
+        $site->exec('INSERT INTO tl_users (username, password, name, admin, last_login_at, confirmed_at) VALUES (?, ?, ?, 1, NOW(), NOW())', ['editor', password_hash($site->password, PASSWORD_DEFAULT), 'Editor']);
+        $editor = $site->client('editor');
+        $site->signIn($editor, 'editor');
+        $this->assertSame(403, $editor->get('/admin.php?module=seo')->status, 'an editor has no overview either');
+        $this->assertSame(403, $editor->post('/admin.php?module=seo&action=feature', ['_csrf' => $site->csrf($editor), 'feature' => 'page_check', 'on' => '0'])->status);
+        $this->assertPage('/admin.php?module=pages', 200, 'Search score', message: 'Page check is still on');
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\PagesNews;
 
 use PHPUnit\Framework\Attributes\Group;
+use Talea\Tests\Site\Support\Http;
 use Talea\Tests\Site\Support\SiteTestCase;
 
 /** The pages list with the Page check columns (score, focus keyword, links), the score filter and editing titles in the list. */
@@ -65,6 +66,20 @@ final class PagesListSeoTest extends SiteTestCase
         $this->assertSame($before, $site->rows("SELECT seo_title, description, visible FROM tl_pages WHERE slug = 'strong'")[0], 'a row not sent stays as it was');
     }
 
+    /** A signed-in user with the Pages section: level 1 = editor, 0 = author (may not publish). */
+    private function user(string $name, int $level): Http
+    {
+        $site = $this->site();
+        if ((int) $site->value('SELECT COUNT(*) FROM tl_users WHERE username = ?', [$name]) === 0) {
+            $site->exec('INSERT INTO tl_users (username, password, name, admin, last_login_at, confirmed_at) VALUES (?, ?, ?, ?, NOW(), NOW())', [$name, password_hash($site->password, PASSWORD_DEFAULT), $name, $level]);
+            $site->exec("INSERT INTO tl_user_permissions (user_id, module) SELECT user_id, 'pages' FROM tl_users WHERE username = ?", [$name]);
+        }
+        $client = $site->client($name);
+        $site->signIn($client, $name);
+
+        return $client;
+    }
+
     public function testBulkSaveRefusesAFormThatReachesMaxInputVars(): void
     {
         $ids = $this->pages();
@@ -114,6 +129,35 @@ final class PagesListSeoTest extends SiteTestCase
         $this->assertStringContainsString('Not saved – /plain: Enter the page title.', $body, 'the row and what is wrong');
         $this->assertStringContainsString('Pages saved: 1.', $body);
         $this->assertSame('Strong title', (string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'strong'"));
+    }
+
+    public function testAnAuthorCannotChangeAPublishedPageInTheList(): void
+    {
+        $ids = $this->pages();
+        $site = $this->site();
+        $site->exec("UPDATE tl_pages SET visible = FALSE WHERE slug = 'plain'");
+        $author = $this->user('list-author', 0);
+        $response = $author->post('/admin.php?module=pages&action=seo_bulk_save', ['_csrf' => $site->csrf($author), 'rows' => [
+            $ids['weak'] => ['seo_title' => 'By the author', 'description' => '', 'focus_keywords' => 'weak words', 'key_page' => '1', 'noindex' => '1'],
+            $ids['plain'] => ['seo_title' => 'Hidden by the author', 'description' => '', 'focus_keywords' => '', 'key_page' => '1', 'noindex' => '0'],
+        ]]);
+        $this->assertSame(302, $response->status);
+        $this->assertSame(['', 0], [(string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'weak'"), (int) $site->value("SELECT noindex FROM tl_pages WHERE slug = 'weak'")], 'a published page stays as it was');
+        $this->assertSame('Hidden by the author', (string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'plain'"), 'a hidden page takes the change');
+        $this->assertStringContainsString('Not saved – Weak: Only an editor or administrator', $author->get(str_replace($site->base, '', $response->redirect))->body);
+    }
+
+    public function testCraftedRowsChangeNothing(): void
+    {
+        $ids = $this->pages();
+        $site = $this->site();
+        $before = $site->rows('SELECT slug, seo_title, description, focus_keywords, key_page, noindex, visible FROM tl_pages ORDER BY slug');
+        foreach (['rows=x', 'rows[not-a-uuid][seo_title]=a', 'rows[12][seo_title]=a', 'rows[' . $ids['weak'] . ']=x', 'rows[' . $ids['weak'] . '][seo_title][]=a&rows[' . $ids['weak'] . '][focus_keywords][x][]=b',
+            'rows[' . $ids['weak'] . '][key_page]=1&rows[' . $ids['weak'] . '][unknown]=1'] as $body) {
+            $response = $site->admin()->post('/admin.php?module=pages&action=seo_bulk_save', '_csrf=' . urlencode($site->csrf()) . '&' . $body, ['Content-Type: application/x-www-form-urlencoded']);
+            $this->assertSame(302, $response->status, $body);
+        }
+        $this->assertSame($before, $site->rows('SELECT slug, seo_title, description, focus_keywords, key_page, noindex, visible FROM tl_pages ORDER BY slug'), 'no row changed');
     }
 
     public function testListPagesCarriesScoreAndKeyword(): void
