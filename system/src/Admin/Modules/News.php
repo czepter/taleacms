@@ -646,6 +646,7 @@ final class News extends Module
                 continue;
             }
             $restored += $this->db->update('news', ['deleted_at' => null], ['news_id' => $newsItem['news_id']]);
+            \Talea\Core\SeoScore::refresh($this->app, 'news', (int) $newsItem['news_id']);
             \Talea\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['title'], 0, 80));
         }
 

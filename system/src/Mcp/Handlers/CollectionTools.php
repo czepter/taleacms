@@ -382,6 +382,7 @@ trait CollectionTools
         }
         \Talea\Builder\Collections::saveVersion($this->app, $item, $version);
         $db->update('collection_items', $version + ['updated_at' => date('Y-m-d H:i:s')], ['item_id' => $id]);
+        \Talea\Core\SeoScore::refresh($this->app, 'item', $id);
         Notices::recordSave($this->app, $k, $item, $version, $id);
         \Talea\Front\Cache::clear();
 

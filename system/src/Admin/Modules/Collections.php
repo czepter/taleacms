@@ -357,6 +357,7 @@ final class Collections extends Module
         }
         KolekceObsahu::saveVersion($this->app, $item, $version);
         $this->db->update('collection_items', $version + ['updated_at' => date('Y-m-d H:i:s')], ['item_id' => $idp]);
+        \Talea\Core\SeoScore::refresh($this->app, 'item', $idp);
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
         \Talea\Front\Cache::clear();
 
@@ -402,8 +403,8 @@ final class Collections extends Module
     protected function actionRestoreItem(): Response
     {
         $idk = $this->idParam('collection_id');
-        if ($this->request->isPost()) {
-            self::restoreItem($this->db, $this->idParam('item_id', 'collection_items'), $idk);
+        if ($this->request->isPost() && self::restoreItem($this->db, $idp = $this->idParam('item_id', 'collection_items'), $idk)) {
+            \Talea\Core\SeoScore::refresh($this->app, 'item', $idp);
         }
 
         return $this->back('The item was restored as hidden.', 'items', ['id' => $this->publicId($idk)]);

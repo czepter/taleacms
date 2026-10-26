@@ -260,6 +260,7 @@ trait PageTools
         if (!$ok) {
             throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
         }
+        \Talea\Core\SeoScore::refresh($this->app, $type === 'collection_item' ? 'item' : $type, $id);
 
         return ['restored' => $type, 'id' => $id, 'visible' => false];
     }

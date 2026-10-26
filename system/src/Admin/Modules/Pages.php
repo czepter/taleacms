@@ -690,6 +690,7 @@ final class Pages extends Module
         if ($page !== null && $page['build'] !== null) {
             $this->db->insert('build_revisions', ['page_id' => $page['page_id'], 'created_at' => date('Y-m-d H:i:s'), 'user_id' => $this->app->auth()->id(), 'build' => $page['build']]);
             $this->db->update('pages', ['build' => null, 'build_draft' => null], ['page_id' => $page['page_id']]);
+            \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
         }
 
         return $this->back('The page shows the text from the editor (the build\'s content without the layout). You will find the build in versions when you open the builder.', 'edit', ['id' => (string) ($page['public_id'] ?? '')]);
@@ -748,6 +749,7 @@ final class Pages extends Module
         }
         $this->saveVersion((int) $page['page_id'], $page['title'], (string) $page['text']);
         $this->db->update('pages', ['title' => $version['title'], 'text' => $version['text'], 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
 
         return $this->back(t('Version from %s restored.', format_date($version['created_at'], true)), 'edit', ['id' => (string) $page['public_id']]);
     }
@@ -846,6 +848,7 @@ final class Pages extends Module
     {
         if ($this->request->isPost()) {
             $this->db->run('UPDATE {pages} SET deleted_at = NULL WHERE page_id = ?', [$this->idParam('page_id')]);
+            \Talea\Core\SeoScore::refresh($this->app, 'page', $this->idParam('page_id'));
         }
 
         return $this->back('The page has been restored as hidden – publish it in its settings.');
@@ -885,6 +888,9 @@ final class Pages extends Module
         $copy['updated_at'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('pages', $copy);
         \Talea\Core\Members::copyGroups($this->db, 'page', (int) $page['page_id'], $id);
+        // the copy carries the focus keyword: both now share it (kw_unique)
+        \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+        \Talea\Core\SeoScore::refresh($this->app, 'page', (int) $page['page_id']);
 
         return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $this->publicId($id)]);
     }

@@ -81,4 +81,40 @@ final class SeoScoreTest extends SiteTestCase
         $site->exec("UPDATE tl_pages SET focus_keywords = ? WHERE slug = 'sale-d'", ["50% off\r\nx"]);
         $this->assertFalse($kw('sale-c'), 'CRLF stored value still matches');
     }
+
+    public function testRestoreDuplicateAndTextConversionRefreshTheScore(): void
+    {
+        $site = $this->site();
+        $this->savePage(['title' => 'Version page', 'slug' => 'version-page', 'focus_keywords' => 'version page', 'text' => '<p>Version page, the first text.</p>']);
+        $id = (int) $this->row('version-page')['page_id'];
+        $public = $site->publicId('pages', $id);
+        $this->savePage(['title' => 'Version page', 'slug' => 'version-page', 'page_id' => $public, 'focus_keywords' => 'version page', 'text' => '<p>The second text.</p>']);
+        $stale = fn (string $slug) => $site->exec("UPDATE tl_pages SET seo_checked_at = '2000-01-01 00:00:00', seo_score = 1 WHERE slug = ?", [$slug]);
+        $fresh = function (string $slug, string $message): void {
+            $row = $this->row($slug);
+            $this->assertGreaterThan('2000-01-01 00:00:00', (string) $row['seo_checked_at'], $message);
+            $this->assertNotSame(1, (int) $row['seo_score'], $message);
+        };
+
+        $stale('version-page');
+        $revision = (int) $site->value('SELECT MAX(revision_id) FROM tl_page_revisions WHERE page_id = ?', [$id]);
+        $this->adminPost('/admin.php?module=pages&action=restore_version', ['revision_id' => (string) $revision], '/admin.php?module=pages');
+        $fresh('version-page', 'restoring a version');
+
+        $stale('version-page');
+        $this->adminPost('/admin.php?module=pages&action=duplicate', ['page_id' => $public], '/admin.php?module=pages');
+        $fresh('version-page-copy', 'the copy has its own score');
+        $fresh('version-page', 'the original now shares its keyword with the copy');
+
+        $stale('version-page');
+        $site->exec('UPDATE tl_pages SET deleted_at = NOW() WHERE page_id = ?', [$id]);
+        $this->adminPost('/admin.php?module=pages&action=restore', ['page_id' => $public], '/admin.php?module=pages');
+        $fresh('version-page', 'restoring from the trash');
+
+        $stale('version-page');
+        $site->exec('UPDATE tl_pages SET build = ? WHERE page_id = ?', ['{"v":1,"children":[]}', $id]);
+        $this->adminPost('/admin.php?module=pages&action=build_text', ['page_id' => $public], '/admin.php?module=pages');
+        $this->assertNull($site->value('SELECT build FROM tl_pages WHERE page_id = ?', [$id]));
+        $fresh('version-page', 'back to text');
+    }
 }
