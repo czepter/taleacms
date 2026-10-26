@@ -601,7 +601,7 @@ final class Audit
             $s[0] === 'news' => $this->newsPathExists(array_slice($s, 1), $sameLanguage, $languageParams),
             $db->value('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,
             count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,
-            $db->value('SELECT 1 FROM {redirects} WHERE from_path IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', $redirects) !== null => true,
+            $db->value('SELECT 1 FROM {redirects} WHERE from_path IN (' . implode(',', array_fill(0, count($redirects), '?')) . ') AND active = TRUE AND match_type = \'exact\'', $redirects) !== null => true,
             default => false,
         };
 

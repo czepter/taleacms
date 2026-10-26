@@ -48,6 +48,22 @@ final class MissingPagesTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertPage('/admin.php?module=missing_pages&status=ignored', 200, ['/old-y', 'your site: /portraits'], message: 'and shows under Ignored');
     }
 
+    public function testASwitchedOffRuleLeavesTheAddressMissing(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tl_not_found');
+        $site->mcp('save_redirect', ['from' => '/old-z', 'to' => '/somewhere', 'active' => false]);
+        $site->clearPageCache();
+        $visitor = $site->client('visitor');
+        for ($i = 0; $i < 3; $i++) {
+            $this->assertSame(404, $visitor->get('/old-z')->status);
+        }
+        $this->assertPage('/admin.php?module=missing_pages', 200, '/old-z', message: 'an address with a switched-off rule is still missing');
+
+        $this->adminPost('/admin.php?module=missing_pages&action=redirect', ['path' => 'old-home', 'to' => '/'], '/admin.php?module=missing_pages');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path = 'old-home' AND to_path = ''"), 'the home page is a valid target');
+    }
+
     public function testClearKeepsIgnoredAddresses(): void
     {
         $site = $this->site();

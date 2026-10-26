@@ -233,7 +233,7 @@ final class Links
             $path = (string) parse_url(substr($path, strlen($app->request->basePath())), PHP_URL_PATH);
             if (preg_match('#^/(?:' . Language::TAG . '/)?news/([a-z0-9-]+)$#', $path, $m)) {
                 return $app->db()->value('SELECT news_id FROM {news} WHERE slug = ?', [$m[1]]) === null
-                    && $app->db()->value('SELECT redirect_id FROM {redirects} WHERE from_path = ?', ['news/' . $m[1]]) === null ? 404 : null;
+                    && $app->db()->value("SELECT redirect_id FROM {redirects} WHERE from_path = ? AND active = TRUE AND match_type = 'exact'", ['news/' . $m[1]]) === null ? 404 : null;
             }
 
             return null; // other URLs of the site itself (pages, items, files) are checked by the site audit
