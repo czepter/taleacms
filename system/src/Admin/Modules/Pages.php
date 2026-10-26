@@ -972,7 +972,7 @@ final class Pages extends Module
             'inMenu' => $page['page_id'] > 0 ? \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) ($page['language'] ?? '')) : null,
             'customMenu' => \Talea\Core\Menu::load($this->db, 'main', (string) ($page['language'] ?? '')) !== null,
             // content check of the saved version (2.14, Core\ContentCheck); a page not saved yet has nothing to check
-            'contentCheck' => $page['page_id'] > 0 && !$this->request->isPost() && $this->scored() ? \Talea\Core\ContentCheck::forPage($page) : [],
+            'contentCheck' => $page['page_id'] > 0 && !$this->request->isPost() ? \Talea\Core\ContentCheck::forPage($page) : [],
         ]);
     }
 }

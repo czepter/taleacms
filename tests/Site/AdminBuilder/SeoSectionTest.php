@@ -45,10 +45,21 @@ final class SeoSectionTest extends SiteTestCase
         $this->assertSame(302, $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'page_check', 'on' => '0'], '/admin.php?module=seo')->status);
         $this->assertPageLacks($url, ['website-score', 'website-dot', 'data-seo-checks'], message: 'no score pill, no tree dots and no checks with the feature off');
         $this->assertPage($url, 200, 'data-seo-serp', message: 'the search result preview stays');
-        $this->assertPageLacks($news, ['check-content', 'data-seo-checks'], message: 'the news form has no checks either');
+        $this->assertPageLacks($news, 'data-seo-checks', message: 'the news form has no score either');
+        $this->assertPage($news, 200, 'check-content', message: 'the general content check stays');
 
         $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'page_check', 'on' => '1'], '/admin.php?module=seo');
         $this->assertPage($url, 200, 'website-score');
+    }
+
+    public function testWithPageCheckOffTheTextPageFormKeepsTheContentCheck(): void
+    {
+        $site = $this->site();
+        $site->mcp('create_page', ['title' => 'Draft text', 'slug' => 'draft-text', 'visible' => false, 'in_menu' => false, 'content' => '<p>Call [Customer’s name] today.</p><img src="/media/a.jpg">']);
+        $url = '/admin.php?module=pages&action=edit&id=' . $site->value("SELECT public_id FROM tl_pages WHERE slug = 'draft-text'");
+        $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'page_check', 'on' => '0'], '/admin.php?module=seo');
+        $this->assertPage($url, 200, ['check-content', 'data-check="sample_content"', 'data-check="images_alt"'], message: 'placeholders and image descriptions are no Page check matter');
+        $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'page_check', 'on' => '1'], '/admin.php?module=seo');
     }
 
     public function testSwitchesWriteTheSettingsAndExtensions(): void

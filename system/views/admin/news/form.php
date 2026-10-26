@@ -182,7 +182,7 @@ $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($
 <div data-check-result aria-live="polite"><p class="help"><?= e(t('The check runs while you write (needs JavaScript).')) ?></p></div>
 </fieldset>
 <?php if ($newsItem['news_id']): ?>
-<?php if (Talea\Core\ContentCheck::enabled($app->settings())): ?><?= $app->view->render('admin/content_check', ['app' => $app, 'results' => $contentCheck, 'seo' => $seoCheck]) ?><?php endif ?>
+<?= $app->view->render('admin/content_check', ['app' => $app, 'results' => $contentCheck, 'seo' => $seoCheck]) ?>
 <?php endif ?>
 
 <details class="advanced"<?= $newsItem['seo_title'] !== '' || $newsItem['seo_description'] !== '' || ($newsItem['focus_keywords'] ?? '') !== '' || ($newsItem['canonical_url'] ?? '') !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
