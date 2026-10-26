@@ -46,8 +46,9 @@
 		if (empty) { empty.hidden = any; }
 	});
 
-	// Variable buttons of the title templates: data-insert="%title%" data-insert-into="field id" puts the variable at the cursor of that field.
-	document.querySelectorAll('[data-insert][hidden]').forEach(function (b) { b.hidden = false; });
+	// Variable buttons (Titles and descriptions): data-insert="%title%" data-insert-into="field id" puts the variable at
+	// the cursor of that field; their group is rendered hidden and appears only with this script.
+	document.querySelectorAll('[data-insert]').forEach(function (b) { b.parentNode.hidden = false; });
 	document.addEventListener('click', function (e) {
 		var button = e.target.closest('[data-insert]');
 		var field = button && document.getElementById(button.getAttribute('data-insert-into'));

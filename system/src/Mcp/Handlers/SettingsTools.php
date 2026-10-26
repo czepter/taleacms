@@ -151,6 +151,7 @@ trait SettingsTools
         if (isset($stored['company_hours'])) {
             \Talea\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
         }
+        \Talea\Admin\Modules\Seo::ensureIndexNowKey($siteSettings); // instant indexing switched on here gets its key too
         if (($stored['screen_mode'] ?? '') === '1') {
             \Talea\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
         }

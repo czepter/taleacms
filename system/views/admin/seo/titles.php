@@ -15,8 +15,8 @@
 use Talea\Admin\Modules\SeoTitles;
 use Talea\Core\SeoTitle;
 
-$variables = fn (string $id, bool $excerpt = false): string => '<div class="seo-vars">' . implode('', array_map(
-    fn (string $v): string => '<button class="seo-var" type="button" hidden data-insert="%' . e($v) . '%" data-insert-into="' . e($id) . '">%' . e($v) . '%</button>',
+$variables = fn (string $id, bool $excerpt = false): string => '<div class="seo-vars" hidden>' . implode('', array_map(
+    fn (string $v): string => '<button class="seo-var" type="button" data-insert="%' . e($v) . '%" data-insert-into="' . e($id) . '">%' . e($v) . '%</button>',
     $excerpt ? SeoTitle::VARIABLES : array_values(array_diff(SeoTitle::VARIABLES, ['excerpt'])),
 )) . '</div>';
 $template = function (string $key, string $label, bool $description = false) use ($values, $variables): void {

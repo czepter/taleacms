@@ -8,7 +8,6 @@
  * @var list<array{check: string, ok: bool, message: string}> $samples placeholders still in the content
  * @var list<string> $keywords the first is the one checked
  * @var string $marksUrl Website mode with the marks on the preview; '' for a text page
- * @var bool $scored the score is shown
  */
 $score = $analysis['score'];
 $band = Talea\Core\ContentCheck::band($score);
@@ -39,7 +38,6 @@ $item = function (array $row) use ($icon, $onPage, $marksUrl): string {
 };
 ?>
 <div class="seo-checks" data-seo-checks>
-<?php if ($scored): ?>
 	<section class="website-settings-section seo-score-card" aria-label="<?= e(t('SEO score')) ?>">
 		<div class="seo-ring seo-ring-<?= $band ?>"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="seo-ring-track" cx="42" cy="42" r="35"/><?php if ($score !== null): ?><circle class="seo-ring-fill" cx="42" cy="42" r="35" stroke-dasharray="<?= round($score * 2.199, 1) ?> 219.9"/><?php endif ?></svg><strong><span class="guide-hidden"><?= e(t('SEO score')) ?> </span><?= $score ?? '–' ?></strong></div>
 		<div class="seo-score-text">
@@ -55,7 +53,6 @@ $item = function (array $row) use ($icon, $onPage, $marksUrl): string {
 <?php endif ?>
 		</div>
 	</section>
-<?php endif ?>
 	<section class="website-settings-section" aria-labelledby="seo-fix">
 		<h3 class="seo-heading" id="seo-fix"><span><?= e(t('To fix')) ?></span><span><?= count($open) ?></span></h3>
 		<p class="seo-groups">

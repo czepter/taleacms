@@ -154,7 +154,7 @@ final class Pages extends Module
         $data = $this->seoTab(['seo_title' => $this->request->post('seo_title'), 'description' => $this->request->post('description'),
             'focus_keywords' => implode("\n", \Talea\Core\SeoFields::keywords($this->request->post('focus_keywords')))] + $page);
 
-        return Response::html($this->app->view->render('admin/seo/checks', ['app' => $this->app, 'scored' => $this->scored()] + $data)
+        return Response::html(($this->scored() ? $this->app->view->render('admin/seo/checks', ['app' => $this->app] + $data) : '')
             . $this->app->view->render('admin/seo/serp', ['app' => $this->app] + $data));
     }
 
@@ -173,7 +173,8 @@ final class Pages extends Module
         $description = (string) $page['description'] !== '' ? (string) $page['description'] : ($home ? $settings->get('site_description') : '');
         $site = parse_url($settings->get('site_url') ?: $this->app->request->origin()) ?: [];
 
-        return \Talea\Core\SeoScore::panel($this->app, 'page', $page) + [
+        // the analysis only with the Page check feature on; the search result preview always
+        return ($this->scored() ? \Talea\Core\SeoScore::panel($this->app, 'page', $page) : ['analysis' => null, 'samples' => [], 'keywords' => []]) + [
             'marksUrl' => $build === null ? '' : $this->url('website', ['id' => (string) $page['public_id'], 'tab' => 'seo', 'marks' => '1']),
             // the title and description exactly as Front\Kernel hands them to the page head
             'serpTitle' => \Talea\Core\SeoTitle::compose($settings, $home ? 'home' : 'page', (string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : ($home ? '' : (string) $page['title']),
@@ -184,10 +185,10 @@ final class Pages extends Module
         ];
     }
 
-    /** The score parts are shown (tree dots, the sidebar pill, the SEO tab's score): the one place that can switch them off. */
+    /** The Page check feature is on: the score parts (tree dots, the sidebar pill) and the SEO tab's checks are computed and shown. */
     private function scored(): bool
     {
-        return true;
+        return \Talea\Core\ContentCheck::enabled($this->app->settings());
     }
 
     /** The tabs of Website mode's settings sidebar and the fields each one saves (pages/settings_save). */
@@ -918,7 +919,7 @@ final class Pages extends Module
             'inMenu' => $page['page_id'] > 0 ? \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) ($page['language'] ?? '')) : null,
             'customMenu' => \Talea\Core\Menu::load($this->db, 'main', (string) ($page['language'] ?? '')) !== null,
             // content check of the saved version (2.14, Core\ContentCheck); a page not saved yet has nothing to check
-            'contentCheck' => $page['page_id'] > 0 && !$this->request->isPost() && \Talea\Core\Extensions::isEnabled($this->app->settings(), 'page_check') ? \Talea\Core\ContentCheck::forPage($page) : [],
+            'contentCheck' => $page['page_id'] > 0 && !$this->request->isPost() && $this->scored() ? \Talea\Core\ContentCheck::forPage($page) : [],
         ]);
     }
 }

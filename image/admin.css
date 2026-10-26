@@ -2187,6 +2187,7 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .seo-seps label:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .seo-seps input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
 .seo-vars { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.seo-vars[hidden] { display: none; } /* shown by admin.js, which makes the buttons work */
 .seo-var { padding: 2px 8px; border: 1px solid var(--line-field); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .seo-var:hover, .seo-var:focus-visible { border-color: var(--accent); background: var(--accent-light); }
 .seo-sample { margin: 8px 0 0; font-size: 14px; color: var(--text-weak); }

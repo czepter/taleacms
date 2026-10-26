@@ -37,10 +37,15 @@ final class SeoSectionTest extends SiteTestCase
         $site = $this->site();
         $id = $site->publicId('pages', (int) $site->value('SELECT MIN(page_id) FROM tl_pages WHERE deleted_at IS NULL'));
         $url = '/admin.php?module=pages&action=website&tab=seo&id=' . $id;
-        $this->assertPage($url, 200, ['website-score', 'check-content'], message: 'the score is there while the feature is on');
+        $site->mcpResult('create_news', ['title' => 'Winter opening hours', 'content' => '<p>Winter opening hours are shorter.</p>', 'category' => 'News', 'focus_keywords' => 'winter opening hours']);
+        $news = '/admin.php?module=news&action=edit&id=' . $site->publicId('news', (int) $site->value('SELECT news_id FROM tl_news WHERE title = ?', ['Winter opening hours']));
+        $this->assertPage($url, 200, ['website-score', 'website-dot', 'data-seo-checks'], message: 'the score is there while the feature is on');
+        $this->assertPage($news, 200, ['check-content', 'data-seo-checks']);
 
         $this->assertSame(302, $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'page_check', 'on' => '0'], '/admin.php?module=seo')->status);
-        $this->assertPageLacks($url, ['website-score', 'check-content'], message: 'no score pill and no checks with the feature off');
+        $this->assertPageLacks($url, ['website-score', 'website-dot', 'data-seo-checks'], message: 'no score pill, no tree dots and no checks with the feature off');
+        $this->assertPage($url, 200, 'data-seo-serp', message: 'the search result preview stays');
+        $this->assertPageLacks($news, ['check-content', 'data-seo-checks'], message: 'the news form has no checks either');
 
         $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'page_check', 'on' => '1'], '/admin.php?module=seo');
         $this->assertPage($url, 200, 'website-score');
@@ -59,7 +64,17 @@ final class SeoSectionTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $site->settingValue('indexnow_key'), 'instant indexing gets its key from the overview too');
         $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'redirects', 'on' => '0'], '/admin.php?module=seo');
         $this->assertStringNotContainsString('redirects', $site->settingValue('extensions'));
+        $this->assertPageLacks('/admin.php?module=seo', ['/admin/redirects', 'module=redirects'], message: 'no card or tile links to a section that is off');
         $this->assertSame(302, $this->adminPost('/admin.php?module=seo&action=feature', ['feature' => 'nonsense', 'on' => '0'], '/admin.php?module=seo')->status, 'an unknown feature changes nothing');
+    }
+
+    public function testInstantIndexingSwitchedOnByClaudeGetsItsKey(): void
+    {
+        $site = $this->site();
+        $site->setting('indexnow', '0');
+        $site->setting('indexnow_key', '');
+        $site->mcpResult('update_settings', ['settings' => ['indexnow' => '1']]);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $site->settingValue('indexnow_key'));
     }
 
     public function testOnlyAdministratorsSwitchFeatures(): void

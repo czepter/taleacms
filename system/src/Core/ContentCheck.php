@@ -294,6 +294,15 @@ final class ContentCheck
         return $marks;
     }
 
+    /**
+     * The Page check feature (extension page_check) is on: the one condition for computing and showing the score, the
+     * checks and the score filters of pages, news and collection items.
+     */
+    public static function enabled(Settings $settings): bool
+    {
+        return Extensions::isEnabled($settings, 'page_check');
+    }
+
     /** The band of a score for its colour and label: good from 80, mid from 50, low below, none without a focus keyword. */
     public static function band(?int $score): string
     {

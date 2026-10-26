@@ -122,7 +122,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 </div>
 <?php endif ?>
 <?php if ($page['page_id']): ?>
-<?php if (Talea\Core\Extensions::isEnabled($app->settings(), 'page_check')): ?><?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?><?php endif ?>
+<?php if (Talea\Core\ContentCheck::enabled($app->settings())): ?><?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?><?php endif ?>
 <?php endif ?>
 </details>
 <?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($page['language'] ?? ''), 'translationOf' => $app->db()->publicId('pages', (int) ($page['translation_of'] ?? 0)), 'originals' => $app->db()->pairs("SELECT public_id, title FROM {pages} WHERE language = '' AND deleted_at IS NULL ORDER BY title"), 'hint' => '']) ?>

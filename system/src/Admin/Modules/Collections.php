@@ -212,7 +212,7 @@ final class Collections extends Module
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
-            'seoCheck' => $k['detail'] && $p['item_id'] > 0 ? \Talea\Core\SeoScore::panel($this->app, 'item', $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $p['item_id']])) : null,
+            'seoCheck' => $k['detail'] && $p['item_id'] > 0 && \Talea\Core\ContentCheck::enabled($this->app->settings()) ? \Talea\Core\SeoScore::panel($this->app, 'item', $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $p['item_id']])) : null,
             'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);

@@ -44,7 +44,7 @@ $languages = Language::additional($app->settings());
 </div>
 <?php endforeach ?>
 <?php if ($k['detail']): ?>
-<?php if ($p['item_id'] > 0): ?>
+<?php if ($seoCheck !== null): ?>
 <?= $app->view->render('admin/content_check', ['app' => $app, 'results' => [], 'seo' => $seoCheck]) ?>
 <?php endif ?>
 <details class="advanced"<?= $p['description'] !== '' || ($p['focus_keywords'] ?? '') !== '' || ($p['canonical_url'] ?? '') !== '' || $p['seo_title'] !== '' || $p['image'] !== '' || $p['noindex'] ? ' open' : '' ?>>

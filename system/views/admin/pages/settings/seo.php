@@ -10,7 +10,7 @@
  * @var array<string, mixed> $page
  * @var string $formStart
  * @var string $host
- * @var bool $scored
+ * @var bool $scored the Page check feature is on: the score and what to fix are shown
  * @var array<string, mixed> $seo Pages::seoTab()
  */
 $dir = $seo['dir'];
@@ -23,7 +23,9 @@ $meter = function (string $value, int $max): string {
 $shareTitle = (string) $page['share_title'] !== '' ? (string) $page['share_title'] : ((string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : (string) $page['title']);
 $image = (string) $page['image'] !== '' ? (string) $page['image'] : $app->settings()->get('share_image');
 ?>
-<div aria-live="polite"><?= $app->view->render('admin/seo/checks', ['app' => $app, 'scored' => $scored] + $seo) ?></div>
+<?php if ($scored): ?>
+<div aria-live="polite"><?= $app->view->render('admin/seo/checks', ['app' => $app] + $seo) ?></div>
+<?php endif ?>
 <?= $formStart ?>
 <section class="website-settings-section" aria-labelledby="seo-serp-heading">
 	<h3 class="seo-heading" id="seo-serp-heading"><span><?= e(t('Search result')) ?></span><a href="<?= e($link('advanced')) ?>"><?= e(t('Advanced')) ?></a></h3>
