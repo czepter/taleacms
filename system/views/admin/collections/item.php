@@ -7,6 +7,7 @@
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
+ * @var ?array<string, mixed> $seoCheck  the SEO score panel of a saved item (Core\SeoScore::panel)
  * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
  * @var list<array<string, mixed>> $noticeLog  the audit trail of a notice (2.11, Core\Notices), newest first
  */
@@ -43,7 +44,10 @@ $languages = Language::additional($app->settings());
 </div>
 <?php endforeach ?>
 <?php if ($k['detail']): ?>
-<details class="advanced"<?= $p['description'] !== '' || $p['seo_title'] !== '' || $p['image'] !== '' || $p['noindex'] ? ' open' : '' ?>>
+<?php if ($p['item_id'] > 0): ?>
+<?= $app->view->render('admin/content_check', ['app' => $app, 'results' => [], 'seo' => $seoCheck]) ?>
+<?php endif ?>
+<details class="advanced"<?= $p['description'] !== '' || ($p['focus_keywords'] ?? '') !== '' || ($p['canonical_url'] ?? '') !== '' || $p['seo_title'] !== '' || $p['image'] !== '' || $p['noindex'] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="row"><label for="seo_title"><?= e(t('Search engine title')) ?></label><div><input class="textfield wide" id="seo_title" name="seo_title" value="<?= e($p['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = the item name')) ?>"></div></div>
 <div class="row"><label for="description"><?= e(t('Search engine description')) ?></label><div><input class="textfield wide" id="description" name="description" value="<?= e($p['description']) ?>" maxlength="300">
@@ -52,6 +56,7 @@ $languages = Language::additional($app->settings());
 	<span class="help"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Options')) ?></span><div class="options"><label><input type="checkbox" name="noindex" value="1"<?= $p['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label>
 	<span class="help"><?= e(t('The item page stays reachable, but it is left out of search engines, the sitemap, llms.txt and site search.')) ?></span></div></div>
+<?= $app->view->render('admin/seo/fields', ['row' => $p, 'dir' => $contentDir]) ?>
 <?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'item', 'row' => (int) ($p['item_id'] ?? 0)]) ?>
 </details>
 <?php endif ?>

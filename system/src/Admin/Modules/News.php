@@ -710,6 +710,7 @@ final class News extends Module
             'assistant' => (new \Talea\Core\Assistant($this->app->settings()))->isReady(),
             // content check of the saved version (2.14, Core\ContentCheck); a news item not saved yet has nothing to check
             'contentCheck' => $newsItem['news_id'] && !$this->request->isPost() ? \Talea\Core\ContentCheck::forNews($newsItem) : [],
+            'seoCheck' => $newsItem['news_id'] && !$this->request->isPost() ? \Talea\Core\SeoScore::panel($this->app, 'news', $this->db->one('SELECT * FROM {news} WHERE news_id = ?', [(int) $newsItem['news_id']]) ?? $newsItem) : null,
             'tags' => $this->request->isPost() ? $this->request->post('tags') : implode(', ', array_column(
                 $this->db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [(int) $newsItem['news_id']]),
                 'name',

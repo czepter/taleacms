@@ -49,6 +49,19 @@ final class SeoScore
             'keyword_taken' => $keywords !== [] && self::taken($db, $keywords[0], $table, (int) $row[$key])];
     }
 
+    /**
+     * What seo/checks.php shows of a saved row: the scored analysis, the placeholders still in the content and the keywords.
+     *
+     * @param array<string, mixed> $row the full row @return array<string, mixed>
+     */
+    public static function panel(App $app, string $kind, array $row): array
+    {
+        $input = self::input($app, $kind, $row);
+
+        return ['analysis' => ContentCheck::analyse($input), 'keywords' => $input['keywords'],
+            'samples' => array_values(array_filter(ContentCheck::run($input), fn (array $r): bool => $r['check'] === 'sample_content' && !$r['ok']))];
+    }
+
     /** Stores the score (null without a focus keyword) and the time of the check; never throws. */
     public static function refresh(App $app, string $kind, int $id): ?int
     {
