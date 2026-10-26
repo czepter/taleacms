@@ -203,5 +203,15 @@ final class SeoHeadTest extends \Talea\Tests\Site\Support\SiteTestCase
         $sitemap = $site->client('visitor')->get('/sitemap.xml')->body;
         $this->assertStringNotContainsString('/moved</loc>', $sitemap);
         $this->assertStringContainsString('/stays</loc>', $sitemap);
+        $this->assertStringNotContainsString("\n\n", $sitemap, 'a left-out row leaves no empty line');
+
+        // its own address in another spelling (upper-case host, a trailing slash) is no foreign canonical
+        $site->exec("INSERT INTO tl_categories (name, slug, description, language) VALUES ('Notes', 'notes', '', '')");
+        $site->exec("INSERT INTO tl_news (slug, title, intro, text, category_id, published_at, visible, language) VALUES ('own-post', 'Own post', '', '<p>Own.</p>', ?, '2026-01-01 10:00:00', TRUE, '')",
+            [(int) $site->value("SELECT category_id FROM tl_categories WHERE slug = 'notes'")]);
+        $own = (string) preg_replace_callback('#^(https?://)([^/]+)#', fn (array $m): string => $m[1] . strtoupper($m[2]), rtrim($site->base, '/')) . '/news/own-post/';
+        $site->exec('UPDATE tl_news SET canonical_url = ? WHERE slug = ?', [$own, 'own-post']);
+        $site->clearPageCache();
+        $this->assertStringContainsString('/news/own-post</loc>', $site->client('visitor')->get('/sitemap.xml')->body);
     }
 }

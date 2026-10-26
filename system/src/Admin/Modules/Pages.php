@@ -226,7 +226,7 @@ final class Pages extends Module
             // the page's own address is no override: stored empty, so the page keeps following its address
             $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
             $own = ($site['scheme'] ?? 'http') . '://' . ($site['host'] ?? '') . (isset($site['port']) ? ':' . $site['port'] : '') . self::address($this->app, $page);
-            if (self::sameAddress(\Talea\Core\Robots::scalar($in['canonical_url']), $own)) {
+            if (\Talea\Core\Robots::sameAddress(\Talea\Core\Robots::scalar($in['canonical_url']), $own)) {
                 $in['canonical_url'] = '';
             }
         }
@@ -248,18 +248,6 @@ final class Pages extends Module
             'translation_of' => $this->publicId((int) $page['translation_of']),
             'in_menu' => \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) $page['language']) ?? (bool) $page['in_menu'],
         ];
-    }
-
-    /** Two addresses are the same when scheme and host match in any case, the path and query exactly; a trailing slash does not count. */
-    private static function sameAddress(string $a, string $b): bool
-    {
-        $key = static function (string $url): string {
-            $u = parse_url($url) ?: [];
-
-            return strtolower(($u['scheme'] ?? '') . '://' . ($u['host'] ?? '') . (isset($u['port']) ? ':' . $u['port'] : '')) . rtrim($u['path'] ?? '', '/') . (isset($u['query']) ? '?' . $u['query'] : '');
-        };
-
-        return $a !== '' && $key($a) === $key($b);
     }
 
     /**

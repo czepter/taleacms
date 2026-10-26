@@ -89,7 +89,7 @@ final class Seo
             $public = \Talea\Core\Routes::publicPath($path, $db);
             $loc = $this->root . ($language !== '' ? $language . '/' : '') . $public . (\Talea\Core\Routes::pageLike('/' . $public) ? $suffix : '');
 
-            return $canonical !== '' && $canonical !== $loc ? '' : '<url><loc>' . e($loc) . '</loc>'
+            return $canonical !== '' && !\Talea\Core\Robots::sameAddress($canonical, $loc) ? '' : '<url><loc>' . e($loc) . '</loc>'
                 . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
         };
 
@@ -122,7 +122,7 @@ final class Seo
             $xml[] = $url('news/' . $r['slug'], $r['changed'], '0.5', $r['language'], $r['canonical_url']);
         }
 
-        return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
+        return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", array_filter($xml)) . "\n</urlset>\n";
     }
 
     /**

@@ -47,6 +47,21 @@ final class Robots
         return $url;
     }
 
+    /**
+     * Two addresses are the same when scheme and host match in any case, the path and query exactly; a trailing slash does
+     * not count. A canonical address that is the row's own is no override (the Advanced tab, the sitemap).
+     */
+    public static function sameAddress(string $a, string $b): bool
+    {
+        $key = static function (string $url): string {
+            $u = parse_url($url) ?: [];
+
+            return strtolower(($u['scheme'] ?? '') . '://' . ($u['host'] ?? '') . (isset($u['port']) ? ':' . $u['port'] : '')) . rtrim($u['path'] ?? '', '/') . (isset($u['query']) ? '?' . $u['query'] : '');
+        };
+
+        return $a !== '' && $key($a) === $key($b);
+    }
+
     /** A string, number or boolean as text; anything else (an array from a crafted request) as ''. */
     public static function scalar(mixed $value): string
     {
