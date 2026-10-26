@@ -52,7 +52,8 @@ final class Booking extends Element
 .tl-booking-options label { display: flex; gap: var(--tl-space-xs); align-items: flex-start; padding: 0.6em 0.9em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); cursor: pointer; }
 .tl-booking-options label:has(:checked) { border-color: var(--tl-color-primary); background: var(--tl-color-primary-soft); }
 .tl-booking-options input { margin-block-start: 0.3em; accent-color: var(--tl-color-primary); }
-.tl-booking-options small { display: block; color: var(--tl-color-muted); }
+.tl-booking-options small, .tl-booking-service small { display: block; color: var(--tl-color-muted); }
+.tl-booking-service { margin: 0; }
 .tl-booking-calendar { display: grid; gap: var(--tl-space-xs); }
 .tl-booking-month { display: flex; align-items: center; justify-content: space-between; gap: var(--tl-space-xs); font-weight: 600; }
 .tl-booking-month button { padding: 0.3em 0.7em; border: 1px solid var(--tl-color-line); border-radius: var(--tl-radius); background: var(--tl-color-background); color: inherit; font: inherit; cursor: pointer; }
@@ -143,14 +144,23 @@ final class Booking extends Element
         $html = $result !== '' ? '<p class="tl-booking-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $name = 'r-' . $p['id'];
 
-        // 1. the service
-        $html .= '<fieldset class="tl-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend><div class="tl-booking-options">';
-        foreach ($services as $i => $s) {
-            $meta = implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']]));
-            $html .= '<label><input type="radio" name="service" value="' . $serviceKey($s['id']) . '" required data-duration="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
-                . '<span>' . e($s['name']) . '<small>' . e($meta) . ($s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span></label>';
+        // 1. the service – a single one is plain text, there is nothing to choose
+        $html .= '<fieldset class="tl-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend>';
+        $serviceText = fn (array $s): string => '<span>' . e($s['name']) . '<small>' . e(implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']])))
+            . ($s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span>';
+        if (count($services) === 1) {
+            $s = $services[0];
+            $html .= '<input type="hidden" name="service" value="' . $serviceKey($s['id']) . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . '>'
+                . '<p class="tl-booking-service">' . $serviceText($s) . '</p>';
+        } else {
+            $html .= '<div class="tl-booking-options">';
+            foreach ($services as $s) {
+                $html .= '<label><input type="radio" name="service" value="' . $serviceKey($s['id']) . '" required' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? 0) ? ' checked' : '') . '>'
+                    . $serviceText($s) . '</label>';
+            }
+            $html .= '</div>';
         }
-        $html .= '</div></fieldset>';
+        $html .= '</fieldset>';
 
         // 2. the person – only when there is a choice
         $offering = array_values(array_filter($staff, fn (array $m): bool => array_intersect($m['services'], array_column($services, 'id')) !== []));
