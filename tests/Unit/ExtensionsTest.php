@@ -27,4 +27,14 @@ final class ExtensionsTest extends TestCase
             \Talea\Admin\Modules\Settings::verifyValue('stats', '1'), str_contains((string) file_get_contents(TALEA_SYSTEM . '/views/admin/settings/analytics.php'), "\$field('stats'"),
             (bool) preg_match((new \ReflectionClassConstant(\Talea\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), 'stats'), isset(\Talea\Core\Settings::DEFAULTS['stats'])], '3.2: Statistics have one switch – the feature; the old setting is not read, not saved by the Analytics tab and still accepted over MCP');
     }
+
+    /** An imported site keeps the default of a feature its archive does not name, and the choice of one it names. */
+    public function testImportedFeatures(): void
+    {
+        $imported = fn (string $on, ?string $off): array => \Talea\Core\Extensions::imported($on, $off);
+        $this->assertSame(['news', 'stats', 'page_check'], array_values(array_intersect(['news', 'stats', 'page_check'], $imported('news,stats', 'redirects,bookings'))), 'a default-on feature the archive does not name is on');
+        $this->assertNotContains('redirects', $imported('news,stats', 'redirects,bookings'), 'one it switched off stays off');
+        $this->assertSame(['news', 'stats'], $imported('news,stats,unknown', null), 'an archive without an off list names every feature');
+        $this->assertNotContains('page_check', $imported('news', 'page_check'));
+    }
 }

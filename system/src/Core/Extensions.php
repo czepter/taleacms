@@ -37,7 +37,16 @@ final class Extensions
     /** @return list<string> */
     public static function enabled(Settings $settings): array
     {
-        $stored = $settings->get('extensions');
+        return self::fromValue($settings->get('extensions'));
+    }
+
+    /**
+     * The features a stored "extensions" value switches on: '' = the default set, '-' = none.
+     *
+     * @return list<string>
+     */
+    public static function fromValue(string $stored): array
+    {
         if ($stored === '') {
             return array_keys(array_filter(self::CATALOG, fn (array $r): bool => $r[2]));
         }
@@ -48,6 +57,20 @@ final class Extensions
     public static function isEnabled(Settings $settings, string $key): bool
     {
         return $key === '' || in_array($key, self::enabled($settings), true);
+    }
+
+    /**
+     * The features a site imported from an archive switches on (SiteImport): those the archive switched on, and those on by
+     * default that the archive names neither on nor off – they are newer than the site it came from, so they keep their
+     * default. An archive without an off list (exported before the list existed) names every feature.
+     *
+     * @return list<string>
+     */
+    public static function imported(string $on, mixed $off): array
+    {
+        $on = array_values(array_intersect(explode(',', $on), array_keys(self::CATALOG)));
+
+        return is_string($off) ? array_values(array_unique([...$on, ...array_diff(self::fromValue(''), explode(',', $off))])) : $on;
     }
 
     /** @param list<string> $keys */

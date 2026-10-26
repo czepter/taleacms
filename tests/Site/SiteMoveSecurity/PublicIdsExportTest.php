@@ -102,7 +102,9 @@ final class PublicIdsExportTest extends SiteTestCase
         self::$ids = ['parent' => $site->publicId('pages', $parent), 'child' => $site->publicId('pages', $child), 'component' => $site->publicId('components', $component),
             'popup' => (string) $site->value("SELECT public_id FROM tl_popups WHERE slug = 'ids-popup'"), 'service' => $site->publicId('booking_services', $service), 'staff' => $site->publicId('booking_staff', $staff)];
 
+        $site->setting('extensions', 'news,enquiries,redirects,page_check,bookings'); // Statistics switched off
         $content = self::$old = $this->exportOf($site);
+        $this->assertContains('stats', explode(',', $content['settings']['extensions_off']), 'the export names the features switched off');
         $this->assertSame(3, $content['format_version'], 'the format with public ids');
         $this->assertGreaterThan(0, count($content['media'] ?? []), 'the export has media rows');
         foreach (self::TABLES as $table => $key) {
@@ -160,6 +162,7 @@ final class PublicIdsExportTest extends SiteTestCase
         $this->assertSame([$child], json_decode((string) $new->value("SELECT rules FROM tl_popups WHERE slug = 'ids-popup'"), true)['pages'], 'the pages of a pop-up are the new keys');
         $this->assertStringContainsString('"page_id":' . $child, (string) $new->value("SELECT items FROM tl_menus WHERE location = 'main' AND language = ''"), 'a menu page points at the new key');
         $this->assertSame((string) $new->internalId('pages', self::$old['settings']['home_page']), $new->settingValue('home_page'), 'the home page setting points at the new key');
+        $this->assertSame('news,enquiries,redirects,page_check,bookings', $new->settingValue('extensions'), 'the features as they were: Statistics, switched off, stays off');
         $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_news_tags nt JOIN tl_tags t ON t.tag_id = nt.tag_id WHERE t.slug = ?', ['ids-tag']), 'a tag link of a news item is kept');
         $this->assertSame('1', (string) $new->value("SELECT COUNT(*) FROM tl_media m JOIN tl_media_folders f ON f.folder_id = m.folder_id WHERE f.name = 'Ids folder'"), 'a media folder relation is kept');
         $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_booking_staff_services'), 'the person and the service stay linked');

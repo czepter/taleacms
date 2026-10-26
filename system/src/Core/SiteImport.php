@@ -907,7 +907,7 @@ final class SiteImport
                 // a regional language of the archive keeps the language the new site already has (en-gb into an English site stays English)
                 'site_language' => isset(Language::AVAILABLE[$value]) && Language::forSite($value, [Language::defaults($this->settings)]) === $value ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),
-                'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
+                'extensions' => $value === '-' ? '-' : implode(',', Extensions::imported($value, $values['extensions_off'] ?? null)),
                 // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*
                 // "javascript:…" from a crafted archive is dropped and the setting keeps its value
                 default => \Talea\Admin\Modules\Settings::checkable($key) ? \Talea\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),

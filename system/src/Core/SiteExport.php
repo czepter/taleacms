@@ -325,6 +325,8 @@ final class SiteExport
         if (isset($selection['home_page'])) {
             $selection['home_page'] = $db->publicId('pages', (int) $selection['home_page']); // a public id like every reference (empty = none)
         }
+        // the features switched off by name, so an import tells them from features this site did not have yet (SiteImport)
+        $selection['extensions_off'] = implode(',', array_diff(array_keys(Extensions::CATALOG), Extensions::fromValue((string) ($all['extensions'] ?? ''))));
         ksort($selection);
 
         return $selection;
@@ -372,7 +374,8 @@ final class SiteExport
             . ($withMedia ? "media/      uploaded images and files; the paths match the \"image\" columns and the media rows\n" : "media/      NOT in the archive (too large or too little disk space) – download the media/ folder from the site over FTP\n")
             . "\ncontent.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
             . "format, format_version, talea, created_at   header (format \"talea-export\", format version, Talea version, created)\n"
-            . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page\n"
+            . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page,\n"
+            . "                 the features switched on (extensions) and off (extensions_off)\n"
             . "Public ids: every row of pages, categories, tags, news, redirects, components, sections, collections, collection_items, popups, media,\n"
             . "                 media_folders, booking_services and booking_staff has a public_id (UUID v4). The integer keys of the database are not in the file;\n"
             . "                 every reference between rows (parent_id, translation_of, category_id, folder_id, collection_id, item_id, tags, staff_id, service_id,\n"
