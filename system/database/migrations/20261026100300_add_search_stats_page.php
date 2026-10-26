@@ -15,6 +15,7 @@ final class AddSearchStatsPage extends AbstractMigration
         $this->table('search_stats')
             ->addColumn('page', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'after' => 'key', 'comment' => 'page_query: the page address'])
             ->addIndex(['engine', 'kind', 'day', 'page'], ['name' => 'ix_search_stats_engine_kind_day_page'])
+            ->addIndex(['engine', 'day'], ['name' => 'ix_search_stats_engine_day']) // the latest snapshot of an engine (MAX(day)) in one probe
             ->update();
     }
 }
