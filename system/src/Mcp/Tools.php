@@ -556,6 +556,7 @@ final class Tools
                 throw new \DomainException('Only editors and administrators can change a visible page.');
             }
             unset($data['visible']);
+            $data['publish_at'] = null; // any save clears a schedule: changes nobody reviewed never go live on their own
         }
         if (($data['title'] ?? $previous['title'] ?? '') === '') {
             throw new \InvalidArgumentException('The page needs a name.');

@@ -34,7 +34,8 @@ final class SeoTabTest extends SiteTestCase
         $id = $this->home();
         $this->site()->setting('site_name', 'Studio');
         $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo', 200,
-            ['name="focus_keywords"', 'data-seo-checks', 'data-seo-live="', 'data-chips', 'data-insert="%sitename%"', 'Photos for couples – Studio', 'data-check="kw_title"']);
+            ['name="focus_keywords"', 'data-seo-checks', 'data-seo-live="', 'data-chips', 'Photos for couples – Studio', 'data-check="kw_title"']);
+        $this->assertStringNotContainsString('data-insert', $this->site()->admin()->get('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo')->body, 'an own title is literal: no variables to insert');
     }
 
     public function testTheLiveCheckJudgesTheUnsavedFieldsAndSavesNothing(): void
@@ -72,6 +73,29 @@ final class SeoTabTest extends SiteTestCase
         $this->assertStringNotContainsString('data-seo-mark', $this->site()->admin()->get('/?build=draft')->body, 'only when asked for');
     }
 
+    public function testOnlyASignedInPagesEditorGetsTheMarks(): void
+    {
+        $site = $this->site();
+        $id = $this->home();
+        // a signed-in user without the Pages section
+        $site->exec('INSERT INTO tl_users (username, password, name, admin, last_login_at, confirmed_at) VALUES (?, ?, ?, 1, NOW(), NOW())', ['news-only', password_hash($site->password, PASSWORD_DEFAULT), 'news-only']);
+        $site->exec("INSERT INTO tl_user_permissions (user_id, module) SELECT user_id, 'news' FROM tl_users WHERE username = 'news-only'");
+        $client = $site->client('news-only');
+        $site->signIn($client, 'news-only');
+        $body = $client->get('/?build=draft&seo_marks=1')->body;
+        $this->assertStringNotContainsString('data-seo-mark', $body, 'no Pages right, no marks');
+        $this->assertStringNotContainsString('seo-marks.css', $body);
+
+        // a signed preview link opens the draft, but its holder without a session gets no marks
+        preg_match('/preview_key=([^"&\\\s]+)/', $site->mcpText('preview_link', ['id' => $id]), $key);
+        $this->assertNotEmpty($key[1] ?? '', 'a preview link');
+        $shown = $site->client('holder')->get('/?build=draft&seo_marks=1&preview_key=' . $key[1]);
+        $this->assertSame(200, $shown->status);
+        $this->assertStringContainsString('Photos in Jena', $shown->body, 'the draft is shown');
+        $this->assertStringNotContainsString('data-seo-mark', $shown->body);
+        $this->assertStringNotContainsString('seo-marks.css', $shown->body);
+    }
+
     public function testTheToolIsHiddenForATextPage(): void
     {
         $site = $this->site();
@@ -89,6 +113,8 @@ final class SeoTabTest extends SiteTestCase
         $this->site()->exec('UPDATE tl_pages SET seo_score = 86 WHERE public_id = ?', [$id]);
         $body = $this->assertPage('/admin.php?module=pages&action=website&id=' . $id, 200)->body;
         $this->assertMatchesRegularExpression('/class="website-dot website-dot-good"[^>]*>.*?86/s', $body);
-        $this->assertStringContainsString('website-dot-none', $body, 'a page without a keyword has an empty ring');
+        $this->assertMatchesRegularExpression('/website-dot-none" title="No focus keyword"/', $body, 'a page without a keyword has an empty ring');
+        $this->site()->exec("UPDATE tl_pages SET focus_keywords = 'plain', seo_score = NULL WHERE slug = 'no-keyword'");
+        $this->assertStringContainsString('website-dot-none" title="Not checked yet"', $this->site()->admin()->get('/admin.php?module=pages&action=website&id=' . $id)->body, 'a keyword without a score yet');
     }
 }

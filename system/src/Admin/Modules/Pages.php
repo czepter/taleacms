@@ -89,7 +89,7 @@ final class Pages extends Module
     protected function actionWebsite(): Response
     {
         $home = $this->app->settings()->int('home_page');
-        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, seo_score, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
+        $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, seo_score, COALESCE(focus_keywords, '') <> '' AS has_keyword, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
         $groups = ['menu' => [], 'other' => []];
         foreach (self::sortAsTree($pages) as $page) {
             $inMenu = \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], '', (string) $page['slug']) ?? (bool) $page['in_menu'];

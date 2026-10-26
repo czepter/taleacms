@@ -47,6 +47,18 @@ final class SeoHeadTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('<title>Our prices – My website</title>', $site->client('visitor')->get('/prices')->body);
     }
 
+    public function testAnOwnTitleIsLiteral(): void
+    {
+        $site = $this->site();
+        $site->setting('site_name', 'My website');
+        $site->mcp('create_page', ['title' => 'Offer', 'slug' => 'offer', 'visible' => true, 'in_menu' => false, 'content' => '<p>Offer.</p>']);
+        $site->exec("UPDATE tl_pages SET seo_title = 'Offer %sitename% %year%', share_title = '' WHERE slug = 'offer'");
+        $site->clearPageCache();
+        $body = $site->client('visitor')->get('/offer')->body;
+        $this->assertStringContainsString('<title>Offer %sitename% %year% – My website</title>', $body, 'no variables in an own title');
+        $this->assertMatchesRegularExpression('/<meta property="og:title" content="Offer %sitename% %year%[^"]*">/', $body);
+    }
+
     /** @return list<array<string, mixed>> the itemListElement of the page's BreadcrumbList */
     private function breadcrumbs(string $body): array
     {

@@ -613,11 +613,11 @@
 	}
 
 	// Website mode, SEO tab: the unsaved fields are checked 600 ms after the last change (pages/seo_check returns the checks and
-	// the search result preview, nothing is saved); the length meters follow the typing; variable buttons insert at the cursor;
-	// the focus keywords become chips over their textarea (one per line, which is what is submitted)
+	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins);
+	// the length meters follow the typing; the focus keywords become chips over their textarea (one per line, which is what is submitted)
 	var seoForm = document.querySelector('[data-seo-live]');
 	if (seoForm) {
-		var seoTimer = null;
+		var seoTimer = null, seoRequest = null;
 		seoForm.addEventListener('input', function (e) {
 			var meter = e.target.parentNode.querySelector('[data-meter]');
 			if (meter) {
@@ -628,7 +628,9 @@
 			}
 			clearTimeout(seoTimer);
 			seoTimer = setTimeout(function () {
-				fetch(seoForm.getAttribute('data-seo-live'), { method: 'POST', body: new FormData(seoForm), credentials: 'same-origin' })
+				if (seoRequest) { seoRequest.abort(); }
+				seoRequest = new AbortController();
+				fetch(seoForm.getAttribute('data-seo-live'), { method: 'POST', body: new FormData(seoForm), credentials: 'same-origin', signal: seoRequest.signal })
 					.then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
 					.then(function (html) {
 						var fresh = document.createElement('template');
@@ -638,16 +640,8 @@
 							if (now && next) { now.replaceWith(next); }
 						});
 					})
-					.catch(function () { /* offline or signed out: the saved state stays */ });
+					.catch(function () { /* aborted, offline or signed out: the shown state stays */ });
 			}, 600);
-		});
-		seoForm.querySelectorAll('[data-insert]').forEach(function (button) {
-			button.addEventListener('click', function () {
-				var field = button.closest('.website-field').querySelector('input, textarea');
-				field.setRangeText(button.getAttribute('data-insert'), field.selectionStart, field.selectionEnd, 'end');
-				field.focus();
-				field.dispatchEvent(new Event('input', { bubbles: true }));
-			});
 		});
 		seoForm.querySelectorAll('[data-chips]').forEach(function (area) {
 			var box = document.createElement('div'), chips = document.createElement('span'), input = document.createElement('input');

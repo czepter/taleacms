@@ -81,6 +81,24 @@ final class SeoFieldsMcpTest extends SiteTestCase
         $this->assertSame('draft word|https://example.org/d', $site->value("SELECT CONCAT(focus_keywords, '|', canonical_url) FROM tl_pages WHERE slug = 'draft-seo'"));
     }
 
+    public function testAnEditWithoutThePublishRightClearsTheSchedule(): void
+    {
+        $site = $this->site();
+        $site->mcp('create_page', ['title' => 'Planned', 'slug' => 'planned', 'content' => '<p>x</p>']);
+        $id = (string) $site->value("SELECT public_id FROM tl_pages WHERE slug = 'planned'");
+        $site->exec("UPDATE tl_pages SET publish_at = '2030-05-01 09:00:00' WHERE public_id = ?", [$id]);
+        $site->mcp('update_page', ['id' => $id, 'description' => 'By a publisher.']);
+        $this->assertSame('2030-05-01 09:00:00', (string) $site->value('SELECT publish_at FROM tl_pages WHERE public_id = ?', [$id]), 'a publisher keeps the schedule');
+        $site->exec("UPDATE tl_api_tokens SET access = 'drafts'");
+        try {
+            $site->mcp('update_page', ['id' => $id, 'description' => 'Unreviewed.']);
+        } finally {
+            $site->exec("UPDATE tl_api_tokens SET access = 'full'");
+        }
+        $this->assertSame('Unreviewed.', $site->value('SELECT description FROM tl_pages WHERE public_id = ?', [$id]));
+        $this->assertNull($site->value('SELECT publish_at FROM tl_pages WHERE public_id = ?', [$id]), 'unreviewed changes never go live on their own');
+    }
+
     public function testExportAndImportKeepAllSevenColumns(): void
     {
         $site = $this->site();

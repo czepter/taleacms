@@ -38,14 +38,11 @@ final class SeoTitle
     public static function compose(Settings $s, string $kind, string $title, bool $ownTitle, array $vars = []): string
     {
         $siteName = $s->get('site_name');
-        $vars += ['sep' => $s->get('seo_separator'), 'sitename' => $siteName, 'tagline' => trim((string) preg_replace('/\s+/u', ' ', $s->get('site_description'))), 'year' => date('Y')];
         if ($kind === 'other' || $ownTitle) {
-            if (str_contains($title, '%')) { // variables the SEO tab inserts into an own title (%sitename%, %sep%, %year%)
-                $title = self::render($title, ['title' => ''] + $vars);
-            }
             $text = $title === '' ? $siteName : (str_contains(mb_strtolower($title), mb_strtolower($siteName)) ? $title : $title . ' – ' . $siteName);
         } else {
-            $text = self::render($s->get('seo_title_' . $kind), ['title' => $title] + $vars, $s->bool('seo_capitalize'));
+            $tagline = trim((string) preg_replace('/\s+/u', ' ', $s->get('site_description')));
+            $text = self::render($s->get('seo_title_' . $kind), $vars + ['title' => $title, 'sep' => $s->get('seo_separator'), 'sitename' => $siteName, 'tagline' => $tagline, 'year' => date('Y')], $s->bool('seo_capitalize'));
         }
 
         return $text !== '' ? $text : $siteName;

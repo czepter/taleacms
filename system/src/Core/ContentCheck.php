@@ -248,8 +248,9 @@ final class ContentCheck
     }
 
     /**
-     * What Website mode marks on the preview of a build ("SEO on the page"): images without alt, the first H1 heading when
-     * it lacks the first focus keyword, every further H1. Pure; a broken build has no marks.
+     * What Website mode marks on the preview of a build ("SEO on the page"): images without alt (one without a file shows
+     * nothing, so it is no mark), the first H1 heading when it lacks the first focus keyword, every further H1. Pure; a broken
+     * build has no marks.
      *
      * @param list<string> $keywords
      * @return array<string, string> element id => message
@@ -265,7 +266,7 @@ final class ContentCheck
                     continue;
                 }
                 $content = is_array($p['content'] ?? null) ? $p['content'] : [];
-                if (($p['type'] ?? '') === 'image' && trim((string) ($content['alt'] ?? '')) === '') {
+                if (($p['type'] ?? '') === 'image' && trim((string) ($content['src'] ?? '')) !== '' && trim((string) ($content['alt'] ?? '')) === '') {
                     $marks[$p['id']] = t('Image without description (alt)');
                 } elseif (($p['type'] ?? '') === 'heading' && ($p['tag'] ?? '') === 'h1') {
                     if ($h1++ > 0) {

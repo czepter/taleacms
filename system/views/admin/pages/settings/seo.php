@@ -6,7 +6,7 @@
  * form); without a script the tab shows the saved state. key_page=0 goes before its checkbox, so unticking clears it.
  *
  * @var Talea\Core\App $app
- * @var Talea\Admin\Modules\Pages $module
+ * @var Closure(string): string $link the Website URL of another tab (settings.php)
  * @var array<string, mixed> $page
  * @var string $formStart
  * @var string $host
@@ -14,14 +14,12 @@
  * @var array<string, mixed> $seo Pages::seoTab()
  */
 $dir = $seo['dir'];
-$link = fn (string $to): string => $module->url('website', ['id' => $page['public_id'], 'tab' => $to]);
 // characters against what search results show in full; the bar turns to a warning past it (admin.js keeps it current)
 $meter = function (string $value, int $max): string {
     $length = mb_strlen($value);
 
     return '<span class="seo-meter' . ($length > $max ? ' warning' : '') . '" data-meter="' . $max . '"><i style="--fill: ' . min(100, (int) round($length / $max * 100)) . '%"></i><span>' . $length . ' / ' . $max . '</span></span>';
 };
-$variables = ['%sitename%' => 'Site name', '%sep%' => 'Separator', '%year%' => 'Year'];
 $shareTitle = (string) $page['share_title'] !== '' ? (string) $page['share_title'] : ((string) $page['seo_title'] !== '' ? (string) $page['seo_title'] : (string) $page['title']);
 $image = (string) $page['image'] !== '' ? (string) $page['image'] : $app->settings()->get('share_image');
 ?>
@@ -30,8 +28,7 @@ $image = (string) $page['image'] !== '' ? (string) $page['image'] : $app->settin
 <section class="website-settings-section" aria-labelledby="seo-serp-heading">
 	<h3 class="seo-heading" id="seo-serp-heading"><span><?= e(t('Search result')) ?></span><a href="<?= e($link('advanced')) ?>"><?= e(t('Advanced')) ?></a></h3>
 <?= $app->view->render('admin/seo/serp', $seo) ?>
-	<div class="website-field seo-field"><label for="ws-seo-title"><?= e(t('Search engine title')) ?></label><input class="textfield" type="text" id="ws-seo-title" name="seo_title" value="<?= e((string) $page['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = page name')) ?>"<?= $dir ?>><?= $meter((string) $page['seo_title'], 60) ?>
-		<span class="seo-variables"><?= e(t('Insert:')) ?><?php foreach ($variables as $variable => $label): ?> <button type="button" data-insert="<?= e($variable) ?>"><?= e(t($label)) ?></button><?php endforeach ?></span></div>
+	<div class="website-field seo-field"><label for="ws-seo-title"><?= e(t('Search engine title')) ?></label><input class="textfield" type="text" id="ws-seo-title" name="seo_title" value="<?= e((string) $page['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = page name')) ?>"<?= $dir ?>><?= $meter((string) $page['seo_title'], 60) ?></div>
 	<div class="website-field seo-field"><label for="ws-description"><?= e(t('Search engine description')) ?></label><textarea class="textbox" id="ws-description" name="description" rows="3" maxlength="300"<?= $dir ?>><?= e((string) $page['description']) ?></textarea><?= $meter((string) $page['description'], 160) ?><span class="help"><?= e(t('One or two sentences on what visitors will find on the page (up to 160 characters).')) ?></span></div>
 </section>
 <section class="website-settings-section" aria-label="<?= e(t('Focus keywords')) ?>">

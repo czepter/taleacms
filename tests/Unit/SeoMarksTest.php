@@ -15,6 +15,7 @@ final class SeoMarksTest extends TestCase
         $build = ['v' => 1, 'children' => [['id' => 'sec1', 'type' => 'section', 'children' => [
             ['id' => 'img1', 'type' => 'image', 'content' => ['src' => 'media/a.jpg', 'alt' => '']],
             ['id' => 'img2', 'type' => 'image', 'content' => ['src' => 'media/b.jpg', 'alt' => 'A couple']],
+            ['id' => 'img3', 'type' => 'image', 'content' => ['src' => '', 'alt' => '']], // no file: the page shows nothing to mark
             ['id' => 'h1a', 'type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'eure Fotografen für Hochzeit']], // check-english: allow
             ['id' => 'h2a', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'More']],
             ['id' => 'h1b', 'type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Fotografen Jena']],

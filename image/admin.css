@@ -1776,9 +1776,6 @@ body.login {
 .seo-meter { display: flex; align-items: center; gap: 8px; color: var(--text-weak); font-size: 11px; font-variant-numeric: tabular-nums; }
 .seo-meter i { flex: 1; height: 3px; border-radius: 999px; background: linear-gradient(var(--ok), var(--ok)) no-repeat 0 0 / var(--fill, 0%) 100%, var(--line); }
 .seo-meter.warning i { background-image: linear-gradient(var(--warning), var(--warning)); }
-.seo-variables { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--text-weak); font-size: 12px; }
-.seo-variables button { padding: 1px 7px; border: 1px dashed var(--line-field); border-radius: 6px; background: none; color: var(--text); font: inherit; cursor: pointer; }
-.seo-variables button:hover { border-style: solid; }
 .seo-share { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text-weak); font-size: 12px; text-decoration: none; }
 .seo-share > img, .seo-share > span:first-child { flex: none; width: 86px; height: 45px; border-radius: 6px; background: var(--accent-light); object-fit: cover; }
 .seo-share > span:last-child { min-width: 0; }

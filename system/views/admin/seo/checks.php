@@ -13,9 +13,11 @@
 $score = $analysis['score'];
 $band = Talea\Core\ContentCheck::band($score);
 $open = $samples;
-$passed = $counts = [];
+$passed = [];
+// placeholders left in the content count among the basics, so the total is the sum of the groups
+$counts = array_fill_keys(array_keys($analysis['groups']), 0);
+$counts['basics'] = count($samples);
 foreach ($analysis['groups'] as $group => $rows) {
-    $counts[$group] = 0;
     foreach ($rows as $row) {
         if ($row['ok']) {
             $passed[] = $row;
