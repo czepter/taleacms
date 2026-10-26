@@ -133,13 +133,12 @@ final class AdminMenuCollectionsTest extends SiteTestCase
         $site->exec("INSERT INTO tl_bookings (service_id, staff_id, starts_at, ends_at, status, token_hash, created_at) VALUES (1, 1, NOW() + INTERVAL 2 DAY, NOW() + INTERVAL 2 DAY + INTERVAL 1 HOUR, 'pending', ?, NOW()), (1, 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY + INTERVAL 1 HOUR, 'pending', ?, NOW())",
             [hash('sha256', 'menu-count-1'), hash('sha256', 'menu-count-2')]);
 
-        // Enquiries and Bookings are the only screens of their sections here, so the count stands next to the section's own item
+        // enquiries and bookings are leads, one section: while it is closed its item carries the sum
         $home = $this->assertPage('/admin.php', 200, message: 'Home with things waiting');
-        $this->assertStringContainsString('>Customers <span class="menu-count" aria-hidden="true">2</span><span class="visually-hidden"> – 2 new</span></a>', $home->body, 'two new enquiries (read and spam left out), screen readers hear "2 new"');
-        $this->assertStringContainsString('>Bookings <span class="menu-count" aria-hidden="true">1</span><span class="visually-hidden"> – 1 new</span></a>', $home->body, 'one booking to confirm (a past one left out)');
-        $site->setting('extensions', 'news,enquiries,newsletter_signup,stats,redirects,bookings,members');
-        $enquiries = $this->assertPage('/admin.php?module=enquiries', 200, message: 'the Enquiries screen, its section open with Members beside it');
-        $this->assertMatchesRegularExpression('#aria-current="page">Enquiries <span class="menu-count" aria-hidden="true">2</span>#', $enquiries->body, 'in an open section the count stands next to the module');
-        $this->assertStringContainsString('aria-current="true">Customers</a>', $enquiries->body, 'and not twice on the open section');
+        $this->assertStringContainsString('>Enquiries <span class="menu-count" aria-hidden="true">3</span><span class="visually-hidden"> – 3 new</span></a>', $home->body, 'two new enquiries (read and spam left out) and one booking to confirm (a past one left out), screen readers hear "3 new"');
+        $enquiries = $this->assertPage('/admin.php?module=enquiries', 200, message: 'the Inbox, its section open with Forms and Bookings beside it');
+        $this->assertMatchesRegularExpression('#aria-current="page">Inbox <span class="menu-count" aria-hidden="true">2</span>#', $enquiries->body, 'in an open section the count stands next to the module');
+        $this->assertMatchesRegularExpression('#>Bookings <span class="menu-count" aria-hidden="true">1</span>#', $enquiries->body, 'and the bookings to confirm next to Bookings');
+        $this->assertStringContainsString('aria-current="true">Enquiries</a>', $enquiries->body, 'and not twice on the open section');
     }
 }

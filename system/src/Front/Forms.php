@@ -262,29 +262,42 @@ final class Forms
             (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = TRUE', [(int) $m[1]])),
             default => null,
         };
-        // the element can also be inside a component (its published build); depth as when rendering
-        $find = function (array $children, array $nesting = []) use (&$find, $id, $db, $type): ?array {
+        foreach ($id === '' ? [] : self::elements($db, $build, $type) as $p) {
+            if ($p['id'] === $id) {
+                return $p;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Every element of a type in a build, also inside components (their published build, depth as when rendering), in
+     * page order. The Forms overview in the admin lists the forms of the site with it.
+     *
+     * @param array<string, mixed>|null $build
+     * @return list<array<string, mixed>>
+     */
+    public static function elements(\Talea\Core\Db $db, ?array $build, string $type): array
+    {
+        $found = [];
+        $walk = function (array $children, array $nesting = []) use (&$walk, &$found, $db, $type): void {
             foreach ($children as $p) {
-                if (($p['id'] ?? '') === $id) {
-                    return ($p['type'] ?? '') === $type ? $p : null;
+                if (($p['type'] ?? '') === $type && ($p['id'] ?? '') !== '') {
+                    $found[] = $p;
                 }
-                if (($found = $find($p['children'] ?? [], $nesting)) !== null) {
-                    return $found;
-                }
+                $walk($p['children'] ?? [], $nesting);
                 $idm = ($p['type'] ?? '') === \Talea\Builder\Elements\Component::TYPE ? (int) ($p['content']['component'] ?? 0) : 0;
                 if ($idm > 0 && !in_array($idm, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
                     $component = Components::byId($db, $idm);
                     $inner = $component === null ? null : Build::fromJson($component['build'] ?? $component['build_draft']);
-                    if ($inner !== null && ($found = $find($inner['children'] ?? [], [...$nesting, $idm])) !== null) {
-                        return $found;
-                    }
+                    $walk($inner['children'] ?? [], [...$nesting, $idm]);
                 }
             }
-
-            return null;
         };
+        $walk($build['children'] ?? []);
 
-        return $build === null || $id === '' ? null : $find($build['children'] ?? []);
+        return $found;
     }
 
     /** @param list<array{0:string, 1:string}> $data */

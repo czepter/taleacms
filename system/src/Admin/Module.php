@@ -26,6 +26,9 @@ abstract class Module
     /** Title in the menu. */
     public const string NAME = '';
 
+    /** Title in the section's list when it differs from NAME (Enquiries is the Inbox of the Enquiries section); empty = NAME. */
+    public const string MENU_NAME = '';
+
     /** Section of the sidebar: one of Kernel::SECTIONS, or Settings (the gear at the bottom). */
     public const string GROUP = 'Content';
 

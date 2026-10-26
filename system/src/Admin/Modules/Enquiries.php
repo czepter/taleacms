@@ -16,7 +16,8 @@ final class Enquiries extends Module
     public const string IDENT = 'enquiries';
     public const string EXTENSION = 'enquiries';
     public const string NAME = 'Enquiries';
-    public const string GROUP = 'Customers';
+    public const string MENU_NAME = 'Inbox';
+    public const string GROUP = 'Enquiries';
     public const string ICON = 'enquiries';
     public const string TABLE = 'enquiries';
 
