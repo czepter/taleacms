@@ -79,30 +79,63 @@ final class Seo
         return $this->siteSettings . $path . $suffix . $after;
     }
 
+    /**
+     * The address of a site path under the site root, as the sitemap and the links give it: the custom news address, the
+     * language prefix and the url_slash ending ('services.html', 'de/kontakt', 'de/' for a language's home page).
+     */
+    public function address(string $path, string $language = ''): string
+    {
+        $public = \Talea\Core\Routes::publicPath($path, $this->app->db());
+
+        return ($language !== '' ? $language . '/' : '') . $public . (\Talea\Core\Routes::pageLike('/' . $public) ? \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '');
+    }
+
+    /**
+     * The pages the sitemap lists, by address(): the home page, its published language versions, and every visible,
+     * indexable page without a password and not for members only, of a published language, whose canonical address is
+     * its own. Search engines → Performance counts the same pages.
+     *
+     * @return array<string, array{changed: ?string, priority: string}>
+     */
+    public function sitemapPages(): array
+    {
+        $db = $this->app->db();
+        // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
+        $languages = ['', ...\Talea\Core\Language::published($this->app->settings(), $db)];
+        $pages = ['' => ['changed' => null, 'priority' => '1.0']];
+        foreach (array_slice($languages, 1) as $language) {
+            $pages[$this->address('', $language)] = ['changed' => null, 'priority' => '0.9'];
+        }
+        $home = $this->app->settings()->int('home_page');
+        foreach ($db->all('SELECT slug, updated_at, language, canonical_url FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?) AND language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')', [$home, $home, ...$languages]) as $r) {
+            $address = $this->address($r['slug'], $r['language']);
+            // a row whose canonical address is another one is not listed (like noindex rows)
+            if ((string) $r['canonical_url'] === '' || \Talea\Core\Robots::sameAddress($r['canonical_url'], $this->root . $address)) {
+                $pages[$address] = ['changed' => $r['updated_at'], 'priority' => '0.8'];
+            }
+        }
+
+        return $pages;
+    }
+
     public function sitemapXml(): string
     {
         $db = $this->app->db();
         // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
-        $suffix = \Talea\Core\Routes::suffix($this->app->settings()->get('url_slash'));
         // a row whose canonical address is another one is not listed (like noindex rows): '' is filtered out below
-        $url = function (string $path, ?string $change = null, string $priority = '0.5', string $language = '', string $canonical = '') use ($db, $suffix): string {
-            $public = \Talea\Core\Routes::publicPath($path, $db);
-            $loc = $this->root . ($language !== '' ? $language . '/' : '') . $public . (\Talea\Core\Routes::pageLike('/' . $public) ? $suffix : '');
+        $entry = fn (string $loc, ?string $change, string $priority): string => '<url><loc>' . e($loc) . '</loc>'
+            . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
+        $url = function (string $path, ?string $change = null, string $priority = '0.5', string $language = '', string $canonical = '') use ($entry): string {
+            $loc = $this->root . $this->address($path, $language);
 
-            return $canonical !== '' && !\Talea\Core\Robots::sameAddress($canonical, $loc) ? '' : '<url><loc>' . e($loc) . '</loc>'
-                . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
+            return $canonical !== '' && !\Talea\Core\Robots::sameAddress($canonical, $loc) ? '' : $entry($loc, $change, $priority);
         };
 
-        // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
         $languages = ['', ...\Talea\Core\Language::published($this->app->settings(), $db)];
         $inLanguages = ' AND language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')';
-        $xml = [$url('', null, '1.0')];
-        foreach (array_slice($languages, 1) as $language) {
-            $xml[] = $url('', null, '0.9', $language);
-        }
-        $home = $this->app->settings()->int('home_page');
-        foreach ($db->all('SELECT slug, updated_at, language, canonical_url FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
-            $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language'], $r['canonical_url']);
+        $xml = [];
+        foreach ($this->sitemapPages() as $address => $page) {
+            $xml[] = $entry($this->root . $address, $page['changed'], $page['priority']);
         }
         foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed, p.canonical_url FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language'], $r['canonical_url']);
