@@ -22,17 +22,25 @@ final class SeoNewsItemsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=news&action=new', 200, ['name="focus_keywords"']);
 
         $site->exec('UPDATE tl_news SET seo_score = NULL WHERE news_id = ?', [$id]);
-        $this->adminPost('/admin.php?module=news&action=save', [
+        $form = [
             'news_id' => $public, 'title' => 'Winter opening hours', 'text' => '<p>Winter opening hours are shorter.</p>', 'category_id' => $site->publicId('categories', (int) $site->value('SELECT category_id FROM tl_news WHERE news_id = ?', [$id])),
             'author_id' => $site->publicId('users', (int) $site->value('SELECT author_id FROM tl_news WHERE news_id = ?', [$id])), 'status' => 'published', 'focus_keywords' => "winter opening hours\nhours", 'key_page' => '1', 'robots' => ['', 'nofollow'], 'canonical_url' => 'https://example.com/winter',
             'breadcrumb_title' => 'Winter', 'share_title' => 'Shared', 'share_description' => 'Shared text',
-        ], '/admin.php?module=news');
+        ];
+        $this->adminPost('/admin.php?module=news&action=save', $form, '/admin.php?module=news');
         $row = $site->rows('SELECT * FROM tl_news WHERE news_id = ?', [$id])[0];
         $this->assertSame("winter opening hours\nhours", $row['focus_keywords']);
+        $this->assertSame(1, (int) $row['key_page']);
         $this->assertSame('nofollow', $row['robots']);
         $this->assertSame('https://example.com/winter', $row['canonical_url']);
         $this->assertSame('Shared', $row['share_title']);
         $this->assertNotNull($row['seo_score']);
+
+        // unticked: the form sends only the markers before the checkboxes (key_page=0, robots[]=''), which clear the values
+        $this->adminPost('/admin.php?module=news&action=save', ['key_page' => '0', 'robots' => ['']] + $form, '/admin.php?module=news');
+        $row = $site->rows('SELECT key_page, robots FROM tl_news WHERE news_id = ?', [$id])[0];
+        $this->assertSame(0, (int) $row['key_page']);
+        $this->assertSame('', $row['robots']);
     }
 
     public function testCollectionItemSavesCanonicalAndShowsThePanel(): void
@@ -40,11 +48,18 @@ final class SeoNewsItemsTest extends SiteTestCase
         $site = $this->site();
         $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Team', 'detail' => 1, 'fields' => [['label' => 'Bio', 'type' => 'html']]], '/admin.php?module=collections');
         $idk = (int) $site->value("SELECT collection_id FROM tl_collections WHERE slug = 'team'");
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $site->publicId('collections', $idk), 'item_id' => 0, 'name' => 'Jane Novak', 'visible' => 1,
-            'data' => ['bio' => '<p>Jane leads the team.</p>'], 'focus_keywords' => 'Jane', 'canonical_url' => 'https://example.com/jane', 'key_page' => '1'], '/admin.php?module=collections');
+        $form = ['collection_id' => $site->publicId('collections', $idk), 'item_id' => 0, 'name' => 'Jane Novak', 'visible' => 1,
+            'data' => ['bio' => '<p>Jane leads the team.</p>'], 'focus_keywords' => 'Jane', 'canonical_url' => 'https://example.com/jane', 'key_page' => '1', 'robots' => ['', 'noarchive']];
+        $this->adminPost('/admin.php?module=collections&action=save_item', $form, '/admin.php?module=collections');
         $row = $site->rows("SELECT * FROM tl_collection_items WHERE name = 'Jane Novak'")[0];
         $this->assertSame('https://example.com/jane', $row['canonical_url']);
         $this->assertSame(1, (int) $row['key_page']);
+        $this->assertSame('noarchive', $row['robots']);
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['item_id' => $row['public_id'], 'key_page' => '0', 'robots' => ['']] + $form, '/admin.php?module=collections');
+        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM tl_collection_items WHERE name = 'Jane Novak'"), 'the same item saved again');
+        $cleared = $site->rows("SELECT key_page, robots FROM tl_collection_items WHERE name = 'Jane Novak'")[0];
+        $this->assertSame(0, (int) $cleared['key_page'], 'unticked key page');
+        $this->assertSame('', $cleared['robots'], 'unticked robots');
         $this->assertNotNull($row['seo_score']);
         $this->assertPage('/admin.php?module=collections&action=item&id=' . $site->publicId('collections', $idk) . '&item=' . $row['public_id'], 200,
             ['name="focus_keywords"', 'name="canonical_url"', 'data-seo-checks', 'value="https://example.com/jane"']);
