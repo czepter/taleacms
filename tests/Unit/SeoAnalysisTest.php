@@ -161,4 +161,36 @@ final class SeoAnalysisTest extends TestCase
         $this->assertTrue($result['links_out']['ok']);
         $this->assertFalse($result['links_out_follow']['ok']);
     }
+
+    public function testDensityCountsWholeWordsOnly(): void
+    {
+        $html = '<p>' . trim(str_repeat('photographer photography ', 49)) . ' photo</p>'; // 1 of 99 words
+        $result = self::flat(ContentCheck::analyse(self::input($html, ['keywords' => ['photo']])));
+
+        $this->assertStringContainsString('1.0%', $result['kw_density']['message']);
+        $result = self::flat(ContentCheck::analyse(self::input('<p>Fotograf v Brně, fotograf-svatby a fotografka</p>', ['keywords' => ['fotograf']]))); // check-english: allow
+        $this->assertStringContainsString('16.7%', $result['kw_density']['message']); // 1 of 6 words: "fotograf-svatby" is one word
+    }
+
+    public function testVideoCountsAsMediaNotAsLink(): void
+    {
+        $build = ['v' => 1, 'children' => [['id' => 'v1', 'type' => 'video', 'tag' => 'div', 'content' => ['url' => 'https://www.youtube.com/watch?v=abc', 'title' => 'Our day']]]];
+        $page = ['title' => 'Wedding photographer', 'seo_title' => '', 'description' => '', 'build_draft' => json_encode($build), 'build' => null, 'text' => ''];
+        $result = self::flat(ContentCheck::analyse(ContentCheck::pageInput($page) + ['keywords' => ['wedding'], 'slug' => 'x', 'site_host' => 'example.com']));
+
+        $this->assertTrue($result['media']['ok']);
+        $this->assertFalse($result['links_out']['ok']);
+        $this->assertArrayNotHasKey('links_out_follow', $result);
+    }
+
+    public function testImagesOnly(): void
+    {
+        $result = ContentCheck::analyse(self::input('<figure><img src="/a.jpg" alt="A couple"></figure>', ['keywords' => ['wedding']]));
+        $flat = self::flat($result);
+
+        $this->assertTrue($flat['media']['ok']);
+        $this->assertStringContainsString('0 words', $flat['word_count']['message']);
+        $this->assertStringContainsString('0.0%', $flat['kw_density']['message']);
+        $this->assertIsInt($result['score']);
+    }
 }

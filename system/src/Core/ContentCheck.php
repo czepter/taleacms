@@ -138,7 +138,8 @@ final class ContentCheck
      * readability checks, grouped by GROUPS. Pure – the caller (SeoScore::input) reads the content and the database.
      * The score is the share of the weights of the checks that pass; null without a focus keyword.
      *
-     * @param array{title: string, description: string, html: string, title_is_h1?: bool, keywords?: list<string>, slug?: string, site_host?: string, keyword_taken?: bool, has_outline?: ?bool} $input
+     * @param array{title: string, description: string, html: string, title_is_h1?: bool, keywords?: list<string>, slug?: string, site_host?: string, keyword_taken?: bool, has_outline?: ?bool, videos?: list<string>} $input
+     *        has_outline null = not applicable; videos = the addresses of video elements, which asText() prints as links
      * @return array{score: ?int, groups: array<string, list<array{check: string, ok: bool, message: string, why?: string}>>}
      */
     public static function analyse(array $input): array
@@ -171,11 +172,15 @@ final class ContentCheck
 
         preg_match_all('#<a\b([^>]*)>#i', $html, $anchors);
         $external = $externalFollow = $internal = 0;
+        $videos = $input['videos'] ?? [];
         foreach ($anchors[1] as $attributes) {
             if (!preg_match('/\bhref\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/i', $attributes, $h)) {
                 continue;
             }
             $href = trim(html_entity_decode($h[1] !== '' ? $h[1] : ($h[2] ?? ''), ENT_QUOTES | ENT_HTML5));
+            if (in_array($href, $videos, true)) {
+                continue; // a video element: media, not a link
+            }
             $host = strtolower((string) parse_url($href, PHP_URL_HOST));
             if ($host !== '' && $host !== $siteHost) {
                 $external++;
@@ -200,7 +205,7 @@ final class ContentCheck
         $long = count(array_filter($paragraphs[1], fn (string $p): bool => preg_match_all(self::WORD, strip_tags($p)) > self::PARAGRAPH_MAX));
         $add('short_paragraphs', $long === 0, $long === 0 ? t('The paragraphs are short.') : t('%d paragraphs have more than %d words.', $long, self::PARAGRAPH_MAX), t('Short paragraphs are easier to read on a phone.'));
 
-        $hasMedia = (bool) preg_match('#<(?:img|video|iframe)\b#i', $html);
+        $hasMedia = $videos !== [] || preg_match('#<(?:img|video|iframe)\b#i', $html);
         $add('media', $hasMedia, $hasMedia ? t('The page has an image or a video.') : t('The page has no image or video.'), t('Pictures and videos break up the text.'));
 
         if ($keyword !== '') {
@@ -228,7 +233,8 @@ final class ContentCheck
 
             $normal = self::normalize($keyword);
             $keywordWords = max(1, preg_match_all(self::WORD, $keyword));
-            $density = round($wordCount > 0 && $normal !== '' ? substr_count(self::normalize($plain), $normal) * $keywordWords / $wordCount * 100 : 0.0, 1);
+            $hits = $normal === '' ? 0 : preg_match_all('/(?<![\p{L}\p{M}\p{N}\'’-])' . preg_quote($normal, '/') . '(?![\p{L}\p{M}\p{N}\'’-])/u', self::normalize($plain));
+            $density = round($wordCount > 0 ? $hits * $keywordWords / $wordCount * 100 : 0.0, 1);
             $add('kw_density', $density >= self::DENSITY_MIN && $density <= self::DENSITY_MAX, t('Keyword density is %s%%.', number_format($density, 1, '.', '')), t('Between %s%% and %s%% reads naturally.', '1.0', '2.5'));
 
             $ok = str_starts_with(self::normalize($title), self::normalize($keyword));
@@ -308,7 +314,7 @@ final class ContentCheck
      * run()'s input for a page row: the draft build, else the published build, else the text.
      *
      * @param array<string, mixed> $page
-     * @return array{title: string, description: string, html: string, title_is_h1: bool}
+     * @return array{title: string, description: string, html: string, title_is_h1: bool, videos: list<string>}
      */
     public static function pageInput(array $page): array
     {
@@ -319,6 +325,8 @@ final class ContentCheck
             'description' => (string) ($page['description'] ?? ''),
             'html' => $build !== null ? Build::asText($build) : (string) ($page['text'] ?? ''),
             'title_is_h1' => $build === null,
+            'videos' => $build === null ? [] : array_values(array_map(fn (array $p): string => trim((string) ($p['content']['url'] ?? '')),
+                Build::elementsOfType($build, fn (string $class): bool => $class === \Talea\Builder\Elements\Video::class))),
         ];
     }
 

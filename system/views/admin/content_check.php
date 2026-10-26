@@ -6,7 +6,7 @@
  * @var ?array<string, mixed> $seo  news and collection items: the scored analysis (Core\ContentCheck::analyse) with its
  *        keywords and samples, shown by seo/checks.php instead of the flat list; null = the flat list
  */
-$seo ??= null; // ponytail: the flat list stays for text pages
+$seo ??= null; // text pages keep the flat list
 ?>
 <fieldset class="check check-content" data-check-content>
 <legend><?= e(t('Content check')) ?></legend>
