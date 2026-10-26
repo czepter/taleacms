@@ -15,7 +15,7 @@
  * @var bool $scored the score dots are shown
  */
 $tabs = array_filter([
-    ['Pages', $module->url('website'), !$seo],
+    ['Pages', $module->url('website', array_filter(['id' => $currentId])), !$seo],
     isset($modules['appearance']) ? ['Style', $app->url('admin.php?module=appearance'), false] : null,
     ['SEO', $module->url('website', array_filter(['id' => $currentId, 'tab' => 'seo'])), $seo],
 ]);

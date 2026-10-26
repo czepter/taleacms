@@ -62,6 +62,9 @@ final class WebsiteSidebarTest extends SiteTestCase
             $this->assertStringContainsString('tab=' . $tab . '"', $body, "the tab $tab is a link");
         }
         $this->assertSame(3, substr_count($body, 'name="device"'), 'desktop, tablet and phone');
+        $this->assertMatchesRegularExpression('#class="btn" href="[^"]*/admin/pages/edit/' . $id . '"#', $body, 'Edit opens the text form of a text page');
+        $pages = $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=page', 200)->body;
+        $this->assertMatchesRegularExpression('#href="[^"]*/admin/pages/website/' . $id . '" class="active"#', $pages, 'the Pages tab keeps the page');
         $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=seo', 200, ['name="focus_keywords"', 'name="key_page"']);
         $this->assertPage('/admin.php?module=pages&action=website&id=' . $id . '&tab=advanced', 200, ['name="canonical_url"', 'name="robots[]"']);
     }
@@ -117,8 +120,31 @@ final class WebsiteSidebarTest extends SiteTestCase
         $this->save($child, ['tab' => 'page', 'title' => 'Child by the author', 'slug' => 'child-x', 'parent_id' => $parent, 'in_menu' => '0', 'sort_order' => '100'], $author);
         $this->assertSame('child-x', $this->column($child, 'slug'), 'the computed address parent-x/child-x is a move');
         $this->assertSame('About child-x', $this->column($child, 'title'));
-        $this->save($child, ['tab' => 'sharing', 'share_title' => 'Shared', 'share_description' => '', 'image' => ''], $author);
-        $this->assertNotSame('Shared', $this->column($child, 'share_title'), 'another tab would move it too');
+    }
+
+    public function testOnlyThePageTabPlacesThePage(): void
+    {
+        $site = $this->site();
+        $parent = $this->page('parent-y');
+        $child = $this->page('child-y', false);
+        $site->exec("UPDATE tl_pages SET slug = 'parent-y/child-y', parent_id = (SELECT page_id FROM (SELECT page_id FROM tl_pages WHERE public_id = ?) p) WHERE public_id = ?", [$parent, $child]);
+        $parentId = (int) $this->column($parent, 'page_id');
+        // the parent in the trash: placing the page again would drop the prefix, so only the Page tab may do that
+        $site->exec('UPDATE tl_pages SET deleted_at = NOW() WHERE public_id = ?', [$parent]);
+
+        $this->save($child, ['tab' => 'sharing', 'share_title' => 'Shared', 'share_description' => '', 'image' => '']);
+        $this->assertSame('Shared', $this->column($child, 'share_title'));
+        $this->assertSame('parent-y/child-y', $this->column($child, 'slug'), 'a Sharing save keeps the address');
+        $this->assertSame($parentId, (int) $this->column($child, 'parent_id'), 'and the parent');
+
+        $author = $this->user('web-author', 0);
+        $this->save($child, ['tab' => 'seo', 'seo_title' => 'Child by the author', 'description' => 'All about us.', 'focus_keywords' => 'child', 'key_page' => '0'], $author);
+        $this->assertSame('Child by the author', $this->column($child, 'seo_title'), 'without the right to publish the SEO tab saves: it moves nothing');
+        $this->assertSame('parent-y/child-y', $this->column($child, 'slug'));
+        $this->assertSame($parentId, (int) $this->column($child, 'parent_id'));
+        $this->save($child, ['tab' => 'advanced', 'noindex' => '0', 'robots' => [''], 'canonical_url' => '', 'breadcrumb_title' => 'Crumb by the author'], $author);
+        $this->assertSame('Crumb by the author', $this->column($child, 'breadcrumb_title'));
+        $this->assertSame('parent-y/child-y', $this->column($child, 'slug'));
     }
 
     public function testTheAdvancedTabStoresRobotsAndTheCanonicalAddress(): void
@@ -159,8 +185,10 @@ final class WebsiteSidebarTest extends SiteTestCase
     {
         $id = $this->page('author-page', false);
         $author = $this->user('web-author', 0);
-        $this->save($id, ['tab' => 'publishing', 'visible' => '0', 'valid_until' => '2027-05-01', 'page_password' => ''], $author);
+        $refused = $this->save($id, ['tab' => 'publishing', 'visible' => '0', 'valid_until' => '2027-05-01', 'page_password' => ''], $author);
         $this->assertNull($this->column($id, 'valid_until'), 'the publishing tab is refused');
+        $this->assertStringContainsString('/admin/pages/website/' . $id . '?tab=publishing', $refused->redirect, 'back to the tab, not to the list of pages');
+        $this->assertStringContainsString('Only an editor or administrator', $author->get($refused->redirect)->body, 'with the refusal');
         $this->save($id, ['tab' => 'page', 'title' => 'Renamed by the author', 'slug' => 'Author-Page ', 'parent_id' => '0', 'in_menu' => '0', 'sort_order' => '7'], $author);
         $this->assertSame('Renamed by the author', $this->column($id, 'title'), 'a title, menu and order change is no move');
         $this->assertSame(7, (int) $this->column($id, 'sort_order'));
@@ -182,6 +210,8 @@ final class WebsiteSidebarTest extends SiteTestCase
         $this->assertStringContainsString('website', $response->redirect);
         $this->assertStringContainsString($built, $response->redirect);
         $this->assertStringContainsString('tab=page', $response->redirect);
+        $this->assertMatchesRegularExpression('#class="btn" href="[^"]*/admin/pages/builder/' . $built . '"#',
+            $this->assertPage('/admin.php?module=pages&action=website&id=' . $built, 200)->body, 'Edit opens the builder of a build page');
         $this->assertPage('/admin.php?module=pages&action=new', 200, ['name="title"', 'name="template"']);
     }
 

@@ -213,13 +213,15 @@ final class Pages extends Module
             return $this->back('Page does not exist.', 'website', [], 'error');
         }
         $in = array_intersect_key($_POST, array_flip(self::SETTINGS_TABS[$tab])) + $this->formValues($page);
-        // a new address: the slug or the parent persist() will store differs from the stored one (on any tab)
-        $place = $this->placement((int) $page['page_id'], $in);
-        $moved = $place['slug'] !== (string) $page['slug'] || (int) ($place['parent']['page_id'] ?? 0) !== (int) $page['parent_id'];
-        if (($refusal = $this->requirePublishPermission($page)) !== null || (($tab === 'publishing' || $moved) && ($refusal = $this->requirePublishPermission()) !== null)) {
+        // only the Page tab places the page; a new address there (the slug or the parent persist() will store differs from
+        // the stored one) needs the permission to publish
+        $keepPlace = $tab !== 'page';
+        $place = $keepPlace ? null : $this->placement((int) $page['page_id'], $in);
+        $moved = $place !== null && ($place['slug'] !== (string) $page['slug'] || (int) ($place['parent']['page_id'] ?? 0) !== (int) $page['parent_id']);
+        $back = ['id' => (string) $page['public_id'], 'tab' => $tab];
+        if (($refusal = $this->requirePublishPermission($page, $back)) !== null || (($tab === 'publishing' || $moved) && ($refusal = $this->requirePublishPermission(null, $back)) !== null)) {
             return $refusal;
         }
-        $back = ['id' => (string) $page['public_id'], 'tab' => $tab];
         if ($tab === 'advanced') {
             // the page's own address is no override: stored empty, so the page keeps following its address
             $site = parse_url($this->app->settings()->get('site_url') ?: $this->app->request->origin()) ?: [];
@@ -228,7 +230,7 @@ final class Pages extends Module
                 $in['canonical_url'] = '';
             }
         }
-        ['errors' => $errors, 'data' => $data] = $this->persist($page, $in);
+        ['errors' => $errors, 'data' => $data] = $this->persist($page, $in, $keepPlace);
         if ($errors !== []) {
             return $this->back((string) reset($errors), 'website', $back, 'error');
         }
@@ -424,15 +426,18 @@ final class Pages extends Module
 
     /**
      * Roles at the author level (custom roles without the permission to publish too) can prepare pages, but not publish them,
-     * change published ones or delete them. Returns a response with the refusal, or null when allowed.
+     * change published ones or delete them. Returns a response with the refusal (back to the list, or with $website to that
+     * page in Website mode), or null when allowed.
+     *
+     * @param array<string, string>|null $website the Website mode parameters (id, tab) to go back to
      */
-    private function requirePublishPermission(?array $page = null): ?Response
+    private function requirePublishPermission(?array $page = null, ?array $website = null): ?Response
     {
         if ($this->app->auth()->canPublish() || ($page !== null && !$page['visible'])) {
             return null;
         }
 
-        return $this->back('Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.', '', [], 'error');
+        return $this->back('Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.', $website !== null ? 'website' : '', $website ?? [], 'error');
     }
 
     protected function actionSave(): Response
@@ -499,16 +504,19 @@ final class Pages extends Module
      * with the fields of one tab over them. Checks permissions only as far as the fields go (visibility, head code); the
      * caller decides who may edit the page at all. Leaves the text alone when $in has none for an existing page.
      *
-     * @param array<string, mixed>|null $page the page (its page_id), null = a new one
+     * @param array<string, mixed>|null $page the page (its page_id; with $keepPlace the full row), null = a new one
      * @param array<string, mixed> $in fields as a form posts them (ids are public ids)
+     * @param bool $keepPlace the stored language, parent and slug stay, whatever $in says (a settings tab other than Page)
      * @return array{id: int, errors: array<string, string>, data: array<string, mixed>} the page's id (0 when a new page failed), the errors by field, the cleaned values
      */
-    private function persist(?array $page, array $in): array
+    private function persist(?array $page, array $in, bool $keepPlace = false): array
     {
         $post = fn (string $key): string => is_string($in[$key] ?? null) ? trim($in[$key]) : '';
         $bool = fn (string $key): bool => !empty($in[$key]);
         $id = (int) ($page['page_id'] ?? 0);
-        ['language' => $language, 'parent' => $parent, 'slug' => $slug] = $this->placement($id, $in);
+        ['language' => $language, 'parent' => $parent, 'slug' => $slug] = $keepPlace && $page !== null
+            ? ['language' => (string) $page['language'], 'parent' => (int) $page['parent_id'] > 0 ? ['page_id' => (int) $page['parent_id']] : null, 'slug' => (string) $page['slug']]
+            : $this->placement($id, $in);
         $sortOrder = is_int($in['sort_order'] ?? null) || preg_match('/^-?\d{1,18}$/', $post('sort_order')) ? (int) $in['sort_order'] : 100;
         $data = [
             'title' => mb_substr($post('title'), 0, 200),

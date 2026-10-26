@@ -22,6 +22,8 @@ if ($page === null) {
     return;
 }
 $builder = $module->url('builder', ['id' => $page['public_id']]);
+// Edit opens what holds the content: the builder for a build page, the text form for a text page
+$edit = $hasBuild ? $builder : $module->url('edit', ['id' => $page['public_id']]);
 $devices = [
     'desktop' => ['Desktop', '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'],
     'tablet' => ['Tablet', '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M11 18h2"/>'],
@@ -48,7 +50,7 @@ $path = (string) preg_replace('#^' . preg_quote($app->request->basePath(), '#') 
 <?php endif ?>
 				<a class="menu-tool" href="<?= e($url) ?>" target="_blank" rel="noopener" title="<?= e(t('Open the live page')) ?>" aria-label="<?= e(t('Open the live page')) ?>"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg></a>
 				<button class="menu-tool" type="button" data-settings-toggle aria-expanded="true" aria-controls="website-settings" title="<?= e(t('Page settings')) ?>" aria-label="<?= e(t('Page settings')) ?>"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
-				<a class="btn" href="<?= e($builder) ?>"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><?= e(t('Edit')) ?></a>
+				<a class="btn" href="<?= e($edit) ?>"><svg class="icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><?= e(t('Edit')) ?></a>
 			</div>
 		</div>
 		<div class="website-ground">
