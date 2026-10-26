@@ -131,6 +131,23 @@ final class EnquiryFormsTest extends SiteTestCase
         $this->assertPage('/contact?form=' . self::$element . '&result=ok', 200, 'class="tl-form-done"', message: 'thank-you in place of the form');
     }
 
+    #[Depends('testEnquiryInTheAdminListDetailAndCsv')]
+    public function testFormsListEveryFormWithItsAnswers(): void
+    {
+        $name = $this->sql('SELECT form FROM tl_enquiries');
+        $this->assertPage('/admin.php?module=forms', 200, [$name, 'Contact', 'On the site'], message: 'Enquiries → Forms lists the contact form on its page');
+        $answers = '/admin.php?module=forms&action=detail&source=' . rawurlencode(self::$source) . '&element=' . self::$element;
+        $this->assertPage($answers, 200, ['Jane', 'I want a custom kitchen.', 'The fields and recipients come from the published page.'], message: "the form's answers, one column per field");
+        $this->assertPage('/admin.php?module=forms&action=detail&source=page:' . $this->sql("SELECT page_id FROM tl_pages WHERE slug = 'contact'") . '&element=' . self::$element, 404, message: 'an integer key from outside names no form');
+
+        // a form that is no longer on any page keeps its answers
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, source, element, email, data, status) SELECT NOW(), 'Old offer form', source, 'gone0001', 'old@example.org', '[]', 2 FROM tl_enquiries LIMIT 1");
+        $this->assertPage('/admin.php?module=forms&status=removed', 200, ['Old offer form', 'The answers are kept'], message: 'a removed form stays in the list while it has answers');
+        $old = $this->site()->publicId('enquiries', (int) $this->sql("SELECT enquiry_id FROM tl_enquiries WHERE element = 'gone0001'"));
+        $this->assertPage('/admin.php?module=forms&action=detail&source=' . rawurlencode(self::$source) . '&element=gone0001', 200, $old, message: 'and its answers can still be opened');
+        $this->assertPageLacks($answers, $old, message: 'each form shows only its own answers');
+    }
+
     /** The old submit_form: the redirect address of a POST to /form with the page's fields. @param array<string, string> $fields @param list<string> $headers */
     private function submit(array $fields, array $headers = []): string
     {

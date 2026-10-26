@@ -153,7 +153,7 @@ $userName = $username['name'] ?: $username['username'];
 <?php if ($listsEntries): ?>
 			<ul class="menu-sub">
 <?php foreach ($entries as $ident => $class): ?>
-				<li<?= $ident === $inMenu ? ' class="active"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= e(t($class::NAME)) ?><?= $waitingCount($waiting[$ident] ?? 0) ?></a></li>
+				<li<?= $ident === $inMenu ? ' class="active"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= e(t($class::MENU_NAME ?: $class::NAME)) ?><?= $waitingCount($waiting[$ident] ?? 0) ?></a></li>
 <?php endforeach ?>
 			</ul>
 <?php endif ?>

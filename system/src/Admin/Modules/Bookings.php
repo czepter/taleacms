@@ -20,7 +20,7 @@ final class Bookings extends Module
 {
     public const string IDENT = 'bookings';
     public const string NAME = 'Bookings';
-    public const string GROUP = 'Bookings';
+    public const string GROUP = 'Enquiries';
     public const string ICON = 'booking';
     public const string TABLE = 'bookings';
     public const string EXTENSION = 'bookings'; // a feature (3.2): off on new installs, switched on by 0073 where a site uses it

@@ -34,6 +34,7 @@ final class Guide
         'wizard' => 'industry-blueprints', // #31: the first-run wizard starts from a blueprint
         'connectors' => 'connections',
         'enquiries' => 'forms#enquiries',
+        'forms' => 'forms',
         'bookings' => 'bookings',
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
         'subscribers' => 'newsletter',
