@@ -80,6 +80,47 @@ for (const url of ADMIN_PAGES) {
   await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
 }
 
+// a collection's fields are tiles on the item form's grid, each with its settings in the sidebar (collections/form.php): the typing
+// shows on the tile, Earlier / Later moves it without a reload, and the item form lays the fields out by their width
+await step('collection fields: add, width and description, reorder, the item form follows', async () => {
+  const addField = async (label, width) => {
+    await page.click('.field-tile-add');
+    const panel = '#' + await page.locator('.field-tile-add').getAttribute('aria-controls');
+    await page.fill(`${panel} [data-field-prop="label"]`, label);
+    await page.click(`${panel} label:has(> input[data-field-prop="width"][value="${width}"])`);
+  };
+  const save = () => Promise.all([page.waitForNavigation(), page.click('.website-settings-foot .btn')]);
+  const tile = (label) => page.locator('.field-grid [draggable="true"]', { hasText: label });
+  const order = () => page.locator('.field-grid [draggable="true"] [data-tile="label"]').allTextContents();
+  await visit('/admin.php?module=collections&action=new');
+  await page.fill('#name', 'Walk stories');
+  await addField('Place', 'third');
+  await save();
+  const id = page.url().match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)[0];
+  await visit(`/admin.php?module=collections&action=edit&id=${id}`);
+  await addField('Lead', 'half');
+  await save();
+  await visit(`/admin.php?module=collections&action=edit&id=${id}`);
+  await tile('Place').click();
+  const panel = '#' + await tile('Place').getAttribute('aria-controls');
+  if (!(await page.locator(panel).isVisible())) { throw new Error('the tile does not open its settings'); }
+  await page.fill(`${panel} [data-field-prop="help"]`, 'Town or venue');
+  if ((await tile('Place').locator('[data-tile="help"]').textContent()) !== 'Town or venue') { throw new Error('the tile does not show the description'); }
+  if (!(await tile('Place').getAttribute('class')).includes('field-tile-third')) { throw new Error('the tile is not a third wide'); }
+  await page.click(`${panel} [data-field-move="1"]`);
+  const moved = await order();
+  if (moved.indexOf('Lead') > moved.indexOf('Place')) { throw new Error(`Later did not move the tile: ${moved.join(', ')}`); }
+  await nothingSpillsOut();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-fields.png`, fullPage: true }); }
+  await save();
+  await visit(`/admin.php?module=collections&action=item&id=${id}`);
+  const fields = await page.locator('.item-main > .item-field').evaluateAll((els) => els.map((e) => e.className + ' ' + e.querySelector('label').textContent.trim()));
+  const at = (label) => fields.findIndex((f) => f.endsWith(label));
+  if (!(at('Lead') < at('Place') && fields[at('Place')].includes('item-field-third') && fields[at('Lead')].includes('item-field-half'))) { throw new Error(`the item form: ${fields.join(' | ')}`); }
+  await nothingSpillsOut();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-item-fields.png`, fullPage: true }); }
+});
+
 // #155: the "Connect an application" screen stands in the focused frame (views/admin/bare.php), which loads only admin.css: its access
 // choices are option cards (a hidden radio, a border, the title on its own line), "new, not verified" and "recommended" are badges (a tint)
 await step('Claude connection consent: the access choices are cards, the labels are badges', async () => {

@@ -115,8 +115,26 @@ final class Collections extends Module
         if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->db) || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $id]) !== null) {
             return $this->back(t('The address “%s” is already used by the system or another collection.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
+        // the fields in the order of their position (admin.js renumbers it after a drag); a ticked "remove" drops one;
+        // Earlier / Later without a script (move = "<index>:-1|1") swaps it with its neighbour and comes back to the form
+        $rows = [];
+        foreach (is_array($_POST['fields'] ?? null) ? $_POST['fields'] : [] as $i => $f) {
+            if (is_array($f) && empty($f['remove'])) {
+                $rows[(int) $i] = $f;
+            }
+        }
+        uasort($rows, fn (array $a, array $b): int => (int) ($a['position'] ?? 0) <=> (int) ($b['position'] ?? 0));
+        $move = preg_match('/^(\d+):(-1|1)$/', $r->post('move'), $m) ? [(int) $m[1], (int) $m[2]] : null;
+        if ($move !== null && isset($rows[$move[0]])) {
+            $order = array_keys($rows);
+            $at = (int) array_search($move[0], $order, true);
+            if (isset($order[$at + $move[1]])) {
+                [$order[$at], $order[$at + $move[1]]] = [$order[$at + $move[1]], $order[$at]];
+                $rows = array_replace(array_flip($order), $rows);
+            }
+        }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
-        $field = KolekceObsahu::sanitizeFields(is_array($_POST['fields'] ?? null) ? array_values($_POST['fields']) : []);
+        $field = KolekceObsahu::sanitizeFields(array_values($rows));
         $redirect = KolekceObsahu::cleanRedirect($r->post('hidden_redirect'));
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
@@ -132,6 +150,9 @@ final class Collections extends Module
             $id = $this->db->insert('collections', $data);
         }
         \Talea\Front\Cache::clear();
+        if ($move !== null) {
+            return $this->back('The collection was saved.', 'edit', ['id' => $this->publicId($id)]);
+        }
 
         return $this->back('The collection was saved.', 'items', ['id' => $this->publicId($id)]);
     }
@@ -242,6 +263,10 @@ final class Collections extends Module
         }
         $errors = [];
         $data = KolekceObsahu::sanitizeData($k['fields'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
+        // the browser asks for a required field first; formatted text and a gallery have no input of their own to ask with
+        if (($missing = KolekceObsahu::missingRequired($k['fields'], $data)) !== []) {
+            return $this->back(t('Fill in the required fields: %s', implode(', ', $missing)), 'item', $idp > 0 ? ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')] : ['id' => $k['public_id']], 'error');
+        }
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 150);
         // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('language'));
