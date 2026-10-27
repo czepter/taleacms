@@ -196,20 +196,23 @@ final class Forms
         \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Talea\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
-        $this->notify($idp, $element, $data, $email, $campaign, $about);
-        \Talea\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['content']['name'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
-        // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits
-        \Talea\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['content']['name'], $about, $email, $back, \Talea\Core\EnquiryDelivery::fields($data, $types));
-        if ($gatedFile !== '') {
-            \Talea\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
-        }
-        if (!empty($element['content']['confirmation']) && $email !== '') {
-            // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
-            // content, so the form cannot be abused to send out other people's texts
-            $siteSettings = $this->app->settings();
-            $nextSteps = NextSteps::text($this->app, $element['content']);
-            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
-                . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
+        // spam the assistant recognised is kept under the Spam filter and sends nothing; the sender sees the usual thank-you
+        if (!\Talea\Core\Triage::spam($this->app, $idp)) {
+            $this->notify($idp, $element, $data, $email, $campaign, $about);
+            \Talea\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['content']['name'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
+            // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits
+            \Talea\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['content']['name'], $about, $email, $back, \Talea\Core\EnquiryDelivery::fields($data, $types));
+            if ($gatedFile !== '') {
+                \Talea\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
+            }
+            if (!empty($element['content']['confirmation']) && $email !== '') {
+                // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
+                // content, so the form cannot be abused to send out other people's texts
+                $siteSettings = $this->app->settings();
+                $nextSteps = NextSteps::text($this->app, $element['content']);
+                Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
+                    . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
+            }
         }
         $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 

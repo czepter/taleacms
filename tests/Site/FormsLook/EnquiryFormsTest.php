@@ -148,6 +148,33 @@ final class EnquiryFormsTest extends SiteTestCase
         $this->assertPageLacks($answers, $old, message: 'each form shows only its own answers');
     }
 
+    #[Depends('testFormsListEveryFormWithItsAnswers')]
+    public function testTheAssistantsSpamCheckKeepsSpamQuietAndLetsRealEnquiriesThrough(): void
+    {
+        $site = $this->site();
+        $site->setting('ai_key', 'test-key-for-the-fake-provider');
+        $site->setting('ai_provider', 'anthropic');
+        $site->setting('ai_model', 'fake-model');
+        $site->setting('spam_assistant', '1');
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
+        $sent = fn (): string => $this->sql('SELECT COUNT(*) FROM tl_mail') . '|' . $this->sql('SELECT COUNT(*) FROM tl_webhook_deliveries');
+        try {
+            $before = $sent();
+            $location = $this->submit(['p0' => 'Seo', 'p1' => 'seo@example.org', 'p3' => 'We can get you to the first page of Google.', 'p4' => '1']);
+            $this->assertStringContainsString('result=ok', $location, 'spam check: the spammer sees the usual thank-you');
+            $this->assertSame('spam|assistant', $this->sql("SELECT CONCAT(category, '|', triaged_by) FROM tl_enquiries WHERE email = 'seo@example.org'"), 'spam check: spam is kept as spam');
+            $this->assertSame($before, $sent(), 'spam check: spam sends no notification and no webhook');
+            $this->assertStringContainsString('"task":"spam","has_key":true,"user":"<enquiry>', $site->fakeLog('ai'), 'spam check: the enquiry goes to the assistant inside <enquiry>, as data');
+
+            $this->submit(['p0' => 'Ann', 'p1' => 'ann@example.org', 'p3' => 'Could you build a wardrobe?', 'p4' => '1']);
+            $this->assertSame('|', $this->sql("SELECT CONCAT(category, '|', triaged_by) FROM tl_enquiries WHERE email = 'ann@example.org'"), 'spam check: a real enquiry stays unsorted');
+            $this->assertNotSame($before, $sent(), 'spam check: a real enquiry is announced as usual');
+        } finally {
+            $site->setting('spam_assistant', '0');
+            $site->exec("DELETE FROM tl_settings WHERE name IN ('ai_key', 'ai_model', 'ai_provider')");
+        }
+    }
+
     /** The old submit_form: the redirect address of a POST to /form with the page's fields. @param array<string, string> $fields @param list<string> $headers */
     private function submit(array $fields, array $headers = []): string
     {

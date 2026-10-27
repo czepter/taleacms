@@ -12,6 +12,7 @@ namespace Talea\Core;
  *  - Claude sorts the rest over MCP (triage_enquiries lists the unsorted ones, update_enquiry saves the result).
  *  - The site's own AI assistant can sort new enquiries in the background – only when the administrator switches it on
  *    (Settings → Enquiries), because the text of the enquiry goes to the AI provider.
+ *  - It can also check each new enquiry for spam right when it arrives (spam()), so spam notifies nobody.
  *
  * A drafted reply is never sent by itself; the admin copies it or opens it in their e-mail. Who sorted an enquiry is kept,
  * and a person's own sorting is never overwritten by Claude or the assistant.
@@ -77,6 +78,31 @@ final class Triage
         if ($enquiry !== null && ($result = self::rule($enquiry, Jobs::sources($app->db()))) !== null) {
             self::save($app->db(), $idp, $result, 'rule');
         }
+    }
+
+    /**
+     * The spam check of a new enquiry (Front\Forms), when the administrator switched it on: the assistant reads it before anyone
+     * is notified. Spam is saved as spam (the admin finds it under the Spam filter) and the form then sends nothing – no
+     * notification, webhook, delivery or confirmation; the visitor sees the usual thank-you. An unreachable assistant lets the
+     * enquiry through: a lost real enquiry costs more than one spam mail.
+     */
+    public static function spam(App $app, int $idp): bool
+    {
+        $settings = $app->settings();
+        $assistant = new Assistant($settings);
+        if (!$settings->bool('spam_assistant') || !$assistant->isReady()) {
+            return false;
+        }
+        $enquiry = $app->db()->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
+        try {
+            if ($enquiry === null || !$assistant->spam(self::text($enquiry), (string) $settings->get('site_name'))) {
+                return false;
+            }
+        } catch (\RuntimeException) {
+            return false;
+        }
+
+        return self::save($app->db(), $idp, ['category' => 'spam', 'priority' => 1, 'suggested_reply' => null], 'assistant');
     }
 
     /**

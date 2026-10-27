@@ -49,6 +49,31 @@ final class AssistantTest extends TestCase
         }
     }
 
+    /** assistant: the spam check of a new enquiry reads one word and waits at most 10 seconds */
+    public function testSpamCheck(): void
+    {
+        $settings = (new \ReflectionClass(\Talea\Core\Settings::class))->newInstanceWithoutConstructor();
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($settings, ['ai_key' => 'x', 'ai_model' => 'm1']);
+        $fake = new class($settings) extends Assistant {
+            public string $answer = '';
+            public ?int $seen = null;
+
+            protected function call(array $body): array
+            {
+                $this->seen = (new \ReflectionProperty(Assistant::class, 'timeout'))->getValue($this);
+
+                return ['content' => [['type' => 'text', 'text' => $this->answer]]];
+            }
+        };
+        $verdicts = [];
+        foreach (['spam', 'Spam.', '"spam"', 'ok', 'not spam', 'spammy', ''] as $answer) {
+            $fake->answer = $answer;
+            $verdicts[] = $fake->spam('Message: hello', 'Site');
+        }
+        $this->assertSame([true, true, true, false, false, false, false], $verdicts, 'Assistant::spam: only an answer that starts with the word spam is spam');
+        $this->assertSame(10, $fake->seen, 'Assistant::spam: the visitor waits at most 10 seconds');
+    }
+
     /** AI assistant: providers and builder */
     public function testProvidersAndBuilder(): void
     {

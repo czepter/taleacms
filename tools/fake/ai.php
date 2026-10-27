@@ -2,7 +2,7 @@
 
 // The AI provider of the site tests (#31, Core\Assistant): answers like the Claude API on POST /ai/v1/messages (the tests point
 // TALEA_AI_URL here). The task is recognized by the system prompt; the log keeps what was sent (task, the user's text), never the key.
-// Words in the request steer the answer: "HOSTILE" gives a hostile reply (code, unknown keys, deletions), "GARBAGE" text that is not JSON.
+// Words in the request steer the answer: "first page of Google" is spam to the spam check, "HOSTILE" gives a hostile reply (code, unknown keys, deletions), "GARBAGE" text that is not JSON.
 // GET /ai/v1/models lists two models like the Claude API (Core\Assistant::loadModels).
 if ($path === '/ai/v1/models' && $method === 'GET') {
     return $reply(200, ['data' => [
@@ -23,11 +23,15 @@ $task = match (true) {
     str_contains($system, 'You edit one page') => 'ask',
     str_contains($system, 'You plan the first version') => 'plan',
     str_contains($system, 'web designer and copywriter') => 'page',
+    str_contains($system, 'for spam:') => 'spam',
     default => 'other',
 };
 $log('ai', ['task' => $task, 'has_key' => ($headers['x-api-key'] ?? '') !== '', 'user' => mb_substr($user, 0, 4000)]);
 if (str_contains($said, 'GARBAGE')) {
     return $answer('Sorry, I cannot do that. {not json');
+}
+if ($task === 'spam') {
+    return $answer(str_contains($user, 'first page of Google') ? 'spam' : 'ok');
 }
 if ($task === 'ask') {
     preg_match('#<build>\s*(.*?)\s*</build>#s', $user, $m);
