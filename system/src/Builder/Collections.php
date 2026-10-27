@@ -90,6 +90,7 @@ final class Collections
     public static function cleanGallery(mixed $value): ?string
     {
         $out = [];
+        $invalid = false;
         foreach (self::galleryPhotos($value, $invalid) as $photo) {
             $out[] = $photo['src'] . ($photo['alt'] !== '' ? ' | ' . $photo['alt'] : '');
         }
