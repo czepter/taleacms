@@ -641,8 +641,9 @@
 	document.addEventListener('focusout', hideTip);
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
 
-	// Website mode: the settings sidebar folds to a rail with a link per tab; the browser remembers it (without a script it stays open)
-	var website = document.querySelector('.website'), settingsToggles = document.querySelectorAll('[data-settings-toggle]');
+	// Website mode and the collection item editor: the settings sidebar folds to a rail with a link (a button in the item
+	// editor) per tab; the browser remembers it (without a script it stays open)
+	var website = document.querySelector('.website, .item-editor'), settingsToggles = document.querySelectorAll('[data-settings-toggle]');
 	if (website && settingsToggles.length) {
 		var foldSettings = function (closed) {
 			website.classList.toggle('settings-closed', closed);
@@ -652,22 +653,28 @@
 		try { if (localStorage.getItem('talea.websiteSettings') === 'closed') { foldSettings(true); } } catch (e) { /* private mode */ }
 		settingsToggles.forEach(function (b) { b.addEventListener('click', function () { foldSettings(!website.classList.contains('settings-closed')); }); });
 		document.querySelectorAll('.website-settings-rail a').forEach(function (a) { a.addEventListener('click', function () { foldSettings(false); }); });
+		document.querySelectorAll('.website-settings-rail [data-show-tab]').forEach(function (b) {
+			b.addEventListener('click', function () { foldSettings(false); document.getElementById(b.getAttribute('data-show-tab')).click(); });
+		});
 	}
 
+	// the length meters of a search title and description (the SEO tab, the collection item editor) follow the typing
+	document.addEventListener('input', function (e) {
+		var meter = e.target.parentNode && e.target.parentNode.querySelector(':scope > [data-meter]');
+		if (meter) {
+			var max = +meter.getAttribute('data-meter'), length = e.target.value.length;
+			meter.classList.toggle('warning', length > max);
+			meter.querySelector('i').style.setProperty('--fill', Math.min(100, Math.round(length / max * 100)) + '%');
+			meter.lastChild.textContent = length + ' / ' + max;
+		}
+	});
+
 	// Website mode, SEO tab: the unsaved fields are checked 600 ms after the last change (pages/seo_check returns the checks and
-	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins);
-	// the length meters follow the typing
+	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins)
 	var seoForm = document.querySelector('[data-seo-live]');
 	if (seoForm) {
 		var seoTimer = null, seoRequest = null;
-		seoForm.addEventListener('input', function (e) {
-			var meter = e.target.parentNode.querySelector('[data-meter]');
-			if (meter) {
-				var max = +meter.getAttribute('data-meter'), length = e.target.value.length;
-				meter.classList.toggle('warning', length > max);
-				meter.querySelector('i').style.setProperty('--fill', Math.min(100, Math.round(length / max * 100)) + '%');
-				meter.lastChild.textContent = length + ' / ' + max;
-			}
+		seoForm.addEventListener('input', function () {
 			clearTimeout(seoTimer);
 			seoTimer = setTimeout(function () {
 				if (seoRequest) { seoRequest.abort(); }

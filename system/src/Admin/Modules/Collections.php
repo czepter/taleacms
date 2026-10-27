@@ -210,8 +210,15 @@ final class Collections extends Module
                 'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'seo_title' => '', 'description' => '', 'image' => $original['image'] ?? '', 'noindex' => 0, 'publish_at' => null, 'valid_until' => null, 'review_by' => null];
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
+        $settings = $this->app->settings();
+        $host = (string) (parse_url($settings->get('site_url') ?: $this->request->origin(), PHP_URL_HOST) ?? '');
+        $address = $k['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] : '';
 
-        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
+        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p, 'host' => $host, 'address' => $address,
+            // the search result preview: the title and description as Front\Kernel hands them to the item page's head
+            'serp' => ['serpTitle' => \Talea\Core\SeoTitle::compose($settings, 'item', $p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name'], $p['seo_title'] !== '', ['category' => (string) $k['name']]),
+                'serpDescription' => (string) $p['description'], 'serpAddress' => $host . '/' . $address,
+                'dir' => Language::dirAttribute(Language::ofContent($settings, (string) $p['language']))],
             'seoCheck' => $k['detail'] && $p['item_id'] > 0 && \Talea\Core\ContentCheck::enabled($this->app->settings()) ? \Talea\Core\SeoScore::panel($this->app, 'item', $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $p['item_id']])) : null,
             'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
@@ -263,7 +270,10 @@ final class Collections extends Module
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
         }
 
-        return $this->back('The item was saved.', 'items', ['id' => $k['public_id']]);
+        // "Save and continue" stays in the editor
+        return $r->post('after_save') === 'stay'
+            ? $this->back('The item was saved.', 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')])
+            : $this->back('The item was saved.', 'items', ['id' => $k['public_id']]);
     }
 
     /** Actions the list does with ticked items (2.14): show, hide, language version, trash. A notice board keeps its notices (2.11). */

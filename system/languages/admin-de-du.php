@@ -439,6 +439,7 @@ return [
     'Only the first %d notes are shown – narrow the list by a topic or a search.' => 'Es werden nur die ersten %d Notizen angezeigt – grenze die Liste nach Thema oder Suche ein.',
     'Only the rows you change are saved; nothing is published that was not before.' => 'Gespeichert werden nur die Zeilen, die du änderst; nichts wird veröffentlicht, was es vorher nicht war.',
     'Only you and your team see it.' => 'Nur du und dein Team seht sie.',
+    'Only you and your team see the item.' => 'Nur du und dein Team seht ihn.',
     'Only your team sees this note. Write down what you offered, for example.' => 'Diese Notiz sieht nur dein Team. Halte hier zum Beispiel fest, was du angeboten hast.',
     'Open a look to try its colours and fonts on your site.' => 'Öffne ein Design, um seine Farben und Schriften auf deiner Website auszuprobieren.',
     'Open it on the screen in full-screen (kiosk) mode. Anyone with the address sees the screen – do not publish it.' => 'Öffne sie auf dem Bildschirm im Vollbildmodus (Kiosk). Jeder, der die Adresse kennt, sieht den Bildschirm – veröffentliche sie nicht.',
