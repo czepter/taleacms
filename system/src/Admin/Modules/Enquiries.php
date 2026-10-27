@@ -43,7 +43,7 @@ final class Enquiries extends Module
         $kind = $this->request->get('category');
         if ($kind === '-') {
             $conditions[] = "category = ''";
-        } elseif (isset(\Talea\Core\Triage::CATEGORIES[$kind])) {
+        } elseif (isset(\Talea\Core\Triage::kinds($this->app->settings())[$kind])) {
             $conditions[] = 'category = ?';
             $params[] = $kind;
         } else {
@@ -84,7 +84,8 @@ final class Enquiries extends Module
             'testimonials' => \Talea\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
             'users' => $this->listAssignees((int) $p['assigned_to']), 'assignedPublicId' => $this->publicId((int) $p['assigned_to'], 'users'),
             // the inbox beside the open enquiry: the latest ones that are not spam (the full list with filters is the list screen)
-            'inbox' => $this->db->all("SELECT public_id, created_at, form, email, status, data FROM {enquiries} WHERE category <> 'spam' ORDER BY enquiry_id DESC LIMIT " . self::INBOX)]);
+            'inbox' => $this->db->all("SELECT public_id, created_at, form, email, status, category, data FROM {enquiries} WHERE category <> 'spam' ORDER BY enquiry_id DESC LIMIT " . self::INBOX),
+            'kinds' => \Talea\Core\Triage::names($this->app->settings())]);
     }
 
     /**
@@ -128,9 +129,13 @@ final class Enquiries extends Module
         $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
+            $by = (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin');
             \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'),
-                $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null),
-                (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
+                $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null, array_keys(\Talea\Core\Triage::kinds($this->app->settings()))), $by);
+            if ($this->request->hasPost('category') && $this->request->post('category') === '' && (string) $this->db->value('SELECT category FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== '') {
+                // "Not sorted yet" chosen for a sorted enquiry, or "Not spam" on one a machine sorted as spam: a person's decision, kept like a kind
+                $this->db->update('enquiries', ['category' => '', 'triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
+            }
             if ($this->request->hasPost('note')) {
                 $who = $this->idParam('assigned_to', 'users');
                 $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),

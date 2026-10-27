@@ -51,7 +51,7 @@ trait EnquiryAndPopupTools
         $kind = (string) ($a['category'] ?? '');
         if ($kind === 'unsorted') {
             $whereParts[] = "category = ''";
-        } elseif (isset(\Talea\Core\Triage::CATEGORIES[$kind])) {
+        } elseif (isset(\Talea\Core\Triage::kinds($this->app->settings())[$kind])) {
             $whereParts[] = 'category = ?';
             $params[] = $kind;
         } else {
@@ -106,9 +106,10 @@ trait EnquiryAndPopupTools
             $db->update('enquiries', $changes, ['enquiry_id' => $id]);
         }
         if (isset($a['category']) || isset($a['priority']) || isset($a['draft_reply'])) {
-            $triage = \Talea\Core\Triage::clean($a['category'] ?? null, isset($a['priority']) ? ['high' => 3, 'normal' => 2, 'low' => 1][(string) $a['priority']] ?? 0 : null, $a['draft_reply'] ?? null);
+            $kinds = array_keys(\Talea\Core\Triage::kinds($this->app->settings()));
+            $triage = \Talea\Core\Triage::clean($a['category'] ?? null, isset($a['priority']) ? ['high' => 3, 'normal' => 2, 'low' => 1][(string) $a['priority']] ?? 0 : null, $a['draft_reply'] ?? null, $kinds);
             if (isset($a['category']) && $triage['category'] === null) {
-                throw new \InvalidArgumentException('category must be one of: ' . implode(', ', array_keys(\Talea\Core\Triage::CATEGORIES)) . '.');
+                throw new \InvalidArgumentException('category must be one of: ' . implode(', ', $kinds) . '.');
             }
             if (\Talea\Core\Triage::save($db, $id, $triage, 'claude')) {
                 $changes['triage'] = true;
@@ -177,7 +178,9 @@ trait EnquiryAndPopupTools
         $rows = $this->app->db()->all("SELECT * FROM {enquiries} WHERE category = '' ORDER BY enquiry_id DESC LIMIT " . $limit);
 
         return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'text' => \Talea\Core\Triage::text($p)], $rows),
-            'categories' => array_keys(\Talea\Core\Triage::CATEGORIES), 'priorities' => ['high', 'normal', 'low'],
+            // the site's kinds (Settings → Enquiries): the key to save and how to recognise each
+            'categories' => array_map(fn (string $key, string $what): array => ['key' => $key, 'means' => $what], array_keys($descriptions = \Talea\Core\Triage::descriptions($this->app->settings())), $descriptions),
+            'priorities' => ['high', 'normal', 'low'],
             'next' => $rows === [] ? 'Every enquiry is sorted.' : 'For each: update_enquiry {id, category, priority, draft_reply}. Spam gets no reply. Never promise prices, dates or facts the site does not state; the user checks and sends every reply.'];
     }
 

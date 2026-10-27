@@ -228,6 +228,8 @@ class Settings extends Module
             // #161: the archived monthly reports, the month the archive starts with and the month the job stores next
             'reports' => $tab === 'reports' ? ['months' => \Talea\Core\ReportArchive::months($this->db), 'first' => \Talea\Core\ReportArchive::firstMonth($this->db),
                 'previous' => \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
+            'kinds' => $tab === 'enquiries' ? \Talea\Core\Triage::kinds($settings) : [],
+            'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' GROUP BY category")) : [],
             'retentionSuggestion' => $tab === 'enquiries' ? \Talea\Core\Jobs::suggestedRetention($settings->get('company_country'), $settings->get('site_language')) : null,
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
                 ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
@@ -313,6 +315,13 @@ class Settings extends Module
         }
         if ($tab === 'seo') {
             Seo::ensureIndexNowKey($settings);
+        }
+        if ($tab === 'enquiries' && $this->request->hasPost('kind_name')) {
+            // the kinds: renamed, described, moved or removed; enquiries of a removed kind count as not sorted again
+            $settings->set('enquiry_kinds', \Talea\Core\Triage::storeKinds($this->request->postList('kind_key'), $this->request->postList('kind_name'),
+                $this->request->postList('kind_description'), $this->request->post('kind_move'), $this->request->hasPost('kind_delete') ? $this->request->postInt('kind_delete') : null));
+            $keys = array_keys(\Talea\Core\Triage::kinds($settings));
+            $this->db->run("UPDATE {enquiries} SET category = '' WHERE category <> '' AND category NOT IN (" . implode(', ', array_fill(0, count($keys), '?')) . ')', $keys);
         }
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('extensions'));
