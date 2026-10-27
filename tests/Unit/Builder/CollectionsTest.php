@@ -76,6 +76,9 @@ final class CollectionsTest extends TestCase
             \Talea\Builder\Collections::sanitizeData($fields, ['photos' => "javascript:alert(1) | x\nmedia/f.webp"], $errors),
         ], 'Collections::sanitizeData: lines, figures of a former formatted text and a list from MCP become lines; a photo that is not from Media refuses the value');
         $this->assertSame(['photos' => 'Photos'], $errors);
+        $many = implode("\n", array_map(fn (int $i): string => 'media/2026/10/photo-' . $i . '.webp | Photo ' . $i, range(1, 110)));
+        $this->assertSame([110, 110], [count(\Talea\Builder\Collections::galleryPhotos($many)), substr_count((string) \Talea\Builder\Collections::cleanGallery($many), "\n") + 1],
+            'Collections::galleryPhotos: a wedding story with 110 photos keeps them all (shown and saved)');
         $values = \Talea\Builder\Collections::values(['slug' => 'story', 'detail' => true, 'preset' => '', 'fields' => $fields], ['name' => 'X', 'slug' => 'x', 'created_at' => '2026-10-27 10:00:00', 'data' => ['photos' => "media/a.webp | A \"quoted\"\nmedia/b.webp"]], fn (string $p): string => '/' . $p);
         $this->assertSame([["media/a.webp | A \"quoted\"\nmedia/b.webp", 'gallery'], ['2', 'text']], [$values['photos'], $values['photos_count']], 'Collections::values: {{photos}} keeps the lines, {{photos_count}} counts them');
         $figures = '<figure><img src="media/a.webp" alt="A &quot;quoted&quot;" loading="lazy"></figure>' . "\n" . '<figure><img src="media/b.webp" alt="" loading="lazy"></figure>';
