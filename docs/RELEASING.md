@@ -9,12 +9,10 @@ Everything that goes to GitHub is English: commit, tag and release notes.
 
 1. Raise `TALEA_VERSION` in `system/bootstrap.php` on `main`, push, and wait for CI. A commit that changes only that line counts
    as tested when its parent passed CI, so no test job runs again, neither in CI nor for the tag.
-2. Wait until the Release run of that push (the edge image) is done, then tag the commit and push the tag:
-   `git tag vX.Y.Z && git push origin vX.Y.Z`. A tag that does not match `TALEA_VERSION` fails the release. The tag run builds
-   nothing when the commit has its edge image (`sha-<commit>`): it puts the release tags on that image and signs it. A tag pushed
-   earlier, or on a commit outside `main`, builds the image itself.
+2. Tag the commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. A tag that does not match `TALEA_VERSION` fails
+   the release. Only a tag starts the release workflow: a merge or push to `main` builds no image.
 3. The release workflow (`.github/workflows/release.yml`) runs the tests again only when CI has not passed for the tagged commit,
-   builds the multi-arch image (amd64, arm64) unless it reuses the edge image, pushes it to GHCR with the tags below, signs it with cosign and publishes the GitHub
+   builds the multi-arch image (amd64, arm64), pushes it to GHCR with the tags below, signs it with cosign and publishes the GitHub
    release with generated notes, the `docker pull` line and the digest. Each architecture builds natively: amd64 on the self-hosted
    runners, arm64 on a GitHub-hosted `ubuntu-24.04-arm` runner (free while the repository is public); the job `image` joins both
    digests under one index with the tags and signs that.
@@ -32,10 +30,9 @@ A security fix is an ordinary patch release; say so at the top of its release no
 | `X.Y` | the newest stable release of that minor line | a stable release tag |
 | `X` (not for 0.x) | the newest stable release of that major line | a stable release tag |
 | `latest` | the newest stable release | a stable release tag |
-| `edge`, `sha-<commit>` | every push to `main` that passed CI | `main` |
 
 A patch of an older line (`3.6.2` after `3.7.0`) moves `3.6` but leaves `3` and `latest` alone, and GitHub's "latest release" with
-them; `tools/image-tags.sh` decides (tested in `tests/Unit/ImageTagsTest.php`). `edge` is for a staging site, never for production.
+them; `tools/image-tags.sh` decides (tested in `tests/Unit/ImageTagsTest.php`). A staging site pins a release or pre-release tag.
 Every image is signed with cosign (keyless: no key to keep) and carries provenance and an SBOM (docs/DEPLOYMENT.md, "Verify an image").
 
 ## Build cache

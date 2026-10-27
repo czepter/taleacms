@@ -1,8 +1,6 @@
 # Container images (docs/RELEASING.md). A tag vX.Y.Z (or a pre-release vX.Y.Z-rc.N) builds the release image: tests unless CI already
 # passed for the tagged commit, the multi-arch image to GHCR with the tags of tools/image-tags.sh, a cosign signature (keyless, GitHub
-# OIDC) and the GitHub release with generated notes. Every push to main that passed CI builds the image `edge` (and `sha-<commit>`)
-# the same way, without a release. A tag on a commit that already has its edge image (the bump on main) builds nothing: the tag run
-# puts the release tags on that image's index and signs it.
+# OIDC) and the GitHub release with generated notes. Nothing else runs it: a merge to main builds no image.
 # Each architecture builds natively: amd64 on the self-hosted runners, arm64 on a GitHub-hosted arm64 runner; the job image joins them.
 # Cache: amd64 keeps one BuildKit builder on the runner host (talea-release) with every layer and the apt and Composer cache mounts
 # between runs; arm64 starts a fresh builder each run. The registry cache talea-buildcache:main-<arch> fills a builder that is new.
@@ -12,10 +10,6 @@ name: Release
 on:
   push:
     tags: ['v*']
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: write
@@ -24,21 +18,12 @@ permissions:
   actions: read
 
 concurrency:
-  # one run per tag; edge builds replace each other, only the newest main matters
-  group: release-${{ github.event_name == 'push' && github.ref || 'edge' }}
-  cancel-in-progress: ${{ github.event_name == 'workflow_run' }}
+  group: release-${{ github.ref }}
 
 jobs:
   test:
-    # edge: only after a successful CI run of a push to main in this repository (a fork's pull request from its own "main" also
-    # completes CI, and its code must never reach the registry)
-    if: >-
-      github.event_name == 'push' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-      && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
-    outputs:
-      stale: ${{ steps.gate.outputs.stale }}
     services:
       db:
         image: mysql:8.4
@@ -48,16 +33,10 @@ jobs:
     steps:
       - id: gate
         name: Already tested? (CI passed for this content)
-        # edge builds github.sha, the head of main now, never a ref from the event: when main has moved past the tested commit,
-        # the newer commit gets its own edge build after its own CI run
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
-          TESTED: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if [ -n "$TESTED" ] && [ "$TESTED" != "$SHA" ]; then
-            echo "main moved on from $TESTED to $SHA: no edge build for the older commit"; echo "stale=true" >> "$GITHUB_OUTPUT"; exit 0
-          fi
           # CI already passed for this content: the commit itself, a parent with the same tree (the merge commit of an up-to-date
           # pull request, whose head was tested), or a tested parent it differs from only in the TALEA_VERSION line (a release bump:
           # the version is no code). A run counts only when the named job succeeded: the run of a fork's pull request skips every
@@ -96,7 +75,6 @@ jobs:
 
   meta:
     needs: test
-    if: needs.test.outputs.stale != 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 5
     outputs:
@@ -105,53 +83,30 @@ jobs:
       sha: ${{ steps.tags.outputs.sha }}
       latest: ${{ steps.tags.outputs.latest }}
       tags: ${{ steps.tags.outputs.tags }}
-      edge: ${{ steps.edge.outputs.ref }}
     steps:
-      - name: Registry login of this job only
-        run: echo "DOCKER_CONFIG=$RUNNER_TEMP/docker" >> "$GITHUB_ENV"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with: { fetch-depth: 0 }
       - id: tags
         name: Version and image tags
         env:
-          EVENT: ${{ github.event_name }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/talea"
           code=$(sed -nE "s/^const TALEA_VERSION = '([^']+)';/\1/p" system/bootstrap.php)
-          if [ "$EVENT" = push ]; then
-            version=${GITHUB_REF_NAME#v}
-            [ "$version" = "$code" ] || { echo "::error::tag $GITHUB_REF_NAME, but TALEA_VERSION in system/bootstrap.php is $code"; exit 1; }
-            tags=$(git tag -l 'v*' | tools/image-tags.sh "$version")
-          else
-            version=edge
-            tags=$(printf 'edge\nsha-%s\n' "${SHA:0:7}")
-          fi
+          version=${GITHUB_REF_NAME#v}
+          [ "$version" = "$code" ] || { echo "::error::tag $GITHUB_REF_NAME, but TALEA_VERSION in system/bootstrap.php is $code"; exit 1; }
+          tags=$(git tag -l 'v*' | tools/image-tags.sh "$version")
           # shellcheck disable=SC2001
           tags=$(sed "s|^|$image:|" <<<"$tags")
           latest=false; grep -qx "$image:latest" <<<"$tags" && latest=true
           printf 'image=%s\nversion=%s\nsha=%s\nlatest=%s\ntags<<EOF\n%s\nEOF\n' "$image" "$version" "$SHA" "$latest" "$tags" >> "$GITHUB_OUTPUT"
           echo "$tags"
-      - if: github.event_name == 'push'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
-      - id: edge
-        if: github.event_name == 'push'
-        name: Edge image of this commit?
-        # the edge run of the tagged commit built the same image (same Dockerfile, same tree): reuse it when its index names this
-        # very commit. Missing (a tag on another branch, or pushed before the edge run finished): build as usual
-        env: { IMAGE: '${{ steps.tags.outputs.image }}', SHA: '${{ github.sha }}' }
-        run: |
-          ref="$IMAGE:sha-${SHA:0:7}"
-          revision=$(docker buildx imagetools inspect "$ref" --raw 2>/dev/null | jq -r '.annotations["org.opencontainers.image.revision"] // empty') || true
-          if [ "$revision" = "$SHA" ]; then echo "reusing $ref"; echo "ref=$ref" >> "$GITHUB_OUTPUT"; else echo "no edge image of $SHA: building"; fi
 
   build:
     # one native build per architecture, pushed by digest only; the job image puts them under one index with the tags.
     # arm64 runs on a GitHub-hosted arm64 runner (free for a public repository): no QEMU, and no load on the self-hosted host
     needs: meta
-    if: needs.meta.outputs.edge == ''
     strategy:
       matrix:
         include:
@@ -186,7 +141,7 @@ jobs:
           target: production
           platforms: linux/${{ matrix.arch }}
           outputs: type=image,name=${{ needs.meta.outputs.image }},push-by-digest=true,name-canonical=true,push=true
-          # no version label: an edge image becomes the release image unchanged, so the version lives only on the index
+          # the version lives on the index (job image)
           labels: |
             org.opencontainers.image.title=Talea
             org.opencontainers.image.description=Self-hosted website builder
@@ -206,8 +161,6 @@ jobs:
 
   image:
     needs: [meta, build]
-    # build is skipped when the edge image is reused
-    if: always() && needs.meta.result == 'success' && (needs.build.result == 'success' || needs.meta.outputs.edge != '')
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
     outputs:
@@ -217,11 +170,10 @@ jobs:
       digest: ${{ steps.index.outputs.digest }}
     steps:
       - name: Registry login of this job only
-        # the tag run and the edge run of its merge commit reach this job together on the same host and HOME: a shared
-        # ~/.docker would lose this login to the other run's logout before cosign pushes the signature
+        # runs on the same host share one HOME: a shared ~/.docker would lose this login to another run's logout before cosign
+        # pushes the signature
         run: echo "DOCKER_CONFIG=$RUNNER_TEMP/docker" >> "$GITHUB_ENV"
-      - if: needs.meta.outputs.edge == ''
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { pattern: 'digest-*', merge-multiple: true, path: '${{ runner.temp }}/digests' }
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
@@ -233,15 +185,12 @@ jobs:
           TAGS: ${{ needs.meta.outputs.tags }}
           VERSION: ${{ needs.meta.outputs.version }}
           SHA: ${{ needs.meta.outputs.sha }}
-          EDGE: ${{ needs.meta.outputs.edge }}
           SOURCE: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
           args=()
           while read -r tag; do args+=(-t "$tag"); done <<<"$TAGS"
-          if [ -n "$EDGE" ]; then args+=("$EDGE"); else
-            for digest in "$RUNNER_TEMP"/digests/*; do args+=("$IMAGE@sha256:${digest##*/}"); done
-          fi
+          for digest in "$RUNNER_TEMP"/digests/*; do args+=("$IMAGE@sha256:${digest##*/}"); done
           docker buildx imagetools create "${args[@]}" \
             --annotation "index:org.opencontainers.image.description=Self-hosted website builder" \
             --annotation "index:org.opencontainers.image.source=$SOURCE" \
@@ -261,7 +210,6 @@ jobs:
 
   release:
     needs: image
-    if: always() && github.event_name == 'push' && needs.image.result == 'success'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 5
     steps:
