@@ -11,7 +11,7 @@ namespace Talea\Core;
  *  - A rule sorts what is certain: an application sent from a job opening (Core\Jobs) is a job, normal priority.
  *  - Claude sorts the rest over MCP (triage_enquiries lists the unsorted ones, update_enquiry saves the result).
  *  - The site's own AI assistant can sort new enquiries in the background – only when the administrator switches it on
- *    (Enquiries → settings), because the text of the enquiry goes to the AI provider.
+ *    (Settings → Enquiries), because the text of the enquiry goes to the AI provider.
  *
  * A drafted reply is never sent by itself; the admin copies it or opens it in their e-mail. Who sorted an enquiry is kept,
  * and a person's own sorting is never overwritten by Claude or the assistant.

@@ -28,7 +28,7 @@ return [
         . 'and search engines get validThrough – without it the site audit lists the job (kind job). A Collection list of it on the jobs page (newest first); the item page '
         . 'carries the job text and a "Job application" form with a CV, whose submissions are in Enquiries. employment_type as text (full-time, part-time, contract, temporary, internship – recognised for structured data); '
         . 'salary_unit "per month" or "per hour". Salaries appear in structured data only with the collection currency: set it in Collections → structured data, or with update_collection schema_org {"type":"JobPosting","fields":{…the current mapping from list_collections…},"currency":"EUR"}. '
-        . 'The contact field links a job to a person when the site has a Team collection. Applications are personal data: Enquiries → "Delete job applications after" sets how long they are kept.',
+        . 'The contact field links a job to a person when the site has a Team collection. Applications are personal data: Settings → Enquiries → "Delete job applications after" sets how long they are kept.',
     'list' => ['sort' => 'newest'],
     'card' => ['location', 'employment_type'],
     'template' => function (array $fields): array {

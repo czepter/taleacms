@@ -21,6 +21,7 @@ final class MenuPaths
     private const array PATHS = [
         [['Settings', 'Backups'], 'settings', 'module=settings&tab=backups'],
         [['Settings', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
+        [['Settings', 'Enquiries'], 'settings', 'module=settings&tab=enquiries'],
         [['Settings', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
         [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
         [['Settings', 'Analytics'], 'settings', 'module=settings&tab=analytics'],

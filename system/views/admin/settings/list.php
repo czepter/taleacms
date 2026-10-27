@@ -21,6 +21,7 @@
  * @var string $service  the analytics tab: '' = overview, 'connect' = the wizard's first step, else a page or service (Admin\AnalyticsServices)
  * @var bool $connecting  the analytics tab: a service's page as the wizard's second step
  * @var bool $connected  the analytics tab: the wizard's last step
+ * @var array{0: string, 1: int}|null $retentionSuggestion  the enquiries tab: [country, months] job applications are usually kept there
  */
 use Talea\Admin\Modules\Settings;
 
@@ -47,7 +48,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     echo '</div>';
 };
 ?>
-<form class="form" method="post" action="<?= e($module->url('save')) ?>">
+<form class="form" method="post" action="<?= e($module->url('save')) ?>"<?php if ($tab === 'enquiries'): // a shorter period deletes at once ?> data-confirm="<?= e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) ?>"<?php endif ?>>
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
 <button type="submit" class="default-sending" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
 <?= $csrf ?>

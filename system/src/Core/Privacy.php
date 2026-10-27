@@ -382,7 +382,7 @@ final class Privacy
         $sections[] = ['heading' => t('Enquiries and form messages'), 'lines' => array_merge($forms !== [] ? $forms : [t('No form on the published site.')], [
             t('Purpose: answering the enquiry and the business relationship that follows. Legal basis: performance of a contract or steps before it (Art. 6(1)(b)), legitimate interest in answering.'),
             $months > 0 ? t('Retention: %d months, then %s automatically.', $months, t($s->get('enquiries_expiry') === 'anonymise' ? 'anonymised (the row stays for statistics without the person)' : 'deleted including attachments'))
-                : t('Retention: not limited – set it in Enquiries → Settings.'),
+                : t('Retention: not limited – set it in Settings → Enquiries.'),
             t('Recipients: the people with access to Enquiries in the administration%s.', $s->get('webhook_enquiries') !== '' ? ', ' . t('a webhook at %s', (string) parse_url($s->get('webhook_enquiries'), PHP_URL_HOST)) : ''),
         ])];
         if (Jobs::sources($db) !== []) {
