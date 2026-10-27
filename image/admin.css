@@ -1643,6 +1643,41 @@ body.login {
 .inbox-text { font-size: 13px; color: var(--text-weak); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inbox-open { flex: 999 1 480px; min-width: 0; }
 @media (max-width: 860px) { .inbox-list { max-width: none; } .inbox-list ul { max-height: 240px; } }
+/* the open enquiry: one card with the toolbar on top, the message and beside it the handling that saves itself */
+.enquiry-card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.enquiry-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.enquiry-step { display: flex; align-items: center; gap: 4px; }
+.enquiry-step span.icon-btn { opacity: 0.4; cursor: default; }
+.enquiry-step .small-text { padding-inline: 6px; font-variant-numeric: tabular-nums; }
+.enquiry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.enquiry-actions :is(.btn, button.navigation) { display: inline-flex; align-items: center; gap: 8px; }
+.enquiry-menu { width: 300px; }
+.enquiry-menu p.row-menu-note:not(:first-child) { padding-top: 0; font-size: 12px; }
+.enquiry-body { display: flex; flex-wrap: wrap; align-items: flex-start; }
+.enquiry-message { flex: 999 1 420px; min-width: 0; padding: 24px; }
+.enquiry-message .enquiry { grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr); }
+.enquiry-draft { display: grid; gap: 4px; padding-top: 20px; border-top: 1px solid var(--line); }
+.enquiry-draft label { font-weight: 600; }
+.enquiry-testimonials h2 { margin: 24px 0 4px; font-size: 15px; }
+.enquiry-testimonials p { margin: 0 0 4px; }
+.enquiry-side { flex: 1 1 300px; max-width: 340px; display: grid; gap: 16px; margin: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--base); }
+.enquiry-side-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.enquiry-side-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.enquiry-field { display: grid; gap: 4px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.enquiry-field > :is(label, legend) { padding: 0; margin-bottom: 2px; font-size: 13px; font-weight: 500; color: var(--text-weak); }
+.enquiry-field select, .enquiry-field .textbox { width: 100%; }
+.enquiry-field .textbox.low { min-height: 96px; }
+.enquiry-side .help, .enquiry-draft .help { font-size: 12px; color: var(--text-weak); }
+.enquiry-save { margin: 0; }
+.enquiry-side.autosaving .enquiry-save { display: none; } /* with the script the handling saves itself; without it the button does */
+/* three choices side by side: radio buttons that look like one switch */
+.segmented { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 10px; background: var(--accent-light); }
+.segmented label { position: relative; flex: 1 1 auto; }
+.segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.segmented span { display: block; padding: 7px 6px; white-space: nowrap; border-radius: 8px; font-size: 13px; font-weight: 600; text-align: center; color: var(--text-weak); }
+.segmented input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--line-field); }
+.segmented input:focus-visible + span { outline: 2px solid var(--signal); outline-offset: 2px; }
+@media (max-width: 860px) { .enquiry-side { max-width: none; margin-top: 0; } .enquiry-actions { margin-left: 0; } }
 
 /* ---------- Website mode (views/admin/pages/website*.php): the page tree in the sidebar, the live page beside it ---------- */
 .tabs.website-tabs { width: 100%; margin: 0 0 22px; }
