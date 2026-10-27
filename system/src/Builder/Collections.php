@@ -138,7 +138,25 @@ final class Collections
         return array_slice($photos, 0, self::GALLERY_MAX);
     }
 
-    /** A gallery value as formatted text: one figure per photo (in a Text element; the Gallery element shows it as a gallery). */
+    /**
+     * Photos of the first gallery field of an item (its placeholder values, Collections::values): what a Gallery element with
+     * no photos and no folder shows in an item template or a Collection list; null = the collection has no gallery field.
+     *
+     * @param array<string, array{0: string, 1: string}> $values
+     * @return list<array{src: string, alt: string}>|null
+     */
+    public static function itemGallery(array $values): ?array
+    {
+        foreach ($values as [$value, $type]) {
+            if ($type === 'gallery') {
+                return self::galleryPhotos($value);
+            }
+        }
+
+        return null;
+    }
+
+        /** A gallery value as formatted text: one figure per photo (in a Text element; the Gallery element shows it as a gallery). */
     public static function galleryHtml(string $value): string
     {
         return implode("\n", array_map(fn (array $photo): string => '<figure><img src="' . e($photo['src']) . '" alt="' . e($photo['alt']) . '" loading="lazy"></figure>', self::galleryPhotos($value)));
@@ -488,7 +506,7 @@ final class Collections
                 continue;
             }
             if ($p['type'] === 'gallery') {
-                // {{photos}} = the photos as figures in a text, or the source of a Gallery element; {{photos_count}} = how many
+                // {{photos}} = the photos as figures in a text (a Gallery element shows them without a tag); {{photos_count}} = how many
                 $h[$p['key']] = [$value, 'gallery'];
                 $h[$p['key'] . '_count'] ??= [(string) count(self::galleryPhotos($value)), 'text'];
                 continue;
@@ -593,12 +611,8 @@ final class Collections
             }
             $plain = $type === 'html' ? trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)) : $h;
             if ($type === 'gallery') {
-                // figures in formatted text and Custom HTML, the lines themselves anywhere else (a Gallery element reads them)
-                return match ($target) {
-                    'html', 'code' => self::galleryHtml($h),
-                    'text' => $h,
-                    default => '',
-                };
+                // figures in formatted text and Custom HTML; a Gallery element shows the photos by itself (itemGallery)
+                return in_array($target, ['html', 'code'], true) ? self::galleryHtml($h) : '';
             }
 
             return match ($target) {
@@ -630,7 +644,7 @@ final class Collections
                 'link' => $n('button', ['text' => $p['label'], 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
                 'file' => $n('button', ['text' => $p['label'] . ' ({{' . $p['key'] . '_name}})', 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
                 'html', 'lines' => $n('text', ['html' => '{{' . $p['key'] . '}}']),
-                'gallery' => $n('gallery', ['field' => '{{' . $p['key'] . '}}', 'layout' => 'masonry', 'label' => $p['label']]),
+                'gallery' => $n('gallery', ['layout' => 'masonry', 'label' => $p['label']]),
                 default => $n('text', ['html' => '<p><strong>' . e($p['label']) . ':</strong> {{' . $p['key'] . '}}</p>']),
             };
         }

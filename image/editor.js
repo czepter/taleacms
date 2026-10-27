@@ -2,7 +2,7 @@
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
  *   <input data-image>              image URL field + "Choose from gallery" button and a preview
- *   <textarea data-gallery>         photos of a collection gallery field, one "path | description" per line, + picker and thumbnails
+ *   <textarea data-gallery>         photos of a collection gallery field as tiles: upload, drop, reorder, describe
  *   <form data-upload>             uploading by dragging files
  *
  * The form always submits the content of the original <textarea> - without JavaScript it stays a plain HTML field.
@@ -317,12 +317,11 @@
 		modal.multiple = !!more;
 		modal.withFiles = !!withAttachments && !more;
 		modal.chosen = selected;
-		var least = typeof more === 'number' ? more : 2; // a gallery in a text needs two photos, a gallery field takes one
 		modal.mark = function () {
 			var btn = modal.querySelector('[data-insert]');
 			btn.hidden = !modal.multiple;
-			btn.disabled = modal.chosen.length < least;
-			btn.textContent = modal.chosen.length < least ? T(least === 1 ? 'Select photos' : 'Select at least 2 photos') : T('Insert gallery (') + modal.chosen.length + ')';
+			btn.disabled = modal.chosen.length < 2;
+			btn.textContent = modal.chosen.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.chosen.length + ')';
 		};
 		modal.mark();
 		modal.querySelector('.placeholder').textContent = more
@@ -673,39 +672,109 @@
 		btn.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });
 	});
 
-	/* ---------- a gallery field of a collection: photos from Media added as lines, thumbnails below ---------- */
+	/* ---------- a gallery field of a collection: photo tiles edited right in the item form ---------- */
 
+	// The textarea stays the value the form sends ("path | description" per line); the tiles write it on every change.
+	// Photos are uploaded straight into the field (button or drop), reordered by dragging or the arrows, removed with ✕.
 	document.querySelectorAll('textarea[data-gallery]').forEach(function (field) {
-		var btn = document.createElement('button');
-		btn.type = 'button';
-		btn.className = 'navigation';
-		btn.textContent = T('Add photos from Media');
-		var strip = document.createElement('div');
-		strip.className = 'gallery-field-preview';
-		function show() {
-			strip.textContent = '';
-			field.value.split(/\r?\n/).forEach(function (line) {
-				var src = line.split('|')[0].trim();
-				if (src === '') { return; }
-				var img = document.createElement('img');
-				img.src = src;
-				img.alt = (line.split('|')[1] || '').trim();
-				img.loading = 'lazy';
-				strip.appendChild(img);
+		function read() {
+			return field.value.split(/\r?\n/).map(function (line) {
+				var at = line.indexOf('|');
+				return { src: (at === -1 ? line : line.slice(0, at)).trim(), alt: at === -1 ? '' : line.slice(at + 1).trim() };
+			}).filter(function (p) { return p.src !== ''; });
+		}
+		var photos = read();
+		var grid = document.createElement('div');
+		grid.className = 'gallery-field';
+		grid.setAttribute('role', 'group');
+		if (field.labels && field.labels[0]) { grid.setAttribute('aria-label', field.labels[0].textContent); }
+		var input = document.createElement('input');
+		input.type = 'file';
+		input.accept = 'image/*';
+		input.multiple = true;
+		input.hidden = true;
+		var dragged = null;
+
+		function write() {
+			field.value = photos.map(function (p) { return p.src + (p.alt !== '' ? ' | ' + p.alt.replace(/[\r\n|]+/g, ' ') : ''); }).join('\n');
+			field.dispatchEvent(new Event('input', { bubbles: true }));
+		}
+		function move(from, to) {
+			if (to < 0 || to >= photos.length || to === from) { return; }
+			photos.splice(to, 0, photos.splice(from, 1)[0]);
+			write();
+			draw();
+		}
+		function tool(label, glyph, action) {
+			var btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'icon-btn';
+			btn.setAttribute('aria-label', T(label));
+			btn.title = T(label);
+			btn.textContent = glyph;
+			btn.addEventListener('click', action);
+			return btn;
+		}
+		function add(files) {
+			upload(files).then(function (images) {
+				images.forEach(function (o) { photos.push({ src: o.url, alt: (o.name || '').replace(/[\r\n|]+/g, ' ') }); });
+				if (images.length) { write(); draw(); }
 			});
 		}
-		field.after(btn, strip);
-		btn.addEventListener('click', function () {
-			pickImage(function (chosen) {
-				var lines = chosen.map(function (o) { return o.url + (o.name ? ' | ' + String(o.name).replace(/[\r\n|]+/g, ' ') : ''); });
-				field.value = (field.value.trim() === '' ? '' : field.value.replace(/\s+$/, '') + '\n') + lines.join('\n');
-				show();
-				field.dispatchEvent(new Event('input', { bubbles: true }));
-			}, 1);
+		function draw() {
+			grid.textContent = '';
+			photos.forEach(function (p, i) {
+				var tile = document.createElement('div');
+				tile.className = 'gallery-field-photo';
+				tile.draggable = true;
+				var img = document.createElement('img');
+				img.src = p.src;
+				img.alt = '';
+				img.loading = 'lazy';
+				var number = document.createElement('span');
+				number.className = 'gallery-field-number';
+				number.textContent = String(i + 1);
+				var tools = document.createElement('span');
+				tools.className = 'gallery-field-tools';
+				tools.append(tool('Move forward', '‹', function () { move(i, i - 1); }), tool('Move back', '›', function () { move(i, i + 1); }),
+					tool('Remove photo', '✕', function () { photos.splice(i, 1); write(); draw(); }));
+				var alt = document.createElement('input');
+				alt.className = 'textfield';
+				alt.value = p.alt;
+				alt.maxLength = 300;
+				alt.placeholder = T('Description');
+				alt.setAttribute('aria-label', T('Description of photo %s').replace('%s', String(i + 1)));
+				alt.addEventListener('input', function () { p.alt = alt.value; write(); });
+				tile.append(img, number, tools, alt);
+				tile.addEventListener('dragstart', function (e) { dragged = i; e.dataTransfer.effectAllowed = 'move'; tile.classList.add('dragging'); });
+				tile.addEventListener('dragend', function () { dragged = null; tile.classList.remove('dragging'); });
+				tile.addEventListener('dragover', function (e) { if (dragged !== null) { e.preventDefault(); } });
+				tile.addEventListener('drop', function (e) { if (dragged !== null) { e.preventDefault(); e.stopPropagation(); move(dragged, i); } });
+				grid.appendChild(tile);
+			});
+			var drop = document.createElement('button');
+			drop.type = 'button';
+			drop.className = 'gallery-field-add';
+			drop.innerHTML = '<strong></strong><span></span>';
+			drop.firstChild.textContent = T('Upload photos');
+			drop.lastChild.textContent = T('or drop them here');
+			drop.addEventListener('click', function () { input.click(); });
+			grid.appendChild(drop);
+		}
+		input.addEventListener('change', function () { if (input.files.length) { add(input.files); } input.value = ''; });
+		grid.addEventListener('dragover', function (e) { if (dragged === null && hasImages(e.dataTransfer)) { e.preventDefault(); grid.classList.add('editor-drag-over'); } });
+		grid.addEventListener('dragleave', function () { grid.classList.remove('editor-drag-over'); });
+		grid.addEventListener('drop', function (e) {
+			grid.classList.remove('editor-drag-over');
+			if (dragged === null && hasImages(e.dataTransfer)) { e.preventDefault(); add(e.dataTransfer.files); }
 		});
-		field.addEventListener('input', show);
-		field.addEventListener('change', show);
-		show();
+		// a restored browser draft writes the textarea: the tiles follow it
+		field.addEventListener('change', function () { photos = read(); draw(); });
+		field.hidden = true;
+		var help = field.parentNode.querySelector('.gallery-help'); // the line format is for a browser without the tiles
+		if (help) { help.hidden = true; }
+		field.after(grid, input);
+		draw();
 	});
 
 	/* ---------- uploading by dragging on the gallery page ---------- */

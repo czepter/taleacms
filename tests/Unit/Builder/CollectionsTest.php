@@ -79,12 +79,15 @@ final class CollectionsTest extends TestCase
         $values = \Talea\Builder\Collections::values(['slug' => 'story', 'detail' => true, 'preset' => '', 'fields' => $fields], ['name' => 'X', 'slug' => 'x', 'created_at' => '2026-10-27 10:00:00', 'data' => ['photos' => "media/a.webp | A \"quoted\"\nmedia/b.webp"]], fn (string $p): string => '/' . $p);
         $this->assertSame([["media/a.webp | A \"quoted\"\nmedia/b.webp", 'gallery'], ['2', 'text']], [$values['photos'], $values['photos_count']], 'Collections::values: {{photos}} keeps the lines, {{photos_count}} counts them');
         $figures = '<figure><img src="media/a.webp" alt="A &quot;quoted&quot;" loading="lazy"></figure>' . "\n" . '<figure><img src="media/b.webp" alt="" loading="lazy"></figure>';
-        $this->assertSame([$figures, $figures, "media/a.webp | A \"quoted\"\nmedia/b.webp", '', ''], [
+        $this->assertSame([$figures, $figures, '', '', ''], [
             \Talea\Builder\Collections::fill('<p>{{photos}}</p>', 'html', $values), \Talea\Builder\Collections::fill('{{photos}}', 'html', $values),
             \Talea\Builder\Collections::fill('{{photos}}', 'text', $values), \Talea\Builder\Collections::fill('{{photos}}', 'link', $values), \Talea\Builder\Collections::fill('{{photos}}', 'image', $values),
-        ], 'Collections::fill: figures in formatted text, the lines for a Gallery element, nothing in a link or an image');
+        ], 'Collections::fill: figures in formatted text, nothing in a heading, a link or an image');
+        $this->assertSame([[['src' => 'media/a.webp', 'alt' => 'A "quoted"'], ['src' => 'media/b.webp', 'alt' => '']], null], [
+            \Talea\Builder\Collections::itemGallery($values), \Talea\Builder\Collections::itemGallery(['name' => ['X', 'text']]),
+        ], 'Collections::itemGallery: a Gallery element without photos shows the item gallery; null without a gallery field');
         $template = \Talea\Builder\Collections::defaultTemplate(['fields' => $fields]);
         $gallery = $template['children'][0]['children'][0]['children'][1];
-        $this->assertSame(['gallery', '{{photos}}'], [$gallery['type'], $gallery['content']['field']], 'Collections::defaultTemplate: a gallery field becomes a Gallery element reading the field');
+        $this->assertSame(['gallery', 'masonry'], [$gallery['type'], $gallery['content']['layout']], 'Collections::defaultTemplate: a gallery field becomes a Gallery element (it shows the item gallery by itself)');
     }
 }

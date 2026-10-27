@@ -856,6 +856,7 @@ Il link è valido %d giorni.
     'The page you are looking for is not here. It may have a different address.' => 'La pagina richiesta non esiste su questo sito. Forse ha un indirizzo diverso.',
     'The password is not right.' => 'La password non è corretta.',
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Il percorso fino alla pagina (Home › Notizie › …) – si crea da solo in base alla pagina visualizzata.',
+    'The photos of each item’s gallery appear here.' => 'Qui compaiono le foto della galleria di ogni elemento.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'La richiesta di collegamento dell’applicazione è scaduta o non esiste. Avvii di nuovo il collegamento nell’applicazione.',
     'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Il server non supporta l’FTP cifrato (FTPS). Invii i backup a uno storage S3 oppure li scarichi manualmente.',
     'The site has no database backup yet.' => 'Il sito non ha ancora nessun backup del database.',
