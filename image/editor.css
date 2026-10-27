@@ -27,6 +27,8 @@
 .editor-source .editor-tools button:not(.editor-html) { opacity: 0.35; pointer-events: none; }
 .editor-status { display: flex; justify-content: space-between; gap: 12px; padding: 4px 10px; border-top: 1px solid var(--ed-line); font-size: 11px; color: var(--ed-text-weak); }
 
+.gallery-field-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.gallery-field-preview img { width: 72px; height: 72px; border: 1px solid var(--ed-line); border-radius: var(--ed-radius-small); object-fit: cover; }
 .image-preview { display: block; max-width: 260px; max-height: 160px; margin-top: 8px; border: 1px solid var(--ed-line); border-radius: var(--ed-radius-small); object-fit: cover; }
 [data-image] + button.navigation { margin-top: 6px; }
 

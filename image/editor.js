@@ -2,6 +2,7 @@
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
  *   <input data-image>              image URL field + "Choose from gallery" button and a preview
+ *   <textarea data-gallery>         photos of a collection gallery field, one "path | description" per line, + picker and thumbnails
  *   <form data-upload>             uploading by dragging files
  *
  * The form always submits the content of the original <textarea> - without JavaScript it stays a plain HTML field.
@@ -316,11 +317,12 @@
 		modal.multiple = !!more;
 		modal.withFiles = !!withAttachments && !more;
 		modal.chosen = selected;
+		var least = typeof more === 'number' ? more : 2; // a gallery in a text needs two photos, a gallery field takes one
 		modal.mark = function () {
 			var btn = modal.querySelector('[data-insert]');
 			btn.hidden = !modal.multiple;
-			btn.disabled = modal.chosen.length < 2;
-			btn.textContent = modal.chosen.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.chosen.length + ')';
+			btn.disabled = modal.chosen.length < least;
+			btn.textContent = modal.chosen.length < least ? T(least === 1 ? 'Select photos' : 'Select at least 2 photos') : T('Insert gallery (') + modal.chosen.length + ')';
 		};
 		modal.mark();
 		modal.querySelector('.placeholder').textContent = more
@@ -636,7 +638,7 @@
 				if (p.type === 'checkbox') { p.checked = storedForm.fields[p.name] !== null; } else if (p.type === 'radio') { p.checked = p.value === storedForm.fields[p.name]; } else { p.value = storedForm.fields[p.name]; }
 			});
 			editors.forEach(function (ed) { ed.refresh(); });
-			document.querySelectorAll('[data-image]').forEach(function (p) { p.dispatchEvent(new Event('change')); });
+			document.querySelectorAll('[data-image], [data-gallery]').forEach(function (p) { p.dispatchEvent(new Event('change')); });
 			tabList.remove();
 		});
 		tabList.children[1].addEventListener('click', function () { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } discardOnServer(); tabList.remove(); });
@@ -669,6 +671,41 @@
 		btn.textContent = T('Choose from Media');
 		field.after(btn);
 		btn.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });
+	});
+
+	/* ---------- a gallery field of a collection: photos from Media added as lines, thumbnails below ---------- */
+
+	document.querySelectorAll('textarea[data-gallery]').forEach(function (field) {
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'navigation';
+		btn.textContent = T('Add photos from Media');
+		var strip = document.createElement('div');
+		strip.className = 'gallery-field-preview';
+		function show() {
+			strip.textContent = '';
+			field.value.split(/\r?\n/).forEach(function (line) {
+				var src = line.split('|')[0].trim();
+				if (src === '') { return; }
+				var img = document.createElement('img');
+				img.src = src;
+				img.alt = (line.split('|')[1] || '').trim();
+				img.loading = 'lazy';
+				strip.appendChild(img);
+			});
+		}
+		field.after(btn, strip);
+		btn.addEventListener('click', function () {
+			pickImage(function (chosen) {
+				var lines = chosen.map(function (o) { return o.url + (o.name ? ' | ' + String(o.name).replace(/[\r\n|]+/g, ' ') : ''); });
+				field.value = (field.value.trim() === '' ? '' : field.value.replace(/\s+$/, '') + '\n') + lines.join('\n');
+				show();
+				field.dispatchEvent(new Event('input', { bubbles: true }));
+			}, 1);
+		});
+		field.addEventListener('input', show);
+		field.addEventListener('change', show);
+		show();
 	});
 
 	/* ---------- uploading by dragging on the gallery page ---------- */

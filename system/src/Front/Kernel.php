@@ -684,7 +684,10 @@ final class Kernel
             if ($description === '' && in_array($field['type'], ['lines', 'html'], true) && $h !== '') {
                 $description = \Talea\Core\Html::plain($h, 300);
             }
-            if ($image === '' && $field['type'] === 'image' && $h !== '') {
+            if ($image === '' && $field['type'] === 'gallery' && $h !== '') {
+                $h = \Talea\Builder\Collections::galleryPhotos($h)[0]['src'] ?? ''; // no image field before it: the gallery's first photo
+            }
+            if ($image === '' && in_array($field['type'], ['image', 'gallery'], true) && $h !== '') {
                 $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
             }
         }

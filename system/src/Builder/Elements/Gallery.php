@@ -6,6 +6,7 @@ namespace Talea\Builder\Elements;
 
 use Talea\Core\Images;
 use Talea\Core\Db;
+use Talea\Builder\Collections;
 use Talea\Builder\Context;
 use Talea\Builder\Element;
 
@@ -13,7 +14,8 @@ use Talea\Builder\Element;
  * Photo gallery: a tap opens the photo full screen (the viewer from image/web.js, arrows, swipe, Esc). Layouts: grid (the default, no script
  * needed; the number of columns is set by the style, on a phone it narrows by itself), masonry (CSS columns), justified rows (flex rows that
  * image/web.js evens out from the width/height attributes), slideshow (a scroll-snap strip with the carousel's arrows and dots) and full-screen (a grid whose viewer
- * asks the browser for real full screen). Photos come from the list and/or from a Media folder (by its public id), newest last.
+ * asks the browser for real full screen). Photos come from the list, a gallery field of a collection item ({{photos}} in an item
+ * template or a Collection list) and/or a Media folder (by its public id), newest last.
  */
 final class Gallery extends Element
 {
@@ -32,6 +34,7 @@ final class Gallery extends Element
                 'src' => ['type' => 'image', 'label' => 'Photo', 'default' => ''],
                 'alt' => ['type' => 'text', 'label' => 'Description (for blind visitors and under the photo in the viewer)', 'default' => '', 'max' => 300],
             ]],
+            'field' => ['type' => 'text', 'label' => 'Gallery field of a collection item, e.g. {{photos}} (its photos are added after the list)', 'default' => '', 'max' => 40],
             'folder' => ['type' => 'text', 'label' => 'Media folder (its photos are added after the list)', 'default' => '', 'max' => 36],
             'layout' => ['type' => 'choice', 'label' => 'Layout', 'default' => 'grid', 'options' => self::LAYOUTS],
             'ratio' => ['type' => 'choice', 'label' => 'Thumbnail shape', 'default' => '4 / 3', 'options' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'square', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
@@ -81,6 +84,10 @@ final class Gallery extends Element
         $layout = (string) $o['layout'];
         $base = $k->app->request->basePath();
         $photos = array_values(array_filter($o['photos'], fn (array $f): bool => $f['src'] !== ''));
+        if ($o['field'] !== '' && preg_match('/^\{\{[a-z][a-z0-9_]*\}\}$/', trim((string) $o['field'])) !== 1) { // an unfilled {{photos}} (outside an item) has no photos
+            // the field's photos, filled in by the collection item (Collections::fill gives the lines of a gallery field)
+            $photos = [...$photos, ...array_slice(Collections::galleryPhotos((string) $o['field']), 0, max(0, Collections::GALLERY_MAX - count($photos)))];
+        }
         if ($o['folder'] !== '') {
             $photos = [...$photos, ...self::folderPhotos($k->app->db(), (string) $o['folder'], self::MAX_PHOTOS - count($photos))];
         }

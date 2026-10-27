@@ -105,6 +105,7 @@
     "gallery": [
         "arrow_position",
         "caption",
+        "field",
         "folder",
         "label",
         "layout",
