@@ -2166,9 +2166,14 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .bookings-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; margin: 0 0 32px; }
 .bookings-requests { flex: 1 1 300px; max-width: 380px; display: grid; gap: 12px; }
 .bookings-requests h2 { margin: 0; font-size: 17px; font-weight: 600; }
-.bookings-requests article { padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.bookings-requests article p { margin: 0 0 10px; }
-.bookings-requests article .navigation-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+/* a request: who, what and when on top; below a hairline the action bar – the way to decline or move it, and Accept at the end */
+.bookings-requests article { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.booking-request-body { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; }
+.booking-request-body strong { font-size: 15px; font-weight: 600; }
+.booking-request-when { font-size: 13px; font-variant-numeric: tabular-nums; }
+.booking-request-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--base); }
+.booking-request-actions a { min-width: 0; padding-block: 6px; font-weight: 600; line-height: 1.35; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.booking-request-actions form { flex: none; } /* Accept stays whole at the end; a long link wraps beside it */
 .bookings-agenda { flex: 999 1 480px; min-width: 0; display: grid; gap: 10px; }
 .bookings-settings > summary h2 { margin: 0; font-size: 15px; }
 .bookings-settings .form { border: 0; border-top: 1px solid var(--line); border-radius: 0; max-width: none; }
