@@ -951,7 +951,7 @@ return [
     'Check all now' => 'Zkontrolovat vše hned',
     'Check every page: the assistant writes no prices, names or opening hours it was not given. Publish a page in the builder when it is right.' => 'Zkontrolujte každou stránku: asistent nepíše ceny, jména ani otevírací dobu, které nedostal. Stránku zveřejněte v editoru, až bude správná.',
     'Check in a circle' => 'Fajfka v kruhu',
-    'Check new enquiries for spam with the writing assistant' => 'Kontrolovat nové poptávky na spam asistentem psaní',
+    'Check new enquiries for spam with AI' => 'Kontrolovat nové poptávky na spam pomocí AI',
     'Check now' => 'Zkontrolovat teď',
     'Check the instructions' => 'Zkontrolovat pokyny',
     'Check the move' => 'Zkontrolovat přechod',

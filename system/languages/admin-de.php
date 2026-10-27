@@ -953,7 +953,7 @@ return [
     'Check all now' => 'Alle jetzt prüfen',
     'Check every page: the assistant writes no prices, names or opening hours it was not given. Publish a page in the builder when it is right.' => 'Prüfen Sie jede Seite: Der Assistent schreibt keine Preise, Namen oder Öffnungszeiten, die er nicht bekommen hat. Veröffentlichen Sie eine Seite im Editor, wenn sie stimmt.',
     'Check in a circle' => 'Häkchen im Kreis',
-    'Check new enquiries for spam with the writing assistant' => 'Neue Anfragen mit dem Schreibassistenten auf Spam prüfen',
+    'Check new enquiries for spam with AI' => 'Neue Anfragen mit AI auf Spam prüfen',
     'Check now' => 'Jetzt prüfen',
     'Check the instructions' => 'Anweisungen prüfen',
     'Check the move' => 'Umzug prüfen',
