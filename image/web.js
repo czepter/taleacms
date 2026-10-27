@@ -1041,7 +1041,7 @@
 		slot.required = false; // the script fills it in; the server checks it anyway
 		var today = new Date(); today.setHours(0, 0, 0, 0);
 		var month = new Date(today.getFullYear(), today.getMonth(), 1), day = null, freeDays = [], monthRequest = 0, timesRequest = 0; // own counters: an answer for the times must not make the month's answer look stale (3.2.2)
-		function service() { var el = form.querySelector('input[name="service"]:checked'); return el ? el.value : ''; }
+		function service() { var el = form.querySelector('input[name="service"]:is(:checked, [type="hidden"])'); return el ? el.value : ''; }
 		function staff() { var el = form.querySelector('input[name="staff"]:checked') || form.querySelector('input[name="staff"][type="hidden"]'); return el ? el.value : '0'; }
 		function filterStaff() {
 			var s = service();
@@ -1126,7 +1126,7 @@
 		}
 		var submit = form.querySelector('button[data-request]');
 		function syncButton() { // a service that needs confirmation is requested, not booked
-			var el = form.querySelector('input[name="service"]:checked');
+			var el = form.querySelector('input[name="service"]:is(:checked, [type="hidden"])');
 			if (submit) { submit.textContent = el && el.hasAttribute('data-confirmation') ? submit.getAttribute('data-request') : submit.getAttribute('data-book'); }
 		}
 		form.querySelectorAll('input[name="service"], input[name="staff"]').forEach(function (input) {

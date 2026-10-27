@@ -42,8 +42,8 @@ final class BookingSetupTest extends SiteTestCase
     {
         $this->bookingFixture();
         $html = $this->bookingForm()->body;
-        foreach (['class="tl-booking"', 'data-booking="bk1"', 'Haircut test', 'name="as_signature"', 'name="slot" required', 'image/web.js'] as $needle) {
-            $this->assertStringContainsString($needle, $html, "booking: the element renders $needle (service, plain select of free times, spam protection, web.js)");
+        foreach (['class="tl-booking"', 'data-booking="bk1"', 'Haircut test', 'class="tl-booking-service"', 'name="as_signature"', 'name="slot" required', 'image/web.js'] as $needle) {
+            $this->assertStringContainsString($needle, $html, "booking: the element renders $needle (the only service as text, plain select of free times, spam protection, web.js)");
         }
     }
 
