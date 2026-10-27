@@ -22,7 +22,7 @@ final class Collections
         'gallery' => 'gallery (photos from Media)'];
 
     /** Photos a gallery field keeps at most. */
-    public const int GALLERY_MAX = 100;
+    public const int GALLERY_MAX = 300;
 
     /** A file or an image: an https address or a path in Media. */
     public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#';
