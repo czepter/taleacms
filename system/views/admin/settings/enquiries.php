@@ -26,4 +26,6 @@ $expiry = ($values['enquiries_expiry'] ?? '') === 'anonymise' ? 'anonymise' : 'd
 <legend><?= e(t('Writing assistant')) ?></legend>
 <div class="row"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= ($values['triage_assistant'] ?? '') === '1' ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
 <span class="help"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Features – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
+<div class="row"><span></span><div><label><input type="checkbox" name="spam_assistant" value="1"<?= ($values['spam_assistant'] ?? '') === '1' ? ' checked' : '' ?>> <?= e(t('Check new enquiries for spam with the writing assistant')) ?></label>
+<span class="help"><?= e(t('Before anyone is notified, the assistant reads each new enquiry. Spam is kept under the Spam filter in Enquiries and sends no e-mail, webhook or delivery; the sender sees the usual thank-you. If the assistant cannot be reached, the enquiry goes through as usual. The text of each enquiry is sent to the AI provider – mention it in your privacy policy.')) ?></span></div></div>
 </fieldset>

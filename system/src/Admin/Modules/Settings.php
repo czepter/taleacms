@@ -84,7 +84,7 @@ class Settings extends Module
         'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
             'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
         // how long enquiries and job applications are kept and whether the assistant sorts new ones (moved here from the Enquiries screen)
-        'enquiries' => ['enquiries_months' => 'number:0:120', 'enquiries_expiry' => 'choice:delete|anonymise', 'job_applications_months' => 'number:0:120', 'triage_assistant' => 'flag'],
+        'enquiries' => ['enquiries_months' => 'number:0:120', 'enquiries_expiry' => 'choice:delete|anonymise', 'job_applications_months' => 'number:0:120', 'triage_assistant' => 'flag', 'spam_assistant' => 'flag'],
         'mail' => ['mail_mode' => 'choice:mail|smtp', 'mail_from' => 'email', 'mail_from_name' => 'text', 'mail_reply_to' => 'email', 'mail_reply_to_name' => 'text', 'smtp_host' => 'pattern:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'number:1:65535',
             'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000'],
         // the monthly report (2.9) and its archive (#161, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
