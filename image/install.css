@@ -31,7 +31,7 @@ body {
 .intro h1 { margin: 18px 0 6px; font-size: 32px; line-height: 1.15; letter-spacing: -0.03em; }
 .intro p { margin: 0; color: var(--text-weak); }
 
-.step { margin-bottom: 16px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.step { margin-bottom: 16px; padding: 24px; border-radius: 4px; background: var(--surface); }
 .step h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; }
 .step h2 span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-light); color: var(--accent); font-size: 13px; font-weight: 700; }
 .step > p { margin: 0 0 18px 40px; font-size: 14px; color: var(--text-weak); }
@@ -47,32 +47,32 @@ body {
 .field .with-port { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 12px; }
 .field label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600; }
 input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
-	width: 100%; padding: 10px 12px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit;
+	width: 100%; padding: 10px 12px; border: 1px solid var(--line-field); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit;
 }
 input:focus-visible, .field select:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .help { display: block; margin-top: 5px; font-size: 12.5px; color: var(--text-weak); }
 .error-field { display: block; margin-top: 5px; font-size: 13px; font-weight: 600; color: var(--error); }
 
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
-.option { position: relative; display: block; padding: 12px; border: 2px solid var(--line); border-radius: 12px; cursor: pointer; transition: border-color 0.12s, background-color 0.12s; }
+.option { position: relative; display: block; padding: 12px; border: 2px solid var(--line); border-radius: 4px; cursor: pointer; transition: border-color 0.12s, background-color 0.12s; }
 .option:hover { border-color: var(--line-field); }
 .option:has(input:checked) { border-color: var(--accent); background: var(--accent-light); }
 .option:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .option input { position: absolute; opacity: 0; }
-.option svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #FFFFFF; }
+.option svg { display: block; width: 100%; height: auto; border-radius: 4px; background: #FFFFFF; }
 .option strong { display: block; margin-top: 12px; font-size: 15px; }
 .option span { display: block; font-size: 13px; line-height: 1.45; color: var(--text-weak); }
 .option:has(input:checked) strong::after { content: "  ✓"; color: var(--accent); }
 
-.notice { margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; font-weight: 500; }
-.notice-error { background: var(--error-base); color: var(--error); border: 1px solid color-mix(in srgb, var(--error) 30%, transparent); }
-.notice-ok { background: var(--ok-base); color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); }
+.notice { margin: 0 0 16px; padding: 12px 16px; border-radius: 4px; font-weight: 500; }
+.notice-error { background: var(--error-base); color: var(--error); }
+.notice-ok { background: var(--ok-base); color: var(--ok); }
 
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 24px; }
-.button { display: inline-block; padding: 13px 28px; border: 0; border-radius: 10px; background: var(--accent); color: #FFFFFF; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+.button { display: inline-block; padding: 13px 28px; border: 0; border-radius: 4px; background: var(--accent); color: #FFFFFF; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
 .button:hover { background: var(--accent-dark); }
-.button.second { background: var(--surface); color: var(--text); border: 1px solid var(--line-field); }
-.button.second:hover { background: var(--surface); border-color: var(--text-weak); }
+.button.second { background: color-mix(in oklch, var(--text) 7%, transparent); color: var(--text); }
+.button.second:hover { background: color-mix(in oklch, var(--text) 12%, transparent); }
 .button:focus-visible, .languages a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .actions small { color: var(--text-weak); }
 
@@ -86,16 +86,16 @@ input:focus-visible, .field select:focus-visible { outline: 0; border-color: var
 
 /* installation language picker */
 .languages { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 8px; font-size: 13px; }
-.languages a { padding: 4px 10px; border-radius: 6px; color: var(--text-weak); text-decoration: none; }
+.languages a { padding: 4px 10px; border-radius: 4px; color: var(--text-weak); text-decoration: none; }
 .languages a:hover { color: var(--text); background: var(--surface); }
 .languages a.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
-.field select { width: 100%; padding: 10px 12px; border: 1px solid var(--line-field); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.field select { width: 100%; padding: 10px 12px; border: 1px solid var(--line-field); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit; }
 
 /* sample site picker */
 .sites { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 4px 0 0; padding: 0; border: 0; }
 .sites legend { margin-bottom: 6px; font-weight: 600; }
 .sites .help { grid-column: 1 / -1; }
-.site { position: relative; display: grid; gap: 4px; padding: 12px; border: 2px solid #dfe1e5; border-radius: 10px; cursor: pointer; }
+.site { position: relative; display: grid; gap: 4px; padding: 12px; border: 2px solid #dfe1e5; border-radius: 4px; cursor: pointer; }
 .site:has(input:checked) { border-color: #121212; box-shadow: 0 0 0 1px #121212; }
 .site:has(input:focus-visible) { outline: 2px solid #ff4f2e; outline-offset: 2px; }
 .site input { position: absolute; opacity: 0; }
@@ -107,9 +107,9 @@ input:focus-visible, .field select:focus-visible { outline: 0; border-color: var
 .swatches { display: flex; height: 14px; border-radius: 4px; overflow: hidden; }
 .swatches i { flex: 1; }
 /* after installation: connect Claude (2.5) */
-.claude { margin-top: 32px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.claude { margin-top: 32px; padding: 24px; border-radius: 4px; background: var(--surface); }
 .claude h2 { margin: 0 0 8px; font-size: 18px; letter-spacing: -0.01em; }
 .claude p { margin: 0 0 12px; }
-.claude code { display: block; padding: 10px 12px; border-radius: 8px; background: var(--accent-light); font-size: 15px; overflow-wrap: anywhere; user-select: all; }
+.claude code { display: block; padding: 10px 12px; border-radius: 4px; background: var(--accent-light); font-size: 15px; overflow-wrap: anywhere; user-select: all; }
 .claude blockquote { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid var(--line-field); color: var(--text-weak); }
 .claude a { color: var(--text); }
