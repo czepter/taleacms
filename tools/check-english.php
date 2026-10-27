@@ -31,7 +31,7 @@ const WORDS = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 
     'stranka', 'stranky', 'polozka', 'polozky', 'uzivatel', 'sluzby', 'uvod', 'znacka'];
 
 /** German words that are spelled like Czech ones (--de). */
-const GERMAN_WORDS = ['kategorie', 'kontakt', 'firma'];
+const GERMAN_WORDS = ['kategorie', 'kontakt', 'firma', 'galerie'];
 
 /** Words with diacritics that belong in English (language names, loanwords). */
 const ALLOWED = ['Čeština', 'café', 'Café'];

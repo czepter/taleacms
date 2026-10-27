@@ -100,9 +100,10 @@ final class Collections
     /**
      * Photos of a gallery value (see cleanGallery), at most GALLERY_MAX; a line that is not a photo is left out.
      *
+     * @param-out bool $invalid
      * @return list<array{src: string, alt: string}>
      */
-    public static function galleryPhotos(mixed $value, ?bool &$invalid = false): array
+    public static function galleryPhotos(mixed $value, bool &$invalid = false): array
     {
         $invalid = false;
         $entries = [];
