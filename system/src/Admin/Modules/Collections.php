@@ -115,8 +115,26 @@ final class Collections extends Module
         if (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->db) || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $id]) !== null) {
             return $this->back(t('The address “%s” is already used by the system or another collection.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
+        // the fields in the order of their position (admin.js renumbers it after a drag); a ticked "remove" drops one;
+        // Earlier / Later without a script (move = "<index>:-1|1") swaps it with its neighbour and comes back to the form
+        $rows = [];
+        foreach (is_array($_POST['fields'] ?? null) ? $_POST['fields'] : [] as $i => $f) {
+            if (is_array($f) && empty($f['remove'])) {
+                $rows[(int) $i] = $f;
+            }
+        }
+        uasort($rows, fn (array $a, array $b): int => (int) ($a['position'] ?? 0) <=> (int) ($b['position'] ?? 0));
+        $move = preg_match('/^(\d+):(-1|1)$/', $r->post('move'), $m) ? [(int) $m[1], (int) $m[2]] : null;
+        if ($move !== null && isset($rows[$move[0]])) {
+            $order = array_keys($rows);
+            $at = (int) array_search($move[0], $order, true);
+            if (isset($order[$at + $move[1]])) {
+                [$order[$at], $order[$at + $move[1]]] = [$order[$at + $move[1]], $order[$at]];
+                $rows = array_replace(array_flip($order), $rows);
+            }
+        }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
-        $field = KolekceObsahu::sanitizeFields(is_array($_POST['fields'] ?? null) ? array_values($_POST['fields']) : []);
+        $field = KolekceObsahu::sanitizeFields(array_values($rows));
         $redirect = KolekceObsahu::cleanRedirect($r->post('hidden_redirect'));
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
@@ -132,6 +150,9 @@ final class Collections extends Module
             $id = $this->db->insert('collections', $data);
         }
         \Talea\Front\Cache::clear();
+        if ($move !== null) {
+            return $this->back('The collection was saved.', 'edit', ['id' => $this->publicId($id)]);
+        }
 
         return $this->back('The collection was saved.', 'items', ['id' => $this->publicId($id)]);
     }
@@ -210,8 +231,15 @@ final class Collections extends Module
                 'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'seo_title' => '', 'description' => '', 'image' => $original['image'] ?? '', 'noindex' => 0, 'publish_at' => null, 'valid_until' => null, 'review_by' => null];
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
+        $settings = $this->app->settings();
+        $host = (string) (parse_url($settings->get('site_url') ?: $this->request->origin(), PHP_URL_HOST) ?? '');
+        $address = $k['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] : '';
 
-        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
+        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p, 'host' => $host, 'address' => $address,
+            // the search result preview: the title and description as Front\Kernel hands them to the item page's head
+            'serp' => ['serpTitle' => \Talea\Core\SeoTitle::compose($settings, 'item', $p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name'], $p['seo_title'] !== '', ['category' => (string) $k['name']]),
+                'serpDescription' => (string) $p['description'], 'serpAddress' => $host . '/' . $address,
+                'dir' => Language::dirAttribute(Language::ofContent($settings, (string) $p['language']))],
             'seoCheck' => $k['detail'] && $p['item_id'] > 0 && \Talea\Core\ContentCheck::enabled($this->app->settings()) ? \Talea\Core\SeoScore::panel($this->app, 'item', $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $p['item_id']])) : null,
             'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
@@ -235,6 +263,10 @@ final class Collections extends Module
         }
         $errors = [];
         $data = KolekceObsahu::sanitizeData($k['fields'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
+        // the browser asks for a required field first; formatted text and a gallery have no input of their own to ask with
+        if (($missing = KolekceObsahu::missingRequired($k['fields'], $data)) !== []) {
+            return $this->back(t('Fill in the required fields: %s', implode(', ', $missing)), 'item', $idp > 0 ? ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')] : ['id' => $k['public_id']], 'error');
+        }
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 150);
         // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('language'));
@@ -263,7 +295,10 @@ final class Collections extends Module
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
         }
 
-        return $this->back('The item was saved.', 'items', ['id' => $k['public_id']]);
+        // "Save and continue" stays in the editor
+        return $r->post('after_save') === 'stay'
+            ? $this->back('The item was saved.', 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')])
+            : $this->back('The item was saved.', 'items', ['id' => $k['public_id']]);
     }
 
     /** Actions the list does with ticked items (2.14): show, hide, language version, trash. A notice board keeps its notices (2.11). */

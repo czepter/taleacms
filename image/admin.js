@@ -168,7 +168,9 @@
 		}, true);
 		var storedValue = null;
 		try { storedValue = sessionStorage.getItem(key); } catch (error) { /* private mode */ }
-		show(Math.max(0, buttons.findIndex(function (t) { return t.id === storedValue; })), false);
+		// the tab chosen last on this page, else the one the page marks as selected
+		var stored = buttons.findIndex(function (t) { return t.id === storedValue; });
+		show(Math.max(0, stored >= 0 ? stored : buttons.findIndex(function (t) { return t.getAttribute('aria-selected') === 'true'; })), false);
 	});
 
 	// "Vzhled webu" (Site appearance): presets and a live preview of the real home page. The token CSS is computed by the server (action nahled) – the single computation in PHP.
@@ -641,8 +643,9 @@
 	document.addEventListener('focusout', hideTip);
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
 
-	// Website mode: the settings sidebar folds to a rail with a link per tab; the browser remembers it (without a script it stays open)
-	var website = document.querySelector('.website'), settingsToggles = document.querySelectorAll('[data-settings-toggle]');
+	// Website mode and the collection item editor: the settings sidebar folds to a rail with a link (a button in the item
+	// editor) per tab; the browser remembers it (without a script it stays open)
+	var website = document.querySelector('.website, .item-editor'), settingsToggles = document.querySelectorAll('[data-settings-toggle]');
 	if (website && settingsToggles.length) {
 		var foldSettings = function (closed) {
 			website.classList.toggle('settings-closed', closed);
@@ -652,22 +655,85 @@
 		try { if (localStorage.getItem('talea.websiteSettings') === 'closed') { foldSettings(true); } } catch (e) { /* private mode */ }
 		settingsToggles.forEach(function (b) { b.addEventListener('click', function () { foldSettings(!website.classList.contains('settings-closed')); }); });
 		document.querySelectorAll('.website-settings-rail a').forEach(function (a) { a.addEventListener('click', function () { foldSettings(false); }); });
+		document.querySelectorAll('.website-settings-rail [data-show-tab]').forEach(function (b) {
+			b.addEventListener('click', function () { foldSettings(false); document.getElementById(b.getAttribute('data-show-tab')).click(); });
+		});
+	}
+
+	// the length meters of a search title and description (the SEO tab, the collection item editor) follow the typing
+	document.addEventListener('input', function (e) {
+		var meter = e.target.parentNode && e.target.parentNode.querySelector(':scope > [data-meter]');
+		if (meter) {
+			var max = +meter.getAttribute('data-meter'), length = e.target.value.length;
+			meter.classList.toggle('warning', length > max);
+			meter.querySelector('i').style.setProperty('--fill', Math.min(100, Math.round(length / max * 100)) + '%');
+			meter.lastChild.textContent = length + ' / ' + max;
+		}
+	});
+
+	// The fields of a collection (collections/form.php): choosing a tile opens the Field tab of the sidebar; a tile follows the
+	// typing in its settings (label, description, placeholder, width, required); Earlier / Later and dragging a tile move it,
+	// and the position fields are renumbered in the tiles' order, which the save keeps. Without a script Earlier / Later
+	// save the form and move the field on the server.
+	var fieldTiles = document.querySelector('[data-field-tiles]');
+	if (fieldTiles) {
+		var fieldTab = document.getElementById('collection-tab-field'), dragged = null;
+		var tiles = function () { return Array.prototype.slice.call(fieldTiles.querySelectorAll('[draggable="true"]')); };
+		var renumber = function () {
+			tiles().forEach(function (tile, i) { document.querySelector('#' + tile.getAttribute('aria-controls') + ' [data-field-position]').value = i; });
+		};
+		fieldTiles.addEventListener('click', function (e) { if (fieldTab && e.target.closest('[role="tab"]')) { fieldTab.click(); } });
+		document.querySelectorAll('[data-field-panel]').forEach(function (panel) {
+			var tile = document.getElementById(panel.getAttribute('aria-labelledby'));
+			var show = function () {
+				if (!tile || !tile.querySelector('[data-tile]')) { return; } // the tile that adds a field stays as it is
+				var prop = function (name) { return panel.querySelector('[data-field-prop="' + name + '"]'); };
+				var help = prop('help').value.trim(), placeholder = prop('placeholder').value.trim(), width = panel.querySelector('[data-field-prop="width"]:checked');
+				tile.querySelector('[data-tile="label"]').textContent = prop('label').value;
+				tile.querySelector('[data-tile="help"]').textContent = help;
+				tile.querySelector('[data-tile="help"]').hidden = help === '';
+				var input = tile.querySelector('[data-tile="input"]');
+				input.textContent = placeholder || input.getAttribute('data-sample');
+				tile.querySelector('[data-tile="required"]').hidden = !prop('required').checked;
+				if (width) {
+					tile.classList.remove('field-tile-full', 'field-tile-half', 'field-tile-third');
+					tile.classList.add('field-tile-' + width.value);
+					tile.querySelector('[data-tile="width"]').textContent = width.parentNode.textContent.trim();
+				}
+			};
+			panel.addEventListener('input', show);
+			panel.addEventListener('change', show);
+			panel.querySelectorAll('[data-field-move]').forEach(function (button) {
+				button.addEventListener('click', function (e) {
+					e.preventDefault();
+					var list = tiles(), at = list.indexOf(tile), to = list[at + +button.getAttribute('data-field-move')];
+					if (!to) { return; }
+					to.parentNode.insertBefore(tile, +button.getAttribute('data-field-move') < 0 ? to : to.nextSibling);
+					renumber();
+				});
+			});
+		});
+		fieldTiles.addEventListener('dragstart', function (e) {
+			dragged = e.target.closest('[draggable="true"]');
+			if (dragged) { dragged.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); }
+		});
+		fieldTiles.addEventListener('dragover', function (e) {
+			var over = e.target.closest('[draggable="true"]');
+			if (!dragged || !over) { return; }
+			e.preventDefault();
+			if (over === dragged) { return; }
+			var box = over.getBoundingClientRect();
+			over.parentNode.insertBefore(dragged, e.clientX - box.left > box.width / 2 ? over.nextSibling : over);
+		});
+		fieldTiles.addEventListener('dragend', function () { if (dragged) { dragged.classList.remove('dragging'); dragged = null; renumber(); } });
 	}
 
 	// Website mode, SEO tab: the unsaved fields are checked 600 ms after the last change (pages/seo_check returns the checks and
-	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins);
-	// the length meters follow the typing
+	// the search result preview, nothing is saved; a newer check aborts the one still under way, so an old answer never wins)
 	var seoForm = document.querySelector('[data-seo-live]');
 	if (seoForm) {
 		var seoTimer = null, seoRequest = null;
-		seoForm.addEventListener('input', function (e) {
-			var meter = e.target.parentNode.querySelector('[data-meter]');
-			if (meter) {
-				var max = +meter.getAttribute('data-meter'), length = e.target.value.length;
-				meter.classList.toggle('warning', length > max);
-				meter.querySelector('i').style.setProperty('--fill', Math.min(100, Math.round(length / max * 100)) + '%');
-				meter.lastChild.textContent = length + ' / ' + max;
-			}
+		seoForm.addEventListener('input', function () {
 			clearTimeout(seoTimer);
 			seoTimer = setTimeout(function () {
 				if (seoRequest) { seoRequest.abort(); }

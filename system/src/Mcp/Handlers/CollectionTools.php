@@ -270,6 +270,9 @@ trait CollectionTools
         }
         $errors = [];
         $data = Collections::sanitizeData($collection['fields'], (is_array($a['values'] ?? null) ? $a['values'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors);
+        if (($missing = Collections::missingRequired($collection['fields'], $data)) !== []) {
+            throw new \InvalidArgumentException('These required fields are empty: ' . implode(', ', $missing) . ' – send them in "values".');
+        }
         $url = trim((string) ($a['slug'] ?? ''));
         $seo = $url !== '' ? slugify($url, 150) : ($previous['slug'] ?? slugify($itemName, 150));
         if ($seo === '' || $seo === '_sample') {
