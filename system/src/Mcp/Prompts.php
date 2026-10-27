@@ -350,8 +350,8 @@ final class Prompts
                 ## 5. Enquiries
 
                 Enquiries hold personal data; use them only for what the user asks. `triage_enquiries` returns those not
-                sorted yet: save a suggestion for each with `update_enquiry` – the `category` (sales, support, job, supplier,
-                spam or other), the `priority` and a `draft_reply` in the language of the enquiry. A person checks and sends
+                sorted yet: save a suggestion for each with `update_enquiry` – the `category` (one of the site's kinds that
+                `triage_enquiries` lists with how to recognise each), the `priority` and a `draft_reply` in the language of the enquiry. A person checks and sends
                 the reply. Never promise prices, dates or facts the site does not state. `list_enquiries` shows the rest.
 
                 ## 6. What waits for a person

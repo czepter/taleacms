@@ -81,7 +81,7 @@ for (const url of ADMIN_PAGES) {
 }
 
 // #155: the "Connect an application" screen stands in the focused frame (views/admin/bare.php), which loads only admin.css: its access
-// choices are option cards (a hidden radio, a border, the title on its own line), "new, not verified" and "recommended" are badges
+// choices are option cards (a hidden radio, a border, the title on its own line), "new, not verified" and "recommended" are badges (a tint)
 await step('Claude connection consent: the access choices are cards, the labels are badges', async () => {
   const redirect = 'https://claude.ai/api/mcp/auth_callback';
   const client = await (await fetch(`${BASE}/oauth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -91,10 +91,10 @@ await step('Claude connection consent: the access choices are cards, the labels 
   const look = await page.evaluate(() => {
     const card = document.querySelector('.oauth-consent .card-option');
     return card ? { radio: getComputedStyle(card.querySelector('input')).opacity, border: getComputedStyle(card).borderTopWidth, title: getComputedStyle(card.querySelector('strong')).display,
-      badges: [...document.querySelectorAll('.oauth-consent .badge')].map((b) => `${b.textContent.trim()} ${getComputedStyle(b).borderTopWidth}`) } : null;
+      badges: [...document.querySelectorAll('.oauth-consent .badge')].map((b) => `${b.textContent.trim()} ${getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)' ? 'tinted' : 'plain'}`) } : null;
   });
   if (!look) { throw new Error('no access choices on the consent screen'); }
-  if (look.radio !== '0' || look.border !== '2px' || look.title !== 'block' || look.badges.join('|') !== 'new, not verified 1px|recommended 1px') {
+  if (look.radio !== '0' || look.border !== '2px' || look.title !== 'block' || look.badges.join('|') !== 'new, not verified tinted|recommended tinted') {
     throw new Error(`the consent screen is unstyled: ${JSON.stringify(look)}`);
   }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/oauth-consent.png`, fullPage: true }); }

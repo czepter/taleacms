@@ -110,4 +110,31 @@ final class EnquiryTriageTest extends SiteTestCase
             $site->exec("DELETE FROM tl_settings WHERE name IN ('ai_key', 'ai_model')");
         }
     }
+
+    /** The kinds are the administrator's: Settings → Enquiries renames, describes, adds and removes them; the inbox, the detail and Claude follow */
+    #[Depends('testTheAssistantSortsNewEnquiriesInTheBackgroundWhenSwitchedOn')]
+    public function testTheAdministratorSetsTheKinds(): void
+    {
+        $site = $this->site();
+        $id = $this->insertEnquiry('mia@example.com', '[["Message","We are getting married in June and look for a photographer"]]', 0);
+        $settings = '/admin.php?module=settings&tab=enquiries';
+        $this->assertPage($settings, 200, 'name="kind_name[]" value="Sales"', message: 'kinds: the settings list the built-in kinds');
+
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'enquiries', 'enquiries_months' => 24, 'job_applications_months' => 0,
+            'kind_key' => ['sales', 'support', 'job', 'supplier', 'spam', 'other', ''], 'kind_name' => ['Sales', 'Support', 'Job application', 'Supplier or offer', 'Spam', 'Other', 'Weddings'],
+            'kind_description' => ['', '', '', '', '', '', 'A couple asks about photos of their wedding']], formPage: $settings);
+        $this->assertSame('weddings', json_decode((string) $site->value("SELECT value FROM tl_settings WHERE name = 'enquiry_kinds'"), true)[6]['key'], 'kinds: a new kind is stored with a key from its name');
+
+        $text = $this->mcpText('triage_enquiries');
+        $this->assertStringContainsString('A couple asks about photos of their wedding', $text, 'kinds: Claude gets the kinds with how to recognise them');
+        $site->mcp('update_enquiry', ['id' => $site->publicId('enquiries', $id), 'category' => 'weddings']);
+        $this->assertSame('weddings', $site->value('SELECT category FROM tl_enquiries WHERE enquiry_id = ?', [$id]), 'kinds: Claude sorts into a kind the administrator added');
+        $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $site->publicId('enquiries', $id), 200, '<option value="weddings" selected>Weddings</option>', message: 'kinds: the detail offers the kinds of the site');
+
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'enquiries', 'enquiries_months' => 24, 'job_applications_months' => 0,
+            'kind_key' => ['sales', 'support', 'job', 'supplier', 'spam', 'other', 'weddings', ''], 'kind_name' => ['Sales', 'Support', 'Job application', 'Supplier or offer', 'Spam', 'Other', 'Weddings', ''],
+            'kind_description' => ['', '', '', '', '', '', '', ''], 'kind_delete' => '6'], formPage: $settings);
+        $this->assertSame('', $site->value('SELECT category FROM tl_enquiries WHERE enquiry_id = ?', [$id]), 'kinds: the enquiries of a removed kind are not sorted again');
+        $site->exec("DELETE FROM tl_settings WHERE name = 'enquiry_kinds'");
+    }
 }
