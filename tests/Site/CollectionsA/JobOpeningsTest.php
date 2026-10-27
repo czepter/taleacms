@@ -85,10 +85,10 @@ final class JobOpeningsTest extends SiteTestCase
     /** The retention of applications next to the enquiries retention, with the usual practice of the company country as a hint. */
     public function testApplicationRetentionIsSavedAndEnforced(): void
     {
-        $page = $this->assertPage('/admin.php?module=enquiries', 200, 'name="applicant_months" value="0"', message: 'Enquiries offers the retention of job applications with the usual practice for the company country');
+        $page = $this->assertPage('/admin.php?module=settings&tab=enquiries', 200, 'name="job_applications_months" value="0"', message: 'Settings → Enquiries offers the retention of job applications with the usual practice for the company country');
         $this->assertStringContainsString('CZ: 6', $page->body, 'the hint names the country and the months');
 
-        $this->adminPost('/admin.php?module=enquiries&action=settings', ['months' => '24', 'applicant_months' => '3'], formPage: '/admin.php?module=enquiries');
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'enquiries', 'enquiries_months' => '24', 'job_applications_months' => '3'], formPage: '/admin.php?module=settings&tab=enquiries');
         $this->assertSame('3|24', $this->sq("SELECT CONCAT((SELECT value FROM tl_settings WHERE name = 'job_applications_months'), '|', (SELECT value FROM tl_settings WHERE name = 'enquiries_months'))"), 'the retention of applications is saved next to the enquiries retention');
 
         // an application with a CV: an enquiry from the job's page; the hidden job name comes back as plain text only

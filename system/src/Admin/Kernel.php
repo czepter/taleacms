@@ -151,7 +151,7 @@ final class Kernel
      * screen), label]. An entry shows only when the person may open its module.
      */
     public const array SETTINGS_MENU = [
-        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies']],
+        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
         'Features' => [['extensions', '', 'Features and add-ons'], ['assistant_settings', '', 'Writing assistant'], ['newsletter_settings', '', 'Newsletter'], ['claude_settings', '', 'AI settings']],

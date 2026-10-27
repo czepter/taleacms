@@ -66,10 +66,6 @@ final class Enquiries extends Module
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT user_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"),
-            'months' => $this->app->settings()->int('enquiries_months'),
-            'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
-            'applicationMonths' => $this->app->settings()->int('job_applications_months'),
-            'suggestion' => \Talea\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
         ]);
     }
 
@@ -246,19 +242,6 @@ final class Enquiries extends Module
         }
 
         return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Talea\Core\PersonalData::find($this->db, $email) : null]);
-    }
-
-    /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */
-    protected function actionSettings(): Response
-    {
-        if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('months'))));
-            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('applicant_months'))));
-            $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
-            $this->app->settings()->set('enquiries_expiry', $this->request->post('after_expiry') === 'anonymise' ? 'anonymise' : 'delete');
-        }
-
-        return $this->back('Enquiry settings saved.');
     }
 
     /** All enquiries to CSV (UTF-8 with BOM, semicolon – opens directly in Excel). */

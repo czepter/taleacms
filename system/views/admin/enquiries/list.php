@@ -10,10 +10,6 @@
  * @var string $filter
  * @var int $pageNumber
  * @var int $perPage
- * @var int $months
- * @var string $expiry delete | anonymise – what happens after the retention period (2.14)
- * @var int $applicationMonths retention of applications to job openings (2.11)
- * @var array{0: string, 1: int}|null $suggestion [country, months] usually kept there
  * @var string $kind the triage kind shown ('' = all but spam, '-' = not sorted yet)
  * @var int $spam enquiries marked as spam
  * @var string $search
@@ -29,7 +25,8 @@ $preview = function (string $data): string {
     return mb_strimwidth($text, 0, 140, '…');
 };
 echo $app->view->render('admin/list/head', ['count' => (string) $total,
-    'links' => $app->auth()->isAdmin() ? [[$module->url('personal'), t('Personal data request')]] : [],
+    // retention and sorting live in Settings → Enquiries (administrators)
+    'links' => $app->auth()->isAdmin() ? [[$module->url('personal'), t('Personal data request')], [$app->url('admin.php?module=settings&tab=enquiries'), t('Settings')]] : [],
     'secondary' => $total > 0 ? '<a class="navigation" href="' . e($module->url('csv')) . '">' . e(t('Export (CSV)')) . '</a>' : '']);
 $kinds = '<select name="category" aria-label="' . e(t('Kind')) . '" data-submit-on-change>';
 foreach (['' => t('All kinds'), '-' => t('Not sorted')] + array_map('t', Talea\Core\Triage::CATEGORIES) as $key => $name) {
@@ -89,20 +86,4 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
 <?php endfor ?>
 </p>
 <?php endif ?>
-<?php endif ?>
-<?php if ($app->auth()->isAdmin()): ?>
-<form class="form" method="post" action="<?= e($module->url('settings')) ?>" data-confirm="<?= e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) ?>">
-<?= $csrf ?>
-<div class="row"><label for="months"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textfield" type="number" id="months" name="months" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
-<span class="help"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.')) ?></span></div></div>
-<div class="row"><span class="caption"><?= e(t('After that period')) ?></span><div class="options">
-<?php foreach (['delete' => 'delete them including attachments', 'anonymise' => 'anonymise them – the row stays for statistics (date, form, page, topic, kind) without the name, e-mail, phone, message and attachments'] as $key => $labelText): ?>
-	<label><input type="radio" name="after_expiry" value="<?= $key ?>"<?= $expiry === $key ? ' checked' : '' ?>> <?= e(t($labelText)) ?></label>
-<?php endforeach ?>
-</div></div>
-<div class="row"><label for="months-applicants"><?= e(t('Delete job applications after')) ?></label><div><input class="textfield" type="number" id="months-applicants" name="applicant_months" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="btn" type="submit" value="<?= e(t('Save')) ?>">
-<span class="help"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
-<div class="row"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
-<span class="help"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Features – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
-</form>
 <?php endif ?>

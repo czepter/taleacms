@@ -37,6 +37,9 @@ if ($username !== null) {
         }
     }
     foreach (isset($modules['settings']) ? Talea\Admin\Modules\Settings::TABS : [] as $key => $name) {
+        if (!Talea\Admin\Modules\Settings::tabAvailable($key, $app->settings())) {
+            continue;
+        }
         $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
@@ -90,7 +93,7 @@ if ($current === 'Settings') {
     $tab = (string) $app->request->get('tab');
     foreach (Talea\Admin\Kernel::SETTINGS_MENU as $menuGroup => $entries) {
         foreach ($entries as [$ident, $entryTab, $label]) {
-            if (isset($modules[$ident])) {
+            if (isset($modules[$ident]) && ($ident !== 'settings' || Talea\Admin\Modules\Settings::tabAvailable($entryTab, $app->settings()))) {
                 $here = $ident === $inMenu && ($ident !== 'settings' || $entryTab === ($tab !== '' ? $tab : 'general'));
                 // Analytics lists a page per service while it is open (Admin\AnalyticsServices); the overview is the entry itself
                 $servicePage = $here && $entryTab === 'analytics' ? Talea\Admin\AnalyticsServices::page((string) $app->request->get('service')) : '';

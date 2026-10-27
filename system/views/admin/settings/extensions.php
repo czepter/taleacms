@@ -8,7 +8,7 @@ use Talea\Core\Extensions;
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
 $extensionSettings = [
     'news' => [[$adminUrl('module=news'), 'News'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
-    'enquiries' => [[$adminUrl('module=enquiries'), 'Enquiries and retention'], [$adminUrl('module=settings&tab=webhooks'), 'Webhook to CRM']],
+    'enquiries' => [[$adminUrl('module=enquiries'), 'Enquiries'], [$adminUrl('module=settings&tab=enquiries'), 'Retention'], [$adminUrl('module=settings&tab=webhooks'), 'Webhook to CRM']],
     'newsletter_signup' => [[$adminUrl('module=subscribers'), 'Subscribers and export'], [$adminUrl('module=newsletter_settings'), 'Connection to a mailing service']],
     'bookings' => [[$adminUrl('module=bookings'), 'Bookings'], [$adminUrl('module=bookings&action=services'), 'Services'], [$adminUrl('module=bookings&action=staff'), 'People']],
     'stats' => [[$adminUrl('module=stats'), 'Statistics'], [$adminUrl('module=settings&tab=analytics'), 'Analytics']],
