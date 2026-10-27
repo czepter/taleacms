@@ -14,7 +14,7 @@ The in-app updater (download a zip, overwrite files) stays switched off (`Core\U
 | Question | Decision | Why |
 |---|---|---|
 | Registry | GitHub Container Registry, `ghcr.io/<owner>/talea` (the owner and name follow HF-15) | free for public images, tied to the repository, no extra account |
-| Tags | `X.Y.Z` (immutable), `X.Y`, `X` (moving), `latest` = newest stable, `edge` = `main` | operators choose how much they follow; a patch pin never changes |
+| Tags | `X.Y.Z` (immutable), `X.Y`, `X` (moving), `latest` = newest stable | operators choose how much they follow; a patch pin never changes |
 | Platforms | `linux/amd64`, `linux/arm64` | servers and Apple silicon development |
 | Release trigger | a git tag `vX.Y.Z` on `main`; CI builds, tests, pushes and creates the GitHub release | one way to release, reproducible |
 | Feed | `update.json`, a release asset (`.../releases/latest/download/update.json`), signed with the existing Ed25519 manifest signature (`Core\Signature`, key in `system/update.pub`) | static, cacheable, no server to run; the signature reuses what exists |
