@@ -9,10 +9,12 @@ Everything that goes to GitHub is English: commit, tag and release notes.
 
 1. Raise `TALEA_VERSION` in `system/bootstrap.php` on `main`, push, and wait for CI. A commit that changes only that line counts
    as tested when its parent passed CI, so no test job runs again, neither in CI nor for the tag.
-2. Tag that commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. A tag that does not match `TALEA_VERSION` fails
-   the release.
+2. Wait until the Release run of that push (the edge image) is done, then tag the commit and push the tag:
+   `git tag vX.Y.Z && git push origin vX.Y.Z`. A tag that does not match `TALEA_VERSION` fails the release. The tag run builds
+   nothing when the commit has its edge image (`sha-<commit>`): it puts the release tags on that image and signs it. A tag pushed
+   earlier, or on a commit outside `main`, builds the image itself.
 3. The release workflow (`.github/workflows/release.yml`) runs the tests again only when CI has not passed for the tagged commit,
-   builds the multi-arch image (amd64, arm64), pushes it to GHCR with the tags below, signs it with cosign and publishes the GitHub
+   builds the multi-arch image (amd64, arm64) unless it reuses the edge image, pushes it to GHCR with the tags below, signs it with cosign and publishes the GitHub
    release with generated notes, the `docker pull` line and the digest. Each architecture builds natively: amd64 on the self-hosted
    runners, arm64 on a GitHub-hosted `ubuntu-24.04-arm` runner (free while the repository is public); the job `image` joins both
    digests under one index with the tags and signs that.
