@@ -12,10 +12,10 @@
 $added = $title['added'] + $text['added'];
 $deleted = $title['deleted'] + $text['deleted'];
 ?>
-<p class="navigation-row">
+<div class="navigation-row">
 	<a class="navigation" href="<?= e($module->url('edit', ['id' => $page['public_id']])) ?>"><?= e(t('Back to the page')) ?></a>
 	<form class="inline" method="post" action="<?= e($module->url('restore_version')) ?>" data-confirm="<?= e(t('Restore this version of the text? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="revision_id" value="<?= (int) $version['revision_id'] ?>"><button class="navigation" type="submit"><?= e(t('Restore')) ?></button></form>
-</p>
+</div>
 <p><?= e(t('Version from %s', format_date($version['created_at'], true))) ?><?= ($version['user_name'] ?? '') !== '' ? ' · ' . e($version['user_name']) : '' ?> → <?= e(t('current text')) ?>.
 	<ins><?= e(t('added')) ?>: <?= $added ?></ins> · <del><?= e(t('deleted')) ?>: <?= $deleted ?></del></p>
 <?php if ($added + $deleted === 0): ?>

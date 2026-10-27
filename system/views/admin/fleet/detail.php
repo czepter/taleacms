@@ -38,7 +38,7 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <form class="form" method="post" action="<?= e($module->url('check')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= e($site['public_id']) ?>">
-<p><button class="navigation" type="submit"><?= e(t('Check now')) ?></button>
+<p class="navigation-row"><button class="navigation" type="submit"><?= e(t('Check now')) ?></button>
 <button class="navigation danger" type="submit" formaction="<?= e($module->url('remove')) ?>" data-confirm="<?= e(t('Remove the site from the console? Its reports will be refused until it is paired again.')) ?>"><?= e(t('Remove from the console')) ?></button></p>
 </form>
 <?php if ($events !== []): ?>

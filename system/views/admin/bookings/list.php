@@ -53,8 +53,8 @@ $kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'decl
 <?php foreach ($requests as $b): ?>
 	<article>
 		<p><strong><?= $b['anonymised_at'] !== null ? e(t('anonymised')) : e((string) $b['name']) ?></strong><br><span class="small-text"><?= e((string) ($b['service'] ?? '')) ?> · <?= e(format_date_long(substr((string) $b['starts_at'], 0, 10))) ?>, <?= e(substr((string) $b['starts_at'], 11, 5)) ?><?= (string) ($b['staff'] ?? '') !== '' ? ' · ' . e((string) $b['staff']) : '' ?></span></p>
-		<p class="navigation-row"><form class="inline" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>"><button class="btn" type="submit"><?= e(t('Accept')) ?></button></form>
-			<a class="navigation" href="<?= e($module->url('detail', ['id' => $b['public_id']])) ?>"><?= e(t('Decline or propose a time')) ?></a></p>
+		<div class="navigation-row"><form class="inline" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>"><button class="btn" type="submit"><?= e(t('Accept')) ?></button></form>
+			<a class="navigation" href="<?= e($module->url('detail', ['id' => $b['public_id']])) ?>"><?= e(t('Decline or propose a time')) ?></a></div>
 	</article>
 <?php endforeach ?>
 <?php if ($waiting > count($requests)): ?>

@@ -553,7 +553,7 @@ a.danger:hover {
 }
 /* a warning with its own actions (start screen): the text, then the buttons */
 .notice-actions p { margin: 0; }
-.notice-actions .navigation-row { margin-top: 10px; }
+.notice-actions .navigation-row { margin: 10px 0 0; }
 .notice-error {
 	border-color: color-mix(in srgb, var(--error) 35%, transparent);
 	background: var(--error-base);
@@ -1101,6 +1101,8 @@ form.center.small-text .btn {
 .form .options {
 	padding-top: 8px;
 }
+/* buttons as options (the language versions of a news item): a row with gaps, no margin of its own */
+.form .options.navigation-row { margin: 0; }
 .form .options label {
 	font-weight: 400;
 	margin-right: 16px;
@@ -1120,10 +1122,14 @@ form.center.small-text .btn {
 .service-hours-own table.listing :is(th, td) { vertical-align: middle; }
 .service-hours .options-stacked .help { margin-left: 24px; }
 .form .buttons .service-delete { margin-left: auto; }
-.form .buttons {
+/* a row of buttons anywhere (an enquiry, the consent screen, Search Console): a gap also when it wraps; in a form it closes the form */
+.buttons {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 8px;
+}
+.form .buttons {
 	margin: 24px 0 0;
 	padding-top: 20px;
 	border-top: 1px solid var(--line);

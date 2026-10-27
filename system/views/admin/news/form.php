@@ -156,7 +156,7 @@ $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($
 <?php if ($translationLanguages !== []): ?>
 <div class="row span-all">
 	<span class="caption"><?= e(t('Language versions')) ?></span>
-	<div class="options">
+	<div class="options navigation-row">
 <?php foreach ($translationLanguages as $languageCode): $languageName = Talea\Core\Language::AVAILABLE[$languageCode][0]; ?>
 <?php if (isset($translations[$languageCode])): ?>
 		<a class="navigation" href="<?= e($module->url('edit', ['id' => $translations[$languageCode]])) ?>"><?= e($languageName) ?>: <?= e(t('open translation')) ?></a>

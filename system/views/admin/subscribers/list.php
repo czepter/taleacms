@@ -19,13 +19,13 @@ echo $app->view->render('admin/list/head', ['count' => (string) $total,
 ?>
 <p class="small-text"><?= e(t('Addresses from the Newsletter sign-up element. Only people who confirmed by the link in the e-mail count as subscribers. Send them news under Newsletters, or with your own tool – the export includes the unsubscribe link.')) ?></p>
 <?php if ($service !== ''): ?>
-<div class="notice">
+<div class="notice notice-actions">
 	<p><?= e(t('Confirmed subscribers go to %s automatically; those who unsubscribe are removed from it.', t(Newsletter::SERVICES[$service][0]))) ?>
 	<?= (int) $queue['pending'] > 0 ? e(t('Waiting to be sent: %d.', (int) $queue['pending'])) : '' ?> <?= (int) $queue['failed'] > 0 ? '<strong>' . e(t('Failed: %d.', (int) $queue['failed'])) . '</strong>' : '' ?></p>
 <?php if ($admin): ?>
-	<p><form class="inline" method="post" action="<?= e($module->url('sync')) ?>"><?= $csrf ?><button class="navigation" type="submit"><?= e(t('Send all confirmed subscribers to the service')) ?></button></form>
+	<div class="navigation-row"><form class="inline" method="post" action="<?= e($module->url('sync')) ?>"><?= $csrf ?><button class="navigation" type="submit"><?= e(t('Send all confirmed subscribers to the service')) ?></button></form>
 	<?php if ((int) $queue['failed'] > 0): ?><form class="inline" method="post" action="<?= e($module->url('retry')) ?>"><?= $csrf ?><button class="navigation" type="submit"><?= e(t('Try the failed ones again')) ?></button></form><?php endif ?>
-	<a href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><?= e(t('Service settings')) ?></a></p>
+	<a href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><?= e(t('Service settings')) ?></a></div>
 <?php endif ?>
 </div>
 <?php elseif ($admin): ?>

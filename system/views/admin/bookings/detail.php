@@ -38,7 +38,7 @@ use Talea\Core\Booking;
 <?php if ($proposals !== []): ?>
 <p><strong><?= e(t('Proposed to the customer')) ?>:</strong> <?= e(implode(' · ', array_map(fn (array $p): string => Booking::when($p['starts_at'], $p['ends_at']), $proposals))) ?></p>
 <?php endif ?>
-<form class="inline" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
+<form class="navigation-row" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
 	<button class="btn" type="submit"><?= e(t('Accept')) ?></button> <span class="help"><?= e(t('The customer gets the confirmation with the calendar and cancel links.')) ?></span>
 </form>
 <form class="form" method="post" action="<?= e($module->url('decline')) ?>" data-confirm="<?= e(t('Decline the request? The customer will get an e-mail.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
@@ -57,14 +57,14 @@ use Talea\Core\Booking;
 <?php endif ?>
 <?php endif ?>
 <?php if ($b['status'] === 'confirmed'): ?>
-<form class="inline" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
+<form class="navigation-row" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
 	<button class="btn" type="submit" name="status" value="done"><?= e(t('Done')) ?></button>
 	<button class="navigation" type="submit" name="status" value="no_show"><?= e(t('Did not come')) ?></button>
 	<button class="navigation danger" type="submit" name="status" value="cancelled" data-confirm="<?= e(t('Cancel the appointment? The customer will get an e-mail.')) ?>"><?= e(t('Cancel the appointment')) ?></button>
 </form>
 <?php endif ?>
 <?php if ($b['anonymised_at'] === null): ?>
-<form class="inline" method="post" action="<?= e($module->url('anonymise')) ?>" data-confirm="<?= e(t('Blank the name, e-mail, phone and note of this booking? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
+<form class="navigation-row" method="post" action="<?= e($module->url('anonymise')) ?>" data-confirm="<?= e(t('Blank the name, e-mail, phone and note of this booking? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($b['public_id']) ?>">
 	<button class="navigation" type="submit"><?= e(t('Anonymise')) ?></button> <span class="help"><?= e(t('Everything about the person is erased for all bookings of one e-mail address in Enquiries → Personal data request.')) ?></span>
 </form>
 <?php endif ?>

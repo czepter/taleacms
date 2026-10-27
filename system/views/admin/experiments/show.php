@@ -31,12 +31,12 @@ $message = match ($v['state']) {
 <p class="help"><?= e(t(Experiments::KINDS[$x['kind']] ?? '')) ?> · <a href="<?= e($app->url('admin.php?module=pages&action=edit&id=' . $x['page_public_id'])) ?>"><?= e($x['page_title']) ?></a>
  · <?= e(t(Experiments::GOALS[$x['goal_type']][0] ?? '')) ?><?= $x['goal_type'] === 'click' ? ' (' . e($x['goal_target']) . ')' : '' ?><?= $goalPage !== '' ? ' (' . e($goalPage) . ')' : '' ?></p>
 
-<p>
+<div class="navigation-row">
 <?php if ($component !== null): ?><a class="btn" href="<?= e($app->url('admin.php?module=components&action=builder&id=' . $component['public_id'])) ?>"><?= e(t('Edit version B in the builder')) ?></a><?php endif ?>
 <?php if ($variantPage !== null): ?><a class="btn" href="<?= e($app->url('admin.php?module=pages&action=builder&id=' . $variantPage['public_id'])) ?>"><?= e(t('Edit version B: %s', $variantPage['title'])) ?></a><?php endif ?>
 <?php if (in_array($x['status'], ['draft', 'stopped'], true)): ?><?= $form('start', $x['status'] === 'stopped' ? t('Restart (clears the counts)') : t('Start the experiment')) ?><?php endif ?>
 <?php if ($x['status'] === 'running'): ?><?= $form('stop', t('Stop'), [], 'navigation') ?><?php endif ?>
-</p>
+</div>
 
 <h2><?= e(t('Result')) ?></h2>
 <div class="tab-wrap">
