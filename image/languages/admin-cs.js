@@ -1667,6 +1667,7 @@ window.TALEA_TRANSLATIONS = {
 	"Save to my sections": "Uložit do mých sekcí",
 	"Save to my sections (then insert it on any page)": "Uložit do mých sekcí (vložíte ji pak na jakoukoli stránku)",
 	"Save your backup codes – each works once when you do not have your phone. They will not be shown again.": "Uložte si záložní kódy – každý jde použít jednou, když nebudete mít telefon. Už se nezobrazí.",
+	"Saved automatically.": "Uloženo automaticky.",
 	"Saved, but with warnings: ": "Uloženo, ale s upozorněními: ",
 	"Saving also changes the permissions of these users:": "Uložení změní práva i těmto uživatelům:",
 	"Saving and publishing": "Ukládání a publikování",

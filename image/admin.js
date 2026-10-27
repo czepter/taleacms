@@ -438,6 +438,36 @@
 		}
 	}
 	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
+	// A form that saves itself (data-autosave, the handling of an enquiry): sent a moment after a change, its button hidden.
+	// Fields outside the form (form="…") count too. A failed save brings the button back and says so.
+	document.querySelectorAll('form[data-autosave]').forEach(function (form) {
+		var state = form.querySelector('[data-autosave-state]'), timer = null;
+		var show = function (text) { if (state) { state.textContent = text; } };
+		var save = function () {
+			timer = null;
+			show(T('Saving…'));
+			fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin' })
+				.then(function (r) {
+					// the answer is the detail again (back() redirects there); anything else, e.g. the sign-in, did not save
+					if (!r.ok || r.url.indexOf('action=detail') < 0) { throw new Error('not saved'); }
+					show(T('Saved automatically.'));
+				})
+				.catch(function () { show(T('Saving failed.')); form.classList.remove('autosaving'); });
+		};
+		var later = function (e, delay) {
+			if (e.target.form !== form) { return; }
+			clearTimeout(timer);
+			timer = setTimeout(save, delay);
+		};
+		form.classList.add('autosaving');
+		// leaving the page while a change waits: it still goes out
+		window.addEventListener('pagehide', function () {
+			if (timer !== null) { clearTimeout(timer); timer = null; fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', keepalive: true }); }
+		});
+		document.addEventListener('change', function (e) { later(e, 200); });
+		document.addEventListener('input', function (e) { if (e.target.tagName === 'TEXTAREA') { later(e, 1200); } });
+	});
+
 	var autoSubmit = document.querySelector('form[data-auto-submit]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-submit'), 10) || 1200); }
 	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */

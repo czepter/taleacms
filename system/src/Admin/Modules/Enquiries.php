@@ -106,7 +106,6 @@ final class Enquiries extends Module
         );
     }
 
-    /** Internal note and who handles the enquiry. */
     /** Asks the customer of an enquiry for a testimonial (2.12, Core\Testimonials): the link by e-mail, or only to copy. */
     protected function actionTestimonial(): Response
     {
@@ -123,29 +122,27 @@ final class Enquiries extends Module
         return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $this->publicId($id)]);
     }
 
-    /** A person's triage (2.12): the kind, the priority and the drafted reply – Claude and the assistant never overwrite it. */
+    /**
+     * A person's handling of an enquiry: the triage (2.12: the kind, the priority and the drafted reply – Claude and the
+     * assistant never overwrite it), who handles it and the internal note. The detail saves it by itself a moment after a
+     * change (data-autosave in admin.js); a field that is not sent stays as it is (the Spam button sends only the kind).
+     */
     protected function actionTriage(): Response
     {
         $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
-            \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
+            \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'),
+                $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null),
                 (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
+            if ($this->request->hasPost('note')) {
+                $who = $this->idParam('assigned_to', 'users');
+                $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
+                    'assigned_to' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT assigned_to FROM {enquiries} WHERE enquiry_id = ?', [$id]))[$this->publicId($who, 'users')]) ? $who : null], ['enquiry_id' => $id]);
+            }
         }
 
         return $this->back('Saved.', 'detail', ['id' => $this->publicId($id)]);
-    }
-
-    protected function actionNote(): Response
-    {
-        $idp = $this->idParam('enquiry_id');
-        if ($this->request->isPost()) {
-            $who = $this->idParam('assigned_to', 'users');
-            $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
-                'assigned_to' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT assigned_to FROM {enquiries} WHERE enquiry_id = ?', [$idp]))[$this->publicId($who, 'users')]) ? $who : null], ['enquiry_id' => $idp]);
-        }
-
-        return $this->back('The note has been saved.', 'detail', ['id' => $this->publicId($idp)]);
     }
 
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
