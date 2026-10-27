@@ -21,7 +21,7 @@
 	<tr><th scope="row"><?= e(t('Key fingerprints')) ?></th><td><?= e(t('console %s, this site %s', $fleet['fingerprint'], $fleet['own'])) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last report')) ?></th><td><?= $fleet['sent'] > 0 ? e(format_date((new DateTimeImmutable())->setTimestamp($fleet['sent']), true)) : e(t('not sent yet')) ?><?php if ($fleet['error'] !== ''): ?> <span class="badge-error"><?= e(t($fleet['error'])) ?></span><?php endif ?></td></tr>
 </table></div>
-<p><button class="navigation" type="submit" formaction="<?= e($module->url('fleet_send')) ?>"><?= e(t('Send a report now')) ?></button>
+<p class="navigation-row"><button class="navigation" type="submit" formaction="<?= e($module->url('fleet_send')) ?>"><?= e(t('Send a report now')) ?></button>
 <button class="navigation" type="submit" formaction="<?= e($module->url('fleet_unpair')) ?>" data-confirm="<?= e(t('The site will stop reporting to the console. Continue?')) ?>"><?= e(t('Disconnect from the console')) ?></button></p>
 </fieldset>
 <fieldset>

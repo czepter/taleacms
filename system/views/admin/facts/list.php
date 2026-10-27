@@ -13,7 +13,7 @@ $own = array_filter($facts, fn (array $f): bool => !$f['builtIn']);
 $builtIn = array_filter($facts, fn (array $f): bool => $f['builtIn']);
 ?>
 <p class="notice"><?= e(t('Write a fact once and use it everywhere: {{fact.key}} in a text, a button or a link (tel:{{fact.company_phone}}). The site fills in the value when a page is shown; change it here and every page says the new value.')) ?></p>
-<p><a class="btn" href="<?= e($module->url('edit')) ?>"><?= e(t('New fact')) ?></a> <a class="navigation" href="<?= e($module->url('claims')) ?>"><?= e(t('Sentences with numbers that are not facts yet')) ?></a></p>
+<p class="navigation-row"><a class="btn" href="<?= e($module->url('edit')) ?>"><?= e(t('New fact')) ?></a> <a class="navigation" href="<?= e($module->url('claims')) ?>"><?= e(t('Sentences with numbers that are not facts yet')) ?></a></p>
 <?php if ($own === []): ?>
 <p><?= e(t('No facts yet. Typical ones: the year the company was founded, the number of projects or clients, a price from, the warranty, the area you serve.')) ?></p>
 <?php else: ?>

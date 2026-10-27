@@ -36,5 +36,5 @@ $monthName = static fn (string $month): string => Talea\Core\ReportPage::monthNa
 $field('report_monthly', 'Send a monthly report by e-mail', 'flag', '');
 $field('report_recipients', 'Recipients', 'lines', 'One address per line or separated by commas, at most 10. Empty = the site e-mail (Settings → General).', 'maxlength="2000"');
 ?>
-<p><a class="navigation" href="<?= e($module->url('report_preview')) ?>" target="_blank" rel="noopener"><?= e(t('Preview last month')) ?></a> <button class="navigation" type="submit" formaction="<?= e($module->url('report_send')) ?>"><?= e(t('Send last month’s report now')) ?></button> <span class="small-text"><?= e(t('Save the settings first – sending uses the saved recipients.')) ?></span></p>
+<p class="navigation-row"><a class="navigation" href="<?= e($module->url('report_preview')) ?>" target="_blank" rel="noopener"><?= e(t('Preview last month')) ?></a> <button class="navigation" type="submit" formaction="<?= e($module->url('report_send')) ?>"><?= e(t('Send last month’s report now')) ?></button> <span class="small-text"><?= e(t('Save the settings first – sending uses the saved recipients.')) ?></span></p>
 </fieldset>

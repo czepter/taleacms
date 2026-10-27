@@ -24,7 +24,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
     : ($needing === 0 ? t('All %d sites are fine.', $total) : t('%d of %d sites need attention.', $needing, $total))) ?> <?= e(t('This console runs version %s.', $latest)) ?></p>
 <form class="form" method="post" action="<?= e($module->url('pairing_key')) ?>">
 <?= $csrf ?>
-<p><button class="btn" type="submit"><?= e(t('Add a site')) ?></button>
+<p class="navigation-row"><button class="btn" type="submit"><?= e(t('Add a site')) ?></button>
 <a class="navigation" href="<?= e($module->url('kit')) ?>"><?= e(t('Shared kit')) ?></a>
 <?php if ($total > 0): ?>
 <button class="navigation" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check all now')) ?></button>
