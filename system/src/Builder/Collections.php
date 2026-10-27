@@ -21,6 +21,12 @@ final class Collections
         'parameters' => 'parameters (Name: value per line)', 'variants' => 'variants (name | code | price per line)', 'item' => 'item of another collection',
         'gallery' => 'gallery (photos from Media)'];
 
+    /** Widths of a field in the item form, on a grid of six columns: full = 6, half = 3, third = 2 (a phone stacks them). */
+    public const array FIELD_WIDTHS = ['full', 'half', 'third'];
+
+    /** Field types whose input shows a placeholder. */
+    public const array PLACEHOLDER_TYPES = ['text', 'lines', 'link', 'number', 'location', 'parameters', 'variants'];
+
     /** Photos a gallery field keeps at most. */
     public const int GALLERY_MAX = 300;
 
@@ -296,10 +302,31 @@ final class Collections
             if ($type === 'radio' && $options === []) {
                 $type = 'text';
             }
-            $field[] = ['key' => $key, 'label' => $labelText, 'type' => $type] + ($type === 'item' ? ['collection' => $target] : []) + ($type === 'radio' ? ['options' => $options] : []);
+            // how the item form shows it: the width on its grid of six columns, a description under it, the grey placeholder
+            // of an empty text field and whether an item can be saved without it; only what differs from the default is kept
+            $width = in_array($p['width'] ?? '', self::FIELD_WIDTHS, true) && $p['width'] !== 'full' ? $p['width'] : '';
+            $help = mb_substr(trim(strip_tags(is_scalar($p['help'] ?? null) ? (string) $p['help'] : '')), 0, 300);
+            $placeholder = in_array($type, self::PLACEHOLDER_TYPES, true) && is_scalar($p['placeholder'] ?? null)
+                ? mb_substr(trim(strip_tags(str_replace(["\r", "\n"], ' ', (string) $p['placeholder']))), 0, 120) : '';
+            $field[] = ['key' => $key, 'label' => $labelText, 'type' => $type] + ($type === 'item' ? ['collection' => $target] : []) + ($type === 'radio' ? ['options' => $options] : [])
+                + ($width !== '' ? ['width' => $width] : []) + ($help !== '' ? ['help' => $help] : []) + ($placeholder !== '' ? ['placeholder' => $placeholder] : [])
+                + (filter_var($p['required'] ?? false, FILTER_VALIDATE_BOOL) ? ['required' => true] : []);
         }
 
         return array_slice($field, 0, 30);
+    }
+
+    /** The labels of the required fields an item leaves empty (sanitized data). @param list<array<string, mixed>> $fields @return list<string> */
+    public static function missingRequired(array $fields, array $data): array
+    {
+        $missing = [];
+        foreach ($fields as $f) {
+            if (!empty($f['required']) && in_array($data[$f['key']] ?? '', ['', [], null], true)) {
+                $missing[] = (string) $f['label'];
+            }
+        }
+
+        return $missing;
     }
 
     /** Options of a choice field: a list or lines of text, trimmed, without tags and duplicates, at most 30 of 80 characters. @return list<string> */

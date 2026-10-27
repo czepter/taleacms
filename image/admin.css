@@ -1886,8 +1886,16 @@ body.login {
 .content:has(.item-editor) .page-actions .navigation { min-height: 40px; padding: 0 12px; background: none; }
 .content:has(.item-editor) .page-actions .navigation:hover { background: var(--accent-light); }
 .form.item-editor { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 24px; max-width: none; margin-inline-end: -32px; padding: 0; border: 0; background: none; }
-.item-main { flex: 999 1 560px; min-width: 0; max-width: 900px; }
-.item-field { display: grid; gap: 6px; margin: 0 0 20px; }
+/* the fields on a grid of six columns: a field is full, half or a third wide (the collection's form settings); a phone stacks them */
+.item-main { flex: 999 1 560px; min-width: 0; max-width: 900px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px 16px; align-content: start; }
+.item-field { grid-column: span 6; display: grid; align-content: start; gap: 6px; min-width: 0; }
+.item-field-half { grid-column: span 3; }
+.item-field-third { grid-column: span 2; }
+.item-field > .help { margin: 0; }
+.item-required { color: var(--text-weak); }
+@media (max-width: 640px) {
+	.item-field-half, .item-field-third { grid-column: span 6; }
+}
 .item-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-weight: 600; }
 .item-key { color: var(--text-weak); font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .item-name { font-size: 18px; font-weight: 600; }
@@ -1908,6 +1916,48 @@ body.login {
 .item-editor.settings-closed .website-settings-rail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
 .item-settings .website-settings-rail .website-score { background: none; font-family: inherit; cursor: pointer; }
 .item-notice-log { margin-top: 24px; }
+/* the collection form (collections/form.php): the item form as tiles on the same grid, each as wide as its field; a tile
+   is a tab of its settings in the sidebar. Type-dependent settings show by the chosen type, without a script. */
+.field-tile { grid-column: span 6; display: grid; align-content: start; gap: 6px; min-width: 0; padding: 10px 12px 12px; border: 0; border-radius: var(--radius); background: color-mix(in oklch, var(--text) 4%, var(--base)); color: var(--text); font: inherit; text-align: start; cursor: pointer; }
+.field-tile:hover { background: color-mix(in oklch, var(--text) 8%, var(--base)); }
+.field-tile[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.field-tile.dragging { opacity: .5; }
+.field-tile-name { cursor: default; }
+.field-tile-name:hover { background: color-mix(in oklch, var(--text) 4%, var(--base)); }
+.field-tile-half { grid-column: span 3; }
+.field-tile-third { grid-column: span 2; }
+.field-tile-add { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1.5px dashed var(--line-field); background: none; font-weight: 600; }
+.field-tile-add:hover { background: var(--accent-light); }
+.field-tile-row { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-weak); }
+.field-tile-label { flex: 1; min-width: 0; overflow: hidden; color: var(--text); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.field-tile-key { flex: none; font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.field-tile-input { display: flex; align-items: center; min-height: 32px; padding: 0 10px; overflow: hidden; border: 1px solid var(--line-field); border-radius: var(--radius); background: var(--base); color: var(--text-weak); font-size: 13px; white-space: nowrap; }
+.field-tile-input.tall { align-items: flex-start; min-height: 64px; padding-top: 7px; }
+.field-tile-help { color: var(--text-weak); font-size: 12px; line-height: 1.4; }
+.field-tile-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--text-weak); font-size: 12px; }
+.field-grid { grid-column: span 6; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.field-grid-help { grid-column: span 6; margin: 0; }
+.field-tile-name { grid-column: span 6; }
+.field-panel h3 { text-transform: none; letter-spacing: 0; color: var(--text); font-size: 15px; }
+.field-panel section + section h3 { color: var(--text-weak); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.field-panel :is(.field-options, .field-linked, .field-placeholder) { display: none; }
+.field-panel:has(option[value="radio"]:checked) .field-options,
+.field-panel:has(option[value="item"]:checked) .field-linked,
+.field-panel:has(:is(option[value="text"], option[value="lines"], option[value="link"], option[value="number"], option[value="location"], option[value="parameters"], option[value="variants"]):checked) .field-placeholder { display: flex; }
+.field-width { min-inline-size: 0; margin: 0 0 14px; padding: 0; border: 0; }
+.field-width legend { float: none; margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.field-width-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: var(--radius); background: var(--base); }
+.field-width-choices label { display: grid; place-items: center; min-height: 36px; border-radius: var(--radius); color: var(--text-weak); font-size: 13px; font-weight: 500; cursor: pointer; }
+.field-width-choices input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.field-width-choices label:has(input:checked) { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.field-width-choices label:has(input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 2px; }
+.field-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.field-tags code { padding: 4px 8px; border-radius: var(--radius); background: var(--base); font-size: 13px; }
+.field-moves { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.field-moves .navigation { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; font-size: 13px; }
+@media (max-width: 640px) {
+	.field-tile-half, .field-tile-third { grid-column: span 6; }
+}
 @media (max-width: 1100px) {
 	.form.item-editor { margin-inline-end: 0; }
 	.item-settings, .item-editor.settings-closed .item-settings { position: static; flex: 1 1 100%; max-height: none; }

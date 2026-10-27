@@ -93,4 +93,21 @@ final class CollectionsTest extends TestCase
         $gallery = $template['children'][0]['children'][0]['children'][1];
         $this->assertSame(['gallery', 'masonry'], [$gallery['type'], $gallery['content']['layout']], 'Collections::defaultTemplate: a gallery field becomes a Gallery element (it shows the item gallery by itself)');
     }
+
+    /** The item form's layout of a field: width, description, placeholder, required – only what differs from the default is kept. */
+    public function testFieldFormSettings(): void
+    {
+        $fields = \Talea\Builder\Collections::sanitizeFields([
+            ['label' => 'Place', 'type' => 'text', 'width' => 'third', 'help' => ' <b>Town</b> or venue ', 'placeholder' => "Hof\nJena", 'required' => '1'],
+            ['label' => 'Cover', 'type' => 'image', 'width' => 'full', 'placeholder' => 'ignored', 'required' => '0'],
+            ['label' => 'Odd', 'type' => 'text', 'width' => 'wide'],
+        ]);
+        $this->assertSame([
+            ['key' => 'place', 'label' => 'Place', 'type' => 'text', 'width' => 'third', 'help' => 'Town or venue', 'placeholder' => 'Hof Jena', 'required' => true],
+            ['key' => 'cover', 'label' => 'Cover', 'type' => 'image'],
+            ['key' => 'odd', 'label' => 'Odd', 'type' => 'text'],
+        ], $fields, 'Collections::sanitizeFields: a known width, a description without tags, a placeholder on one line for text types only, required as true');
+        $this->assertSame(['Place'], \Talea\Builder\Collections::missingRequired($fields, ['place' => '', 'cover' => '']), 'Collections::missingRequired: an empty required field');
+        $this->assertSame([], \Talea\Builder\Collections::missingRequired($fields, ['place' => '0']), 'Collections::missingRequired: 0 is a value');
+    }
 }

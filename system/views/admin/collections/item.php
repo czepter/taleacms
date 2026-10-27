@@ -67,30 +67,38 @@ if ($detail && $p['item_id'] > 0 && $p['visible']) {
 		<label class="item-label" for="name"><?= e(t('Name')) ?></label>
 		<input class="textfield wide item-name" id="name" name="name" value="<?= e($p['name']) ?>" maxlength="200" required<?= $contentDir ?>>
 	</div>
-<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'field-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
-	<div class="item-field">
-		<div class="item-label"><label for="<?= e($id) ?>"><?= e($field['label']) ?></label><code class="item-key">{{<?= e($field['key']) ?>}}</code></div>
+<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'field-' . $field['key']; $displayName = 'data[' . $field['key'] . ']';
+    // the collection's form settings (Collections::sanitizeFields): width, description, placeholder, required – formatted
+    // text and a gallery have no input of their own to mark required, the save asks for them
+    $help = (string) ($field['help'] ?? '');
+    $extra = (!empty($field['required']) && !in_array($field['type'], ['html', 'gallery'], true) ? ' required' : '') . ($help !== '' ? ' aria-describedby="' . e($id) . '-help"' : '');
+    $hint = fn (string $default = ''): string => ($text = (string) ($field['placeholder'] ?? $default)) !== '' ? ' placeholder="' . e($text) . '"' : ''; ?>
+	<div class="item-field item-field-<?= e((string) ($field['width'] ?? 'full')) ?>">
+		<div class="item-label"><label for="<?= e($id) ?>"><?= e($field['label']) ?><?php if (!empty($field['required'])): ?> <span class="item-required"><span aria-hidden="true">*</span><span class="visually-hidden"><?= e(t('Required')) ?></span></span><?php endif ?></label><code class="item-key">{{<?= e($field['key']) ?>}}</code></div>
 		<div><?= match ($field['type']) {
-        'lines' => '<textarea class="textbox low" id="' . e($id) . '" name="' . e($displayName) . '" rows="4"' . $contentDir . '>' . e($h) . '</textarea>',
+        'lines' => '<textarea class="textbox low" id="' . e($id) . '" name="' . e($displayName) . '" rows="4"' . $hint() . $extra . $contentDir . '>' . e($h) . '</textarea>',
         'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor' . $contentDir . '>' . e($h) . '</textarea>',
-        'image' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-image>',
-        'link' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . '/page">',
-        'number' => '<input class="textfield" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
-        'date' => '<input class="textfield" type="date" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '">',
+        'image' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $extra . ' data-image>',
+        'link' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $hint('https://… ' . t('or') . '/page') . $extra . '>',
+        'number' => '<input class="textfield" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12"' . $hint() . $extra . '>',
+        'date' => '<input class="textfield" type="date" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '"' . $extra . '>',
         // a whole day is stored without a time; the input shows it at midnight, which saves back as the whole day (Collections::cleanDateTime)
-        'datetime' => '<input class="textfield" type="datetime-local" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h === '' ? '' : (strlen($h) === 10 ? $h . 'T00:00' : str_replace(' ', 'T', $h))) . '"> <span class="help">' . e(t('00:00 = the whole day')) . '</span>',
-        'file' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-file>',
+        'datetime' => '<input class="textfield" type="datetime-local" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h === '' ? '' : (strlen($h) === 10 ? $h . 'T00:00' : str_replace(' ', 'T', $h))) . '"' . $extra . '> <span class="help">' . e(t('00:00 = the whole day')) . '</span>',
+        'file' => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $extra . ' data-file>',
         // one photo per line "path | description"; image/editor.js turns it into photo tiles (upload, drop, reorder, describe) –
         // a value written as formatted text before shows as lines
         'gallery' => '<textarea class="textbox low" id="' . e($id) . '" name="' . e($displayName) . '" rows="6" data-gallery>' . e((string) Talea\Builder\Collections::cleanGallery($h)) . '</textarea>'
             . ' <span class="help gallery-help">' . e(t('One photo per line: path | description')) . '</span>',
-        'location' => '<input class="textfield" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="40" placeholder="50.0875, 14.4214" inputmode="decimal">',
-        'radio' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $option): string => '<option value="' . e($option) . '"' . ($option === $h ? ' selected' : '') . '>' . e(t($option)) . '</option>',
+        'location' => '<input class="textfield" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="40"' . $hint('50.0875, 14.4214') . $extra . ' inputmode="decimal">',
+        'radio' => '<select id="' . e($id) . '" name="' . e($displayName) . '"' . $extra . '><option value="">–</option>' . implode('', array_map(fn (string $option): string => '<option value="' . e($option) . '"' . ($option === $h ? ' selected' : '') . '>' . e(t($option)) . '</option>',
             (array) ($field['options'] ?? []))) . '</select>',
-        'item' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
+        'item' => '<select id="' . e($id) . '" name="' . e($displayName) . '"' . $extra . '><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
             array_keys($choices = Talea\Builder\Collections::choices($app->db(), (string) ($field['collection'] ?? ''))), $choices)) . '</select>',
-        default => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $contentDir . '>',
+        default => '<input class="textfield wide" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $hint() . $extra . $contentDir . '>',
     } ?></div>
+<?php if ($help !== ''): ?>
+		<p class="help" id="<?= e($id) ?>-help"><?= e($help) ?></p>
+<?php endif ?>
 	</div>
 <?php endforeach ?>
 </div>
