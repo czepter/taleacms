@@ -27,8 +27,11 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
+
+    /** Tabs that belong to a feature (Core\Extensions): with the feature off the tab is not offered. */
+    public const array TAB_EXTENSIONS = ['enquiries' => 'enquiries'];
 
     /** Company types for the field company_type (choice:…). */
     private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
@@ -80,6 +83,8 @@ class Settings extends Module
         ],
         'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
             'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
+        // how long enquiries and job applications are kept and whether the assistant sorts new ones (moved here from the Enquiries screen)
+        'enquiries' => ['enquiries_months' => 'number:0:120', 'enquiries_expiry' => 'choice:delete|anonymise', 'job_applications_months' => 'number:0:120', 'triage_assistant' => 'flag'],
         'mail' => ['mail_mode' => 'choice:mail|smtp', 'mail_from' => 'email', 'mail_from_name' => 'text', 'mail_reply_to' => 'email', 'mail_reply_to_name' => 'text', 'smtp_host' => 'pattern:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'number:1:65535',
             'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000'],
         // the monthly report (2.9) and its archive (#161, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
@@ -223,6 +228,7 @@ class Settings extends Module
             // #161: the archived monthly reports, the month the archive starts with and the month the job stores next
             'reports' => $tab === 'reports' ? ['months' => \Talea\Core\ReportArchive::months($this->db), 'first' => \Talea\Core\ReportArchive::firstMonth($this->db),
                 'previous' => \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
+            'retentionSuggestion' => $tab === 'enquiries' ? \Talea\Core\Jobs::suggestedRetention($settings->get('company_country'), $settings->get('site_language')) : null,
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
                 ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
         ]);
@@ -778,7 +784,13 @@ class Settings extends Module
 
     protected function tab(string $tab): string
     {
-        return isset(self::TABS[$tab]) ? $tab : 'general';
+        return isset(self::TABS[$tab]) && self::tabAvailable($tab, $this->app->settings()) ? $tab : 'general';
+    }
+
+    /** Is the tab offered: a tab of a feature only while the feature is on. */
+    public static function tabAvailable(string $tab, \Talea\Core\Settings $settings): bool
+    {
+        return !isset(self::TAB_EXTENSIONS[$tab]) || Extensions::isEnabled($settings, self::TAB_EXTENSIONS[$tab]);
     }
 
     /**

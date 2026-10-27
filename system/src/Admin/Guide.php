@@ -74,6 +74,7 @@ final class Guide
         'seo' => 'seo#settings-seo-and-geo',
         'analytics' => 'statistics#settings-analytics',
         'cookies' => 'privacy-cookies',
+        'enquiries' => 'forms#enquiries',
         'mail' => 'email',
         'reports' => 'email',
         'webhooks' => 'forms#connecting-other-tools',

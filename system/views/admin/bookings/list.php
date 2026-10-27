@@ -113,5 +113,5 @@ $kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'decl
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 </details>
-<p class="small-text"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Enquiries → settings).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Enquiries so personal data does not stay forever.')) ?> <?= e(t('Claude can check free times and set up services and people; reading bookings is recorded in the change log.')) ?></p>
+<p class="small-text"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Settings → Enquiries).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Settings → Enquiries so personal data does not stay forever.')) ?> <?= e(t('Claude can check free times and set up services and people; reading bookings is recorded in the change log.')) ?></p>
 <?php endif ?>

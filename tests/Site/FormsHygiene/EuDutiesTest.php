@@ -77,7 +77,7 @@ final class EuDutiesTest extends SiteTestCase
     public function testRetentionWithAnonymiseKeepsTheRowAndBlanksThePerson(): void
     {
         // the choice first – opening Enquiries runs the retention, which would delete the old row under the default
-        $this->adminPost('/admin.php?module=enquiries&action=settings', ['months' => 24, 'applicant_months' => 0, 'after_expiry' => 'anonymise'], formPage: '/admin.php?module=enquiries');
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'enquiries', 'enquiries_months' => 24, 'job_applications_months' => 0, 'enquiries_expiry' => 'anonymise'], formPage: '/admin.php?module=settings&tab=enquiries');
         $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, page, topic, email, data, status, category) VALUES (NOW() - INTERVAL 30 MONTH, 'Service 2.14', '/video-2-14', 'Video', 'old@example.com', ?, 2, 'sales')",
             ['[["Name","Old Customer"],["E-mail","old@example.com"],["Message","Fix the boiler"]]']);
         self::$old = (int) $this->site()->pdo->lastInsertId();
@@ -87,7 +87,8 @@ final class EuDutiesTest extends SiteTestCase
         $this->assertSame('Service 2.14|/video-2-14|Video|sales||[["Name",""],["E-mail",""],["Message",""]]|1',
             (string) $this->site()->value("SELECT CONCAT(form, '|', page, '|', topic, '|', category, '|', email, '|', data, '|', anonymised_at IS NOT NULL) FROM tl_enquiries WHERE enquiry_id = ?", [self::$old]),
             '2.14: retention with anonymise keeps the row – date, form, page, topic and kind stay, the person is blank');
-        $this->assertTrue($response->contains('name="after_expiry" value="anonymise" checked'), '2.14: the enquiry settings remember anonymise');
+        $this->assertTrue($this->assertPage('/admin.php?module=settings&tab=enquiries')->contains('name="enquiries_expiry" value="anonymise" checked'), '2.14: Settings → Enquiries remembers anonymise');
+        $this->assertFalse($response->contains('name="enquiries_months"'), 'the retention is no longer a form under the inbox');
     }
 
     public function testAnEnquiryCanBeAnonymisedOnItsOwn(): void

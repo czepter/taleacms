@@ -17,7 +17,7 @@ use Talea\Admin\Modules\Enquiries;
  * translate it, a copy of the form on an ordinary page is not an application, and nothing new is stored on the enquiry.
  *
  * Applications carry CVs and are usually kept only for a limited time after the selection, so they have their own retention
- * (the setting job_applications_months, Enquiries → settings; 0 = like other enquiries). The daily clean-up
+ * (the setting job_applications_months, Settings → Enquiries; 0 = like other enquiries). The daily clean-up
  * (Core\Notifications::purgePersonalData) deletes them with their attachments and records the count in the change log and
  * as the event applications.purged. The selection is pure and unit-tested.
  */
