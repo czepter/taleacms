@@ -398,6 +398,7 @@ Object.assign(window.TALEA_TRANSLATIONS, {
 	"none yet - create one on the Backups tab": "noch keines – erstelle eines auf der Registerkarte Backups",
 	"none – you export subscribers to CSV": "keiner – du exportierst Abonnenten als CSV",
 	"on a low-traffic site set up cron; you will find the address further down this page": "richte bei einer Website mit wenig Besuchern Cron ein; die Adresse findest du weiter unten auf dieser Seite",
+	"or drop them here": "oder zieh sie hierher",
 	"pages straight into the builder – edit them visually; the original text stays as a backup": "Seiten direkt in den Builder – du bearbeitest sie visuell; der ursprüngliche Text bleibt als Backup erhalten",
 	"someone (most likely you) asked for a new password for the account %s in the administration of %s.": "jemand (höchstwahrscheinlich du) hat ein neues Passwort für das Konto %s in der Administration von %s angefordert.",
 	"the administrator of %s has sent you a link to set a new password for the account %s.": "der Administrator von %s hat dir einen Link zum Festlegen eines neuen Passworts für das Konto %s gesendet.",

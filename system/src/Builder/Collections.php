@@ -18,7 +18,11 @@ final class Collections
     /** Field types (key => label). */
     public const array FIELD_TYPES = ['text' => 'short text', 'lines' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link', 'number' => 'number', 'date' => 'date',
         'datetime' => 'date and time', 'file' => 'file', 'location' => 'location (latitude, longitude)', 'radio' => 'choice from options',
-        'parameters' => 'parameters (Name: value per line)', 'variants' => 'variants (name | code | price per line)', 'item' => 'item of another collection'];
+        'parameters' => 'parameters (Name: value per line)', 'variants' => 'variants (name | code | price per line)', 'item' => 'item of another collection',
+        'gallery' => 'gallery (photos from Media)'];
+
+    /** Photos a gallery field keeps at most. */
+    public const int GALLERY_MAX = 100;
 
     /** A file or an image: an https address or a path in Media. */
     public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#';
@@ -76,6 +80,88 @@ final class Collections
         }
 
         return rtrim(rtrim(number_format((float) $m[1], 6, '.', ''), '0'), '.') . ', ' . rtrim(rtrim(number_format((float) $m[2], 6, '.', ''), '0'), '.');
+    }
+
+    /**
+     * A gallery field: photos from Media, one per line as "path | description". Takes lines, a list of paths or of
+     * {src, alt}, or formatted text with <img> tags (a gallery written into a formatted text field before keeps working
+     * when the field becomes a gallery). '' stays empty, null = not valid (a photo that is not a path in Media or https).
+     */
+    public static function cleanGallery(mixed $value): ?string
+    {
+        $out = [];
+        $invalid = false;
+        foreach (self::galleryPhotos($value, $invalid) as $photo) {
+            $out[] = $photo['src'] . ($photo['alt'] !== '' ? ' | ' . $photo['alt'] : '');
+        }
+
+        return $invalid ? null : implode("\n", $out);
+    }
+
+    /**
+     * Photos of a gallery value (see cleanGallery), at most GALLERY_MAX; a line that is not a photo is left out.
+     *
+     * @param-out bool $invalid
+     * @return list<array{src: string, alt: string}>
+     */
+    public static function galleryPhotos(mixed $value, bool &$invalid = false): array
+    {
+        $invalid = false;
+        $entries = [];
+        if (is_array($value)) {
+            foreach ($value as $entry) {
+                $entries[] = is_array($entry) ? [(string) (is_scalar($entry['src'] ?? null) ? $entry['src'] : ''), (string) (is_scalar($entry['alt'] ?? null) ? $entry['alt'] : '')]
+                    : [is_scalar($entry) ? (string) $entry : '', ''];
+            }
+        } elseif (is_scalar($value) && str_contains((string) $value, '<img')) {
+            preg_match_all('/<img\b[^>]*>/i', (string) $value, $tags);
+            foreach ($tags[0] as $tag) {
+                $attribute = fn (string $name): string => preg_match('/\s' . $name . '\s*=\s*("([^"]*)"|\'([^\']*)\')/i', $tag, $m) === 1 ? html_entity_decode($m[2] !== '' ? $m[2] : ($m[3] ?? ''), ENT_QUOTES | ENT_HTML5) : '';
+                $entries[] = [$attribute('src'), $attribute('alt')];
+            }
+        } elseif (is_scalar($value)) {
+            foreach (preg_split('/\R/u', (string) $value) ?: [] as $line) {
+                $entries[] = array_pad(explode('|', $line, 2), 2, '');
+            }
+        }
+        $photos = [];
+        foreach ($entries as [$src, $alt]) {
+            $src = trim($src);
+            if ($src === '') {
+                continue;
+            }
+            if (preg_match(self::MEDIA_PATTERN, $src) !== 1 || str_contains($src, '..')) {
+                $invalid = true;
+                continue;
+            }
+            $photos[] = ['src' => $src, 'alt' => mb_substr(trim(strip_tags(str_replace(["\r", "\n"], ' ', $alt))), 0, 300)];
+        }
+
+        return array_slice($photos, 0, self::GALLERY_MAX);
+    }
+
+    /**
+     * Photos of the first gallery field of an item (its placeholder values, Collections::values): what a Gallery element with
+     * no photos and no folder shows in an item template or a Collection list; null = the collection has no gallery field.
+     *
+     * @param array<string, array{0: string, 1: string}> $values
+     * @return list<array{src: string, alt: string}>|null
+     */
+    public static function itemGallery(array $values): ?array
+    {
+        foreach ($values as [$value, $type]) {
+            if ($type === 'gallery') {
+                return self::galleryPhotos($value);
+            }
+        }
+
+        return null;
+    }
+
+        /** A gallery value as formatted text: one figure per photo (in a Text element; the Gallery element shows it as a gallery). */
+    public static function galleryHtml(string $value): string
+    {
+        return implode("\n", array_map(fn (array $photo): string => '<figure><img src="' . e($photo['src']) . '" alt="' . e($photo['alt']) . '" loading="lazy"></figure>', self::galleryPhotos($value)));
     }
 
     /** A date and time field for visitors: the day in the site's format, with the time when it has one. */
@@ -244,6 +330,7 @@ final class Collections
         foreach ($field as $p) {
             $h = trim((string) (is_scalar($input[$p['key']] ?? null) ? $input[$p['key']] : ''));
             $clean = match ($p['type']) {
+                'gallery' => self::cleanGallery($input[$p['key']] ?? ''), // a list of photos (from MCP or an import) or lines
                 'text' => mb_substr(strip_tags(str_replace(["\r", "\n"], ' ', $h)), 0, 500),
                 'lines' => mb_substr(strip_tags(str_replace("\r\n", "\n", $h)), 0, 5000),
                 'html' => WpContent::safeHtml(mb_substr($h, 0, 100000)),
@@ -420,6 +507,12 @@ final class Collections
                 $h[$p['key'] . '_raw'] ??= [$value, 'text'];
                 continue;
             }
+            if ($p['type'] === 'gallery') {
+                // {{photos}} = the photos as figures in a text (a Gallery element shows them without a tag); {{photos_count}} = how many
+                $h[$p['key']] = [$value, 'gallery'];
+                $h[$p['key'] . '_count'] ??= [(string) count(self::galleryPhotos($value)), 'text'];
+                continue;
+            }
             if ($p['type'] === 'radio') {
                 $h[$p['key']] = [$value !== '' ? t($value) : '', 'text']; // a preset's options are English keys with site translations
                 continue;
@@ -479,7 +572,7 @@ final class Collections
     {
         $h = ['name' => ['[' . t('Name') . ']', 'text'], 'url' => ['#', 'link'], 'date' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
         foreach ($collection['fields'] as $p) {
-            $h[$p['key']] = [in_array($p['type'], ['image', 'link', 'file'], true) ? '' : '[' . $p['label'] . ']', $p['type'] === 'file' ? 'link' : (in_array($p['type'], ['datetime', 'radio', 'location', 'parameters', 'variants'], true) ? 'text' : $p['type'])];
+            $h[$p['key']] = [in_array($p['type'], ['image', 'link', 'file', 'gallery'], true) ? '' : '[' . $p['label'] . ']', $p['type'] === 'file' ? 'link' : (in_array($p['type'], ['datetime', 'radio', 'location', 'parameters', 'variants'], true) ? 'text' : $p['type'])];
         }
         if (\Talea\Core\Notices::isBoard($collection)) {
             $h['notice_status'] ??= ['[' . t('Notice status') . ']', 'text'];
@@ -513,11 +606,16 @@ final class Collections
                 // a paragraph with only a tag of formatted or longer text is replaced whole (otherwise <p><p>…</p></p> would result)
                 return match ($type) {
                     'html' => $h,
+                    'gallery' => self::galleryHtml($h),
                     'lines' => $h === '' ? '' : '<p>' . nl2br(e($h), false) . '</p>',
                     default => $h === '' ? '' : '<p>' . e($h) . '</p>',
                 };
             }
             $plain = $type === 'html' ? trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)) : $h;
+            if ($type === 'gallery') {
+                // figures in formatted text and Custom HTML; a Gallery element shows the photos by itself (itemGallery)
+                return in_array($target, ['html', 'code'], true) ? self::galleryHtml($h) : '';
+            }
 
             return match ($target) {
                 'html' => $type === 'html' ? $h : $isolate($type === 'lines' ? nl2br(e($h), false) : e($h)),
@@ -548,6 +646,7 @@ final class Collections
                 'link' => $n('button', ['text' => $p['label'], 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
                 'file' => $n('button', ['text' => $p['label'] . ' ({{' . $p['key'] . '_name}})', 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
                 'html', 'lines' => $n('text', ['html' => '{{' . $p['key'] . '}}']),
+                'gallery' => $n('gallery', ['layout' => 'masonry', 'label' => $p['label']]),
                 default => $n('text', ['html' => '<p><strong>' . e($p['label']) . ':</strong> {{' . $p['key'] . '}}</p>']),
             };
         }

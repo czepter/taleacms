@@ -57,4 +57,37 @@ final class CollectionsTest extends TestCase
         $values = \Talea\Core\Language::runWith('en', fn (): array => \Talea\Builder\Collections::values($collection, ['name' => '[Product]', 'slug' => 'product', 'created_at' => '2026-10-18 10:00:00', 'data' => ['price' => '1490.50']], fn (string $p): string => $p));
         $this->assertSame([['1,490.50', 'text'], ['1490.50', 'text']], [$values['price'], $values['price_raw']], 'Collections::values: {{price}} for visitors, {{price_raw}} as stored');
     }
+
+    /** a gallery field: photos from Media as lines, also read from a formatted text that held the photos before */
+    public function testGalleryField(): void
+    {
+        $fields = \Talea\Builder\Collections::sanitizeFields([['label' => 'Photos', 'type' => 'gallery']]);
+        $this->assertSame([['key' => 'photos', 'label' => 'Photos', 'type' => 'gallery']], $fields, 'Collections::sanitizeFields: gallery is a known type');
+        $errors = [];
+        $this->assertSame([
+            ['photos' => "media/a.webp | First\n/media/b.webp"],
+            ['photos' => "/media/2026/c.webp | Anna & Ben 1\nmedia/d.webp"],
+            ['photos' => "media/e.webp | Lake"],
+            ['photos' => ''],
+        ], [
+            \Talea\Builder\Collections::sanitizeData($fields, ['photos' => "media/a.webp | First\r\n\n /media/b.webp "], $errors),
+            \Talea\Builder\Collections::sanitizeData($fields, ['photos' => '<figure><img src="/media/2026/c.webp" alt="Anna &amp; Ben 1" width="768" height="555"></figure><p><img alt="" src="media/d.webp"></p>'], $errors),
+            \Talea\Builder\Collections::sanitizeData($fields, ['photos' => [['src' => 'media/e.webp', 'alt' => "<b>Lake</b>"]]], $errors),
+            \Talea\Builder\Collections::sanitizeData($fields, ['photos' => "javascript:alert(1) | x\nmedia/f.webp"], $errors),
+        ], 'Collections::sanitizeData: lines, figures of a former formatted text and a list from MCP become lines; a photo that is not from Media refuses the value');
+        $this->assertSame(['photos' => 'Photos'], $errors);
+        $values = \Talea\Builder\Collections::values(['slug' => 'story', 'detail' => true, 'preset' => '', 'fields' => $fields], ['name' => 'X', 'slug' => 'x', 'created_at' => '2026-10-27 10:00:00', 'data' => ['photos' => "media/a.webp | A \"quoted\"\nmedia/b.webp"]], fn (string $p): string => '/' . $p);
+        $this->assertSame([["media/a.webp | A \"quoted\"\nmedia/b.webp", 'gallery'], ['2', 'text']], [$values['photos'], $values['photos_count']], 'Collections::values: {{photos}} keeps the lines, {{photos_count}} counts them');
+        $figures = '<figure><img src="media/a.webp" alt="A &quot;quoted&quot;" loading="lazy"></figure>' . "\n" . '<figure><img src="media/b.webp" alt="" loading="lazy"></figure>';
+        $this->assertSame([$figures, $figures, '', '', ''], [
+            \Talea\Builder\Collections::fill('<p>{{photos}}</p>', 'html', $values), \Talea\Builder\Collections::fill('{{photos}}', 'html', $values),
+            \Talea\Builder\Collections::fill('{{photos}}', 'text', $values), \Talea\Builder\Collections::fill('{{photos}}', 'link', $values), \Talea\Builder\Collections::fill('{{photos}}', 'image', $values),
+        ], 'Collections::fill: figures in formatted text, nothing in a heading, a link or an image');
+        $this->assertSame([[['src' => 'media/a.webp', 'alt' => 'A "quoted"'], ['src' => 'media/b.webp', 'alt' => '']], null], [
+            \Talea\Builder\Collections::itemGallery($values), \Talea\Builder\Collections::itemGallery(['name' => ['X', 'text']]),
+        ], 'Collections::itemGallery: a Gallery element without photos shows the item gallery; null without a gallery field');
+        $template = \Talea\Builder\Collections::defaultTemplate(['fields' => $fields]);
+        $gallery = $template['children'][0]['children'][0]['children'][1];
+        $this->assertSame(['gallery', 'masonry'], [$gallery['type'], $gallery['content']['layout']], 'Collections::defaultTemplate: a gallery field becomes a Gallery element (it shows the item gallery by itself)');
+    }
 }

@@ -316,6 +316,8 @@ final class Seo
                 $body[] = '## ' . $label . "\n\n" . $text;
             } elseif ($field['type'] === 'image') {
                 $body[] = '![' . $label . '](' . $this->absoluteUrl($value) . ')';
+            } elseif ($field['type'] === 'gallery') {
+                $body[] = '## ' . $label . "\n\n" . implode("\n", array_map(fn (array $photo): string => '![' . str_replace(['[', ']'], '', $photo['alt']) . '](' . $this->absoluteUrl($photo['src']) . ')', \Talea\Builder\Collections::galleryPhotos($value)));
             } else {
                 $head[] = '- ' . $label . ': ' . ($field['type'] === 'file' ? $this->absoluteUrl($value) : str_replace("\n", ' ', $value));
             }

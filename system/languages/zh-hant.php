@@ -900,6 +900,7 @@ The link works for %d days.
     'The page you are looking for is not here. It may have a different address.' => '您要找的頁面不在這裡。它可能使用了不同的網址。',
     'The password is not right.' => '密碼不正確。',
     'The path to the page (Home › News › …) – built automatically for the page shown.' => '通往頁面的路徑（首頁 › 最新消息 › …）– 會針對顯示的頁面自動產生。',
+    'The photos of each item’s gallery appear here.' => '此處顯示每個條目圖庫中的照片。',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => '連結應用程式的請求已過期或不存在。請在應用程式中重新開始連結。',
     'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => '伺服器無法使用加密 FTP（FTPS）。請將備份傳送到 S3 儲存空間，或手動下載。',
     'The site has no database backup yet.' => '此網站尚無資料庫備份。',

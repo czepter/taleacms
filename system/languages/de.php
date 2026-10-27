@@ -895,6 +895,7 @@ Der Link gilt %d Tage.
     'The page you are looking for is not here. It may have a different address.' => 'Die gesuchte Seite gibt es auf dieser Website nicht. Vielleicht hat sie eine andere Adresse.',
     'The password is not right.' => 'Das Passwort ist nicht richtig.',
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Der Pfad zur Seite (Startseite › Neuigkeiten › …) – wird für die angezeigte Seite automatisch erstellt.',
+    'The photos of each item’s gallery appear here.' => 'Hier erscheinen die Fotos aus der Galerie des jeweiligen Eintrags.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'Die Anfrage zur Verbindung der Anwendung ist abgelaufen oder existiert nicht. Starten Sie die Verbindung in der Anwendung erneut.',
     'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Der Server unterstützt kein verschlüsseltes FTP (FTPS). Senden Sie Sicherungen an einen S3-Speicher oder laden Sie sie manuell herunter.',
     'The site has no database backup yet.' => 'Die Website hat noch keine Datenbanksicherung.',

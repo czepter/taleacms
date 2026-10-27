@@ -2337,6 +2337,7 @@ Odkaz platí %d dní.
     'The password must be at least 10 characters long.' => 'Heslo musí mít alespoň 10 znaků.',
     'The passwords do not match.' => 'Hesla se neshodují.',
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Cesta ke stránce (Úvod › Novinky › …) – sestaví se sama podle zobrazené stránky.',
+    'The photos of each item’s gallery appear here.' => 'Tady se zobrazí fotky z galerie každé položky.',
     'The pop-up counters were reset.' => 'Počitadla okna jsou vynulovaná.',
     'The pop-up does not exist.' => 'Pop-up okno neexistuje.',
     'The pop-up is created turned off and opens in the builder. It shows on the site once you publish it and turn it on.' => 'Okno se založí vypnuté a otevře se v builderu. Na webu se ukáže, až ho publikujete a zapnete.',

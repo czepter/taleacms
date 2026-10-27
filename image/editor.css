@@ -27,6 +27,18 @@
 .editor-source .editor-tools button:not(.editor-html) { opacity: 0.35; pointer-events: none; }
 .editor-status { display: flex; justify-content: space-between; gap: 12px; padding: 4px 10px; border-top: 1px solid var(--ed-line); font-size: 11px; color: var(--ed-text-weak); }
 
+.gallery-field { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 12px; border-radius: 10px; }
+.gallery-field.editor-drag-over { box-shadow: 0 0 0 3px var(--ed-accent); }
+.gallery-field-photo { position: relative; display: grid; gap: 6px; padding: 6px; border: 1px solid var(--ed-line); border-radius: 10px; background: var(--ed-surface); cursor: grab; }
+.gallery-field-photo.dragging { opacity: .4; }
+.gallery-field-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; object-fit: cover; background: color-mix(in oklch, var(--ed-text) 6%, transparent); }
+.gallery-field-photo .textfield { width: 100%; min-width: 0; box-sizing: border-box; font-size: 13px; }
+.gallery-field-number { position: absolute; inset-block-start: 12px; inset-inline-start: 12px; min-width: 22px; padding: 0 6px; border-radius: 999px; background: var(--ed-surface); color: var(--ed-text); font-size: 12px; font-weight: 700; line-height: 22px; text-align: center; }
+.gallery-field-tools { position: absolute; inset-block-start: 10px; inset-inline-end: 10px; display: flex; gap: 4px; }
+.gallery-field-tools .icon-btn { width: 28px; height: 28px; background: var(--ed-surface); }
+.gallery-field-add { display: grid; place-content: center; gap: 4px; min-height: 10rem; padding: 12px; border: 2px dashed var(--ed-line); border-radius: 10px; background: transparent; color: var(--ed-text-weak); font: inherit; text-align: center; cursor: pointer; }
+.gallery-field-add strong { color: var(--ed-text); }
+.gallery-field-add:hover { border-color: var(--ed-text-weak); }
 .image-preview { display: block; max-width: 260px; max-height: 160px; margin-top: 8px; border: 1px solid var(--ed-line); border-radius: var(--ed-radius-small); object-fit: cover; }
 [data-image] + button.navigation { margin-top: 6px; }
 

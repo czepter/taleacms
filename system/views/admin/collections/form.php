@@ -60,6 +60,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
         'datetime' => ' <code>{{' . e($p['key']) . '_iso}}</code>',
         'number' => ' <code>{{' . e($p['key']) . '_raw}}</code>',
         'file' => ' <code>{{' . e($p['key']) . '_name}}</code>',
+        'gallery' => ' <code>{{' . e($p['key']) . '_count}}</code>',
         default => '',
     } : '<span class="help">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>

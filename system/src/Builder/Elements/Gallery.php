@@ -6,6 +6,7 @@ namespace Talea\Builder\Elements;
 
 use Talea\Core\Images;
 use Talea\Core\Db;
+use Talea\Builder\Collections;
 use Talea\Builder\Context;
 use Talea\Builder\Element;
 
@@ -13,7 +14,8 @@ use Talea\Builder\Element;
  * Photo gallery: a tap opens the photo full screen (the viewer from image/web.js, arrows, swipe, Esc). Layouts: grid (the default, no script
  * needed; the number of columns is set by the style, on a phone it narrows by itself), masonry (CSS columns), justified rows (flex rows that
  * image/web.js evens out from the width/height attributes), slideshow (a scroll-snap strip with the carousel's arrows and dots) and full-screen (a grid whose viewer
- * asks the browser for real full screen). Photos come from the list and/or from a Media folder (by its public id), newest last.
+ * asks the browser for real full screen). Photos come from the list and/or from a Media folder (by its public id), newest last; a gallery
+ * with neither, in an item template or a Collection list, shows the photos of the item's gallery field (edited in the item form).
  */
 final class Gallery extends Element
 {
@@ -81,6 +83,9 @@ final class Gallery extends Element
         $layout = (string) $o['layout'];
         $base = $k->app->request->basePath();
         $photos = array_values(array_filter($o['photos'], fn (array $f): bool => $f['src'] !== ''));
+        $itemPhotos = $photos === [] && $o['folder'] === '' && $k->item !== null ? Collections::itemGallery($k->item) : null;
+        $fromItem = $itemPhotos !== null;
+        $photos = $itemPhotos ?? $photos;
         if ($o['folder'] !== '') {
             $photos = [...$photos, ...self::folderPhotos($k->app->db(), (string) $o['folder'], self::MAX_PHOTOS - count($photos))];
         }
@@ -95,7 +100,9 @@ final class Gallery extends Element
                 . ' alt="' . e($f['alt']) . '" loading="lazy"' . $shape . '>';
         }
         if ($html === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">' . e(t('Add photos in the Content panel.')) . '</div>' : '';
+            $hint = $fromItem ? t('The photos of each item’s gallery appear here.') : t('Add photos in the Content panel.');
+
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--tl-color-surface)">' . e($hint) . '</div>' : '';
         }
         $caption = '';
         if ($o['caption'] !== '') {
