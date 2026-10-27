@@ -14,7 +14,8 @@
         "consent",
         "service",
         "staff_member",
-        "thank_you"
+        "thank_you",
+        "thank_you_page"
     ],
     "breadcrumbs": [],
     "button": [

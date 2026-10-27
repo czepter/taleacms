@@ -211,19 +211,26 @@ final class Forms
             Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
                 . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
-        $thankYouUrl = (string) ($element['content']['thank_you_page'] ?? '');
+        $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
+
+        return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirectUri('ok');
+    }
+
+    /**
+     * The thank-you page a form or booking element sends the visitor to, or null (empty or not allowed: the thank-you
+     * message shows in place). A path on the site or an https:// address; ?sent=<name> reports the conversion to
+     * analytics (image/web.js), just like the in-place thank-you.
+     */
+    public static function thankYouPage(\Talea\Core\Request $r, string $url, string $sent): ?string
+    {
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
-        if ($thankYouUrl !== '' && !str_contains($thankYouUrl, '\\') && (str_starts_with($thankYouUrl, '/') && !str_starts_with($thankYouUrl, '//') || preg_match('#^https://#', $thankYouUrl))) {
-            // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
-            // ?sent=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
-            // in-place thank-you
-            $thankYouUrl = (str_starts_with($thankYouUrl, '/') ? $r->basePath() . $thankYouUrl : $thankYouUrl);
-            $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'sent=' . rawurlencode((string) $element['content']['name']);
-
-            return Response::redirect($thankYouUrl, 303);
+        if ($url === '' || str_contains($url, '\\') || !(str_starts_with($url, '/') && !str_starts_with($url, '//') || preg_match('#^https://#', $url))) {
+            return null;
         }
+        // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
+        $url = str_starts_with($url, '/') ? $r->basePath() . $url : $url;
 
-        return $redirectUri('ok');
+        return $url . (str_contains($url, '?') ? '&' : '?') . 'sent=' . rawurlencode($sent);
     }
 
     /**

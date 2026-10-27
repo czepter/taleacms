@@ -121,4 +121,15 @@ final class BookingFlowTest extends SiteTestCase
         $phone = (int) $this->q("SELECT id FROM tl_bookings WHERE source = 'admin' LIMIT 1");
         $this->assertSame('1|1|1', $this->q("SELECT CONCAT(COUNT(*), '|', MAX(name = ''), '|', MAX(anonymised_at IS NOT NULL)) FROM tl_bookings WHERE id = $phone"), 'booking: past the enquiry retention the booking is anonymised, the row stays');
     }
+
+    public function testThankYouPage(): void
+    {
+        $this->bookingFixture();
+        $day = self::$day;
+        $this->site()->mcp('save_build', ['id' => $this->site()->publicId('pages', self::$page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+            ['id' => 'bk1', 'type' => 'booking', 'content' => ['thank_you_page' => '/booking-thanks']],
+        ]]]]]);
+        $this->assertStringEndsWith('/booking-thanks?sent=Booking', $this->book(['slot' => "$day 14:00", 'name' => 'Thanks Page', 'email' => 'thanks-bk@example.cz', 'consent' => '1']), 'booking: a confirmed booking goes to the thank-you page, with the conversion');
+        $this->assertStringContainsString('result=taken', $this->book(['slot' => "$day 14:00", 'name' => 'Druhy', 'email' => 'druhy-bk@example.cz', 'consent' => '1']), 'booking: a failed booking stays on the page with its result');
+    }
 }

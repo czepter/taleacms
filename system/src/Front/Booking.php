@@ -103,8 +103,12 @@ final class Booking
         }
         $antispam->write($r->ip(), 'booking', 0);
         Cache::clear(); // the free times on the page changed
+        if ($booking['status'] === 'pending') { // a request still waiting for confirmation keeps its own message
+            return $redirect('pending');
+        }
+        $thankYouUrl = Forms::thankYouPage($r, (string) ($o['thank_you_page'] ?? ''), t('Booking'));
 
-        return $redirect($booking['status'] === 'pending' ? 'pending' : 'ok');
+        return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirect('ok');
     }
 
     /**

@@ -38,6 +38,7 @@ final class Booking extends Element
             'staff_member' => ['type' => 'number', 'label' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'default' => 0, 'min' => 0, 'max' => 1000000],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Book the appointment'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
+            'thank_you_page' => ['type' => 'link', 'label' => 'After booking, go to a page (empty = thank-you message in place of the form; a request that still needs confirmation always shows its message)', 'default' => ''],
             'consent' => ['type' => 'text', 'label' => 'Consent text (a required checkbox)', 'default' => t('I agree to the processing of my personal data for the purpose of this appointment.'), 'max' => 300],
         ];
     }
