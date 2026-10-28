@@ -85,7 +85,8 @@ final class CollectionSchema
      * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data" (the whole row: a job posting reads datum and valid_until)
      * @param string $issuerId @id of the company node (the provider of a service, the organiser of an event)
-     * @param array<string, mixed> $issuer the company node itself (Front\Company::schema) – the hiring organization of a job posting
+     * @param array<string, mixed> $issuer the company node itself (Front\Company::schema) – the hiring organization of a job posting;
+     *        a Person issuer gives no job posting (it needs an organisation, Core\Audit says so) and no worksFor/parentOrganization
      */
     public static function forItem(array $collection, array $item, string $url, string $description, string $image, string $issuerId, array $issuer = []): ?array
     {
@@ -100,8 +101,9 @@ final class CollectionSchema
             return trim(html_entity_decode(strip_tags($v), ENT_QUOTES | ENT_HTML5));
         };
         $name = (string) $item['name'];
+        $organization = ($issuer['@type'] ?? '') !== 'Person';
         if ($schema['type'] === 'JobPosting') {
-            return self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
+            return !$organization ? null : self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
         }
         if ($schema['type'] === 'FAQPage') {
             $answer = $value('answer');
@@ -120,13 +122,13 @@ final class CollectionSchema
         return array_filter($node + match ($schema['type']) {
             'Service' => ['serviceType' => $value('serviceType'), 'areaServed' => $value('areaServed'), 'provider' => ['@id' => $issuerId], 'offers' => $offer],
             'Person' => ['jobTitle' => $value('jobTitle'), 'email' => $value('email'), 'telephone' => $value('telephone'),
-                'sameAs' => preg_match('#^https?://#', $value('sameAs')) ? $value('sameAs') : '', 'worksFor' => ['@id' => $issuerId]],
+                'sameAs' => preg_match('#^https?://#', $value('sameAs')) ? $value('sameAs') : '', 'worksFor' => $organization ? ['@id' => $issuerId] : null],
             'Product' => ['brand' => $value('brand') !== '' ? ['@type' => 'Brand', 'name' => $value('brand')] : null, 'sku' => $value('sku'), 'offers' => $offer],
             'Event' => ['startDate' => self::date($value('startDate')), 'endDate' => self::date($value('endDate')), 'eventStatus' => 'https://schema.org/EventScheduled'] + self::eventPlace($value('location'), $value('address'), $value('online'))
                 + ['organizer' => ['@id' => $issuerId], 'offers' => $offer],
             // the branch belongs to the company; hours that do not parse are left out rather than guessed
             'LocalBusiness' => ['address' => $value('address'), 'telephone' => $value('telephone'), 'email' => $value('email'), 'geo' => self::geo($value('geo')),
-                'openingHoursSpecification' => \Talea\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
+                'openingHoursSpecification' => \Talea\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => $organization ? ['@id' => $issuerId] : null],
         }, fn (mixed $v): bool => $v !== '' && $v !== null);
     }
 

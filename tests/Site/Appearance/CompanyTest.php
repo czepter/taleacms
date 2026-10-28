@@ -64,4 +64,31 @@ final class CompanyTest extends SiteTestCase
             $this->assertStringContainsString($needle, $contact->body, 'the contact page lists the company details from the settings');
         }
     }
+
+    #[Depends('testTheContactPageListsTheCompanyDetails')]
+    public function testAnInvalidTypeOverMcpNamesTheAllowedValues(): void
+    {
+        $result = $this->site()->mcpResult('update_settings', ['settings' => ['company_type' => 'Robot']]);
+
+        $this->assertStringContainsString('Allowed: Organization, LocalBusiness,', (string) ($result['errors']['company_type'] ?? ''), 'an invalid choice lists the allowed values');
+        $this->assertStringContainsString(', Person', (string) $result['errors']['company_type']);
+    }
+
+    #[Depends('testAnInvalidTypeOverMcpNamesTheAllowedValues')]
+    public function testAPersonalSiteIsAPersonForSearchEngines(): void
+    {
+        $site = $this->site();
+        $this->assertSame('Person', $site->mcpResult('update_settings', ['settings' => ['company_type' => 'Person', 'company_name' => 'Jane Doe']])['saved']['company_type'] ?? null, 'Person over MCP');
+        $this->assertPage('/admin.php?module=business', 200, '<span class="company-person">', message: 'the admin names the field for a person');
+        $site->clearPageCache();
+
+        $home = $site->client()->get('/');
+
+        foreach (['"@type":"Person","@id":"' . $site->base . '/#owner","name":"Jane Doe"', '"publisher":{"@id":"' . $site->base . '/#owner"}', '"telephone":"+44 20 7946 0958"'] as $needle) {
+            $this->assertStringContainsString($needle, $home->body, 'the person in structured data, the publisher of the site');
+        }
+        foreach (['"legalName"', '"vatID"', '"identifier"', '"openingHoursSpecification"', '"geo"', '"hasMap"', '"logo"'] as $needle) {
+            $this->assertStringNotContainsString($needle, $home->body, 'no organisation properties on a person: ' . $needle);
+        }
+    }
 }

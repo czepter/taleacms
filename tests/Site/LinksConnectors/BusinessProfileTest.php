@@ -139,7 +139,7 @@ final class BusinessProfileTest extends SiteTestCase
         $this->assertStringContainsString('href="https://maps.google.com/?cid=1" target="_blank" rel="noopener">All reviews on Google</a>', $body, 'GBP: the link to all reviews');
         $this->assertStringContainsString('"aggregateRating":{"@type":"AggregateRating","ratingValue":4.3,"reviewCount":27,"bestRating":5,"worstRating":1}', $body, 'GBP: AggregateRating from Google\'s data');
         $this->assertStringContainsString('"review":[{"@type":"Review","author":{"@type":"Person","name":"Alena K."},"datePublished":"2026-09-20","reviewRating":{"@type":"Rating","ratingValue":5', $body, 'GBP: the shown reviews in the structured data');
-        $this->assertStringContainsString('"@id":"' . $site->base . '/#firma"', $body, 'GBP: on the company node');
+        $this->assertStringContainsString('"@id":"' . $site->base . '/#owner"', $body, 'GBP: on the company node');
         $this->assertStringContainsString('<p>Rating 4.3 of 27</p>', $body, 'GBP: {{fact.google_rating}} and {{fact.google_reviews}} are built-in facts');
     }
 

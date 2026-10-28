@@ -111,7 +111,8 @@ final class GoogleReviews extends Element
 
     /**
      * AggregateRating and the shown reviews on the company node (the same @id Front\Seo gives it, so search engines
-     * join them) – only from what Google returned.
+     * join them) – only from what Google returned. schema.org gives a Person neither ratings nor reviews, so a personal
+     * site gets none.
      *
      * @param list<array<string, mixed>> $reviews
      * @param array{rating: ?float, count: int, synced: string} $summary
@@ -119,8 +120,11 @@ final class GoogleReviews extends Element
     private static function jsonLd(Context $k, array $reviews, array $summary): string
     {
         $s = $k->app->settings();
-        $node = ['@context' => 'https://schema.org', '@type' => isset(\Talea\Front\Company::TYPES[$s->get('company_type')]) ? $s->get('company_type') : 'Organization',
-            '@id' => $k->app->request->origin() . $k->app->url('') . '#firma', 'name' => $s->get('site_name')];
+        $type = \Talea\Front\Company::type($s);
+        if ($type === 'Person') {
+            return '';
+        }
+        $node = ['@context' => 'https://schema.org', '@type' => $type, '@id' => $k->app->request->origin() . $k->app->url('') . \Talea\Front\Company::ID, 'name' => $s->get('site_name')];
         if ($summary['rating'] !== null && $summary['count'] > 0) {
             $node['aggregateRating'] = ['@type' => 'AggregateRating', 'ratingValue' => $summary['rating'], 'reviewCount' => $summary['count'], 'bestRating' => 5, 'worstRating' => 1];
         }

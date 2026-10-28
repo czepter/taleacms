@@ -1000,6 +1000,9 @@ input[name="selected[]"]:checked { counter-increment: selected; }
 	box-shadow: 0 16px 40px color-mix(in srgb, #000 25%, transparent);
 }
 .content:has(input[name="selected[]"]:checked) .selection-bar { display: flex; }
+/* Business details: a person has a name instead of a registered company name, and no legal identifiers (settings/company.php) */
+.form:has(#company_type option[value="Person"]:checked) .company-organization,
+.form:not(:has(#company_type option[value="Person"]:checked)) .company-person { display: none; }
 .selection-count { margin-inline-end: 10px; font-weight: 600; }
 .selection-bar select { min-height: 40px; }
 @media (max-width: 640px) {

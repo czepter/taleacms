@@ -1,14 +1,15 @@
 <?php
-/** The "Business details" tab: details for the site (the Company details element) and for search engines (schema.org Organization / LocalBusiness). */
+/**
+ * The "Business details" tab: details for the site (the Company details element) and for search engines (schema.org Organization /
+ * LocalBusiness / Person). With Person chosen, CSS (.company-organization / .company-person in admin.css) renames the name field and
+ * hides the legal identifiers; Front\Company::schema leaves them out.
+ */
 use Talea\Front\Company;
 
 ?>
 <p class="notice"><?= e(t('Fill these in once and the site uses them everywhere: in the footer and on the contact page (the Company details element in the builder) and for Google, maps and AI assistants – so they answer correctly when you are open and where to find you.')) ?></p>
 <fieldset>
 <legend><?= e(t('Company')) ?></legend>
-<?php
-$field('company_name', 'Registered company name', 'text', 'The exact registered name, e.g. “Novak Joinery Ltd”. Elsewhere the site uses the site name.', 'maxlength="200"');
-?>
 <div class="row">
 	<label for="company_type"><?= e(t('Business type')) ?></label>
 	<div><select id="company_type" name="company_type">
@@ -18,13 +19,21 @@ $field('company_name', 'Registered company name', 'text', 'The exact registered 
 	</select>
 	<span class="help"><?= e(t('Search engines show opening hours, a map and reviews depending on the type. If customers visit you, do not choose “company without premises”.')) ?></span></div>
 </div>
+<div class="row">
+	<label for="company_name"><span class="company-organization"><?= e(t('Registered company name')) ?></span><span class="company-person"><?= e(t('Your name')) ?></span></label>
+	<div><input class="textfield wide" type="text" id="company_name" name="company_name" value="<?= e($values['company_name']) ?>" maxlength="200">
+	<span class="help company-organization"><?= e(t('The exact registered name, e.g. “Novak Joinery Ltd”. Elsewhere the site uses the site name.')) ?></span>
+	<span class="help company-person"><?= e(t('Your name as search engines and AI assistants should know it. Empty = the site name.')) ?></span></div>
+</div>
 <?php
-// the legal identifiers stay with administrators (3.2: editors may change the rest of Business details)
+// the legal identifiers stay with administrators (3.2: editors may change the rest of Business details); a person has none
 if ($app->auth()->isAdmin()) {
+    echo '<div class="company-organization">';
     $field('company_id', 'Company ID', 'text', 'Company identification number; in other countries its registration number.', 'maxlength="24"');
     $field('company_vat_id', 'VAT ID', 'text', 'VAT payers only, e.g. CZ12345678.', 'maxlength="14"');
     $field('company_register', 'Commercial register', 'text', 'Register court and entry, e.g. “Amtsgericht München, HRB 12345” or “Companies House, 01234567”. For the imprint.', 'maxlength="200"');
     $field('company_representative', 'Represented by', 'text', 'Who represents the company, e.g. “Managing director: Jane Smith” (Geschäftsführer). For the imprint.', 'maxlength="200"');
+    echo '</div>';
 }
 ?>
 </fieldset>
