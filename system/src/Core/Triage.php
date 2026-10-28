@@ -249,7 +249,7 @@ final class Triage
         $db = $app->db();
         $done = 0;
         $failed = '';
-        foreach ($db->all("SELECT * FROM {enquiries} WHERE triaged_by = '' AND created_at > NOW() - INTERVAL 7 DAY ORDER BY enquiry_id LIMIT " . self::PER_RUN) as $enquiry) {
+        foreach ($db->all("SELECT * FROM {enquiries} WHERE triaged_by = '' AND deleted_at IS NULL AND created_at > NOW() - INTERVAL 7 DAY ORDER BY enquiry_id LIMIT " . self::PER_RUN) as $enquiry) {
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'), self::descriptions($settings));
             } catch (\RuntimeException $e) {

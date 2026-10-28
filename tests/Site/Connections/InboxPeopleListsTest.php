@@ -24,6 +24,33 @@ final class InboxPeopleListsTest extends SiteTestCase
         $this->assertSame('2', (string) $site->value('SELECT status FROM tl_enquiries WHERE public_id = ?', [$id]), 'the one-click action resolves the enquiry');
     }
 
+    public function testADeletedEnquiryWaitsInTheTrash(): void
+    {
+        $site = $this->site();
+        $id = '6f1c2d3e-4b5a-4c6d-8e7f-0011223344bb';
+        $site->exec("INSERT INTO tl_enquiries (public_id, created_at, form, email, data, status) VALUES (?, NOW(), 'Contact', 'trash.me@example.com', '[]', 0)", [$id]);
+        $this->adminPost('/admin.php?module=enquiries&action=bulk', ['selected' => [$id], 'bulk' => 'delete'], '/admin.php?module=enquiries');
+        $this->assertNotNull($site->value('SELECT deleted_at FROM tl_enquiries WHERE public_id = ?', [$id]), 'deleting moves the enquiry to the trash');
+        $this->assertPageLacks('/admin.php?module=enquiries', 'trash.me@example.com', message: 'the inbox leaves the trash out');
+        $this->assertPageLacks('/admin.php?module=enquiries&action=csv', 'trash.me@example.com', message: 'the CSV leaves the trash out');
+        $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $id, 404, message: 'an enquiry in the trash has no detail');
+        $this->assertPage('/admin.php?module=enquiries&status=trash', 200, ['trash.me@example.com', 'In trash since'], message: 'the Trash tab lists it');
+
+        $this->adminPost('/admin.php?module=enquiries&action=restore', ['selected' => [$id]], '/admin.php?module=enquiries&status=trash');
+        $this->assertNull($site->value('SELECT deleted_at FROM tl_enquiries WHERE public_id = ?', [$id]), 'restore brings it back');
+        $this->assertPage('/admin.php?module=enquiries', 200, 'trash.me@example.com', message: 'a restored enquiry is in the inbox again');
+
+        $this->adminPost('/admin.php?module=enquiries&action=delete_permanently', ['selected' => [$id]], '/admin.php?module=enquiries&status=trash');
+        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM tl_enquiries WHERE public_id = ?', [$id]), 'only an enquiry in the trash can be deleted permanently');
+        $this->adminPost('/admin.php?module=enquiries&action=bulk', ['selected' => [$id], 'bulk' => 'delete'], '/admin.php?module=enquiries');
+        $this->adminPost('/admin.php?module=enquiries&action=delete_permanently', ['selected' => [$id]], '/admin.php?module=enquiries&status=trash');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_enquiries WHERE public_id = ?', [$id]), 'deleted permanently from the trash');
+
+        $site->exec("INSERT INTO tl_enquiries (created_at, form, email, data, status, deleted_at) VALUES (NOW(), 'Contact', 'old.trash@example.com', '[]', 0, NOW() - INTERVAL 31 DAY)");
+        $this->assertPage('/admin.php?module=enquiries', 200, message: 'an admin visit empties the trash');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_enquiries WHERE email = 'old.trash@example.com'"), 'after 30 days in the trash an enquiry is gone');
+    }
+
     public function testATopicLinksOnlyToAPageOfTheSite(): void
     {
         $site = $this->site();

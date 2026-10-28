@@ -234,7 +234,7 @@ class Settings extends Module
             'instructionsChange' => $tab === 'ai' ? \Talea\Core\ClaudeInstructions::pending($this->app) : null, // the change Home points to, before and after (#149)
             'assistant' => Extensions::isEnabled($settings, 'assistant'),
             'models' => $models['list'], 'modelsTime' => $models['time'], 'modelsError' => $models['error'],
-            'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' GROUP BY category")) : [],
+            'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' AND deleted_at IS NULL GROUP BY category")) : [],
             'retentionSuggestion' => $tab === 'enquiries' ? \Talea\Core\Jobs::suggestedRetention($settings->get('company_country'), $settings->get('site_language')) : null,
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
                 ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,

@@ -73,16 +73,16 @@ final class MonthlyReport
         $enquiries = null;
         if (Extensions::isEnabled($s, 'enquiries')) {
             $byPage = [];
-            foreach ($db->all('SELECT page AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? GROUP BY page ORDER BY n DESC LIMIT 20', [$from, $to]) as $r) {
+            foreach ($db->all('SELECT page AS k, COUNT(*) AS n FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? GROUP BY page ORDER BY n DESC LIMIT 20', [$from, $to]) as $r) {
                 $p = $path((string) $r['k']);
                 $byPage[$p] = ($byPage[$p] ?? 0) + (int) $r['n'];
             }
             arsort($byPage);
             $enquiries = [
-                'total' => $count('SELECT COUNT(*) FROM {enquiries} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
-                'forms' => $top('SELECT form AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? GROUP BY form ORDER BY n DESC LIMIT ' . self::TOP, [$from, $to], 'form'),
+                'total' => $count('SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ?', [$from, $to]),
+                'forms' => $top('SELECT form AS k, COUNT(*) AS n FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? GROUP BY form ORDER BY n DESC LIMIT ' . self::TOP, [$from, $to], 'form'),
                 'pages' => array_map(fn (string $p, int $n): array => ['path' => $p, 'n' => $n], array_keys(array_slice($byPage, 0, self::TOP, true)), array_slice($byPage, 0, self::TOP, true)),
-                'unanswered' => $count('SELECT COUNT(*) FROM {enquiries} WHERE status = 0', []), // still "new" right now – whatever month they came in
+                'unanswered' => $count('SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND deleted_at IS NULL', []), // still "new" right now – whatever month they came in
             ];
         }
         $signups = Extensions::isEnabled($s, 'newsletter_signup') ? $count('SELECT COUNT(*) FROM {subscribers} WHERE status = 1 AND created_at >= ? AND created_at < ?', [$from, $to]) : null;
@@ -123,7 +123,7 @@ final class MonthlyReport
         $claude = Extensions::isEnabled($s, 'claude');
         if (is_array($enquiries)) {
             // the category the triage gave (Core\Triage), never the contents
-            $enquiries['categories'] = $section(fn (): array => $top("SELECT category AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? AND category <> '' GROUP BY category ORDER BY n DESC", [$from, $to], 'category')) ?? [];
+            $enquiries['categories'] = $section(fn (): array => $top("SELECT category AS k, COUNT(*) AS n FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND category <> '' GROUP BY category ORDER BY n DESC", [$from, $to], 'category')) ?? [];
         }
 
         return self::scrub([

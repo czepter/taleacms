@@ -81,7 +81,7 @@ $pageLink = $p['page'] !== '' ? '<a href="' . e($p['page']) . '" target="_blank"
 <?php if (!$anonymised): ?>
 			<form method="post" action="<?= e($module->url('anonymise')) ?>" data-confirm="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button type="submit"><?= $icon('eye-off') ?><?= e(t('Anonymise')) ?></button></form>
 <?php endif ?>
-			<form method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button class="danger" type="submit"><?= $icon('trash') ?><?= e(t('Delete')) ?></button></form>
+			<form method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Move the enquiry to the trash? You can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><button class="danger" type="submit"><?= $icon('trash') ?><?= e(t('Move to trash')) ?></button></form>
 		</div>
 	</span>
 </div>
