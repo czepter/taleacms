@@ -55,7 +55,7 @@ final class ParityTest extends TestCase
             'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
                 'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
             'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'personal' => 'erase_personal_data',
-                'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
+                'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
             // the forms of the site and their answers: read from the builds and the enquiries, edited in the builder
             'forms' => ['list' => $readOnly, 'detail' => $readOnly],
             // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's

@@ -261,7 +261,8 @@ receiver check that the call came from your site. The **delivery log** shows eve
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
 
-Submitted messages are in **Enquiries → Inbox**: status (new, read, resolved), reply by email, CSV export. **Enquiries → Forms**
+Submitted messages are in **Enquiries → Inbox**: status (new, read, resolved), reply by email, CSV export. A deleted enquiry
+goes to the **Trash** tab of the inbox and can be restored for 30 days; then it is deleted for good with its attachments. **Enquiries → Forms**
 lists every form of the site – on which page, site part, pop-up or item template it stands, whether it is published or only in a
 draft – with its answers; open a form to see its answers as a table, one column per field. A form that is no longer on any page
 stays in the list while it has answers. Bookings sit in the same section: an enquiry or a booking is a lead, not yet a customer. The main menu

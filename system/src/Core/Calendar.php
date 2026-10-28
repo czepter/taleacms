@@ -144,7 +144,7 @@ final class Calendar
             $since = $previous->format(strlen($start) === 10 ? 'Y-m-d 23:59:59' : 'Y-m-d H:i:s');
         }
 
-        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
+        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
             ['collection:' . (int) $collection['collection_id'], '%/' . $collection['slug'] . '/' . $item['slug'], '%/' . $collection['slug'] . '/' . $item['slug'] . '?%', $since]);
     }
 
