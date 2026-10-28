@@ -97,12 +97,12 @@ final class Routes
         return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $db)];
     }
 
-    /** Is it a page-like URL (no file extension other than .html, not api/mcp/oauth/system)? Only those follow the url_slash setting. */
+    /** Is it a page-like URL (no file extension other than .html, not api/mcp/oauth/.well-known/system)? Only those follow the url_slash setting. */
     public static function pageLike(string $path): bool
     {
         $path = (string) preg_replace('#\.html$#', '', $path);
 
-        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|form|vitals|tasks|_[^/]*)(/|$)#', $path);
+        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|\.well-known|popup|form|vitals|tasks|_[^/]*)(/|$)#', $path);
     }
 
     /** Ending of a page URL by the url_slash setting: none | slash | html. */
