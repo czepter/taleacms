@@ -45,10 +45,34 @@ On start the entrypoint
 1. writes a database backup to `storage/backups/` **when migrations are pending** (`TALEA_BACKUP_BEFORE_MIGRATE=0` skips it),
 2. runs `bin/migrate --if-installed`: pending migrations are applied before the container serves traffic; `GET_LOCK` serialises
    several replicas, so two containers never apply the same migration,
-3. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
+3. stores `TALEA_SITE_URL` as the site address when it differs (see "Site address and domain moves"),
+4. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
 
 Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release;
 a staging site follows a pre-release tag (`X.Y.Z-rc.N`). All tags: docs/RELEASING.md, "Image tags".
+
+## Site address and domain moves
+
+The site address (`site_url`, Settings → General) is what canonical addresses, `og:url`, the sitemap, `robots.txt`, feeds and the links
+in e-mails (password resets, member sign-in, bookings) are built from; the Host header never is.
+
+- **With `TALEA_SITE_URL` set** the variable wins. The installer takes it as the first address, and every container start compares it
+  with the stored one (`php system/docker.php site-url`, never on a page request): a different value is stored, written to the change
+  log (Settings, `site_url`, old → new, reason `TALEA_SITE_URL`) and the page cache is emptied, so no cached page keeps the old host.
+  The admin field is read-only, and `update_settings` over MCP refuses `site_url`. A value that is not `https://host` or
+  `https://host:port` (no path) is reported in the container log and changes nothing.
+- **Without it** an administrator changes the address in Settings → General, or a Claude connection with full access sets `site_url`
+  with `update_settings` (never a drafts-only one: password-reset and member links are built from it). The change log and the cache
+  work as above.
+
+A domain move on Coolify: add the new domain to the service (`SERVICE_URL_WEB`, which the compose files pass as `TALEA_SITE_URL`) and
+restart it. Nothing to do in the administration.
+
+**Other addresses.** "Redirect other addresses to the site address" (Settings → General, off by default; `redirect_to_site_url`) sends
+a GET on any other host to the same path on the site address with a 301: with or without `www`, or the old host after a move. `/health`,
+`/tasks`, `/mcp`, the OAuth and `/.well-known/` addresses, signed preview links (`preview_key`, `/_popup/…`) and the administration answer
+on every host. Passkeys belong to the host they were registered on: after a move, sign in with the password (and the code) on the new
+address and add the passkey again in My account.
 
 ## Health
 

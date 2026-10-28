@@ -12,7 +12,8 @@ final class Settings
     /** Default values; at the same time the list of all known settings. */
     public const array DEFAULTS = [
         'site_name' => 'My website',
-        'site_url' => '',          // https://www.example.cz - links in e-mails, feeds and notifications are built from it (not from the Host header)
+        'site_url' => '',          // https://www.example.cz - links in e-mails, feeds and notifications are built from it (not from the Host header); TALEA_SITE_URL wins (Core\SiteUrl)
+        'redirect_to_site_url' => '0', // a GET on another host (www, an old domain) gets a 301 to the same path on site_url (Front\Kernel::hostRedirect)
         'site_description' => '',
         'keywords' => '',
         'site_email' => '',

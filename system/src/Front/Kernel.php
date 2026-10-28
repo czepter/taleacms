@@ -109,6 +109,27 @@ final class Kernel
             . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => $retryAfter]);
     }
 
+    /**
+     * Setting redirect_to_site_url: a GET on another host (with or without www, an old domain) gets a 301 to the same address on
+     * site_url. The probe, cron, Claude (/mcp, OAuth, .well-known) and previews (/_popup, preview_key) answer on any host; the
+     * administration has its own kernel and is never redirected.
+     */
+    private function hostRedirect(): ?Response
+    {
+        $site = $this->app->settings()->get('site_url');
+        $r = $this->app->request;
+        if ($site === '' || !$this->app->settings()->bool('redirect_to_site_url') || !in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)
+            || $r->has('preview_key') || preg_match('#^/(health|tasks|mcp|oauth/.*|\.well-known/.*|_.*)$#', $r->path()) === 1) {
+            return null;
+        }
+        $port = parse_url($site, PHP_URL_PORT);
+        $own = strtolower((string) parse_url($site, PHP_URL_HOST)) . ($port !== null ? ':' . $port : '');
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+
+        return $host === '' || $host === $own ? null : Response::redirect($site . (str_starts_with($uri, '/') ? $uri : '/'), 301);
+    }
+
     /** 301 target when the request uses the non-preferred slash form (setting url_slash), else null. */
     private function slashRedirect(string $internal): ?string
     {
@@ -125,6 +146,9 @@ final class Kernel
         $request = $this->app->request;
         if ($this->early !== null) {
             return $this->early;
+        }
+        if (($host = $this->hostRedirect()) !== null) {
+            return $host;
         }
         if ($this->redirect !== null) {
             return $this->redirect;
