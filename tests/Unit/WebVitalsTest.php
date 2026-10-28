@@ -25,6 +25,9 @@ final class WebVitalsTest extends TestCase
             WebVitals::isRegression(2501.0, 2000.0, 100, 100), WebVitals::isRegression(3000.0, 2000.0, 29, 30), WebVitals::isRegression(3000.0, 2000.0, 30, 29), WebVitals::isRegression(3000.0, null, 30, 30), WebVitals::isRegression(null, 2000.0, 30, 30)], '2.8: WebVitals::isRegression – more than 25 % worse with at least 30 measurements in both periods');
         $this->assertSame([true, true, 0], [str_contains((string) file_get_contents(TALEA_ROOT . '/image/vitals.js'), "getAttribute('data-vitals')"),
             str_contains((string) file_get_contents(TALEA_ROOT . '/image/vitals.js'), 'navigator.sendBeacon('), preg_match('/document\.cookie|localStorage|sessionStorage/', (string) file_get_contents(TALEA_ROOT . '/image/vitals.js'))], '2.8: the beacon script looks for nothing but its own endpoint and sends with sendBeacon');
+        $script = (string) file_get_contents(TALEA_ROOT . '/image/vitals.js');
+        $this->assertSame([true, true], [str_contains($script, 'e.startTime < firstHidden'), str_contains($script, 'navigation.activationStart')],
+            'the beacon leaves out paints after the page was first hidden (a background tab) and counts a prerendered page from its activation');
         $this->assertTrue(in_array('vitals', \Talea\Admin\Modules\Pages::RESERVED_SLUGS, true), '2.8: /vitals is a reserved address');
     }
 }

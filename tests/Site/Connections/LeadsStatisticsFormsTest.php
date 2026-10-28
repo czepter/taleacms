@@ -201,11 +201,16 @@ PHP);
 
         $stats = $site->admin()->get('/admin.php?module=stats&days=7')->body;
         $this->assertStringContainsString('href="/services"', $stats, '2.8: Statistics list the page');
+        $this->assertMatchesRegularExpression('#2[.,]0 s <span class="badge badge-published">good</span> <span class="badge" title="Fewer than 10 measurements[^"]*">not yet meaningful</span>#', $stats, '2.8: one measurement shows the rating, marked as not yet meaningful');
+        $this->assertStringContainsString('"lcp_rating":"good","lcp_tentative":true', $this->toolText('get_stats', ['days' => 7]), '2.8: get_stats marks a rating below WebVitals::RATE_FROM measurements as tentative');
+        $site->exec('UPDATE tl_web_vitals SET samples = ' . \Talea\Core\WebVitals::RATE_FROM);
+        $stats = $site->admin()->get('/admin.php?module=stats&days=7')->body;
         $this->assertMatchesRegularExpression('#2[.,]0 s <span class="badge badge-published">#', $stats, '2.8: Statistics show p75 LCP with the rating');
         $this->assertMatchesRegularExpression('#150 ms <span class="badge badge-published">#', $stats, '2.8: Statistics show p75 INP with the rating');
         $text = $this->toolText('get_stats', ['days' => 7]);
-        $this->assertStringContainsString('"web_vitals":[{"path":"/services","samples":1,"lcp_p75":2000', $text, '2.8: get_stats carries web_vitals');
-        $this->assertStringContainsString('"lcp_rating":"good"', $text, '2.8: get_stats LCP rating');
+        $this->assertStringContainsString('"web_vitals":[{"path":"/services","samples":10,"lcp_p75":2000', $text, '2.8: get_stats carries web_vitals');
+        $this->assertStringContainsString('"lcp_rating":"good","lcp_tentative":false', $text, '2.8: get_stats LCP rating, measured enough');
+        $this->assertStringNotContainsString('not yet meaningful', $stats, '2.8: enough measurements - no hint');
         $this->assertStringContainsString('"cls_p75":0.05', $text, '2.8: get_stats CLS');
         $this->assertStringContainsString('"inp_p75":150', $text, '2.8: get_stats INP');
 
@@ -215,7 +220,7 @@ PHP);
         $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('stats', value) FROM tl_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
         $this->assertStringNotContainsString('vitals', $visitor->get('/services')->body, '2.8: statistics off - no beacon script on the page');
         $visitor->post('/vitals', ['path' => '/services', 'lcp' => 1800]);
-        $this->assertSame('3', (string) $site->value('SELECT SUM(samples) FROM tl_web_vitals'), '2.8: statistics off - a beacon is not counted');
+        $this->assertSame((string) (3 * \Talea\Core\WebVitals::RATE_FROM), (string) $site->value('SELECT SUM(samples) FROM tl_web_vitals'), '2.8: statistics off - a beacon is not counted');
         $text = $this->toolText('update_settings', ['settings' => ['stats' => true]]);
         $this->clearCache();
         $this->assertStringContainsString('"stats":"1"', $text, '3.2: update_settings stats=true answers 1');
