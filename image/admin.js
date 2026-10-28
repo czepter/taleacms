@@ -439,6 +439,29 @@
 			});
 		}
 	}
+	// Home, first steps: Skip and Undo answer in place (the dashboard comes back and only the checklist is swapped), so the page and the
+	// site preview beside it do not reload. Open groups stay open, the focus stays on the step. Anything unexpected loads the page.
+	document.addEventListener('submit', function (e) {
+		var form = e.target, box = form.closest('[data-home-steps]');
+		if (!box || e.defaultPrevented) { return; }
+		e.preventDefault();
+		var step = form.elements.step.value, focused = box.contains(document.activeElement);
+		fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin' })
+			.then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+			.then(function (html) {
+				var fresh = document.createElement('template');
+				fresh.innerHTML = html;
+				var next = fresh.content.querySelector('[data-home-steps]');
+				// the last step done: the checklist is gone, the page says the rest
+				if (!next) { location.reload(); return; }
+				var open = Array.prototype.map.call(box.querySelectorAll('details'), function (d) { return d.open; });
+				next.querySelectorAll('details').forEach(function (d, i) { if (i < open.length) { d.open = open[i]; } });
+				box.replaceWith(next);
+				var again = next.querySelector('input[name="step"][value="' + CSS.escape(step) + '"]');
+				if (focused && again) { again.form.querySelector('button').focus(); }
+			})
+			.catch(function () { location.reload(); });
+	});
 	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
 	// A form that saves itself (data-autosave, the handling of an enquiry): sent a moment after a change, its button hidden.
 	// Fields outside the form (form="…") count too. A failed save brings the button back and says so.
