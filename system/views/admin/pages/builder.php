@@ -18,7 +18,7 @@ $language = Talea\Core\Language::code();
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/theme.js')) ?>?v=<?= $version ?>"></script>
 <title><?= e(t('Builder')) ?>: <?= e($title) ?> – Talea</title>
-<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/talea-mark.svg">
+<?= Talea\Front\SiteIdentity::icons($app->settings(), $app->request->basePath(), true) ?>
 <link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= $version ?>">
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= $version ?>">
 <link rel="stylesheet" href="<?= e($app->url('image/builder.css')) ?>?v=<?= $version ?>">

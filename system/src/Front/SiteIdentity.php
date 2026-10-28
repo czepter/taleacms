@@ -41,6 +41,20 @@ final class SiteIdentity
      */
     public static function head(Settings $siteSettings, string $base): string
     {
+        $html = self::icons($siteSettings, $base);
+        $html .= '<link rel="manifest" href="' . e($base . '/manifest.webmanifest') . "\">\n";
+        $colors = \Talea\Builder\DesignSystem::load($siteSettings)['colors'];
+        $html .= '<meta name="theme-color" content="' . e($colors['background']) . '">' . "\n";
+
+        return $html;
+    }
+
+    /**
+     * The site icon links. The admin passes $fallback so that a site without an icon of its own shows the Talea mark
+     * on its tabs; the public site then shows the browser's default.
+     */
+    public static function icons(Settings $siteSettings, string $base, bool $fallback = false): string
+    {
         $html = '';
         $icon = $siteSettings->get('favicon');
         if ($icon !== '') {
@@ -52,9 +66,11 @@ final class SiteIdentity
             $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($base . '/media/icon-32.png' . $v) . "\">\n"
                 . '<link rel="apple-touch-icon" href="' . e($base . '/media/icon-180.png' . $v) . "\">\n";
         }
-        $html .= '<link rel="manifest" href="' . e($base . '/manifest.webmanifest') . "\">\n";
-        $colors = \Talea\Builder\DesignSystem::load($siteSettings)['colors'];
-        $html .= '<meta name="theme-color" content="' . e($colors['background']) . '">' . "\n";
+        if ($html === '' && $fallback) {
+            $html = '<link rel="icon" type="image/svg+xml" href="' . e($base . '/image/talea-mark.svg') . "\">\n"
+                . '<link rel="alternate icon" type="image/png" sizes="32x32" href="' . e($base . '/image/talea-mark-32.png') . "\">\n"
+                . '<link rel="apple-touch-icon" href="' . e($base . '/image/talea-mark-180.png') . "\">\n";
+        }
 
         return $html;
     }
