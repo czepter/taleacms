@@ -143,7 +143,7 @@ $waiting = $warnings !== [] || $pending !== [];
 	</div>
 	<div class="home-start-grid">
 <?php if ($firstSteps !== []): ?>
-		<div class="home-steps">
+		<div class="home-steps" data-home-steps>
 <?php foreach ($groups as $name => $steps): $done = count(array_filter($steps, fn (array $k): bool => $k['done'])); ?>
 			<details class="home-step-group"<?= $name === $openGroup ? ' open' : '' ?>>
 				<summary><span class="home-step-name"><?= e(t($name)) ?></span> <span class="home-step-count"><?= $done ?> / <?= count($steps) ?></span> <progress max="<?= count($steps) ?>" value="<?= $done ?>"><?= $done ?> / <?= count($steps) ?></progress></summary>

@@ -8,14 +8,17 @@ use Talea\Core\Settings;
 
 /**
  * Company details from "Settings → Business details": address, company ID, phone, opening hours, map. Used by
- * the Company details element (site) and by schema.org structured data (Organization / LocalBusiness) for search engines
- * and AI assistants.
+ * the Company details element (site) and by schema.org structured data (Organization / LocalBusiness, or Person for a
+ * personal site) for search engines and AI assistants.
  *
  * Opening hours are entered in human form, line by line ("Mon–Fri 8:00–17:00", "Sat 9–12", "Sun closed"); the site prints
  * them as written, for structured data they are parsed.
  */
 final class Company
 {
+    /** The fragment of the owner node's @id (site address + fragment): Seo, the Google reviews element and collection items point at it. */
+    public const string ID = '#owner';
+
     /** schema.org business types (key => label in Settings). */
     public const array TYPES = [
         'Organization' => 'company without premises for customers',
@@ -26,12 +29,17 @@ final class Company
         'AccountingService' => 'accounting and tax',
         'MedicalBusiness' => 'health and care',
         'AutomotiveBusiness' => 'car service and cars',
-        'Store' => 'obchod',
+        'Store' => 'shop',
         'FoodEstablishment' => 'restaurant, café',
         'LodgingBusiness' => 'accommodation',
         'SportsActivityLocation' => 'sport and fitness',
         'EducationalOrganization' => 'school and courses',
+        'Person' => 'person (personal site, freelancer)',
     ];
+
+    /** Organisation properties schema.org does not define for a Person (also facts: Core\Facts::SCHEMA_PROPS): a personal site leaves them out. */
+    private const array ORGANIZATION_ONLY = ['legalName', 'logo', 'vatID', 'identifier', 'geo', 'hasMap', 'openingHoursSpecification',
+        'foundingDate', 'numberOfEmployees', 'priceRange', 'slogan', 'areaServed', 'founder'];
 
     /** Days of the week: the first two letters of the English name → schema.org. */
     private const array DAYS = [
@@ -93,22 +101,25 @@ final class Company
     }
 
     /**
-     * Company for schema.org (publisher of the site as well as a separate node on the home page).
+     * Company for schema.org (publisher of the site as well as a separate node on the home page). A Person is named by
+     * the name in Business details (else the site name), with the logo as the portrait and no organisation properties.
      *
      * @param callable(string): string $absoluteUrl converts an image URL to an absolute one
+     * @param array<string, mixed> $facts further properties (facts with a schema property, Core\Facts::schema)
      * @return array<string, mixed>
      */
-    public static function schema(Settings $s, string $siteSettings, callable $absoluteUrl): array
+    public static function schema(Settings $s, string $siteSettings, callable $absoluteUrl, array $facts = []): array
     {
-        $type = isset(self::TYPES[$s->get('company_type')]) ? $s->get('company_type') : 'Organization';
+        $type = self::type($s);
+        $person = $type === 'Person';
         $url = array_filter(['@type' => 'PostalAddress', 'streetAddress' => $s->get('company_street'), 'addressLocality' => $s->get('company_city'),
             'postalCode' => $s->get('company_postcode'), 'addressCountry' => $s->get('company_country')]);
         [$lat, $lng] = array_map('trim', explode(',', $s->get('company_gps'), 2)) + [1 => ''];
 
-        return array_filter([
+        $node = array_filter([
             '@type' => $type,
-            '@id' => $siteSettings . '#firma',
-            'name' => $s->get('site_name'),
+            '@id' => $siteSettings . self::ID,
+            'name' => $person && $s->get('company_name') !== '' ? $s->get('company_name') : $s->get('site_name'),
             'legalName' => $s->get('company_name'),
             'url' => $siteSettings,
             'logo' => $s->get('logo') !== '' ? $absoluteUrl($s->get('logo')) : null,
@@ -117,12 +128,20 @@ final class Company
             'email' => $s->get('company_email'),
             'telephone' => $s->get('company_phone'),
             'vatID' => $s->get('company_vat_id'),
-            'identifier' => $s->get('company_id') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => $s->get('company_country') === 'CZ' ? 'Company ID' : 'Company ID', 'value' => $s->get('company_id')] : null,
+            'identifier' => $s->get('company_id') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => 'Company ID', 'value' => $s->get('company_id')] : null,
             'address' => count($url) > 1 ? $url : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
             'hasMap' => $s->get('company_map'),
             'openingHoursSpecification' => $type !== 'Organization' ? (\Talea\Core\Hours::specification($s->get('company_hours')) ?: null) : null,
             'sameAs' => array_values(array_filter(array_map($s->get(...), ['social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin']))) ?: null,
-        ], fn (mixed $v): bool => $v !== null && $v !== '');
+        ], fn (mixed $v): bool => $v !== null && $v !== '') + $facts;
+
+        return $person ? array_diff_key($node, array_flip(self::ORGANIZATION_ONLY)) : $node;
+    }
+
+    /** The schema.org type from Business details; an unknown value is an Organization. */
+    public static function type(Settings $s): string
+    {
+        return isset(self::TYPES[$s->get('company_type')]) ? $s->get('company_type') : 'Organization';
     }
 }

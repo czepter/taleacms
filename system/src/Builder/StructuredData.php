@@ -183,19 +183,19 @@ final class StructuredData
         return preg_match('#^https?://#i', $v) === 1 && filter_var($v, FILTER_VALIDATE_URL) !== false && !preg_match('/[<>"\'\s]/', $v) ? $v : null;
     }
 
-    /** type => [property => 'company'|'web']: links to the site's own nodes, set when the editor left the property empty. */
+    /** type => [property => 'company'|'organization'|'web']: links to the site's own nodes, set when the editor left the property empty ('organization': not when the site is a person's). */
     private const array LINKS = [
-        'Service' => ['provider' => 'company'], 'Event' => ['organizer' => 'company'], 'JobPosting' => ['hiringOrganization' => 'company'], 'Course' => ['provider' => 'company'],
+        'Service' => ['provider' => 'company'], 'Event' => ['organizer' => 'company'], 'JobPosting' => ['hiringOrganization' => 'organization'], 'Course' => ['provider' => 'company'],
         'Article' => ['publisher' => 'company', 'isPartOf' => 'web'], 'BlogPosting' => ['publisher' => 'company', 'isPartOf' => 'web'], 'WebPage' => ['isPartOf' => 'web'],
         'Recipe' => ['publisher' => 'company'], 'HowTo' => ['publisher' => 'company'], 'VideoObject' => ['publisher' => 'company'], 'Offer' => ['seller' => 'company'],
     ];
 
     /**
      * The JSON-LD node of a cleaned node. $absolute turns a site path into an address (Seo passes the origin); enum values become schema.org addresses;
-     * $ids ({company, web}: the @id of the site's own nodes) links the node to them where the type has a natural link (LINKS).
+     * $ids ({company, organization, web}: the @id of the site's own nodes) links the node to them where the type has a natural link (LINKS).
      *
      * @param array{type: string, fields: array<string, mixed>} $node
-     * @param array{company?: string, web?: string} $ids
+     * @param array{company?: string, organization?: string, web?: string} $ids
      * @return array<string, mixed>
      */
     public static function render(array $node, callable $absolute, array $ids = []): array

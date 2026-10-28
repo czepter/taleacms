@@ -158,7 +158,9 @@ trait SettingsTools
                 continue;
             }
             if ($clean === null) {
-                $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Invalid value.' : 'This setting cannot be changed through MCP (only in the administration).';
+                $type = (string) \Talea\Admin\Modules\Settings::fieldType($key);
+                $errors[$key] = !preg_match(self::MCP_SETTINGS, $key) ? 'This setting cannot be changed through MCP (only in the administration).'
+                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.');
                 continue;
             }
             $siteSettings->set($key, $clean);

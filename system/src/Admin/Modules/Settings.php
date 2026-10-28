@@ -34,7 +34,7 @@ class Settings extends Module
     public const array TAB_EXTENSIONS = ['enquiries' => 'enquiries'];
 
     /** Company types for the field company_type (choice:…). */
-    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
+    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization|Person';
 
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
@@ -859,7 +859,7 @@ class Settings extends Module
      * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
      * cookies_text_de, cookies_policy_url_de) has the type of its base. null = not a field of the admin form.
      */
-    private static function fieldType(string $key): ?string
+    public static function fieldType(string $key): ?string
     {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
