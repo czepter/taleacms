@@ -16,9 +16,7 @@
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(TALEA_VERSION) ?>"></script>
 <title><?= e($heading) ?> – Talea</title>
-<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/talea-mark.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/talea-mark-32.png">
-<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/talea-mark-180.png">
+<?= Talea\Front\SiteIdentity::icons($app->settings(), $app->request->basePath(), true) ?>
 <link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
 </head>
 <body class="login">
