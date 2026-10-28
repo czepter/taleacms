@@ -799,6 +799,13 @@ final class Prompts
             $text .= ' THIS CONNECTION LISTS THE ESSENTIAL TOOLS ONLY: every other tool it may use (news, redirects, settings, bookings, newsletters…) is found with find_tools and run by name with run_read_tool (reads), '
                 . 'run_tool (drafts and changes) or run_destructive_tool (removes, sends or reaches outside the site – confirm the exact action with the user first). The runners give exactly what a direct call gives.';
         }
+        // the tools of a switched-off feature are not listed: without this Claude rebuilds the feature by hand (a blog as a collection)
+        $off = array_diff_key(\Talea\Core\Extensions::CATALOG, array_flip(\Talea\Core\Extensions::enabled($app->settings())));
+        if ($off !== []) {
+            $text .= ' SWITCHED OFF ON THIS SITE: ' . implode(', ', array_map(fn (string $key, array $row): string => $row[0] . ' (' . $key . ')', array_keys($off), $off))
+                . ' – their tools are not listed (a blog is News). Never rebuild such a feature with pages or a collection: ask the user to switch it on; an administrator does it with update_settings '
+                . '{"settings":{"extensions":[the extensions from site_info and the new key]}}, and its tools appear in the next conversation.';
+        }
         $address = \Talea\Core\Language::visitorAddress($app->settings());
         if ($address !== null) {
             $text .= ' GERMAN FORM OF ADDRESS: the German texts for visitors of this site (pages, news, replies to enquiries, e-mails) use the '

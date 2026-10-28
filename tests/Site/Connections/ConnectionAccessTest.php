@@ -163,6 +163,13 @@ final class ConnectionAccessTest extends SiteTestCase
         $this->assertStringContainsString('"protocolVersion":"2025-03-26"', $initialize, "initialize: the client's protocol version");
         $this->assertStringContainsString('Always say renovation', $initialize, "initialize: the owner's instructions");
         $this->assertStringContainsString('"prompts"', $initialize, 'initialize: prompts offered');
+        $this->assertStringNotContainsString('News (news)', $initialize, 'initialize: news is on by default');
+
+        $before = $site->settingValue('extensions');
+        $site->mcp('update_settings', ['settings' => ['extensions' => ['stats', 'claude']]]);
+        $newsOff = $this->answerRaw($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}'));
+        $site->mcp('update_settings', ['settings' => ['extensions' => $before === '' ? array_keys(array_filter(\Talea\Core\Extensions::CATALOG, fn (array $r): bool => $r[2])) : explode(',', $before)]]);
+        $this->assertStringContainsString('SWITCHED OFF ON THIS SITE: News (news)', $newsOff, 'initialize names the switched-off features whose tools are missing');
 
         $drafts = $this->answerRaw($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1999-01-01"}}', self::$draftToken));
         $this->assertStringContainsString('"protocolVersion":"2025-06-18"', $drafts, 'initialize falls back to the newest protocol version');
