@@ -33,7 +33,8 @@ docker compose -f docker-compose-dev.yaml up -d --build
 | `db-test-pg` | 127.0.0.1:33062 | in-memory PostgreSQL 18 for `composer test:pg` (user and password `postgres`) |
 | `db-pg` | 127.0.0.1:33063 | PostgreSQL 18 to develop on, profile `db-pg`: `TALEA_DB_DRIVER=pgsql TALEA_DB_HOST=db-pg docker compose -f docker-compose-dev.yaml --profile db-pg up -d` (user, password, database `talea`) |
 
-The suites run on either engine: `composer test` (MySQL) and `composer test:pg` (integration suite on PostgreSQL, `TALEA_TEST_PG_HOST/_PORT/_USER/_PASSWORD`; set `TALEA_TEST_PG_PORT=33062` for the service above).
+The suites run on every engine: `composer test` (MySQL), `composer test:pg` (integration suite on PostgreSQL, `TALEA_TEST_PG_HOST/_PORT/_USER/_PASSWORD`; set `TALEA_TEST_PG_PORT=33062` for the service above)
+and `composer test:sqlite` (integration and site suites on SQLite files, no service needed).
 
 Xdebug: `XDEBUG_MODE=debug docker compose -f docker-compose-dev.yaml up -d` (the IDE listens on 9003). Commands inside the container:
 `docker compose -f docker-compose-dev.yaml exec web php bin/migrate` · `… exec web composer test:unit` · `… exec web composer require …`.
@@ -45,7 +46,8 @@ home folder: `colima ssh -- sh -c "cd $PWD && docker compose -f docker-compose-d
 ## Coolify
 
 New resource → Docker Compose (build pack) from this repository, compose file `/docker-compose.coolify-mysql.yaml` (MySQL 8.4),
-`/docker-compose.coolify-mariadb.yaml` (MariaDB 11.4) or `/docker-compose.coolify-postgres.yaml` (PostgreSQL 18). Coolify generates the database
+`/docker-compose.coolify-mariadb.yaml` (MariaDB 11.4), `/docker-compose.coolify-postgres.yaml` (PostgreSQL 18) or `/docker-compose.coolify-sqlite.yaml` (SQLite: no database
+service, the file lives in the storage volume). Coolify generates the database
 password (`SERVICE_PASSWORD_DB`), the site's secret (`SERVICE_PASSWORD_64_SECRET` → `TALEA_SECRET_KEY`) and the site URL (`SERVICE_FQDN_WEB_8080` / `SERVICE_URL_WEB`); set the domain on the `web` service,
 open it and run the installer. Add `TALEA_AI_URL` or any variable below in the Environment Variables tab.
 
@@ -55,8 +57,8 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TALEA_DB_NAME` | – | **Required.** Switches env mode on (otherwise `config.php` is used) |
-| `TALEA_DB_DRIVER` | `mysql` | Database engine: `mysql` (MySQL 8) or `pgsql` (PostgreSQL 18; work in progress, see docs/specs/postgres.md) |
+| `TALEA_DB_NAME` | – | **Required** (except for `sqlite`). Switches env mode on (otherwise `config.php` is used); for `sqlite` the database file (default `storage/database/talea.sqlite`) |
+| `TALEA_DB_DRIVER` | `mysql` | Database engine: `mysql` (MySQL 8), `pgsql` (PostgreSQL 18, see docs/specs/postgres.md) or `sqlite` (a file in the storage volume, no database service; one replica, see docs/specs/sqlite.md) |
 | `TALEA_DB_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_PREFIX` | localhost / 3306 (5432 for `pgsql`) / – / – / `tl_` | Database |
 | `TALEA_DEBUG` | `false` | Show errors in pages |
 | `TALEA_ADDONS` | `true` | `false` = safe mode, no add-ons |

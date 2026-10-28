@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Core\Dialect\Dialect;
+use Talea\Core\Dialect\Sqlite;
 
 use Phinx\Config\Config;
+use Phinx\Db\Adapter\AdapterFactory;
 use Phinx\Migration\Manager;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -40,11 +42,18 @@ final class Migrator
         $prefix = $db['prefix'] ?? 'tl_';
         $environment = $dialect->phinx() + [
             'name' => $db['name'],
-            'user' => $db['username'], // Phinx's own option name
-            'pass' => $db['password'],
+            'user' => $db['username'] ?? '', // Phinx's own option name
+            'pass' => $db['password'] ?? '',
             'table_prefix' => $prefix,
         ];
-        $environment += !empty($db['socket']) ? ($dialect->name() === 'mysql' ? ['unix_socket' => $db['socket']] : ['host' => $db['socket']]) : ['host' => $db['host'] ?? 'localhost', 'port' => $db['port'] ?? $dialect->defaultPort()];
+        if ($dialect instanceof Sqlite) {
+            $environment['name'] = Sqlite::file($db['name']); // a file, no server
+            if (class_exists(AdapterFactory::class)) {
+                AdapterFactory::instance()->registerWrapper('prefix', SqlitePrefixAdapter::class);
+            }
+        } else {
+            $environment += !empty($db['socket']) ? ($dialect->name() === 'mysql' ? ['unix_socket' => $db['socket']] : ['host' => $db['socket']]) : ['host' => $db['host'] ?? 'localhost', 'port' => $db['port'] ?? $dialect->defaultPort()];
+        }
 
         return [
             'paths' => ['migrations' => self::FOLDER],

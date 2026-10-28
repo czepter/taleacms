@@ -7,7 +7,7 @@ which ships a ZIP for PHP hosting and installs its updates from the administrati
 ## Install
 
 ```bash
-cp docker-compose.yaml compose.yaml        # on Coolify: docker-compose.coolify-{mysql,mariadb,postgres}.yaml
+cp docker-compose.yaml compose.yaml        # on Coolify: docker-compose.coolify-{mysql,mariadb,postgres,sqlite}.yaml
 docker compose up -d                       # pulls ghcr.io/czepter/talea; TALEA_TAG pins a version (default latest)
 ```
 

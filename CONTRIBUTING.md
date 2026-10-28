@@ -18,7 +18,7 @@ Kaleta release or issue it comes from.
 
 ## Setting up
 
-You need PHP 8.5+ and MySQL 8, MariaDB 11.4+ or PostgreSQL 18.
+You need PHP 8.5+ and MySQL 8, MariaDB 11.4+ or PostgreSQL 18 – or nothing more: SQLite needs no server (choose it in the installer).
 
 ```bash
 php -S localhost:8080 system/dev-router.php
@@ -38,6 +38,7 @@ vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -
 vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP (admin, builder, MCP, forms, jobs …), one class per
                                                 # site, in parallel; needs the db-test service
 vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and admin must contain no Czech (site tests, tools/check-english.php)
+composer test:sqlite                            # integration and site suites on SQLite files: no database server needed
 ```
 
 Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Talea\Tests\Support\DatabaseTestCase`: a

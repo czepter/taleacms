@@ -127,7 +127,7 @@ final class SharedSlugsTest extends DatabaseTestCase
             $this->page('about', '');
             $this->page('about', 'en');
         } finally {
-            $this->db()->run($this->isPostgres() ? 'DROP INDEX IF EXISTS uq_categories_slug' : 'ALTER TABLE {categories} DROP INDEX uq_categories_slug');
+            $this->db()->run($this->isMySql() ? 'ALTER TABLE {categories} DROP INDEX uq_categories_slug' : 'DROP INDEX IF EXISTS uq_categories_slug');
             $this->restore();
         }
     }

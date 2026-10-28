@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Core\Dialect\Dialect;
+use Talea\Core\Dialect\Sqlite;
 
 /**
  * Where the site's configuration comes from. Two sources, the environment wins:
  *
- *  1. Environment variables (Docker): TALEA_DB_NAME turns this mode on (TALEA_DB_DRIVER = mysql | pgsql), see docker/README.md for the full list.
+ *  1. Environment variables (Docker): TALEA_DB_NAME turns this mode on (TALEA_DB_DRIVER = mysql | pgsql | sqlite; sqlite alone turns it on too, its file
+ *     is then Dialect\Sqlite::DEFAULT_FILE), see docker/README.md for the full list.
  *     Every variable also has a TALEA_…_FILE twin (Docker / Kubernetes secrets): the value is read from that file.
  *  2. config.php (classic hosting), written by the web installer.
  *
@@ -19,7 +21,7 @@ final class Config
 {
     public static function fromEnv(): bool
     {
-        return self::env('DB_NAME') !== '';
+        return self::env('DB_NAME') !== '' || self::env('DB_DRIVER') === 'sqlite';
     }
 
     /** @return array<string, mixed>|null */
@@ -73,7 +75,7 @@ final class Config
                 'driver' => $driver = self::env('DB_DRIVER', 'mysql'),
                 'host' => self::env('DB_HOST', 'localhost'),
                 'port' => (int) self::env('DB_PORT', '0') ?: Dialect::forDriver($driver)->defaultPort(),
-                'name' => self::env('DB_NAME'),
+                'name' => self::env('DB_NAME', $driver === 'sqlite' ? Sqlite::DEFAULT_FILE : ''),
                 'username' => self::env('DB_USER'),
                 'password' => self::env('DB_PASSWORD'),
                 'prefix' => self::env('DB_PREFIX', 'tl_'),

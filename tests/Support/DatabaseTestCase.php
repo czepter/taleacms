@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
  * (Core\Migrator), every test in a transaction that is rolled back. Skips (does not fail) when no database is reachable, so
  * `vendor/bin/phpunit` still works on a machine without the dev stack.
  *
- * The engine (MySQL 8 or PostgreSQL) and the connection come from Support\TestDatabase (TALEA_TEST_DB_DRIVER, TALEA_TEST_DB_* / TALEA_TEST_PG_*).
+ * The engine (MySQL 8, PostgreSQL or SQLite) and the connection come from Support\TestDatabase (TALEA_TEST_DB_DRIVER, TALEA_TEST_DB_* / TALEA_TEST_PG_*).
  */
 abstract class DatabaseTestCase extends TestCase
 {
@@ -38,7 +38,7 @@ abstract class DatabaseTestCase extends TestCase
         self::$database = 'talea_phpunit_' . getmypid() . '_' . substr(md5(static::class), 0, 6);
         TestDatabase::drop($admin, self::$database);
         TestDatabase::create($admin, self::$database);
-        self::$config = ['driver' => $server['driver'], 'host' => $server['host'], 'port' => $server['port'], 'name' => self::$database, 'username' => $server['username'], 'password' => $server['password'], 'prefix' => static::PREFIX];
+        self::$config = ['driver' => $server['driver'], 'host' => $server['host'], 'port' => $server['port'], 'name' => TestDatabase::configName(self::$database), 'username' => $server['username'], 'password' => $server['password'], 'prefix' => static::PREFIX];
         Migrator::migrate(self::$config);
         self::$db = Db::fromConfig(self::$config);
     }
@@ -73,6 +73,16 @@ abstract class DatabaseTestCase extends TestCase
     protected function isPostgres(): bool
     {
         return TestDatabase::isPostgres();
+    }
+
+    protected function isSqlite(): bool
+    {
+        return TestDatabase::isSqlite();
+    }
+
+    protected function isMySql(): bool
+    {
+        return TestDatabase::isMySql();
     }
 
     protected function db(): Db

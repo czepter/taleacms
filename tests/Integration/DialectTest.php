@@ -9,14 +9,14 @@ use Talea\Core\Db;
 use Talea\Core\Dialect\Dialect;
 use Talea\Tests\Support\DatabaseTestCase;
 
-/** The dialect helpers executed on the engine the suite runs against (MySQL 8 or PostgreSQL, TALEA_TEST_DB_DRIVER). */
+/** The dialect helpers executed on the engine the suite runs against (MySQL 8, PostgreSQL or SQLite, TALEA_TEST_DB_DRIVER). */
 #[CoversClass(Dialect::class)]
 #[CoversClass(Db::class)]
 final class DialectTest extends DatabaseTestCase
 {
     public function testTheDbReportsItsEngine(): void
     {
-        $this->assertSame($this->isPostgres() ? 'pgsql' : 'mysql', $this->db()->dialect()->name());
+        $this->assertSame(\Talea\Tests\Support\TestDatabase::driver(), $this->db()->dialect()->name());
     }
 
     public function testUpsertInsertsThenUpdates(): void
@@ -119,8 +119,8 @@ final class DialectTest extends DatabaseTestCase
         $db->insert('news', ['slug' => 'ft', 'title' => 'Hello', 'intro' => '', 'text' => '', 'category_id' => $category, 'published_at' => date('Y-m-d H:i:s'), 'search_text' => 'cafe creme world']);
         $found = (int) $db->value('SELECT COUNT(*) FROM {news} WHERE ' . $d->fulltextMatch(['search_text']), [$d->fulltextQuery(['caf', 'wor'])]);
 
-        // InnoDB indexes rows when they are committed, so inside the test's transaction MySQL finds nothing yet; PostgreSQL sees the row
-        $this->assertSame($this->isPostgres() ? 1 : 0, $found);
+        // InnoDB indexes rows when they are committed, so inside the test's transaction MySQL finds nothing yet; PostgreSQL and SQLite see the row
+        $this->assertSame($this->isPostgres() || $this->isSqlite() ? 1 : 0, $found);
         $this->assertSame(0, (int) $db->value('SELECT COUNT(*) FROM {news} WHERE ' . $d->fulltextMatch(['search_text']), [$d->fulltextQuery(['zzz'])]));
     }
 
@@ -140,7 +140,7 @@ final class DialectTest extends DatabaseTestCase
     {
         $this->assertTrue($this->db()->tableExists('users'));
         $this->assertFalse($this->db()->tableExists('no_such_table'));
-        $this->assertStringStartsWith('talea_phpunit_', $this->db()->databaseName());
+        $this->assertStringStartsWith('talea_phpunit_', basename($this->db()->databaseName()), 'SQLite: the path of the file');
     }
 
     public function testUpsertWithExpressionsCountsOnTheExistingRow(): void

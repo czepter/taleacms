@@ -118,7 +118,7 @@ final class DialectPostgresTest extends TestCase
     public function testUnknownDriversAreRefused(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        Dialect::forDriver('sqlite');
+        Dialect::forDriver('oracle');
     }
 
     public function testRewriteMakesMysqlIntervalsAndBackticksPostgres(): void
