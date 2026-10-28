@@ -259,7 +259,7 @@ final class Mailing
             }
         }
         // finished: nothing left to try
-        $db->run("UPDATE {newsletters} n SET status = 'sent', finished_at = NOW() WHERE n.status = 'sending'
+        $db->run("UPDATE {newsletters} AS n SET status = 'sent', finished_at = NOW() WHERE n.status = 'sending'
             AND NOT EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = n.id AND q.next_attempt IS NOT NULL)");
         // recipients are kept only while sending (and a day for the hourly limit)
         $db->run("DELETE FROM {newsletter_queue} WHERE newsletter_id IN (SELECT id FROM {newsletters} WHERE status = 'sent' AND finished_at < NOW() - INTERVAL 1 DAY)");

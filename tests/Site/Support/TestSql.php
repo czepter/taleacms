@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\Support;
 
+use Talea\Core\Dialect\Dialect;
 use Talea\Core\Dialect\MySql;
 use Talea\Core\Dialect\Postgres;
+use Talea\Core\Dialect\Sqlite;
 use Talea\Tests\Support\TestDatabase;
 
 /**
  * The SQL a site test writes to look at or prepare the database (`Site::value/rows/exec`) is MySQL SQL: GROUP_CONCAT, IF(), IFNULL, JSON_EXTRACT,
- * `visible = 1`. On PostgreSQL this turns it into the equivalent (on MariaDB only `->>`), so a test keeps saying what it checks and not how the engine spells it.
+ * `visible = 1`. On PostgreSQL and SQLite this turns it into the equivalent (on MariaDB only `->>`), so a test keeps saying what it checks and not how the engine spells it.
+ * SQLite understands most of it as it is: what it lacks is a PHP function of the test connection (TestDatabase::connect) or a rewrite here.
  * Not a general translator: the constructs the tests use, nothing more. What cannot be translated (a boolean printed inside CONCAT, REPLACE INTO,
  * a multi-table DELETE) is written portable in the test, or branches on TestDatabase::isPostgres() with a comment.
  * (The product's own SQL never goes through this: it is portable by itself, see tools/sql-dialect-scan.php.)
@@ -22,6 +25,9 @@ final class TestSql
     /** @param ?\PDO $pdo the connection of the site: INSERT … ON DUPLICATE KEY UPDATE and REPLACE INTO look up the table's unique key there */
     public static function forEngine(string $sql, ?\PDO $pdo = null): string
     {
+        if (TestDatabase::isSqlite()) {
+            return self::forSqlite($sql, $pdo);
+        }
         if (!TestDatabase::isPostgres()) {
             // MariaDB has no ->> operator
             return TestDatabase::dialect() instanceof MySql && TestDatabase::dialect()->mariaDb
@@ -29,7 +35,7 @@ final class TestSql
                 : $sql;
         }
         $sql = self::insertBooleans($sql);
-        $sql = self::duplicateKey($sql, $pdo);
+        $sql = self::duplicateKey($sql, $pdo, new Postgres());
         $sql = preg_replace('/(\b(?:\w+\.)?\w+)\s*->>\s*\'(\$[^\']*)\'/', 'JSON_EXTRACT($1, \'$2\')', $sql) ?? $sql; // data->>'$.key'
         $sql = self::calls($sql, 'DAYOFWEEK', fn (array $a): string => '(EXTRACT(DOW FROM ' . $a[0] . ')::int + 1)');
         $sql = self::calls($sql, 'TIME', fn (array $a): string => "to_char({$a[0]}, 'HH24:MI:SS')");
@@ -66,6 +72,33 @@ final class TestSql
         $sql = self::calls($sql, 'GROUP_CONCAT', self::groupConcat(...));
 
         return (new Postgres())->rewrite($sql);
+    }
+
+    private static function forSqlite(string $sql, ?\PDO $pdo): string
+    {
+        $dialect = new Sqlite();
+        $sql = self::duplicateKey($sql, $pdo, $dialect); // REPLACE INTO is SQLite's own
+        $sql = preg_replace('/^\s*INSERT\s+IGNORE\s+INTO/i', 'INSERT OR IGNORE INTO', $sql) ?? $sql;
+        $sql = preg_replace('/\)\s+DIV\s+/i', ') / ', $sql) ?? $sql; // integer division of two integers
+        $sql = preg_replace('/\s+FROM\s+DUAL\b/i', '', $sql) ?? $sql;
+        $sql = preg_replace('/\bJSON_OBJECT\s*\(/i', 'json_object(', $sql) ?? $sql;
+        $sql = preg_replace('/\bCURDATE\s*\(\s*\)/i', 'CURRENT_DATE', $sql) ?? $sql;
+        // MySQL's JSON text, not SQLite's value; only the tests' own (upper-case) calls: the product's json_extract() stays SQLite's
+        $sql = preg_replace('/(\b(?:\w+\.)?\w+)\s*->>\s*(\'\$[^\']*\')/', 'JSON_UNQUOTE(mysql_json_extract($1, $2))', $sql) ?? $sql;
+        $sql = preg_replace('/(?<![\w.])JSON_EXTRACT\s*\(/', 'mysql_json_extract(', $sql) ?? $sql;
+        $sql = self::calls($sql, 'LEFT', fn (array $a): string => "substr({$a[0]}, 1, {$a[1]})"); // LEFT is a keyword (LEFT JOIN) in SQLite
+        // the catalogue: information_schema.tables / .columns of the one database there is
+        $sql = preg_replace('/\btable_schema\s*=\s*DATABASE\s*\(\s*\)\s+AND\s+/i', '', $sql) ?? $sql;
+        $sql = str_ireplace('information_schema.tables', "(SELECT name AS table_name FROM sqlite_master WHERE type = 'table')", $sql);
+        $sql = str_ireplace('information_schema.columns', "(SELECT m.name AS table_name, p.name AS column_name FROM sqlite_master m, pragma_table_info(m.name) p WHERE m.type = 'table')", $sql);
+        $sql = self::calls($sql, 'IF', fn (array $a): string => "CASE WHEN {$a[0]} THEN {$a[1]} ELSE {$a[2]} END");
+        if (str_contains($sql, 'tl_search_stats')) {
+            // the one DECIMAL table: SQLite keeps 8.00 as the number 8, MySQL and PostgreSQL print the column's scale
+            $sql = self::calls($sql, 'CONCAT', fn (array $a): string => 'CONCAT(' . implode(', ', array_map(fn (string $x): string => match ($x) { 'ctr' => "printf('%.2f', ctr)", 'position' => "printf('%.1f', position)", default => $x }, $a)) . ')');
+        }
+        $sql = self::calls($sql, 'GROUP_CONCAT', fn (array $a): string => self::groupConcatParts($a, fn (string $expr, string $separator, ?string $order, bool $distinct): string => $dialect->groupConcat($expr, trim($separator, "'"), $order, $distinct)));
+
+        return $dialect->rewrite($sql);
     }
 
     /** INSERT INTO t (cols) VALUES (…), (…): a literal 0 or 1 under a boolean column becomes FALSE or TRUE. */
@@ -158,17 +191,16 @@ final class TestSql
         return $e;
     }
 
-    /** INSERT … ON DUPLICATE KEY UPDATE and REPLACE INTO as ON CONFLICT (the unique key of the table is asked of the database). */
-    private static function duplicateKey(string $sql, ?\PDO $pdo): string
+    /** INSERT … ON DUPLICATE KEY UPDATE and REPLACE INTO (not on SQLite, which has it) as ON CONFLICT (the unique key of the table is asked of the database). */
+    private static function duplicateKey(string $sql, ?\PDO $pdo, Dialect $dialect): string
     {
-        $replace = preg_match('/^\s*REPLACE\s+INTO\s+(\w+)/i', $sql, $m) === 1;
+        $replace = !$dialect instanceof Sqlite && preg_match('/^\s*REPLACE\s+INTO\s+(\w+)/i', $sql, $m) === 1;
         $duplicate = !$replace && preg_match('/^\s*INSERT\s+INTO\s+(\w+)[\s\S]*\sON\s+DUPLICATE\s+KEY\s+UPDATE\s/i', $sql, $m) === 1;
         if (!($replace || $duplicate) || $pdo === null) {
             return $sql;
         }
         $table = $m[1];
         $columns = preg_match('/^\s*(?:REPLACE|INSERT)\s+INTO\s+\w+\s*\(([^)]*)\)/i', $sql, $c) === 1 ? array_map('trim', explode(',', $c[1])) : null;
-        $dialect = new Postgres();
         $stmt = $pdo->prepare($dialect->columnsSql());
         $stmt->execute([$table]);
         $all = array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
@@ -220,8 +252,12 @@ final class TestSql
         return "ARRAY['" . implode("','", $keys) . "']";
     }
 
-    /** GROUP_CONCAT([DISTINCT] expr [ORDER BY o [ASC|DESC]] [SEPARATOR 's']) @param list<string> $args */
-    private static function groupConcat(array $args): string
+    /**
+     * GROUP_CONCAT([DISTINCT] expr [ORDER BY o [ASC|DESC]] [SEPARATOR 's']) taken apart; $make gets the expression, the quoted separator, the ORDER BY and DISTINCT.
+     *
+     * @param list<string> $args @param \Closure(string, string, ?string, bool): string $make
+     */
+    private static function groupConcatParts(array $args, \Closure $make): string
     {
         $inside = implode(',', $args);
         $separator = "','";
@@ -229,18 +265,27 @@ final class TestSql
             $separator = $m[1];
             $inside = substr($inside, 0, -strlen($m[0]));
         }
-        $order = '';
+        $order = null;
         if (($pos = self::topLevel($inside, ' ORDER BY ')) !== null) {
-            $order = ' ORDER BY ' . trim(substr($inside, $pos + 10));
+            $order = trim(substr($inside, $pos + 10));
             $inside = substr($inside, 0, $pos);
         }
         $distinct = preg_match('/^\s*DISTINCT\s+/i', $inside) === 1;
-        $expr = self::asNumber(trim((string) preg_replace('/^\s*DISTINCT\s+/i', '', $inside))); // a boolean prints as 1/0
-        if ($distinct && $order !== '') {
-            $order = ' ORDER BY (' . $expr . ')::text'; // PostgreSQL: the ORDER BY of a DISTINCT aggregate is the argument itself (the tests sort by it)
-        }
 
-        return 'string_agg(' . ($distinct ? 'DISTINCT ' : '') . '(' . $expr . ')::text, ' . $separator . $order . ')';
+        return $make(trim((string) preg_replace('/^\s*DISTINCT\s+/i', '', $inside)), $separator, $order, $distinct);
+    }
+
+    /** GROUP_CONCAT on PostgreSQL. @param list<string> $args */
+    private static function groupConcat(array $args): string
+    {
+        return self::groupConcatParts($args, function (string $expr, string $separator, ?string $order, bool $distinct): string {
+            $expr = self::asNumber($expr); // a boolean prints as 1/0
+            if ($distinct && $order !== null) {
+                $order = '(' . $expr . ')::text'; // PostgreSQL: the ORDER BY of a DISTINCT aggregate is the argument itself (the tests sort by it)
+            }
+
+            return 'string_agg(' . ($distinct ? 'DISTINCT ' : '') . '(' . $expr . ')::text, ' . $separator . ($order !== null ? ' ORDER BY ' . $order : '') . ')';
+        });
     }
 
     /** The expression with quoted text and parenthesised parts blanked (what is left is the top level). */

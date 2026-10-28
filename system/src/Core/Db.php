@@ -8,6 +8,7 @@ use PDO;
 use PDOStatement;
 use Talea\Core\Dialect\Dialect;
 use Talea\Core\Dialect\MySql;
+use Talea\Core\Dialect\Sqlite;
 
 /**
  * A thin layer over PDO.
@@ -26,7 +27,7 @@ final class Db
 
     private ?PDO $pdo = null;
     private ?Dialect $dialect = null;
-    /** @var array<string, ?string> memo of identityColumn() */
+    /** @var array<string, ?string> memo of identityColumn() ('' = none, SQLite) */
     private array $identity = [];
     /** @var array<string, array<string, array{primary: bool, columns: list<string>}>> memo of keyRows(): table => key name => columns */
     private array $keyMemo = [];
@@ -46,29 +47,36 @@ final class Db
     ) {
     }
 
-    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username:string,password:string,prefix?:string} $c driver: mysql (default) | pgsql */
+    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string} $c driver: mysql (default) | pgsql | sqlite (name = the file) */
     public static function fromConfig(array $c): self
     {
         $dialect = Dialect::forDriver($c['driver'] ?? 'mysql');
         $c['port'] ??= $dialect->defaultPort();
 
-        return new self($dialect->dsn($c), $c['username'], $c['password'], $c['prefix'] ?? 'tl_');
+        return new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['prefix'] ?? 'tl_');
     }
 
     /** The SQL differences of the engine this connection talks to (upsert, JSON, intervals, locks, full-text …). */
     public function dialect(): Dialect
     {
-        return $this->dialect ??= Dialect::forDriver(str_starts_with($this->dsn, 'pgsql:') ? 'pgsql' : 'mysql');
+        return $this->dialect ??= Dialect::forDriver((string) strstr($this->dsn, ':', true));
     }
 
     public function pdo(): PDO
     {
         if ($this->pdo === null) {
-            $this->pdo = new PDO($this->dsn, $this->user, $this->password, [
+            $sqlite = $this->dialect() instanceof Sqlite;
+            if ($sqlite && !is_dir($folder = dirname(substr($this->dsn, 7))) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
+                throw new \RuntimeException('The folder of the database file cannot be created: ' . $folder);
+            }
+            $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
-            ] + ($this->dialect()->name() === 'pgsql' ? [PDO::ATTR_STATEMENT_CLASS => [PgStatement::class]] : []));
+            ] + ($this->dialect()->name() === 'pgsql' ? [PDO::ATTR_STATEMENT_CLASS => [PgStatement::class]] : []);
+            // SQLite: the driver's own class, which can register PHP functions (Dialect\Sqlite::connect)
+            $this->pdo = $sqlite ? new \Pdo\Sqlite($this->dsn, null, null, $options) : new PDO($this->dsn, $this->user, $this->password, $options);
+            $this->dialect()->connect($this->pdo);
             // The database must count time the same way as PHP: PHP writes article dates (date()), but queries compare them with NOW().
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
@@ -159,7 +167,12 @@ final class Db
         $pg = $this->dialect()->name() === 'pgsql'; // PostgreSQL has no LAST_INSERT_ID: the new key comes back with the INSERT
         $key = $pg ? (self::PRIMARY_KEYS[$table] ?? $this->identityColumn($table)) : null;
         $statement = $this->withoutJournal(fn (): PDOStatement => $this->run($sql . ($key !== null ? $this->dialect()->returning($key) : ''), array_values($data)));
-        $id = $key !== null ? (int) $statement->fetchColumn() : ($pg ? 0 : (int) $this->pdo()->lastInsertId());
+        // SQLite numbers every row (rowid): a table without an auto-numbered key reports 0, as on MySQL
+        $id = match (true) {
+            $key !== null => (int) $statement->fetchColumn(),
+            $pg, $this->dialect() instanceof Sqlite && !isset(self::PRIMARY_KEYS[$table]) && $this->identityColumn($table) === null => 0,
+            default => (int) $this->pdo()->lastInsertId(),
+        };
         if ($this->journal !== null && AgentJournal::journaled($table)) {
             $this->journal->inserted($table, $data, $id);
         }
@@ -291,9 +304,17 @@ final class Db
         return (string) $this->value($this->dialect()->currentDatabaseSql());
     }
 
-    /** PostgreSQL only: the auto-numbered column of a table (it has no LAST_INSERT_ID), null when there is none. */
+    /** PostgreSQL and SQLite: the auto-numbered column of a table (PostgreSQL has no LAST_INSERT_ID, SQLite numbers every row), null when there is none. */
     private function identityColumn(string $table): ?string
     {
+        if ($this->dialect() instanceof Sqlite) {
+            // the one INTEGER column of the primary key is the rowid; '' remembers that there is none
+            return ($this->identity[$table] ??= (string) $this->value(
+                "SELECT MAX(name) FROM pragma_table_info(?) WHERE pk > 0 HAVING COUNT(*) = 1 AND MAX(upper(type)) = 'INTEGER'",
+                [$this->prefix . $table],
+            )) ?: null;
+        }
+
         return $this->identity[$table] ??= ($this->value(
             "SELECT a.attname FROM pg_attribute a WHERE a.attrelid = ?::regclass AND a.attidentity <> '' AND NOT a.attisdropped",
             ['"' . $this->prefix . $table . '"'],

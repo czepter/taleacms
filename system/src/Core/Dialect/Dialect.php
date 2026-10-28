@@ -7,7 +7,7 @@ namespace Talea\Core\Dialect;
 use PDO;
 
 /**
- * The few SQL constructs that differ between MySQL 8 and PostgreSQL. Feature code writes plain SQL and asks the dialect
+ * The few SQL constructs that differ between MySQL 8, PostgreSQL and SQLite. Feature code writes plain SQL and asks the dialect
  * (Db::dialect()) for these; every method returns a piece of SQL (with ? placeholders and {table} names, expanded by Db)
  * except where the name says it acts on the connection (lock, unlock, setTimeZone).
  * Identifiers and paths are validated here, values never are inlined: they stay ? parameters.
@@ -21,17 +21,23 @@ abstract class Dialect
         return match ($driver) {
             'mysql', '' => new MySql(),
             'pgsql' => new Postgres(),
-            default => throw new \InvalidArgumentException("Unknown database driver: {$driver} (mysql or pgsql)"),
+            'sqlite' => new Sqlite(),
+            default => throw new \InvalidArgumentException("Unknown database driver: {$driver} (mysql, pgsql or sqlite)"),
         };
     }
 
-    /** 'mysql' | 'pgsql': the PDO driver and the Phinx adapter name. */
+    /** 'mysql' | 'pgsql' | 'sqlite': the PDO driver and the Phinx adapter name. */
     abstract public function name(): string;
 
     abstract public function defaultPort(): int;
 
     /** @param array{host?:string,port?:int,socket?:string,name:string} $c */
     abstract public function dsn(array $c): string;
+
+    /** Called by Db right after it connected (SQLite registers its functions here). */
+    public function connect(PDO $pdo): void
+    {
+    }
 
     /** Phinx environment options of this engine (adapter, charset, collation). @return array<string, mixed> */
     abstract public function phinx(): array;

@@ -58,7 +58,7 @@ final class Site
         $this->keepDatabase = $templateBuild !== null;
         // an installed site is built once per run and set of installer options and cloned for every class; freshInstall runs the real installer
         $template = $templateBuild === null && !($this->options['freshInstall'] ?? false) ? self::template($this->options, $server, $admin) : null;
-        // PostgreSQL clones the template database natively; MySQL gets an empty one and cloneTemplate() copies the tables
+        // PostgreSQL clones the template database natively, SQLite copies the file; MySQL gets an empty one and cloneTemplate() copies the tables
         $this->cloneLocked($admin, $template);
         $this->pdo = TestDatabase::connect($this->database);
 
@@ -144,7 +144,7 @@ final class Site
                 $built = new self(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])) + ['_templateBuild' => $name]);
                 $config = require $built->root . '/config.php';
                 $ddl = [];
-                foreach (TestDatabase::isPostgres() ? [] : $built->pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) { // PostgreSQL clones the whole database instead
+                foreach (TestDatabase::isMySql() ? $built->pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) : [] as $table) { // PostgreSQL and SQLite clone the whole database instead
                     $ddl[(string) $table] = (string) $built->pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(PDO::FETCH_NUM)[1];
                 }
                 file_put_contents($marker . '.tmp', json_encode(['password' => $built->password, 'body' => $built->installerResponse->body, 'base' => $built->base, 'config' => $config, 'ddl' => $ddl]));
@@ -163,11 +163,11 @@ final class Site
     /** Tables (structure with keys and foreign keys, then rows) and config.php of the template into this site's database and folder. @param array<string, mixed> $template */
     private function cloneTemplate(array $template): void
     {
-        if (!TestDatabase::isPostgres()) {
+        if (TestDatabase::isMySql()) {
             $this->copyTables($template);
         }
         $config = $template['config'];
-        $config['db']['name'] = $this->database;
+        $config['db']['name'] = TestDatabase::isSqlite() ? 'storage/database/' . $this->database . '.sqlite' : $this->database;
         file_put_contents($this->root . '/config.php', "<?php\n\nreturn " . var_export($config, true) . ";\n");
         @unlink($this->root . '/install.php'); // the installer deletes itself when it is done
     }
@@ -183,10 +183,10 @@ final class Site
         $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
 
-    /** Creates this site's database: empty, or (PostgreSQL, with a template) a clone of it. Clones of one template are made one at a time: the source must be quiet while PostgreSQL copies it. @param array<string, mixed>|null $template */
+    /** Creates this site's database: empty, or (PostgreSQL, SQLite, with a template) a clone of it. Clones of one template are made one at a time: the source must be quiet while it is copied. @param array<string, mixed>|null $template */
     private function cloneLocked(PDO $admin, ?array $template): void
     {
-        if ($template === null || !TestDatabase::isPostgres()) {
+        if ($template === null || TestDatabase::isMySql()) {
             TestDatabase::create($admin, $this->database);
 
             return;
@@ -488,7 +488,7 @@ final class Site
             // MySQL keeps the connection of a dropped database open as long as this object lives (a test class may hold its site
             // in a static property): ended here, so a worker's connections do not pile up past max_connections (PostgreSQL's
             // DROP … WITH (FORCE) ends them already)
-            if (isset($this->pdo) && !TestDatabase::isPostgres()) {
+            if (isset($this->pdo) && TestDatabase::isMySql()) {
                 TestDatabase::admin()->exec('KILL ' . (int) $this->pdo->query('SELECT CONNECTION_ID()')->fetchColumn());
             }
         } catch (\Throwable) {
@@ -520,6 +520,9 @@ final class Site
             }
         }
         symlink($project . '/vendor', $this->root . '/vendor');
+        if (TestDatabase::isSqlite()) {
+            symlink(TestDatabase::sqliteFolder(), $this->root . '/storage/database'); // the installer keeps the file there; the harness reaches it by its name
+        }
     }
 
     /** @param array<string, mixed> $server */
@@ -529,7 +532,7 @@ final class Site
         // on a busy CI host the migrations took 85 seconds once: the default 60 cut the request off while the server went on installing
         $visitor->timeout = 300;
         $fields = [
-            'db_driver' => $server['driver'], 'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
+            'db_driver' => $server['driver'], 'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database . (TestDatabase::isSqlite() ? '.sqlite' : ''), 'db_user' => $server['username'], 'db_password' => $server['password'],
             'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
             'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects', 'page_check'],

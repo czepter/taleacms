@@ -8,6 +8,7 @@
 /media/*
 !/media/.htaccess
 /storage/backups/
+/storage/database/
 /storage/import/*
 !/storage/import/.htaccess
 !/storage/import/.gitkeep

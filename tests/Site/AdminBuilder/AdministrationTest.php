@@ -149,8 +149,8 @@ final class AdministrationTest extends SiteTestCase
 
         // news without a category: a default category is created in the site language
         $pdo = $this->site()->pdo;
-        // MySQL: foreign_key_checks; PostgreSQL: no triggers (foreign keys) in this session
-        $pdo->exec(\Talea\Tests\Support\TestDatabase::isPostgres() ? 'SET session_replication_role = replica' : 'SET FOREIGN_KEY_CHECKS=0');
+        // MySQL: foreign_key_checks; PostgreSQL: no triggers (foreign keys) in this session; SQLite: the foreign_keys pragma
+        $pdo->exec(match (\Talea\Tests\Support\TestDatabase::driver()) { 'pgsql' => 'SET session_replication_role = replica', 'sqlite' => 'PRAGMA foreign_keys = OFF', default => 'SET FOREIGN_KEY_CHECKS=0' });
         $pdo->exec('DROP TABLE IF EXISTS kat_zaloha');
         $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM tl_categories');
         $pdo->exec('DELETE FROM tl_categories');
@@ -163,7 +163,7 @@ final class AdministrationTest extends SiteTestCase
             $pdo->exec('INSERT INTO tl_categories SELECT * FROM kat_zaloha');
             $pdo->exec('DROP TABLE kat_zaloha');
             $pdo->exec("UPDATE tl_settings SET value='en' WHERE name='site_language'");
-            $pdo->exec(\Talea\Tests\Support\TestDatabase::isPostgres() ? 'SET session_replication_role = DEFAULT' : 'SET FOREIGN_KEY_CHECKS=1');
+            $pdo->exec(match (\Talea\Tests\Support\TestDatabase::driver()) { 'pgsql' => 'SET session_replication_role = DEFAULT', 'sqlite' => 'PRAGMA foreign_keys = ON', default => 'SET FOREIGN_KEY_CHECKS=1' });
         }
     }
 

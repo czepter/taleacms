@@ -45,6 +45,7 @@ body {
 .field { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .field .full { grid-column: 1 / -1; }
 .field .with-port { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 12px; }
+.database:has(option[value="sqlite"]:checked) .server { display: none; } /* SQLite is a file: no server, user or password */
 .field label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600; }
 input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
 	width: 100%; padding: 10px 12px; border: 1px solid var(--line-field); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit;

@@ -11,14 +11,19 @@ use Phinx\Util\Literal;
 use Talea\Core\Dialect\Postgres;
 
 /**
- * What a migration file needs where MySQL and PostgreSQL differ. The migrations stay in Phinx's DSL; the SQL this has to write
- * is here (not in the migration files) and only runs on PostgreSQL, so the MySQL schema is exactly what the DSL says.
+ * What a migration file needs where MySQL, PostgreSQL and SQLite differ. The migrations stay in Phinx's DSL; the SQL this has to write
+ * is here (not in the migration files) and only runs on PostgreSQL or SQLite, so the MySQL schema is exactly what the DSL says.
  */
 final class MigrationSupport
 {
     public static function isPostgres(AdapterInterface $adapter): bool
     {
         return $adapter->getOption('adapter') === 'pgsql'; // getAdapterType() of the prefix wrapper is not the engine
+    }
+
+    public static function isSqlite(AdapterInterface $adapter): bool
+    {
+        return $adapter->getOption('adapter') === 'sqlite';
     }
 
     /**
@@ -33,19 +38,27 @@ final class MigrationSupport
         if (self::isPostgres($adapter)) {
             return ['uuid', ['null' => false, 'default' => Literal::from('gen_random_uuid()'), 'comment' => $comment]];
         }
+        if (self::isSqlite($adapter)) {
+            return ['char', ['limit' => 36, 'null' => false, 'default' => Literal::from("(lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6))))"), 'comment' => $comment]];
+        }
 
         return ['char', ['limit' => 36, 'null' => false, 'default' => Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => $comment]];
     }
 
     /**
      * Creates the table with its full-text indexes: a FULLTEXT index on MySQL, a GIN index over a tsvector on PostgreSQL
-     * (created right after the table, the query uses the same expression: Dialect::fulltextMatch()).
+     * (created right after the table, the query uses the same expression: Dialect::fulltextMatch()), none on SQLite (Dialect\Sqlite::fulltextIndex()).
      *
      * @param array<string, list<string>> $fulltext index name => columns
      */
     public static function create(AbstractMigration $migration, Table $table, string $name, array $fulltext): void
     {
         $adapter = $migration->getAdapter();
+        if (self::isSqlite($adapter)) {
+            $table->create();
+
+            return;
+        }
         if (!self::isPostgres($adapter)) {
             foreach ($fulltext as $index => $columns) {
                 $table->addIndex($columns, ['name' => $index, 'type' => 'fulltext']);
@@ -69,10 +82,34 @@ final class MigrationSupport
         }
     }
 
-    /** PostgreSQL only: columns that are compared the way MySQL compares everything (any case, any accents): sign-in names, e-mails, slugs. @param array<string, list<string>> $columns table => columns */
+    /**
+     * Columns that are compared the way MySQL compares everything (any case, any accents): sign-in names, e-mails, slugs. PostgreSQL: the ICU
+     * collation; SQLite: its NOCASE collation (letters A to Z only; the table is rebuilt, as SQLite cannot change a column in place); MySQL: nothing.
+     *
+     * @param array<string, list<string>> $columns table => columns
+     */
     public static function ignoreCase(AbstractMigration $migration, array $columns): void
     {
         $adapter = $migration->getAdapter();
+        if (self::isSqlite($adapter)) {
+            foreach ($columns as $table => $names) {
+                $definitions = [];
+                foreach ($adapter->getColumns($table) as $column) {
+                    $definitions[$column->getName()] = $column;
+                }
+                $changes = $migration->table($table);
+                foreach ($names as $name) {
+                    // the default goes into the literal type: Phinx leaves the value of a default out after a literal type
+                    $column = $definitions[$name];
+                    $default = $column->getDefault();
+                    $column->setType(Literal::from('VARCHAR(' . (int) $column->getLimit() . ') COLLATE NOCASE' . ($default !== null ? " DEFAULT '" . str_replace("'", "''", (string) $default) . "'" : '')));
+                    $changes->changeColumn($name, $column->setDefault(null));
+                }
+                $changes->update();
+            }
+
+            return;
+        }
         if (!self::isPostgres($adapter)) {
             return;
         }

@@ -37,7 +37,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   exports use the public id, never a row number.
 - **Schema changes are Phinx migrations** in `system/database/migrations/` (timestamped, table DSL, no raw SQL unless unavoidable, no
   `COLLATE`/`CHARSET`: the collation `utf8mb4_0900_ai_ci` is set once on the database). `bin/migrate` applies them (installer, Docker
-  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 (also MariaDB 11.4+, driver `mysql`) or PostgreSQL 18 (`TALEA_DB_DRIVER`). MariaDB has no row
+  entrypoint, tests); no migration runs on a page request. Engine: MySQL 8 (also MariaDB 11.4+, driver `mysql`), PostgreSQL 18 or SQLite (`TALEA_DB_DRIVER`). MariaDB has no row
   alias in upserts: `Db::pdo()` detects it from the server version and `Dialect\MySql(mariaDb: true)` writes `VALUES(col)` instead of `new_row.col`.
 - **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
   (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
@@ -49,6 +49,10 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `php tools/sql-dialect-scan.php` lists MySQL-only SQL outside `Core\Dialect`; it must report 0 lines (run it locally before you commit, CI does not). SQL that a site test writes
   (`Site::value/rows/exec`) is translated for PostgreSQL by `tests/Site/Support/TestSql.php`. Run the site suite on both: `TALEA_TEST_DB_DRIVER=pgsql
   vendor/bin/paratest --testsuite site`; `composer test:pg` runs the integration suite on PostgreSQL. Design, decisions and differences met: `docs/specs/postgres.md`.
+- **SQLite** (`TALEA_DB_DRIVER=sqlite`, installer "SQLite"; one file `storage/database/talea.sqlite`, no server, one writer: small sites, demos) runs the same SQL through
+  `Core\Dialect\Sqlite`: `rewrite()` turns `NOW() - INTERVAL 5 DAY` into `datetime()`, adds `ESCAPE '\'` to `LIKE`, drops `FOR UPDATE`; `connect()` registers PHP functions
+  (`NOW()` in PHP's zone, `CONCAT`, folding for `likeInsensitive()`, the full-text match, an ordered `GROUP_CONCAT`). The image's SQLite is 3.40: nothing newer in SQL.
+  An `UPDATE`/`DELETE` alias takes `AS`. Lookup columns are `COLLATE NOCASE` (A–Z only). `composer test:sqlite` runs the integration and site suites; `docs/specs/sqlite.md`.
 - Settings: a new option = a key in `Settings::DEFAULTS` + a type in `Settings::FIELDS` + a row in `views/admin/settings/<tab>.php`.
 - Extensions (`Core\Extensions::CATALOG`) are built-in features that an administrator switches on and off; `Module::EXTENSION` and
   `Element::EXTENSION` tie modules and builder elements to them (off: the module disappears, the element is not offered or rendered, the
