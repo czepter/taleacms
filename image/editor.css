@@ -126,7 +126,7 @@ button.gallery-item:hover, button.gallery-item:focus-visible { border-color: var
 /* 2FA QR code: always black on white (in dark mode too – that is how apps read it), shrinks on a narrow display */
 .totp-qr { display: inline-block; margin: 8px 0; line-height: 0; }
 .totp-qr svg { max-width: min(100%, 260px); height: auto; border-radius: var(--ed-radius); }
-.totp-key, .backup-codes { display: inline-block; margin: 6px 0; padding: 6px 10px; border: 1px solid var(--ed-card-line, var(--ed-line)); border-radius: var(--ed-radius-small); background: var(--ed-bar); font: 15px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; user-select: all; }
+.totp-key, .backup-codes { display: inline-block; margin: 6px 0; padding: 6px 10px; border: 1px solid var(--ed-card-line, var(--ed-line)); border-radius: var(--ed-radius-small); background: var(--ed-bar); font: 15px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; user-select: all; overflow-wrap: anywhere; }
 a.signed-in { color: inherit; text-decoration: none; display: inline-flex; align-items: center; }
 
 /* confirmation dialog */
