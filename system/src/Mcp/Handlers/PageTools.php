@@ -235,6 +235,11 @@ trait PageTools
             $out['collection_items'] = array_map(fn (array $r): array => ['id' => (int) $r['item_id'], 'collection' => $r['collection'], 'name' => $r['name'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT p.item_id, p.name, p.deleted_at, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NOT NULL ORDER BY p.deleted_at DESC LIMIT 100'));
         }
+        if ($auth->hasModule('enquiries') && \Talea\Core\Extensions::isEnabled($this->app->settings(), 'enquiries')) {
+            // no person in this list: reading enquiries is list_enquiries, which the change log records
+            $out['enquiries'] = array_map(fn (array $r): array => ['id' => (int) $r['enquiry_id'], 'form' => $r['form'], 'date' => substr((string) $r['created_at'], 0, 16), 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+                $db->all('SELECT enquiry_id, form, created_at, deleted_at FROM {enquiries} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100'));
+        }
 
         return $out;
     }
@@ -261,8 +266,15 @@ trait PageTools
         } elseif ($type === 'collection_item') {
             $need($auth->hasModule('collections'), 'Collection items can be restored only by users with the Collections section.');
             $ok = $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() > 0;
+        } elseif ($type === 'enquiry') {
+            $need($auth->hasModule('enquiries'), 'Enquiries can be restored only by users with the Enquiries section.');
+            if (\Talea\Admin\Modules\Enquiries::restore($db, [$id]) === 0) {
+                throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
+            }
+
+            return ['restored' => $type, 'id' => $id];
         } else {
-            throw new \InvalidArgumentException('type must be page, news or collection_item.');
+            throw new \InvalidArgumentException('type must be page, news, collection_item or enquiry.');
         }
         if (!$ok) {
             throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');

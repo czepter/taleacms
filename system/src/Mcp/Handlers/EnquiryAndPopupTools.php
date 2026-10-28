@@ -35,7 +35,7 @@ trait EnquiryAndPopupTools
         if (!\Talea\Core\Extensions::isEnabled($siteSettings, 'enquiries') || !$auth->hasModule('enquiries')) {
             throw new \DomainException('Only users with access to Enquiries can read them (the Forms and enquiries extension must be on).');
         }
-        $whereParts = [];
+        $whereParts = ['deleted_at IS NULL']; // the trash is in list_trash
         $params = [];
         $statuses = ['new' => 0, 'read' => 1, 'resolved' => 2];
         if (isset($statuses[$a['status'] ?? ''])) {
@@ -82,12 +82,11 @@ trait EnquiryAndPopupTools
         };
 
         $need($auth->hasModule('enquiries'), 'Enquiries can be changed only by users with the Enquiries section.');
-        $enquiry = $db->one('SELECT enquiry_id, data FROM {enquiries} WHERE enquiry_id = ?', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist. Use list_enquiries.');
+        $enquiry = $db->one('SELECT enquiry_id, data FROM {enquiries} WHERE enquiry_id = ? AND deleted_at IS NULL', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist or is in the trash. Use list_enquiries (list_trash and restore_from_trash for the trash).');
         if ($name === 'delete_enquiry') {
-            \Talea\Admin\Modules\Enquiries::deleteAttachments([$enquiry]);
-            $db->delete('enquiries', ['enquiry_id' => $id]);
+            \Talea\Admin\Modules\Enquiries::trash($db, [$id]);
 
-            return ['deleted' => $id];
+            return ['trashed' => $id, 'restore' => 'restore_from_trash with type enquiry within 30 days'];
         }
         // a drafts-only connection (3.2) only suggests the triage – the status and the internal note are a person's
         if ($auth->draftsOnly() && (isset($a['status']) || isset($a['note']))) {
@@ -175,7 +174,7 @@ trait EnquiryAndPopupTools
             throw new \DomainException('Enquiries can be read only by users with the Enquiries section.');
         }
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
-        $rows = $this->app->db()->all("SELECT * FROM {enquiries} WHERE category = '' ORDER BY enquiry_id DESC LIMIT " . $limit);
+        $rows = $this->app->db()->all("SELECT * FROM {enquiries} WHERE category = '' AND deleted_at IS NULL ORDER BY enquiry_id DESC LIMIT " . $limit);
 
         return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'text' => \Talea\Core\Triage::text($p)], $rows),
             // the site's kinds (Settings → Enquiries): the key to save and how to recognise each

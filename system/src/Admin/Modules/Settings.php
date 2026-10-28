@@ -229,7 +229,7 @@ class Settings extends Module
             'reports' => $tab === 'reports' ? ['months' => \Talea\Core\ReportArchive::months($this->db), 'first' => \Talea\Core\ReportArchive::firstMonth($this->db),
                 'previous' => \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
             'kinds' => $tab === 'enquiries' ? \Talea\Core\Triage::kinds($settings) : [],
-            'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' GROUP BY category")) : [],
+            'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' AND deleted_at IS NULL GROUP BY category")) : [],
             'retentionSuggestion' => $tab === 'enquiries' ? \Talea\Core\Jobs::suggestedRetention($settings->get('company_country'), $settings->get('site_language')) : null,
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
                 ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,

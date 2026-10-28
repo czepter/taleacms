@@ -193,7 +193,7 @@ final class Kernel
     public static function waiting(App $app, array $modules): array
     {
         $counts = array_intersect_key([
-            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam')",
+            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam' AND deleted_at IS NULL)",
             'bookings' => "(SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW())",
         ], $modules);
         if ($counts === []) {
@@ -271,6 +271,7 @@ final class Kernel
             Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
             Modules\Pages::emptyTrash($app->db());
             Modules\Collections::emptyTrash($app->db());
+            Modules\Enquiries::emptyTrash($app->db());
         }
 
         $ident = $request->get('module');
@@ -466,7 +467,7 @@ final class Kernel
         $before = date('Y-m-d 00:00:00', strtotime('-' . (2 * $days - 1) . ' days'));
 
         return ['days' => $days, 'parts' => array_keys($parts), 'report' => $report]
-            + (isset($parts['enquiries']) ? ['unread' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0')] : [])
+            + (isset($parts['enquiries']) ? ['unread' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND deleted_at IS NULL')] : [])
             + (isset($parts['bookings']) ? ['bookings' => [
                 'count' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ?', [$since]),
                 'previous' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ?', [$before, $since]),

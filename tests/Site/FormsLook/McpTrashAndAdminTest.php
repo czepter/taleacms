@@ -180,8 +180,13 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $enquiry = (int) $this->sql('SELECT MAX(enquiry_id) FROM tl_enquiries');
                 $this->call('update_enquiry', ['id' => $this->site()->publicId('enquiries', $enquiry), 'status' => 'resolved', 'note' => 'Vyrizeno pres Clauda']);
         $this->assertSame('2|Vyrizeno pres Clauda', $this->sql("SELECT CONCAT(status, '|', note) FROM tl_enquiries WHERE enquiry_id = $enquiry"), 'MCP: update_enquiry');
-        $this->call('delete_enquiry', ['id' => $this->site()->publicId('enquiries', $enquiry)]);
-        $this->assertSame('0', $this->sql("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = $enquiry"), 'MCP: delete_enquiry');
+        $publicId = $this->site()->publicId('enquiries', $enquiry);
+        $this->call('delete_enquiry', ['id' => $publicId]);
+        $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = $enquiry AND deleted_at IS NOT NULL"), 'MCP: delete_enquiry moves it to the trash');
+        $this->assertStringNotContainsString('mcp@example.cz', json_encode($this->call('list_enquiries')), 'MCP: list_enquiries leaves the trash out');
+        $this->assertStringContainsString($publicId, json_encode($this->call('list_trash')), 'MCP: list_trash lists the enquiry');
+        $this->call('restore_from_trash', ['type' => 'enquiry', 'id' => $publicId]);
+        $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = $enquiry AND deleted_at IS NULL"), 'MCP: restore_from_trash brings the enquiry back');
     }
 
     private function png(): string

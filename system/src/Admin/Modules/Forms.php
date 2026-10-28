@@ -53,7 +53,7 @@ final class Forms extends Module
         if ($form === null) {
             return $this->error('The form does not exist.', 404);
         }
-        $where = ['source = ?', 'element = ?', "category <> 'spam'"];
+        $where = ['source = ?', 'element = ?', "category <> 'spam'", 'deleted_at IS NULL'];
         $params = [$form['source'], $form['element']];
         $filter = $this->request->get('status');
         $where[] = match ($filter) {
@@ -69,7 +69,7 @@ final class Forms extends Module
         }
         $sql = ' FROM {enquiries} WHERE ' . implode(' AND ', $where);
         $pageNumber = max(1, $this->request->getInt('page', 1));
-        $all = $this->db->one("SELECT COUNT(*) AS total, SUM(CASE WHEN status < 2 THEN 1 ELSE 0 END) AS open, SUM(CASE WHEN created_at >= NOW() - INTERVAL 30 DAY THEN 1 ELSE 0 END) AS recent FROM {enquiries} WHERE source = ? AND element = ? AND category <> 'spam'", [$form['source'], $form['element']]) ?? [];
+        $all = $this->db->one("SELECT COUNT(*) AS total, SUM(CASE WHEN status < 2 THEN 1 ELSE 0 END) AS open, SUM(CASE WHEN created_at >= NOW() - INTERVAL 30 DAY THEN 1 ELSE 0 END) AS recent FROM {enquiries} WHERE source = ? AND element = ? AND category <> 'spam' AND deleted_at IS NULL", [$form['source'], $form['element']]) ?? [];
 
         return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'enquiries' => $this->db->all('SELECT public_id, created_at, email, status, page, data' . $sql . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
@@ -118,7 +118,7 @@ final class Forms extends Module
                 $this->app->url('admin.php?module=collections&action=builder&id=' . $k['public_id']));
         }
         uasort($forms, fn (array $a, array $b): int => ($a['state'] === 'draft') <=> ($b['state'] === 'draft'));
-        foreach ($this->db->all("SELECT source, element, MAX(form) AS form, COUNT(*) AS total, SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS fresh, MAX(created_at) AS last FROM {enquiries} WHERE element <> '' AND category <> 'spam' GROUP BY source, element ORDER BY last DESC") as $e) {
+        foreach ($this->db->all("SELECT source, element, MAX(form) AS form, COUNT(*) AS total, SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS fresh, MAX(created_at) AS last FROM {enquiries} WHERE element <> '' AND category <> 'spam' AND deleted_at IS NULL GROUP BY source, element ORDER BY last DESC") as $e) {
             $key = $e['source'] . '|' . $e['element'];
             // a form that is gone still has its answers: it stays in the list with the name its last answers carried
             $forms[$key] ??= ['source' => (string) $e['source'], 'public' => $this->publicSource((string) $e['source']), 'element' => (string) $e['element'], 'name' => (string) $e['form'],
