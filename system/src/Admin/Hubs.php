@@ -10,7 +10,7 @@ namespace Talea\Admin;
  *
  *  - Business details: the company and its opening hours, the facts, the claims, the blueprints
  *  - Features: the built-in features and the add-ons
- *  - Claude: the settings (instructions, guardrails, connections), Ask Claude, scheduled runs, the notebook, the sessions
+ *  - Claude: the connection, Ask Claude, scheduled runs, the notebook, the sessions (the instructions and guardrails: Settings → AI)
  */
 final class Hubs
 {
@@ -18,7 +18,7 @@ final class Hubs
     public const array TABS = [
         'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints'], ['wizard', '', 'Site wizard']],
         'features' => [['extensions', '', 'Features'], ['addons', '', 'Add-ons']],
-        'claude' => [['claude_settings', '', 'Settings and connections'], ['requests', '', 'Ask AI'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'AI sessions']],
+        'claude' => [['claude', '', 'Connection'], ['requests', '', 'Ask AI'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'AI sessions']],
     ];
 
     /**

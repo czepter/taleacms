@@ -105,7 +105,7 @@ final class Health
                     default => t('requests are picked up only when someone asks Claude'),
                 },
         } . ($claude['expiring'] ? ' – ' . t('a connection ends %s, connect Claude again before then', $when($claude['expires'])) : ''),
-            $claude['state'] !== 'off' ? [['text' => t('AI settings'), 'url' => $app->url('admin.php?module=claude_settings')]] : []);
+            $claude['state'] !== 'off' ? [['text' => t('Claude connection'), 'url' => $app->url('admin.php?module=claude')]] : []);
 
         // --- operation
         $log = TALEA_ROOT . '/storage/log/errors.log';

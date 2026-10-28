@@ -10,7 +10,7 @@
  */
 use Talea\Core\ClaudeConnection;
 
-if ((!isset($modules['claude_settings']) && !isset($modules['requests'])) || !Talea\Core\Extensions::isEnabled($app->settings(), 'claude') || Talea\Core\Demo::active()) {
+if ((!isset($modules['claude']) && !isset($modules['requests'])) || !Talea\Core\Extensions::isEnabled($app->settings(), 'claude') || Talea\Core\Demo::active()) {
     return;
 }
 $claude = ClaudeConnection::status($app->db(), $app->settings());
@@ -22,4 +22,4 @@ $claude = ClaudeConnection::status($app->db(), $app->settings());
 };
 $text = $label . ($detail !== '' ? ' – ' . $detail : '');
 ?>
-<a class="claude-chip status status-<?= $kind ?>" href="<?= e($app->url('admin.php?module=' . (isset($modules['claude_settings']) ? 'claude_settings' : 'requests'))) ?>" title="<?= e($text) ?>" data-claude-state="<?= e($claude['state']) ?>"><span class="claude-chip-text"><?= e($text) ?></span></a>
+<a class="claude-chip status status-<?= $kind ?>" href="<?= e($app->url('admin.php?module=' . (isset($modules['claude']) ? 'claude' : 'requests'))) ?>" title="<?= e($text) ?>" data-claude-state="<?= e($claude['state']) ?>"><span class="claude-chip-text"><?= e($text) ?></span></a>

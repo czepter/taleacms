@@ -69,13 +69,14 @@ final class AiFlowTest extends SiteTestCase
         $site->setting('ai_provider', 'anthropic');
         $site->exec("DELETE FROM tl_settings WHERE name IN ('ai_model', 'ai_models')");
         try {
-            $this->assertPage('/admin.php?module=assistant_settings', 200, ['<option value="fake-model-new" selected>Fake Model New · fake-model-new</option>', 'value="fake-model-old"', 'name="reload_models"'],
-                message: 'assistant settings: the provider\'s models, newest first, without a list in the code');
-            $this->post('module=assistant_settings&action=save', ['tab' => 'assistant', 'ai_provider' => 'anthropic', 'ai_provider_previous' => 'anthropic', 'ai_key' => '', 'ai_model' => 'fake-model-old']);
+            $this->assertPage('/admin.php?module=settings&tab=ai', 200, ['id="assistant"', '<option value="fake-model-new" selected>Fake Model New · fake-model-new</option>', 'value="fake-model-old"', 'name="reload_models"', 'name="claude_instructions"'],
+                message: 'Settings → AI: the own key with the provider\'s models, newest first, without a list in the code, on the same screen as the instructions');
+            $this->post('module=settings&action=save', ['tab' => 'ai', 'ai_provider' => 'anthropic', 'ai_provider_previous' => 'anthropic', 'ai_key' => '', 'ai_model' => 'fake-model-old']);
             $this->assertSame('fake-model-old', $site->settingValue('ai_model'), 'assistant settings: the chosen model is saved');
-            $this->post('module=assistant_settings&action=save', ['tab' => 'assistant', 'ai_provider' => 'anthropic', 'ai_provider_previous' => 'openai', 'ai_key' => '', 'ai_model' => 'gpt-something']);
+            $this->post('module=settings&action=save', ['tab' => 'ai', 'ai_provider' => 'anthropic', 'ai_provider_previous' => 'openai', 'ai_key' => '', 'ai_model' => 'gpt-something']);
             $this->assertSame('fake-model-new', $site->settingValue('ai_model'), 'assistant settings: another provider\'s model is replaced by the newest of the list');
-            $this->assertPage('/admin.php?module=settings', 200, ['href="/admin/assistant_settings">Writing assistant<', 'href="/admin/claude_settings">AI settings<'], message: 'settings menu: the writing assistant and the AI settings under Features');
+            $this->assertPage('/admin.php?module=settings', 200, ['tab=ai">AI<'], message: 'settings menu: AI under Features');
+            $this->assertPageLacks('/admin.php?module=settings', 'href="/admin/assistant_settings"', message: 'settings menu: no separate writing assistant screen');
         } finally {
             $site->setting('extensions', $extensions);
             $site->exec("DELETE FROM tl_settings WHERE name IN ('ai_model', 'ai_models')");

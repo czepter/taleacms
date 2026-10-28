@@ -43,7 +43,7 @@ final class Demo
     }
 
     /**
-     * What each Settings screen may do in the demo (3.3.2, N24): Status, Claude settings, Features and Business details
+     * What each Settings screen may do in the demo (3.3.2, N24): Status, Features and Business details
      * inherit every action of Settings, so the filter goes by the class, and an action not listed here is refused. A
      * Settings screen added later and missing here may only be looked at.
      */

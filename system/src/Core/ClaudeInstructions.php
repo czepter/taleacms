@@ -9,7 +9,7 @@ use Talea\Admin\ChangeLog;
 /**
  * The instructions for Claude (claude_instructions) steer every later connection, and a connection may change them itself
  * (update_settings). So every change, from the admin or over MCP, is a change log row with the whole text before and after,
- * and Home tells the administrators until one of them has checked the newest text in Claude settings. The setting
+ * and Home tells the administrators until one of them has checked the newest text in Settings → AI. The setting
  * claude_instructions_seen holds a fingerprint of the text checked: a change made after the check shows again.
  */
 final class ClaudeInstructions
@@ -27,6 +27,7 @@ final class ClaudeInstructions
             return;
         }
         $short = fn (string $text): string => $text === '' ? '–' : '“' . mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', $text)), 0, self::SHORT, '…') . '”';
+        // 'claude_settings' stays the module key of these rows (#149), the screen is Settings → AI now
         ChangeLog::write($app, 'claude_settings', 'instructions', $short($before) . ' → ' . $short($after),
             detail: (string) json_encode(['before' => $before, 'after' => $after], JSON_UNESCAPED_UNICODE));
         if ($typed && $app->auth()->connection() === null && $app->auth()->isAdmin()) {
@@ -60,7 +61,7 @@ final class ClaudeInstructions
             'before' => (string) ($texts['before'] ?? ''), 'after' => (string) ($texts['after'] ?? '')];
     }
 
-    /** "Changed by … on …" for Home and Claude settings. @param array{at: string, by: string, via: string} $change */
+    /** "Changed by … on …" for Home and Settings → AI. @param array{at: string, by: string, via: string} $change */
     public static function who(array $change): string
     {
         return $change['via'] !== ''

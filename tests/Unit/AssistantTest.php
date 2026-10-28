@@ -74,6 +74,28 @@ final class AssistantTest extends TestCase
         $this->assertSame(10, $fake->seen, 'Assistant::spam: the visitor waits at most 10 seconds');
     }
 
+    /** the instructions for the AI (AI settings) reach the prompts that write site text, not the sorting of enquiries */
+    public function testHouseRules(): void
+    {
+        $settings = (new \ReflectionClass(\Talea\Core\Settings::class))->newInstanceWithoutConstructor();
+        (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($settings, ['site_name' => 'Test', 'ai_key' => 'x', 'ai_model' => 'm1', 'claude_instructions' => 'We address customers informally.']);
+        $fake = new class($settings) extends Assistant {
+            /** @var list<string> */
+            public array $systems = [];
+
+            protected function call(array $body): array
+            {
+                $this->systems[] = (string) $body['system'];
+
+                return ['content' => [['type' => 'text', 'text' => 'ok']]];
+            }
+        };
+        $fake->rewrite('Hello there.', array_key_first((new \ReflectionClassConstant(Assistant::class, 'REWRITES'))->getValue()), false);
+        $fake->spam('Message: hello', 'Site');
+        $this->assertSame([true, false], array_map(fn (string $s): bool => str_contains($s, "<house_rules>\nWe address customers informally.\n</house_rules>"), $fake->systems),
+            'Assistant: a rewrite follows the house rules, the spam check does not get them');
+    }
+
     /** AI assistant: providers and builder */
     public function testProvidersAndBuilder(): void
     {

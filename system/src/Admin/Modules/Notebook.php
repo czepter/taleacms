@@ -17,7 +17,7 @@ final class Notebook extends Module
 {
     public const string IDENT = 'notebook';
     public const string HUB = 'claude';
-    public const string PARENT = 'claude_settings';
+    public const string PARENT = 'claude';
     public const string NAME = 'Notebook';
     public const string GROUP = 'AI';
     public const string ICON = 'notebook';

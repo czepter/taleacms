@@ -119,7 +119,7 @@ final class Kernel
         Modules\Stats::class,
         Modules\Experiments::class,
         Modules\Requests::class,
-        Modules\ClaudeSettings::class,
+        Modules\Claude::class,
         Modules\Schedules::class,
         Modules\Notebook::class,
         Modules\Settings::class,
@@ -131,7 +131,6 @@ final class Kernel
         Modules\Roles::class,
         Modules\Connectors::class,
         Modules\Extensions::class,
-        Modules\AssistantSettings::class,
         Modules\NewsletterSettings::class,
         Modules\Addons::class,
         Modules\Transfer::class,
@@ -154,7 +153,7 @@ final class Kernel
         'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
-        'Features' => [['extensions', '', 'Features and add-ons'], ['assistant_settings', '', 'Writing assistant'], ['newsletter_settings', '', 'Newsletter'], ['claude_settings', '', 'AI settings']],
+        'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'ai', 'AI']],
         'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
@@ -402,7 +401,7 @@ final class Kernel
             }
             // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
             if (($change = \Talea\Core\ClaudeInstructions::pending($this->app)) !== null) {
-                $warnings[] = [\Talea\Core\ClaudeInstructions::who($change) . ' ' . t('Check them.'), $this->app->url('admin.php?module=claude_settings#instructions-change'), t('Check the instructions')];
+                $warnings[] = [\Talea\Core\ClaudeInstructions::who($change) . ' ' . t('Check them.'), $this->app->url('admin.php?module=settings&tab=ai#instructions-change'), t('Check the instructions')];
             }
         }
         // recently edited content: pages and news together

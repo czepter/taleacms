@@ -23,7 +23,7 @@ foreach ($blueprints as $key => $m) {
 <?php if ($ready): ?>
 <p class="notice"><?= e(t('Your answers are sent to %s when you click "Plan the site" – not before. Prices, names and opening hours that you do not give stay open for you to fill in.', $provider)) ?></p>
 <?php else: ?>
-<p class="notice notice-warning"><?= e(t('No AI key is set, so no text can be written. The wizard still applies the blueprint and a look; add a key under Features (Writing assistant) and run it again to get the pages.')) ?> <a href="<?= e($app->url('admin.php?module=extensions')) ?>"><?= e(t('Features')) ?></a></p>
+<p class="notice notice-warning"><?= e(t('No AI key is set, so no text can be written. The wizard still applies the blueprint and a look; add a key under AI settings and run it again to get the pages.')) ?> <a href="<?= e($app->url('admin.php?module=settings&tab=ai#assistant')) ?>"><?= e(t('AI settings')) ?></a></p>
 <?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('plan')) ?>"><?= $csrf ?><?= $module->carry($answers) ?>
 <h2><?= e(t('Your business')) ?></h2>

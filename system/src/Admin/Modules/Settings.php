@@ -27,7 +27,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'ai' => 'AI', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Tabs that belong to a feature (Core\Extensions): with the feature off the tab is not offered. */
@@ -89,11 +89,12 @@ class Settings extends Module
             'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000'],
         // the monthly report (2.9) and its archive (#161, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
         'reports' => ['report_monthly' => 'flag', 'report_recipients' => 'emails'],
-        // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
-        'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
+        // AI (administrators): the writing assistant's provider, key and model, the instructions it and every Claude connection follow,
+        // Claude's guardrails; connecting Claude is for everyone (Modules\Claude)
+        'ai' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#',
+            'claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
         'extensions' => [], // the switches are saved by Extensions::save (actionSave)
-        // the writing assistant and the newsletter connection have their own screens (Modules\AssistantSettings, Modules\NewsletterSettings)
-        'assistant' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#'],
+        // the newsletter connection has its own screen (Modules\NewsletterSettings)
         'newsletter' => ['newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
             'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
@@ -159,7 +160,7 @@ class Settings extends Module
         return ['tab' => $tab] + ($service !== '' ? ['service' => $service] : []) + ($service !== '' && $this->request->post('connect') === '1' ? ['connect' => '1'] : []);
     }
 
-    /** Settings and the screens built on it (Features, Business details, Claude settings, System status) share the templates in admin/settings/. */
+    /** Settings and the screens built on it (Features, Business details, System status) share the templates in admin/settings/. */
     protected function view(string $template, string $heading, array $data = []): Response
     {
         $data += ['app' => $this->app, 'module' => $this, 'csrf' => $this->app->session->csrfField()];
@@ -188,6 +189,7 @@ class Settings extends Module
         $invalid = $this->app->session->get('settings_invalid');
         $this->app->session->set('settings_invalid', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['fields' => [], 'values' => []];
+        $models = $tab === 'ai' ? $this->assistantModels() : ['list' => [], 'time' => 0, 'error' => ''];
 
         return $this->view('list', static::IDENT === 'settings' ? (self::TABS[$tab] ?? 'Settings') : 'Settings', [
             'tab' => $tab,
@@ -229,6 +231,9 @@ class Settings extends Module
             'reports' => $tab === 'reports' ? ['months' => \Talea\Core\ReportArchive::months($this->db), 'first' => \Talea\Core\ReportArchive::firstMonth($this->db),
                 'previous' => \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
             'kinds' => $tab === 'enquiries' ? \Talea\Core\Triage::kinds($settings) : [],
+            'instructionsChange' => $tab === 'ai' ? \Talea\Core\ClaudeInstructions::pending($this->app) : null, // the change Home points to, before and after (#149)
+            'assistant' => Extensions::isEnabled($settings, 'assistant'),
+            'models' => $models['list'], 'modelsTime' => $models['time'], 'modelsError' => $models['error'],
             'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' AND deleted_at IS NULL GROUP BY category")) : [],
             'retentionSuggestion' => $tab === 'enquiries' ? \Talea\Core\Jobs::suggestedRetention($settings->get('company_country'), $settings->get('site_language')) : null,
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
@@ -329,7 +334,7 @@ class Settings extends Module
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
         }
-        if ($tab === 'assistant') {
+        if ($tab === 'ai' && array_key_exists('ai_provider', $_POST)) { // the key fields are shown only while the writing assistant is on
             $providerChanged = $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous');
             if ($settings->get('ai_key') === '') {
                 $settings->set('ai_models', ''); // a removed key: the list it loaded goes too
@@ -789,6 +794,40 @@ class Settings extends Module
         $id = \Talea\Core\Privacy::saveStatementDraft($this->app);
 
         return $this->back(t('The accessibility statement is ready as a hidden page – review it, then publish it: %s', $this->app->url('admin.php?module=pages&action=builder&id=' . $this->db->publicId('pages', (int) $id))), '', ['tab' => 'cookies']);
+    }
+
+    /**
+     * The writing assistant's models for the AI tab, from the provider's own list (Core\Assistant::loadModels): the list, when it
+     * was loaded and why it could not be.
+     *
+     * @return array{list: list<array{id: string, name: string}>, time: int, error: string}
+     */
+    private function assistantModels(): array
+    {
+        $settings = $this->app->settings();
+        if (!Extensions::isEnabled($settings, 'assistant')) {
+            return ['list' => [], 'time' => 0, 'error' => ''];
+        }
+        $assistant = new \Talea\Core\Assistant($settings);
+        // a key saved before the list came from the provider (or under another provider): load it once
+        $error = $settings->get('ai_key') !== '' && $assistant->models() === [] ? (string) $assistant->verifyKey() : '';
+
+        return ['list' => $assistant->models(), 'time' => $assistant->modelsTime(), 'error' => $error];
+    }
+
+    /**
+     * An administrator checked the changed instructions (#149): Home stops pointing to them until the next change. The form
+     * carries the fingerprint of the text shown, so a change made in the meantime is not acknowledged unseen.
+     */
+    protected function actionAcknowledgeInstructions(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+
+        return \Talea\Core\ClaudeInstructions::acknowledge($this->app->settings(), $this->request->post('instructions_seen'))
+            ? $this->back('Thank you. Home no longer points to the instructions until they change again.', '', ['tab' => 'ai'])
+            : $this->back('The instructions changed again in the meantime – check them once more.', '', ['tab' => 'ai'], 'error');
     }
 
     protected function tab(string $tab): string

@@ -16,7 +16,7 @@
 	<li><?= e(t('Look in the draft: %s. Preview the whole site, then publish it.', $result['look'])) ?> <a href="<?= e($app->url('admin.php?module=appearance&action=looks')) ?>"><?= e(t('Looks')) ?></a></li>
 <?php endif ?>
 <?php if (!$result['text']): ?>
-	<li><?= e(t('No text was written. Add an AI key under Features (Writing assistant) and run the wizard again to get the pages.')) ?></li>
+	<li><?= e(t('No text was written. Add an AI key under AI settings and run the wizard again to get the pages.')) ?></li>
 <?php endif ?>
 </ul>
 <?php if ($result['pages'] !== []): ?>
