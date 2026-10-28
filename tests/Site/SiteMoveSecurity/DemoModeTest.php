@@ -119,7 +119,7 @@ final class DemoModeTest extends SiteTestCase
         $this->assertSame('bookings', $this->site()->settingValue('extensions'), 'visitors cannot switch features');
     }
 
-    /** 3.3.2 (N24): the screens built on Settings (System status, Claude settings, Features, Business details) inherit its actions – the demo filters by the class. */
+    /** 3.3.2 (N24): the screens built on Settings (System status, Features, Business details) inherit its actions – the demo filters by the class. */
     #[Depends('testTheDemoIsSwitchedOnAndSnapshotted')]
     public function testNoSettingsScreenHandlesBackupsOrPairs(): void
     {
@@ -127,19 +127,19 @@ final class DemoModeTest extends SiteTestCase
         $this->assertSame(302, $this->visitor()->get('/admin.php?module=settings&action=download_backup&file=x')->status, 'backups cannot be downloaded');
 
         $before = $this->backups();
-        foreach (['status', 'claude_settings', 'extensions', 'business', 'settings'] as $module) {
+        foreach (['status', 'extensions', 'business', 'settings'] as $module) {
             $this->post("/admin.php?module=$module&action=backup");
         }
         $this->assertSame($before, $this->backups(), 'no Settings screen makes a backup');
 
-        foreach (['status', 'claude_settings', 'extensions', 'business'] as $module) {
+        foreach (['status', 'extensions', 'business'] as $module) {
             $this->assertSame(302, $this->visitor()->get("/admin.php?module=$module&action=download_backup&file=x")->status, "no Settings screen hands out a backup ($module)");
         }
 
         $pair = $this->post('/admin.php?module=status&action=fleet_pair', ['pairing_key' => 'x']);
         $this->assertStringContainsString('switched off in the public demo', $this->visitor()->get(str_replace($site->base, '', $pair->redirect))->body, 'System status cannot pair with a console');
-        $this->post('/admin.php?module=claude_settings&action=save', ['claude_instructions' => 'Injected']);
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_settings WHERE name = 'claude_instructions' AND value = 'Injected'"), 'Claude settings cannot be saved');
+        $this->post('/admin.php?module=settings&action=save', ['tab' => 'ai', 'claude_instructions' => 'Injected']);
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_settings WHERE name = 'claude_instructions' AND value = 'Injected'"), 'Settings → AI cannot be saved');
     }
 
     /** The settings the demo saves are an allow-list: a script host, a tag manager and maintenance mode stay as they are. */

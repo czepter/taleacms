@@ -35,7 +35,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
     // a hint without its own HTML: menu paths ("Settings → Mail") turn into links
-    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Talea\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
+    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Talea\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude'])) . '</span>' : '';
     echo '<div class="row">';
     if ($kind === 'flag') {
         echo '<span class="caption">' . e($labelText) . '</span><div class="options"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';

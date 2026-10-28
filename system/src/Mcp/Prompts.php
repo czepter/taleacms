@@ -765,7 +765,7 @@ final class Prompts
     {
         $s = $app->settings();
         $text = match ($uri) {
-            self::INSTRUCTIONS_URI => self::instructions($app) ?: 'The site owner has not written any instructions yet (Claude settings).',
+            self::INSTRUCTIONS_URI => self::instructions($app) ?: 'The site owner has not written any instructions yet (Settings → AI).',
             self::OVERVIEW_URI => (string) json_encode([
                 'site' => $s->get('site_name'), 'url' => $app->request->origin() . $app->url(''), 'description' => $s->get('site_description'),
                 'talea_version' => TALEA_VERSION, 'languages' => array_values(array_unique(array_merge([\Talea\Core\Language::defaults($s)], \Talea\Core\Language::additional($s)))),
@@ -777,7 +777,7 @@ final class Prompts
         return ['contents' => [['uri' => $uri, 'mimeType' => $uri === self::OVERVIEW_URI ? 'application/json' : 'text/plain', 'text' => $text]]];
     }
 
-    /** The site owner's instructions for Claude (Claude settings). */
+    /** The site owner's instructions for Claude (Settings → AI). */
     public static function instructions(App $app): string
     {
         return trim($app->settings()->get('claude_instructions'));

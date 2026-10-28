@@ -85,7 +85,7 @@ final class ConnectionAccessTest extends SiteTestCase
         $apps = $admin->get('/admin.php?action=account')->body;
         $this->assertMatchesRegularExpression('~<span class="badge">Strongest</span> <span class="badge">Drafts only – you publish</span>~u', $apps, 'My account shows the application with its strongest access (drafts beats read)');
         $this->assertStringNotContainsString('<span class="badge">Strongest</span> <span class="badge">Read only</span>', $apps, 'and not as read only');
-        $this->assertStringContainsString('Drafts only – you publish', $admin->get('/admin.php?module=claude_settings')->body, 'Claude settings say the same');
+        $this->assertStringContainsString('Drafts only – you publish', $admin->get('/admin.php?module=claude')->body, 'the Claude connection says the same');
 
         $answer = $site->mcp('create_page', ['title' => 'From a read-only connection'], self::$readToken);
         $this->assertStringContainsString('can only read the site', $this->answerRaw($answer), 'a read-only connection is told it can only read');

@@ -13,9 +13,9 @@
  * @var int $pageCount
  * @var int $total
  */
-// names of the admin modules (including those added later) and a few places outside modules
-$names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Talea\Admin\Kernel::MODULES), Talea\Admin\Kernel::MODULES))
-    + ['assistant' => 'Writing assistant (your own key)', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'signed_in' => 'Sign in', 'account' => 'My account'];
+// a few places outside modules (rows by Claude are 'claude', the module of the Claude connection too) and the names of the admin modules
+$names = ['claude_settings' => 'AI settings', 'assistant' => 'Writing assistant (your own key)', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'signed_in' => 'Sign in', 'account' => 'My account']
+    + array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Talea\Admin\Kernel::MODULES), Talea\Admin\Kernel::MODULES));
 $action = ['save' => 'save', 'delete' => 'deletion', 'delete_permanently' => 'deleted permanently', 'restore' => 'restored from trash', 'duplicate' => 'copy',
     'publish' => 'publication', 'bulk' => 'bulk action', 'upload' => 'upload', 'login' => 'sign-in', 'failed_attempt' => 'failed attempt',
     'backup' => 'backup', 'update' => 'system update', 'folder' => 'folder', 'automatic' => 'automatic menu',

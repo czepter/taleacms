@@ -78,6 +78,6 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
         $this->assertStringNotContainsString('isError', $this->mcpRawText('get_page', ['id' => $this->site()->publicId('pages', self::$freePage)]), 'guardrails: reading is never limited');
 
         $this->site()->setting('claude_change_limit', '0');
-        $this->assertPage('/admin.php?module=claude_settings', 200, 'claude_protected_pages', message: 'guardrails: the settings are in Claude settings');
+        $this->assertPage('/admin.php?module=settings&tab=ai', 200, 'claude_protected_pages', message: 'guardrails: the settings are in Settings → AI');
     }
 }

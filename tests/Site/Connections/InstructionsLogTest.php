@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\Group;
 /**
  * #149: the instructions for Claude steer every later connection and a connection may change them itself. Every change, over MCP
  * or in the admin, is a change log row with the whole text before and after; Home tells the administrators until one of them
- * has checked the newest text in Claude settings.
+ * has checked the newest text in Settings → AI.
  */
 #[Group('site')]
 final class InstructionsLogTest extends SiteTestCase
@@ -42,10 +42,10 @@ final class InstructionsLogTest extends SiteTestCase
         $site->mcp('update_settings', ['settings' => ['claude_instructions' => self::FIRST]]);
         $this->assertSame(1, $this->lastChange()['count'], 'the same text again is no change');
 
-        $this->assertPage('/admin.php', 200, [self::NOTICE, 'through the connection test', 'claude_settings#instructions-change', 'Check the instructions'],
+        $this->assertPage('/admin.php', 200, [self::NOTICE, 'through the connection test', 'tab=ai#instructions-change', 'Check the instructions'],
             message: 'Home tells the administrator who changed the instructions, through which connection, and links to the change');
-        $this->assertPage('/admin.php?module=claude_settings', 200, ['id="instructions-change"', '<ins>' . self::FIRST . '</ins>', 'acknowledge_instructions'],
-            message: 'Claude settings show the change before → after with the button that acknowledges it');
+        $this->assertPage('/admin.php?module=settings&tab=ai', 200, ['id="instructions-change"', '<ins>' . self::FIRST . '</ins>', 'acknowledge_instructions'],
+            message: 'Settings → AI shows the change before → after with the button that acknowledges it');
     }
 
     #[Depends('testAChangeOverMcpIsLoggedWithBothTextsAndShownOnHome')]
@@ -56,20 +56,20 @@ final class InstructionsLogTest extends SiteTestCase
         $this->assertArrayHasKey('claude_instructions_seen', (array) ($answer['errors'] ?? []), 'a connection cannot acknowledge the change itself');
         $this->assertNotSame(hash('sha256', self::FIRST), $site->settingValue('claude_instructions_seen'), 'nothing was acknowledged over MCP');
 
-        $this->adminPost('/admin.php?module=claude_settings&action=acknowledge_instructions', ['instructions_seen' => hash('sha256', 'an older text')]);
-        $this->assertPage('/admin.php?module=claude_settings', 200, ['The instructions changed again in the meantime', 'id="instructions-change"'],
+        $this->adminPost('/admin.php?module=settings&action=acknowledge_instructions', ['instructions_seen' => hash('sha256', 'an older text')]);
+        $this->assertPage('/admin.php?module=settings&tab=ai', 200, ['The instructions changed again in the meantime', 'id="instructions-change"'],
             message: 'acknowledging a text that is no longer the current one leaves the notice');
 
-        $this->adminPost('/admin.php?module=claude_settings&action=acknowledge_instructions', ['instructions_seen' => hash('sha256', self::FIRST)]);
+        $this->adminPost('/admin.php?module=settings&action=acknowledge_instructions', ['instructions_seen' => hash('sha256', self::FIRST)]);
         $this->assertPageLacks('/admin.php', self::NOTICE, message: 'once acknowledged, Home no longer shows the notice');
-        $this->assertPageLacks('/admin.php?module=claude_settings', 'id="instructions-change"', message: 'nor do Claude settings');
+        $this->assertPageLacks('/admin.php?module=settings&tab=ai', 'id="instructions-change"', message: 'nor does Settings → AI');
     }
 
     #[Depends('testOnlyAnAdministratorWhoSawTheNewestTextClearsTheNotice')]
     public function testAChangeInTheAdminIsLoggedAndALaterMcpChangeShowsAgain(): void
     {
         $site = $this->site();
-        $this->adminPost('/admin.php?module=claude_settings&action=save', ['tab' => 'claude', 'claude_instructions' => self::SECOND, 'claude_destructive' => '1'], '/admin.php?module=claude_settings');
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'ai', 'claude_instructions' => self::SECOND, 'claude_destructive' => '1'], '/admin.php?module=settings&tab=ai');
         $this->assertSame(['via' => '', 'description' => '“' . self::FIRST . '” → “' . self::SECOND . '”', 'before' => self::FIRST, 'after' => self::SECOND, 'count' => 2], $this->lastChange(),
             'a change in the admin is a change log row too, without a connection');
         $this->assertPageLacks('/admin.php', self::NOTICE, message: 'the administrator who typed the text has seen it');

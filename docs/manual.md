@@ -351,8 +351,11 @@ switcher** element to the footer (a dropdown that opens upwards) and turn off *L
 
 ## 10. Writing assistant and Claude
 
-Enable the **writing assistant** under **Features** – it uses your own key. Choose a provider (Anthropic Claude, OpenAI, Google Gemini, Mistral), enter
-the API key and model. The assistant only suggests. Text goes to the provider only when you click an assistant button.
+Administrators set up the AI under **Settings → AI**. Enable the **writing assistant** under **Features** – it uses your own key. Then choose a provider
+(Anthropic Claude, OpenAI, Google Gemini, Mistral), enter the API key and model under **Settings → AI → Your own AI key**. The **Instructions for the AI**
+and the **Guardrails for the AI** are on the same screen; the instructions (brand voice, words to use or avoid) hold for the writing assistant and for
+every Claude connection alike. Connecting Claude is a screen of its own for everyone who signs in: **AI → Claude connection**.
+The assistant only suggests. Text goes to the provider only when you click an assistant button.
 
 - In the builder: **✨ Create a section with AI** (describe what it should contain) and **Rewrite with AI** on element text
   (shorter, longer, more formal, friendlier, fix mistakes). Check the result and fill in facts yourself. Ctrl+Z undoes the change.
@@ -403,14 +406,14 @@ name of its connection, and can show only Claude's changes or only people's; Cla
 **Is Claude connected?** Under the logo every screen says so with a dot and a word: *Claude connected* (it called the
 site in the last week), *Claude idle* with its last call, *Claude: requests wait* (the scheduled run that picks up
 requests stopped) or *Claude not connected* – on a phone only the dot. Only a connection that can call counts: a valid
-token of an account that is not blocked and has the two-factor sign-in the site requires. **AI → AI settings** opens with
+token of an account that is not blocked and has the two-factor sign-in the site requires. **AI → Claude connection** shows administrators
 the details (last call, how requests are picked up, when a connection ends, what to do next); a new request waiting
 over 48 hours with nothing to pick it up is marked in Ask AI, and System status and `get_health` report the connection.
 
-**Instructions for the AI.** Under **AI → AI settings** write what Claude should keep to – how you address
+**Instructions for the AI.** Under **Settings → AI** write what Claude should keep to – how you address
 customers, words to use or avoid, house rules. Every connection gets them when it connects. A connection may change them
 too, so every change – in the admin or through Claude – goes to the change log with the whole text before and after, and
-**Home** tells the administrators until one of them has looked at the change in AI settings and pressed **I have checked
+**Home** tells the administrators until one of them has looked at the change in Settings → AI and pressed **I have checked
 the instructions**. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site. The longer ones are complete runbooks, from the first step to the hand-over:

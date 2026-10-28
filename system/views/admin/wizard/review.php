@@ -36,7 +36,7 @@ use Talea\Core\Blueprint;
 </select><span class="help"><?= e(t('Applied as a draft look: you preview the whole site and publish it yourself.')) ?></span></div></div>
 <h2><?= e(t('Pages')) ?></h2>
 <?php if (!$ready): ?>
-<p class="notice notice-warning"><?= e(t('No AI key is set, so no text is written and no pages are made. Add a key under Features (Writing assistant) to get them.')) ?></p>
+<p class="notice notice-warning"><?= e(t('No AI key is set, so no text is written and no pages are made. Add a key under AI settings to get them.')) ?></p>
 <?php else: ?>
 <p class="help"><?= e(t('The assistant writes each page when you create the drafts, from the brief. This sends the brief and your answers to %s.', $provider)) ?></p>
 <?php foreach ($plan['pages'] as $i => $page): ?>

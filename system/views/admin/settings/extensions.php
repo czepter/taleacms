@@ -14,8 +14,8 @@ $extensionSettings = [
     'stats' => [[$adminUrl('module=stats'), 'Statistics'], [$adminUrl('module=settings&tab=analytics'), 'Analytics']],
     'redirects' => [[$adminUrl('module=redirects'), 'Redirects']],
     'languages' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
-    'assistant' => [[$adminUrl('module=assistant_settings'), 'Provider, key and model']],
-    'claude' => [[$adminUrl('module=claude_settings'), 'AI settings']],
+    'assistant' => [[$adminUrl('module=settings&tab=ai#assistant'), 'Provider, key and model']],
+    'claude' => [[$adminUrl('module=claude'), 'Claude connection'], [$adminUrl('module=settings&tab=ai'), 'AI settings']],
 ];
 ?>
 <div class="extensions-list">

@@ -27,7 +27,6 @@ final class MenuPaths
         [['Settings', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
         [['Settings', 'Mail'], 'settings', 'module=settings&tab=mail'],
         [['Settings', 'Reports'], 'settings', 'module=settings&tab=reports'],
-        [['Settings', 'Writing assistant'], 'assistant_settings', 'module=assistant_settings'],
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
         [['Backups'], 'settings', 'module=settings&tab=backups'],
@@ -36,8 +35,9 @@ final class MenuPaths
         [['System status'], 'status', 'module=status'],
         // 3.2: the screens that left Settings
         [['Business details'], 'business', 'module=business'],
-        [['AI settings', 'Guardrails for the AI'], 'claude_settings', 'module=claude_settings'],
-        [['AI settings'], 'claude_settings', 'module=claude_settings'],
+        [['AI settings', 'Guardrails for the AI'], 'settings', 'module=settings&tab=ai'],
+        [['AI settings'], 'settings', 'module=settings&tab=ai'],
+        [['Settings', 'AI'], 'settings', 'module=settings&tab=ai'],
         [['My account'], '', 'action=account'],
     ];
 

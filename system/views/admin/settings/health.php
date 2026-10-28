@@ -15,7 +15,7 @@ $group = '';
 <tr>
 	<td class="center"><span class="badge badge-<?= ['ok' => 'published', 'warning' => 'draft', 'error' => 'error'][$k['status']] ?>" title="<?= e(t(['ok' => 'OK', 'warning' => 'warning', 'error' => 'error'][$k['status']])) ?>"><?= $icons[$k['status']] ?></span></td>
 	<td><strong><?= e($k['name']) ?></strong></td>
-	<td><?= Talea\Admin\MenuPaths::links($app->url('admin.php'), (string) $k['info'], ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings']) ?><?php if (($k['links'] ?? []) !== []): ?><br><span class="small-text"><?php foreach ($k['links'] as $i => $link): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
+	<td><?= Talea\Admin\MenuPaths::links($app->url('admin.php'), (string) $k['info'], ['settings', 'appearance', 'menu', 'business', 'status', 'claude']) ?><?php if (($k['links'] ?? []) !== []): ?><br><span class="small-text"><?php foreach ($k['links'] as $i => $link): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

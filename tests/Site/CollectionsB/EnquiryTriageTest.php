@@ -82,7 +82,7 @@ final class EnquiryTriageTest extends SiteTestCase
             $id = $this->insertEnquiry('john@example.com', '[["Message","The lock on our door does not work"]]', 0);
             $site->setting('ai_key', 'test-key-for-the-fake-provider');
             $site->setting('ai_provider', 'anthropic');
-            $site->setting('ai_model', 'fake-model'); // chosen on Settings → Writing assistant; this fake answers only messages, no model list
+            $site->setting('ai_model', 'fake-model'); // chosen on AI settings; this fake answers only messages, no model list
             $site->setting('triage_assistant', '0');
             $site->exec("INSERT INTO tl_jobs (name, last_run) VALUES ('triage', NULL) ON DUPLICATE KEY UPDATE last_run = NULL");
             $site->runTasks();

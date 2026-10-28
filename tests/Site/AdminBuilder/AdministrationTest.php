@@ -79,9 +79,10 @@ final class AdministrationTest extends SiteTestCase
             $this->assertSame($target, (string) preg_replace('#.*/admin/#', '', $redirect), "3.2: settings&tab=$tab leads to $target");
         }
         $this->assertPage('/admin.php?module=status', 200, 'Cron', message: '3.2: System status is its own screen');
-        $this->assertPage('/admin.php?module=claude_settings', 200, 'name="claude_instructions"', message: '3.2: Claude settings hold the instructions and the guardrails');
+        $this->assertPage('/admin.php?module=settings&tab=ai', 200, ['name="claude_instructions"', 'name="claude_protected_pages"'], message: 'Settings → AI holds the instructions and the guardrails');
+        $this->assertPageLacks('/admin.php?module=claude', 'name="claude_instructions"', message: 'the Claude connection is only about connecting');
         $this->assertPage('/admin.php?module=facts', 200, 'tabs-hub', message: '3.2: Business details show the hub tabs');
-        $this->assertPage('/admin.php', 200, '/admin/claude_settings', message: '3.2: the menu leads to the hubs');
+        $this->assertPage('/admin.php', 200, '/admin/claude', message: '3.2: the menu leads to the hubs');
         $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
 
         // 3.3.2 (N41): the cron and monitoring tokens change only from System status
