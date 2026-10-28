@@ -2,7 +2,7 @@
 /**
  * @var string $base
  * @var bool $alreadyInstalled
- * @var bool $deleted the installer deleted itself
+ * @var bool|null $deleted the installer deleted itself (null: a container, the file belongs to the image)
  * @var bool $fromExport "Start from an export": the next step is the import
  * @var string|null $mcp address of the Claude connection, when it is switched on (2.5: the next step after installing)
  * @var string|null $cron the cron line for the background jobs (2.8)
@@ -34,7 +34,7 @@
 </header>
 <?php if ($deleted): ?>
 <p class="notice notice-ok"><?= e(t('For security reasons install.php has deleted itself – there is nothing else you need to do.')) ?></p>
-<?php else: ?>
+<?php elseif ($deleted === false): ?>
 <p class="notice <?= $alreadyInstalled ? 'notice-error' : 'notice-ok' ?>"><?= e(t('For security reasons, now delete this file from the server:')) ?> <strong>install.php</strong>.</p>
 <?php endif ?>
 <?php if (!empty($fromExport)): ?>
