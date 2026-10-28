@@ -112,6 +112,24 @@ trait SettingsTools
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
+            if ($key === 'site_url') {
+                // the address password-reset and member sign-in links are built from: an administrator's connection with full
+                // access only, and never while the server sets it (TALEA_SITE_URL, Core\SiteUrl)
+                $url = is_string($value) ? rtrim(trim($value), '/') : '';
+                $refusal = match (true) {
+                    \Talea\Core\SiteUrl::fromEnvironment() !== '' => 'The server sets the site address (TALEA_SITE_URL) and applies it when the site starts: change it in the hosting and restart the site.',
+                    ($auth->connection()['access'] ?? 'full') !== 'full' => 'The site address can be changed only by a connection with full access.',
+                    \Talea\Admin\Modules\Settings::verifyValue($key, $url) === null => 'An address like https://example.com – the scheme and the host, no path.',
+                    default => null,
+                };
+                if ($refusal !== null) {
+                    $errors[$key] = $refusal;
+                    continue;
+                }
+                \Talea\Core\SiteUrl::change($this->app, $url);
+                $stored[$key] = $url;
+                continue;
+            }
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
                 $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes'], true);
@@ -160,7 +178,7 @@ trait SettingsTools
             \Talea\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
         }
         $current = [];
-        foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'news_slug', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
+        foreach (['site_name', 'site_url', 'redirect_to_site_url', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'news_slug', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
             'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher',
             'indexing', 'schema_org', 'llms_txt', 'markdown_versions', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact', 'slugs_per_language'] as $key) {
             $current[$key] = $siteSettings->get($key);

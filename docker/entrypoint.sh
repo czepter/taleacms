@@ -6,6 +6,8 @@ cd /app
 mkdir -p storage/cache storage/log storage/import storage/database media extensions
 # TALEA_BACKUP_BEFORE_MIGRATE=0 skips the database backup that precedes pending migrations
 if [ "${TALEA_BACKUP_BEFORE_MIGRATE:-1}" = "0" ]; then php bin/migrate --if-installed; else php bin/migrate --if-installed --backup; fi
+# TALEA_SITE_URL wins over the stored site address (a domain move in the hosting); a bad value is reported and leaves the site as it is
+php system/docker.php site-url || true
 # TALEA_CRON=0 on every replica but one: the background jobs must run once
 if [ "${TALEA_CRON:-1}" != "0" ]; then
     # the first run warms the page cache of a new version (Front\Cache::maintain) over this container's own server, once it listens

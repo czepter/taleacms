@@ -393,6 +393,20 @@ final class Site
         return $output;
     }
 
+    /**
+     * Runs a PHP script of the site as the container would (cwd = its root), with extra environment variables; returns what it printed.
+     *
+     * @param list<string> $args @param array<string, string> $env
+     */
+    public function cli(array $args, array $env = []): string
+    {
+        $process = proc_open([PHP_BINARY, ...$args], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $this->root, array_merge(getenv(), $env));
+        $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        proc_close($process);
+
+        return $output;
+    }
+
     // ---- helper servers
 
     public function port(string $name): int

@@ -181,7 +181,8 @@ final class Prompts
                 Give the user: what was moved, what was not and why (variations, orders, accounts, scripts), the remaining
                 warnings of the report, preview links of the main pages and `list_pending_review`. List what only an
                 administrator can do in the administration: mail, the time zone, analytics and code for the page head,
-                off-site backups, the site address (`site_url`) and switching the domain.
+                off-site backups and pointing the domain at the site. The site address (`site_url`) follows with `update_settings`
+                (full access) once the domain answers, unless the server sets it (TALEA_SITE_URL).
 
                 Publishing is the user's call. On their explicit instruction, with full access and the publishing permission:
                 `publish_build` per page, `update_page` with `visible` true, `publish_look` for the look and the menus, and
@@ -277,7 +278,8 @@ final class Prompts
                 ## 9. Check before launch
 
                 - **Address and domain.** The site address (`site_url`, Settings → General) must be the final https address –
-                  links in e-mails and feeds are built from it. An administrator sets it and points the domain at the site.
+                  links in e-mails and feeds are built from it. An administrator points the domain at the site; the address
+                  is then set with `update_settings` (`site_url`, full access), unless the server sets it (TALEA_SITE_URL).
                 - **Old addresses.** If the site replaces an older one, every old address must keep working: `save_redirect`
                   for each, or the prompt migrate_site for a whole move.
                 - **Search engines.** Every page needs a title and a search engine description (`update_page` with
