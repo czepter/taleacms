@@ -87,8 +87,9 @@ final class CompanyTest extends SiteTestCase
         foreach (['"@type":"Person","@id":"' . $site->base . '/#owner","name":"Jane Doe"', '"publisher":{"@id":"' . $site->base . '/#owner"}', '"telephone":"+44 20 7946 0958"'] as $needle) {
             $this->assertStringContainsString($needle, $home->body, 'the person in structured data, the publisher of the site');
         }
-        foreach (['"legalName"', '"vatID"', '"identifier"', '"openingHoursSpecification"', '"geo"', '"hasMap"', '"logo"'] as $needle) {
-            $this->assertStringNotContainsString($needle, $home->body, 'no organisation properties on a person: ' . $needle);
-        }
+        preg_match('#<script type="application/ld\+json">(.+?)</script>#s', $home->body, $m);
+        $person = array_values(array_filter(json_decode($m[1] ?? '{}', true)['@graph'] ?? [], fn (array $n): bool => ($n['@type'] ?? '') === 'Person'))[0] ?? [];
+        $this->assertSame('Jane Doe', $person['name'] ?? null, 'the Person node in the graph');
+        $this->assertSame([], array_intersect(['legalName', 'logo', 'vatID', 'identifier', 'openingHoursSpecification', 'geo', 'hasMap'], array_keys($person)), 'no organisation properties on a person');
     }
 }
