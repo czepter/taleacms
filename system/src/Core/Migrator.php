@@ -33,7 +33,7 @@ final class Migrator
     /**
      * Phinx configuration for one database; phinx.php (the Phinx command line) returns the same.
      *
-     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,user:string,password:string,prefix?:string} $db
+     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string} $db
      * @return array<string, mixed>
      */
     public static function phinxConfig(array $db): array
@@ -89,7 +89,7 @@ final class Migrator
     /**
      * Applies every pending migration. Two processes (two containers) must not migrate at once, so the whole run holds a lock.
      *
-     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,user:string,password:string,prefix?:string} $config
+     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string} $config
      * @return list<string> file names of the migrations applied
      */
     public static function migrate(array $config): array
