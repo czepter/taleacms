@@ -286,7 +286,7 @@ final class ErrorReport
             $event['extra'] = $context['extra'];
         }
         if (($context['fingerprint'] ?? []) !== []) {
-            $event['fingerprint'] = array_map('strval', $context['fingerprint']);
+            $event['fingerprint'] = array_map(fn ($v): string => self::scrub((string) $v), $context['fingerprint']); // grouping keys leave the site too
         }
 
         return $event;
@@ -555,12 +555,15 @@ final class ErrorReport
         return array_reverse($frames);
     }
 
-    /** The path of an address without the scheme, host and query: https://example.com/image/web.js?v=4 → /image/web.js. */
+    /**
+     * The path of an address without the scheme, host and query: https://example.com/image/web.js?v=4 → /image/web.js; scrubbed,
+     * since a browser sends the page path as it is (/_booking/cancel/<token>).
+     */
     private static function urlPath(string $url): string
     {
         $path = (string) (parse_url($url, PHP_URL_PATH) ?? '');
 
-        return mb_substr($path === '' ? '/' : $path, 0, 300);
+        return mb_substr(self::scrub($path === '' ? '/' : $path), 0, 300);
     }
 
     /** The address of the request: the host (not secret) and the path, the query values of QUERY_KEYS only. */

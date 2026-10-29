@@ -124,6 +124,8 @@ final class ErrorReportTest extends TestCase
         $this->assertSame(['error', 'php', 'talea@' . TALEA_VERSION, 'production', '/news/{slug}'], [$event['level'], $event['platform'], $event['release'], $event['environment'], $event['transaction']], 'the release and the route');
         $this->assertSame(['front', '/news/{slug}', 'mail', 'sqlite'], [$event['tags']['area'], $event['tags']['route'], $event['tags']['job'], $event['tags']['db_driver']], 'the tags of the request and of the call');
         $this->assertSame(['job', 'mail'], $event['fingerprint'], 'a fingerprint is passed on');
+        ErrorReport::message('Given up', 'warning', ['force' => true, 'fingerprint' => ['mail-failed', '550 5.1.1 <jana@example.cz>: Recipient address rejected']]);
+        $this->assertSame(['mail-failed', '550 5.1.1 <[email]>: Recipient address rejected'], $this->sent()['event']['fingerprint'], 'a fingerprint is scrubbed like the message: an SMTP reply names the recipient');
         $this->assertSame([['LogicException', 'the cause'], ['RuntimeException', 'Failure for the report of [email]']],
             array_map(fn (array $v): array => [$v['type'], $v['value']], $event['exception']['values']), 'the exception after its cause, the message scrubbed');
         $this->assertSame('https://shop.example/news/a-story?page=2&email=%5Bfiltered%5D&token=%5Bfiltered%5D', $event['request']['url'], 'the query keeps only the known parameter names');
@@ -172,6 +174,12 @@ final class ErrorReportTest extends TestCase
         $this->assertSame(['javascript', 'TypeError', "Cannot read properties of null (reading 'value')", 'site', 'Chrome 131', '/contact', 2],
             [$event['platform'], $event['exception']['values'][0]['type'], $event['exception']['values'][0]['value'], $event['tags']['area'], $event['tags']['browser'], $event['transaction'],
                 count($event['exception']['values'][0]['stacktrace']['frames'])], 'a browser error: its type, text, area, browser, page and frames');
+
+        ErrorReport::browser(['message' => 'Error: x', 'stack' => '', 'source' => 'https://shop.example/image/web.js', 'line' => 1, 'column' => 1,
+            'path' => '/_booking/cancel/0123456789abcdef0123456789abcdef'], 'site', 'Chrome 131');
+        $event = $this->sent()['event'];
+        $this->assertSame(['/_booking/cancel/[filtered]', 'https://shop.example/_booking/cancel/[filtered]'], [$event['transaction'], 'https://shop.example' . parse_url($event['request']['url'], PHP_URL_PATH)],
+            'the page path a browser sends is scrubbed: a booking link carries its token');
 
         $script = (string) file_get_contents(TALEA_ROOT . '/image/errors.js');
         $this->assertSame([true, true, 0], [str_contains($script, "getAttribute('data-errors')"), str_contains($script, 'navigator.sendBeacon('), preg_match('/document\.cookie|localStorage|sessionStorage/', $script)],

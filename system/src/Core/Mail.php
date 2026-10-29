@@ -137,7 +137,7 @@ final class Mail
                     Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['subject'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['mail_id']]);
                     // a message is lost: the error tracking hears of it once per reason – never the recipient or the subject
                     ErrorReport::message('E-mail given up after ' . $attempt . ' attempts: ' . self::$error, 'warning',
-                        ['tags' => ['mail_transport' => $siteSettings->get('mail_mode')], 'fingerprint' => ['mail-failed', self::$error]]);
+                        ['tags' => ['mail_transport' => $siteSettings->get('mail_mode')], 'fingerprint' => ['mail-failed', ErrorReport::scrub(self::$error)]]);
                 }
             }
         }
