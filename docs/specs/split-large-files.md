@@ -1,6 +1,8 @@
 # Splitting the three largest files
 
-Status: proposed (issues #228 Kernel, #229 builder.js, #230 Build). Three files carry a disproportionate share of the product and are hard to edit safely, for people and for AI agents:
+Status: decided 2026-10-29. Issues: #232 (tests first), #230 (`Build`), #228 (public router), #229 (builder modules).
+
+Three files carry a disproportionate share of the product and are hard to edit safely, for people and for AI agents:
 
 | File | Lines | What it is |
 |---|---|---|
@@ -8,110 +10,150 @@ Status: proposed (issues #228 Kernel, #229 builder.js, #230 Build). Three files 
 | `image/builder.js` | 2216 | the whole visual editor in one closure |
 | `system/src/Builder/Build.php` | 1077 | the layout validator, the code filter, the renderer and the element schema |
 
-The goal is files of roughly 200–700 lines, each with one job a reader can name. This is a move, not a rewrite: **no behaviour change, no new
-abstraction** (no interfaces, no router table, no event framework, no build step). Each part is one PR; the three are independent.
+The goal is files of roughly 200–700 lines, each with one job a reader can name, and a check that keeps them there.
+
+## Order: one stack of PRs
+
+Each PR is based on the one below it and is implemented by an agent once the one below is green.
+
+1. this spec;
+2. **tests first** (#232): the missing site and builder tests, and the file-size check;
+3. **`Builder\Build`** (#230);
+4. **public router** (#228);
+5. **builder as ES modules** (#229).
 
 ## Rules for every part
 
 - **Move code, don't rewrite it.** Method bodies move as they are; only `$this->x` / `self::x` references are rewired. A cleanup spotted on the
-  way is its own commit after the move (or a follow-up issue), so the move diff stays reviewable with `git diff --color-moved`.
-- **Callers follow the code.** When a public static method moves, its callers are updated in the same PR; no forwarding stubs, except the two
-  entry points named in the project rules (`Build::sanitize()`, `Build::render()`), which stay where `CLAUDE.md` and
-  `docs/specs/visual-compose.md` say they are.
-- **Docs follow the code.** `CLAUDE.md` and specs that name a moved method are updated in the same PR.
-- **Done means:** `composer test` green (unit, integration, site), `composer test:browser` green for the builder part, `vendor/bin/phpstan`
-  without new baseline entries, `php tools/contracts.php` unchanged output, `php tools/check-english.php` and `php tools/sql-dialect-scan.php`
-  clean.
+  way is its own commit after the move, so the move stays reviewable with `git diff --color-moved`. The one deliberate behaviour change
+  (section 3, add-on routes) is its own commit with its own test.
+- **Callers follow the code.** When a public static method moves, its callers are updated in the same PR; no forwarding stubs, except
+  `Build::render()` (section 2).
+- **Docs follow the code.** `CLAUDE.md`, `docs/EXTENSIONS.md` and specs that name a moved method are updated in the same PR.
+- **Done means:** the unit suite and PHPStan (no new baseline entries) pass locally, `php tools/contracts.php` reports no unexpected change,
+  `php tools/check-english.php` and `php tools/sql-dialect-scan.php` are clean; the site and browser suites run once in CI on the top of the
+  stack.
 
-## 1. `Front\Kernel` → four collaborators
+## 1. Tests first
 
-`Kernel::handle()` is a 320-line chain of `if ($path === …)` checks whose **order is behaviour**: the early add-on hook, redirects, the demo
-and import guards, OAuth, maintenance, the WordPress `?p=` lookup, staged media and the page cache all run before routing; pages are looked up
-before the two-segment collection pattern; add-on routes run before `/form`. The split keeps that order exactly and moves the bodies out.
+The moves are only as safe as the tests that cover the moved code. Before any move:
 
-| New class | Takes from `Kernel` | Lines (approx.) |
-|---|---|---|
-| `Front\Endpoints` | the addresses that answer without the page frame: `/manifest.webmanifest`, `/favicon.ico`, `/og/<hash>.png`, `/robots.txt`, `/sitemap.xml`, `/feed.json`, `/.well-known/security.txt`, `/llms.txt`, the IndexNow key file, `/consent`, `/popup`, `/fleet/*`, `/vitals`, `/conversion`, `/experiment`, `/download/<token>`, `/subscribe`, `/_booking/*`, `/health`, `/tasks`, `/screen/<id>`, `/status.json` (`handle()` blocks ~84–272) | 250 |
-| `Front\NewsPages` | `showNewsList`, `category`, `tag`, `newsItem`, `rss`, `search`, `markdownVersion`, `listVariables` | 230 |
-| `Front\CollectionPages` | `showCollectionItem`, `compareProducts`, `calendarFile`, `testimonialPage` | 230 |
-| `Front\PageFrame` | `page`, `siteParts`, `popups`, `menu`, `menuPages`, `breadcrumbs`, `languages`, `editInPlace`, `localizeSystemLinks`, `previewBar`, `context`, and the `gated` flag that `page()` reads | 450 |
+- **Public addresses nobody requests today:** the IndexNow key file (`/<indexnow_key>.txt`), `POST /consent`, `POST /fleet/unpair`,
+  `/status.json` (with and without the health token), and maintenance mode (setting `maintenance`): a visitor gets 503 with `Retry-After`, while
+  `/mcp`, `/health` and a signed-in user still get through.
+- **Order:** `/tasks` still answers while a Talea import runs (`/health` is already tested); a page cannot take a system address.
+- **Builder, untested today** (`tools/test-browser.mjs`): changing a Style-panel value, dragging an element from the Add panel onto the canvas,
+  double-click text editing on the canvas, the "Paste from another Talea site" dialog, Ctrl+D (duplicate) and Delete.
+- **File-size check** `tests/Unit/FileSizeTest.php`: every file in `system/src/**/*.php` and `image/**/*.js` stays under 900 lines. Files above
+  that today are listed with their current line count as their ceiling (they may shrink, never grow); a split lowers or removes their entry.
+  The dictionaries (`system/languages`, `image/languages`) are data and are not checked.
 
-`Kernel` keeps the constructor, `handle()` as the ordered dispatch, `home`/`showPage`, the previews (`previewSection`, `previewComponent`,
-`previewPopup`, `startSitePreview`, `wantsDraft`, `canSeeDraft`), the member gate (`gate`, `gatedPage`, `memberArea`), the not-found path
-(`redirectRule`, `notFound`, `followRule`, `notFoundPage`), `maintenance`, `slashRedirect` and `descriptionFrom`: about 650 lines.
-
-Wiring, plainly: the constructor builds one `PageFrame` (it needs `App`, the `View`, the `NewsRepository` and whether a site preview runs) and
-passes it to `NewsPages` and `CollectionPages`, which return `Response`s through `$frame->page(…)`. `Endpoints` gets only `App` and has one
-public method, `answer(string $path): ?Response` (null = not mine). `handle()` then reads as a list:
-
-```php
-if (($answer = $this->endpoints->answer($path)) !== null) { return $answer; }
-```
-
-at the point where the first of those blocks stands today; the blocks that sit between endpoint checks (`/mcp`, member area, add-on routes,
-`/form`) stay in `handle()` in their places, so the order does not change. If keeping the order forces `Endpoints` into two calls (before and
-after the add-on routes), make it two methods with names that say which group they answer, not a flag.
-
-Guards: `tests/Site/PublicSiteTest.php` and the site suites cover the addresses; add a unit test only for something the move had to touch
-beyond rewiring.
-
-## 2. `image/builder.js` → the editor core and five parts
-
-The pattern already exists: `builder-overlay.js`, `builder-handles.js`, `builder-keys.js` and `builder-compose.js` are separate `defer` scripts
-that reach the editor only through `window.taleaBuilder`. The split extends that to the editor's own panels. The file's `/* ---------- … */`
-section markers are the cut lines.
-
-| File | Takes (section of today's `builder.js`) | Lines (approx.) |
-|---|---|---|
-| `builder.js` (core) | helpers, tree, changes/history/saving, selection and tree edits, keys, start; owns `state` and exposes `window.taleaBuilder` | 650 |
-| `builder-canvas.js` | canvas (iframe swap, preview sizing) and dragging on the canvas | 280 |
-| `builder-clipboard.js` | clipboard (also between pages and sites) | 110 |
-| `builder-bar.js` | top bar (breakpoints, zoom, versions, publish, tour) | 320 |
-| `builder-left.js` | left panel: Add and Structure | 250 |
-| `builder-inspector.js` | right panel: properties, advanced (tag, classes, anchor), editing a shared class | 500 |
-| `builder-style.js` | style editing of an element and a class | 180 |
-
-How the parts meet:
-
-- `builder.js` runs first (script order in `system/views/admin/pages/builder.php`) and sets `window.taleaBuilder` at the end of its own run, as
-  today. Each part reads `const B = window.taleaBuilder` and adds what other parts call to it (`B.redrawLeft = …`), the way the compose scripts
-  already do. One object, no second global.
-- The start block (`createBar()`, building the panels, the first `redraw()`, `refreshPreview()`) moves into a `DOMContentLoaded` listener in
-  `builder.js`. `defer` scripts all run before `DOMContentLoaded`, so every part has registered by then; no load-order flag is needed.
-- The first step of the PR is a list of every cross-section call (which section calls which function of another). Each one becomes either a
-  `B.` call or, where several parts react to the same thing, the existing `on()`/`emit()` pair (`emit('redraw')`). Nothing new beyond that.
-- Shared helpers that today sit inside a panel's section but are used everywhere move to the core, not to that panel: `setState` (top bar),
-  `askName`, `redraw` and `redrawPanels` (right panel).
-- Closure state that more than one part writes (`preview`, `left`, `right`, `frame2`, `rail`) moves onto `B` or into `state`; read-only
-  constants (`D`, `T`, `TYPY`, `STYLE`, `BP`, `ICONS`) are already on `B` or go there.
-- `builder-overlay.js` and the other compose scripts keep working unchanged: the names they use on `window.taleaBuilder` keep their meaning.
-
-Admin CSP stays `script-src 'self'`; every new file is listed in `builder.php` with the `?v=` cache key. `tests/Unit/ScriptsTest.php` must stay
-green (every `[data-…]` a part looks for is still rendered). `composer test:browser` walks the builder and is the main guard here.
-
-## 3. `Builder\Build` → validator stays, three parts move out
+## 2. `Builder\Build`: validator stays, three parts move out
 
 `Build` is the one validator and the one renderer (`CLAUDE.md`). That stays true of its public face; the code behind three of its jobs moves.
 
-| New class | Takes from `Build` | Callers to update | Lines (approx.) |
-|---|---|---|---|
-| `Builder\CodeFilter` | `code`, `codePass`, `cssMatches`, `cssViews`, `cssPlain`, `codeNode` (the filter of the Code element's HTML and CSS) | 3 files | 140 |
-| `Builder\Renderer` | `html`, `renderChildren`, `renderElement`, `meetsConditions`, `customAttributes`, `customAttributesLast`, `fillItem`, `css` | ~10 files | 240 |
-| `Builder\ElementSchema` | `schema`, `overview`, `fieldDefinitions`, `fieldLine`, `buildSchema`, `disabledTypes` (what MCP, the editor and the contracts read) | ~17 files | 230 |
+| New class | Takes from `Build` |
+|---|---|
+| `Builder\CodeFilter` | `code`, `codePass`, `cssMatches`, `cssViews`, `cssPlain`, `codeNode` (the filter of the Code element's HTML and CSS) |
+| `Builder\Renderer` | `render` (body), `html`, `renderChildren`, `renderElement`, `meetsConditions`, `customAttributes`, `customAttributesLast`, `fillItem`, `css` |
+| `Builder\ElementSchema` | `schema`, `overview`, `fieldDefinitions`, `fieldLine`, `buildSchema`, `disabledTypes` (what MCP, the editor and the contracts read) |
 
 `Build` keeps `ELEMENTS`, `className`, `newId`, `fresh`, the whole sanitizer (`sanitize`, `sanitizeChildren`, `sanitizeConditions`,
 `conditionsBypassCache`, `sanitizeContent`, `inline`, `link`), `elementsOfType`, JSON in and out, `asText`, `fromText`, `compact`, `texts`, and
-`render()` as a one-line call into `Renderer` so that "one renderer `Build::render()`" stays a true sentence. About 470 lines.
+`render()` as a one-line call into `Renderer`, so "one validator, one renderer, both on `Build`" stays a true sentence. About 470 lines.
 
-The sanitizer is deliberately **not** split: "never store a build without `Build::sanitize()`" is the rule that keeps MCP, the editor and the
-importers safe, and keeping it whole in one file keeps that rule easy to check. `ElementSchema` (not `Schema`) avoids confusion with
-`CollectionSchema` and `StructuredData`, which are about schema.org.
+The sanitizer is deliberately not split: "never store a build without `Build::sanitize()`" keeps MCP, the editor and the importers safe, and
+keeping it whole in one file keeps that rule easy to check. `ElementSchema` (not `Schema`) avoids confusion with `CollectionSchema` and
+`StructuredData`, which are about schema.org. `CLAUDE.md`'s right-to-left section names `Build::css`; it becomes `Renderer::css`.
+`php tools/contracts.php` must produce the same `tools/contracts/builder-elements.json`.
 
-`CLAUDE.md` mentions `Build::css` in the right-to-left section; it becomes `Renderer::css`. `php tools/contracts.php` must produce the same
-`tools/contracts/builder-elements.json`.
+## 3. Public router: `Front\Kernel` becomes a router and four collaborators
+
+Today `Kernel::handle()` is a 320-line chain of `if ($path === …)` checks whose order is behaviour. It becomes a route table.
+
+### The router
+
+`Front\Router`, a small class of our own (no package; the product stays framework-free):
+
+- a route is a method (`GET`, `POST` or both), a pattern with placeholders (`/news/{slug}`, `/_booking/cancel/{token}`; each placeholder has a
+  regex, default `[a-z0-9-]+`), an optional `when` condition (a setting or an extension switched on: `fn (): bool`) and a handler
+  `[$object, 'method']` that gets the placeholders as arguments and returns a `Response`, or `null` to let the next route try;
+- routes are tried **in the order they are listed, the first match wins**: the list in `Kernel` reads top to bottom in today's order, so the
+  move can be checked line by line against the old chain;
+- `Router::routes()` returns the table as data (method, pattern, condition name, handler name) for the contract and for reserved addresses.
+
+Scope: the public site only. The admin keeps its `/admin/<module>/<action>/<id>` convention; `/mcp` and OAuth are single routes in the table.
+
+### Before routing
+
+The checks that run before any route stay a fixed list of guard methods in `Kernel`, called in today's order: the add-on early hook, the
+language/system redirects, the demo guard (`/mcp`, OAuth), the import guard (503 except `/health`, `/tasks`), OAuth, maintenance, the old
+WordPress `?p=` / `?lang=` lookup, staged media, the page cache. No middleware pipeline.
+
+### The collaborators
+
+| New class | Takes from `Kernel` |
+|---|---|
+| `Front\PageFrame` | `page`, `siteParts`, `popups`, `menu`, `menuPages`, `breadcrumbs`, `languages`, `editInPlace`, `localizeSystemLinks`, `previewBar`, `context`, and the `gated` flag that `page()` reads |
+| `Front\Endpoints` | the addresses that answer without the page frame: manifest, favicon, share images, robots, sitemap, feeds, security.txt, llms.txt, the IndexNow key, consent, popup, fleet, vitals, conversion, experiment, download, subscribe, bookings, health, tasks, screen, status.json |
+| `Front\NewsPages` | `showNewsList`, `category`, `tag`, `newsItem`, `rss`, `search`, `markdownVersion`, `listVariables` |
+| `Front\CollectionPages` | `showCollectionItem`, `compareProducts`, `calendarFile`, `testimonialPage` |
+
+`Kernel` keeps the constructor, the guards, the route table, home and pages, the previews (`previewSection`, `previewComponent`,
+`previewPopup`, `startSitePreview`, `wantsDraft`, `canSeeDraft`), the member gate (`gate`, `gatedPage`, `memberArea`), the not-found path
+(`redirectRule`, `notFound`, `followRule`, `notFoundPage`), `maintenance`, `slashRedirect` and `descriptionFrom`. The constructor builds one
+`PageFrame` and passes it to `NewsPages` and `CollectionPages`, which answer through `$frame->page(…)`.
+
+### Add-on routes: core addresses always win (behaviour change, own commit)
+
+Today an add-on route (`Api::route()`, `Registry::runRoute`) runs after part of the chain, so an add-on prefix can take `/health`, `/tasks`,
+`/form`, `/screen/…`, a page slug or a collection's address. From now on:
+
+- the add-on routes run after every core route of the table and before pages and collections;
+- `Api::route()` refuses a prefix that is the first segment of a core route or a reserved slug, the same way it refuses a prefix another add-on
+  already owns today (no new extension API version);
+- `Modules\Pages::RESERVED_SLUGS` is computed from the route table, which also reserves the missing `fleet`, `experiment` and `oauth`;
+- `docs/EXTENSIONS.md` and `tools/contracts/extension-api.json` say which prefixes are taken.
+
+### The contract
+
+`php tools/contracts.php` writes `tools/contracts/routes.json` (method, pattern, condition, handler per route, in order), so any change to the
+public addresses shows up as a diff in review.
+
+## 4. Builder as ES modules
+
+All builder scripts become native ES modules (`<script type="module">`): no build step, explicit `import`/`export` instead of a shared global.
+`script-src 'self'` allows them.
+
+### Layout
+
+`image/builder/`, plain `.js` files (no `.mjs`, which would need MIME and cache rules in three servers):
+
+| Module | Takes |
+|---|---|
+| `main.js` | the entry: imports the parts, builds the panels, first draw, start-up listeners; sets `window.taleaBuilder` for the browser test only |
+| `core.js` | state, helpers, tree, changes/history/saving, selection and tree edits, keys, and the helpers every part uses (`setState`, `askName`, `redraw`, `redrawPanels`, `on`/`emit`) |
+| `canvas.js` | canvas (iframe swap, preview sizing), dragging on the canvas, clipboard |
+| `panels.js` | top bar (with the tour) and left panel (Add, Structure) |
+| `inspector.js` | right panel: properties, advanced (tag, classes, anchor), shared class editing, style editing |
+| `overlay.js`, `handles.js`, `keys.js`, `compose.js`, `structured.js` | today's `builder-overlay.js` … `builder-structured.js`, importing from `core.js` instead of reading `window.taleaBuilder` |
+
+`main.js` is separate from `core.js` so that the parts can import `core.js` without importing each other in a circle. The editor CSS
+(`builder.css`) does not move.
+
+### Rules
+
+- `window.taleaBuilder` stays only as a documented handle for `tools/test-browser.mjs` (34 uses); no module reads it.
+- **Cache:** imports carry no `?v=` key, and JS is cached for 30 days to a year, so a new `main.js` could meet stale cached parts. `image/builder/*`
+  is therefore served with `Cache-Control: no-cache` (revalidated with ETag) in `docker/Caddyfile`, `system/nginx.example.conf` and `.htaccess`.
+  `builder.php` loads only `main.js?v=<version>`.
+- The lists that name builder scripts follow the new paths: `tests/Unit/ScriptsTest.php` (glob `image/**/*.js`), `tests/Unit/TranslationsTest.php`,
+  `tools/check-english.php`, `tools/missing-translations.php`.
+- Every other admin script stays a classic script.
 
 ## Not in scope
 
-- Other files over 1,000 lines (`Core\Booking`, `Core\WpImport`, `Core\SiteImport`, `image/admin.css`, the dictionaries). The dictionaries are
-  data and stay whole; the others get their own issue if they keep growing.
-- Renaming public URLs, MCP tools or settings. Nothing outside PHP and JS identifiers changes.
+- Other files over 900 lines (`Core\Booking`, `Core\WpImport`, `Core\SiteImport` and others the check lists): they get a ceiling in the file-size
+  check and their own issue when they need one.
+- Renaming public URLs, MCP tools or settings.
+- Routing the admin through the router.
