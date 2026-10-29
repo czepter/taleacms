@@ -954,6 +954,8 @@ The link works for %d days.
     'This preview link does not allow comments.' => '此预览链接不允许评论。',
     'This request is no longer waiting for an answer.' => '此请求已不再等待回复。',
     'This result is no longer available.' => '此结果已不可用。',
+    'This site is archived and no longer accepts submissions.' => '此网站已归档，不再接受提交。',
+    'This site is not public yet' => '此网站尚未公开。',
     'This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.' => '本网站要求两步验证登录。请在下方开启——在此之前管理后台处于锁定状态。',
     'This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.' => '本文是根据网站已开启的功能生成的初始模板，并非法律建议。发布前，请对照您实际处理数据的方式以及您所在国家的法规进行核查。',
     'This time is not on offer.' => '此时间不可预约。',

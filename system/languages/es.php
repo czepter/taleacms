@@ -905,6 +905,8 @@ El enlace es válido %d días.
     'This preview link does not allow comments.' => 'Este enlace de vista previa no permite comentarios.',
     'This request is no longer waiting for an answer.' => 'Esta solicitud ya no espera respuesta.',
     'This result is no longer available.' => 'Este resultado ya no está disponible.',
+    'This site is archived and no longer accepts submissions.' => 'Este sitio está archivado y ya no acepta envíos.',
+    'This site is not public yet' => 'Este sitio aún no es público.',
     'This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.' => 'Este sitio exige el inicio de sesión en dos pasos. Actívelo a continuación – hasta entonces la administración está bloqueada.',
     'This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.' => 'Este texto es una plantilla inicial generada a partir de las funciones activadas en el sitio, no un asesoramiento jurídico. Antes de publicarlo, compruébalo con la forma en que realmente tratas los datos y con las normas de tu país.',
     'This time is not on offer.' => 'Esta hora no está disponible.',

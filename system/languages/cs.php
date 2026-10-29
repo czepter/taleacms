@@ -2471,6 +2471,8 @@ Odkaz platí %d dní.
     'This request is no longer waiting for an answer.' => 'Tato žádost už nečeká na odpověď.',
     'This result is no longer available.' => 'Tento výsledek už není k dispozici.',
     'This server cannot download files from other sites (both curl and allow_url_fopen are missing, or the GD extension). Move the images manually: upload them to Media and replace them in the articles.' => 'Tento server neumí stahovat soubory z jiných webů (chybí curl i allow_url_fopen, případně rozšíření GD). Obrázky přeneste ručně: nahrajte je do Médií a v článcích je vyměňte.',
+    'This site is archived and no longer accepts submissions.' => 'Tento web je archivován a už nepřijímá odeslání.',
+    'This site is not public yet' => 'Tento web zatím není veřejný.',
     'This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.' => 'Web vyžaduje dvoufázové přihlášení. Zapněte si ho prosím níže – do té doby je administrace zamčená.',
     'This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.' => 'Tento text je výchozí šablona sestavená podle funkcí zapnutých na webu, nikoli právní rada. Před zveřejněním ho porovnejte s tím, jak s údaji skutečně nakládáte, a s předpisy své země.',
     'This time is not on offer.' => 'Tento termín není v nabídce.',

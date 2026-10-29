@@ -954,6 +954,8 @@ The link works for %d days.
     'This preview link does not allow comments.' => 'رابط المعاينة هذا لا يسمح بالتعليقات.',
     'This request is no longer waiting for an answer.' => 'هذا الطلب لم يعد بانتظار رد.',
     'This result is no longer available.' => 'هذه النتيجة لم تعد متاحة.',
+    'This site is archived and no longer accepts submissions.' => 'هذا الموقع مؤرشف ولم يعد يقبل الإرسال.',
+    'This site is not public yet' => 'هذا الموقع ليس عامًا بعد.',
     'This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.' => 'يتطلب هذا الموقع تسجيل دخول بخطوتين. يرجى تفعيله أدناه – وإلى ذلك الحين تبقى لوحة الإدارة مقفلة.',
     'This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.' => 'هذا النص قالب مبدئي أُنشئ من الميزات المفعّلة في الموقع، وليس استشارة قانونية. قارنه بطريقة معالجتك للبيانات فعلًا وبقوانين بلدك قبل نشره.',
     'This time is not on offer.' => 'هذا الوقت غير متاح.',

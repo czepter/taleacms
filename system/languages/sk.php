@@ -897,6 +897,8 @@ Odkaz platí %d dní.
     'This preview link does not allow comments.' => 'Tento odkaz na náhľad komentáre neumožňuje.',
     'This request is no longer waiting for an answer.' => 'Táto žiadosť už nečaká na odpoveď.',
     'This result is no longer available.' => 'Tento výsledok už nie je k dispozícii.',
+    'This site is archived and no longer accepts submissions.' => 'Tento web je archivovaný a už neprijíma odoslania.',
+    'This site is not public yet' => 'Tento web zatiaľ nie je verejný.',
     'This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.' => 'Web vyžaduje dvojfázové prihlásenie. Zapnite si ho, prosím, nižšie – dovtedy je administrácia zamknutá.',
     'This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.' => 'Tento text je východisková šablóna zostavená podľa funkcií zapnutých na webe, nie právna rada. Pred zverejnením ho porovnajte s tým, ako s údajmi skutočne zaobchádzate, a s predpismi svojej krajiny.',
     'This time is not on offer.' => 'Tento termín nie je v ponuke.',

@@ -17,8 +17,11 @@ final class App
     private ?Auth $auth = null;
     private ?Settings $settings = null;
 
-    /** @param array<string, mixed> $config contents of config.php */
-    public function __construct(public readonly array $config, ?Request $request = null)
+    /**
+     * @param array<string, mixed> $config contents of config.php
+     * @param array<string, mixed>|null $site the site row (Sites::resolve) this request is routed to; null with multisite off
+     */
+    public function __construct(public readonly array $config, ?Request $request = null, public readonly ?array $site = null)
     {
         $this->request = $request ?? Request::fromGlobals();
         $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
@@ -48,10 +51,46 @@ final class App
             header('Content-Type: text/html; charset=utf-8');
             exit('<!doctype html><meta charset="utf-8"><title>Update in progress</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">The site is being updated</h1><p>Please try again in a minute.</p>');
         }
-        $app = new self($config);
+        $site = null;
+        if ($sitePrefix === null && PHP_SAPI !== 'cli' && Sites::enabled()) {
+            $site = self::routeHost($config);
+            if ($site['prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
+                $config['db']['site_prefix'] = $site['prefix'];
+                \Talea\Front\Cache::useSite($site['prefix']);
+            }
+        }
+        $app = new self($config, null, $site);
         $app->installErrorHandler();
 
         return $app;
+    }
+
+    /**
+     * Multisite: the site that answers to the request's host (docs/specs/multisite.md). An unknown or trashed host gets a bare 404 (never
+     * site 1's content), a secondary domain with "redirect to primary" a 301; /health answers for the install (site 1) on any host.
+     *
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private static function routeHost(array $config): array
+    {
+        $request = Request::fromGlobals();
+        $db = Db::fromConfig($config['db']);
+        $site = Sites::resolve($db, Sites::requestHost($request));
+        if ($site === null || $site['status'] === 'trashed') {
+            if ($request->path() !== '/health') {
+                http_response_code(404);
+                header('Content-Type: text/plain; charset=utf-8');
+                exit("Not found\n");
+            }
+            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null];
+        }
+        if ($site['redirect_to_primary'] && !$site['is_primary'] && $site['primary_host'] !== null) {
+            header('Location: ' . Sites::originOn($request, $site['primary_host']) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);
+            exit;
+        }
+
+        return $site;
     }
 
     public function db(): Db

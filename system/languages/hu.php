@@ -954,6 +954,8 @@ A link %d napig érvényes.
     'This preview link does not allow comments.' => 'Ez az előnézeti link nem teszi lehetővé a megjegyzéseket.',
     'This request is no longer waiting for an answer.' => 'Ez a kérés már nem vár válaszra.',
     'This result is no longer available.' => 'Ez az eredmény már nem érhető el.',
+    'This site is archived and no longer accepts submissions.' => 'Ez az oldal archivált, és már nem fogad be beküldéseket.',
+    'This site is not public yet' => 'Ez az oldal még nem nyilvános.',
     'This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.' => 'Ez a weboldal kétlépcsős bejelentkezést ír elő. Kérjük, kapcsolja be lent – addig az adminisztráció zárolva van.',
     'This text is a starting template generated from the features switched on on the website, not legal advice. Check it against how you really process data and against the rules of your country before you publish it.' => 'Ez a szöveg a weboldalon bekapcsolt funkciók alapján készült kiinduló sablon, nem jogi tanácsadás. Közzététel előtt vesse össze azzal, hogyan kezeli ténylegesen az adatokat, és az országában érvényes szabályokkal.',
     'This time is not on offer.' => 'Ez az időpont nem választható.',
