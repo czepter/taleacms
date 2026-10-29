@@ -142,7 +142,7 @@ final class ElementClipboard
      * @param array{site: string, elements: list<array<string, mixed>>, classes: list<array<string, mixed>>, components: list<array<string, mixed>>} $package
      * @return array{0: list<array<string, mixed>>, 1: array{classes: int, components: int}, 2: int, 3: int} elements, what was created, relinked images, left-out code elements
      */
-    public static function import(Settings $s, array $package, string $thisSite, bool $admin, bool $code = true): array
+    public static function import(Settings $s, array $package, string $thisSite, bool $admin, bool $code = true, bool $canCode = true): array
     {
         $dropped = 0;
         if (!$code) {
@@ -161,7 +161,7 @@ final class ElementClipboard
         }
         $images = 0;
         $elements = self::relinkMedia($elements, $package['site'], $images);
-        [$build, $created] = PagePackage::import($s, ['classes' => $package['classes'], 'components' => $package['components']], ['children' => $elements], $admin);
+        [$build, $created] = PagePackage::import($s, ['classes' => $package['classes'], 'components' => $package['components']], ['children' => $elements], $admin, $canCode);
         $elements = is_array($build['children'] ?? null) ? array_values($build['children']) : [];
 
         return [$admin ? $elements : self::detachComponents($elements), $created, $images, $dropped];

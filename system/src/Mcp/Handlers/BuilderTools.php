@@ -32,7 +32,7 @@ trait BuilderTools
     {
         $auth = $this->app->auth();
         $siteSettings = $this->app->settings();
-        $schema = ElementSchema::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
+        $schema = ElementSchema::schema($auth->canWriteCode(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
 
         return $this->englishSchema($schema, $a);
     }

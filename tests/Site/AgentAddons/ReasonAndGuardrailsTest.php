@@ -49,6 +49,14 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
         $this->site()->setting('claude_protected_pages', '');
     }
 
+    /** A connection limited to drafts cannot save Custom HTML, so builder_schema does not offer the element to it either */
+    public function testBuilderSchemaOffersCustomHtmlOnlyToConnectionsThatMayWriteCode(): void
+    {
+        $elements = fn (?string $token): string => $this->mcpText('builder_schema', [], $token);
+        $this->assertStringContainsString('custom html', strtolower($elements(null)), 'a full-access connection is offered Custom HTML');
+        $this->assertStringNotContainsString('custom html', strtolower($elements($this->draftsToken())), 'a drafts-only connection is not');
+    }
+
     public function testSwitchingOffDeletingRefusesDestructiveTools(): void
     {
         $this->site()->setting('claude_destructive', '0');

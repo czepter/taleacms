@@ -552,7 +552,7 @@ final class Auth
      */
     public function canWriteCode(): bool
     {
-        return $this->isAdmin() && ($this->connection['access'] ?? 'full') === 'full';
+        return $this->isAdmin() && !Demo::active() && ($this->connection['access'] ?? 'full') === 'full';
     }
 
     /** Does the signed-in user have access to the module? Admin always; others according to tl_user_permissions. */

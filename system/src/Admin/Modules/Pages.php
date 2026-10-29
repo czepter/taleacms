@@ -434,7 +434,7 @@ final class Pages extends Module
             return $this->back('Someone else has edited this page in the meantime (or you opened it in another window).', 'website', $back, 'error');
         }
         $element = Build::fresh('structured_data', ['data' => ['type' => $type, 'fields' => []]]);
-        [$build] = Build::sanitize(['children' => [...$previous['children'], $element]] + $previous, $this->app->auth()->isAdmin(), $previous);
+        [$build] = Build::sanitize(['children' => [...$previous['children'], $element]] + $previous, $this->app->auth()->canWriteCode(), $previous);
         $this->saveDraft($target, Build::toJson($build));
         $this->db->update('pages', ['updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'structured data added', mb_substr($page['title'], 0, 80) . ' (' . $type . ')');
@@ -968,8 +968,8 @@ final class Pages extends Module
         $created = ['classes' => 0, 'components' => 0];
         if (is_array($data['build'] ?? null)) {
             // the classes and components that came with it first: the build then points at this site's components
-            [$pageBuild, $created] = \Talea\Builder\PagePackage::import($this->app->settings(), $data, $data['build'], $this->app->auth()->isAdmin());
-            [$build, $errors] = Build::sanitize($pageBuild, $this->app->auth()->isAdmin());
+            [$pageBuild, $created] = \Talea\Builder\PagePackage::import($this->app->settings(), $data, $data['build'], $this->app->auth()->isAdmin(), $this->app->auth()->canWriteCode());
+            [$build, $errors] = Build::sanitize($pageBuild, $this->app->auth()->canWriteCode());
             $record['build_draft'] = Build::toJson($build);
         }
         $id = $this->db->insert('pages', $record);
