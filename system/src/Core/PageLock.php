@@ -14,8 +14,9 @@ namespace Talea\Core;
  *  - A protected page is never in the page cache, the sitemap, llms.txt or the site search, and it is noindex; users who
  *    can edit pages see it without the password.
  *  - Wrong passwords are limited per visitor address – an IPv6 address by its /64 (ATTEMPTS per WINDOW seconds) – and
- *    per page across all addresses (PAGE_ATTEMPTS), counted without the database. Past the page's cap only wrong
- *    passwords are refused; the right one still opens the page (3.3.3).
+ *    per page across all addresses (PAGE_ATTEMPTS), counted without the database. Past the page's cap no password is
+ *    checked, the right one included, until the window ends: otherwise many addresses could keep guessing and the right
+ *    guess would still open the page. Readers who opened it before keep their cookie; the change log says when it closed.
  */
 final class PageLock
 {
@@ -55,18 +56,23 @@ final class PageLock
      */
     public static function unlock(App $app, array $page, string $password): string
     {
-        $ip = Antispam::visitorIp($app->request->serverValues(), $app->settings()->get('trusted_proxy'));
         $pageKey = 'page-' . (int) $page['page_id'];
-        if (Antispam::tally(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
+        if (Antispam::tally(Antispam::visitorKey($app->request, $app->settings()) ?: 'unknown', 'page-lock', self::WINDOW) > self::ATTEMPTS) {
+            return t('Too many attempts. Try again in a few minutes.');
+        }
+        // past the page's cap no password is checked, the right one included: a cap that still answered the right guess
+        // would stop nobody who has many addresses
+        if (Antispam::tally($pageKey, 'page-lock-all', self::WINDOW, false) >= self::PAGE_ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
         if ($password === '' || !password_verify($password, (string) $page['password_hash'])) {
-            // only wrong passwords count for the page; past its cap they are refused as "too many attempts" (3.3.3, N58)
-            return Antispam::tally($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
-                ? t('Too many attempts. Try again in a few minutes.') : t('The password is not right.');
+            // only wrong passwords count for the page; the one that reaches the cap tells the owner, once per window
+            if (Antispam::tally($pageKey, 'page-lock-all', self::WINDOW) === self::PAGE_ATTEMPTS) {
+                \Talea\Admin\ChangeLog::write($app, 'pages', 'page password paused', 'too many wrong passwords, the page opens again in at most 15 minutes: ' . mb_substr((string) $page['title'], 0, 120));
+            }
+
+            return t('The password is not right.');
         }
-        // the right password always opens the page, past the page's cap too (3.3.3, N58): wrong guesses from many addresses
-        // must not lock out every reader of it
         if (!headers_sent()) {
             setcookie(self::COOKIE . (int) $page['page_id'], self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
                 'httponly' => true, 'samesite' => 'Lax', 'secure' => $app->request->isHttps()]);

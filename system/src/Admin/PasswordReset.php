@@ -16,12 +16,17 @@ use Talea\Core\Response;
  * - The response to a request is always the same, whether the account exists or not - the page does not reveal who manages the site.
  *   The e-mail is queued and sent after the response (3.3.3), so the time of the answer does not reveal it either.
  * - The database holds only a hash of the token; the link is valid for an hour and can be used once.
+ * - Requests are limited per visitor address and per account (ACCOUNT_REQUESTS): many addresses cannot flood one inbox, and
+ *   past the account's limit the last link sent stays valid. The answer is the same either way.
  * - The reset does NOT DISABLE two-factor sign-in: whoever gains access to the e-mail still cannot sign in without the code from the app.
  * - A password change ends all other sign-ins of the account (the password hash in the session stops matching).
  */
 final class PasswordReset
 {
     private const int LINK_LIFETIME = 3600;
+
+    /** Reset mails one account gets per LINK_LIFETIME from the sign-in page, from all addresses together. */
+    private const int ACCOUNT_REQUESTS = 3;
 
     public function __construct(private readonly App $app)
     {
@@ -50,7 +55,8 @@ final class PasswordReset
                 $app->db()->insert('ip_checks', ['ip' => $ip, 'type' => 'reset', 'checked_at' => date('Y-m-d H:i:s')]);
                 $who = trim($app->request->post('user_id'));
                 $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = FALSE AND email <> '' LIMIT 1", [$who, $who]);
-                if ($user !== null) {
+                // counted by the account, not by the typed name: a user name and an e-mail address share one allowance
+                if ($user !== null && Antispam::tally('user:' . $user['user_id'], 'reset-account', self::LINK_LIFETIME) <= self::ACCOUNT_REQUESTS) {
                     $this->sendLink($user);
                 }
                 $sent = true;

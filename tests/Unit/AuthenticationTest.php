@@ -98,18 +98,19 @@ final class AuthenticationTest extends TestCase
             // the tokens of Claude connections are not sessions: the MCP server signs the user in without one
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php'), '$this->app->auth()->signInAs($user);')], '3.3.3 (N60): a sign-in ends after 8 idle hours or 24 hours in total, however often the admin keeps it alive');
         $cloudflareSettings = FakeSettings::site(['trusted_proxy' => 'cloudflare']);
-        $this->assertSame(['2001:db8:1:2::/64', '203.0.113.9', '162.158.1.1', [true, true, true]], [
+        $this->assertSame(['2001:db8:1:2::/64', '203.0.113.9', '162.158.1.1', [true, true, true, true]], [
             \Talea\Core\Antispam::visitorKey(new \Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '2001:db8:1:2:3:4:5:6']), $cloudflareSettings),
             \Talea\Core\Antispam::visitorKey(new \Talea\Core\Request([], [], ['REMOTE_ADDR' => '203.0.113.9', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), $cloudflareSettings),
             \Talea\Core\Antispam::visitorKey(new \Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '198.51.100.1']), FakeSettings::site(['trusted_proxy' => ''])),
             array_map(fn (string $file): bool => str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/' . $file . '.php'), 'Antispam::visitorKey(') && !str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/' . $file . '.php'), "hash('sha256', 'talea|' . \$this->app->request->ip())"),
-                ['Admin/Kernel', 'Admin/PasswordReset', 'Mcp/Server'])], '3.3.3 (N54): the sign-in, reset and MCP limits count the visitor behind Cloudflare, an IPv6 address by its /64');
+                ['Admin/Kernel', 'Admin/PasswordReset', 'Mcp/Server', 'Core/PageLock'])], '3.3.3 (N54): the sign-in, reset, MCP and page-password limits count the visitor behind Cloudflare, an IPv6 address by its /64');
         $this->assertSame([true, true], [
             (bool) preg_match('/if \(\$token === null\) \{\s+if \(!\$limited\) \{\s+\$db->insert/', (string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php')),
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php'), 'it never refuses a request')], '3.3.3 (N62): the MCP wrong-token count only caps the rows it writes – it never refuses a request');
         $pageLockSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Core/PageLock.php');
-        $this->assertSame([true, false], [
-            strpos($pageLockSource, "'page-lock-all'") > strpos($pageLockSource, 'password_verify('), str_contains($pageLockSource, ", 'page-lock-all', self::WINDOW, false)")], '3.3.3 (N58): the page cap is checked only after a wrong password – the right one always opens the page');
+        $this->assertSame([true, true], [
+            str_contains($pageLockSource, ", 'page-lock-all', self::WINDOW, false)"),
+            strpos($pageLockSource, ", 'page-lock-all', self::WINDOW, false)") < strpos($pageLockSource, 'password_verify(')], 'the page cap is read before the password is checked – past it no guess gets an answer, the right one included');
         $mailSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Core/Mail.php');
         $this->assertSame([true, true, true], [
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Admin/PasswordReset.php'), 'Mail::later('), str_contains((string) file_get_contents(TALEA_ROOT . '/admin.php'), 'Talea\Core\Mail::afterResponse($app);'),
