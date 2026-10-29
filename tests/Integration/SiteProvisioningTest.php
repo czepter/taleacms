@@ -87,7 +87,9 @@ final class SiteProvisioningTest extends DatabaseTestCase
         $id = $db->insert('pages', ['slug' => 'about', 'title' => 'About', 'text' => 'Hello']);
         $public = (string) $db->value('SELECT public_id FROM {pages} WHERE page_id = ?', [$id]);
         $db->upsert('settings', ['name' => 'site_name', 'value' => 'The first site'], ['name']);
-        $db->upsert('settings', ['name' => 'secret_key', 'value' => 'first-sites-secret'], ['name']);
+        foreach (['secret_key' => 'first-sites-secret', 'webhook_secret' => 'first-webhook', 'tasks_token' => 'first-tasks', 'health_token' => 'first-health', 'captcha_secret' => 'first-captcha', 'smtp_password' => 'mail-pass', 'ai_key' => 'ai-key'] as $k => $v) {
+            $db->upsert('settings', ['name' => $k, 'value' => $v], ['name']);
+        }
         $db->upsert('settings', ['name' => 'site_url', 'value' => 'https://first.example'], ['name']);
         $db->upsert('jobs', ['name' => 'links', 'last_run' => date('Y-m-d H:i:s'), 'failures' => 0, 'runs' => 3, 'duration_ms' => 1], ['name']);
 
@@ -97,9 +99,11 @@ final class SiteProvisioningTest extends DatabaseTestCase
         $this->assertSame('Hello', $copy->value('SELECT text FROM {pages} WHERE slug = ?', ['about']));
         $this->assertSame($public, $copy->value('SELECT public_id FROM {pages} WHERE slug = ?', ['about']), 'rows keep their public ids');
         $this->assertSame('The first site', $copy->value("SELECT value FROM {settings} WHERE name = 'site_name'"));
-        foreach (['secret_key', 'site_url'] as $own) {
+        foreach (['secret_key', 'webhook_secret', 'tasks_token', 'health_token', 'captcha_secret', 'site_url'] as $own) {
             $this->assertNull($copy->value('SELECT value FROM {settings} WHERE name = ?', [$own]), $own . ' is not copied');
         }
+        $this->assertSame('mail-pass', $copy->value("SELECT value FROM {settings} WHERE name = 'smtp_password'"), 'account secrets are shared');
+        $this->assertSame('ai-key', $copy->value("SELECT value FROM {settings} WHERE name = 'ai_key'"));
         $this->assertSame(0, (int) $copy->value('SELECT COUNT(*) FROM {jobs}'), 'the job state is not copied');
         $next = $copy->insert('pages', ['slug' => 'next', 'title' => 'Next', 'text' => '']);
         $this->assertGreaterThan($id, $next, 'the auto-number moved past the copied keys');
@@ -193,7 +197,7 @@ final class SiteProvisioningTest extends DatabaseTestCase
         $this->assertNull(Sites::claimHandoff($this->db(), 'not-a-token', 2));
 
         $late = Sites::handoffToken($this->db(), $user, 2);
-        $this->db()->run('UPDATE {handoff_tokens} SET expires_at = ? WHERE token_hash = ?', [date('Y-m-d H:i:s', time() - 5), hash('sha256', $late)]);
+        $this->db()->run('UPDATE {handoff_tokens} SET expires_at = ? WHERE token_hash = ?', [gmdate('Y-m-d H:i:s', time() - 5), hash('sha256', $late)]);
         $this->assertNull(Sites::claimHandoff($this->db(), $late, 2), 'expired after 60 seconds');
     }
 }

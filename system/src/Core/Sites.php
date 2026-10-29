@@ -15,8 +15,8 @@ final class Sites
     /** A site's own tables a clone does not take along: logs, counters, queues, sessions, the job state (stats_* too). */
     private const array NOT_CLONED = ['migrations', 'jobs', 'web_vitals', 'ip_checks', 'mail', 'webhook_deliveries', 'connector_queue', 'newsletter_queue', 'subscription_queue', 'member_sessions', 'member_tokens'];
 
-    /** Settings that belong to the site's identity or secrets: a clone gets its own. */
-    private const array NOT_CLONED_SETTINGS = ['site_url', 'tasks_token', 'secret_key', 'webhook_secret', 'health_token'];
+    /** A setting whose name says it is a secret: never copied to a clone (it is made again on first use), unless it is an ACCOUNT setting. */
+    private const string SECRET_NAME = '/(secret|token|key|password|salt)/';
 
     /** A trashed site is dropped for good after this many days. */
     public const int TRASH_DAYS = 30;
@@ -238,7 +238,14 @@ final class Sites
         }
         if (!empty($site['clone'])) {
             self::copyTables($source, $new);
-            $new->run('DELETE FROM {settings} WHERE name IN (' . implode(', ', array_fill(0, count(self::NOT_CLONED_SETTINGS), '?')) . ')', self::NOT_CLONED_SETTINGS);
+            // deny by default: secrets (secret type in Settings, or named like one) stay behind unless they are account settings (smtp_password, ai_key …)
+            $secret = self::secretSettings();
+            foreach ($new->all('SELECT name FROM {settings}') as $r) {
+                $name = (string) $r['name'];
+                if ($name === 'site_url' || (!in_array($name, Settings::ACCOUNT, true) && (in_array($name, $secret, true) || preg_match(self::SECRET_NAME, $name) === 1))) {
+                    $new->delete('settings', ['name' => $name]);
+                }
+            }
         } else {
             $marks = implode(', ', array_fill(0, count(Settings::ACCOUNT), '?'));
             foreach ($source->all('SELECT name, value FROM {settings} WHERE name IN (' . $marks . ')', Settings::ACCOUNT) as $r) {
@@ -246,6 +253,21 @@ final class Sites
             }
         }
         $db->update('sites', ['ready_at' => date('Y-m-d H:i:s')], ['site_id' => (int) $site['site_id']]);
+    }
+
+    /** @return list<string> the settings of the secret type (Admin\Modules\Settings::FIELDS: not printed back) */
+    private static function secretSettings(): array
+    {
+        $keys = [];
+        foreach ((new \ReflectionClassConstant(\Talea\Admin\Modules\Settings::class, 'FIELDS'))->getValue() as $fields) {
+            foreach ($fields as $key => $type) {
+                if (is_string($type) && str_starts_with($type, 'secret')) {
+                    $keys[] = $key;
+                }
+            }
+        }
+
+        return $keys;
     }
 
     /** INSERT … SELECT of every copied table of $source into $new (parents first on PostgreSQL, checks off on MySQL and SQLite). */
@@ -396,9 +418,10 @@ final class Sites
     /** A one-time token for the sign-in on another site: only its sha256 is kept. */
     public static function handoffToken(Db $db, int $userId, int $siteId): string
     {
-        $db->run('DELETE FROM {handoff_tokens} WHERE expires_at < ?', [date('Y-m-d H:i:s', time() - 3600)]);
+        $db->run('DELETE FROM {handoff_tokens} WHERE expires_at < ?', [gmdate('Y-m-d H:i:s', time() - 3600)]);
         $token = bin2hex(random_bytes(32));
-        $db->insert('handoff_tokens', ['token_hash' => hash('sha256', $token), 'user_id' => $userId, 'site_id' => $siteId, 'expires_at' => date('Y-m-d H:i:s', time() + self::HANDOFF_SECONDS)]);
+        // UTC: the token is written on one site and claimed on another, and the two may run in different time zones (date() or NOW() would stretch the 60 s)
+        $db->insert('handoff_tokens', ['token_hash' => hash('sha256', $token), 'user_id' => $userId, 'site_id' => $siteId, 'expires_at' => gmdate('Y-m-d H:i:s', time() + self::HANDOFF_SECONDS)]);
 
         return $token;
     }
@@ -410,7 +433,7 @@ final class Sites
             return null;
         }
         $hash = hash('sha256', $token);
-        $claimed = $db->run('UPDATE {handoff_tokens} SET used_at = NOW() WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() AND site_id = ?', [$hash, $siteId])->rowCount();
+        $claimed = $db->run('UPDATE {handoff_tokens} SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? AND site_id = ?', [gmdate('Y-m-d H:i:s'), $hash, gmdate('Y-m-d H:i:s'), $siteId])->rowCount();
 
         return $claimed === 1 ? (int) $db->value('SELECT user_id FROM {handoff_tokens} WHERE token_hash = ?', [$hash]) : null;
     }
