@@ -25,6 +25,31 @@ final class ImagesTest extends TestCase
         @unlink($imageTmp);
     }
 
+    /** a GIF with a valid header and a broken body is refused before anything is written; a good GIF stays byte-identical */
+    public function testUndecodableGifLeavesNothingBehind(): void
+    {
+        $folder = TALEA_ROOT . '/media/' . date('Y/m');
+        @mkdir($folder, 0775, true);
+        $before = glob($folder . '/*') ?: [];
+        $broken = tempnam(sys_get_temp_dir(), 'gif');
+        file_put_contents($broken, 'GIF89a' . pack('vv', 10, 10) . "\x00\x00\x00" . str_repeat("\x00", 16) . 'not an image body');
+        try {
+            \Talea\Core\Images::saveFile($broken, 'broken.gif');
+            $this->fail('A broken GIF must be refused.');
+        } catch (\RuntimeException) {
+        }
+        $this->assertSame($before, glob($folder . '/*') ?: [], 'Images: nothing is left in media/ after a refused GIF');
+        @unlink($broken);
+
+        $good = tempnam(sys_get_temp_dir(), 'gif');
+        $canvas = imagecreatetruecolor(12, 8);
+        imagegif($canvas, $good);
+        $saved = \Talea\Core\Images::saveFile($good, 'good.gif');
+        $this->assertSame(file_get_contents($good), file_get_contents(TALEA_ROOT . '/' . $saved['image_path']), 'Images: a valid GIF is stored unchanged');
+        \Talea\Core\Images::delete($saved['image_path'], $saved['thumb_path']);
+        @unlink($good);
+    }
+
     /** dominant image color */
     public function testDominantColour(): void
     {
