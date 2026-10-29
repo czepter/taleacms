@@ -113,6 +113,9 @@ final class Renderer
                 return '';
             }
         }
+        if ($className::MULTISITE && !\Talea\Core\Sites::enabled()) {
+            return ''; // a Projects element of a build made while multisite was on: nothing without it, the build stays
+        }
         if ($className::EXTENSION !== '' && !\Talea\Core\Extensions::isEnabled($k->app->settings(), $className::EXTENSION)) {
             // an element of a disabled extension (news, form): nothing on the site, a notice in the editor – the build stays, it comes back once enabled
             return $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" data-tl-type="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'

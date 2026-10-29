@@ -37,6 +37,22 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <?php endforeach ?>
 	</select>
 </div>
+<fieldset>
+<legend><?= e(t('Card on the other sites')) ?></legend>
+<p class="help"><?= e(t('The Projects element on the owner’s other sites lists live sites that are switched on here: name, summary and image, linking to the primary host name.')) ?></p>
+<div class="row">
+	<label for="show_in_hub"><?= e(t('Show on the other sites')) ?></label>
+	<div><input type="checkbox" id="show_in_hub" name="show_in_hub" value="1"<?= $site['show_in_hub'] ? ' checked' : '' ?>></div>
+</div>
+<div class="row">
+	<label for="card_summary"><?= e(t('Summary')) ?></label>
+	<input class="textfield wide" type="text" id="card_summary" name="card_summary" value="<?= e($site['card_summary']) ?>" maxlength="300">
+</div>
+<div class="row">
+	<label for="card_image"><?= e(t('Image')) ?></label>
+	<input class="textfield wide" type="text" id="card_image" name="card_image" value="<?= e($site['card_image']) ?>" maxlength="255" data-image>
+</div>
+</fieldset>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 

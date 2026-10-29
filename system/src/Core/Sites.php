@@ -479,8 +479,46 @@ final class Sites
             return 'Choose another site that is set up as the target.';
         }
         $db->update('sites', ['name' => $name, 'status' => $status, 'redirect_to_site_id' => $status === 'archived' ? $redirectTo : null], ['site_id' => $siteId]);
+        \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;
+    }
+
+    /**
+     * The hub card of a site (what the Projects element shows on the owner's other sites): a short summary, a media path and whether the
+     * site is listed. A change clears every site's page cache, since the card shows on all of them. Returns an error text, null = saved.
+     */
+    public static function saveCard(Db $db, int $siteId, string $summary, string $image, bool $show): ?string
+    {
+        $summary = trim(mb_substr(trim($summary), 0, 300));
+        $image = trim($image);
+        if ($image !== '' && (preg_match('#^media/[A-Za-z0-9._/-]{1,240}$#', $image) !== 1 || str_contains($image, '..'))) {
+            return 'Choose an image from the media library.';
+        }
+        if ($db->value("SELECT 1 FROM {sites} WHERE site_id = ? AND status <> 'trashed'", [$siteId]) === null) {
+            return 'The site does not exist.';
+        }
+        $db->update('sites', ['card_summary' => $summary, 'card_image' => $image, 'show_in_hub' => $show], ['site_id' => $siteId]);
+        \Talea\Front\Cache::clearAll();
+
+        return null;
+    }
+
+    /**
+     * The cards of the owner's other sites for the Projects element: set up, live, listed in the hub and with a host name.
+     *
+     * @return list<array{name: string, summary: string, image: string, host: string}>
+     */
+    public static function hubCards(Db $db, int $exceptSiteId): array
+    {
+        $cards = [];
+        foreach ($db->all("SELECT site_id, name, slug, card_summary, card_image FROM {sites} WHERE ready_at IS NOT NULL AND status = 'live' AND show_in_hub = TRUE AND site_id <> ? ORDER BY site_id", [$exceptSiteId]) as $r) {
+            if (($host = self::primaryHost($db, (int) $r['site_id'])) !== null) {
+                $cards[] = ['name' => $r['name'] !== '' ? (string) $r['name'] : (string) $r['slug'], 'summary' => (string) $r['card_summary'], 'image' => (string) $r['card_image'], 'host' => $host];
+            }
+        }
+
+        return $cards;
     }
 
     /** Puts a site into the trash (kept 30 days, then dropped); site 1 never. Returns an error text, null = done. */
@@ -492,6 +530,7 @@ final class Sites
         self::forgetCurrent();
         $db->run("UPDATE {sites} SET status = 'trashed', trashed_at = ?, redirect_to_site_id = NULL WHERE site_id = ? AND status <> 'trashed'", [date('Y-m-d H:i:s'), $siteId]);
         $db->run("UPDATE {sites} SET redirect_to_site_id = NULL WHERE redirect_to_site_id = ?", [$siteId]);
+        \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;
     }
@@ -515,6 +554,7 @@ final class Sites
         }
         $first = $db->value('SELECT 1 FROM {site_domains} WHERE site_id = ?', [$siteId]) === null;
         $db->insert('site_domains', ['site_id' => $siteId, 'host' => $host, 'is_primary' => $first, 'redirect_to_primary' => false]);
+        \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;
     }
@@ -530,6 +570,7 @@ final class Sites
             return 'This is the host name you are using right now – remove it from another one.';
         }
         $db->delete('site_domains', ['domain_id' => $domainId]);
+        \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
         if ($domain['is_primary']) {
             $next = $db->value('SELECT domain_id FROM {site_domains} WHERE site_id = ? ORDER BY domain_id LIMIT 1', [$siteId]);
             if ($next !== null) {
@@ -547,6 +588,7 @@ final class Sites
             return;
         }
         $db->run('UPDATE {site_domains} SET is_primary = CASE WHEN domain_id = ? THEN TRUE ELSE FALSE END, redirect_to_primary = CASE WHEN domain_id = ? THEN FALSE ELSE redirect_to_primary END WHERE site_id = ?', [$domainId, $domainId, $siteId]);
+        \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
     }
 
     /** Whether a secondary host answers with a 301 to the primary one (the primary host never does). */

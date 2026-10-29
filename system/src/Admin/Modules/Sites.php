@@ -7,6 +7,7 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Kernel;
 use Talea\Admin\Module;
 use Talea\Core\Response;
+use Talea\Core\SiteFigures;
 use Talea\Core\Sites as SiteRegistry;
 
 /**
@@ -100,6 +101,12 @@ final class Sites extends Module
             'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed')), 'current' => $this->currentId()]);
     }
 
+    /** The Overview tab: the figures of every set-up site for 7 and 30 days, one row each, and the totals. */
+    protected function actionOverview(): Response
+    {
+        return $this->view('overview', 'Sites', ['figures' => SiteFigures::overview($this->db), 'periods' => SiteFigures::PERIODS]);
+    }
+
     protected function actionNew(): Response
     {
         return $this->form('', '');
@@ -143,7 +150,8 @@ final class Sites extends Module
         }
         $target = $this->request->post('redirect_to');
         $targetRow = $target === '' ? null : $this->db->byPublicId('sites', $target);
-        $error = SiteRegistry::save($this->db, (int) $site['site_id'], $this->request->post('name'), $this->request->post('status'), $targetRow === null ? null : (int) $targetRow['site_id']);
+        $error = SiteRegistry::save($this->db, (int) $site['site_id'], $this->request->post('name'), $this->request->post('status'), $targetRow === null ? null : (int) $targetRow['site_id'])
+            ?? SiteRegistry::saveCard($this->db, (int) $site['site_id'], $this->request->post('card_summary'), $this->request->post('card_image'), $this->request->postBool('show_in_hub'));
 
         return $error === null ? $this->back('The site has been saved.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
     }

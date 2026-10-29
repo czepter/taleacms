@@ -2307,9 +2307,12 @@
     },
     "update_site": {
         "parameters": {
+            "card_image": "string",
+            "card_summary": "string",
             "id": "string",
             "name": "string",
             "redirect_to": "string",
+            "show_in_hub": "boolean",
             "status": "string"
         },
         "required": [

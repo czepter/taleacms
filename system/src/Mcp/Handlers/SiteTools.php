@@ -27,8 +27,10 @@ trait SiteTools
                 $s([])],
             ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
                 $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site)')], ['name'])],
-            ['update_site', 'Renames a site or sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) (multisite, administrators). Putting a site into the trash is trash_site.',
-                $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none')], ['id'])],
+            ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) and its hub card (multisite, administrators): card_summary, card_image and show_in_hub decide what the Projects element shows about it on the other sites. Putting a site into the trash is trash_site.',
+                $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
+                    'card_summary' => $text('one or two sentences for the hub card (at most 300 characters)'), 'card_image' => $text('media path of the hub card image, e.g. media/2026/10/studio.jpg; empty = none'),
+                    'show_in_hub' => ['type' => 'boolean', 'description' => 'true = the Projects element on the other sites lists this site (when it is live)']], ['id'])],
             ['trash_site', 'Puts a site into the trash (multisite, administrators, only on the user\'s explicit request): it stops answering, and its tables are deleted for good after 30 days; restore_site brings it back until then. Never the first site, nor the site this connection calls.',
                 $s(['id' => $pid('site id from list_owner_sites')], ['id'])],
             ['restore_site', 'Takes a site out of the trash (multisite, administrators); it comes back paused.',
@@ -49,7 +51,8 @@ trait SiteTools
     {
         $out = ['id' => (string) $site['public_id'], 'name' => (string) $site['name'], 'slug' => (string) $site['slug'], 'status' => (string) $site['status'],
             'ready' => $site['ready_at'] !== null, 'clone' => (bool) $site['clone'], 'current' => (int) $site['site_id'] === \Talea\Core\Sites::currentId($this->app->db()),
-            'redirect_to' => $site['redirect_to_site_id'] === null ? null : (string) $this->app->db()->publicId('sites', (int) $site['redirect_to_site_id'])];
+            'redirect_to' => $site['redirect_to_site_id'] === null ? null : (string) $this->app->db()->publicId('sites', (int) $site['redirect_to_site_id']),
+            'card' => ['summary' => (string) $site['card_summary'], 'image' => (string) $site['card_image'], 'show_in_hub' => (bool) $site['show_in_hub']]];
         if ($withDomains) {
             $out['domains'] = array_map(fn (array $d): array => ['host' => (string) $d['host'], 'primary' => (bool) $d['is_primary'], 'redirect_to_primary' => (bool) $d['redirect_to_primary']], (array) ($site['domains'] ?? []));
         }
@@ -163,6 +166,12 @@ trait SiteTools
         $error = Sites::save($db, (int) $site['site_id'], (string) ($a['name'] ?? $site['name']), (string) ($a['status'] ?? $site['status']), $redirect);
         if ($error !== null) {
             throw new \InvalidArgumentException($error);
+        }
+        if (isset($a['card_summary']) || isset($a['card_image']) || isset($a['show_in_hub'])) {
+            $error = Sites::saveCard($db, (int) $site['site_id'], (string) ($a['card_summary'] ?? $site['card_summary']), (string) ($a['card_image'] ?? $site['card_image']), (bool) ($a['show_in_hub'] ?? $site['show_in_hub']));
+            if ($error !== null) {
+                throw new \InvalidArgumentException($error);
+            }
         }
 
         return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
