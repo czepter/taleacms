@@ -183,11 +183,11 @@ final class SecurityReleaseTest extends TestCase
         $n38Context = new \Talea\Builder\Context($n25App);
         $n38Context->content = $n38Visitor;
         $n38Wrapper = \Talea\Builder\Renderer::html(['children' => [['id' => 't1', 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'type' => 'page_content', 'tag' => 'div', 'content' => []]]], $n38Context);
-        $kernelSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Kernel.php');
-        preg_match('/private function page\(.*?\n    }\n/s', $kernelSource, $pageMethod);
+        $kernelSource = implode('', array_map(fn (string $f): string => (string) file_get_contents($f), glob(TALEA_SYSTEM . '/src/Front/*.php') ?: []));
+        preg_match('/public function page\(.*?\n    }\n/s', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/PageFrame.php'), $pageMethod);
         $this->assertSame([$n38Query, true, true, false, false, true, true, true], [
             \Talea\Extension\Registry::fillTokens($n38Query), str_contains($n38Wrapper, '<p>own</p>'), str_contains($n38Wrapper, $n38Visitor), str_contains($n38Wrapper, '<img'), str_contains($n38Wrapper, 'NAIVE'),
-            $n38Context->content === $n38Visitor, ($pageMethod[0] ?? '') !== '' && !str_contains($pageMethod[0], 'fillTokens('), substr_count($kernelSource, 'self::authored(') >= 5], '3.3.2 N38: an escaped-quote token (a visitor\'s search query) is never run; a site-part wrapper fills its own tokens but not the page content it wraps; the page as a whole is not filled');
+            $n38Context->content === $n38Visitor, ($pageMethod[0] ?? '') !== '' && !str_contains($pageMethod[0], 'fillTokens('), substr_count($kernelSource, '::authored(') >= 5], '3.3.2 N38: an escaped-quote token (a visitor\'s search query) is never run; a site-part wrapper fills its own tokens but not the page content it wraps; the page as a whole is not filled');
         $n26Cache->setValue(null, []);
     }
 

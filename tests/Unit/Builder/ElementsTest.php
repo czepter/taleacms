@@ -82,7 +82,7 @@ final class ElementsTest extends TestCase
         $this->assertSame([['Content', 'Content', 'Content', 'Content'], ['Basic', 'Standard', 'Premium'], true, 'Before', 2, 'Today', 0, 1], [
             array_map(fn (string $t): string => $f9Schema[$t]['group'], ['pricing_table', 'before_after', 'hotspots', 'timeline']), array_column($f9Schema['pricing_table']['properties']['plans']['default'], 'name'), $f9Schema['pricing_table']['properties']['plans']['default'][1]['highlighted'],
             $f9Schema['before_after']['properties']['before_label']['default'], count($f9Schema['hotspots']['properties']['points']['default']), $f9Schema['timeline']['properties']['milestones']['default'][2]['date'],
-            preg_match(\Talea\Builder\Build::ATTRIBUTE_PATTERN, 'data-before-after'), preg_match('/data-\(insert\|[^)]*before-after/', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Kernel.php'))], '2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute');
+            preg_match(\Talea\Builder\Build::ATTRIBUTE_PATTERN, 'data-before-after'), preg_match('/data-\(insert\|[^)]*before-after/', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/PageFrame.php'))], '2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute');
     }
 
     /** the form element's inspector shows each field as a row: the summary names real fields, the groups are the ones builder.js folds */
