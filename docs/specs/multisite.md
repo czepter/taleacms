@@ -39,6 +39,20 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
 - **Backups:** one file holds every prefix of the database; a restore puts back all sites at once. Rolling back a single site
   goes through site export and import.
 
+## Routing and signing (phase 1, stage 1)
+
+- `App::boot()` resolves the request's host through `site_domains` when `TALEA_MULTISITE` is on (never in the CLI, never without
+  the flag: with it off the database is not asked). An unknown or trashed host is a plain 404; `/health` answers for site 1 on
+  any host. `App::$site` carries the site row. The lifecycle lives in `Front\Kernel::siteLifecycle()`: paused = 503 for visitors,
+  archived = 301 to the target's primary host or read-only (403 on forms, bookings, member login).
+- `bin/migrate` is the startup guard: more than one site that is not trashed without the flag stops the container; with the flag
+  and no domain on site 1, the host of `TALEA_SITE_URL` (or the `site_url` setting) becomes its primary domain.
+- **Signing is bound by a per-site key, not by payloads.** Signed links (preview, form time stamp, page lock, share images …) all go
+  through `Antispam::key()`. With `TALEA_SECRET_KEY` set it derives a key per site (`talea-signing|<secret>|<prefix>`; site 1 keeps
+  the plain one), so no payload carries a site id and a link of one site is void on another by construction. Without the
+  environment secret every site already has its own `secret_key` setting. Connector credentials keep using the environment secret
+  directly: they are the owner's, not the site's.
+
 ## Phases
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,

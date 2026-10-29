@@ -106,6 +106,19 @@ addresses, tokens and the values in database errors. The same fault is sent once
 wait in `storage/log/outbox/` and are retried by the background jobs for a day. `storage/log/errors.log` keeps every uncaught error
 with its trace and the event id, with or without a tracker. When the DSN is set, the record of processing names the tracker's host.
 
+## Several sites
+
+`TALEA_MULTISITE=1` turns the install into one owner with several sites (docs/specs/multisite.md). Each site answers to its own
+domains (`site_domains`) and has its own tables; the first start with the flag gives site 1 the host of `TALEA_SITE_URL`.
+
+- A host that belongs to no site, or to a trashed one, gets a bare 404; it never shows site 1. `/health` answers on any host.
+- A secondary domain marked "redirect to primary" answers with a 301 to the site's primary host.
+- A paused site answers visitors with 503 (signed-in people and signed preview links still see it); an archived site redirects to the
+  site it points at, or stays readable and refuses forms, bookings and the member login with 403.
+- Point every domain at the same container and have the proxy pass the `Host` header on unchanged.
+- Without the flag the start (`bin/migrate`) stops while the database holds more than one site that is not trashed.
+- With `TALEA_SECRET_KEY` set, each further site derives its own signing key from it, so a preview link of one site is void on the others.
+
 ## Rollback
 
 Migrations only move forward, and a release never drops what the previous release still reads (expand, then contract in a later
