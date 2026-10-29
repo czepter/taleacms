@@ -33,7 +33,7 @@ final class CalculatorFormTest extends SiteTestCase
         $this->assertStringContainsString('data-steps', $form->body, 'multi-step: the form carries the steps marker');
         $this->assertStringContainsString('<legend>Details</legend>', $form->body, 'multi-step: the step has its legend');
 
-        foreach (['data-when="p0" data-when-value="Doors"', 'value="Windows" data-price="1200"', 'data-price="9900"', 'data-price-per="1500"', 'data-estimate data-base="500" data-currency="$"'] as $needle) {
+        foreach (['<div class="tl-condition" data-field="3">', 'data-logic=', 'value="Windows" data-price="1200"', 'data-price="9900"', 'data-price-per="1500"', 'data-estimate data-base="500" data-currency="$"'] as $needle) {
             $this->assertStringContainsString($needle, $form->body, "calculator: conditions and prices go to the script ($needle)");
         }
         $this->assertStringNotContainsString('| 1200', $form->body, 'calculator: the visitor never sees the price syntax');

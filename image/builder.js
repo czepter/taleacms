@@ -1818,7 +1818,7 @@
 		}).filter(Boolean).join(' · ');
 		items.forEach((item, i) => {
 			// a field with the condition „when“ ({siblings: hodnota}) shows only when another field of the item has the given value (options only for a select)
-			const visible = (d) => !d.when || Object.entries(d.when).every(([pk, pv]) => item[pk] === pv);
+			const visible = (d) => !d.when || Object.entries(d.when).every(([pk, pv]) => (Array.isArray(pv) ? pv.includes(item[pk]) : item[pk] === pv));
 			let label = null;
 			const control = ([k, d]) => field(d, item[k], (h) => {
 				item[k] = h;
