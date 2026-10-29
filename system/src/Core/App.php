@@ -67,7 +67,7 @@ final class App
 
     /**
      * Multisite: the site that answers to the request's host (docs/specs/multisite.md). An unknown or trashed host gets a bare 404 (never
-     * site 1's content), a secondary domain with "redirect to primary" a 301; /health answers for the install (site 1) on any host.
+     * site 1's content), a site cron has not set up yet a 503, a secondary domain with "redirect to primary" a 301; /health answers for the install (site 1) on any host.
      *
      * @param array<string, mixed> $config
      * @return array<string, mixed>
@@ -77,13 +77,19 @@ final class App
         $request = Request::fromGlobals();
         $db = Db::fromConfig($config['db']);
         $site = Sites::resolve($db, Sites::requestHost($request));
-        if ($site === null || $site['status'] === 'trashed') {
+        if ($site === null || $site['status'] === 'trashed' || !$site['ready']) {
             if ($request->path() !== '/health') {
-                http_response_code(404);
+                // unknown host: never site 1's content; a site cron has not set up yet has no tables to boot (Sites::provision)
+                $setUp = $site !== null && $site['status'] !== 'trashed';
+                http_response_code($setUp ? 503 : 404);
                 header('Content-Type: text/plain; charset=utf-8');
-                exit("Not found\n");
+                if ($setUp) {
+                    header('Retry-After: 300');
+                    header('X-Robots-Tag: noindex');
+                }
+                exit($setUp ? "This site is being set up\n" : "Not found\n");
             }
-            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null];
+            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true];
         }
         if ($site['redirect_to_primary'] && !$site['is_primary'] && $site['primary_host'] !== null) {
             header('Location: ' . Sites::originOn($request, $site['primary_host']) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);

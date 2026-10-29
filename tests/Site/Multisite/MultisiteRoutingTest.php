@@ -46,7 +46,7 @@ final class MultisiteRoutingTest extends SiteTestCase
     public function testTheStartGuardAndTheFirstDomain(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO tl_sites (public_id, name, slug, prefix, status, created_at) VALUES ('6f1d0c9e-0b0e-4a53-9a58-3c1f6f0f2b02', 'Second', 'second', 'tl2_', 'live', NOW())");
+        $site->exec("INSERT INTO tl_sites (public_id, name, slug, prefix, status, created_at, ready_at) VALUES ('6f1d0c9e-0b0e-4a53-9a58-3c1f6f0f2b02', 'Second', 'second', 'tl2_', 'live', NOW(), NOW())");
 
         $off = $this->migrate(false);
         $this->assertStringContainsString('TALEA_MULTISITE is off', $off, 'two sites without the flag: the start is refused');
@@ -121,6 +121,17 @@ final class MultisiteRoutingTest extends SiteTestCase
         foreach (['/subscribe?unsubscribe=' . str_repeat('a', 32) => [], '/_booking/cancel/' . str_repeat('a', 32) => [], '/some-page' => ['tl_page_password' => 'x']] as $path => $data) {
             $this->assertStringNotContainsString('no longer accepts submissions', $visitor->post($path, $data, $host)->body, $path);
         }
+    }
+
+    public function testASiteCronHasNotSetUpYetIsUnavailable(): void
+    {
+        $this->site()->exec('UPDATE tl_sites SET ready_at = NULL WHERE site_id = 2');
+        $r = $this->on('second.test', '/', admin: true);
+        $this->assertSame(503, $r->status, 'no tables to boot: not even an administrator gets in');
+        $this->assertSame('300', $r->headers['retry-after']);
+        $this->assertStringContainsString('being set up', $r->body);
+        $this->assertSame(200, $this->on('second.test', '/health')->status);
+        $this->site()->exec('UPDATE tl_sites SET ready_at = NOW() WHERE site_id = 2');
     }
 
     public function testATrashedSiteDoesNotAnswer(): void
