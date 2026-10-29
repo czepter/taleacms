@@ -8,10 +8,12 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Talea\Core\Db;
 use Talea\Core\Sites;
+use Talea\Core\SiteUrl;
 
 /** Multisite (docs/specs/multisite.md): site tables carry the site prefix, owner tables the owner prefix. */
 #[CoversClass(Db::class)]
 #[CoversClass(Sites::class)]
+#[CoversClass(SiteUrl::class)]
 final class MultisitePrefixTest extends TestCase
 {
     public function testAFurtherSitesPrefixNeverStartsWithTheOwnerPrefix(): void
@@ -43,6 +45,18 @@ final class MultisitePrefixTest extends TestCase
 
         $this->assertSame('tl_', $db->ownerPrefix);
         $this->assertSame('SELECT * FROM `tl_pages` JOIN `tl_users` ON 1 = 1', $db->sql('SELECT * FROM {pages} JOIN {users} ON 1 = 1'));
+    }
+
+    public function testTheServersSiteAddressRulesSiteOneOnly(): void
+    {
+        putenv('TALEA_SITE_URL=https://one.example');
+        try {
+            $this->assertTrue(SiteUrl::locked(new Db('mysql:host=x', '', '', 'tl_')));
+            $this->assertFalse(SiteUrl::locked(new Db('mysql:host=x', '', '', 'tl2_', 'tl_')), 'a further site edits its own address');
+        } finally {
+            putenv('TALEA_SITE_URL');
+        }
+        $this->assertFalse(SiteUrl::locked(new Db('mysql:host=x', '', '', 'tl_')), 'nothing set, nothing locked');
     }
 
     public function testSiteRegistryIsAnOwnerTable(): void

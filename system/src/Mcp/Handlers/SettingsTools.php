@@ -117,7 +117,7 @@ trait SettingsTools
                 // access only, and never while the server sets it (TALEA_SITE_URL, Core\SiteUrl)
                 $url = is_string($value) ? rtrim(trim($value), '/') : '';
                 $refusal = match (true) {
-                    \Talea\Core\SiteUrl::fromEnvironment() !== '' => 'The server sets the site address (TALEA_SITE_URL) and applies it when the site starts: change it in the hosting and restart the site.',
+                    \Talea\Core\SiteUrl::locked($this->app->db()) => 'The server sets the site address (TALEA_SITE_URL) and applies it when the site starts: change it in the hosting and restart the site.',
                     ($auth->connection()['access'] ?? 'full') !== 'full' => 'The site address can be changed only by a connection with full access.',
                     \Talea\Admin\Modules\Settings::verifyValue($key, $url) === null => 'An address like https://example.com – the scheme and the host, no path.',
                     default => null,

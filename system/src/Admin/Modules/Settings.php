@@ -270,7 +270,7 @@ class Settings extends Module
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
             }
-            if ($key === 'site_url' && \Talea\Core\SiteUrl::fromEnvironment() !== '') {
+            if ($key === 'site_url' && \Talea\Core\SiteUrl::locked($this->db)) {
                 continue; // the server sets the address (TALEA_SITE_URL): the field is read-only
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
