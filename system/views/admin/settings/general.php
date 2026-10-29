@@ -3,7 +3,13 @@
 <legend><?= e(t('Website')) ?></legend>
 <?php
 $field('site_name', 'Site name', 'text', '', 'maxlength="150" required');
-$field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
+if (Talea\Core\SiteUrl::fromEnvironment() !== '') {
+    // the server sets the address (TALEA_SITE_URL, applied when the site starts): shown, not saved
+    $field('site_url', 'Site address', 'url', 'Set by the server (TALEA_SITE_URL). It is applied when the site starts: change it in the hosting and restart the site.', 'readonly');
+} else {
+    $field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
+}
+$field('redirect_to_site_url', 'Redirect other addresses to the site address', 'flag', 'Visitors who reach the site under another address (with or without www, an old domain) are sent to the same page on the site address. The administration, the Claude connection and preview links are not redirected.');
 $field('site_description', 'Site description', 'lines', 'One or two sentences – a motto, a description for search engines and RSS.');
 $field('site_email', 'Site email', 'email', 'System notifications are sent to it.');
 ?>

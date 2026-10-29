@@ -579,9 +579,9 @@ final class Seo
     private function structuredData(string $title, array $meta, ?array $newsItem): array
     {
         $s = $this->app->settings();
-        // company from "Settings → Business details" (Organization or LocalBusiness with address, opening hours and map)
-        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Talea\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
-        if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Talea\Core\Hours::schema(\Talea\Core\Hours::exceptions($this->app->db()))) !== []) {
+        // company from "Settings → Business details" (Organization or LocalBusiness with address, opening hours and map; Person on a personal site)
+        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...), \Talea\Core\Facts::schema($this->app)); // + facts with a schema property (2.10)
+        if (!in_array($issuer['@type'], ['Organization', 'Person'], true) && ($special = \Talea\Core\Hours::schema(\Talea\Core\Hours::exceptions($this->app->db()))) !== []) {
             $issuer['specialOpeningHoursSpecification'] = $special; // holidays and other exceptions to the opening hours (2.10)
         }
         if ($newsItem === null) {
@@ -600,7 +600,8 @@ final class Seo
             foreach ($meta['structured'] ?? [] as $i => $node) {
                 // typed structured data of the page (the Structured data element): joins the same graph, linked to the company and website nodes;
                 // a manual FAQPage replaces the automatic one so the page never carries two
-                $rendered = \Talea\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']);
+                $rendered = \Talea\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']
+                    + ($issuer['@type'] !== 'Person' ? ['organization' => (string) $issuer['@id']] : [])); // a job needs an organisation, never a person
                 if (($rendered['@type'] ?? '') === 'FAQPage') {
                     $chart = array_values(array_filter($chart, fn (array $c): bool => ($c['@type'] ?? '') !== 'FAQPage'));
                 }

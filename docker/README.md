@@ -9,7 +9,8 @@ Services: `web` (FrankenPHP/Caddy, plain HTTP on `:8080` – put your TLS proxy 
 `php system/docker.php cron` every 5 minutes = the `/tasks` jobs) and `db` (MySQL 8.4; MariaDB 11.4+ works too, 10.x lacks the collation `utf8mb4_0900_ai_ci`).
 The database comes from the environment; the web installer (`/install.php`) asks only for the site and the administrator, creates the tables and
 leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull && docker compose up -d`);
-the entrypoint applies pending database migrations (`php bin/migrate --if-installed`) before the server starts; migrations never run on a page request. A site never updates itself and never asks for new versions.
+the entrypoint applies pending database migrations (`php bin/migrate --if-installed`) and stores a changed `TALEA_SITE_URL` (`php system/docker.php site-url`)
+before the server starts; neither runs on a page request. A site never updates itself and never asks for new versions.
 
 Volumes: `/app/storage` (logs, cache, backups), `/app/media` (uploads), `/app/extensions` (add-ons). Bind mounts must be owned by uid 33 (www-data).
 
@@ -63,7 +64,7 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 | `TALEA_DEBUG` | `false` | Show errors in pages |
 | `TALEA_ADDONS` | `true` | `false` = safe mode, no add-ons |
 | `TALEA_AI_URL` | – | Custom gateway for the writing assistant |
-| `TALEA_SITE_URL` | request host | Public URL, e.g. `https://example.com` (**set it**, used in e-mails/links) |
+| `TALEA_SITE_URL` | request host | Public URL, e.g. `https://example.com` (**set it**: canonical addresses, the sitemap, feeds and e-mail links are built from it). Applied on every start: a changed value replaces the stored site address (change log, page cache emptied), and the admin field is read-only while it is set. A domain move = change it and restart; docs/DEPLOYMENT.md, "Site address and domain moves" |
 | `TALEA_BACKUP_BEFORE_MIGRATE` | on | `0` skips the database backup that precedes pending migrations on start |
 | `TALEA_CRON` | on | `0` on every replica but one: the background-job loop must run once |
 | `TALEA_SECRET_KEY` | – | The site's secret, at least 32 characters (`openssl rand -hex 32`): encrypts the connector credentials and signs links, so a database dump alone holds no key. Without it the key stays in the database (System status warns). Keep it with your backups, see docs/DEPLOYMENT.md |

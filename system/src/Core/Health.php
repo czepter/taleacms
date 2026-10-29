@@ -51,7 +51,9 @@ final class Health
             $ok = is_dir(TALEA_ROOT . '/' . $folder) ? is_writable(TALEA_ROOT . '/' . $folder) : is_writable(TALEA_ROOT);
             $add(t('Files'), t('Write access to %s/', $folder), $ok, $ok ? $purpose : t('%s - set write permissions', $purpose));
         }
-        $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        if (!Config::fromEnv()) { // in a container install.php belongs to the image and refuses to run once installed
+            $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        }
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);

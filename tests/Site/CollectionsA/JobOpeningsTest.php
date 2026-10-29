@@ -119,4 +119,16 @@ final class JobOpeningsTest extends SiteTestCase
             'the clean-up deleted the application after its retention and recorded it; the ordinary enquiry of the same age stays');
         $this->assertFileDoesNotExist($this->site()->path('storage/attachments/' . self::$cvPath), 'the CV was deleted with the application');
     }
+
+    /** On a personal site a job gets no JobPosting – it needs a hiring organisation – and the audit says so. */
+    public function testAPersonalSiteHasNoJobPostings(): void
+    {
+        $this->mcpText('update_settings', ['settings' => ['company_type' => 'Person']]);
+        $this->site()->clearPageCache();
+
+        $this->assertStringNotContainsString('"JobPosting"', $this->visitor()->get('/job-openings/carpenter')->body, 'no JobPosting on a personal site');
+        $audit = $this->mcpText('site_audit', ['kind' => 'job']);
+        $this->assertStringContainsString('Carpenter', $audit, 'site_audit lists the job with a closing date too');
+        $this->assertStringContainsString('Job opening on a personal site', $audit, '... because search engines need a hiring organisation');
+    }
 }

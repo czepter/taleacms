@@ -222,7 +222,7 @@ final class SecurityReleaseTest extends TestCase
         $this->assertSame(['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown'], array_map(\Talea\Core\Antispam::network(...),
             ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), '3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4 address written as IPv6 counts as itself)');
         $this->assertSame([10, true, true], [\Talea\Core\PageLock::ATTEMPTS, \Talea\Core\PageLock::PAGE_ATTEMPTS > \Talea\Core\PageLock::ATTEMPTS,
-            str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::network(')], '3.3.2 (N34): a page password has a limit per address and one per page across all addresses');
+            str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::visitorKey(')], '3.3.2 (N34): a page password has a limit per address and one per page across all addresses');
         $htaccess332 = (string) file_get_contents(TALEA_ROOT . '/.htaccess');
         $router332 = (string) file_get_contents(TALEA_SYSTEM . '/dev-router.php');
         preg_match("/if \\(preg_match\\('(#\\^\\/\\(system.+?#i)', \\\$path\\)\\)/", $router332, $routerRule);

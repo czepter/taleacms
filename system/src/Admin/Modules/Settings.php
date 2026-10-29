@@ -34,7 +34,7 @@ class Settings extends Module
     public const array TAB_EXTENSIONS = ['enquiries' => 'enquiries'];
 
     /** Company types for the field company_type (choice:…). */
-    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
+    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization|Person';
 
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
@@ -44,7 +44,7 @@ class Settings extends Module
      */
     private const array FIELDS = [
         'general' => [
-            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
+            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'redirect_to_site_url' => 'flag', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
             'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone', 'trusted_proxy' => 'choice:|cloudflare',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
@@ -269,6 +269,9 @@ class Settings extends Module
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
+            }
+            if ($key === 'site_url' && \Talea\Core\SiteUrl::fromEnvironment() !== '') {
+                continue; // the server sets the address (TALEA_SITE_URL): the field is read-only
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
             // a missing checkbox or list still means "off" / "none"
@@ -856,7 +859,7 @@ class Settings extends Module
      * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
      * cookies_text_de, cookies_policy_url_de) has the type of its base. null = not a field of the admin form.
      */
-    private static function fieldType(string $key): ?string
+    public static function fieldType(string $key): ?string
     {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {

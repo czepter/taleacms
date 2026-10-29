@@ -110,7 +110,8 @@ final class Installer
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['starter'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
+                    // a container runs the jobs itself (docker/entrypoint.sh)
+                    'cron' => Config::fromEnv() ? null : '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
             }
         }
 
@@ -120,15 +121,16 @@ final class Installer
     /**
      * After installation the installer deletes itself, so the administrator does not have to use FTP. When the hosting does
      * not allow it (file permissions), a prompt to delete it remains and the system health page keeps warning about the file.
-     * In a development copy (a .git folder) it is not deleted.
+     * In a development copy (a .git folder) it is not deleted. In a container it belongs to the image and stays (null: nothing to say),
+     * the installer refuses to run once installed.
      */
-    private function deleteSelf(): bool
+    private function deleteSelf(): ?bool
     {
+        if (Config::fromEnv()) {
+            return null;
+        }
         if (is_dir(TALEA_ROOT . '/.git')) {
             return false;
-        }
-        if (Config::fromEnv()) {
-            return true; // the file belongs to the image; the installer refuses to run once installed
         }
 
         return !is_file(TALEA_ROOT . '/install.php') || @unlink(TALEA_ROOT . '/install.php');
