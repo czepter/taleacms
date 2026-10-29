@@ -20,6 +20,9 @@ final class Kernel
     /** Reserved addresses that are not a route of the table (reservedSlugs()). */
     private const array RESERVED_OUTSIDE_ROUTES = ['oauth', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status'];
 
+    /** @var list<string>|null */
+    private static ?array $reservedSlugs = null;
+
     private readonly PageFrame $frame;
     private readonly NewsPages $newsPages;
     private readonly CollectionPages $collectionPages;
@@ -144,9 +147,7 @@ final class Kernel
      */
     public static function reservedSlugs(): array
     {
-        static $slugs = null;
-
-        return $slugs ??= array_values(array_unique([...self::routes()->prefixes(), ...self::RESERVED_OUTSIDE_ROUTES]));
+        return self::$reservedSlugs ??= array_values(array_unique([...self::routes()->prefixes(), ...self::RESERVED_OUTSIDE_ROUTES]));
     }
 
     /**
