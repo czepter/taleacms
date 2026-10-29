@@ -116,14 +116,6 @@ final class Check
                 if (isset($components[$c]) && !in_array($c, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
                     array_push($outline, ...self::outline($components[$c], $components, $id, [...$nesting, $c]));
                 }
-                if ($type === 'form') {
-                    // a rule kept with broken: true (FormLogic::sanitize) does nothing on the site until it is fixed
-                    $broken = array_filter(is_array($o['logic']['rules'] ?? null) ? $o['logic']['rules'] : [], static fn (mixed $r): bool => is_array($r) && !empty($r['broken']));
-                    if ($broken !== []) {
-                        $names = array_map(static fn (mixed $r, int|string $n): string => trim((string) ($r['label'] ?? '')) !== '' ? '“' . mb_substr(trim((string) $r['label']), 0, 40) . '”' : '#' . ((int) $n + 1), $broken, array_keys($broken));
-                        $findings[] = ['id' => $id, 'message' => t('The form “%s” has rules that do nothing until you fix them in the form logic: %s.', self::text($o['name'] ?? ''), implode(', ', $names))];
-                    }
-                }
                 if (is_array($p['children'] ?? null)) {
                     $walk($p['children']);
                 }
