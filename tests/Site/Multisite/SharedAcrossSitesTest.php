@@ -17,6 +17,19 @@ use Talea\Tests\Site\Support\SiteTestCase;
 final class SharedAcrossSitesTest extends SiteTestCase
 {
     private static ?\Talea\Tests\Site\Support\Http $second = null;
+    /** @var resource|null the fake SMTP server of the member login test */
+    private static $smtp = null;
+    private static string $mailDir = '';
+
+    public static function tearDownAfterClass(): void
+    {
+        if (self::$smtp !== null) {
+            proc_terminate(self::$smtp);
+            proc_close(self::$smtp);
+            self::$smtp = null;
+        }
+        parent::tearDownAfterClass();
+    }
 
     protected static function siteOptions(): array
     {
@@ -304,5 +317,126 @@ final class SharedAcrossSitesTest extends SiteTestCase
         $site->exec('UPDATE tl2_bookings SET status = ?', ['cancelled']);
         $this->assertStringNotContainsString('Bruno Booker', $site->admin()->get('/admin.php?module=bookings&sites=all')->body, 'the default view shows what still has to happen');
         $this->assertStringContainsString('Bruno Booker', $site->admin()->get('/admin.php?module=bookings&sites=all&view=all')->body);
+    }
+
+    /** The path and query of the newest sign-in link mailed to an address (the mails are caught by tools/fake-smtp.php). */
+    private function memberLinkTo(string $email, int $skip): string
+    {
+        for ($i = 0; $i < 60; $i++) {
+            $files = glob(self::$mailDir . '/*.eml') ?: [];
+            sort($files);
+            foreach (array_reverse(array_slice($files, $skip)) as $file) {
+                [$headers, $body] = array_pad(explode("\r\n\r\n", (string) file_get_contents($file), 2), 2, '');
+                $text = $headers . "\n" . (str_contains($headers, 'base64') ? base64_decode((string) preg_replace('/\s+/', '', $body)) : $body);
+                if (str_contains($text, 'X-Rcpt-To: ' . $email) && preg_match('~https?://[^\s]+/member/verify\?([^\s]+)~', $text, $m) === 1) {
+                    return '/member/verify?' . $m[1];
+                }
+            }
+            usleep(100_000);
+        }
+        $this->fail('No sign-in link was mailed to ' . $email);
+    }
+
+    public function testAMemberLoginLinkOfOneSiteDoesNotSignInOnAnother(): void
+    {
+        $site = $this->site();
+        $port = $site->freePort();
+        self::$mailDir = $site->workDir('smtp-sites');
+        self::$smtp = proc_open([PHP_BINARY, dirname(__DIR__, 3) . '/tools/fake-smtp.php', (string) $port, self::$mailDir], [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+        for ($i = 0; $i < 100 && @fsockopen('127.0.0.1', $port) === false; $i++) {
+            usleep(50_000);
+        }
+        $extensions = $site->settingValue('extensions') . ',members';
+        foreach (['tl_', 'tl2_'] as $prefix) { // both sites: SMTP to the fake server and the members extension
+            foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'none', 'smtp_user' => '', 'mail_from' => 'web@example.org', 'extensions' => $extensions] as $name => $value) {
+                $site->exec("REPLACE INTO {$prefix}settings (name, value) VALUES (?, ?)", [$name, $value]);
+            }
+        }
+
+        foreach (['tl_', 'tl2_'] as $prefix) { // a known member on both sites (a link is only mailed to one, unless sign-up is open)
+            $site->exec("INSERT INTO {$prefix}members (email, created_at) VALUES ('same.person@example.com', ?)", [date('Y-m-d H:i:s')]);
+        }
+        $a = $site->client('member-a');
+        $b = $site->client('member-b');
+        $hostA = ['Host: 127.0.0.1:' . $site->port];
+        $email = 'same.person@example.com'; // the same address on both sites: only the link's site tells them apart
+        $a->post('/member', ['email' => $email, 'website' => ''], $hostA);
+        $linkA = $this->memberLinkTo($email, 0);
+        $sent = count(glob(self::$mailDir . '/*.eml') ?: []); // B's link is looked for after these
+        
+        $this->secondPostPublic('/member', ['email' => $email, 'website' => ''], $b);
+        $linkB = $this->memberLinkTo($email, $sent);
+        $this->assertNotSame($linkA, $linkB, 'each site mails its own link');
+        $tokenA = (string) preg_replace('/^.*token=([a-f0-9]{64}).*$/', '$1', $linkA);
+
+        // site A's link, claimed on site B
+        $this->assertSame(400, $b->get($linkA, $this->onSecond())->status, 'site B does not even show the button for it');
+        $wrong = $b->post('/member/verify', ['token' => $tokenA, 'return' => ''], $this->onSecond());
+        $this->assertNotSame(303, $wrong->status, 'the other site does not sign anybody in');
+        $this->assertArrayNotHasKey('tl_member', $b->cookies(), 'no member session on B');
+        $this->assertSame(1, (int) $site->value('SELECT COUNT(*) FROM tl_member_tokens WHERE used_at IS NULL AND token_hash = ?', [hash('sha256', $tokenA)]), 'and the link was not consumed by B');
+
+        // still good on site A
+        $right = $a->post('/member/verify', ['token' => $tokenA, 'return' => ''], $hostA);
+        $this->assertSame(303, $right->status, 'the link works on its own site afterwards');
+        $this->assertArrayHasKey('tl_member', $a->cookies());
+    }
+
+    /** @param array<string, string> $fields */
+    private function secondPostPublic(string $path, array $fields, \Talea\Tests\Site\Support\Http $as): Response
+    {
+        return $as->post($path, $fields, $this->onSecond());
+    }
+
+    public function testACloneRendersLikeItsSource(): void
+    {
+        $site = $this->site();
+        $first = $site->publicId('sites', 1);
+
+        // site 1: a home page and a page whose build uses a component of this site only
+        $this->firstPost('/admin.php?module=components&action=save', ['name' => 'Clone banner']);
+        $component = (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Clone banner'");
+        $this->assertSame(1, (int) $site->value('SELECT site_id FROM tl_components WHERE component_id = ?', [$component]), 'a local component');
+        $site->exec('UPDATE tl_components SET build = ?, build_draft = ? WHERE component_id = ?', [$banner = json_encode(['v' => 1, 'children' => [['id' => 'b1', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Banner of the local component']]]]), $banner, $component]);
+        $home = $site->mcpResult('create_page', ['title' => 'Start here', 'slug' => 'start-here', 'content' => '<p>Welcome text of the home page</p>', 'visible' => true]);
+        $site->setting('home_page', (string) $site->rowId($home['id']));
+        $about = $site->mcpResult('create_page', ['title' => 'About us', 'slug' => 'clone-about', 'content' => '<p>Text</p>', 'visible' => true]);
+        $saved = $site->mcpText('save_build', ['id' => $about['id'], 'publish' => true, 'build' => ['v' => 1, 'children' => [['id' => 's1', 'type' => 'section', 'tag' => 'section', 'content' => new \stdClass(), 'children' => [
+            ['id' => 'h1', 'type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'About the clone']],
+            ['id' => 'c1', 'type' => 'component', 'tag' => 'div', 'content' => ['component' => $site->publicId('components', $component)]],
+        ]]]]]);
+        $this->assertStringContainsString('component', (string) $site->value('SELECT build FROM tl_pages WHERE slug = ?', ['clone-about']), $saved);
+        $site->clearPageCache();
+
+        // the clone: a row from the Sites area, set up by cron, with a domain of its own
+        $this->firstPost('/admin.php?module=sites&action=create', ['name' => 'Twin', 'from' => $first]);
+        $twin = $site->publicId('sites', 3);
+        $this->firstPost('/admin.php?module=sites&action=domain_add', ['id' => $twin, 'host' => 'twin.test']);
+        $this->assertStringContainsString('site tl3_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']));
+        $this->firstPost('/admin.php?module=sites&action=save', ['id' => $twin, 'name' => 'Twin', 'status' => 'live', 'redirect_to' => '']);
+        $this->assertNotSame($component, (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Clone banner' AND site_id = 3"), 'the clone has its own copy of the component');
+
+        $onFirst = ['Host: 127.0.0.1:' . $site->port];
+        $onTwin = ['Host: twin.test:' . $site->port];
+        // what legitimately differs between the two renderings; the pages hold no forms or inline scripts, so no per-request tokens turn up
+        $normalise = static function (string $html, string $host) use ($site): string {
+            // the host name (and port) in absolute URLs is the site's own
+            $html = str_replace([$host . ':' . $site->port, $host], 'HOST', $html);
+            // the share image address is an HMAC with the site's own secret key (Front\ShareImage), so it differs; what it draws is the same brief
+            $html = (string) preg_replace('~/og/[a-f0-9]{32}\.png~', '/og/HASH.png', $html);
+
+            return $html;
+        };
+        foreach (['/', '/clone-about'] as $path) {
+            $one = $site->client('v1')->get($path, $onFirst);
+            $two = $site->client('v2')->get($path, $onTwin);
+            $this->assertSame(200, $one->status, "site 1 $path");
+            $this->assertSame(200, $two->status, "twin $path");
+            $this->assertStringContainsString($path === '/' ? 'Welcome text of the home page' : 'Banner of the local component', $one->body, 'site 1 itself');
+            $this->assertStringContainsString($path === '/' ? 'Welcome text of the home page' : 'Banner of the local component', $two->body);
+            [$x, $y] = [explode("\n", $normalise($one->body, '127.0.0.1')), explode("\n", $normalise($two->body, 'twin.test'))];
+            $this->assertSame([], [...array_diff($x, $y), ...array_diff($y, $x)], "$path renders identically on the clone (the lines that differ)");
+            $this->assertSame($x, $y, "$path renders identically on the clone");
+        }
     }
 }
