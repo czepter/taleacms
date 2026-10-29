@@ -21,8 +21,10 @@ PHP's `REMOTE_ADDR` is the proxy in front of the container, so without help ever
 skips trusted proxies and takes the first other address. Sign-in, reset and form limits count by that address.
 
 - The image leaves it unset: no `X-Forwarded-For` is trusted, which is right when the container is published directly.
-- The compose files (`docker-compose.yaml`, `docker-compose.coolify-*.yaml`) set the private ranges, because the proxy reaches the
-  container over the Docker network. Narrow it to the proxy's exact address or network where you can; override with the variable.
+- `docker-compose.yaml` publishes the port on `127.0.0.1` only, so a proxy on the host reaches the container from the Docker bridge
+  gateway: it trusts Docker's default address pools, `172.16.0.0/12,192.168.0.0/16` (with other `default-address-pools`, set the variable).
+  The `docker-compose.coolify-*.yaml` files set all private ranges, because Coolify's proxy is a container on a shared network.
+  Narrow it to the proxy's exact address or network where you can; override with the variable.
 - Never set it when the container port is reachable from untrusted clients. Docker's port publishing can make outside clients appear
   as a private gateway address, and then anyone can forge the header.
 - Clients inside a trusted range (for example a private LAN) can choose their own address.

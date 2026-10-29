@@ -90,7 +90,9 @@ try {
   const tryPane = dialog.locator('.bd-logic-try');
   await tryPane.getByLabel('Location').selectOption('Abroad');
   await tryPane.getByLabel('Guests').fill('10');
-  await page.waitForFunction(() => /Surcharge abroad/.test(document.querySelector('dialog.bd-logic .bd-logic-lines')?.textContent || ''), null, { timeout: 10000 });
+  // the answer to both answers: a slow fill lets the 300 ms debounce ask for Location alone first, which already shows the surcharge
+  await page.waitForFunction(() => /Surcharge abroad/.test(document.querySelector('dialog.bd-logic .bd-logic-lines')?.textContent || '')
+    && /^260$/.test(document.querySelector('dialog.bd-logic .bd-logic-total span:last-child')?.textContent || ''), null, { timeout: 10000 });
   await shot('try');
   shown = (await dialog.locator('.bd-logic-shown').innerText()).replace(/ /g, ' ').trim();
   check(shown !== '', 'Try it shows the result');
