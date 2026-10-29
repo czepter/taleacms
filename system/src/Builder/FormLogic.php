@@ -6,7 +6,7 @@ namespace Talea\Builder;
 
 /**
  * The logic of a form (rules with conditions and actions, result variants) and the visibility of its fields.
- * Pure: the server and the tests use it; image/web.js mirrors only the visibility part (never amounts).
+ * Pure: the server and the tests use it; image/forms.js mirrors only the visibility part (never amounts).
  *
  * A rule is {label, broken?, match: all|any, when: [{field: key, op, value?, to?}], then: [{do, …}]}. A rule that names an option
  * the field no longer has is kept with broken: true so that the editor can show it, but rules() leaves it out: it does nothing on the site.

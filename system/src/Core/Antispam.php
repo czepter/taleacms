@@ -12,7 +12,7 @@ namespace Talea\Core;
  */
 final class Antispam
 {
-    /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-wait). */
+    /** A form sent sooner is rejected (bot); image/forms.js delays sending by the remainder (attribute data-wait). */
     public const int MIN_SECONDS = 4;
 
     /** The minimum age; the automated tests shorten it (TALEA_ANTISPAM_MIN, like the other TALEA_* test switches) so they do not wait four seconds per form. */

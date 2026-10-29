@@ -402,7 +402,9 @@ final class Seo
         // contact clicks (2.12, Core\Conversions) follow the same switch as the speed beacon below: the script counts a click on a
         // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-conversion
         $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' : '';
-        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . $clicks . '></script>';
+        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::SCRIPT_TEXTS) . $clicks . '></script>';
+        // forms (steps, conditions, the estimate): a script of their own, kept by Front\PageFrame only on a page with a form
+        $h[] = '<script src="' . e($this->app->url('image/forms.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::FORM_SCRIPT_TEXTS) . '></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
             // without it; the beacon goes to POST /vitals without cookies or identifiers
@@ -424,17 +426,22 @@ final class Seo
      * them like any other text.
      */
     public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close',
-        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.', 'Back', 'Next', 'Step', 'about %s', 'from %s',
+        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.',
         'Previous month', 'Next month', 'No free times on this day.', 'Choose a service first.', 'Loading…', 'Chosen time: %s', 'Slide %s of %s'];
 
+    /** Texts that image/forms.js shows to the visitor. */
+    public const array FORM_SCRIPT_TEXTS = ['Back', 'Next', 'Step', 'about %s', 'from %s'];
+
     /**
-     * The data-texts attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)
-     * as JSON. No extra request and no inline script; the English version needs nothing – the script has English built in.
+     * The data-texts attribute for the <script> tag with image/web.js or image/forms.js: translations of the script texts (source =>
+     * translation) as JSON. No extra request and no inline script; the English version needs nothing – the script has English built in.
+     *
+     * @param list<string> $texts
      */
-    private static function scriptTextsAttribute(): string
+    private static function scriptTextsAttribute(array $texts): string
     {
         $translations = [];
-        foreach (self::SCRIPT_TEXTS as $source) {
+        foreach ($texts as $source) {
             if (t($source) !== $source) {
                 $translations[$source] = t($source);
             }

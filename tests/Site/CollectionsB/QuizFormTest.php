@@ -66,6 +66,7 @@ final class QuizFormTest extends SiteTestCase
     public function testAfterContactShowsTheServerResult(): void
     {
         $this->quiz();
+        $this->assertStringContainsString('/image/forms.js?v=', $this->visitor->get($this->path)->body, 'a page with a form loads the form script');
         $redirect = $this->send(self::LOCAL);
         $this->assertStringContainsString('result=ok&enquiry=', $redirect);
         $this->assertStringContainsString('&key=', $redirect);

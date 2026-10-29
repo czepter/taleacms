@@ -330,7 +330,7 @@ final class Form extends Element
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
-        // data-form: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
+        // data-form: after an error image/forms.js puts back into the fields what the visitor filled in (only their browser keeps it)
         $files = in_array('file', array_column($o['fields'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
         return '<form' . Text::withClass($a, 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
