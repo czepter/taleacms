@@ -120,6 +120,7 @@ final class Build
             }
             $htmlTag = in_array($p['tag'] ?? null, $className::HTML_TAGS, true) ? $p['tag'] : $className::HTML_TAGS[0];
             $clean = ['id' => $id, 'type' => $className::TYPE, 'tag' => $htmlTag, 'content' => self::sanitizeContent($className::properties(), is_array($p['content'] ?? null) ? $p['content'] : [], $place . '.content', $errors)];
+            $clean['content'] = $className::sanitizeElement($clean['content'], $place . '.content', $errors);
             $style = Style::sanitize($p['style'] ?? [], $place . '.style', $errors);
             if (!$compose) {
                 // placement on the grid and layers (so overlap) exist only for the direct children of a Compose section

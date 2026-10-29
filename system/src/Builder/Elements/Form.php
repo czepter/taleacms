@@ -45,7 +45,9 @@ final class Form extends Element
             'name' => ['type' => 'text', 'label' => 'Form name (in Enquiries and in the email)', 'default' => t('Enquiry'), 'max' => 120],
             // the editor shows each field as one row (summary = what the row says) and groups its settings (group): the options,
             // the price estimate and the condition – only the inspector reads summary and group, the saved build is the same
-            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 20, 'summary' => ['label', 'type', 'required'], 'fields' => [
+            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 40, 'summary' => ['label', 'type', 'required'], 'fields' => [
+                // a stable id of the field (rules refer to it, so renaming the label breaks nothing); assigned by sanitizeElement, never shown
+                'key' => ['type' => 'text', 'label' => 'Key', 'default' => '', 'max' => 5, 'hidden' => true],
                 'label' => ['type' => 'text', 'label' => 'Label', 'default' => '', 'max' => 200],
                 'type' => ['type' => 'choice', 'label' => 'Type', 'default' => 'text', 'options' => self::FIELD_TYPES],
                 'required' => ['type' => 'boolean', 'label' => 'Required', 'default' => false],
@@ -81,6 +83,24 @@ final class Form extends Element
             'reply_within_hours' => ['type' => 'number', 'label' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'default' => 0, 'min' => 0, 'max' => \Talea\Front\NextSteps::MAX_HOURS],
             'who_replies' => ['type' => 'text', 'label' => 'Who replies (e.g. “Jana from the office”)', 'default' => '', 'max' => 120],
         ];
+    }
+
+    /** Every field gets a unique key /^k[a-z0-9]{4}$/: a valid unused one is kept, otherwise a new one is drawn. */
+    public static function sanitizeElement(array $content, string $place, array &$errors): array
+    {
+        $used = [];
+        foreach ($content['fields'] ?? [] as $i => $field) {
+            $key = (string) ($field['key'] ?? '');
+            if (preg_match('/^k[a-z0-9]{4}$/', $key) !== 1 || isset($used[$key])) {
+                do {
+                    $key = 'k' . substr(bin2hex(random_bytes(3)), 0, 4);
+                } while (isset($used[$key]));
+            }
+            $used[$key] = true;
+            $content['fields'][$i]['key'] = $key;
+        }
+
+        return $content;
     }
 
     public static function baseCss(): string

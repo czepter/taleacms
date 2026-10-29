@@ -35,6 +35,12 @@ abstract class Element
         return [];
     }
 
+    /** Element-specific clean-up of the already sanitized content (cross-field rules such as unique keys); the default changes nothing. */
+    public static function sanitizeElement(array $content, string $place, array &$errors): array
+    {
+        return $content;
+    }
+
     /** @return list<array<string, mixed>> default inner content of a newly inserted container (the editor gives it new ids) */
     public static function defaultChildren(): array
     {

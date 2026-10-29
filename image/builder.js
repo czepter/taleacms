@@ -1827,7 +1827,7 @@
 			const actions = el('div', { class: 'bd-item-actions bd-actions' },
 				el('button', { type: 'button', title: T('Up'), 'aria-label': T('Up'), onclick: () => { if (i > 0) { reorder((f) => f.splice(i - 1, 0, f.splice(i, 1)[0])); items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('up')),
 				el('button', { type: 'button', class: 'danger', title: T("Remove"), 'aria-label': T("Remove"), onclick: () => { reorder((f) => f.splice(i, 1)); items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('delete')));
-			const fields = Object.entries(def.fields).filter(([, d]) => visible(d));
+			const fields = Object.entries(def.fields).filter(([, d]) => !d.hidden && visible(d));
 			if (!rows) {
 				wrapper.append(el('div', { class: 'bd-item' }, fields.map(control), actions));
 				return;
