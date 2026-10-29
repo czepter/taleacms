@@ -6446,6 +6446,7 @@ return [
     'the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.' => 'světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Měření nepoužívá cookies a neukládá IP adresy; roboty nepočítá.',
     'the mail() function is disabled – set up SMTP (Settings → Mail)' => 'funkce mail() je vypnutá – nastavte SMTP (Nastavení → Pošta)',
     'the main language' => 'hlavní jazyk',
+    'the message' => 'zprávu',
     'the news list, categories and news items' => 'výpis novinek, kategorie a jednotlivé novinky',
     'the row stays for statistics without the person' => 'řádek zůstává pro statistiku bez údajů o osobě',
     'the scheduled run stopped' => 'plánovaný běh se zastavil',

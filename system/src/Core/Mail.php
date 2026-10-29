@@ -17,6 +17,15 @@ final class Mail
     /** Text of the last error (for the test e-mail and System status). */
     public static string $error = '';
 
+    /**
+     * The SMTP server refused the message or a recipient for good (a 5xx reply after MAIL FROM, e.g. a spam filter's
+     * "550 5.7.1"): another attempt would get the same answer, so it is not retried.
+     */
+    public static bool $refused = false;
+
+    /** The code of the last SMTP reply (0 = none yet). */
+    private static int $code = 0;
+
     /** @var resource|null open SMTP connection */
     private static $connection = null;
 
@@ -39,13 +48,19 @@ final class Mail
         }
         $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
         $error = self::$error;
+        $refused = self::$refused && $queueOnFailure; // a refused test e-mail is answered on the spot, not in the problem log
+        $queueOnFailure = $queueOnFailure && !self::$refused;
         try {
-            $siteSettings->db()->insert('mail', [
+            $id = $siteSettings->db()->insert('mail', [
                 'recipient' => mb_substr($recipient, 0, 190), 'subject' => mb_substr($subject, 0, 255), 'created_at' => date('Y-m-d H:i:s'), 'attempts' => 1,
                 'sent_at' => $ok ? date('Y-m-d H:i:s') : null, 'error' => mb_substr($error, 0, 255),
                 'body' => $ok || !$queueOnFailure ? null : json_encode(['to' => $recipient, 'text' => $text, 'html' => $html, 'headers' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
                 'next_attempt_at' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
+            if ($refused) {
+                // refused for good: reported now, as the last failed attempt of a queued message is
+                Events::record($siteSettings->db(), 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', $subject, $error), 0, 255), ['mail' => $id]);
+            }
             if (random_int(1, 50) === 1) {
                 $siteSettings->db()->run('DELETE FROM {mail} WHERE created_at < NOW() - INTERVAL 30 DAY');
             }
@@ -128,7 +143,7 @@ final class Mail
                 $db->update('mail', ['sent_at' => date('Y-m-d H:i:s'), 'body' => null, 'next_attempt_at' => null, 'error' => ''], ['mail_id' => $z['mail_id']]);
                 $sent++;
             } else {
-                $end = !isset(self::RETRY_DELAYS[$attempt - 1]);
+                $end = self::$refused || !isset(self::RETRY_DELAYS[$attempt - 1]);
                 $db->update('mail', ['error' => mb_substr(self::$error, 0, 255)] + ($end ? ['body' => null, 'next_attempt_at' => null] : []), ['mail_id' => $z['mail_id']]);
                 if ($end) {
                     // the subject and the error, not the recipient (2.8, Core\Events)
@@ -155,6 +170,7 @@ final class Mail
     private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = []): bool
     {
         self::$error = '';
+        self::$refused = false;
         if (Demo::active()) {
             self::$error = 'Sending e-mail is switched off in the public demo.';
 
@@ -259,12 +275,29 @@ final class Mail
         }
         self::statement('MAIL FROM:<' . $from . '>', [250]);
         foreach ($recipients as $recipient) {
-            self::statement('RCPT TO:<' . $recipient . '>', [250, 251]);
+            self::refusable('RCPT TO:<' . $recipient . '>', [250, 251]);
         }
         self::statement('DATA', [354]);
         // a line starting with a dot gets the dot doubled, a lone dot ends the message
         $message = preg_replace('/^\./m', '..', implode("\r\n", $headers) . "\r\n\r\n" . $body) ?? '';
-        self::statement(rtrim($message, "\r\n") . "\r\n.", [250]);
+        self::refusable(rtrim($message, "\r\n") . "\r\n.", [250], t('the message'));
+    }
+
+    /**
+     * A statement whose 5xx reply is final: an unknown mailbox, or a message the server's filter refused. The name is what
+     * the error calls it (the message, not its first header).
+     *
+     * @param list<int> $expected
+     */
+    private static function refusable(string $statement, array $expected, ?string $name = null): void
+    {
+        try {
+            self::statement($statement, $expected, false, $name);
+        } catch (\RuntimeException $e) {
+            self::$refused = self::$code >= 500 && self::$code < 600;
+
+            throw $e;
+        }
     }
 
     private static function connect(Settings $siteSettings): void
@@ -308,13 +341,14 @@ final class Mail
     }
 
     /** @param list<int> $expected */
-    private static function statement(string $statement, array $expected, bool $secret = false): string
+    private static function statement(string $statement, array $expected, bool $secret = false, ?string $name = null): string
     {
+        self::$code = 0;
         if (@fwrite(self::$connection, $statement . "\r\n") === false) {
             throw new \RuntimeException('The connection to the SMTP server was interrupted.');
         }
 
-        return self::response($expected, $secret ? '(credentials)' : strtok($statement, "\r\n "));
+        return self::response($expected, $name ?? ($secret ? '(credentials)' : strtok($statement, "\r\n ")));
     }
 
     /** @param list<int> $expected */
@@ -328,7 +362,8 @@ final class Mail
             }
             $response .= $row;
         } while (isset($row[3]) && $row[3] === '-');
-        if (!in_array((int) substr($response, 0, 3), $expected, true)) {
+        self::$code = (int) substr($response, 0, 3);
+        if (!in_array(self::$code, $expected, true)) {
             throw new \RuntimeException(t('SMTP server reply to %s: %s', $commandName, mb_substr(trim($response), 0, 200)));
         }
 
