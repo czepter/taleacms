@@ -108,9 +108,11 @@ final class AuthenticationTest extends TestCase
             (bool) preg_match('/if \(\$token === null\) \{\s+if \(!\$limited\) \{\s+\$db->insert/', (string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php')),
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php'), 'it never refuses a request')], '3.3.3 (N62): the MCP wrong-token count only caps the rows it writes – it never refuses a request');
         $pageLockSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Core/PageLock.php');
-        $this->assertSame([true, true], [
-            str_contains($pageLockSource, ", 'page-lock-all', self::WINDOW, false)"),
-            strpos($pageLockSource, ", 'page-lock-all', self::WINDOW, false)") < strpos($pageLockSource, 'password_verify(')], 'the page cap is read before the password is checked – past it no guess gets an answer, the right one included');
+        $reserve = strpos($pageLockSource, "\$tries = Antispam::tally(\$pageKey, 'page-lock-all', self::WINDOW);");
+        $this->assertSame([true, true, true], [
+            $reserve !== false, $reserve < strpos($pageLockSource, 'password_verify('),
+            strpos($pageLockSource, "Antispam::untally(\$pageKey, 'page-lock-all', self::WINDOW);") > strpos($pageLockSource, 'password_verify(')],
+            'every try takes its place in the page cap before the password is checked (simultaneous guesses cannot slip under it); the right one gives it back');
         $mailSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Core/Mail.php');
         $this->assertSame([true, true, true], [
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Admin/PasswordReset.php'), 'Mail::later('), str_contains((string) file_get_contents(TALEA_ROOT . '/admin.php'), 'Talea\Core\Mail::afterResponse($app);'),

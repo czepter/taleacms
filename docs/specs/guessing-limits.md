@@ -65,24 +65,29 @@ away confidentiality, the reason the page has a password, to protect availabilit
 
 ### Change
 
-In `PageLock::unlock`, check the page cap **before** `password_verify`, read only:
+In `PageLock::unlock`, every try takes its place in the page count **before** the password is checked:
 
 ```php
-if (Antispam::tally($pageKey, 'page-lock-all', self::WINDOW, false) >= self::PAGE_ATTEMPTS) {
+$tries = Antispam::tally($pageKey, 'page-lock-all', self::WINDOW);
+if ($tries > self::PAGE_ATTEMPTS) {
     return t('Too many attempts. Try again in a few minutes.');
 }
 if ($password === '' || !password_verify($password, (string) $page['password_hash'])) {
-    if (Antispam::tally($pageKey, 'page-lock-all', self::WINDOW) === self::PAGE_ATTEMPTS) {
+    if ($tries === self::PAGE_ATTEMPTS) {
         ChangeLog::write($app, 'pages', 'page password paused', 'too many wrong passwords, the page opens again in at most 15 minutes: ' . $page['title']);
     }
 
     return t('The password is not right.');
 }
+Antispam::untally($pageKey, 'page-lock-all', self::WINDOW);
 ```
 
 - **Past the cap no password is checked**, the right one included. No guess gets an answer, so the cap holds against any
   number of addresses: at most `PAGE_ATTEMPTS` wrong guesses per page per window, 9,600 a day.
-- Only wrong passwords fill the counter, as today. Readers who type the right one never count.
+- **Taken before, given back after.** A read-then-check would let guesses sent at the same moment all read a count under
+  the cap and all be checked. Taking the place first (the append is atomic, `LOCK_EX`) closes that. The right password gives
+  its place back (`Antispam::untally`, one byte off under `flock`), so only wrong passwords fill the counter: readers who
+  type the right one never close the page.
 - **The owner finds out.** The wrong guess that reaches the cap writes one change-log row per window, so a reader's
   complaint about a closed page has an explanation and the owner knows to pick a stronger password. No mail: a long attack
   would send one mail every 15 minutes.

@@ -61,18 +61,21 @@ final class PageLock
             return t('Too many attempts. Try again in a few minutes.');
         }
         // past the page's cap no password is checked, the right one included: a cap that still answered the right guess
-        // would stop nobody who has many addresses
-        if (Antispam::tally($pageKey, 'page-lock-all', self::WINDOW, false) >= self::PAGE_ATTEMPTS) {
+        // would stop nobody who has many addresses. The try takes its place in the count before the check, so guesses sent
+        // at the same moment cannot all slip under the cap; the right password gives the place back.
+        $tries = Antispam::tally($pageKey, 'page-lock-all', self::WINDOW);
+        if ($tries > self::PAGE_ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
         if ($password === '' || !password_verify($password, (string) $page['password_hash'])) {
-            // only wrong passwords count for the page; the one that reaches the cap tells the owner, once per window
-            if (Antispam::tally($pageKey, 'page-lock-all', self::WINDOW) === self::PAGE_ATTEMPTS) {
+            // the wrong password that reaches the cap tells the owner, once per window
+            if ($tries === self::PAGE_ATTEMPTS) {
                 \Talea\Admin\ChangeLog::write($app, 'pages', 'page password paused', 'too many wrong passwords, the page opens again in at most 15 minutes: ' . mb_substr((string) $page['title'], 0, 120));
             }
 
             return t('The password is not right.');
         }
+        Antispam::untally($pageKey, 'page-lock-all', self::WINDOW);
         if (!headers_sent()) {
             setcookie(self::COOKIE . (int) $page['page_id'], self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
                 'httponly' => true, 'samesite' => 'Lax', 'secure' => $app->request->isHttps()]);

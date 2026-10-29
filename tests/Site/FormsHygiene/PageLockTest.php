@@ -82,6 +82,11 @@ final class PageLockTest extends SiteTestCase
         $file = $directory . '/page-lock-all-' . $window . '-' . substr(hash('sha256', 'page-' . self::$page), 0, 24);
         file_put_contents($file, str_repeat('.', \Talea\Core\PageLock::PAGE_ATTEMPTS - 2));
         $logged = fn (): int => (int) $this->site()->value("SELECT COUNT(*) FROM tl_change_log WHERE action = 'page password paused'");
+        $reader = $this->site()->client('lock-cap-0');
+        $reader->get('/partner-ceny');
+        $reader->post('/partner-ceny', ['tl_page_password' => 'partner-2026']);
+        clearstatcache();
+        $this->assertSame(\Talea\Core\PageLock::PAGE_ATTEMPTS - 2, filesize($file), 'page lock: the right password gives its place in the page cap back');
 
         foreach (['lock-cap-1', 'lock-cap-2', 'lock-cap-3'] as $name) {
             $visitor = $this->site()->client($name);
