@@ -271,6 +271,9 @@ final class Form extends Element
         $result = $r->get('form') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         $hasBasket = in_array('basket', array_column($o['fields'], 'type'), true);
+        if (($screen = \Talea\Front\FormResult::html($k->app, $p, $k)) !== null) {
+            return $screen; // the result of a quiz or calculator that shows it after the contact details (signed link)
+        }
         if ($result === 'ok') {
             // data-sent: image/web.js reports the conversion (the talea:form_sent event and dataLayer, when the site has it);
             // data-basket-sent: the enquiry basket was sent – the script empties it

@@ -49,6 +49,6 @@ final class CalculatorFormTest extends SiteTestCase
         $this->assertStringContainsString('result=ok', $redirect, 'conditions: a hidden required field does not block the form');
 
         $stored = json_decode((string) $site->value('SELECT data FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);
-        $this->assertSame('Type=Windows|Count=4|Email=o@example.com|Estimate=7,700 $', implode('|', array_map(fn ($r) => $r[0] . '=' . str_replace("\u{a0}", ' ', $r[1]), $stored)), 'calculator: the server computes the estimate and drops the hidden answer');
+        $this->assertSame('Type=Windows|Count=4|Email=o@example.com|Estimate=7,700 $|Breakdown=Base price: +500 $' . "\nWindows: +1,200 $\nCount: +6,000 $", implode('|', array_map(fn ($r) => $r[0] . '=' . str_replace("\u{a0}", ' ', $r[1]), $stored)), 'calculator: the server computes the estimate and drops the hidden answer and adds the breakdown');
     }
 }

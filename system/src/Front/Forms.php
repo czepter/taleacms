@@ -93,7 +93,12 @@ final class Forms
         $fields = $element['content']['fields'];
         $answers = [];
         foreach ($fields as $i => $f) {
-            $answers[$i] = $f['type'] === 'checkboxes' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
+            $answers[$i] = match ($f['type']) {
+                'checkboxes' => array_values(array_intersect(Form::options($f), $r->postList('p' . $i))),
+                // a time range arrives as two times; both empty = no answer, anything else is checked in the loop below
+                'timerange' => ($times = array_map('trim', $r->postList('p' . $i))) === [] || implode('', $times) === '' ? '' : implode('-', $times),
+                default => trim($r->post('p' . $i)),
+            };
         }
         $calculation = FormLogic::evaluate($element['content'], $answers);
         $visible = $calculation['visible'];
@@ -104,7 +109,20 @@ final class Forms
             }
             $types[] = $field['type'];
             if ($field['type'] === 'estimate') {
-                $data[] = [$field['label'], $calculation['shown']];
+                $variant = FormResult::variant($element['content'], $calculation['variant']);
+                $data[] = [$field['label'], $variant === null ? $calculation['shown'] : $variant['heading'] . ($variant['show_amount'] ? "\n" . $calculation['shown'] : '')];
+                if ($calculation['lines'] !== []) {
+                    $data[] = [t('Breakdown'), implode("\n", FormResult::lines($element['content'], $calculation['lines']))];
+                    $types[] = 'info';
+                }
+                continue;
+            }
+            if ($field['type'] === 'timerange') {
+                $range = (string) $answers[$i];
+                if (($range !== '' && FormLogic::value($field, $range) === null) || ($field['required'] && $range === '')) {
+                    return $redirectUri('field', $i);
+                }
+                $data[] = [$field['label'], str_replace('-', ' – ', $range)];
                 continue;
             }
             if ($field['type'] === 'file') {
@@ -211,10 +229,15 @@ final class Forms
                 // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
                 // content, so the form cannot be abused to send out other people's texts
                 $siteSettings = $this->app->settings();
+                $resultBlock = $calculation['after_contact'] ? FormResult::mailBlock($element['content'], $answers, $calculation) : '';
                 $nextSteps = NextSteps::text($this->app, $element['content']);
-                Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
+                Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($resultBlock !== '' ? "\n\n" . $resultBlock : '') . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
                     . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
             }
+        }
+        if ($calculation['after_contact']) {
+            // the result shows at the form by a signed link; the thank-you page does not apply
+            return Response::redirect(FormResult::url($this->app, $back, $element, $db->publicId('enquiries', $idp), $calculation['variant']), 303);
         }
         $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 
