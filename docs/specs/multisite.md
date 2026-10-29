@@ -109,6 +109,35 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   `update_site_domain` (primary, redirect), `remove_site_domain` (destructive). `list_sites` and `get_site` belong to the fleet console.
   Results carry public ids only. The server instructions mention the `site` argument.
 
+## Solopreneur additions (stage S)
+
+What the freelancer with several sites still needed after phase 1. All of it needs `TALEA_MULTISITE` and an administrator; with the flag
+off nothing of it exists (no tab, no setting, the element is neither offered nor printed).
+
+- **Overview tab** (Sites area → Overview, `Core\SiteFigures`): one row per set-up site that is not in the trash, for 7 and 30 days, plus
+  the totals: visitors, page views, enquiries, bookings, newsletter sign-ups and the conversion (enquiries + sign-ups per visitor). Each
+  site is read through `Db::forSite()` with the Statistics screen's own query (`Report::glance`); only the bookings are counted here. The
+  admin action is read-only (ParityTest: `read`); Claude gets the same numbers per site from `get_stats` with the `site` argument.
+- **One monthly report** (`report_all_sites`, Settings → Reports, shown and saved on site 1 only; `Core\AllSitesReport`): site 1's report
+  carries a section "Site: <name>" for each of the other set-up, not trashed sites (visits and page views against the month before,
+  enquiries, sign-ups, bookings – counts only), and `MonthlyReport::runIfDue` of a further site answers "in the report of site 1" while
+  the setting is on. The sections are part of the archived month (`sites` in `MonthlyReport::build`). Site 1's own report is the main
+  body, so "a section per ready site" means the other sites. The setting lives in site 1's `settings`; a further site reads it from there
+  (`AllSitesReport::coveredBySiteOne`).
+- **Hub card** (`sites.card_summary` 300, `sites.card_image` 255, `sites.show_in_hub`; owner table, migration `20261102100047`): edited
+  in the Sites area (Card on the other sites) and by MCP `update_site` (`card_summary`, `card_image`, `show_in_hub`; `list_owner_sites`
+  returns `card`). The image is a `media/…` path (anything else is refused). `Sites::saveCard` clears every site's page cache, as do a
+  site's state, trash and host name changes, because the cards show on the other sites.
+- **Projects element** (`site_cards`, `Builder\Elements\SiteCards`, group Dynamic): the cards of the owner's OTHER sites that are set up,
+  `live`, switched on for the hub and have a host name: name, summary, image (the page's image pass `Front\ImageHtml::complete` adds the
+  dimensions) and a link to the primary host (scheme and port of the request, `Sites::originOn`). `Element::MULTISITE = true` marks it:
+  `ElementSchema::disabledTypes()` leaves it out when the flag is off and `Renderer` prints nothing; a build that holds it stays. With one
+  site (or no other card) it prints nothing; the builder shows a dashed notice.
+- **Subscribers, all sites** (`sites=all`, `Core\SubscriberSites`): the same "this site / all sites" select as the inboxes; one row per
+  e-mail address (compared in lower case) over the set-up sites' lists with a chip per site and its state (confirmed, awaiting
+  confirmation); a chip of another site opens that site's Subscribers list through the handoff (`to=module=subscribers`). Read-only:
+  deleting, sync and CSV stay per site.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,
