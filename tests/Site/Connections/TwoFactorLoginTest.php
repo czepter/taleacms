@@ -70,6 +70,59 @@ final class TwoFactorLoginTest extends SiteTestCase
     }
 
     #[Depends('testAppCodeAndBackupCodes')]
+    public function testALockedAccountNeedsAKnownBrowserForBothSteps(): void
+    {
+        $site = $this->site();
+        $device = self::$app?->cookies()['tl_device'] ?? '';
+        $this->assertNotSame('', $device, 'the completed sign-in left the known-device cookie');
+        $code = trim($site->php('echo Talea\Core\Totp::code("' . self::SECRET . '", intdiv(time(), 30));'));
+        $fresh = function () use ($site): array {
+            $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+            $site->exec("UPDATE tl_users SET failed_logins = 0, totp_last_step = NULL, locked_until = NOW() + INTERVAL 10 MINUTE WHERE username = 'author'");
+            $browser = $site->client('author');
+
+            return [$browser, $browser->get('/admin.php')->csrf()];
+        };
+        $post = static function (Http $browser, array $data, string $cookie) {
+            $cookie === '' ? $browser->dropCookie('tl_device') : $browser->setCookie('tl_device', $cookie);
+
+            return $browser->post('/admin.php', $data);
+        };
+        $password = ['username' => 'author', 'password' => $site->password];
+
+        [$browser, $csrf] = $fresh();
+        $first = $post($browser, ['_csrf' => $csrf] + $password, '');
+        $this->assertSame(401, $first->status, 'without the cookie the password step is refused while the account is locked');
+        $this->assertStringNotContainsString('name="code"', $first->body, '... and no code is asked for');
+
+        [$browser, $csrf] = $fresh();
+        $this->assertStringContainsString('name="code"', $post($browser, ['_csrf' => $csrf] + $password, $device)->body, 'a known browser gets to the code step');
+        $this->assertSame(401, $post($browser, ['_csrf' => $csrf, 'step' => 'code', 'code' => '000000'], $device)->status, 'a wrong code from it is refused');
+        $this->assertSame('1', (string) $site->value("SELECT failed_logins FROM tl_users WHERE username = 'author'"), '... and counts as a failure');
+
+        [$browser, $csrf] = $fresh();
+        $post($browser, ['_csrf' => $csrf] + $password, $device);
+        $this->assertSame(401, $post($browser, ['_csrf' => $csrf, 'step' => 'code', 'code' => $code], '')->status, 'the code step is account-locked for a browser without the cookie, even with the right code');
+
+        [$browser, $csrf] = $fresh();
+        $post($browser, ['_csrf' => $csrf] + $password, $device);
+        $this->assertSame(302, $post($browser, ['_csrf' => $csrf, 'step' => 'code', 'code' => $code], $device)->status, 'a known browser completes both steps while the account is locked');
+        $this->assertNull($site->value("SELECT locked_until FROM tl_users WHERE username = 'author'"), 'a completed sign-in ends the lock');
+
+        // a stolen cookie that has the password and guesses codes: after five wrong ones it is a stranger like any other
+        $device = $browser->cookies()['tl_device'] ?? '';
+        $this->assertNotSame('', $device, 'the completed sign-in issued a fresh token');
+        [$browser, $csrf] = $fresh();
+        $post($browser, ['_csrf' => $csrf] + $password, $device);
+        for ($i = 0; $i < 5; $i++) {
+            $this->assertSame(401, $post($browser, ['_csrf' => $csrf, 'step' => 'code', 'code' => '000000'], $device)->status);
+        }
+        $this->assertSame('5', (string) $site->value('SELECT failures FROM tl_user_devices WHERE token_hash = ?', [hash('sha256', $device)]), 'every wrong code from the cookie is recorded on it');
+        $this->assertNotSame(302, $post($browser, ['_csrf' => $csrf, 'step' => 'code', 'code' => $code], $device)->status, 'after five wrong codes even the right one stays locked out');
+        $this->assertNull($site->value("SELECT totp_last_step FROM tl_users WHERE username = 'author'"), '... and it is not spent');
+    }
+
+    #[Depends('testAppCodeAndBackupCodes')]
     public function testAPasskeyAloneSignsInWhenTheDeviceChecksItsOwner(): void
     {
         $site = $this->site();

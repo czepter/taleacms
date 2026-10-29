@@ -775,6 +775,7 @@ The link works for %d days.
     'Sign out' => '登出',
     'Sign-in to the administration – only after signing in, never for visitors' => '管理後台登入 – 僅在登入後使用，絕不用於訪客',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => '管理後台登入：「保持登入」– 僅在使用者勾選時使用，絕不用於訪客',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => '管理後台登入：辨識曾經登入過的瀏覽器，使被鎖定的帳號仍能為其擁有者開啟——僅在登入後使用，絕不用於訪客',
     'Signpost' => '路標',
     'Skip' => '略過',
     'Skip to content' => '跳至主要內容',

@@ -4041,6 +4041,7 @@ return [
     'Sign-in link text' => 'Text odkazu pro přihlášení',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Přihlášení do administrace – jen po přihlášení, nikdy pro návštěvníky',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Přihlášení do administrace: „Zůstat přihlášen“ – jen když to uživatel zaškrtne, nikdy pro návštěvníky',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'Přihlášení do administrace: pozná prohlížeč, který se už přihlásil, aby se zamčený účet pro svého majitele stále otevřel – jen po přihlášení, nikdy pro návštěvníky',
     'Sign-ins to the administration' => 'Přihlášení do administrace',
     'Sign-out button text' => 'Text tlačítka pro odhlášení',
     'Sign-up' => 'Registrace',

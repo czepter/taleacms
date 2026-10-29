@@ -81,7 +81,7 @@ final class AuthenticationTest extends TestCase
         preg_match('/public function login\(.*?\n    }\n/s', $authSource, $loginSource);
         $this->assertSame([true, 2, false, true, true], [
             // the account's own hash is used only when the account is neither locked nor blocked
-            str_contains($loginSource[0] ?? '', '$closed = $user !== null && (!empty($user[\'blocked\']) || self::isLocked($user));')
+            str_contains($loginSource[0] ?? '', '$closed = $user !== null && (!empty($user[\'blocked\']) || $this->lockedFor($user));')
                 && str_contains($loginSource[0] ?? '', '$user !== null && !$closed ? (string) $user[\'password\'] : self::DUMMY_HASH'),
             substr_count($loginSource[0] ?? '', 'return t('), str_contains($loginSource[0] ?? '', "t('The account is"),
             isset($adminCs[\Talea\Core\Auth::SIGN_IN_FAILED], $adminDe[\Talea\Core\Auth::SIGN_IN_FAILED]), str_contains(\Talea\Core\Auth::SIGN_IN_FAILED, 'reset your password')], '3.3.3 (N51): sign-in checks the lock and the block before the password, verifies the dummy hash for them, and answers every failure with one text');

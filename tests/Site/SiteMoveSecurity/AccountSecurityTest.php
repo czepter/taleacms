@@ -136,6 +136,117 @@ final class AccountSecurityTest extends SiteTestCase
     }
 
     #[Depends('testTheAccountLocksAfterTenWrongPasswordsAndAnswersLikeAnyFailure')]
+    public function testALockedAccountStillOpensForABrowserThatSignedInBefore(): void
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("UPDATE tl_users SET blocked = 0, failed_logins = 0, locked_until = NULL WHERE username = 'salesperson'");
+        $owner = $site->client('owner');
+        $this->assertSame(302, $this->login($owner, $this->loginPage($owner), 'salesperson', self::NEW_PASSWORD)->status, 'the owner signs in');
+        $device = $owner->cookies()['tl_device'] ?? '';
+        $this->assertNotSame('', $device, 'a completed sign-in leaves the known-device cookie');
+        $lock = static fn () => $site->exec("UPDATE tl_users SET failed_logins = 0, locked_until = NOW() + INTERVAL 10 MINUTE WHERE username = 'salesperson'");
+        $try = function (string $cookie, string $password) use ($site) {
+            $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+            $client = $site->client('stranger');
+            $csrf = $this->loginPage($client);
+            if ($cookie !== '') {
+                $client->setCookie('tl_device', $cookie);
+            }
+
+            return $client->post('/admin.php', ['_csrf' => $csrf, 'username' => 'salesperson', 'password' => $password]);
+        };
+
+        $lock();
+        $refused = $try('', self::NEW_PASSWORD);
+        $this->assertSame(401, $refused->status, 'a browser without the cookie is refused while the account is locked');
+        $this->assertSame($this->message($try('', 'wrong-password-xyz'), self::ANY_MESSAGE), $this->message($refused, self::ANY_MESSAGE), 'with the common failure answer');
+        $lock();
+        $this->assertSame(401, $try(bin2hex(random_bytes(32)), self::NEW_PASSWORD)->status, 'a cookie the server never issued is refused');
+        $this->assertSame(401, $try(substr($device, 0, -4) . 'abcd', self::NEW_PASSWORD)->status, 'a cookie with an altered token is refused');
+        $lock();
+        $this->assertSame(401, $try($device, 'wrong-password-xyz')->status, 'a known browser with a wrong password is refused');
+        $this->assertSame('1', (string) $site->value("SELECT failed_logins FROM tl_users WHERE username = 'salesperson'"), '... and it counts as a failure');
+        $this->assertSame(302, $try($device, self::NEW_PASSWORD)->status, 'a known browser signs in with the right password while the account is locked');
+        $this->assertNull($site->value("SELECT locked_until FROM tl_users WHERE username = 'salesperson'"), 'a completed sign-in ends the lock');
+    }
+
+    /** A sign-in from a stranger's browser that carries $cookie (if any) while the account is locked. */
+    private function attemptLocked(string $cookie, string $password): \Talea\Tests\Site\Support\Response
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("UPDATE tl_users SET failed_logins = 0, locked_until = NOW() + INTERVAL 10 MINUTE WHERE username = 'salesperson'");
+        $client = $site->client('stranger');
+        $csrf = $this->loginPage($client);
+        if ($cookie !== '') {
+            $client->setCookie('tl_device', $cookie);
+        }
+
+        return $client->post('/admin.php', ['_csrf' => $csrf, 'username' => 'salesperson', 'password' => $password]);
+    }
+
+    #[Depends('testALockedAccountStillOpensForABrowserThatSignedInBefore')]
+    public function testAKnownDeviceStopsOpeningAfterFiveFailures(): void
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("UPDATE tl_users SET blocked = 0, failed_logins = 0, locked_until = NULL WHERE username = 'salesperson'");
+        $owner = $site->client('owner');
+        $this->login($owner, $this->loginPage($owner), 'salesperson', self::NEW_PASSWORD);
+        $device = $owner->cookies()['tl_device'] ?? '';
+        $failures = static fn (): string => (string) $site->value('SELECT failures FROM tl_user_devices WHERE token_hash = ?', [hash('sha256', $device)]);
+        $this->assertSame('0', $failures(), 'a new known browser has no failures');
+
+        // a stolen cookie guessing passwords: five wrong ones and it is a stranger like any other
+        for ($i = 0; $i < 5; $i++) {
+            $this->assertSame(401, $this->attemptLocked($device, 'wrong-password-xyz')->status);
+        }
+        $this->assertSame('5', $failures(), 'every wrong password from the cookie is recorded on it');
+        $this->assertSame(401, $this->attemptLocked($device, self::NEW_PASSWORD)->status, 'after five failures the right password no longer passes the lock');
+
+        // a recorded failure count of five does the same, whatever caused it
+        $site->exec("UPDATE tl_users SET locked_until = NULL, failed_logins = 0 WHERE username = 'salesperson'");
+        $again = $site->client('owner-again');
+        $again->setCookie('tl_device', $device);
+        $this->login($again, $this->loginPage($again), 'salesperson', self::NEW_PASSWORD);
+        $fresh = $again->cookies()['tl_device'] ?? '';
+        $this->assertNotSame($device, $fresh, 'a completed sign-in issues a new token');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_user_devices WHERE token_hash = ?', [hash('sha256', $device)]), '... and replaces the one this browser had');
+        $this->assertSame(302, $this->attemptLocked($fresh, self::NEW_PASSWORD)->status, 'the new token opens a locked account');
+        $site->exec('UPDATE tl_user_devices SET failures = 5 WHERE token_hash = ?', [hash('sha256', $fresh)]);
+        $this->assertSame(401, $this->attemptLocked($fresh, self::NEW_PASSWORD)->status, 'five recorded failures end the exemption even with the right password');
+        $site->exec("UPDATE tl_users SET locked_until = NULL, failed_logins = 0 WHERE username = 'salesperson'");
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+    }
+
+    #[Depends('testAKnownDeviceStopsOpeningAfterFiveFailures')]
+    public function testANewPasswordEndsOtherKnownBrowsersButNotTheOneThatChangedIt(): void
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("UPDATE tl_users SET failed_logins = 0, locked_until = NULL WHERE username = 'salesperson'");
+        $laptop = $site->client('laptop');
+        $this->login($laptop, $this->loginPage($laptop), 'salesperson', self::NEW_PASSWORD);
+        $phone = $site->client('phone');
+        $this->login($phone, $this->loginPage($phone), 'salesperson', self::NEW_PASSWORD);
+        [$laptopDevice, $phoneDevice] = [$laptop->cookies()['tl_device'], $phone->cookies()['tl_device']];
+        $this->assertSame(302, $this->attemptLocked($phoneDevice, self::NEW_PASSWORD)->status, 'before the change a known browser opens a locked account');
+
+        $account = $laptop->get('/admin.php?action=account');
+        $laptop->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'op' => 'password', 'current_password' => self::NEW_PASSWORD,
+            'new_password' => 'Other-password-456', 'new_password_again' => 'Other-password-456']);
+        $reissued = $laptop->cookies()['tl_device'] ?? '';
+        $this->assertNotSame($laptopDevice, $reissued, 'the browser that changed the password gets a new token');
+        $this->assertSame(401, $this->attemptLocked($phoneDevice, 'Other-password-456')->status, 'another browser loses its exemption');
+        $this->assertSame(401, $this->attemptLocked($laptopDevice, 'Other-password-456')->status, '... and so does the old token of this one');
+        $this->assertSame(302, $this->attemptLocked($reissued, 'Other-password-456')->status, 'the browser that changed the password keeps its exemption');
+
+        $site->exec("UPDATE tl_users SET password = ?, locked_until = NULL, failed_logins = 0 WHERE username = 'salesperson'", [password_hash(self::NEW_PASSWORD, PASSWORD_DEFAULT)]);
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+    }
+
+    #[Depends('testANewPasswordEndsOtherKnownBrowsersButNotTheOneThatChangedIt')]
     public function testSessionsEndAfterEightIdleHoursOrTwentyFourInTotal(): void
     {
         $site = $this->site();
@@ -240,6 +351,9 @@ final class AccountSecurityTest extends SiteTestCase
         $laptop->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'op' => 'remember_end']);
         $this->assertSame('1', $tokens(), 'ending the other devices keeps only this one');
         $this->assertArrayHasKey('tl_remember', $laptop->cookies(), 'this device keeps its cookie');
+        $devices = $site->value("SELECT COUNT(*) FROM tl_user_devices d JOIN tl_users u ON u.user_id = d.user_id WHERE u.username = 'salesperson'");
+        $this->assertSame('1', (string) $devices, 'ending the other devices also ends their known-device tokens');
+        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM tl_user_devices WHERE token_hash = ?', [hash('sha256', $laptop->cookies()['tl_device'])]), '... and this browser keeps its own');
 
         // turning on two-factor sign-in ends the remembered sign-ins elsewhere: they would skip the new code
         $signIn('tablet');
