@@ -41,8 +41,11 @@ final class TryFormTest extends SiteTestCase
         $this->assertSame('vabrd', $out['variant']);
         $this->assertSame(['knope'], $out['unknown_keys']);
         $this->assertContains('kcnt0', $out['visible']);
-        $this->assertArrayHasKey('amount', $out['lines'][0]);
-        $this->assertArrayHasKey('label', $out['lines'][0]);
+        $this->assertNotEmpty($out['lines']);
+        $amounts = array_column($out['lines'], 'amount', 'label');
+        $this->assertEqualsWithDelta(1000.0, $amounts['Base price'], 0.001);
+        $this->assertEqualsWithDelta(900.0, $amounts['Abroad'], 0.001);
+        $this->assertEqualsWithDelta(150.0, $amounts['Album'], 0.001);
     }
 
     public function testPublishedWithoutAPublishedFormIsAnError(): void
@@ -61,5 +64,23 @@ final class TryFormTest extends SiteTestCase
             . '&answers=' . rawurlencode((string) json_encode($w['answers'])))->body, true);
 
         $this->assertSame($mcp, $admin);
+    }
+
+    public function testHiddenFieldIsAbsentFromVisible(): void
+    {
+        $w = $this->wedding();
+        $out = $this->mcpData('try_form', ['id' => $w['page'], 'element' => $w['element'], 'answers' => ['kloc0' => 'Local']]);
+
+        $this->assertNotContains('kcnt0', $out['visible'], 'the country question shows only abroad');
+        $this->assertContains('kloc0', $out['visible']);
+    }
+
+    public function testNestedAnswersAreIgnored(): void
+    {
+        $w = $this->wedding();
+        $out = $this->mcpData('try_form', ['id' => $w['page'], 'element' => $w['element'], 'answers' => ['kloc0' => [['x']], 'kext0' => [['x'], 'Album', ['a' => 'b']], 'kgst0' => ['n' => 1]]]);
+
+        $this->assertIsArray($out['visible']);
+        $this->assertSame([], $out['unknown_keys']);
     }
 }
