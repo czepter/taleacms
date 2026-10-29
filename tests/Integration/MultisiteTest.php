@@ -131,6 +131,7 @@ final class MultisiteTest extends DatabaseTestCase
         @mkdir(dirname($staged), 0775, true);
         file_put_contents($staged, 'jpeg');
         $id = $this->db()->insert('media', ['image_path' => $path, 'staged_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
+        $this->db()->run('UPDATE {sites} SET ready_at = ? WHERE prefix = ?', [date('Y-m-d H:i:s'), 'tl2_']); // a site that is set up: its content counts
         $this->db()->forSite('tl2_')->insert('site_parts', ['type' => 'footer', 'build' => '{"v":1,"children":[{"type":"image","content":{"src":"' . $path . '"}}]}']);
         try {
             MediaStaging::cleanup($this->db()); // the job runs with site 1 only, but site 2's content counts
@@ -170,6 +171,67 @@ final class MultisiteTest extends DatabaseTestCase
             $this->assertSame(['tl_', 'tl2_'], Sites::prefixes($this->db()));
         } finally {
             set_time_limit(0); // Backup::restore() set a 300 s limit on this process; the worker runs more test classes after this one
+            @unlink(Backup::FOLDER . '/' . $file);
+        }
+    }
+
+    public function testAnOlderBackupDropsTheSitesMadeAfterIt(): void
+    {
+        $this->db()->pdo()->rollBack(); // DDL and a restore run outside the test's transaction
+        $file = Backup::create($this->db(), 'multisitetest');
+        preg_match('/^-- prefixes: (\S+)/m', str_ends_with($file, '.gz') ? (string) gzdecode((string) file_get_contents(Backup::FOLDER . '/' . $file)) : (string) file_get_contents(Backup::FOLDER . '/' . $file), $m);
+        $this->assertSame('tl_,tl2_', $m[1] ?? '', 'the backup names the prefixes it holds');
+        try {
+            $prefix = Sites::add($this->db(), 'After the backup', 'after');
+            Migrator::migrate($this->dbConfig());
+            $this->assertNotSame([], $this->db()->dialect()->dumpTables($this->db()->pdo(), $prefix));
+
+            Backup::restore($this->db(), $file);
+
+            $this->assertSame([], $this->db()->dialect()->dumpTables($this->db()->pdo(), $prefix), 'the tables of the newer site are gone');
+            $this->assertSame(['tl_', 'tl2_'], Sites::prefixes($this->db()), 'the registry is the backup\'s');
+        } finally {
+            set_time_limit(0);
+            @unlink(Backup::FOLDER . '/' . $file);
+        }
+    }
+
+    public function testABackupWithASinceRemovedSiteIsAcceptedAndBringsItBack(): void
+    {
+        $this->db()->pdo()->rollBack();
+        $prefix = Sites::add($this->db(), 'Short-lived', 'short');
+        Migrator::migrate($this->dbConfig());
+        $file = Backup::create($this->db(), 'multisitetest');
+        try {
+            Sites::dropTables($this->db(), $prefix);
+            $this->db()->delete('sites', ['prefix' => $prefix]);
+            Sites::forgetCurrent();
+            $this->assertSame(['tl_', 'tl2_'], Sites::prefixes($this->db()));
+
+            Backup::restore($this->db(), $file);
+
+            $this->assertSame(['tl_', 'tl2_', $prefix], Sites::prefixes($this->db()));
+            $this->assertNotSame([], $this->db()->dialect()->dumpTables($this->db()->pdo(), $prefix), 'its tables are back');
+        } finally {
+            set_time_limit(0);
+            @unlink(Backup::FOLDER . '/' . $file);
+            Sites::dropTables($this->db(), $prefix);
+            $this->db()->delete('sites', ['prefix' => $prefix]);
+            Sites::forgetCurrent();
+        }
+    }
+
+    public function testABackupMadeWithOtherPrefixesIsRefused(): void
+    {
+        $file = 'talea-20261029-000001-multisitetest-prefixes.sql';
+        @mkdir(Backup::FOLDER, 0775, true);
+        file_put_contents(Backup::FOLDER . '/' . $file, "-- Talea test\n-- engine: " . $this->db()->dialect()->name() . "\n-- prefixes: xx_,xx2_\nDELETE FROM \"xx_pages\";\n");
+        try {
+            Backup::restore($this->db(), $file);
+            $this->fail('A backup of other prefixes must stop the restore.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('other table prefixes', $e->getMessage());
+        } finally {
             @unlink(Backup::FOLDER . '/' . $file);
         }
     }

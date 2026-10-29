@@ -40,12 +40,13 @@ final class Backup
         $pdo = $db->pdo();
         $dialect = $db->dialect();
         $sites = []; // real table name => the Db of its site
-        foreach (Sites::prefixes($db) as $prefix) {
+        $prefixes = Sites::prefixes($db);
+        foreach ($prefixes as $prefix) {
             foreach ($dialect->dumpTables($pdo, $prefix) as $table) {
                 $sites[$table] = $db->forSite($prefix);
             }
         }
-        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n" . $dialect->dumpPrologue(array_keys($sites)));
+        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
         foreach ($sites as $table => $site) {
             $name = substr($table, strlen($site->prefix));
             // temporary data is not backed up
@@ -108,13 +109,25 @@ final class Backup
         // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
         // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
         $dialect = $db->dialect();
-        $prefixes = Sites::prefixes($db); // read before the restore replaces the registry
+        $registered = Sites::prefixes($db); // read before the restore replaces the registry
+        // the sites the file holds (its header line); an older file has none and is taken for the sites there are now
+        $prefixes = self::headerPrefixes($path, $gz, $db->ownerPrefix) ?? $registered;
         $count = self::walk($path, $gz, $prefixes, $dialect->name(), null);
         @set_time_limit(300);
         $pdo = $db->pdo();
+        foreach ($prefixes as $prefix) {
+            if ($prefix !== $db->ownerPrefix && $dialect->dumpTables($pdo, $prefix) === []) {
+                Migrator::migratePrefix($db, $prefix); // a site dropped since the backup: its tables first (a PostgreSQL or SQLite backup has no structure)
+            }
+        }
         $tables = [];
         $dialect->restoreBegin($pdo);
         try {
+            // sites made after the backup are not in the restored registry: their tables go, or they would be orphans (and on PostgreSQL
+            // a TRUNCATE of the owner tables fails while they still refer to them)
+            foreach (array_diff($registered, $prefixes) as $gone) {
+                Sites::dropTables($db, $gone);
+            }
             self::walk($path, $gz, $prefixes, $dialect->name(), function (string $statement) use ($pdo, &$tables, $prefixes): mixed {
                 if (preg_match('/^INSERT INTO [`"]([^`"]+)[`"]/', $statement, $m) === 1) {
                     $prefix = (string) self::prefixOf($prefixes, $m[1]);
@@ -128,11 +141,45 @@ final class Backup
             throw $e;
         }
         $dialect->restoreEnd($pdo, false);
+        Sites::forgetCurrent();
         foreach ($tables as $prefix => $names) {
             $db->forSite($prefix)->syncSequences(...array_keys($names)); // rows came back with their own numbers
         }
 
         return $count;
+    }
+
+    /**
+     * The table prefixes a backup was made of (its "-- prefixes:" line), the owner's first; null for a file without the line.
+     *
+     * @return list<string>|null
+     * @throws \RuntimeException a prefix that cannot be one of this installation's sites
+     */
+    private static function headerPrefixes(string $path, bool $gz, string $owner): ?array
+    {
+        $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
+        $found = null;
+        for ($i = 0; $i < 6 && ($row = $gz ? gzgets($f) : fgets($f)) !== false; $i++) {
+            if (preg_match('/^-- prefixes: (\S+)/', $row, $m) === 1) {
+                $found = explode(',', $m[1]);
+                break;
+            }
+        }
+        $gz ? gzclose($f) : fclose($f);
+        if ($found === null) {
+            return null;
+        }
+        $further = '/^' . preg_quote(substr($owner, 0, -1), '/') . '[0-9]+_$/';
+        foreach ($found as $prefix) {
+            if ($prefix !== $owner && preg_match($further, $prefix) !== 1) {
+                throw new \RuntimeException('The backup was made with other table prefixes (' . $prefix . ') – the restore was stopped.');
+            }
+        }
+        if (!in_array($owner, $found, true)) {
+            throw new \RuntimeException('The backup was made with other table prefixes (' . implode(', ', $found) . ') – the restore was stopped.');
+        }
+
+        return $found;
     }
 
     /**

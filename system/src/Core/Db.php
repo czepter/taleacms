@@ -43,6 +43,9 @@ final class Db
     /** @var array<string, array<int, string>> memo of publicId() */
     private array $publicIds = [];
 
+    /** @var array<string, mixed> the configuration fromConfig() was built from (the Migrator needs it to bring a site's tables back) */
+    private array $config = [];
+
     public int $queryCount = 0;
 
     /** While a Claude connection runs a tool that changes the site: every content write is journaled for undo (2.17). */
@@ -64,7 +67,17 @@ final class Db
         $dialect = Dialect::forDriver($c['driver'] ?? 'mysql');
         $c['port'] ??= $dialect->defaultPort();
 
-        return new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['site_prefix'] ?? $c['prefix'] ?? 'tl_', $c['prefix'] ?? 'tl_');
+        $db = new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['site_prefix'] ?? $c['prefix'] ?? 'tl_', $c['prefix'] ?? 'tl_');
+        unset($c['site_prefix']);
+        $db->config = $c;
+
+        return $db;
+    }
+
+    /** The configuration this connection was made from (without a site prefix); empty when it was not made by fromConfig(). @return array<string, mixed> */
+    public function config(): array
+    {
+        return $this->config;
     }
 
     /** The tables of the site with this prefix, on the same connection. */
@@ -73,6 +86,7 @@ final class Db
         $db = new self($this->dsn, $this->user, $this->password, $prefix, $this->ownerPrefix);
         $db->pdo = $this->pdo();
         $db->dialect = $this->dialect;
+        $db->config = $this->config;
 
         return $db;
     }

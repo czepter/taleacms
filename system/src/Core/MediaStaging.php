@@ -270,7 +270,7 @@ final class MediaStaging
     public static function cleanup(Db $db): string
     {
         $published = 0;
-        foreach (Sites::prefixes($db) as $prefix) {
+        foreach (Sites::readyPrefixes($db) as $prefix) {
             $published += self::promotePublished($db->forSite($prefix));
         }
         $deleted = 0;

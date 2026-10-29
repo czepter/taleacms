@@ -132,6 +132,18 @@ final class Migrator
         }
     }
 
+    /**
+     * Creates and migrates the tables of one further site that has none (Backup::restore brings back a site whose tables were dropped:
+     * a PostgreSQL or SQLite backup holds data only). The caller has found the prefix in the backup it restores.
+     */
+    public static function migratePrefix(Db $db, string $prefix): void
+    {
+        if ($prefix === $db->ownerPrefix || $db->config() === []) {
+            throw new \RuntimeException('The tables of ' . $prefix . ' cannot be created here.');
+        }
+        self::migrateSite($db->forSite($prefix), ['site_prefix' => $prefix] + $db->config());
+    }
+
     /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,site_prefix?:string} $config @return list<string> */
     private static function migrateSite(Db $db, array $config): array
     {
