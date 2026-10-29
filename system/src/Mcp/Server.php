@@ -142,6 +142,10 @@ final class Server
      */
     private function call(Tools $tools, string $name, array $arguments): array
     {
+        // an error report names the tool and the connection's access, never the arguments (they hold content and enquiries)
+        \Talea\Core\ErrorReport::tag('tool', $name);
+        \Talea\Core\ErrorReport::tag('access', $this->access());
+        \Talea\Core\ErrorReport::tag('tool_set', $this->toolSet());
         // the meta tools: callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
             $available = $this->available($tools);
@@ -212,6 +216,13 @@ final class Server
             return ['content' => [['type' => 'text', 'text' => is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         } catch (\InvalidArgumentException | \DomainException $e) {
             return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
+        } catch (\Throwable $e) {
+            // a fault of the site, not of the call: the client gets a tool error with the event id instead of an HTML error page
+            $event = \Talea\Core\ErrorReport::capture($e, 'error', ['handled' => false]);
+            \Talea\Core\ErrorReport::log($e, $event);
+
+            return ['content' => [['type' => 'text', 'text' => 'The tool failed with an internal error of the site (' . $e::class . ').'
+                . ($event !== null ? ' Error report ' . $event . ' went to the site’s error tracking.' : '') . ' The details are in the site’s error log (storage/log/errors.log); tell the site owner.']], 'isError' => true];
         }
     }
 

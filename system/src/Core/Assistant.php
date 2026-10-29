@@ -259,7 +259,7 @@ class Assistant
      * element ids). The model's reply is untrusted: the caller filters the operations and the result goes through Build::sanitize.
      *
      * @param array<string, mixed> $build compact build
-     * @param string $vocabulary Build::overview() lines of element types, styles and tokens, as JSON
+     * @param string $vocabulary ElementSchema::overview() lines of element types, styles and tokens, as JSON
      * @return array{summary: string, operations: list<mixed>}
      * @throws \RuntimeException with a message for the user
      */

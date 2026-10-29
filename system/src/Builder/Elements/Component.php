@@ -58,7 +58,7 @@ final class Component extends Element
         $k->editor = $focused;
         $k->inLoop++;
         try {
-            // the canvas dims everything around the focused use (image/builder-overlay.js)
+            // the canvas dims everything around the focused use (image/builder/overlay.js)
             return $focused ? '<div data-tl-focus style="display:contents">' . $render($build) . '</div>' : $render($build);
         } finally {
             array_pop($k->nesting);

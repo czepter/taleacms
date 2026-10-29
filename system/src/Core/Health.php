@@ -119,6 +119,15 @@ final class Health
             }
         }
         $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
+        // error tracking (Core\ErrorReport): set by the operator with TALEA_ERROR_DSN; a failed send since the last good one warns
+        $tracking = ErrorReport::status();
+        $add(t('Operation'), t('Error tracking'), !$tracking['enabled'] || $tracking['failed_at'] === 0 ? 'ok' : 'warning', !$tracking['enabled']
+            ? t('off - set TALEA_ERROR_DSN to send errors to Sentry or GlitchTip')
+            : t('to %s (%s)', $tracking['host'], $tracking['environment'])
+                . ($tracking['sent_at'] > 0 ? ', ' . t('last report %s', $when(date('Y-m-d H:i:s', $tracking['sent_at']))) : '')
+                . ($tracking['failed_at'] > 0 ? ', ' . t('the last report failed: %s', $tracking['error']) : '')
+                . ($tracking['outbox'] > 0 ? ', ' . t('%d waiting to be sent', $tracking['outbox']) : '')
+                . ($tracking['browser'] ? ', ' . t('browser errors of the public site too') : ''));
         $last = Backup::listAll()[0]['time'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
         $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));

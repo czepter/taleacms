@@ -142,6 +142,14 @@ final class App
     {
         error_reporting(E_ALL);
         ini_set('display_errors', '0');
+        ErrorReport::configure($this->config);
+        $script = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        ErrorReport::tag('area', match (true) {
+            PHP_SAPI === 'cli' => 'cli',
+            $script === 'admin.php' => 'admin', // index.php hands /admin/… over to admin.php before the start
+            $script === 'install.php' => 'install',
+            default => 'front',
+        });
         set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
             if (!(error_reporting() & $severity)) {
                 return false;
@@ -149,22 +157,41 @@ final class App
             throw new \ErrorException($message, 0, $severity, $file, $line);
         });
         set_exception_handler(function (\Throwable $e): void {
-            $line = sprintf("[%s] %s: %s in %s:%d\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-            @file_put_contents(TALEA_ROOT . '/storage/log/errors.log', $line, FILE_APPEND | LOCK_EX);
-            if (!headers_sent()) {
-                http_response_code(500);
-                header('Content-Type: text/html; charset=utf-8');
+            ErrorReport::log($e, ErrorReport::capture($e, 'error', ['handled' => false]));
+            $this->errorPage($e);
+        });
+        // fatal errors (memory, time limit, a parse error in an add-on) never reach the exception handler: the shutdown sees them;
+        // the reserve is freed first, so that an exhausted memory limit still leaves room for the report
+        $reserve = str_repeat(' ', 65536);
+        register_shutdown_function(function () use (&$reserve): void {
+            $reserve = null;
+            $error = error_get_last();
+            if ($error === null || !in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE], true)) {
+                return;
             }
-            // the site language may not be known here yet (an error even at start): plain English
-            [$title, $heading, $help] = ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/errors.log.'];
-            echo '<!doctype html><html lang="en"><meta charset="utf-8"><title>' . $title . '</title>'
-                . '<body style="font:14px Verdana,sans-serif;margin:3em">'
-                . '<h1 style="font-size:18px">' . $heading . '</h1>';
-            if ($this->debug()) {
-                echo '<pre style="white-space:pre-wrap">' . e((string) $e) . '</pre>';
-            } else {
-                echo '<p>' . $help . '</p>';
+            $e = new \ErrorException($error['message'], 0, $error['type'], $error['file'], $error['line']);
+            ErrorReport::log($e, ErrorReport::capture($e, 'fatal', ['handled' => false])); // sent by ErrorReport's own shutdown function, after the page
+            if (!headers_sent()) {
+                $this->errorPage($e);
             }
         });
+    }
+
+    /** The page of an error nothing else answered: plain English (the site language may not be known yet), details only in debug mode. */
+    private function errorPage(\Throwable $e): void
+    {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+        [$title, $heading, $help] = ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/errors.log.'];
+        echo '<!doctype html><html lang="en"><meta charset="utf-8"><title>' . $title . '</title>'
+            . '<body style="font:14px Verdana,sans-serif;margin:3em">'
+            . '<h1 style="font-size:18px">' . $heading . '</h1>';
+        if ($this->debug()) {
+            echo '<pre style="white-space:pre-wrap">' . e((string) $e) . '</pre>';
+        } else {
+            echo '<p>' . $help . '</p>';
+        }
     }
 }

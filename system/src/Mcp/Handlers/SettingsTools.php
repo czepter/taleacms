@@ -309,7 +309,11 @@ trait SettingsTools
             throw new \DomainException('Statistics are for administrators and users with access to Statistics.');
         }
 
-        return \Talea\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
+        $days = (int) ($a['days'] ?? 30);
+        $report = \Talea\Core\Report::build($this->app->db(), $days);
+        $report['form_steps'] = \Talea\Front\FormSteps::overview($this->app->db(), $days);
+
+        return $report + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
     }
 
     /** get_search_performance: what Search engines → Performance shows, for whoever may open it (the Statistics right) */

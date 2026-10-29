@@ -169,6 +169,7 @@ final class Scheduler
         }
         $end = microtime(true) + $budget;
         $results = [];
+        ErrorReport::retryOutbox(); // error reports the tracker did not take earlier (Core\ErrorReport)
         try {
             $state = [];
             foreach ($db->all('SELECT name, last_run, failures FROM {jobs}') as $r) {
@@ -225,6 +226,8 @@ final class Scheduler
 
             return $result;
         } catch (\Throwable $e) {
+            // a job that fails every run is one issue in the error tracking, not one per run
+            ErrorReport::capture($e, 'error', ['tags' => ['job' => $name], 'fingerprint' => ['job', $name, $e::class]]);
             $error = mb_substr($e->getMessage(), 0, 255);
             $db->upsert('jobs', ['name' => $name, 'last_run' => $now, 'last_error' => $error, 'failures' => 1, 'runs' => 1, 'duration_ms' => (int) ((microtime(true) - $start) * 1000)], ['name'], ['last_run', 'last_error', 'failures' => '{old.failures} + 1', 'runs' => '{old.runs} + 1', 'duration_ms']);
             if ($failures + 1 === self::FAILURES_TO_ALERT) {

@@ -13,6 +13,7 @@ use Talea\Builder\Library;
 use Talea\Builder\Collections;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 use Talea\Builder\ElementClipboard;
 use Talea\Builder\Style;
 
@@ -68,7 +69,7 @@ trait BuilderActions
         $e = $this->describeTarget($target);
         $collections = array_map(fn (array $k): array => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Talea\Core\Extensions::enabled($app->settings());
-        $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
+        $schema = ElementSchema::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
         $components = \Talea\Admin\Modules\Components::listForEditor($this->db);
         foreach ($schema['elements'] as &$element) {
             if ($element['type'] === 'component') {
@@ -124,7 +125,7 @@ trait BuilderActions
             'urls' => array_map(fn (string $action): string => $this->url($action, $target['params']), [
                 'save' => 'build_save', 'publish' => 'build_publish', 'discard' => 'build_discard', 'section' => 'build_section', 'class' => 'build_class',
                 'versions' => 'build_versions', 'compare' => 'build_compare', 'restore' => 'build_restore','ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',
-                'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve',
+                'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve', 'form_try' => 'build_form_try',
             ]) + ['delete_section' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['params']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
                 'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'section_preview' => $app->url('_section/'),
@@ -489,6 +490,20 @@ trait BuilderActions
         return Response::json(['ok' => true] + $diff);
     }
 
+    /** Runs the logic of a form element of the draft with answers by field key (JSON): the same answer as MCP try_form. */
+    protected function actionBuildFormTry(): Response
+    {
+        $target = $this->loadBuildTarget();
+        $answers = json_decode($this->request->get('answers'), true);
+        try {
+            $build = $target === null ? throw new \InvalidArgumentException(t('Page does not exist.')) : (Build::fromJson($target['draft'] ?? $target['build']) ?? ['v' => Build::VERSION, 'children' => []]);
+
+            return Response::json(\Talea\Builder\Elements\Form::tryOut($build, $this->request->get('element'), is_array($answers) ? $answers : []));
+        } catch (\InvalidArgumentException $e) {
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 404);
+        }
+    }
+
     /** An older version is loaded into the draft; it is published only with the Publish button. */
     protected function actionBuildRestore(): Response
     {
@@ -527,13 +542,16 @@ trait BuilderActions
 
     /**
      * Schema labels (names of elements, fields, style properties and their options) into the admin language. The default
-     * content of elements is not translated – it is in the page language (Build::schema).
+     * content of elements is not translated – it is in the page language (ElementSchema::schema).
      */
     private static function translateSchema(array $schema): array
     {
         $field = function (array $properties) use (&$field): array {
             foreach ($properties as $key => $d) {
                 $properties[$key]['label'] = t((string) ($d['label'] ?? ''));
+                if (isset($d['note'])) {
+                    $properties[$key]['note'] = t((string) $d['note']);
+                }
                 if (isset($d['options'])) {
                     $properties[$key]['options'] = array_map(fn (string $m): string => t($m), $d['options']);
                 }

@@ -759,6 +759,108 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
   expect(find(tree.children, 'cf1').content.layout === 'compose' && find(tree.children, 'cfa').style?.base?.grid_row_end && find(tree.children, 'cfb').style?.base?.grid_column_end, 'the saved draft lacks the compose layout or the placements');
 });
 
+// editing on its own copy of the compose page (#232): the Style panel, the Add panel, the canvas, the paste dialog and the keys
+await step('builder (editing): a Style-panel value reaches the draft and the canvas', async () => {
+  await openBuilder(page, 'editing');
+  await pick(page, 'ch1');
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  const align = page.locator('#bd-v-text_align');
+  await align.waitFor({ timeout: 5000 });
+  await align.selectOption('center');
+  expect(find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'ch1').style?.base?.text_align === 'center', 'the Text alignment select did not write the style of the heading');
+  await idle(page);
+  await until(page, () => { const d = window.taleaBuilder.previewDoc(); const h = d && d.querySelector('[data-tl-id="ch1"]'); return !!h && d.defaultView.getComputedStyle(h).textAlign === 'center'; }, null, 'the canvas shows the heading centred');
+  const build = await savedBuild(page, 'editing');
+  expect(find(build.children, 'ch1').style?.base?.text_align === 'center', 'the saved draft lacks the text alignment');
+});
+
+await step('builder (editing): an element dragged from the Add panel lands where it is dropped on the canvas', async () => {
+  await openBuilder(page, 'editing');
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
+  await page.locator('.bd-elements button').first().waitFor({ timeout: 5000 });
+  // Playwright cannot drive a real HTML5 drag from the admin page into the canvas iframe reliably, so the drag events are dispatched
+  // by hand: they still run the editor's own handlers (startDrag on the Add panel button, canvasSpot and dropAt on the canvas)
+  const failed = await page.evaluate(() => {
+    const B = window.taleaBuilder;
+    const name = B.D.schema.elements.find((p) => p.type === 'heading').name;
+    const source = [...document.querySelectorAll('.bd-elements button')].find((b) => b.textContent.trim() === name);
+    if (!source) { return `no "${name}" button in the Add panel`; }
+    const transfer = new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    const target = B.previewDoc().querySelector('[data-tl-id="txt5"]');
+    const r = target.getBoundingClientRect();
+    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.8, dataTransfer: transfer, bubbles: true, cancelable: true };
+    target.dispatchEvent(new DragEvent('dragover', at));
+    target.dispatchEvent(new DragEvent('drop', at));
+    source.dispatchEvent(new DragEvent('dragend', { dataTransfer: transfer, bubbles: true }));
+    return '';
+  });
+  expect(!failed, failed);
+  const id = await page.evaluate(() => window.taleaBuilder.state.selected);
+  const build = await savedBuild(page, 'editing');
+  const dropped = find(build.children, id);
+  const column = find(build.children, 'colb');
+  expect(dropped && dropped.type === 'heading', `the drop did not insert a heading: ${JSON.stringify(dropped)}`);
+  expect(column.children.map((c) => c.id).join() === `txt5,${id}`, `the heading is not after the text it was dropped on: ${column.children.map((c) => c.id)}`);
+});
+
+await step('builder (editing): double-click edits a heading on the canvas', async () => {
+  await openBuilder(page, 'editing');
+  await node(page, 'ch1').dblclick();
+  await until(page, () => window.taleaBuilder.state.editingCanvas, null, 'the double-click made the heading editable on the canvas');
+  await page.keyboard.press('End'); // the double-click selected a word: typing would replace it
+  await page.keyboard.type(' edited');
+  await page.keyboard.press('Enter'); // ends the editing of a heading
+  await until(page, () => !window.taleaBuilder.state.editingCanvas, null, 'Enter ended the editing');
+  const build = await savedBuild(page, 'editing');
+  const text = find(build.children, 'ch1').content.text;
+  expect(/^Compose test(\s|&nbsp;)edited$/.test(text), `the heading text is ${text}`);
+});
+
+await step('builder (editing): the "Paste from another Talea site" dialog refuses other text, closes and inserts', async () => {
+  await openBuilder(page, 'editing');
+  const open = async () => {
+    await page.locator('button[aria-label="More actions"]').first().click();
+    await page.locator('.bd-more button', { hasText: 'Paste from another Talea site' }).first().click();
+    await page.locator('dialog[open] h2', { hasText: 'Paste from another Talea site' }).waitFor({ timeout: 5000 });
+  };
+  await pick(page, 'txt1');
+  await open();
+  await page.locator('dialog[open] textarea').fill('not a copy');
+  await page.locator('dialog[open] .bd-btn-main').click();
+  expect(await page.locator('dialog[open] .bd-share-error').isVisible(), 'other text gives no error in the dialog');
+  await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).click();
+  expect(!(await page.locator('dialog[open]').count()), 'Close did not close the paste dialog');
+  await open();
+  await page.locator('dialog[open] textarea').fill(JSON.stringify({ talea: 'elements', v: 1, site: new URL(BASE).origin, elements: [{ type: 'text', content: { html: '<p>Pasted 232</p>' } }] }));
+  await page.locator('dialog[open] .bd-btn-main').click();
+  expect(!(await page.locator('dialog[open]').count()), 'Insert did not close the paste dialog');
+  await until(page, () => JSON.stringify(window.taleaBuilder.state.build).includes('Pasted 232'), null, 'the pasted text is in the page');
+  const build = await savedBuild(page, 'editing');
+  const column = find(build.children, 'col1');
+  expect(column.children.length === 2 && column.children[0].id === 'txt1' && JSON.stringify(column.children[1]).includes('Pasted 232'), `the pasted text is not after the selected one: ${JSON.stringify(column.children).slice(0, 300)}`);
+});
+
+await step('builder (editing): Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctrl+Shift+Z undo and redo', async () => {
+  await openBuilder(page, 'editing');
+  const columnIds = () => page.evaluate(() => { const walk = (c) => { for (const p of c ?? []) { if (p.id === 'col2') { return p; } const f = walk(p.children); if (f) { return f; } } return null; }; return walk(window.taleaBuilder.state.build.children).children.map((p) => p.id); });
+  await pick(page, 'txt2');
+  await page.keyboard.press('Control+d');
+  const copy = await page.evaluate(() => window.taleaBuilder.state.selected);
+  expect(copy !== 'txt2' && (await columnIds()).join() === `txt2,${copy}`, `Ctrl+D did not put a copy after the text: ${await columnIds()}`);
+  await idle(page);
+  await page.keyboard.press('Delete');
+  expect((await columnIds()).join() === 'txt2', `Delete did not remove the copy: ${await columnIds()}`);
+  await idle(page);
+  await page.keyboard.press('Control+z');
+  expect((await columnIds()).join() === `txt2,${copy}`, `Ctrl+Z did not bring the copy back: ${await columnIds()}`);
+  await idle(page);
+  await page.keyboard.press('Control+Shift+z');
+  expect((await columnIds()).join() === 'txt2', `Ctrl+Shift+Z did not remove it again: ${await columnIds()}`);
+  const build = await savedBuild(page, 'editing');
+  expect(find(build.children, 'col2').children.map((c) => c.id).join() === 'txt2', 'the saved draft does not match the last redo');
+});
+
 await step('builder: site header', async () => {
   await visit('/admin.php?module=parts&action=builder&type=header&language=');
   await page.waitForTimeout(1500);

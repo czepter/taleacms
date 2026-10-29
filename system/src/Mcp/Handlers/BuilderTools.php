@@ -17,6 +17,7 @@ use Talea\Builder\Library;
 use Talea\Builder\Collections;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 use Talea\Builder\HtmlConverter;
 
 /**
@@ -31,7 +32,7 @@ trait BuilderTools
     {
         $auth = $this->app->auth();
         $siteSettings = $this->app->settings();
-        $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
+        $schema = ElementSchema::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
 
         return $this->englishSchema($schema, $a);
     }
@@ -45,6 +46,15 @@ trait BuilderTools
             'unsaved_changes' => $target['draft'] !== null && $target['draft'] !== $target['build']]
             + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => \Talea\Mcp\PublicIds::buildOut($this->app->db(), Build::compact($this->targetBuild($target)))]
                 + $this->checkTarget($target, $this->targetBuild($target)));
+    }
+
+    /** try_form */
+    private function toolTryForm(string $name, array $a): mixed
+    {
+        $target = $this->loadBuildTarget($a);
+        $build = !empty($a['published']) ? (Build::fromJson($target['build']) ?? ['v' => Build::VERSION, 'children' => []]) : $this->targetBuild($target);
+
+        return \Talea\Builder\Elements\Form::tryOut($build, (string) ($a['element'] ?? ''), is_array($a['answers'] ?? null) ? $a['answers'] : []);
     }
 
     /** edit_build */

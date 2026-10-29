@@ -12,10 +12,14 @@ final class ScriptsTest extends TestCase
     public function testNoNativeDialogs(): void
     {
         $nativeDialogs = [];
-        foreach (glob(TALEA_ROOT . '/image/*.js') ?: [] as $file) {
-            $code = preg_replace(['#/\*.*?\*/#s', '#(^|[^:])//.*$#m'], ['', '$1'], (string) file_get_contents($file)); // without comments
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/image', \FilesystemIterator::SKIP_DOTS)) as $file) {
+            $path = substr($file->getPathname(), strlen(TALEA_ROOT) + 1); // image/**/*.js: the builder's modules in image/builder/ too
+            if (!str_ends_with($path, '.js') || str_starts_with($path, 'image/languages/') || str_starts_with($path, 'image/vendor/')) {
+                continue; // scripts only, not the dictionaries or third-party code
+            }
+            $code = preg_replace(['#/\*.*?\*/#s', '#(^|[^:])//.*$#m'], ['', '$1'], (string) file_get_contents($file->getPathname())); // without comments
             if (preg_match_all('/\b(alert|prompt|confirm)\s*\(/', (string) $code, $m)) {
-                $nativeDialogs[] = basename($file) . ': ' . implode(', ', array_unique($m[1]));
+                $nativeDialogs[] = $path . ': ' . implode(', ', array_unique($m[1]));
             }
         }
         $this->assertSame([], $nativeDialogs, 'Skripty bez window.alert/prompt/confirm');
@@ -28,6 +32,7 @@ final class ScriptsTest extends TestCase
             'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/helper.js' => ['system/views/admin'],
             'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements'],
             'image/vitals.js' => ['system/src/Front'],
+            'image/forms.js' => ['system/src/Builder/Elements'],
             'image/print.js' => ['system/views/admin/settings'],
         ];
         foreach ($whereCreated as $script => $folders) {

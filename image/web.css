@@ -240,3 +240,6 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 	.tl-popup--editor { position: relative; inset: auto; margin: 0 auto; outline: 2px dashed var(--tl-color-line, #ccc); outline-offset: 4px; }
 	.tl-popup--editor.tl-popup--fullscreen { width: 100%; height: auto; min-height: 60vh; }
 }
+
+/* progress of a multi-step form (image/web.js puts it before the steps) */
+:where(.tl-form-progress) { inline-size: 100%; block-size: 0.4rem; accent-color: var(--tl-color-primary, var(--tl-accent, #1f4fe0)); }

@@ -60,6 +60,9 @@ if ($username !== null) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/theme.js')) ?>?v=<?= e(TALEA_VERSION) ?>"></script>
+<?php if (Talea\Core\ErrorReport::enabled()): // browser errors to the error tracking (TALEA_ERROR_DSN), before the other scripts run ?>
+<script src="<?= e($app->url('image/errors.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-errors="<?= e($app->url('js-error')) ?>" data-errors-area="admin"></script>
+<?php endif ?>
 <title><?= $heading !== '' ? e($heading) . ' – ' : '' ?>Talea</title>
 <?= Talea\Front\SiteIdentity::icons($app->settings(), $app->request->basePath(), true) ?>
 <link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(TALEA_VERSION) ?>">

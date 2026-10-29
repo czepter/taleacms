@@ -34,8 +34,8 @@ final class AskBox
         $current ??= ['v' => Build::VERSION, 'children' => []];
         $db = $app->db();
         $mayDelete = $app->settings()->bool('claude_destructive');
-        $schema = Build::schema(false, $language, false, \Talea\Core\Extensions::enabled($app->settings()));
-        $vocabulary = Build::overview($schema);
+        $schema = ElementSchema::schema(false, $language, false, \Talea\Core\Extensions::enabled($app->settings()));
+        $vocabulary = ElementSchema::overview($schema);
         unset($vocabulary['rules']);
         $reply = \Talea\Core\Language::runWith($language, fn (): array => $assistant->editBuild($request, PublicIds::buildOut($db, Build::compact($current)),
             preg_match('/^[A-Za-z0-9_-]{1,40}$/', $selected) === 1 ? $selected : '', $page, $language, $mayDelete, (string) json_encode($vocabulary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));

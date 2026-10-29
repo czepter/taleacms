@@ -16,7 +16,7 @@ final class ExtensionsTest extends TestCase
             \Talea\Core\Extensions::CATALOG['bookings'][2],
             array_values(array_intersect(['bookings', 'stats'], \Talea\Core\Extensions::enabled(FakeSettings::site(['extensions' => ''])))),
             \Talea\Admin\Modules\Bookings::EXTENSION, \Talea\Builder\Elements\Booking::EXTENSION,
-            in_array(\Talea\Builder\Elements\Booking::TYPE, \Talea\Builder\Build::disabledTypes(['news', 'enquiries']), true), in_array(\Talea\Builder\Elements\Booking::TYPE, \Talea\Builder\Build::disabledTypes(['bookings']), true),
+            in_array(\Talea\Builder\Elements\Booking::TYPE, \Talea\Builder\ElementSchema::disabledTypes(['news', 'enquiries']), true), in_array(\Talea\Builder\Elements\Booking::TYPE, \Talea\Builder\ElementSchema::disabledTypes(['bookings']), true),
             ], '3.2: Bookings is a feature that new installations start without; a site that never saved its choice does not get it');
         $this->assertSame([false, true, [''], 6], [
             \Talea\Core\Booking::isOn(FakeSettings::site(['extensions' => 'news,claude'])), \Talea\Core\Booking::isOn(FakeSettings::site(['extensions' => 'news,bookings'])),

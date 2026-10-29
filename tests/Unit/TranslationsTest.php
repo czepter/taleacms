@@ -190,8 +190,8 @@ final class TranslationsTest extends TestCase
     public function testBuilderTexts(): void
     {
         $builderScripts = '';
-        foreach (['builder', 'builder-overlay', 'builder-handles', 'builder-keys', 'builder-compose'] as $builderScript) { // the editor and the compose scripts (direct manipulation on the canvas)
-            $builderScripts .= (string) file_get_contents(TALEA_ROOT . '/image/' . $builderScript . '.js');
+        foreach (glob(TALEA_ROOT . '/image/builder/*.js') ?: [] as $builderScript) { // the editor's ES modules, the direct manipulation on the canvas included
+            $builderScripts .= (string) file_get_contents($builderScript);
         }
         preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", $builderScripts, $enJs);
         preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-en.js'), $enJsDictionary);
@@ -200,7 +200,7 @@ final class TranslationsTest extends TestCase
         $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode((string) preg_replace('/,\s*\}$/', '}', $csJsDictionary[1] ?? '{}'), true))];
         $this->assertSame([], array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu'])), 'Builder: all editor texts have an English translation');
         $enAdmin = (require TALEA_ROOT . '/system/languages/admin-en.php') + (require TALEA_ROOT . '/system/languages/admin-cs.php');
-        $enSchema = \Talea\Builder\Build::schema(true, 'cs', true);
+        $enSchema = \Talea\Builder\ElementSchema::schema(true, 'cs', true);
         $enTexts = array_merge(array_column($enSchema['elements'], 'name'), array_column($enSchema['elements'], 'description'), array_column($enSchema['elements'], 'group'), array_values($enSchema['style_groups']));
         $enFields = function (array $properties) use (&$enFields, &$enTexts): void {
             foreach ($properties as $d) {

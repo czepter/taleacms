@@ -12,6 +12,7 @@ use Talea\Builder\SiteParts;
 use Talea\Builder\Components;
 use Talea\Builder\Elements\Form;
 use Talea\Builder\Build;
+use Talea\Builder\FormLogic;
 
 /**
  * Submission of a builder form (POST /form). Fields and recipient are taken from the PUBLISHED build by source and
@@ -92,17 +93,39 @@ final class Forms
         $fields = $element['content']['fields'];
         $answers = [];
         foreach ($fields as $i => $f) {
-            $answers[$i] = $f['type'] === 'checkboxes' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
+            $answers[$i] = match ($f['type']) {
+                'checkboxes' => array_values(array_intersect(Form::options($f), $r->postList('p' . $i))),
+                // a time range arrives as two times; both empty = no answer, anything else is checked in the loop below
+                'timerange' => ($times = array_map('trim', $r->postList('p' . $i))) === [] || implode('', $times) === '' ? '' : implode('-', $times),
+                default => trim($r->post('p' . $i)),
+            };
         }
-        $visible = Form::visible($fields, $answers);
+        $calculation = FormLogic::evaluate($element['content'], $answers);
+        $visible = $calculation['visible'];
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
+        // the first estimate field is the form's result (FormLogic::evaluate, Front\FormResult); another one would store it twice
+        $firstEstimate = array_search('estimate', array_column($fields, 'type'), true);
         foreach ($element['content']['fields'] as $i => $field) {
-            if ($field['type'] === 'step' || !($visible[$i] ?? true)) {
+            // the estimate is stored even when a rule hides it: the result link needs it (Front\FormResult)
+            if ($field['type'] === 'step' || ($field['type'] === 'estimate' && $i !== $firstEstimate) || (!($visible[$i] ?? true) && !($field['type'] === 'estimate' && $calculation['after_contact']))) {
                 continue;
             }
             $types[] = $field['type'];
             if ($field['type'] === 'estimate') {
-                $data[] = [$field['label'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['base_price'] ?? '')), mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10))];
+                $variant = FormResult::variant($element['content'], $calculation['variant']);
+                $data[] = [$field['label'], $variant === null ? $calculation['shown'] : $variant['heading'] . ($variant['show_amount'] ? "\n" . $calculation['shown'] : '')];
+                if ($calculation['lines'] !== []) {
+                    $data[] = [t('Breakdown'), implode("\n", FormResult::lines($element['content'], $calculation['lines']))];
+                    $types[] = 'info';
+                }
+                continue;
+            }
+            if ($field['type'] === 'timerange') {
+                $range = (string) $answers[$i];
+                if (($range !== '' && FormLogic::value($field, $range) === null) || ($field['required'] && $range === '')) {
+                    return $redirectUri('field', $i);
+                }
+                $data[] = [$field['label'], str_replace('-', ' – ', $range)];
                 continue;
             }
             if ($field['type'] === 'file') {
@@ -209,10 +232,15 @@ final class Forms
                 // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
                 // content, so the form cannot be abused to send out other people's texts
                 $siteSettings = $this->app->settings();
+                $resultBlock = $calculation['after_contact'] ? FormResult::mailBlock($element['content'], $answers, $calculation) : '';
                 $nextSteps = NextSteps::text($this->app, $element['content']);
-                Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
+                Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($resultBlock !== '' ? "\n\n" . $resultBlock : '') . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
                     . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
             }
+        }
+        if ($calculation['after_contact']) {
+            // the result shows at the form by a signed link; the thank-you page does not apply
+            return Response::redirect(FormResult::url($this->app, $back, $element, $db->publicId('enquiries', $idp), $calculation['variant']), 303);
         }
         $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 

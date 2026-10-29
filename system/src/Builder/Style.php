@@ -132,7 +132,7 @@ final class Style
     ];
 
     /**
-     * Keyframes of the scroll animations: name => [keyframes, animation-range]. Build::css adds only those a page uses.
+     * Keyframes of the scroll animations: name => [keyframes, animation-range]. Renderer::css adds only those a page uses.
      */
     public const array KEYFRAMES = [
         'tl-appear' => ['from { opacity: 0; }', 'entry 0% cover 28%'],

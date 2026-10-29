@@ -66,7 +66,13 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 
 - `/` is the home page (setting `home_page`, in a language version its counterpart `translation_of`); the home page on its own address
   redirects 301 to `/`. News at `/news`, `/news/<slug>` (+ `.md`), `/news/category/<slug>`, `/news/tag/<slug>`. Pages at `/<slug>`;
-  reserved addresses: `Modules\Pages::RESERVED_SLUGS`. `GET /health` is the orchestrator probe.
+  reserved addresses: `Kernel::reservedSlugs()` (the route table + the addresses outside it). `GET /health` is the orchestrator probe.
+- **Routing:** `Kernel::handle()` runs the guards in a fixed order (add-on early hook, redirects, demo, import, OAuth, maintenance, old
+  WordPress links, waiting media, the page cache), then the route table `Kernel::routes()` (`Front\Router`: method, pattern with
+  `{placeholders}`, a named condition, a `[class, method]` handler; the first route that answers wins, `null` lets the next one try). The
+  order is behaviour; `tools/contracts/routes.json` records it. Handlers: `Front\NewsPages`, `Front\CollectionPages`, `Front\Endpoints`
+  (addresses without the page frame) and `Kernel` (home, pages, previews, members); every page goes through `Front\PageFrame::page()`.
+  Add-on routes run after every core route, before pages and collections, and cannot take a reserved prefix.
 - **Themeless:** the page frame is `system/views/front/base.php` + `image/template.css`; the views cannot be overridden and PHP layouts
   are not used. The look comes from the design system, shared classes, components and site parts. `base.php` prints the head and foot
   blocks (SEO, structured data, measurement, cookie bar: `Front\Seo`). Take colours, fonts, scale and sizes from the design-system
@@ -77,7 +83,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Shared interactive pieces (gallery, photo viewer, video, outline, share, FAQ, edit-in-place) have style and script in
   `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them.
 - **Right to left** (Arabic, `ar`): `Language::isRtl()/dir()/dirAttribute()` give `<html dir>` per page language; site CSS uses logical properties, rules they cannot say
-  live in `Element::rtlCss()` (added by `Build::css` only on RTL pages); `image/web.js` follows `document.documentElement.dir`; the admin stays LTR (`bdi()` isolates typed
+  live in `Element::rtlCss()` (added by `Renderer::css` only on RTL pages); `image/web.js` follows `document.documentElement.dir`; the admin stays LTR (`bdi()` isolates typed
   values in lists, content fields get `dir`); split lines with `\R/u`, never byte-wise. `slugify()` transliterates Arabic; a title with nothing to transliterate gets `Slug::fromId` (`page-12`).
 - Language versions: the column `language` ('' = default) on pages, categories and news; every public query filters by
   `Language::siteColumn()`; `App::url()` adds `/en/` only to addresses without an extension.
@@ -96,7 +102,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - The site address is the setting `site_url`, not the Host header; absolute addresses come from `$app->request->origin()`.
 - Images: variants and WebP in `Core\Images::save()`, `srcset` in `Front\NewsRepository::prepare()`, dimensions in `Front\ImageHtml::complete()`.
   News lists do not load long texts (`Front\NewsRepository::LIST_COLUMNS`; a new column is added there too).
-- Edit in place (`Kernel::editInPlace()`): "Edit here" for signed-in people with the right; saves go through `save_text` in `Modules\News` and `Modules\Pages`.
+- Edit in place (`PageFrame::editInPlace()`): "Edit here" for signed-in people with the right; saves go through `save_text` in `Modules\News` and `Modules\Pages`.
 
 ## Builder and design system
 
@@ -115,18 +121,22 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   without layout (`Build::asText`) is stored in `text` for search, llms.txt, the API and the return to text. The draft preview is
   `?build=draft` (needs the Pages right), `&editor=1` adds `data-tl-id`. A signed preview link (`Core\Preview`, HMAC, one target,
   limited time) is returned by every write.
-- **Editor** `image/builder.js` + `builder.css`: the canvas is the real page in an iframe, autosave of the draft, the section library
+- **Editor** `image/builder/` (native ES modules, no build step; `builder.php` loads only `main.js?v=…`, the imports carry no version, so
+  the servers send `image/builder/` with `Cache-Control: no-cache`) + `builder.css`: `core.js` (state, tree, history, saving, selection, keys),
+  `canvas.js`, `panels.js` (top bar, Add, Structure), `inspector.js`; what `core.js` calls in the others goes through its `ui` registration
+  (filled by `main.js`), never a circular import. The canvas is the real page in an iframe, autosave of the draft, the section library
   `Builder\Library`, versions. Site parts (`Builder\SiteParts`: header, footer, wrappers), pop-ups (`Builder\Popups`), components
   (`Builder\Components`), collections (`Builder\Collections`) and the schema.org element (`Builder\StructuredData`, vocabulary in
   `system/data/schemaorg.json`, generated by `tools/schemaorg-vocabulary.php`) share the builder actions (`Admin\BuilderActions`).
-  **Direct manipulation on the canvas** (`docs/specs/visual-compose.md`, phase A): `builder-overlay.js` (overlay layer inside the iframe,
-  floating toolbar, move gesture, marquee, file drop), `builder-handles.js` (spacing, resize, column dividers), `builder-keys.js`; they talk to
-  the editor only through `window.taleaBuilder`. Gestures are pointer events; they write the normal `Style` of the current breakpoint in one
-  `applyChange` (one undo step), snap to tokens measured on the canvas (never recomputed in JS) and add no style property, so MCP is unchanged.
+  **Direct manipulation on the canvas** (`docs/specs/visual-compose.md`, phase A): `overlay.js` (overlay layer inside the iframe,
+  floating toolbar, move gesture, marquee, file drop), `handles.js` (spacing, resize, column dividers), `keys.js`; they import what they need
+  from `core.js`/`canvas.js` and share `overlay.js`'s `C`; `window.taleaBuilder` is only a handle for `tools/test-browser.mjs`. Gestures are
+  pointer events; they write the normal `Style` of the current breakpoint in one `applyChange` (one undo step), snap to tokens measured on
+  the canvas (never recomputed in JS) and add no style property, so MCP is unchanged.
   **Compose section** (phase B): the Section content field `layout` = `stack` | `compose` (+ `stack_from`): a fixed 12-column grid, rows of
   `--tl-space-l` (`Elements\Section::composeCss`, only on pages that use it, `Context::$compose`). The direct children are placed by the style
   properties `grid_column_start/end` (lines 1–13), `grid_row_start/end` (1–40) and `layer` (below|base|above|top); `Build::sanitize` drops them
-  (reported) anywhere else, so overlap exists only there. Tablet and phone stack the children in source order (CSS). Editor: `builder-compose.js`
+  (reported) anywhere else, so overlap exists only there. Tablet and phone stack the children in source order (CSS). Editor: `compose.js`
   (column overlay, move grip and eight resize handles snapping to grid lines, Stack ⇄ Compose conversion, tidy up, layers).
 - **No invented content** (#54): starter sections, elements' defaults and templates carry bracketed placeholders (`[Customer’s name]`, `[number]`, `[price]`), never realistic reviews, people, figures or prices. `Builder\SampleContent` finds them (and the demo texts of older starters) in a build, a text, news or a collection item; it warns in the MCP pre-publish `check`, the builder's check, the content check and `site_audit` (kind `sample`), and Claude's guide says to ask the owner. It never blocks publishing. New starter text: use a placeholder, not an invented value.
 - **Looks gallery** (`Builder\Looks`, data in `system/looks/<key>.json`): 14 finished looks = design system (colours with a dark mode incl. optional
@@ -138,6 +148,8 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   builder for administrators).
 - **Forms** (element `form`, `Front\Forms`, `POST /form`): fields and recipient are read from the PUBLISHED build by `source` + element id,
   never from the request; `Core\Antispam` (signed time, honeypot, per-IP limit) without cookies; the result is only a code in the URL.
+  The script of forms (steps, rules, the live estimate, the step beacon `POST /form-step`) is `image/forms.js`, only on pages with a form;
+  rules and results are edited in the builder's logic overlay (`image/builder/form-logic.js`, logic in `Builder\FormLogic`).
 - **HTML to build** (`Builder\HtmlConverter`): semantic HTML + a `<style>` with single-class rules become elements and classes.
 
 ## Content and services

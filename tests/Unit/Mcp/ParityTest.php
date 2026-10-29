@@ -20,7 +20,7 @@ final class ParityTest extends TestCase
             'build_ask' => 'admin: the Ask box edits the draft with the operations of edit_build under the same guardrails (#31) – Claude uses edit_build itself',
             'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
             'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
-            'build_share' => 'preview_link', 'build_versions' => $readOnly, 'build_compare' => 'compare_build_version', 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
+            'build_share' => 'preview_link', 'build_versions' => $readOnly, 'build_compare' => 'compare_build_version', 'build_form_try' => 'try_form', 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
             'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Talea site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
         ];
         $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',

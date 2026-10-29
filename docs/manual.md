@@ -248,6 +248,38 @@ server, the secret key never leaves the admin, and a single form can opt out in 
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `talea:form_sent` event (and a `dataLayer` entry).
 
+**Quick check with an estimate (quiz).** A form can ask a few questions and answer with a first price – put the section
+*Quick check with estimate* on a page, or turn any form into one. Use **Step** fields to split the form into screens (a
+progress bar shows where the visitor is). A single-choice or several-choice question can show **image tiles** or **icon
+tiles** (one image from Media or one icon per option, in the order of the options), a number can be a **slider** (lowest,
+highest, step), and **Time range** counts the hours from – to (22:00–02:00 is four hours). "Go to the next step when an option
+is chosen" saves a click on single-choice questions. Options carry amounts as `Label | 1200`; the **Price estimate** field adds
+them up and shows a range (percent below and above, rounded to a multiple, with a lowest amount) and a breakdown.
+Texts in square brackets in the starter section are placeholders: replace every one with your own wording and amounts.
+
+*Show the estimate* has two modes. **While answering** shows the running total. **After the visitor sent their contact details**
+puts no amount in the page at all: the visitor answers, leaves name and e-mail, and is taken back to the same page, where the
+result appears at the form. The result belongs to a signed link that works for 24 hours; after that, or if the enquiry was
+deleted or anonymised, the visitor sees "This result is no longer available." with the form's button, never any contact
+data. A thank-you page does not apply in this mode. If the form sends a confirmation, it can carry the result (the heading,
+the chosen options and the breakdown, never what the visitor typed). The enquiry stores the answers plus two entries, the
+result and the breakdown; the notification, CSV, webhook and CRM delivery work as before.
+
+**Edit logic…** at the form opens a screen with three tabs. **Rules**: each rule is a readable sentence in run order (drag to
+reorder) – if *all* or *any* of the conditions hold (is, is not, contains, greater, smaller, between, weekday, month, empty),
+then add an amount, add an amount times a number, multiply the total, skip a question, show a question only then, or choose a
+result. A rule that names a question or an option which no longer exists is marked as broken and does nothing until you fix
+or delete it; renaming a question keeps its rules working. **Results**: the result variants (heading, text, show the amount
+or not, a button with a link, an image) – for example "we make you a personal offer" for a case the price cannot cover.
+**Try it**: answer the questions and see which questions are visible, every line of the breakdown, the total, the range and
+the result, computed by the server from the current draft. Claude does the same over the connection: it reads and writes
+the rules with the page build and checks a quiz with `try_form`.
+
+**Where visitors drop out.** Open **Enquiries → Forms** and a form: for each step it shows how many of the visitors who started
+reached it, and points out the weakest step. Counting starts with the visitor's first answer; steps skipped by a rule send
+nothing; nothing is stored about the person (no cookie, no answers, no amounts). Claude reads the same numbers with
+`get_stats` (key `form_steps`).
+
 **Google Tag Manager** (Settings → Analytics, 2.6): enter the container ID (`GTM-…`). Consent mode is built in – with the
 built-in cookie bar the container starts only after the visitor allows analytics or marketing. Talea sends conversion
 events to the data layer: `generate_lead` (a form was sent), `sign_up` (newsletter), `popup_conversion`, `click_phone`,

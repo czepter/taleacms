@@ -15,10 +15,10 @@ final class Context
     /** The page has an element with a display condition – it must not go into the page cache. */
     public bool $withoutCache = false;
 
-    /** The page has a Compose section: Build::css adds its grid CSS (a page without one weighs nothing extra). */
+    /** The page has a Compose section: Renderer::css adds its grid CSS (a page without one weighs nothing extra). */
     public bool $compose = false;
 
-    /** The page has a slider (carousel, gallery slideshow): Build::css adds the CSS of its arrows and dots. */
+    /** The page has a slider (carousel, gallery slideshow): Renderer::css adds the CSS of its arrows and dots. */
     public bool $slider = false;
 
     /** @var array<string, true> element types on the page */

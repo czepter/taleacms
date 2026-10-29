@@ -489,6 +489,17 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    or 24 hours; e-mail and passkey changes need the password; no third-party CAPTCHA on the reporting channel, reports in
    a flood are accepted and flagged; the right page password always opens the page.
 
+## Next – quick checks with an estimate (not released yet)
+
+1. **A quiz in the Form element:** steps with a progress bar, answer tiles with an image or an icon, a slider, a time range,
+   and rules (all-of / any-of, comparisons, weekday, month) that add amounts, multiply, quantify by a number, skip a
+   question or choose a result variant. The estimate is a rounded range with a breakdown.
+2. **The price after the contact details:** in the mode "after the visitor sent their contact details" no amount is in the
+   page; the visitor sees the result by a signed link valid for 24 hours, and the confirmation e-mail can carry it.
+3. **Edit logic…** in the inspector: Rules, Results and Try it. Claude does the same over MCP and checks a quiz with `try_form`.
+4. **Where visitors drop out:** per form and step in Enquiries → Forms, and `get_stats` → `form_steps`, without cookies.
+5. **A ready-made section** "Quick check with estimate" with placeholders only.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

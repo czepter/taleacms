@@ -35,11 +35,18 @@ final class MailRecipientsTest extends TestCase
                 'mail_reply_to' => 'office@example.com', 'mail_reply_to_name' => 'Office']);
             $this->assertTrue(Mail::deliverNow($settings, 'first@example.com, second@example.com', 'Enquiry', 'text', '', ['Reply-To' => 'visitor@example.com', 'Bcc' => 'hidden@example.com']), Mail::$error);
             $this->assertTrue(Mail::deliverNow($settings, 'first@example.com', 'Notice', 'text', ''), Mail::$error);
+            $this->assertFalse(Mail::deliverNow($settings, 'first@example.com', 'Spam', 'REFUSE-THIS-MESSAGE', ''));
+            $this->assertTrue(Mail::$refused, 'a 5xx reply to the message is final: it is not retried');
+            $this->assertStringContainsString('SMTP server reply to the message: 550 5.7.1', Mail::$error, 'the error names the message, not its first header');
+            $this->assertFalse(Mail::deliverNow($settings, 'odmitnout@example.com', 'Unknown', 'text', '')); // check-english: allow
+            $this->assertTrue(Mail::$refused, 'an unknown mailbox is final too');
+            $this->assertTrue(Mail::deliverNow($settings, 'first@example.com', 'Again', 'text', ''), Mail::$error);
+            $this->assertFalse(Mail::$refused);
             Mail::close();
             $files = [];
-            for ($i = 0; $i < 50 && count($files) < 2; $i++) {
+            for ($i = 0; $i < 50 && count($files) < 3; $i++) {
                 $files = glob($dir . '/*.eml') ?: [];
-                usleep(count($files) < 2 ? 100_000 : 0);
+                usleep(count($files) < 3 ? 100_000 : 0);
             }
             [$message, $notice] = array_map(fn ($file) => (string) file_get_contents($file), $files);
             $this->assertStringContainsString("\r\nFrom: =?UTF-8?B?" . base64_encode('Jana Nováková') . "?= <web@example.com>\r\n", $message, 'the sender name'); // check-english: allow

@@ -43,12 +43,6 @@ parameters:
 			path: system/src/Admin/Modules/Transfer.php
 
 		-
-			message: '#^Offset ''content'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: system/src/Builder/Build.php
-
-		-
 			message: '#^Match expression does not handle remaining value\: string$#'
 			identifier: match.unhandled
 			count: 1
@@ -179,6 +173,12 @@ parameters:
 			identifier: nullCoalesce.offset
 			count: 1
 			path: system/src/Builder/Looks.php
+
+		-
+			message: '#^Offset ''content'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Builder/Renderer.php
 
 		-
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
@@ -316,19 +316,19 @@ parameters:
 			message: '#^PHPDoc tag @param references unknown parameter\: \$meta$#'
 			identifier: parameter.notFound
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Property Talea\\Builder\\Context\:\:\$menu \(list\<array\{title\: string, slug\: string\}\>\) does not accept array\{main\: list\<array\<string, mixed\>\>, footer\: list\<array\<string, mixed\>\>\}\.$#'
 			identifier: assign.propertyType
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>withoutCache" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Method Talea\\Install\\Installer\:\:requirements\(\) should return list\<array\{nazev\: string, ok\: bool, info\: string\}\> but returns array\{0\: array\{name\: string, ok\: bool, info\: non\-falsy\-string\}, 1\: array\{name\: string, ok\: bool, info\: string\}, 2\: array\{name\: string, ok\: bool, info\: string\}, 3\: array\{name\: string, ok\: bool, info\: string\}, 4\?\: array\{name\: string, ok\: bool, info\: string\}\}\.$#'

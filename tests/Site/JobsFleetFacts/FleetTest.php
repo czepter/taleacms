@@ -89,6 +89,17 @@ final class FleetTest extends SiteTestCase
         $this->assertSame(403, $console->client()->post('/fleet/pair', json_encode(['action' => 'pair', 'code' => str_repeat('0', 32), 'public_key' => $key, 'url' => 'http://x.test', 'ts' => 0]))->status, 'console: pairing with an unknown code is refused');
     }
 
+    public function testAnUnsignedOrForgedUnpairIsRefused(): void
+    {
+        $console = $this->console();
+        $siteId = $console->publicId('fleet_sites', self::$fleetId);
+        $body = json_encode(['action' => 'unpair', 'site_id' => $siteId, 'ts' => time()]);
+        $this->assertSame(403, $console->client()->post('/fleet/unpair', $body)->status, 'console: an unsigned unpair is refused');
+        $this->assertSame(403, $console->client()->post('/fleet/unpair', $body, ['X-Talea-Signature: AAAA'])->status, 'console: an unpair with a wrong signature is refused');
+        $this->assertSame(403, $console->client()->post('/fleet/unpair', '{}')->status, 'console: an unpair of no site is refused');
+        $this->sameValue('1', $console->value('SELECT COUNT(*) FROM tl_fleet_sites WHERE id = ?', [self::$fleetId]), 'console: the site stays paired (the signed unpair is testDisconnectingAndAUsedKeyDoesNotPairAgain)');
+    }
+
     public function testTheHeartbeatJobReportsOnItsOwn(): void
     {
         $site = $this->site();

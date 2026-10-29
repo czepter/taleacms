@@ -16,6 +16,7 @@ use Talea\Core\Extensions;
 use Talea\Core\View;
 use Talea\Builder\Library;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 
 /**
  * Web installer: checks the server, creates the tables and the first administrator and writes config.php. Talea is
@@ -324,7 +325,7 @@ final class Installer
                 $row = ['title' => $title, 'slug' => $url, 'text' => $text, 'in_menu' => $inMenu, 'sort_order' => ($i + 1) * 10];
                 if (($siteSettings['pages'][$i] ?? []) !== []) {
                     // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
-                    $build = Library::page($db, $siteSettings['pages'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
+                    $build = Library::page($db, $siteSettings['pages'][$i], $title, $siteLanguage, ElementSchema::disabledTypes($extensions), true);
                     $row['build'] = Build::toJson($build);
                     $row['text'] = Build::asText($build);
                 }
