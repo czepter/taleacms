@@ -424,7 +424,7 @@ final class Seo
      * them like any other text.
      */
     public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close',
-        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.', 'Back', 'Next', 'Step',
+        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.', 'Back', 'Next', 'Step', 'about %s', 'from %s',
         'Previous month', 'Next month', 'No free times on this day.', 'Choose a service first.', 'Loading…', 'Chosen time: %s', 'Slide %s of %s'];
 
     /**

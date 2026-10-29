@@ -17,21 +17,7 @@ final class BrowserWalkTest extends TestCase
 {
     public function testAdminBuilderAndPublicSiteRunWithoutScriptErrors(): void
     {
-        $chrome = getenv('CHROME') ?: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-        if (!is_file($chrome)) {
-            $this->markTestSkipped('No Chrome (set CHROME=/path/to/chrome).');
-        }
-        if (trim((string) shell_exec('command -v node')) === '') {
-            $this->markTestSkipped('No node.');
-        }
-        $modules = sys_get_temp_dir() . '/talea-playwright';
-        if (!is_dir($modules . '/node_modules/playwright-core')) {
-            @mkdir($modules, 0775, true);
-            exec('npm i --silent --prefix ' . escapeshellarg($modules) . ' playwright-core@1 2>&1', $out, $code);
-            if ($code !== 0) {
-                $this->markTestSkipped('npm i playwright-core failed (no network?): ' . implode(' ', array_slice($out, -3)));
-            }
-        }
+        [$chrome, $modules] = $this->playwright();
 
         try {
             $site = Site::boot([
@@ -104,6 +90,93 @@ final class BrowserWalkTest extends TestCase
             $this->assertSame(0, $exit, $output);
             $log = $site->path('storage/log/errors.log');
             $this->assertSame('', is_file($log) ? (string) file_get_contents($log) : '', 'application error log');
+        } finally {
+            $site->close();
+        }
+    }
+    /** @return array{0: string, 1: string} Chrome and the folder with playwright-core; skips the test without them */
+    private function playwright(): array
+    {
+        $chrome = getenv('CHROME') ?: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+        if (!is_file($chrome)) {
+            $this->markTestSkipped('No Chrome (set CHROME=/path/to/chrome).');
+        }
+        if (trim((string) shell_exec('command -v node')) === '') {
+            $this->markTestSkipped('No node.');
+        }
+        $modules = sys_get_temp_dir() . '/talea-playwright';
+        if (!is_dir($modules . '/node_modules/playwright-core')) {
+            @mkdir($modules, 0775, true);
+            exec('npm i --silent --prefix ' . escapeshellarg($modules) . ' playwright-core@1 2>&1', $out, $code);
+            if ($code !== 0) {
+                $this->markTestSkipped('npm i playwright-core failed (no network?): ' . implode(' ', array_slice($out, -3)));
+            }
+        }
+
+        return [$chrome, $modules];
+    }
+
+    /** the script mirrors the server: same hidden questions, same total and estimate, and the quiz flow works (tools/test-form-logic.mjs) */
+    public function testFormLogicMatchesTheServer(): void
+    {
+        [$chrome, $modules] = $this->playwright();
+        try {
+            $site = Site::boot(['web' => 'business', 'siteName' => 'Browser Test Ltd', 'language' => 'en', 'extensions' => ['enquiries', 'claude'], 'enabledExtensions' => 'enquiries,claude']);
+        } catch (\PDOException $e) {
+            $this->markTestSkipped('No MySQL reachable: ' . $e->getMessage());
+        }
+        try {
+            $publish = function (string $slug, array $content) use ($site): void {
+                $site->mcpResult('create_page', ['title' => $slug, 'slug' => $slug, 'visible' => true]);
+                $saved = $site->mcpResult('save_build', ['id' => $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', [$slug]), 'publish' => true,
+                    'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => $content]]]]]]);
+                $this->assertEmpty($saved['errors'] ?? null, $slug . ': ' . json_encode($saved['errors'] ?? null));
+            };
+            $estimate = ['key' => 'kest9', 'label' => 'Estimate', 'type' => 'estimate', 'base_price' => '10', 'range_below' => 10, 'range_above' => 20, 'round_to' => 5, 'unit_suffix' => '€'];
+            $cases = [];
+            foreach (json_decode((string) file_get_contents(dirname(__DIR__) . '/Fixtures/form-logic.json'), true) as $n => $case) {
+                // every fixture as it is (visibility), and once more as a live form with an estimate, which the server evaluates
+                foreach ([false, true] as $live) {
+                    $content = $case['content'];
+                    if (($content['calculation'] ?? '') === 'live' && !$live) {
+                        continue; // a live fixture is run in its live form below
+                    }
+                    if ($live) {
+                        $content['calculation'] = 'live';
+                        $content['fields'] = array_values(array_filter($content['fields'], fn (array $f): bool => $f['type'] !== 'estimate'));
+                    }
+                    if (!in_array('estimate', array_column($content['fields'], 'type'), true)) {
+                        $content['fields'][] = $estimate; // a form that shows its result later needs one too
+                    }
+                    $answers = [];
+                    foreach ($case['answers'] as $index => $value) {
+                        $answers[(int) $index] = $value;
+                    }
+                    $server = \Talea\Builder\FormLogic::evaluate($content, $answers);
+                    $slug = 'logic-' . $n . ($live ? '-live' : '');
+                    $publish($slug, $content);
+                    $cases[] = ['name' => $case['name'] . ($live ? ' (live)' : ''), 'slug' => $slug, 'fields' => $content['fields'], 'answers' => $case['answers'],
+                        'visible' => array_values(array_map('boolval', $server['visible'])), 'total' => $live ? $server['total'] : null,
+                        'shown' => $live ? str_replace("\u{a0}", ' ', $server['shown']) : null];
+                }
+            }
+            $publish('quiz', ['name' => 'Roof quiz', 'fields' => [
+                ['key' => 'kroo0', 'label' => 'Roof', 'type' => 'radio', 'choices' => "Pitched\nFlat", 'advance' => true],
+                ['label' => 'Details', 'type' => 'step'],
+                ['key' => 'kdet0', 'label' => 'Detail', 'type' => 'text'],
+                ['label' => 'Contact', 'type' => 'step'],
+                ['key' => 'kmai0', 'label' => 'Email', 'type' => 'email'],
+            ], 'logic' => ['rules' => [['label' => 'Flat', 'match' => 'all', 'when' => [['field' => 'kroo0', 'op' => 'is', 'value' => 'Flat']], 'then' => [['do' => 'skip', 'field' => 'kdet0']]]], 'results' => []]]);
+
+            $file = sys_get_temp_dir() . '/talea-form-logic-' . getmypid() . '.json';
+            file_put_contents($file, json_encode(['cases' => $cases, 'quiz' => ['slug' => 'quiz']]));
+            $project = dirname(__DIR__, 2);
+            $process = proc_open(['node', $project . '/tools/test-form-logic.mjs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $project,
+                array_merge(getenv(), ['BASE' => $site->base, 'CHROME' => $chrome, 'NODE_PATH' => $modules . '/node_modules', 'CASES' => $file]));
+            $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+            $exit = proc_close($process);
+            @unlink($file);
+            $this->assertSame(0, $exit, $output);
         } finally {
             $site->close();
         }
