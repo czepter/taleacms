@@ -138,6 +138,8 @@
 			if (r.when.some((c) => ['is', 'is_not', 'contains', 'not_contains'].includes(c.op) && optionsOf(byKey[c.field]).length && !optionsOf(byKey[c.field]).includes(c.value))) {
 				out.push(T('A condition names an answer the question no longer offers: the rule does nothing until you fix it.'));
 			}
+			// the browser sees a file's name, the server nothing: a rule cannot ask about an upload (FormLogic::sanitize marks it broken)
+			if (r.when.some((c) => byKey[c.field] && byKey[c.field].type === 'file')) { out.push(T('A condition asks about a file upload, which rules cannot read: the rule does nothing until you fix it.')); }
 			if (r.broken && !out.length) { out.push(T('This rule names a question, answer or result that no longer exists: it does nothing until you fix it.')); }
 			return out;
 		}
@@ -179,7 +181,7 @@
 
 		function conditionRow(r, c, j, redraw, touched) {
 			return el('div', { class: 'bd-logic-row' },
-				questionSelect(T('Question'), c.field, (e) => { c.field = e.target.value; settle(c); redraw(); }, null, (q) => position[q.key] >= firstTargetOf(r)),
+				questionSelect(T('Question'), c.field, (e) => { c.field = e.target.value; settle(c); redraw(); }, null, (q) => q.type === 'file' || position[q.key] >= firstTargetOf(r)),
 				el('select', { 'aria-label': T('Condition'), disabled: !byKey[c.field], onchange: (e) => { c.op = e.target.value; settle(c); redraw(); } },
 					(byKey[c.field] ? operatorsOf(byKey[c.field]) : [c.op]).concat(c.op && byKey[c.field] && !operatorsOf(byKey[c.field]).includes(c.op) ? [c.op] : [])
 						.map((op) => el('option', { value: op, selected: op === c.op }, T(OPS[op] || '…')))),
@@ -392,7 +394,7 @@
 			el('div', { class: 'bd-logic-head' }, heading, tabs),
 			el('div', { class: 'bd-logic-body' },
 				el('aside', { class: 'bd-logic-questions', 'aria-label': T('Questions') }, el('span', { class: 'bd-logic-title' }, T('Questions')),
-					questions.length ? el('ol', {}, questions.map((q) => el('li', {}, el('button', { type: 'button', title: T('Use in a condition'), onclick: () => pickQuestion(q) }, q.label || T('(no label)'))))) : el('p', { class: 'bd-empty' }, T('The form has no questions yet.'))),
+					questions.length ? el('ol', {}, questions.map((q) => el('li', {}, el('button', { type: 'button', title: T('Use in a condition'), disabled: q.type === 'file', onclick: () => pickQuestion(q) }, q.label || T('(no label)'))))) : el('p', { class: 'bd-empty' }, T('The form has no questions yet.'))),
 				pane),
 			el('footer', {}, live ? el('p', { class: 'bd-logic-hint' }, T('The estimate shows while answering: “Multiply” and result variants work only when it shows after the contact details (Show the estimate, in the inspector).')) : null,
 				el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => d.close() }, T('Done'))));

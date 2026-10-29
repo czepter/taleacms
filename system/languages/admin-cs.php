@@ -4616,6 +4616,7 @@ return [
     'The form has expired. Reload the page and try again.' => 'Platnost formuláře vypršela. Obnovte stránku a zkuste to znovu.',
     'The form sent more fields than the server accepts, so nothing was saved. Edit fewer pages at once.' => 'Formulář poslal víc polí, než server přijme, proto se nic neuložilo. Upravujte méně stránek najednou.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Formulář odešel dřív, než jsme stihli ověřit, že ho posílá člověk. Počkejte prosím chvilku a odešlete ho znovu.',
+    'The form “%s” has rules that do nothing until you fix them in the form logic: %s.' => 'Formulář „%s“ má pravidla, která nic nedělají, dokud je v logice formuláře neopravíte: %s.',
     'The gallery and its images were deleted.' => 'Galerie a její obrázky byly smazány.',
     'The gallery could not be saved.' => 'Galerii se nepodařilo uložit.',
     'The gallery has no name for screen readers.' => 'Galerie nemá název pro čtečky obrazovky.',

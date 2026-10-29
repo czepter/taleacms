@@ -4623,6 +4623,7 @@ return [
     'The form has expired. Reload the page and try again.' => 'Das Formular ist abgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.',
     'The form sent more fields than the server accepts, so nothing was saved. Edit fewer pages at once.' => 'Das Formular hat mehr Felder gesendet, als der Server annimmt, deshalb wurde nichts gespeichert. Bearbeiten Sie weniger Seiten auf einmal.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Das Formular wurde gesendet, bevor wir prüfen konnten, dass es von einer Person stammt. Bitte warten Sie einen Moment und senden Sie es erneut.',
+    'The form “%s” has rules that do nothing until you fix them in the form logic: %s.' => 'Das Formular „%s“ hat Regeln, die erst wirken, wenn Sie sie in der Formularlogik korrigieren: %s.',
     'The gallery and its images were deleted.' => 'Die Galerie und ihre Bilder wurden gelöscht.',
     'The gallery could not be saved.' => 'Die Galerie konnte nicht gespeichert werden.',
     'The gallery has no name for screen readers.' => 'Die Galerie hat keinen Namen für Screenreader.',

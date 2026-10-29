@@ -323,8 +323,8 @@ reserved list in `Build::ATTRIBUTE_PATTERN`.
 - Rule labels, variant texts and option labels are content: a language version of the page has its own build and so its
   own logic. Visitor-facing default texts (the "you will see your estimate after sending" note, "no longer available")
   go through `t()` and, if owners should change them, `Settings::TRANSLATED_DEFAULTS`.
-- A library section **(my call)** "Quick check with estimate" with bracketed placeholders (`[Question]`, `[Answer]`,
-  `[amount]`), never realistic prices.
+- A library section **(my call)** "Quick check with estimate" with bracketed placeholders (`[Question 1]`, `[Answer 1]` …)
+  and no amounts at all: the owner adds them (`[Answer 1] | 1200`).
 
 ## Mockups
 
@@ -358,7 +358,8 @@ These calls were made while building and change what an owner or builder notices
   can be stored and an unconditional skip hides its question.
 - **A broken rule is kept and does nothing.** A condition that names an unknown field or operator marks its rule broken:
   the overlay still shows it so it can be fixed, the site and `try_form` leave it out. The same applies to a rule that
-  names an option which was renamed or removed.
+  names an option which was renamed or removed, and to a condition on a file upload (the browser sees a file name, the
+  server no answer). Broken rules are listed by the builder check and the MCP `check` field (`Builder\Check`).
 - **`get_stats` keeps `forms` as before** and returns the funnels in a separate key `form_steps` (form, page, steps, sent).
 - **The dead-link result screen carries no `data-sent`**, so a tampered or expired link is never counted as a conversion.
   Old answers of that tab can stay in `sessionStorage`.
@@ -366,3 +367,9 @@ These calls were made while building and change what an owner or builder notices
   land on "no longer available" right after sending. An owner who hides the estimate on purpose still gets the number in
   the enquiry.
 - **Old step counters are pruned like `ip_checks`** (one write in 50), not by the cron.
+- **Hidden fields are never kept in `sessionStorage`**: their value is the page's own (a collection item, the basket), so
+  answers restored on another item page with the same form element would otherwise send the first item.
+- **Only the first estimate field is the result**: a second one is rendered but never stored, so an enquiry has one
+  estimate and one breakdown.
+- **A slider's number is held within its `min` and `max`** on the server (`FormLogic::value`), as the browser holds it.
+- **`/form-step` is off with the Enquiries feature** like `/form`, and checks the per-IP limit before it reads the build.
