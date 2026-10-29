@@ -48,4 +48,29 @@ try {
     fwrite(STDERR, 'Migration failed: ' . $e->getMessage() . "\n");
     exit(1);
 }
+
+// multisite startup guard (docs/specs/multisite.md): further sites without the flag would silently stay dark, so the start refuses;
+// with the flag on, site 1 answers to the host of its site address from the first start
+try {
+    $db = \Talea\Core\Db::fromConfig($config['db']);
+    if ($db->tableExists('sites')) {
+        if (!\Talea\Core\Sites::enabled()) {
+            if ((int) $db->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'") > 1) {
+                fwrite(STDERR, "This database has more than one site, but TALEA_MULTISITE is off. Set TALEA_MULTISITE=1 (or trash the further sites) and start again.\n");
+                exit(1);
+            }
+        } elseif ((int) $db->value('SELECT COUNT(*) FROM {site_domains} WHERE site_id = 1') === 0) {
+            $url = \Talea\Core\SiteUrl::fromEnvironment();
+            $host = \Talea\Core\Sites::addFirstDomain($db, $url !== '' ? $url : (string) $db->value("SELECT value FROM {settings} WHERE name = 'site_url'"));
+            if ($host !== null) {
+                echo "Site 1 answers to $host.\n";
+            } else {
+                fwrite(STDERR, "Warning: multisite is on, but site 1 has no domain and there is no site address to take it from (TALEA_SITE_URL).\n");
+            }
+        }
+    }
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Multisite check failed: ' . $e->getMessage() . "\n");
+    exit(1);
+}
 echo $applied === [] ? "Database is up to date.\n" : 'Applied ' . count($applied) . ' migration(s): ' . implode(', ', $applied) . "\n";

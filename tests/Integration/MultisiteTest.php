@@ -170,4 +170,26 @@ final class MultisiteTest extends DatabaseTestCase
             @unlink(Backup::FOLDER . '/' . $file);
         }
     }
+
+    public function testResolveFindsTheSiteOfAHost(): void
+    {
+        $db = $this->db();
+        $db->insert('site_domains', ['site_id' => 2, 'host' => 'second.example', 'is_primary' => true, 'redirect_to_primary' => false]);
+        $db->insert('site_domains', ['site_id' => 2, 'host' => 'www.second.example', 'is_primary' => false, 'redirect_to_primary' => true]);
+
+        $primary = Sites::resolve($db, 'second.example');
+        $this->assertSame(['tl2_', 2, 'paused', true, false, 'second.example'], [$primary['prefix'], $primary['site_id'], $primary['status'], $primary['is_primary'], $primary['redirect_to_primary'], $primary['primary_host']]);
+        $alias = Sites::resolve($db, 'www.second.example');
+        $this->assertSame([false, true, 'second.example'], [$alias['is_primary'], $alias['redirect_to_primary'], $alias['primary_host']]);
+        $this->assertNull(Sites::resolve($db, 'nobody.example'));
+        $this->assertSame('second.example', Sites::primaryHost($db, 2));
+        $this->assertNull(Sites::primaryHost($db, 1));
+    }
+
+    public function testTheFirstDomainComesFromTheSiteAddress(): void
+    {
+        $this->assertNull(Sites::addFirstDomain($this->db(), ''));
+        $this->assertSame('main.example', Sites::addFirstDomain($this->db(), 'https://Main.Example/'));
+        $this->assertSame(1, Sites::resolve($this->db(), 'main.example')['site_id']);
+    }
 }
