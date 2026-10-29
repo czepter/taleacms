@@ -12,6 +12,7 @@ use Talea\Builder\SiteParts;
 use Talea\Builder\Components;
 use Talea\Builder\Elements\Form;
 use Talea\Builder\Build;
+use Talea\Builder\FormLogic;
 
 /**
  * Submission of a builder form (POST /form). Fields and recipient are taken from the PUBLISHED build by source and
@@ -94,7 +95,8 @@ final class Forms
         foreach ($fields as $i => $f) {
             $answers[$i] = $f['type'] === 'checkboxes' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
         }
-        $visible = Form::visible($fields, $answers);
+        $calculation = FormLogic::evaluate($element['content'], $answers);
+        $visible = $calculation['visible'];
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
         foreach ($element['content']['fields'] as $i => $field) {
             if ($field['type'] === 'step' || !($visible[$i] ?? true)) {
@@ -102,7 +104,7 @@ final class Forms
             }
             $types[] = $field['type'];
             if ($field['type'] === 'estimate') {
-                $data[] = [$field['label'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['base_price'] ?? '')), mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10))];
+                $data[] = [$field['label'], $calculation['shown']];
                 continue;
             }
             if ($field['type'] === 'file') {

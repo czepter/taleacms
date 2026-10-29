@@ -6,6 +6,7 @@ namespace Talea\Tests\Unit\Front;
 
 use PHPUnit\Framework\TestCase;
 use Talea\Builder\Elements\Form as FormElement;
+use Talea\Builder\FormLogic;
 
 final class FormsTest extends TestCase
 {
@@ -41,12 +42,18 @@ final class FormsTest extends TestCase
         ];
         $this->assertSame([['Okna' => 1200.0, 'Dveře' => 9900.0, 'Poradenství' => 0.0], ['Montáž', 'Odvoz']], [FormElement::optionPrices($calcFields[0]), FormElement::options($calcFields[2])], '2.12 Form::optionPrices – "Label | price" lines, the visitor sees and sends only the label'); // check-english: allow
         $calcAnswers = [0 => 'Okna', 1 => '4', 2 => ['Montáž'], 3 => 'Dub', 4 => 'tmavý']; // check-english: allow
-        $calcVisible = FormElement::visible($calcFields, $calcAnswers);
+        foreach ($calcFields as $i => $f) {
+            $calcFields[$i]['key'] = 'k' . sprintf('%04d', $i);
+            $calcFields[$i]['show_when_field'] = $f['show_when_field'] ?? '';
+        }
+        $orphan = [['key' => 'kaaaa', 'label' => 'A', 'type' => 'text', 'show_when_field' => 'Nikde', 'show_when_value' => 'x']];
+        $rules = FormLogic::rules(['fields' => $calcFields]);
+        $calcVisible = FormLogic::visible($calcFields, $rules, $calcAnswers);
         $this->assertSame(// check-english: allow
             [false, false, true, true, false], [$calcVisible[3], $calcVisible[4], $calcVisible[0],
-            FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub'])[4], FormElement::visible([['label' => 'A', 'type' => 'text', 'show_when_field' => 'Nikde', 'show_when_value' => 'x']], [])[0]], '2.12 Form::visible – a condition on another answer, a chain of conditions, a missing field hides it'); // check-english: allow
-        $this->assertSame([500.0 + 1200 + 4 * 1500 + 2000, 9900.0 + 3000], [FormElement::estimate($calcFields, $calcAnswers, $calcVisible, 500.0),
-            FormElement::estimate($calcFields, [0 => 'Dveře', 1 => '', 2 => [], 3 => 'Dub'], FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub']), 0.0)], '2.12 Form::estimate – the base, chosen and ticked options and number × unit price, only of shown fields'); // check-english: allow
+            FormLogic::visible($calcFields, $rules, [0 => 'Dveře', 3 => 'Dub'])[4], FormLogic::visible($orphan, FormLogic::rules(['fields' => $orphan]), [])[0]], '2.12 FormLogic::visible – a condition on another answer, a chain of conditions, a missing field hides it'); // check-english: allow
+        $this->assertSame([500.0 + 1200 + 4 * 1500 + 2000, 9900.0 + 3000], [FormLogic::amounts($calcFields, $rules, $calcAnswers, $calcVisible, 500.0, false)['total'],
+            FormLogic::amounts($calcFields, $rules, [0 => 'Dveře', 1 => '', 2 => [], 3 => 'Dub'], FormLogic::visible($calcFields, $rules, [0 => 'Dveře', 3 => 'Dub']), 0.0, false)['total']], '2.12 FormLogic::amounts – the base, chosen and ticked options and number × unit price, only of shown fields'); // check-english: allow
         $this->assertSame(// check-english: allow
             [format_count(9700) . "\u{a0}Kč", format_count(12.5, 2), 1200.5], [FormElement::money(9700.0, 'Kč'), FormElement::money(12.5, ''), FormElement::price('1 200,50')], '2.12 Form::money – whole amounts without decimals, the currency after a no-break space'); // check-english: allow
     }

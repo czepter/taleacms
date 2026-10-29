@@ -365,6 +365,153 @@ final class FormLogic
         return $visible;
     }
 
+    /**
+     * The amounts of a form: the base, the prices of the chosen options, numbers x unit price (shown fields only), then the rules
+     * top to bottom. In "live" mode (not $afterContact) factors and result variants are ignored: the browser never sees them.
+     *
+     * @param list<array<string, mixed>> $fields
+     * @param list<array<string, mixed>> $rules
+     * @param array<int, string|list<string>> $answers
+     * @param array<int, bool> $visible
+     * @return array{lines: list<array{0: string, 1: float}>, total: float, variant: string}
+     */
+    public static function amounts(array $fields, array $rules, array $answers, array $visible, float $base, bool $afterContact): array
+    {
+        $fields = array_values($fields);
+        $lines = [];
+        if ($base != 0.0) {
+            $lines[] = [t('Base price'), $base];
+        }
+        foreach ($fields as $i => $f) {
+            if (!($visible[$i] ?? true)) {
+                continue;
+            }
+            $answer = $answers[$i] ?? '';
+            $type = (string) ($f['type'] ?? '');
+            if (isset(self::CHOICE_OPTIONS[$type])) {
+                $prices = Elements\Form::optionPrices($f);
+                foreach ((array) $answer as $chosen) {
+                    if (($prices[(string) $chosen] ?? 0.0) != 0.0) {
+                        $lines[] = [(string) $chosen, $prices[(string) $chosen]];
+                    }
+                }
+            } elseif ($type === 'number' && !is_array($answer) && ($n = self::value($f, $answer)) !== null && Elements\Form::price($f['unit_price'] ?? '') != 0.0) {
+                $lines[] = [(string) ($f['label'] ?? ''), $n * Elements\Form::price($f['unit_price'])];
+            }
+        }
+        $total = array_sum(array_column($lines, 1));
+        $variant = '';
+        $position = [];
+        foreach ($fields as $i => $f) {
+            if (self::str($f['key'] ?? '') !== '') {
+                $position[self::str($f['key'])] ??= $i;
+            }
+        }
+        foreach ($rules as $rule) {
+            if (($rule['when'] ?? []) !== [] && !self::ruleHolds($rule, $fields, $position, $visible, $answers, count($fields))) {
+                continue;
+            }
+            $label = (string) ($rule['label'] ?? '') !== '' ? (string) $rule['label'] : t('Adjustment');
+            foreach ($rule['then'] ?? [] as $action) {
+                $amount = null;
+                switch ($action['do'] ?? '') {
+                    case 'add':
+                        $amount = (float) ($action['amount'] ?? 0);
+                        break;
+                    case 'quantity':
+                        $p = $position[(string) ($action['field'] ?? '')] ?? null;
+                        $n = $p !== null && ($visible[$p] ?? true) && !is_array($answers[$p] ?? '') ? self::value($fields[$p], (string) ($answers[$p] ?? '')) : null;
+                        $amount = $n === null ? null : $n * (float) ($action['amount'] ?? 0);
+                        break;
+                    case 'multiply':
+                        $amount = $afterContact ? $total * ((float) ($action['by'] ?? 1) - 1) : null;
+                        break;
+                    case 'result':
+                        $variant = $afterContact && $variant === '' ? (string) ($action['variant'] ?? '') : $variant;
+                        break;
+                }
+                if ($amount !== null && $amount != 0.0) {
+                    $lines[] = [$label, round($amount, 2)];
+                    $total += $amount;
+                }
+            }
+        }
+
+        return ['lines' => $lines, 'total' => round($total, 2), 'variant' => $variant];
+    }
+
+    /**
+     * The range that is shown for a total: below/above in percent, rounded outwards to round_to, held up by the minimum.
+     * No settings = the exact amount ("plain"); only a rounding = "about"; a total under the minimum = "from".
+     *
+     * @return array{low: float, high: float, kind: string}
+     */
+    public static function range(float $total, array $estimate): array
+    {
+        $below = max(0.0, min(90.0, (float) ($estimate['range_below'] ?? 0)));
+        $above = max(0.0, min(90.0, (float) ($estimate['range_above'] ?? 0)));
+        $step = max(0.0, min(100000.0, (float) ($estimate['round_to'] ?? 0)));
+        $minimum = Elements\Form::price($estimate['minimum'] ?? '');
+        if ($below == 0.0 && $above == 0.0) {
+            $low = $high = $step > 0 ? round($total / $step) * $step : $total;
+            $kind = $step > 0 ? 'about' : 'plain';
+        } else {
+            $low = round($total * (1 - $below / 100), 6);
+            $high = round($total * (1 + $above / 100), 6);
+            if ($step > 0) {
+                $low = floor($low / $step) * $step;
+                $high = ceil($high / $step) * $step;
+            }
+            $kind = 'range';
+        }
+        if ($minimum > $high) {
+            return ['low' => $minimum, 'high' => $minimum, 'kind' => 'from'];
+        }
+
+        return ['low' => max($low, $minimum), 'high' => $high, 'kind' => $kind];
+    }
+
+    /** The range as visitors read it. */
+    public static function format(array $range, array $estimate): string
+    {
+        $suffix = mb_substr(trim((string) (($estimate['unit_suffix'] ?? '') !== '' ? $estimate['unit_suffix'] : ($estimate['currency'] ?? ''))), 0, 10);
+        $prefix = mb_substr(trim((string) ($estimate['unit_prefix'] ?? '')), 0, 10);
+        $money = fn (float $v): string => Elements\Form::money($v, $suffix, $prefix);
+
+        return match ($range['kind']) {
+            'about' => sprintf(t('about %s'), $money($range['low'])),
+            'from' => sprintf(t('from %s'), $money($range['low'])),
+            'range' => $money($range['low']) . ' – ' . $money($range['high']),
+            default => $money($range['low']),
+        };
+    }
+
+    /**
+     * Everything the server, the result screen and the try-out need for the given answers: visibility, lines, total, range,
+     * the text of the estimate, the result variant. The first estimate field of the form sets base, unit and range.
+     *
+     * @param array<int, string|list<string>> $answers by field index
+     * @return array{visible: array<int, bool>, lines: list<array{0: string, 1: float}>, total: float, range: array, shown: string, variant: string, after_contact: bool}
+     */
+    public static function evaluate(array $content, array $answers): array
+    {
+        $fields = array_values(is_array($content['fields'] ?? null) ? $content['fields'] : []);
+        $rules = self::rules($content);
+        $visible = self::visible($fields, $rules, $answers);
+        $estimate = [];
+        foreach ($fields as $f) {
+            if (($f['type'] ?? '') === 'estimate') {
+                $estimate = $f;
+                break;
+            }
+        }
+        $after = ($content['calculation'] ?? 'live') === 'after_contact';
+        $out = self::amounts($fields, $rules, $answers, $visible, Elements\Form::price($estimate['base_price'] ?? ''), $after);
+        $range = self::range($out['total'], $estimate);
+
+        return ['visible' => $visible, 'range' => $range, 'shown' => $estimate === [] ? '' : self::format($range, $estimate), 'after_contact' => $after] + $out;
+    }
+
     /** @param array<string, int> $position @param array<int, bool> $visible */
     private static function ruleHolds(array $rule, array $fields, array $position, array $visible, array $answers, int $before): bool
     {

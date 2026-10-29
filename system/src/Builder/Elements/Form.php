@@ -59,7 +59,13 @@ final class Form extends Element
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
                 'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number'], 'group' => 'estimate'],
                 'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
-                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'currency' => ['type' => 'text', 'label' => 'Currency (older forms; use the unit after the amount)', 'default' => '', 'max' => 10, 'hidden' => true],
+                'unit_prefix' => ['type' => 'text', 'label' => 'Unit before the amount (e.g. $)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'unit_suffix' => ['type' => 'text', 'label' => 'Unit after the amount (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'range_below' => ['type' => 'number', 'label' => 'Range: percent below the amount (0 = none)', 'default' => 0, 'min' => 0, 'max' => 90, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'range_above' => ['type' => 'number', 'label' => 'Range: percent above the amount (0 = none)', 'default' => 0, 'min' => 0, 'max' => 90, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'round_to' => ['type' => 'number', 'label' => 'Round to a multiple of (0 = no rounding)', 'default' => 0, 'min' => 0, 'max' => 100000, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'minimum' => ['type' => 'text', 'label' => 'Lowest amount shown (empty = none)', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
                 // conditions (2.12): the field shows only when another field has a value
                 'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200, 'group' => 'condition'],
                 'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200, 'group' => 'condition'],
@@ -71,6 +77,7 @@ final class Form extends Element
                 ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => ''],
             ]],
             // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
+            'calculation' => ['type' => 'choice', 'label' => 'Show the estimate', 'default' => 'live', 'options' => ['live' => 'while answering', 'after_contact' => 'after the visitor sent their contact details']],
             'logic' => ['type' => 'form_logic', 'label' => 'Logic', 'default' => ['rules' => [], 'results' => []]],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
@@ -101,6 +108,10 @@ final class Form extends Element
             }
             $used[$key] = true;
             $content['fields'][$i]['key'] = $key;
+        }
+        if (($content['calculation'] ?? 'live') === 'after_contact' && !in_array('estimate', array_column($content['fields'] ?? [], 'type'), true)) {
+            $errors[$place . '.calculation'] = 'Showing the estimate after the contact details needs an estimate field; it was set to "while answering".';
+            $content['calculation'] = 'live';
         }
         $content['logic'] = FormLogic::sanitize($content['logic'] ?? null, array_values($content['fields'] ?? []), $place . '.logic', $errors);
 
@@ -388,10 +399,11 @@ final class Form extends Element
     private static function estimateField(array $field, array $fields): string
     {
         $base = self::price($field['base_price'] ?? '');
-        $currency = mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10);
+        $currency = mb_substr(trim((string) (($field['unit_suffix'] ?? '') !== '' ? $field['unit_suffix'] : ($field['currency'] ?? ''))), 0, 10);
+        $prefix = mb_substr(trim((string) ($field['unit_prefix'] ?? '')), 0, 10);
 
         return '<p class="tl-field tl-estimate" data-estimate data-base="' . $base . '" data-currency="' . e($currency) . '"><span>' . e((string) $field['label']) . '</span> <output aria-live="polite">'
-            . e(self::money($base, $currency)) . '</output><small class="tl-field-help">' . e(t('An estimate from your answers – the final price follows in our reply.')) . '</small></p>';
+            . e(self::money($base, $currency, $prefix)) . '</output><small class="tl-field-help">' . e(t('An estimate from your answers – the final price follows in our reply.')) . '</small></p>';
     }
 
     /** The price of an option for the estimate script; nothing without one. */
@@ -408,82 +420,11 @@ final class Form extends Element
         return is_numeric($v) ? (float) $v : 0.0;
     }
 
-    /**
-     * Which fields are shown for the given answers (2.12): a field with a condition only when the field with that label has
-     * that value (a choice: equals it; options to tick: it is ticked; a "*" value: anything filled in). A condition on a
-     * field that does not exist or is itself hidden hides the field. Pure – the server and the tests use it.
-     *
-     * @param list<array<string, mixed>> $fields
-     * @param array<int, string|list<string>> $answers index => value (a list for options to tick)
-     * @return array<int, bool>
-     */
-    public static function visible(array $fields, array $answers): array
-    {
-        $byLabel = [];
-        foreach ($fields as $i => $f) {
-            $byLabel[mb_strtolower(trim((string) ($f['label'] ?? '')))] ??= $i;
-        }
-        $visible = [];
-        $resolve = function (int $i, int $depth) use (&$resolve, &$visible, $fields, $answers, $byLabel): bool {
-            if (isset($visible[$i])) {
-                return $visible[$i];
-            }
-            $when = mb_strtolower(trim((string) ($fields[$i]['show_when_field'] ?? '')));
-            if ($when === '') {
-                return $visible[$i] = true;
-            }
-            $target = $byLabel[$when] ?? null;
-            if ($target === null || $target === $i || $depth > 10 || !$resolve($target, $depth + 1)) {
-                return $visible[$i] = false;
-            }
-            $expected = trim((string) ($fields[$i]['show_when_value'] ?? ''));
-            $answer = $answers[$target] ?? '';
-
-            return $visible[$i] = is_array($answer) ? ($expected === '*' ? $answer !== [] : in_array($expected, $answer, true))
-                : ($expected === '*' ? trim($answer) !== '' : trim($answer) === $expected);
-        };
-        foreach (array_keys($fields) as $i) {
-            $resolve($i, 0);
-        }
-
-        return $visible;
-    }
-
-    /**
-     * The price estimate (2.12): the base price, plus the price of every chosen or ticked option, plus every number × its
-     * price per unit – only of the fields that are shown. Pure; the server computes it again, never trusting the browser.
-     *
-     * @param list<array<string, mixed>> $fields
-     * @param array<int, string|list<string>> $answers
-     * @param array<int, bool> $visible
-     */
-    public static function estimate(array $fields, array $answers, array $visible, float $base): float
-    {
-        $total = $base;
-        foreach ($fields as $i => $f) {
-            if (!($visible[$i] ?? true)) {
-                continue;
-            }
-            $answer = $answers[$i] ?? '';
-            $type = (string) ($f['type'] ?? '');
-            if (in_array($type, ['select', 'radio', 'checkboxes'], true)) {
-                $prices = self::optionPrices($f);
-                foreach ((array) $answer as $chosen) {
-                    $total += $prices[(string) $chosen] ?? 0.0;
-                }
-            } elseif ($type === 'number' && is_string($answer) && is_numeric(str_replace(',', '.', $answer))) {
-                $total += (float) str_replace(',', '.', $answer) * self::price($f['unit_price'] ?? '');
-            }
-        }
-
-        return round($total, 2);
-    }
-
-    /** An amount for visitors: whole numbers with the thousands separator of the language, the currency after it. */
-    public static function money(float $amount, string $currency): string
+    /** An amount for visitors: whole numbers with the thousands separator of the language, an optional unit before and after it. */
+    public static function money(float $amount, string $suffix, string $prefix = ''): string
     {
         $number = format_count($amount, abs($amount - round($amount)) < 0.005 ? 0 : 2);
 
-        return trim($number . ($currency !== '' ? "\u{a0}" . $currency : ''));
+        return trim($prefix . $number . ($suffix !== '' ? "\u{a0}" . $suffix : ''));
     }
 }

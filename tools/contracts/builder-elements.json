@@ -90,6 +90,7 @@
     "form": [
         "bcc",
         "button_text",
+        "calculation",
         "confirmation",
         "fields",
         "logic",

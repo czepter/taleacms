@@ -20,8 +20,8 @@
     },
     "answers": {"0": "Abroad", "1": "[Country]", "2": "80", "3": "22:00-02:00", "4": ["Album"]},
     "visible": [true, true, true, true, true],
-    "total": null,
-    "shown": null
+    "total": 1365.0,
+    "shown": ""
   },
   {
     "name": "wedding quiz, local",
@@ -40,8 +40,8 @@
     },
     "answers": {"0": "Local", "1": "typed"},
     "visible": [true, false],
-    "total": null,
-    "shown": null
+    "total": 500.0,
+    "shown": ""
   },
   {
     "name": "solar check",
@@ -61,8 +61,8 @@
     },
     "answers": {"0": "North", "1": "Heavy", "2": "[Size]"},
     "visible": [true, true, false],
-    "total": null,
-    "shown": null
+    "total": 0.0,
+    "shown": ""
   },
   {
     "name": "live form with add and quantity",
@@ -83,7 +83,7 @@
     },
     "answers": {"0": "10", "1": ["Express"], "2": ""},
     "visible": [true, true, true],
-    "total": null,
-    "shown": null
+    "total": 45.0,
+    "shown": ""
   }
 ]

@@ -151,4 +151,53 @@ final class FormLogicTest extends TestCase
             $this->assertSame($case['visible'], array_values($visible), $case['name']);
         }
     }
+
+    public function testAmountsInOrder(): void
+    {
+        $fields = [['key' => 'ka000', 'type' => 'radio', 'label' => 'Location', 'choices' => "Barn\nCastle | 200\nAbroad"], ['key' => 'kb000', 'type' => 'timerange', 'label' => 'Time']];
+        $rules = [
+            ['label' => 'Hours', 'match' => 'all', 'when' => [], 'then' => [['do' => 'quantity', 'field' => 'kb000', 'amount' => 180]]],
+            ['label' => 'Abroad', 'match' => 'all', 'when' => [['field' => 'ka000', 'op' => 'is', 'value' => 'Abroad']], 'then' => [['do' => 'multiply', 'by' => 1.3], ['do' => 'result', 'variant' => 'v1']]],
+        ];
+        $answers = [0 => 'Abroad', 1 => '14:00-22:00'];
+        $out = FormLogic::amounts($fields, $rules, $answers, FormLogic::visible($fields, $rules, $answers), 1000.0, true);
+        $this->assertSame(round((1000 + 8 * 180) * 1.3, 2), $out['total']);
+        $this->assertSame('v1', $out['variant']);
+        $this->assertSame(['Base price', 'Hours', 'Abroad'], array_column($out['lines'], 0));
+        $live = FormLogic::amounts($fields, $rules, $answers, FormLogic::visible($fields, $rules, $answers), 1000.0, false);
+        $this->assertSame(['', 1000.0 + 8 * 180], [$live['variant'], $live['total']], 'live: no multiply, no variant');
+    }
+
+    public function testRange(): void
+    {
+        $e = ['range_below' => 10, 'range_above' => 15, 'round_to' => 50, 'minimum' => '1500', 'unit_suffix' => '€'];
+        $this->assertSame(['low' => 2700.0, 'high' => 3500.0, 'kind' => 'range'], FormLogic::range(3010.0, $e));
+        $this->assertSame(['low' => 1500.0, 'high' => 1500.0, 'kind' => 'from'], FormLogic::range(1000.0, $e));
+        $this->assertSame(['low' => 3400.0, 'high' => 3400.0, 'kind' => 'about'], FormLogic::range(3412.0, ['range_below' => 0, 'range_above' => 0, 'round_to' => 50]));
+        $this->assertSame('plain', FormLogic::range(3412.0, [])['kind'], 'no settings = the exact amount');
+    }
+
+    public function testFormat(): void
+    {
+        $e = ['unit_prefix' => '$', 'unit_suffix' => 'USD'];
+        $nb = "\u{a0}";
+        $this->assertSame('$' . format_count(3400) . $nb . 'USD', FormLogic::format(['low' => 3400.0, 'high' => 3400.0, 'kind' => 'plain'], $e));
+        $this->assertSame(sprintf(t('about %s'), '$' . format_count(3400) . $nb . 'USD'), FormLogic::format(['low' => 3400.0, 'high' => 3400.0, 'kind' => 'about'], $e));
+        $this->assertSame(sprintf(t('from %s'), format_count(1500) . $nb . 'Kč'), FormLogic::format(['low' => 1500.0, 'high' => 1500.0, 'kind' => 'from'], ['currency' => 'Kč']), 'the old currency is the unit after the amount'); // check-english: allow
+        $this->assertSame(format_count(2700) . ' – ' . format_count(3500), FormLogic::format(['low' => 2700.0, 'high' => 3500.0, 'kind' => 'range'], []));
+    }
+
+    public function testEvaluateWithoutEstimateField(): void
+    {
+        $r = FormLogic::evaluate(['fields' => [['key' => 'ka000', 'type' => 'number', 'label' => 'N', 'unit_price' => '2']]], [0 => '3']);
+        $this->assertSame([6.0, ''], [$r['total'], $r['shown']]);
+    }
+
+    public function testFixtureTotals(): void
+    {
+        foreach (json_decode((string) file_get_contents(TALEA_ROOT . '/tests/Fixtures/form-logic.json'), true) as $case) {
+            $r = FormLogic::evaluate($case['content'], $case['answers']);
+            $this->assertSame([$case['total'], $case['shown']], [$r['total'], str_replace("\u{a0}", ' ', $r['shown'])], $case['name']);
+        }
+    }
 }
