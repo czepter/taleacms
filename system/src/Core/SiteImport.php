@@ -171,6 +171,19 @@ final class SiteImport
         return ['empty' => $c['pages'] <= 5 && $c['news'] <= 1 && $c['items'] === 0 && $c['media'] === 0] + $c;
     }
 
+    /**
+     * Why an archive cannot be imported now, or null. The import empties the owner tables (media, components, facts) for the whole
+     * install, which would delete the other sites' files and the rows they share: so it is allowed only while the install has one site.
+     */
+    public static function refusal(Db $db): ?string
+    {
+        if (Sites::enabled() && (int) $db->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'") > 1) {
+            return 'Importing an archive is only possible while the install has one site, because it replaces the media, components and facts every site uses. Create a further site as a clone of this one, or import in a single-site install.';
+        }
+
+        return null;
+    }
+
     /* ---------- 1. preparation ---------- */
 
     /**
@@ -334,6 +347,9 @@ final class SiteImport
     public function importData(array &$state): void
     {
         if (!$state['emptied']) {
+            if (($refusal = self::refusal($this->db)) !== null) {
+                throw new \RuntimeException($refusal);
+            }
             if (!self::siteContent($this->db)['empty']) {
                 throw new \RuntimeException('The site already has its own content. A Talea export can be imported only into a new, empty site.');
             }

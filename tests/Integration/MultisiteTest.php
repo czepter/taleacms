@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Talea\Core\Backup;
 use Talea\Core\MediaStaging;
 use Talea\Core\Migrator;
+use Talea\Core\SiteImport;
 use Talea\Core\Sites;
 use Talea\Tests\Support\DatabaseTestCase;
 
@@ -191,5 +192,18 @@ final class MultisiteTest extends DatabaseTestCase
         $this->assertNull(Sites::addFirstDomain($this->db(), ''));
         $this->assertSame('main.example', Sites::addFirstDomain($this->db(), 'https://Main.Example/'));
         $this->assertSame(1, Sites::resolve($this->db(), 'main.example')['site_id']);
+    }
+
+    public function testAnArchiveImportIsRefusedWhileSeveralSitesExist(): void
+    {
+        $this->assertNull(SiteImport::refusal($this->db()), 'the flag is off');
+        putenv('TALEA_MULTISITE=1');
+        try {
+            $this->assertStringContainsString('only possible while the install has one site', (string) SiteImport::refusal($this->db()));
+            $this->db()->update('sites', ['status' => 'trashed'], ['prefix' => 'tl2_']);
+            $this->assertNull(SiteImport::refusal($this->db()), 'a trashed site does not count');
+        } finally {
+            putenv('TALEA_MULTISITE');
+        }
     }
 }

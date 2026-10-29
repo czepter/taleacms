@@ -53,6 +53,7 @@ final class Transfer extends Module
             'exports' => SiteExport::listAll(),
             'taleaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['file'])], SiteImport::listAll()),
             'siteContent' => SiteImport::siteContent($this->db),
+            'taleaRefusal' => SiteImport::refusal($this->db),
             'hasZip' => class_exists(\ZipArchive::class),
             'webImports' => array_values(array_filter(array_map(fn (string $f): ?array => WebImport::load(substr(basename($f, '.json'), 4)), glob(WpFile::folder() . '/web-*.json') ?: []))),
             'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
@@ -603,6 +604,9 @@ final class Transfer extends Module
     /** Reads the export (header, rows per table) and shows the preview; a file that is not a Talea export is deleted. */
     private function startTalea(string $file): Response
     {
+        if (($refusal = SiteImport::refusal($this->db)) !== null) {
+            return $this->back(t($refusal), type: 'error');
+        }
         SiteImport::deleteState($file);
         $state = SiteImport::newState($file);
         try {
@@ -660,6 +664,9 @@ final class Transfer extends Module
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if (!$this->request->isPost() || $state === null || $state['phase'] !== 'preview' || !$this->request->postBool('confirmation')) {
             return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'talea', $state === null ? [] : ['file' => $file], 'error');
+        }
+        if (($refusal = SiteImport::refusal($this->db)) !== null) {
+            return $this->back(t($refusal), 'talea', ['file' => $file], 'error');
         }
         if (!SiteImport::siteContent($this->db)['empty']) {
             return $this->back('The site already has its own content. A Talea export can be imported only into a new, empty site.', 'talea', ['file' => $file], 'error');
