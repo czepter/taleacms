@@ -17,6 +17,7 @@ $state = function (array $s): string {
 $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'];
 ?>
 <?= $app->view->render('admin/list/head', ['count' => (string) count($sites), 'primary' => [$module->url('new'), t('New site')]]) ?>
+<?= $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Sites'), 'tabs' => [['label' => t('Sites'), 'url' => $module->url(), 'active' => true], ['label' => t('Overview'), 'url' => $module->url('overview'), 'active' => false]]]) ?>
 <p class="small-text"><?= e(t('Every site has its own pages, news, settings and look. Users, media files, components and facts are shared by all sites. New sites are set up in the background by the scheduled tasks.')) ?></p>
 <div class="tab-wrap"><table class="listing">
 <thead><tr><th scope="col"><?= e(t('Site')) ?></th><th scope="col"><?= e(t('State')) ?></th><th scope="col"><?= e(t('Primary host name')) ?></th><th scope="col"><?= e(t('Storage')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
