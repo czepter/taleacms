@@ -70,6 +70,36 @@ final class Sites
         return $host;
     }
 
+    /** @var array<string, int> memo of currentId(): table prefix => site_id */
+    private static array $current = [];
+
+    /** The number of the site a connection works on (its prefix in {sites}); 1 for the owner's prefix and while the registry does not exist. */
+    public static function currentId(Db $db): int
+    {
+        if ($db->prefix === $db->ownerPrefix) {
+            return 1;
+        }
+
+        return self::$current[$db->prefix] ??= $db->tableExists('sites') ? (int) ($db->value('SELECT site_id FROM {sites} WHERE prefix = ?', [$db->prefix]) ?? 1) : 1;
+    }
+
+    /** Forgets the memo of currentId() (tests that build and drop sites). */
+    public static function forgetCurrent(): void
+    {
+        self::$current = [];
+    }
+
+    /**
+     * SQL condition for a shared owner table (components, facts): the rows of the current site and those shared with every site
+     * (site_id IS NULL). The number is an integer from currentId(), so it is written into the SQL.
+     */
+    public static function visible(Db $db, string $alias = ''): string
+    {
+        $column = ($alias !== '' ? $alias . '.' : '') . 'site_id';
+
+        return '(' . $column . ' IS NULL OR ' . $column . ' = ' . self::currentId($db) . ')';
+    }
+
     /** The primary host of a site, or null while it has no domain. */
     public static function primaryHost(Db $db, int $siteId): ?string
     {
@@ -244,6 +274,7 @@ final class Sites
         }
         if (!empty($site['clone'])) {
             self::copyTables($source, $new);
+            self::copyOwnRows($db, $new, (int) ($site['source_site_id'] ?? 1), (int) $site['site_id']);
             // an allow-list: only the settings that may move to another site (SiteExport::SETTINGS, with their language variants) and the
             // account settings stay; the rest (secrets, tokens, keys) is made again on first use
             foreach ($new->all('SELECT name FROM {settings}') as $r) {
@@ -289,6 +320,58 @@ final class Sites
         $new->syncSequences(...$tables);
     }
 
+    /** Columns of the copied tables that store a build (or one element) with component elements; the experiments' variant is a component too. */
+    private const array BUILD_COLUMNS = ['pages' => ['build', 'build_draft'], 'site_parts' => ['build', 'build_draft'], 'popups' => ['build', 'build_draft'],
+        'collections' => ['build', 'build_draft'], 'collection_templates' => ['build', 'build_draft'], 'build_revisions' => ['build'], 'experiments' => ['previous_build']];
+
+    /**
+     * A clone's own rows of the shared tables: the source site's local components and facts (shared ones are not copied – the clone
+     * sees them anyway) get new rows for the new site, and the component elements of the copied builds, the saved sections, the
+     * versions and the experiments' variants point at the new copies. A component the source did not own (a shared one) keeps its number.
+     * Runs again after a half-done run: the rows of an earlier try are removed first.
+     */
+    private static function copyOwnRows(Db $db, Db $new, int $sourceId, int $siteId): void
+    {
+        $db->delete('components', ['site_id' => $siteId]);
+        $db->delete('facts', ['site_id' => $siteId]);
+        $ids = [];
+        $own = ['component_id' => 1, 'public_id' => 1, 'site_id' => 1, 'id' => 1];
+        foreach ($db->all('SELECT * FROM {components} WHERE site_id = ? ORDER BY component_id', [$sourceId]) as $row) {
+            $ids[(int) $row['component_id']] = $db->insert('components', array_diff_key($row, $own) + ['site_id' => $siteId]);
+        }
+        foreach ($db->all('SELECT * FROM {facts} WHERE site_id = ? ORDER BY id', [$sourceId]) as $row) {
+            $db->insert('facts', array_diff_key($row, $own) + ['site_id' => $siteId]);
+        }
+        if ($ids === []) {
+            return;
+        }
+        $map = fn (string $table, mixed $id): string|int => $table === 'components' && isset($ids[(int) $id]) ? $ids[(int) $id] : (is_scalar($id) ? $id : '');
+        $rewrite = function (Db $d, string $table, array $columns, string $kind) use ($map): void {
+            $key = $d->primaryKey($table);
+            foreach ($columns as $column) {
+                foreach ($d->all('SELECT ' . implode(', ', array_map($d->dialect()->quote(...), array_merge($key, [$column]))) . ' FROM {' . $table . '} WHERE ' . $d->dialect()->quote($column) . " LIKE '%component%'") as $r) {
+                    $json = SiteExport::mapReferences($kind, (string) $r[$column], $map);
+                    if ($json !== (string) $r[$column]) {
+                        $d->update($table, [$column => $json], array_intersect_key($r, array_flip($key)));
+                    }
+                }
+            }
+        };
+        foreach (self::BUILD_COLUMNS as $table => $columns) {
+            $rewrite($new, $table, $columns, 'build');
+        }
+        $rewrite($new, 'sections', ['element'], 'element');
+        foreach ($ids as $newId) { // the copies refer to each other, too (only the copies: the source's own components keep their numbers)
+            $row = (array) $db->one('SELECT build, build_draft FROM {components} WHERE component_id = ?', [$newId]);
+            $db->update('components', array_map(fn (mixed $b): mixed => is_string($b) ? SiteExport::mapReferences('build', $b, $map) : $b, $row), ['component_id' => $newId]);
+        }
+        foreach ($new->all('SELECT experiment_id, variant_component_id FROM {experiments} WHERE variant_component_id IS NOT NULL') as $x) {
+            if (isset($ids[(int) $x['variant_component_id']])) {
+                $new->update('experiments', ['variant_component_id' => $ids[(int) $x['variant_component_id']]], ['experiment_id' => (int) $x['experiment_id']]);
+            }
+        }
+    }
+
     /** Drops every table of a site's prefix (never the owner's) and returns how many there were. */
     public static function dropTables(Db $db, string $prefix): int
     {
@@ -309,6 +392,8 @@ final class Sites
         $gone = 0;
         foreach ($db->all("SELECT site_id, prefix FROM {sites} WHERE status = 'trashed' AND site_id <> 1 AND trashed_at < NOW() - INTERVAL " . self::TRASH_DAYS . ' DAY') as $site) {
             self::dropTables($db, (string) $site['prefix']);
+            $db->delete('components', ['site_id' => (int) $site['site_id']]); // its own rows of the shared tables; the number may be given out again
+            $db->delete('facts', ['site_id' => (int) $site['site_id']]);
             $db->delete('sites', ['site_id' => (int) $site['site_id']]);
             $gone++;
         }

@@ -1652,7 +1652,8 @@
         "parameters": {
             "id": "string",
             "name": "string",
-            "properties": "array"
+            "properties": "array",
+            "shared": "boolean"
         },
         "required": [],
         "annotations": {
@@ -1667,6 +1668,7 @@
             "label": "string",
             "language": "string",
             "schema_property": "string",
+            "shared": "boolean",
             "source": "string",
             "type": "string",
             "value": "string"

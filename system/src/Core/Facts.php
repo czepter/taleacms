@@ -77,20 +77,36 @@ final class Facts
         'company_address' => 'Address', 'company_id' => 'Company ID', 'company_vat_id' => 'VAT ID', 'year' => 'Current year',
         'google_rating' => 'Google rating', 'google_reviews' => 'Google reviews (count)']; // the last two from the Business Profile (2.13, Core\GoogleBusiness)
 
-    /** @var array<string, array<string, array<string, mixed>>> facts by language for this request */
+    /** @var array<string, array<string, mixed>> facts by language for this request */
     private static array $cache = [];
 
     /** @var array<string, ?int> counts of collections and news for this request (null = cannot be counted) */
     private static array $counts = [];
 
+    /** The table prefix the two memos above belong to: another site in the same process (an MCP call on a sibling) starts them empty. */
+    private static string $memoSite = 'tl_';
+
+    private static function memoFor(App $app): void
+    {
+        $prefix = (string) ($app->config['db']['site_prefix'] ?? $app->config['db']['prefix'] ?? 'tl_');
+        if ($prefix !== self::$memoSite) {
+            self::$cache = self::$counts = [];
+            self::$memoSite = $prefix;
+        }
+    }
+
     /**
      * Every fact for a language version: the site's own ones (with the default value where the language has none) and
      * the built-in ones.
      *
-     * @return array<string, array{key: string, label: string, type: string, value: string, display: string, schema: string, source: string, updated: ?string, builtIn: bool, translated: bool}>
+     * With several sites a fact is the site's own or shared with every site (shared); a site's own row of a key and language wins
+     * over a shared one.
+     *
+     * @return array<string, array{key: string, label: string, type: string, value: string, display: string, schema: string, source: string, updated: ?string, builtIn: bool, translated: bool, shared: bool}>
      */
     public static function all(App $app, string $language = ''): array
     {
+        self::memoFor($app);
         if (isset(self::$cache[$language])) {
             return self::$cache[$language];
         }
@@ -104,15 +120,21 @@ final class Facts
                 default => $s->get($key),
             };
             $type = match ($key) { 'company_phone' => 'phone', 'company_email' => 'email', 'year' => 'year', 'google_rating', 'google_reviews' => 'number', default => 'text' };
-            $out[$key] = ['key' => $key, 'label' => t($label), 'type' => $type, 'value' => $value, 'display' => $value, 'schema' => '', 'source' => '', 'updated' => null, 'builtIn' => true, 'translated' => false];
+            $out[$key] = ['key' => $key, 'label' => t($label), 'type' => $type, 'value' => $value, 'display' => $value, 'schema' => '', 'source' => '', 'updated' => null, 'builtIn' => true, 'translated' => false, 'shared' => false];
         }
         try {
-            $rows = $app->db()->all('SELECT * FROM {facts} WHERE language IN (?, ?) ORDER BY fact_key, language', ['', $language]);
+            // the site's own row first, so the shared row with the same key and language is skipped below
+            $rows = $app->db()->all('SELECT * FROM {facts} WHERE language IN (?, ?) AND ' . Sites::visible($app->db()) . ' ORDER BY fact_key, language, site_id IS NULL', ['', $language]);
         } catch (\Throwable) {
             $rows = []; // before the 2.10 migration
         }
+        $seen = [];
         foreach ($rows as $r) {
             $key = (string) $r['fact_key'];
+            if (isset($seen[$key . '|' . $r['language']])) {
+                continue;
+            }
+            $seen[$key . '|' . $r['language']] = true;
             if ((string) $r['language'] !== '' && isset($out[$key])) {
                 $out[$key]['value'] = (string) $r['value'];
                 $out[$key]['translated'] = true;
@@ -120,7 +142,7 @@ final class Facts
                 continue;
             }
             $out[$key] = ['key' => $key, 'label' => (string) $r['label'], 'type' => (string) $r['type'], 'value' => (string) $r['value'], 'display' => self::display((string) $r['type'], (string) $r['value']),
-                'schema' => (string) $r['schema_prop'], 'source' => (string) $r['source'], 'updated' => (string) $r['updated_at'], 'builtIn' => false, 'translated' => false];
+                'schema' => (string) $r['schema_prop'], 'source' => (string) $r['source'], 'updated' => (string) $r['updated_at'], 'builtIn' => false, 'translated' => false, 'shared' => $r['site_id'] === null];
         }
 
         return self::$cache[$language] = $out;
@@ -510,6 +532,7 @@ final class Facts
     /** Visible items of a collection (by its address) or published news in the current language version; null = no such collection, or news is off. */
     private static function count(App $app, string $what): ?int
     {
+        self::memoFor($app);
         if (array_key_exists($what, self::$counts)) {
             return self::$counts[$what];
         }
@@ -609,9 +632,13 @@ final class Facts
     /**
      * Saves a fact (or its value in a language version). Returns null, or the error.
      *
+     * Several sites: $shared true = the fact is the same on every site of the owner, false = a row of this site only (over a shared
+     * fact: an override that wins on this site), null = a new fact is this site's, a translation follows its default row, a change
+     * keeps the row where it is. One shared row per key and language is kept here – the unique key cannot, a NULL never collides.
+     *
      * @param array{label?: string, type?: string, value?: string, schema?: string, source?: string} $data
      */
-    public static function save(App $app, string $key, array $data, string $language = ''): ?string
+    public static function save(App $app, string $key, array $data, string $language = '', ?bool $shared = null): ?string
     {
         if (!preg_match(self::KEY_PATTERN, $key)) {
             return 'The key may contain lowercase letters, digits and _ and must start with a letter (2–40 characters).';
@@ -620,8 +647,8 @@ final class Facts
             return 'This fact comes from the settings (Business details) – change it there.';
         }
         $db = $app->db();
-        $existing = $db->one('SELECT * FROM {facts} WHERE fact_key = ? AND language = ?', [$key, $language]);
-        $base = $language === '' ? $existing : $db->one("SELECT * FROM {facts} WHERE fact_key = ? AND language = ''", [$key]);
+        $existing = self::row($db, $key, $language);
+        $base = $language === '' ? $existing : self::row($db, $key, '');
         if ($language !== '' && $base === null) {
             return 'Create the fact in the default language first.';
         }
@@ -639,10 +666,16 @@ final class Facts
                 'schema_prop' => isset($data['schema']) && isset(self::SCHEMA_PROPS[$data['schema']]) ? (string) $data['schema'] : (string) ($existing['schema_prop'] ?? ''),
                 'source' => mb_substr(trim(strip_tags((string) ($data['source'] ?? ($existing['source'] ?? '')))), 0, 255)];
         }
-        if ($existing === null) {
-            $db->insert('facts', $row + ['fact_key' => $key, 'language' => $language]);
+        // where the row lives: asked for, else where it is now; a new translation goes where its default row is, a new fact is this site's
+        $wasShared = $existing !== null && $existing['site_id'] === null;
+        $toShared = $shared ?? ($existing !== null ? $wasShared : ($language !== '' && $base['site_id'] === null));
+        if ($toShared && ($existing === null || !$wasShared) && $db->value('SELECT 1 FROM {facts} WHERE fact_key = ? AND language = ? AND site_id IS NULL', [$key, $language]) !== null) {
+            return 'A shared fact with this key already exists.';
+        }
+        if ($existing === null || ($wasShared && !$toShared)) { // new, or an own row over the shared one (the shared row stays for the other sites)
+            $db->insert('facts', $row + ['fact_key' => $key, 'language' => $language, 'site_id' => $toShared ? null : Sites::currentId($db)]);
         } else {
-            $db->update('facts', $row, ['id' => (int) $existing['id']]);
+            $db->update('facts', $row + ($toShared !== $wasShared ? ['site_id' => $toShared ? null : Sites::currentId($db)] : []), ['id' => (int) $existing['id']]);
         }
         if ($existing !== null && (string) $existing['value'] !== $value) {
             $db->insert('fact_history', ['fact_key' => $key, 'language' => $language, 'old_value' => (string) $existing['value'], 'new_value' => $value, 'changed_at' => date('Y-m-d H:i:s')]);
@@ -650,21 +683,38 @@ final class Facts
         }
         ChangeLog::write($app, 'facts', $existing === null ? 'create' : 'update', $key . ($language !== '' ? ' (' . $language . ')' : ''));
         self::$cache = [];
-        \Talea\Front\Cache::clear(); // cached pages show the new value right away
+        $wasShared || $toShared ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear(); // cached pages show the new value right away (a shared fact: on every site)
 
         return null;
     }
 
-    public static function delete(App $app, string $key): bool
+    /** The row of a fact in a language that this site sees: its own, otherwise the shared one. @return array<string, mixed>|null */
+    private static function row(Db $db, string $key, string $language): ?array
     {
-        $deleted = $app->db()->delete('facts', ['fact_key' => $key]) > 0;
-        if ($deleted) {
+        return $db->one('SELECT * FROM {facts} WHERE fact_key = ? AND language = ? AND ' . Sites::visible($db) . ' ORDER BY site_id IS NULL', [$key, $language]);
+    }
+
+    /**
+     * Deletes a fact: this site's own rows, or when it has none the shared rows (they go for every site). With $language only that
+     * language's row. Returns whether anything was deleted.
+     */
+    public static function delete(App $app, string $key, ?string $language = null): bool
+    {
+        $db = $app->db();
+        $rows = array_values(array_filter($db->all('SELECT id, language, site_id FROM {facts} WHERE fact_key = ? AND ' . Sites::visible($db), [$key]),
+            fn (array $r): bool => $language === null || $r['language'] === $language));
+        $own = array_values(array_filter($rows, fn (array $r): bool => $r['site_id'] !== null));
+        $gone = $own !== [] ? $own : $rows;
+        foreach ($gone as $r) {
+            $db->delete('facts', ['id' => (int) $r['id']]);
+        }
+        if ($gone !== []) {
             ChangeLog::write($app, 'facts', 'delete', $key);
             self::$cache = [];
-            \Talea\Front\Cache::clear();
+            $own === [] ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear();
         }
 
-        return $deleted;
+        return $gone !== [];
     }
 
     /** @return list<array{language: string, old_value: string, new_value: string, changed_at: string}> */
@@ -709,7 +759,7 @@ final class Facts
                 yield ['kind' => 'popup', 'where' => (string) $p['name'], 'target' => ['popup' => (int) $p['popup_id']], 'edit' => 'admin.php?module=popups&action=edit&id=' . $db->publicId('popups', (int) $p['popup_id']), 'text' => Build::asText($build), 'build' => $build];
             }
         }
-        foreach ($db->all('SELECT component_id, name, build FROM {components}') as $m) {
+        foreach ($db->all('SELECT component_id, name, build FROM {components} WHERE ' . Sites::visible($db)) as $m) {
             $build = Build::fromJson((string) ($m['build'] ?? ''));
             if ($build !== null) {
                 yield ['kind' => 'component', 'where' => (string) $m['name'], 'target' => ['component' => (int) $m['component_id']], 'edit' => 'admin.php?module=components&action=edit&id=' . $db->publicId('components', (int) $m['component_id']), 'text' => Build::asText($build), 'build' => $build];

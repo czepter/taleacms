@@ -134,7 +134,7 @@ final class SiteExport
         // the drafts go along (build_draft): a site moved in the middle of a redesign keeps its unfinished work
         self::fields($f, 'site_parts', $all('site_parts', 'SELECT type, language, variant, name, pages, build, build_draft FROM {site_parts} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY type, language, variant', [], ['pages' => 'pages'] + $builds));
         // components ("component" elements refer to them by public id) and the library's own sections
-        self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} ORDER BY component_id', [], $builds));
+        self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} WHERE ' . Sites::visible($db) . ' ORDER BY component_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
         self::fields($f, 'menus', $all('menus', 'SELECT location, language, items FROM {menus} ORDER BY location, language', [], ['items' => 'menu']));
         self::fields($f, 'collections', $all('collections', 'SELECT collection_id, public_id, name, slug, fields, detail, admin_menu, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id', [], $builds));
@@ -148,7 +148,11 @@ final class SiteExport
         // a file waiting for approval (Core\MediaStaging) is not part of the site yet
         self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
-        self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
+        $facts = []; // what this site shows: its own row of a key and language, else the shared one
+        foreach ($db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} WHERE ' . Sites::visible($db) . ' ORDER BY fact_key, language, site_id IS NULL') as $fact) {
+            $facts[$fact['fact_key'] . '|' . $fact['language']] ??= $fact;
+        }
+        self::fields($f, 'facts', array_values($facts));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURRENT_DATE AND proposed = FALSE ORDER BY date_from'));
         // online booking (3.0, Core\Booking): the set-up goes along – the bookings themselves are personal data and stay
         self::fields($f, 'booking_services', $all('booking_services', 'SELECT id, public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order FROM {booking_services} ORDER BY id'));

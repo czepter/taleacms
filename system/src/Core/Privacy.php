@@ -210,7 +210,7 @@ final class Privacy
         foreach ($db->all('SELECT build FROM {popups}') as $p) {
             $samples[] = (string) $p['build'];
         }
-        foreach ($db->all('SELECT build FROM {components}') as $m) {
+        foreach ($db->all('SELECT build FROM {components} WHERE ' . Sites::visible($db)) as $m) {
             $samples[] = (string) $m['build'];
         }
 

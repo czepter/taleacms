@@ -62,7 +62,7 @@ final class Publisher
         $new = $component['build_draft'] ?? $component['build'];
         self::version($app, ['part' => 'component:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
         $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
-        \Talea\Front\Cache::clear();
+        array_key_exists('site_id', $component) && $component['site_id'] === null ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear(); // shared: every site shows it
     }
 
     /** Saves the previous published version to the history. @param array{page_id?: int|string, part?: string} $target */

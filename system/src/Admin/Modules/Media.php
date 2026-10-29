@@ -7,6 +7,7 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Module;
 use Talea\Core\Images;
 use Talea\Core\Response;
+use Talea\Core\Sites;
 
 /**
  * Media: uploading, also by drag and drop and directly from the editor, folders,
@@ -142,7 +143,7 @@ final class Media extends Module
             [t('site part'), 'SELECT CONCAT(type, CASE WHEN name = \'\' THEN \'\' ELSE CONCAT(\' – \', name) END) AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {site_parts}'],
             [t('collection'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {collections}'],
             [t('collection item'), "SELECT name AS used_in, CONCAT(data, ' ', image) AS content FROM {collection_items}"],
-            [t('component'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {components}'],
+            [t('component'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {components} WHERE ' . Sites::visible($db)],
             [t('class'), 'SELECT name AS used_in, CONCAT_WS(\' \', style, css) AS content FROM {classes}'],
             [t('settings'), 'SELECT name AS used_in, value AS content FROM {settings} WHERE value LIKE \'%media%\''],
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too

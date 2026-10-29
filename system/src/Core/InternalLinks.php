@@ -115,7 +115,7 @@ final class InternalLinks
                 $linked[$prefix((string) $p['language']) . $p['slug']] = true; // the automatic navigation and the footer list it
             }
         }
-        foreach ($db->all('SELECT build FROM {site_parts} WHERE build IS NOT NULL UNION ALL SELECT build FROM {components} WHERE build IS NOT NULL UNION ALL SELECT build FROM {popups} WHERE build IS NOT NULL AND active = TRUE UNION ALL SELECT build FROM {collections} WHERE build IS NOT NULL AND detail = TRUE') as $c) {
+        foreach ($db->all('SELECT build FROM {site_parts} WHERE build IS NOT NULL UNION ALL SELECT build FROM {components} WHERE build IS NOT NULL AND ' . Sites::visible($db) . ' UNION ALL SELECT build FROM {popups} WHERE build IS NOT NULL AND active = TRUE UNION ALL SELECT build FROM {collections} WHERE build IS NOT NULL AND detail = TRUE') as $c) {
             $take((string) $c['build']);
         }
         foreach ($db->all('SELECT intro, text FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL LIMIT 2000') as $c) {

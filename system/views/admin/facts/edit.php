@@ -30,6 +30,10 @@ $isNew = $fact === null;
 <div class="row"><label for="label"><?= e(t('Name')) ?></label><div><input class="textfield wide" id="label" name="label" required maxlength="150" value="<?= e((string) ($fact['label'] ?? '')) ?>" placeholder="<?= e(t('e.g. Founded')) ?>"></div></div>
 <div class="row"><label for="key"><?= e(t('Key')) ?></label><div><input class="textfield" id="key" name="key" required pattern="[a-z][a-z0-9_]{1,39}" maxlength="40" value="<?= e((string) ($fact['key'] ?? '')) ?>"<?= $isNew ? '' : ' readonly' ?> placeholder="founded">
 <span class="help"><?= e(t('Lowercase letters, digits and _. In content: {{fact.key}}. It cannot change later.')) ?></span></div></div>
+<?php if (Talea\Core\Sites::enabled()): ?>
+<div class="row"><label><?= e(t('Sites')) ?></label><div><label><input type="checkbox" name="shared" value="1"<?= !$isNew && $fact['shared'] ? ' checked' : '' ?>> <?= e(t('Share with all sites')) ?></label>
+<span class="help"><?= e(t('A shared fact is the same on every site of this account. Unchecked, the fact belongs to this site only; unchecking a shared fact gives this site its own copy and leaves the shared one to the other sites.')) ?></span></div></div>
+<?php endif ?>
 <div class="row"><label for="type"><?= e(t('Type')) ?></label><div><select id="type" name="type">
 <?php foreach (Facts::TYPES as $k => $label): ?><option value="<?= e($k) ?>"<?= ($fact['type'] ?? 'text') === $k ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?>
 </select><span class="help"><?= e(t('A number is shown with the thousands separator of the language, a date in its format, an amount as 1 500 CZK (enter 1500 CZK).')) ?></span></div></div>

@@ -447,7 +447,7 @@ final class Experiments
         }
         $id = $db->transaction(function () use ($db, $row, $component): int {
             if ($component !== null) {
-                $row['variant_component_id'] = $db->insert('components', $component);
+                $row['variant_component_id'] = Components::create($db, $component);
             }
 
             return $db->insert('experiments', $row);

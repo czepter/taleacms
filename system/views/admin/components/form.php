@@ -15,6 +15,10 @@ $properties = array_merge($k['properties'], array_fill(0, 3, ['key' => '', 'labe
 <?= $csrf ?>
 <input type="hidden" name="component_id" value="<?= e($k['public_id']) ?>">
 <div class="row"><label for="name"><?= e(t('Component name')) ?></label><div><input class="textfield wide" id="name" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Service card')) ?>"></div></div>
+<?php if (Talea\Core\Sites::enabled()): ?>
+<div class="row"><label><?= e(t('Sites')) ?></label><div><label><input type="checkbox" name="shared" value="1"<?= $k['component_id'] > 0 && array_key_exists('site_id', $k) && $k['site_id'] === null ? ' checked disabled' : '' ?>> <?= e(t('Share with all sites')) ?></label>
+<p class="help"><?= e(t('Every site of this account can use a shared component, and a change shows on all of them. Without it the component belongs to this site only. Once shared, it stays shared.')) ?></p></div></div>
+<?php endif ?>
 <fieldset>
 <legend><?= e(t('Properties')) ?></legend>
 <p class="help"><?= e(t('What can differ between uses of the component – heading, text, image, link. In the builder you insert them into the component with a {{key}} tag, then fill in a value for each use (empty = default).')) ?></p>

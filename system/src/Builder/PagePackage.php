@@ -91,7 +91,7 @@ final class PagePackage
             [$clean] = Build::sanitize(self::pointAt($componentBuild, $map), true);
             $json = Build::toJson($clean);
             $same = null;
-            foreach ($db->all('SELECT component_id, build FROM {components} WHERE (name = ? OR name LIKE ?) AND properties = ? ORDER BY component_id', [$name, addcslashes($name, '%_\\') . ' (%)', $properties]) as $candidate) {
+            foreach ($db->all('SELECT component_id, build FROM {components} WHERE (name = ? OR name LIKE ?) AND properties = ? AND ' . \Talea\Core\Sites::visible($db) . ' ORDER BY component_id', [$name, addcslashes($name, '%_\\') . ' (%)', $properties]) as $candidate) {
                 if (self::withoutIds((array) Build::fromJson($candidate['build'])) === self::withoutIds($clean)) {
                     $same = (int) $candidate['component_id'];
                     break;
@@ -103,10 +103,10 @@ final class PagePackage
                 continue;
             }
             $unique = $name;
-            for ($i = 2; $db->value('SELECT 1 FROM {components} WHERE name = ?', [$unique]) !== null && $i < 100; $i++) {
+            for ($i = 2; $db->value('SELECT 1 FROM {components} WHERE name = ? AND ' . \Talea\Core\Sites::visible($db), [$unique]) !== null && $i < 100; $i++) {
                 $unique = mb_substr($name, 0, 94) . ' (' . $i . ')';
             }
-            $map[$ready] = $db->insert('components', ['name' => $unique, 'properties' => $properties, 'build' => $json, 'updated_at' => date('Y-m-d H:i:s')]);
+            $map[$ready] = Components::create($db, ['name' => $unique, 'properties' => $properties, 'build' => $json, 'updated_at' => date('Y-m-d H:i:s')]);
             $created['components']++;
         }
         if ($created !== ['classes' => 0, 'components' => 0]) {

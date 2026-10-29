@@ -231,7 +231,7 @@ final class Audit
                 $this->add('build', $where, $f['message'], $edit, null, ['part' => (string) $c['type']], $f['id']);
             }
         }
-        foreach ($db->all('SELECT component_id, name, build FROM {components} WHERE build IS NOT NULL') as $c) {
+        foreach ($db->all('SELECT component_id, name, build FROM {components} WHERE build IS NOT NULL AND ' . Sites::visible($db)) as $c) {
             $this->links((string) $c['build'], t('Component “%s”', $c['name']), 'admin.php?module=components&action=builder&id=' . $this->app->db()->publicId('components', (int) $c['component_id']), null, ['component' => (int) $c['component_id']]);
         }
         foreach ($db->all('SELECT popup_id, name, build FROM {popups} WHERE build IS NOT NULL AND active = TRUE') as $c) {

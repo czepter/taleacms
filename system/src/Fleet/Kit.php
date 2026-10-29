@@ -15,6 +15,7 @@ use Talea\Core\Events;
 use Talea\Core\Look;
 use Talea\Core\Response;
 use Talea\Core\Settings;
+use Talea\Core\Sites;
 
 /**
  * The shared design kit of a fleet (2.16): the console snapshots its design system, chosen shared classes, components and
@@ -261,7 +262,7 @@ final class Kit
         }
         $in = fn (array $ids): string => $ids === [] ? '0' : implode(',', array_map('intval', $ids));
         $manifest = self::compose($choice['design_system'] ? DesignSystem::load($s) : null, $classes,
-            $db->all('SELECT component_id, name, properties, build, build_draft FROM {components} WHERE component_id IN (' . $in($choice['components']) . ') ORDER BY name'),
+            $db->all('SELECT component_id, name, properties, build, build_draft FROM {components} WHERE component_id IN (' . $in($choice['components']) . ') AND ' . Sites::visible($db) . ' ORDER BY name'),
             $db->all('SELECT name, element FROM {sections} WHERE section_id IN (' . $in($choice['sections']) . ') ORDER BY name'));
         if (!isset($manifest['design_system']) && $manifest['classes'] === [] && $manifest['components'] === [] && $manifest['sections'] === []) {
             throw new \RuntimeException(t('Choose at least one thing for the kit: the design system, a class, a component or a section.'));
@@ -397,19 +398,21 @@ final class Kit
             Look::setClass($s, $name, $class, true); // always the draft: the kit is reviewed as a whole before it is published
         }
         foreach ($clean['components'] as $c) {
-            $row = $db->one('SELECT component_id, build FROM {components} WHERE kit_key = ?', [$c['key']]);
+            $row = $db->one('SELECT component_id, build FROM {components} WHERE kit_key = ? AND ' . Sites::visible($db) . ' ORDER BY site_id IS NULL', [$c['key']]);
             $properties = (string) json_encode($c['properties'], JSON_UNESCAPED_UNICODE);
             if ($row === null) {
-                $db->insert('components', ['name' => $c['name'], 'properties' => $properties, 'build' => null, 'build_draft' => Build::toJson($c['build']), 'kit_key' => $c['key'], 'updated_at' => $now]);
+                \Talea\Builder\Components::create($db, ['name' => $c['name'], 'properties' => $properties, 'build' => null, 'build_draft' => Build::toJson($c['build']), 'kit_key' => $c['key'], 'updated_at' => $now]);
             } else {
                 // the properties of a component that is already published change what its uses show – they stay until a person decides
                 $db->update('components', ['name' => $c['name'], 'build_draft' => Build::toJson($c['build']), 'updated_at' => $now] + ($row['build'] === null ? ['properties' => $properties] : []), ['component_id' => (int) $row['component_id']]);
             }
         }
-        $local = $db->pairs('SELECT kit_key, component_id FROM {components} WHERE kit_key IS NOT NULL');
+        $local = $db->pairs('SELECT kit_key, component_id FROM {components} WHERE kit_key IS NOT NULL AND ' . Sites::visible($db) . ' ORDER BY site_id IS NULL DESC'); // the site's own last: it wins
         foreach ($clean['components'] as $c) { // "@key" -> the id of that component on this site (the kit's own components only)
             $draft = self::mapRefs($c['build'], fn (string $ref): string => isset($local[substr($ref, 1)]) ? (string) $local[substr($ref, 1)] : '');
-            $db->update('components', ['build_draft' => Build::toJson($draft)], ['kit_key' => $c['key']]);
+            if (isset($local[$c['key']])) {
+                $db->update('components', ['build_draft' => Build::toJson($draft)], ['component_id' => (int) $local[$c['key']]]);
+            }
         }
         foreach ($clean['sections'] as $sec) {
             $json = (string) json_encode($sec['element'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -435,6 +438,6 @@ final class Kit
     public static function waiting(Db $db, Settings $s): bool
     {
         return $s->int('fleet_kit_version') > 0
-            && (Look::hasDraft($s) || $db->value('SELECT 1 FROM {components} WHERE kit_key IS NOT NULL AND build_draft IS NOT NULL LIMIT 1') !== null);
+            && (Look::hasDraft($s) || $db->value('SELECT 1 FROM {components} WHERE kit_key IS NOT NULL AND build_draft IS NOT NULL AND ' . Sites::visible($db) . ' LIMIT 1') !== null);
     }
 }

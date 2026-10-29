@@ -53,6 +53,25 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   environment secret every site already has its own `secret_key` setting. Connector credentials keep using the environment secret
   directly: they are the owner's, not the site's.
 
+## Shared components and facts, the inbox (phase 1, stage 3)
+
+- `components.site_id` and `facts.site_id` (nullable): the site a row belongs to, or NULL = shared with every site of the owner. Rows that
+  existed before belong to site 1. `Sites::currentId()` (the prefix's number, memoised) and `Sites::visible()` (`site_id IS NULL OR site_id = n`)
+  are in every read; a component of another site is not found by number (`Components::byId`, the `/_component/<public id>` preview, MCP).
+  New rows are written with `Components::create()` (the current site, or shared). With the flag off every row is site 1's and nothing changes.
+- **Facts:** the unique key is `(fact_key, language, site_id)`, but a NULL never collides in a unique key (MySQL, PostgreSQL, SQLite), so
+  "one shared row per key and language" is kept by `Facts::save()`, not by the database. A site's own row wins over the shared one with the
+  same key and language (`Facts::all()` skips the shared row); saving with `shared = false` on a shared fact gives the site its own copy,
+  deleting removes the site's own rows first and the shared row only when it has none. A translation follows its default row.
+  `fact_history` is not split by site. **Components** go one way only: shared stays shared (other sites may use it); delete removes it for all.
+- **Cache:** a change to a shared row calls `Front\Cache::clearAll()` (`storage/cache/pages` and every `pages-*`), a local one `clear()`.
+- **Clone:** `Sites::provision()` also copies the source's own components (new rows, new public ids) and facts, and repoints the
+  `component` elements in the copied builds (pages, site parts, pop-ups, collections and their templates, the version history, saved
+  sections, and the component copies themselves) and the variants of the copied experiments. Shared rows are not copied.
+  Removing a site (`Sites::cleanup`) deletes its own components and facts (the site number may be given out again).
+- Known limit: a Talea import (`SiteImport`) empties and fills owner tables (components, facts, media) – it is not meant for an install
+  with several sites.
+
 ## Phases
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,

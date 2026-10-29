@@ -153,14 +153,30 @@ final class Cache
 
     public static function clear(): void
     {
-        foreach (array_merge(glob(self::folder() . '/*.html') ?: [], glob(self::folder() . '/*.lock') ?: []) as $file) {
+        self::clearFolder(self::folder());
+    }
+
+    /**
+     * Clears the page cache of every site (storage/cache/pages and each pages-<prefix>): what a change to a row shared by all sites of
+     * the owner (a component or a fact, docs/specs/multisite.md) shows on.
+     */
+    public static function clearAll(): void
+    {
+        foreach (array_merge([self::FOLDER], glob(self::FOLDER . '-*', GLOB_ONLYDIR) ?: []) as $folder) {
+            self::clearFolder($folder);
+        }
+    }
+
+    private static function clearFolder(string $folder): void
+    {
+        foreach (array_merge(glob($folder . '/*.html') ?: [], glob($folder . '/*.lock') ?: []) as $file) {
             @unlink($file);
         }
         // a new generation: its day empties the cache at midnight, its time starts the warm-up delay (maintain())
-        if (!is_dir(self::folder())) {
-            @mkdir(self::folder(), 0775, true);
+        if (!is_dir($folder)) {
+            @mkdir($folder, 0775, true);
         }
-        @file_put_contents(self::folder() . '/generation', date('Y-m-d') . ' ' . bin2hex(random_bytes(8)), LOCK_EX);
+        @file_put_contents($folder . '/generation', date('Y-m-d') . ' ' . bin2hex(random_bytes(8)), LOCK_EX);
     }
 
     /**

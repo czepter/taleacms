@@ -217,7 +217,7 @@ final class Blueprint
             }
         }
         foreach ($manifest['facts'] as $f) {
-            if ($db->value("SELECT 1 FROM {facts} WHERE fact_key = ? AND language = ''", [$f['key']]) === null
+            if ($db->value("SELECT 1 FROM {facts} WHERE fact_key = ? AND language = '' AND " . Sites::visible($db), [$f['key']]) === null
                 && Facts::save($app, $f['key'], ['label' => self::text($f['label']), 'type' => $f['type'], 'value' => '', 'schema' => $f['schema'] ?? '']) === null) {
                 $created['facts'][] = $f['key'];
             }
