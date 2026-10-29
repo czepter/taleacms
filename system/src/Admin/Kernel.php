@@ -627,11 +627,25 @@ final class Kernel
             return $this->page('Connect an application', $app->view->render('admin/error', ['app' => $app, 'text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
         }
         $oauth = new \Talea\Front\OAuth($app);
+        $error = null;
         if ($app->request->isPost()) {
-            $app->session->set('pending_oauth', null);
+            // a page shown for an earlier request (another application authorized in between) is refused; the pending request stays so the current page still works
+            // a pending request without a nonce (a session from before it existed) matches nothing
+            if (($pending['nonce'] ?? '') === '' || !hash_equals((string) $pending['nonce'], $app->request->post('request'))) {
+                return $this->page('Connect an application', $app->view->render('admin/error', ['app' => $app, 'text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
+            }
             if (!$app->request->postBool('allow')) {
+                $app->session->set('pending_oauth', null);
+
                 return Response::redirect($oauth->deny($pending));
             }
+            // a connection keeps working without the person present (refresh tokens): like a personal token, it needs the current password (N56)
+            if (!password_verify($app->request->post('current_password'), (string) $app->auth()->user()['password'])) {
+                $error = 'The current password is not correct.'; // the pending request stays, the form is shown again
+            }
+        }
+        if ($error === null && $app->request->isPost()) {
+            $app->session->set('pending_oauth', null);
             $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page
             $toolSet = \Talea\Mcp\Catalog::toolSet($app->request->post('tool_set')); // none sent: all tools, as before
             ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));
@@ -641,7 +655,7 @@ final class Kernel
 
         // a focused frame without the admin menu and the draft-look bar – a stray Publish has no place here
         $page = Response::html($app->view->render('admin/bare', ['app' => $app, 'heading' => t('Connect an application'), 'content' => $app->view->render('admin/oauth', [
-            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'username' => $app->auth()->user(),
+            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'nonce' => (string) ($pending['nonce'] ?? ''), 'error' => $error, 'username' => $app->auth()->user(),
             'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST), 'connected' => $oauth->isConnectedClient((string) $pending['client_id']),
         ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)

@@ -59,7 +59,7 @@ final class ConnectionAccessTest extends SiteTestCase
         $this->assertStringContainsString('Can also publish', $page->body, 'publishing is one click away');
         $this->assertStringNotContainsString('class="menu-wrap"', $page->body, 'the consent screen has no admin menu');
         $this->assertStringNotContainsString('appearance-draft', $page->body, 'the consent screen has no draft-look bar with a Publish button');
-        $admin->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'allow' => '0']); // leave nothing pending
+        $admin->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'request' => $page->field('request'), 'allow' => '0']); // leave nothing pending
     }
 
     #[Depends('testTheConsentScreenStandsAloneAndStartsAtDraftsOnly')]
