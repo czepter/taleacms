@@ -271,11 +271,25 @@ final class SharedRowsTest extends DatabaseTestCase
         Sites::trash($db, $id);
         $db->update('sites', ['trashed_at' => date('Y-m-d H:i:s', time() - 31 * 86400)], ['site_id' => $id]);
 
+        $this->assertSame($id, Sites::currentId($db->forSite('tl4_'))); // memoised
         $this->assertSame('dropped 1', Sites::cleanup($db));
 
         $this->assertNull($db->one('SELECT 1 FROM {components} WHERE component_id = ?', [$mine]));
         $this->assertNotNull($db->one('SELECT 1 FROM {components} WHERE component_id = ?', [$kept]), 'a shared component stays');
         $this->assertSame(0, (int) $db->value("SELECT COUNT(*) FROM {facts} WHERE fact_key = 'doomed_fact'"));
         $db->delete('components', ['component_id' => $kept]);
+
+        // the removed site's prefix is handed out again with a new number: the memo must not keep the old one
+        Sites::add($db, 'Again', 'again');
+        $new = (int) $db->value('SELECT site_id FROM {sites} WHERE prefix = ?', ['tl4_']);
+        $this->assertNotSame($id, $new);
+        $this->assertSame($new, Sites::currentId($db->forSite('tl4_')));
+        $db->delete('sites', ['site_id' => $new]);
+    }
+
+    public function testAnUnregisteredFurtherPrefixHasNoSiteNumber(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        Sites::currentId($this->db()->forSite('tl9_')); // never site 1
     }
 }

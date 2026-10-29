@@ -73,14 +73,22 @@ final class Sites
     /** @var array<string, int> memo of currentId(): table prefix => site_id */
     private static array $current = [];
 
-    /** The number of the site a connection works on (its prefix in {sites}); 1 for the owner's prefix and while the registry does not exist. */
+    /** The number of the site a connection works on (its prefix in {sites}); 1 for the owner's prefix and while the registry does not exist; an unregistered further prefix throws. */
     public static function currentId(Db $db): int
     {
-        if ($db->prefix === $db->ownerPrefix) {
+        if ($db->prefix === $db->ownerPrefix || !$db->tableExists('sites')) {
             return 1;
         }
+        if (isset(self::$current[$db->prefix])) {
+            return self::$current[$db->prefix];
+        }
+        $id = $db->value('SELECT site_id FROM {sites} WHERE prefix = ?', [$db->prefix]);
+        if ($id === null || $id === false) {
+            // fail closed: a further prefix without a registry row must never see site 1's own rows
+            throw new \RuntimeException('No site is registered for the table prefix ' . $db->prefix . '.');
+        }
 
-        return self::$current[$db->prefix] ??= $db->tableExists('sites') ? (int) ($db->value('SELECT site_id FROM {sites} WHERE prefix = ?', [$db->prefix]) ?? 1) : 1;
+        return self::$current[$db->prefix] = (int) $id;
     }
 
     /** Forgets the memo of currentId() (tests that build and drop sites). */
@@ -168,6 +176,7 @@ final class Sites
     public static function add(Db $db, string $name, string $slug, int $source = 1, bool $clone = false): string
     {
         $prefix = self::prefixFor($db->ownerPrefix, (int) $db->value('SELECT MAX(site_id) FROM {sites}') + 1);
+        self::forgetCurrent(); // a dropped site's prefix may be handed out again with a new number
         $db->insert('sites', ['name' => $name, 'slug' => $slug, 'prefix' => $prefix, 'status' => 'paused', 'source_site_id' => $source, 'clone' => $clone, 'created_at' => date('Y-m-d H:i:s')]);
 
         return $prefix;
@@ -263,6 +272,7 @@ final class Sites
      */
     public static function provision(Db $db, array $site): void
     {
+        self::forgetCurrent();
         $new = $db->forSite((string) $site['prefix']);
         if ($new->prefix === $db->ownerPrefix || !$new->tableExists('settings')) {
             throw new \RuntimeException('The tables of site ' . $site['prefix'] . ' do not exist yet: migrate first.');
@@ -390,6 +400,7 @@ final class Sites
     public static function cleanup(Db $db): string
     {
         $gone = 0;
+        self::forgetCurrent();
         foreach ($db->all("SELECT site_id, prefix FROM {sites} WHERE status = 'trashed' AND site_id <> 1 AND trashed_at < NOW() - INTERVAL " . self::TRASH_DAYS . ' DAY') as $site) {
             self::dropTables($db, (string) $site['prefix']);
             $db->delete('components', ['site_id' => (int) $site['site_id']]); // its own rows of the shared tables; the number may be given out again
@@ -429,6 +440,7 @@ final class Sites
         if ($siteId === 1) {
             return 'The first site cannot be deleted.';
         }
+        self::forgetCurrent();
         $db->run("UPDATE {sites} SET status = 'trashed', trashed_at = ?, redirect_to_site_id = NULL WHERE site_id = ? AND status <> 'trashed'", [date('Y-m-d H:i:s'), $siteId]);
         $db->run("UPDATE {sites} SET redirect_to_site_id = NULL WHERE redirect_to_site_id = ?", [$siteId]);
 
@@ -438,6 +450,7 @@ final class Sites
     /** Takes a site out of the trash; it comes back paused. */
     public static function restore(Db $db, int $siteId): void
     {
+        self::forgetCurrent();
         $db->run("UPDATE {sites} SET status = 'paused', trashed_at = NULL WHERE site_id = ? AND status = 'trashed'", [$siteId]);
     }
 
