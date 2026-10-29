@@ -252,6 +252,7 @@ return [
     'Enter the address of the site, e.g. https://www.example.com.' => 'Gib die Adresse der Website ein, z. B. https://www.example.com.',
     'Enter the client ID and secret of your OAuth app first.' => 'Gib zuerst Client-ID und Geheimnis deiner OAuth-App ein.',
     'Enter the company domain of Pipedrive in Connections.' => 'Gib die Firmendomain von Pipedrive unter Anbindungen ein.',
+    'Enter the correct password to remove a passkey.' => 'Gib das richtige Passwort ein, um einen Passkey zu entfernen.',
     'Enter the correct password to turn it off.' => 'Gib zum Ausschalten das richtige Passwort ein.',
     'Enter the date as YYYY-MM-DD HH:MM.' => 'Gib das Datum im Format JJJJ-MM-TT HH:MM ein.',
     'Enter the dates as YYYY-MM-DD; the last day must not be before the first one.' => 'Gib die Daten als JJJJ-MM-TT ein; der letzte Tag darf nicht vor dem ersten liegen.',

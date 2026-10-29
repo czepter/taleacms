@@ -167,6 +167,11 @@ final class Account
                 case 'passkey_save':
                     return $this->key($r->post('op') === 'passkey_save', $user);
                 case 'passkey_delete':
+                    // the last key may be the whole second factor: a stolen session alone must not take it away (as totp_off)
+                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
+                        $message = ['error', 'Enter the correct password to remove a passkey.'];
+                        break;
+                    }
                     $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$db->internalId('user_passkeys', $r->post('passkey_id')), $user['user_id']]);
                     $app->auth()->forgetOtherDevices((int) $user['user_id']); // the lost device may have ticked "stay signed in"
                     ChangeLog::write($app, 'account', 'passkey_removed');

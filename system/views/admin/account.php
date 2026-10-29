@@ -159,7 +159,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <input type="hidden" name="op" value="passkey_delete">
 <?php endif ?>
 <div class="row"><label for="passkey-name"><?= e(t('Device name')) ?></label><div><input class="textfield" type="text" id="passkey-name" name="name" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
-<div class="row"><label for="passkey-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="passkey-password" name="current_password" size="30" autocomplete="current-password" data-passkey-password><span class="help"><?= e(t('Needed to add a passkey.')) ?></span></div></div>
+<div class="row"><label for="passkey-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="passkey-password" name="current_password" size="30" autocomplete="current-password" data-passkey-password><span class="help"><?= e(t('Needed to add or remove a passkey.')) ?></span></div></div>
 <p class="buttons"><button class="navigation" type="button" data-passkey-add><?= e(t('Add a passkey from this device')) ?></button></p>
 <p class="notice notice-error" data-passkey-error hidden role="alert"></p>
 <p class="help" data-passkey-unsupported hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>

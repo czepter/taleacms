@@ -296,7 +296,11 @@ final class TwoFactorLoginTest extends SiteTestCase
 
         // the last passkey goes: two-factor sign-in is off, the backup codes with it
         $csrf = $page->csrf();
-        $browser->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'passkey_delete', 'passkey_id' => $site->value('SELECT public_id FROM tl_user_passkeys LIMIT 1')]);
+        $delete = ['_csrf' => $csrf, 'op' => 'passkey_delete', 'passkey_id' => $site->value('SELECT public_id FROM tl_user_passkeys LIMIT 1')];
+        $browser->post('/admin.php?action=account', $delete);
+        $browser->post('/admin.php?action=account', $delete + ['current_password' => 'wrong-password-1']);
+        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM tl_user_passkeys'), 'a stolen session without the password cannot remove the second factor');
+        $browser->post('/admin.php?action=account', $delete + ['current_password' => $site->password]);
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_user_passkeys'), 'the passkey is removed');
         $this->assertNull($site->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), 'the backup codes are cleared');
         $other = $site->client('author');
