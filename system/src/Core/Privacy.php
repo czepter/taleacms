@@ -479,8 +479,10 @@ final class Privacy
             if ($t['build'] === null) {
                 continue;
             }
-            $walk = function (array $nodes) use (&$walk, &$forms, $t): void {
+            $walk = function (array $nodes) use (&$walk, &$forms, $t, $app): void {
                 foreach ($nodes as $n) {
+                    // a placed form (docs/specs/form-builder.md) counts as the published form it places
+                    $n = ($n['type'] ?? '') === \Talea\Builder\Elements\FormEmbed::TYPE ? (\Talea\Builder\FormRecords::resolve($app->db(), $n) ?? $n) : $n;
                     if (($n['type'] ?? '') === 'form') {
                         $fields = [];
                         foreach ((array) ($n['content']['fields'] ?? []) as $field) {

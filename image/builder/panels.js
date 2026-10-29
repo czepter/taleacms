@@ -398,6 +398,10 @@ function aiAsk() {
 }
 
 function addPanel() {
+	if (D.page.form) { // the form builder: a form's build is its fields alone
+		leftContent.append(el('p', { class: 'bd-empty' }, T('A form holds only its fields. Add and change them in the Content panel; a page places the form with the Form element.')));
+		return;
+	}
 	if (D.ai) {
 		leftContent.append(el('button', { type: 'button', class: 'bd-btn bd-ai-section', onclick: aiAsk }, '✨ ' + T('Ask the assistant')),
 			el('button', { type: 'button', class: 'bd-btn bd-ai-section', onclick: aiSection }, '✨ ' + T('Create a section with AI')));
@@ -407,7 +411,8 @@ function addPanel() {
 	const content = el('div', {});
 	leftContent.append(searchBox, content);
 	const groups = {};
-	D.schema.elements.forEach((p) => { (groups[p.group] = groups[p.group] || []).push(p); });
+	// an element the schema does not offer (a form's fields: pages place a form) is only edited where it already is
+	D.schema.elements.filter((p) => p.offered !== false).forEach((p) => { (groups[p.group] = groups[p.group] || []).push(p); });
 	const render = (search) => {
 		const q = search.trim().toLowerCase();
 		const matches = (...texts) => !q || texts.join(' ').toLowerCase().includes(q);

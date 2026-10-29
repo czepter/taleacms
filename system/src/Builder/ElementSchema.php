@@ -154,7 +154,7 @@ final class ElementSchema
                 'type' => $className::TYPE, 'name' => $className::NAME, 'description' => $className::DESCRIPTION, 'icon' => $className::ICON, 'group' => $className::GROUP,
                 'container' => $className::CONTAINER, 'tags' => $className::HTML_TAGS, 'properties' => $className::properties(), 'default_style' => $className::defaultStyle() ?: new \stdClass(),
                 'default_children' => $className::defaultChildren(),
-            ];
+            ] + ($className::OFFERED ? [] : ['offered' => false]);
         }
         $style = [];
         foreach (Style::PROPERTIES as $key => [$css, $type, $group, $labelText, $options]) {

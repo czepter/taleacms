@@ -73,7 +73,7 @@ const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
-  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
+  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=forms', '/admin.php?module=forms&action=new', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
   '/admin.php?module=bookings'];
 for (const url of ADMIN_PAGES) {
@@ -413,6 +413,7 @@ const undoDepth = (p) => p.evaluate(() => window.taleaBuilder.state.undo.length)
 async function mouseDrag(p, locator, dx, dy) {
   await locator.scrollIntoViewIfNeeded();
   const b = await locator.boundingBox();
+  if (!b) throw new Error(`the drag handle ${locator} has no box: it is not on the canvas (is the canvas being swapped?)`);
   const x = b.x + b.width / 2;
   const y = b.y + b.height / 2;
   await p.mouse.move(x, y);
@@ -482,6 +483,8 @@ await step('compose (mouse): a row of three columns becomes 2 : 1 : 1 with the d
   await handle(page, 'divider-0').waitFor({ timeout: 5000 });
   const box = await grid(page, 'cg3');
   await mouseDrag(page, handle(page, 'divider-0'), (2 / 12) * box.width * 0.97, 0);
+  await idle(page); // the autosave swaps the canvas: the second divider is drawn again on the new one
+  await handle(page, 'divider-1').waitFor({ timeout: 5000 });
   await mouseDrag(page, handle(page, 'divider-1'), (1 / 12) * box.width * 0.97, 0);
   const build = await savedBuild(page, 'mouse');
   expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `the columns are ${find(build.children, 'cg3').style.base.columns}`);
@@ -591,6 +594,8 @@ await step('compose (keyboard): the divider handles set 2 : 1 : 1', async () => 
   await page.waitForTimeout(150);
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(250);
+  await idle(page); // the autosave swaps the canvas: focus the second divider on the new one
+  await handle(page, 'divider-1').waitFor({ timeout: 5000 });
   await handle(page, 'divider-1').focus();
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(250);
@@ -635,7 +640,7 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
     await idle(tp); // the autosave reloads the canvas: the next finger must not land on the old one
   };
   // the focus mode's canvas is wider (#115), so a target may lie below the fold: it is scrolled into view before the finger goes down
-  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); if (!b) throw new Error(`${locator} has no box: it is not on the canvas`); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
   const tap = async (id, corner) => { await idle(tp); await node(tp, id).scrollIntoViewIfNeeded().catch(() => {}); const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
   await openBuilder(tp, 'touch');
 
@@ -651,6 +656,7 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
   const grid3 = await grid(tp, 'cg3');
   let d = await centre(handle(tp, 'divider-0'));
   await finger(d, { x: d.x + (2 / 12) * grid3.width * 0.97, y: d.y });
+  await handle(tp, 'divider-1').waitFor(); // finger() waited for the new canvas; its overlay draws the dividers again
   d = await centre(handle(tp, 'divider-1'));
   await finger(d, { x: d.x + (1 / 12) * grid3.width * 0.97, y: d.y });
 
@@ -859,6 +865,38 @@ await step('builder (editing): Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctr
   expect((await columnIds()).join() === 'txt2', `Ctrl+Shift+Z did not remove it again: ${await columnIds()}`);
   const build = await savedBuild(page, 'editing');
   expect(find(build.children, 'col2').children.map((c) => c.id).join() === 'txt2', 'the saved draft does not match the last redo');
+});
+
+await step('forms: a new form opens in the form builder, a page places it and gives its fields a width', async () => {
+  await visit('/admin.php?module=forms&action=new');
+  await page.fill('input[name="name"]', 'Browser form');
+  await Promise.all([page.waitForURL(/\/forms\/builder\//), page.click('form.form input[type="submit"]')]);
+  await until(page, () => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('form.tl-form'), null, 'the form builder shows the form on its canvas');
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
+  expect(await page.getByText('A form holds only its fields.').count() === 1, 'the form builder offers no elements to add');
+  const form = new URL(page.url()).pathname.split('/').pop();
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await until(page, () => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id]'), null, 'the page builder is open');
+  const offered = await page.evaluate(() => window.taleaBuilder.D.schema.elements.filter((p) => p.offered !== false).map((p) => p.type));
+  expect(offered.includes('form_embed') && !offered.includes('form'), `the Add panel offers the placement, not the fields: ${offered.join()}`);
+  const id = await page.evaluate((chosen) => {
+    const B = window.taleaBuilder;
+    const n = B.newElement('form_embed');
+    n.content.form = chosen;
+    B.applyChange(() => { B.state.build.children.push(n); B.state.selected = n.id; });
+    B.redrawPanels();
+    return n.id;
+  }, form);
+  await idle(page);
+  await until(page, (placed) => window.taleaBuilder.previewDoc().querySelector(`form.tl-form[data-tl-id="${placed}"]`), id, 'the canvas shows the placed form, its draft');
+  await page.locator('.bd-form-widths select').first().selectOption('3');
+  await idle(page);
+  await until(page, (placed) => window.taleaBuilder.previewDoc().querySelector(`form.tl-form-layout[data-tl-id="${placed}"] .tl-span-3`), id, 'the field is half as wide on the canvas');
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  const saved = find(await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build.children), id);
+  expect(saved && saved.content.form === form && Object.values(saved.content.widths || {}).join() === '3', `the draft keeps the placement: ${JSON.stringify(saved)}`);
+  await page.evaluate((placed) => { const B = window.taleaBuilder; B.applyChange(() => { B.state.build.children = B.state.build.children.filter((c) => c.id !== placed); }); }, id);
+  await idle(page);
 });
 
 await step('builder: site header', async () => {

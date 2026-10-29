@@ -146,7 +146,10 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **Look draft** (`Core\Look`): design system, class changes and menus go into one draft (`look_draft`), published with
   `Look::publish` (previous looks in `look_versions`, 20); drafts render only with `Look::activate()` (whole-site preview cookie or the
   builder for administrators).
-- **Forms** (element `form`, `Front\Forms`, `POST /form`): fields and recipient are read from the PUBLISHED build by `source` + element id,
+- **Forms** are records (`forms`, `Builder\FormRecords`, `docs/specs/form-builder.md`): the form's own build holds one element `form`
+  (fields, logic, e-mails), edited in the form builder (Enquiries → Forms); a page places it with `form_embed` (form, thank-you page, button
+  text, field widths), resolved by `FormRecords::resolve`. A `form` written inside another build (starter, MCP, import) becomes a record when
+  it is published (`FormRecords::adopt`). `Front\Forms`, `POST /form`: fields and recipient are read from the PUBLISHED build by `source` + element id,
   never from the request; `Core\Antispam` (signed time, honeypot, per-IP limit) without cookies; the result is only a code in the URL.
   The script of forms (steps, rules, the live estimate, the step beacon `POST /form-step`) is `image/forms.js`, only on pages with a form;
   rules and results are edited in the builder's logic overlay (`image/builder/form-logic.js`, logic in `Builder\FormLogic`).
@@ -211,4 +214,5 @@ and size/time limits, never SVG.
 - Run CI tests against a single database engine instead of both MariaDB and MySQL, since they are considered equivalent.
 - In this project's German UI text, use the term 'AI' instead of 'KI' for the AI assistant.
 - Use prebuilt images instead of build context in the Coolify compose file and all other compose files.
+- Name branches `<type>/<short-topic>` in kebab-case (feat/, fix/, refactor/, perf/, docs/, test/, ci/, chore/), never `claude/<random>`; rename an app-created `claude/<slug>-<hash>` worktree branch with `git branch -m` before the first commit or push.
 <!-- end claude-reflect -->

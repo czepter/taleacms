@@ -49,6 +49,14 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-component-card { display: grid; gap: 8px; margin-bottom: 14px; padding: 12px; border: 1px solid var(--component); border-radius: var(--radius); background: var(--component-base); }
 .bd-component-card p { margin: 0; font-size: 12px; color: var(--text-weak); }
 .bd-component-card .bd-btn { justify-content: center; height: 40px; }
+.bd-form-card { border-color: var(--line); background: var(--surface); }
+.bd-form-widths { display: grid; gap: 6px; }
+.bd-form-step { margin-top: 6px; font-size: 12px; }
+.bd-form-row { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); }
+.bd-form-row > .bd-field-note { flex-basis: 100%; margin: 0; }
+.bd-form-width { display: grid; flex: 1 1 8rem; gap: 2px; min-width: 0; font-size: 12px; }
+.bd-form-width > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-form-width select { min-height: 36px; }
 .bd-component-card .bd-btn-main { border-color: var(--component); background: var(--component); }
 .bd-component-card .bd-btn-main:hover { background: var(--component); filter: brightness(0.9); }
 

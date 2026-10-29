@@ -58,11 +58,29 @@ $group = '';
 </fieldset>
 <fieldset>
 <legend><?= e(t('Alerts')) ?></legend>
-<p><?= e(t('When a backup, an update, e-mail, a webhook or a background job fails, the site sends one e-mail – at most one an hour, with everything that happened.')) ?></p>
+<p><?= e(t('When something on the site fails or needs attention, the site sends one e-mail with everything that happened since the last one.')) ?></p>
 <?php
 $field('alerts_enabled', 'Send alert e-mails', 'flag', '');
 $field('alerts_email', 'Send them to', 'email', 'Empty = the site e-mail (Settings → General).', 'maxlength="190"');
+$alertKinds = explode(',', $values['alerts_kinds'] ?? '');
 ?>
+<div class="row">
+	<span class="caption"><?= e(t('Alert me about')) ?></span>
+	<div class="options">
+<?php foreach (Talea\Core\Alerts::KINDS as $kind => [$label]): ?>
+		<label><input type="checkbox" name="alerts_kinds[]" value="<?= e($kind) ?>"<?= in_array($kind, $alertKinds, true) ? ' checked' : '' ?>> <?= e(t($label)) ?></label><br>
+<?php endforeach ?>
+		<span class="help"><?= e(t('Everything stays listed in System status, whether it sends an e-mail or not.')) ?></span>
+	</div>
+</div>
+<div class="row">
+	<label for="alerts_interval"><?= e(t('How often')) ?></label>
+	<div><select id="alerts_interval" name="alerts_interval">
+<?php foreach (Talea\Core\Alerts::INTERVALS as $minutes => $label): ?>
+		<option value="<?= $minutes ?>"<?= ($values['alerts_interval'] ?? '60') === (string) $minutes ? ' selected' : '' ?>><?= e(t($label)) ?></option>
+<?php endforeach ?>
+	</select><span class="help"><?= e(t('What happens in between waits for the next e-mail; nothing is lost.')) ?></span></div>
+</div>
 <p><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 </fieldset>
 <fieldset>
