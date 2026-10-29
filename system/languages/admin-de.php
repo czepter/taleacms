@@ -5594,7 +5594,6 @@ return [
     'With search' => 'Mit Suche',
     'With selected:' => 'Mit Auswahl:',
     'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.' => 'Wenn die Schätzung nach den Kontaktdaten erscheint, zeigt sich das Ergebnis beim Formular: Nach dem Absenden wird keine andere Seite geöffnet.',
-    'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.' => 'Wenn die Schätzung nach den Kontaktdaten erscheint, zeigt sich das Ergebnis beim Formular: Nach dem Absenden wird keine andere Seite geöffnet.',
     'With the imprint' => 'Mit Impressum',
     'With your own AI key (AI settings) the assistant can also draft the pages and their texts.' => 'Mit Ihrem eigenen AI-Schlüssel (AI-Einstellungen) kann der Assistent auch die Seiten und ihre Texte entwerfen.',
     'Within 50 km.' => 'Im Umkreis von 50 km.',

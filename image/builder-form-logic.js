@@ -17,6 +17,7 @@
 	const ACTIONS = { add: 'Add amount', quantity: 'Quantity × amount', multiply: 'Multiply', skip: 'Skip question', show_when: 'Show question only when', result: 'Show result variant' };
 	const AFTER_CONTACT_ONLY = ['multiply', 'result'];
 	const TABS = { rules: 'Rules', results: 'Results', try: 'Try it' };
+	const RULE_TYPE = 'application/x-talea-rule'; // what a rule carries while it is dragged
 	const lang = document.documentElement.lang || undefined;
 	const dayName = (n) => new Intl.DateTimeFormat(lang, { weekday: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, n))); // 1 January 2024 was a Monday (ISO day 1)
 	const monthName = (n) => new Intl.DateTimeFormat(lang, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, n - 1, 1)));
@@ -59,8 +60,12 @@
 		const p = ctx.element;
 		const logic = value && typeof value === 'object' ? value : {};
 		const rules = (Array.isArray(logic.rules) ? logic.rules.length : 0) + legacyRules(p.content.fields || []).length;
+		// what the server dropped or left inactive when it saved the logic (the overlay is closed by then)
+		const B = window.taleaBuilder;
+		const errors = B && B.state.selectedPath ? Object.entries(B.state.errors || {}).filter(([k]) => k.startsWith(B.state.selectedPath + '.content.logic')).map(([, t]) => t) : [];
 		return el('div', { class: 'bd-field bd-logic-field' }, el('span', {}, T('Rules and results')),
 			el('p', { class: 'bd-logic-summary' }, counts(rules, Array.isArray(logic.results) ? logic.results.length : 0)),
+			errors.length ? el('ul', { class: 'bd-errors' }, errors.map((t) => el('li', {}, t))) : null,
 			el('button', { type: 'button', class: 'bd-btn', onclick: () => overlay(p.id) }, T('Edit logic…')));
 	}
 
@@ -110,8 +115,31 @@
 				show_when: () => T('show %s only then').replace('%s', name(a.field)),
 				result: () => T('show the result “%s”').replace('%s', variant(a.variant)),
 			}[a.do] || (() => '…'))();
-			const when = (r.when || []).length ? T('When') + ' ' + r.when.map(condition).join(' ' + T(r.match === 'any' ? 'or' : 'and') + ' ') : T('Always');
+			const when = (r.when || []).length ? T('When %s').replace('%s', r.when.map(condition).join(' ' + T(r.match === 'any' ? 'or' : 'and') + ' ')) : T('Always');
 			return when + ' → ' + ((r.then || []).length ? r.then.map(action).join(', ') : '…');
+		}
+
+		/** The position of the last question a rule asks about; a rule may hide or show only questions after it (no circles). */
+		const latestOf = (r) => Math.max(-1, ...(r.when || []).map((c) => position[c.field] ?? -1));
+		/** The position of the first question a rule hides or shows; its conditions may ask only about questions before it. */
+		const firstTargetOf = (r) => Math.min(Infinity, ...(r.then || []).filter((a) => (a.do === 'skip' || a.do === 'show_when') && byKey[a.field]).map((a) => position[a.field]));
+		const isNumber = (v) => v !== undefined && v !== null && String(v).trim() !== '' && Number.isFinite(Number(String(v).replace(',', '.')));
+		const incomplete = (a) => ({
+			add: () => !isNumber(a.amount), quantity: () => !isNumber(a.amount) || !byKey[a.field], multiply: () => !isNumber(a.by),
+			skip: () => !byKey[a.field], show_when: () => !byKey[a.field], result: () => !work.results.some((v) => v.key === a.variant),
+		}[a.do] || (() => true))();
+		/** What Builder\FormLogic::sanitize would do with the rule: drop it, or keep it doing nothing; said on the rule while it is edited. */
+		function problems(r) {
+			const out = [];
+			if (!r.then.length) { out.push(T('This rule has no action yet: it is dropped when the form is saved.')); }
+			if (r.then.some(incomplete)) { out.push(T('An action is missing its amount, question or result: the rule does not work until you complete it.')); }
+			if (firstTargetOf(r) <= latestOf(r)) { out.push(T('A rule can only hide or show a question that comes after the questions it asks about: this rule is dropped when the form is saved.')); }
+			if (r.when.some((c) => !byKey[c.field] || !c.op)) { out.push(T('A condition has no question yet: the rule does nothing until you choose one.')); }
+			if (r.when.some((c) => ['is', 'is_not', 'contains', 'not_contains'].includes(c.op) && optionsOf(byKey[c.field]).length && !optionsOf(byKey[c.field]).includes(c.value))) {
+				out.push(T('A condition names an answer the question no longer offers: the rule does nothing until you fix it.'));
+			}
+			if (r.broken && !out.length) { out.push(T('This rule names a question, answer or result that no longer exists: it does nothing until you fix it.')); }
+			return out;
 		}
 
 		/** A select of the questions; disabled(f) greys out what may not be chosen. */
@@ -151,7 +179,7 @@
 
 		function conditionRow(r, c, j, redraw, touched) {
 			return el('div', { class: 'bd-logic-row' },
-				questionSelect(T('Question'), c.field, (e) => { c.field = e.target.value; settle(c); redraw(); }),
+				questionSelect(T('Question'), c.field, (e) => { c.field = e.target.value; settle(c); redraw(); }, null, (q) => position[q.key] >= firstTargetOf(r)),
 				el('select', { 'aria-label': T('Condition'), disabled: !byKey[c.field], onchange: (e) => { c.op = e.target.value; settle(c); redraw(); } },
 					(byKey[c.field] ? operatorsOf(byKey[c.field]) : [c.op]).concat(c.op && byKey[c.field] && !operatorsOf(byKey[c.field]).includes(c.op) ? [c.op] : [])
 						.map((op) => el('option', { value: op, selected: op === c.op }, T(OPS[op] || '…')))),
@@ -160,8 +188,7 @@
 		}
 
 		function actionRow(r, a, j, redraw, touched) {
-			// a rule may hide or show only a question after every question it asks about (no circles)
-			const latest = Math.max(-1, ...(r.when || []).map((c) => position[c.field] ?? -1));
+			const latest = latestOf(r);
 			const num = (label, key) => el('input', { type: 'number', step: 'any', 'aria-label': label, value: a[key] ?? '', oninput: (e) => { a[key] = number(e.target.value); touched(); } });
 			const params = {
 				add: () => [num(T('Amount'), 'amount')],
@@ -185,19 +212,25 @@
 		}
 
 		function ruleCard(r, i) {
-			const li = el('li', { class: 'bd-logic-rule' + (r.broken ? ' bd-logic-broken' : '') });
+			const li = el('li', { class: 'bd-logic-rule' });
 			r.when = Array.isArray(r.when) ? r.when : [];
 			r.then = Array.isArray(r.then) ? r.then : [];
 			const draw = () => {
 				const text = el('p', { class: 'bd-logic-sentence' }, sentence(r));
-				const touched = () => { delete r.broken; li.classList.remove('bd-logic-broken'); text.textContent = sentence(r); };
+				const warnings = el('div', { class: 'bd-logic-warnings', 'aria-live': 'polite' });
+				const check = () => {
+					const found = problems(r);
+					warnings.replaceChildren(...found.map((t) => el('p', { class: 'bd-logic-warning' }, t)));
+					li.classList.toggle('bd-logic-broken', found.length > 0);
+				};
+				const touched = () => { delete r.broken; text.textContent = sentence(r); check(); };
 				const redraw = () => { touched(); draw(); };
-				const grip = el('span', { class: 'bd-logic-grip', title: T('Drag to change the order'), 'aria-hidden': 'true', onpointerdown: () => { li.draggable = true; } }, '⠿');
+				const grip = el('span', { class: 'bd-logic-grip', title: T('Drag to change the order'), 'aria-hidden': 'true', onpointerdown: () => { li.draggable = true; }, onpointerup: () => { li.draggable = false; } }, '⠿');
 				li.replaceChildren(...[
 					el('div', { class: 'bd-logic-rule-head' }, grip, el('strong', {}, (i + 1) + '.'), text,
 						el('button', { type: 'button', class: 'bd-btn', 'aria-label': T('Up'), title: T('Up'), disabled: i === 0, onclick: () => move(i, i - 1) }, '↑'),
 						el('button', { type: 'button', class: 'bd-btn', 'aria-label': T('Remove rule'), title: T('Remove rule'), onclick: () => { work.rules.splice(i, 1); drawPane(); } }, '×')),
-					r.broken ? el('p', { class: 'bd-logic-warning' }, T('This rule names a question, answer or result that no longer exists: it does nothing until you fix it.')) : null,
+					warnings,
 					el('label', { class: 'bd-logic-label' }, el('span', {}, T('Label (a line in the breakdown)')), el('input', { type: 'text', maxlength: 120, value: r.label || '', oninput: (e) => { r.label = e.target.value; touched(); } })),
 					el('div', { class: 'bd-logic-part' },
 						el('select', { 'aria-label': T('Which conditions must hold'), onchange: (e) => { r.match = e.target.value; touched(); } },
@@ -208,12 +241,18 @@
 					el('div', { class: 'bd-logic-part' }, el('span', { class: 'bd-logic-title' }, T('Then')),
 						r.then.map((a, j) => actionRow(r, a, j, redraw, touched)),
 						el('button', { type: 'button', class: 'bd-btn', disabled: r.then.length >= LIMITS.then, onclick: () => { r.then.push({ do: 'add', amount: 0 }); redraw(); } }, T('Add action')))].filter(Boolean));
+				check();
 			};
 			li.addEventListener('focusin', () => { current = i; });
-			li.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', String(i)); e.dataTransfer.effectAllowed = 'move'; });
+			li.addEventListener('dragstart', (e) => { e.dataTransfer.setData(RULE_TYPE, String(i)); e.dataTransfer.effectAllowed = 'move'; });
 			li.addEventListener('dragend', () => { li.draggable = false; });
-			li.addEventListener('dragover', (e) => { e.preventDefault(); });
-			li.addEventListener('drop', (e) => { e.preventDefault(); const from = Number(e.dataTransfer.getData('text/plain')); if (Number.isInteger(from) && from !== i) { move(from, i); } });
+			li.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes(RULE_TYPE)) { e.preventDefault(); } });
+			li.addEventListener('drop', (e) => {
+				if (!e.dataTransfer.types.includes(RULE_TYPE)) { return; }
+				e.preventDefault();
+				const from = Number(e.dataTransfer.getData(RULE_TYPE));
+				if (Number.isInteger(from) && from !== i) { move(from, i); }
+			});
 			draw();
 			return li;
 		}
@@ -357,7 +396,13 @@
 				pane),
 			el('footer', {}, live ? el('p', { class: 'bd-logic-hint' }, T('The estimate shows while answering: “Multiply” and result variants work only when it shows after the contact details (Show the estimate, in the inspector).')) : null,
 				el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => d.close() }, T('Done'))));
-		d.addEventListener('close', () => { clearTimeout(timer); commit(); d.remove(); });
+		d.addEventListener('close', () => {
+			clearTimeout(timer);
+			commit();
+			d.remove();
+			const opener = document.querySelector('.bd-logic-field > .bd-btn');
+			if (opener) { opener.focus(); }
+		});
 		document.body.append(d);
 		drawTabs();
 		drawPane();

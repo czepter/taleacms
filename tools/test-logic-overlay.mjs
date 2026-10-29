@@ -67,6 +67,18 @@ try {
   const added = await rule.locator('.bd-logic-sentence').innerText();
   check(/Location is Abroad/.test(added) && /1\.3/.test(added), `the new rule reads as a sentence: "${added}"`);
 
+  // what the server would drop is said on the rule at once: a rule without an action, a condition on the question the rule shows
+  await dialog.getByRole('button', { name: 'Add rule' }).click();
+  const empty = dialog.locator('.bd-logic-rule').last();
+  check(/no action/.test(await empty.locator('.bd-logic-warning').innerText().catch(() => '')), 'a rule without an action warns');
+  await empty.getByRole('button', { name: 'Remove rule' }).click();
+  await first.getByLabel('Label (a line in the breakdown)').click(); // rule 1 is the one worked on
+  await dialog.locator('.bd-logic-questions button', { hasText: 'Extras' }).click();
+  check(/comes after/.test(await first.locator('.bd-logic-warning').innerText().catch(() => '')), 'a condition on the question the rule shows warns at once');
+  check(await first.getByLabel('Question', { exact: true }).first().locator('option', { hasText: 'Extras' }).isDisabled(), 'the condition list greys out the question the rule shows');
+  await first.getByRole('button', { name: 'Remove condition' }).last().click();
+  check(await first.locator('.bd-logic-warning').count() === 0, 'the warning goes once the rule is valid again');
+
   // a result variant
   await dialog.getByRole('tab', { name: 'Results' }).click();
   await dialog.getByRole('button', { name: 'Add result' }).click();
@@ -86,6 +98,7 @@ try {
 
   // closing keeps it as one change of the draft; after a reload the draft has it
   await dialog.getByRole('button', { name: 'Done' }).click();
+  check(await page.waitForFunction(() => document.activeElement?.textContent === 'Edit logic…', null, { timeout: 2000 }).then(() => true, () => false), 'closing the overlay puts the focus back on Edit logic…');
   check(await page.evaluate(() => window.taleaBuilder.save()), 'the draft saves');
   await openForm();
   check(/2 rules, 1 results/.test(await page.locator('.bd-logic-field').innerText()), 'the summary after a reload');
