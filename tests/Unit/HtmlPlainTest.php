@@ -23,7 +23,7 @@ final class HtmlPlainTest extends TestCase
     /** every description source goes through Html::plain(), never through a bare strip_tags() */
     public function testDescriptionSources(): void
     {
-        $kernel = implode('', array_map(fn (string $f): string => (string) file_get_contents(TALEA_SYSTEM . '/src/Front/' . $f . '.php'), ['Kernel', 'PageFrame']));
+        $kernel = implode('', array_map(fn (string $f): string => (string) file_get_contents(TALEA_SYSTEM . '/src/Front/' . $f . '.php'), ['Kernel', 'PageFrame', 'NewsPages', 'CollectionPages']));
         $seo = (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Seo.php');
         $this->assertSame([0, 0, 0], [
             preg_match_all('/strip_tags\(\(?(string\)\s*)?\$(newsItem|category|tag|h|paragraph)\b/', $kernel),

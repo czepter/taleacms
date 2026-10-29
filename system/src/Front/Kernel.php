@@ -8,7 +8,6 @@ use Talea\Core\App;
 use Talea\Core\Language;
 use Talea\Core\Response;
 use Talea\Core\Extensions;
-use Talea\Core\View;
 
 /**
  * Public part of the site.
@@ -29,6 +28,8 @@ final class Kernel
 {
     private readonly NewsRepository $news;
     private readonly PageFrame $frame;
+    private readonly NewsPages $newsPages;
+    private readonly CollectionPages $collectionPages;
 
     /** System URL in a foreign form (/news on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
@@ -71,6 +72,8 @@ final class Kernel
         $this->startSitePreview();
         $this->frame = new PageFrame($app, $this, $this->sitePreview);
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
+        $this->newsPages = new NewsPages($app, $this->frame, $this->news, $this);
+        $this->collectionPages = new CollectionPages($app, $this->frame, $this);
     }
 
     /** The maintenance notice (setting maintenance_text) with 503. */
@@ -169,34 +172,28 @@ final class Kernel
             return $this->notFound(); // the News extension is disabled: the data stay, but are not on the site
         }
         if ($path === '/news') {
-            return $this->showNewsList();
+            return $this->newsPages->showNewsList();
         }
         if (preg_match('#^/news/category/([a-z0-9-]+)$#', $path, $m)) {
-            return $this->category($m[1]);
+            return $this->newsPages->category($m[1]);
         }
         if (preg_match('#^/news/tag/([a-z0-9-]+)$#', $path, $m)) {
-            return $this->tag($m[1]);
+            return $this->newsPages->tag($m[1]);
         }
         if (preg_match('#^/news/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_versions')) {
-            $newsItem = $this->news->bySlug($m[1]);
-
-            return $newsItem === null || \Talea\Core\Members::isGated($this->app->db(), 'news', (int) $newsItem['news_id']) // gated news has no Markdown version
-                ? $this->notFound()
-                : new Response((new Seo($this->app))->newsItemMarkdown($newsItem), 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
+            return $this->newsPages->newsMarkdown($m[1]);
         }
         if (preg_match('#^/news/([a-z0-9-]+)$#', $path, $m)) {
-            return $this->newsItem($m[1]);
+            return $this->newsPages->newsItem($m[1]);
         }
         if (preg_match('#^/([a-z0-9][a-z0-9/-]*)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_versions')) {
-            $markdown = $this->markdownVersion($m[1]);
-
-            return $markdown === null ? $this->notFound() : new Response($markdown, 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
+            return $this->newsPages->markdown($m[1]);
         }
         if ($path === '/search') {
-            return $this->search();
+            return $this->newsPages->search();
         }
         if ($path === '/rss.xml') {
-            return $this->rss();
+            return $this->newsPages->rss();
         }
         $seo = new Seo($this->app);
         if ($path === '/manifest.webmanifest') {
@@ -411,25 +408,24 @@ final class Kernel
         if (preg_match('#^/_component/([a-f0-9-]{36})$#', $path, $m) && $this->app->auth()->isAdmin()) {
             return $this->previewComponent($this->app->db()->internalId('components', $m[1]));
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
+        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#', $path, $m) && ($calendar = $this->collectionPages->calendarFile($m[1], $m[2] ?? '')) !== null) {
             return $calendar;
         }
         if (preg_match('#^/_testimonial/([a-f0-9]{32})$#', $path, $m)) {
-            return $this->testimonialPage($m[1]);
+            return $this->collectionPages->testimonialPage($m[1]);
         }
         if ($path === '/_comment' && $request->isPost()) {
             // a comment on a draft from a shared preview link that allows comments (2.15, Core\DraftComments)
             return (new DraftComments($this->app))->post();
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/_compare$#', $path, $m)) {
-            return $this->compareProducts($m[1]);
+            return $this->collectionPages->compareProducts($m[1]);
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'news') {
-            return $this->showCollectionItem($m[1], $m[2]);
+            return $this->collectionPages->showCollectionItem($m[1], $m[2]);
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#', $path, $m) && $m[1] !== 'news') {
-            // the stable address of a document's current file (2.11, Core\Documents)
-            return \Talea\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
+            return $this->collectionPages->latest($m[1], $m[2]);
         }
 
         return $this->notFound();
@@ -477,257 +473,6 @@ final class Kernel
         return $this->frame->page($component['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
     }
 
-    /**
-     * The page a customer opens from a testimonial request (2.12, Core\Testimonials): their words, name and role, an optional
-     * photo and two separate consents. An unknown, used or expired link is a 404. Never cached, never indexed.
-     */
-    private function testimonialPage(string $token): Response
-    {
-        $db = $this->app->db();
-        $request = \Talea\Core\Testimonials::find($db, $token);
-        if ($request === null) {
-            return $this->notFound();
-        }
-        $r = $this->app->request;
-        $site = (string) $this->app->settings()->get('site_name');
-        $consents = \Talea\Core\Testimonials::consents($site);
-        $error = '';
-        if ($r->isPost()) {
-            $antispam = new \Talea\Core\Antispam($db, $this->app->settings());
-            $answer = \Talea\Core\Testimonials::clean($_POST);
-            $reason = $antispam->verify($r, 'testimonial|' . $token);
-            if ($reason !== null) {
-                $error = $reason === 'robot' ? t('The form could not be verified. Reload the page and try again.') : $reason;
-            } elseif (is_string($answer)) {
-                $error = $answer;
-            } else {
-                \Talea\Core\Testimonials::save($this->app, $request, $answer, is_array($_FILES['photo'] ?? null) ? $_FILES['photo'] : null);
-                $html = '<div class="tl-system-page"><h1>' . e(t('Thank you!')) . '</h1><p>' . e(t('We have received your words. We will publish them after a short check.')) . '</p></div>';
-
-                return $this->frame->page(t('Thank you!'), $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
-            }
-        }
-        $field = fn (string $name): string => e(is_scalar($_POST[$name] ?? null) ? (string) $_POST[$name] : '');
-        $antispam = new \Talea\Core\Antispam($db, $this->app->settings());
-        $title = t('Share your experience with %s', $site);
-        $html = '<div class="tl-system-page"><h1>' . e($title) . '</h1>'
-            . ($error !== '' ? '<p class="tl-form-error" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="tl-form" method="post" enctype="multipart/form-data">' . $antispam->fields('testimonial|' . $token)
-            . '<p class="tl-field"><label for="t-text">' . e(t('Your words')) . ' <span class="tl-required" aria-hidden="true">*</span></label><textarea id="t-text" name="text" rows="6" maxlength="3000" required>' . $field('text') . '</textarea></p>'
-            . '<p class="tl-field"><label for="t-name">' . e(t('Your name')) . ' <span class="tl-required" aria-hidden="true">*</span></label><input id="t-name" name="name" maxlength="120" autocomplete="name" required value="' . $field('name') . '"></p>'
-            . '<p class="tl-field"><label for="t-role">' . e(t('Role and company (optional)')) . '</label><input id="t-role" name="role" maxlength="160" autocomplete="organization-title" value="' . $field('role') . '"></p>'
-            . '<p class="tl-field"><label for="t-photo">' . e(t('Your photo (optional)')) . '</label><input id="t-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></p>'
-            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent_words" value="1" required> <span>' . e($consents['words']) . '</span></label></p>'
-            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent_photo" value="1"> <span>' . e($consents['photo']) . '</span></label></p>'
-            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Send')) . '</button></p></form></div>';
-        $k = $this->frame->context();
-        $k->types['form'] = true; // the form styles
-        $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
-        $k->withoutCache = true;
-
-        return $this->frame->page($title, $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
-    }
-
-    /**
-     * Comparison of up to four products (2.11, Builder\Products): /<collection>/_compare?i=a,b,c – their pictures, names,
-     * prices and every parameter side by side. Not indexed; an unknown collection or no known item is a 404.
-     */
-    private function compareProducts(string $collectionSlug): Response
-    {
-        $db = $this->app->db();
-        $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
-        $fields = $collection !== null ? \Talea\Builder\Products::fields($collection) : null;
-        $slugs = array_slice(array_values(array_unique(array_filter(explode(',', $this->app->request->get('i')), fn (string $s): bool => preg_match('/^[a-z0-9-]{1,160}$/', $s) === 1))), 0, \Talea\Builder\Products::MAX_COMPARE);
-        if ($collection === null || $fields === null || $slugs === []) {
-            return $this->notFound();
-        }
-        $items = [];
-        foreach ($slugs as $slug) {
-            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'item_id'), [$collection['collection_id'], $slug, Language::siteColumn()]);
-            if ($item !== null) {
-                $item['data'] = json_decode((string) $item['data'], true) ?: [];
-                $items[] = $item;
-            }
-        }
-        if ($items === []) {
-            return $this->notFound();
-        }
-        $k = $this->frame->context();
-        $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // its CSS has the comparison table
-        $head = '';
-        foreach ($items as $item) {
-            $image = $fields['image'] !== '' ? (string) ($item['data'][$fields['image']] ?? '') : '';
-            $price = $fields['price'] !== '' ? trim((string) ($item['data'][$fields['price']] ?? '') . ' ' . ($fields['price_note'] !== '' ? (string) ($item['data'][$fields['price_note']] ?? '') : '')) : '';
-            $head .= '<th scope="col">' . ($image !== '' ? '<img src="' . e($k->image($image)) . '" alt="" loading="lazy">' : '')
-                . ($collection['detail'] ? '<a href="' . e($this->app->url($collection['slug'] . '/' . $item['slug'])) . '">' . e($item['name']) . '</a>' : e($item['name']))
-                . ($price !== '' ? '<br><small>' . e($price) . '</small>' : '') . '</th>';
-        }
-        $rows = '';
-        foreach (\Talea\Builder\Products::comparison($fields['parameters'], $items) as [$name, $values]) {
-            $rows .= '<tr><th scope="row">' . e($name) . '</th>' . implode('', array_map(fn (string $v): string => '<td>' . e($v) . '</td>', $values)) . '</tr>';
-        }
-        $title = t('Comparison') . ': ' . $collection['name'];
-        $html = '<div class="tl-system-page"><h1>' . e($title) . '</h1><div class="tl-compare-wrap"><table class="tl-compare"><thead><tr><td></td>' . $head . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
-            . '<p><a href="' . e($this->app->url($collection['slug'])) . '">' . e(t('Back to %s', (string) $collection['name'])) . '</a></p></div>';
-
-        return $this->frame->page($title, $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
-    }
-
-    /**
-     * iCalendar of an events collection (2.11, Core\Calendar): /<collection>.ics – upcoming events and those of the last
-     * 30 days, to subscribe to; /<collection>/<item>.ics – one event to add. null = not an events collection.
-     */
-    private function calendarFile(string $collectionSlug, string $itemSlug): ?Response
-    {
-        $db = $this->app->db();
-        $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
-        $fields = $collection !== null ? \Talea\Core\Calendar::fields($collection) : null;
-        if ($collection === null || $fields === null) {
-            return null;
-        }
-        $start = $db->dialect()->jsonExtract('data', '$.' . $fields['start']);
-        $rows = $itemSlug !== ''
-            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'item_id'), [$collection['collection_id'], $itemSlug, Language::siteColumn()])
-            : $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'item_id') . ' AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
-                [$collection['collection_id'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
-        if ($itemSlug !== '' && $rows === []) {
-            return $this->notFound();
-        }
-        $events = array_map(function (array $r) use ($collection): array {
-            $r['data'] = json_decode((string) $r['data'], true) ?: [];
-
-            return [$r, $collection['detail'] ? \Talea\Core\Mailing::absolute($this->app, $collection['slug'] . '/' . $r['slug']) : ''];
-        }, $rows);
-        $name = $this->app->settings()->get('site_name') . ' – ' . $collection['name'];
-        $ics = \Talea\Core\Calendar::ics($collection, $events, $name, (string) (parse_url(\Talea\Core\Mailing::absolute($this->app, ''), PHP_URL_HOST) ?: 'talea'));
-
-        return new Response($ics, 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Cache-Control' => 'public, max-age=900']
-            + ($itemSlug !== '' ? ['Content-Disposition' => 'attachment; filename="' . $itemSlug . '.ics"'] : []));
-    }
-
-    /**
-     * Collection item page (/<collection>/<item>) by the item template from the builder. In the editor the administrator
-     * sees the template draft (?build=draft&editor=1), and when the collection has no items yet, a sample with field
-     * labels (/<collection>/_sample).
-     */
-    private function showCollectionItem(string $collectionSlug, string $seo): Response
-    {
-        $db = $this->app->db();
-        $r = $this->app->request;
-        $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
-        // item template in the shown site version's language; a language without its own template uses the default language's
-        $template = $collection !== null ? \Talea\Builder\Collections::inLanguage($db, $collection, Language::siteColumn()) : null;
-        // template draft: the administrator, or a signed preview of exactly this template (Core\Preview, target
-        // collection:<idk>[:<language>])
-        $draft = $template !== null && $this->wantsDraft() && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Talea\Builder\Collections::templateKey($template)));
-        if ($collection === null || (!$collection['detail'] && !$draft)) {
-            return $this->notFound();
-        }
-        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND deleted_at IS NULL' . ($draft ? '' : ' AND visible = TRUE'), [$collection['collection_id'], $seo, Language::siteColumn()]);
-        if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== ''
-            && $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$collection['collection_id'], $seo]) !== null) {
-            // a hidden or deleted item (a person who left, 2.10): its old address leads to the chosen page instead of a 404
-            $to = (string) $collection['hidden_redirect'];
-
-            return Response::redirect(str_starts_with($to, 'https://') ? $to : $this->app->url(ltrim($to, '/')), 301);
-        }
-        if ($item === null && !($draft && $seo === '_sample')) {
-            return $this->notFound();
-        }
-        if ($item !== null && ($gate = $this->gate('item', (int) $item['item_id'], (string) $item['name'])) !== null) {
-            return $gate;
-        }
-        if ($item !== null) {
-            $item['data'] = json_decode((string) $item['data'], true) ?: [];
-        }
-        $build = \Talea\Builder\Build::fromJson($draft ? ($template['build_draft'] ?? $template['build']) : $template['build'])
-            ?? \Talea\Builder\Build::fromJson($draft ? ($collection['build_draft'] ?? $collection['build']) : $collection['build'])
-            ?? \Talea\Builder\Collections::defaultTemplate($collection);
-        // the collection level links to the page with the same slug (e.g. /navod above /navod/<article>) when it exists on
-        // the site – with its title; in another language version to its translation (page slugs are unique across
-        // languages: /de/vergleich)
-        $parentPage = null;
-        // with slugs per language the page of the version itself comes first
-        $main = $db->one('SELECT page_id, translation_of, language, slug, title, visible FROM {pages} WHERE slug = ? AND deleted_at IS NULL ORDER BY language = ? DESC LIMIT 1', [$collection['slug'], Language::siteColumn()]);
-        if ($main !== null && $main['language'] === Language::siteColumn()) {
-            $parentPage = $main['visible'] ? $main : null;
-        } elseif ($main !== null) {
-            $original = (int) ($main['translation_of'] ?: $main['page_id']);
-            $parentPage = $db->one('SELECT slug, title FROM {pages} WHERE (page_id = ? OR translation_of = ?) AND language = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
-        }
-        $this->frame->breadcrumbs([$parentPage !== null && $parentPage['title'] !== '' ? (string) $parentPage['title'] : $collection['name'], $parentPage !== null ? $this->app->url((string) $parentPage['slug']) : ''],
-            [($item['breadcrumb_title'] ?? '') !== '' ? $item['breadcrumb_title'] : ($item['name'] ?? t('Sample item')), '']);
-        $this->frame->collectionItem = $item !== null ? [(int) $collection['collection_id'], (string) $collection['slug'], (string) $item['slug']] : null;
-        $k = $this->frame->context();
-        if (\Talea\Core\Notices::isBoard($collection)) {
-            $k->withoutCache = true; // {{notice_status}} changes with the day, not with an edit (2.11)
-        }
-        $k->item = $item !== null ? \Talea\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) + \Talea\Core\Documents::values($this->app, $collection, $item) : \Talea\Builder\Collections::sample($collection);
-        if (isset($k->item['_registration'])) {
-            $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)
-        }
-        $k->editor = $draft && $r->get('editor') === '1';
-        $k->source = 'collection:' . $this->app->db()->publicId('collections', (int) $collection['collection_id']);
-        $this->frame->pageCollection = (string) $collection['slug'];
-        $html = \Talea\Builder\Renderer::html($build, $k);
-        [$k->item, $k->editor] = [null, false];
-
-        // description and image for search engines and sharing: the item's first longer text and first image
-        $description = '';
-        $image = '';
-        foreach ($collection['fields'] as $field) {
-            $h = (string) ($item['data'][$field['key']] ?? '');
-            if ($description === '' && in_array($field['type'], ['lines', 'html'], true) && $h !== '') {
-                $description = \Talea\Core\Html::plain($h, 300);
-            }
-            if ($image === '' && $field['type'] === 'gallery' && $h !== '') {
-                $h = \Talea\Builder\Collections::galleryPhotos($h)[0]['src'] ?? ''; // no image field before it: the gallery's first photo
-            }
-            if ($image === '' && in_array($field['type'], ['image', 'gallery'], true) && $h !== '') {
-                $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
-            }
-        }
-
-        // the item's own SEO fields (1.9) win over what is derived from its fields
-        if ($item !== null && $item['description'] !== '') {
-            $description = (string) $item['description'];
-        }
-        if ($item !== null && $item['image'] !== '') {
-            $image = preg_match('#^https?://#', $item['image']) ? (string) $item['image'] : $this->app->request->origin() . $this->app->url(ltrim((string) $item['image'], '/'));
-        }
-        $title = $item !== null && $item['seo_title'] !== '' ? (string) $item['seo_title'] : (string) ($item['name'] ?? $collection['name']);
-
-        return $this->frame->page($title, $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), [
-            'description' => $description, 'image' => $image, 'build' => true, 'noindex' => $draft || !empty($item['noindex']),
-            'item' => $item !== null ? ['collection' => $collection, 'item' => $item] : null,
-            'markdown' => $item !== null && $collection['detail'] && $item['visible'] && !$this->frame->gated ? $collection['slug'] . '/' . $item['slug'] : null,
-        ] + $this->frame->seoMeta('item', $item ?? [], ['category' => (string) $collection['name']]));
-    }
-
-    /**
-     * Markdown version of a published page or collection item (/<slug>.md, /<collection>/<item>.md); null for a hidden,
-     * password-protected or gated one, which has none – like gated news.
-     */
-    private function markdownVersion(string $slug): ?string
-    {
-        $db = $this->app->db();
-        $seo = new Seo($this->app);
-        $page = $db->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$slug, Language::siteColumn()]);
-        if ($page !== null) {
-            return \Talea\Core\PageLock::isProtected($page) || \Talea\Core\Members::isGated($db, 'page', (int) $page['page_id'])
-                ? null : $seo->pageMarkdown($page, (int) $page['page_id'] === $this->frame->homePageId());
-        }
-        if (!preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $slug, $m) || $m[1] === 'news') {
-            return null;
-        }
-        $collection = \Talea\Builder\Collections::bySlug($db, $m[1]);
-        $item = $collection !== null && $collection['detail']
-            ? $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id'], $m[2], Language::siteColumn()])
-            : null;
-
-        return $item === null || \Talea\Core\Members::isGated($db, 'item', (int) $item['item_id']) ? null : $seo->itemMarkdown($collection, $item);
-    }
-
     private function home(): Response
     {
         $page = ($id = $this->frame->homePageId()) > 0 ? $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ? AND visible = TRUE', [$id]) : null;
@@ -737,7 +482,7 @@ final class Kernel
             $page = $this->app->db()->one('SELECT * FROM {pages} WHERE visible = TRUE AND deleted_at IS NULL AND language = ? ORDER BY sort_order, page_id LIMIT 1', [Language::siteColumn()]);
         }
 
-        return $page !== null ? $this->showPage($page, '', true) : (Extensions::isEnabled($this->app->settings(), 'news') ? $this->showNewsList(true) : $this->notFound());
+        return $page !== null ? $this->showPage($page, '', true) : (Extensions::isEnabled($this->app->settings(), 'news') ? $this->newsPages->showNewsList(true) : $this->notFound());
     }
 
     /** @param array<string, mixed> $page */
@@ -866,162 +611,6 @@ final class Kernel
         return '';
     }
 
-    private function showNewsList(bool $home = false): Response
-    {
-        $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = $this->news->listPublished($pageNumber);
-        if (!$home) {
-            $this->frame->breadcrumbs([t('News'), '']);
-        }
-
-        return $this->frame->page($home ? '' : t('News'), $this->frame->view->render('list', ['heading' => t('News'), 'description' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'news')), [
-            'main' => $home,
-            // without a site description: the list's own summary (the site name and the latest headlines)
-            'description' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
-                : mb_strimwidth(t('News') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'title')) : ''), 0, 160, '…'),
-            'part' => 'list',
-        ] + $this->frame->seoMeta($home ? 'home' : 'other'));
-    }
-
-    private function category(string $seo): Response
-    {
-        $category = $this->app->db()->one('SELECT * FROM {categories} WHERE slug = ? AND language = ?', [$seo, Language::siteColumn()]);
-        if ($category === null) {
-            return $this->notFound();
-        }
-        $this->frame->counterpart = ['categories', 'category_id', $category, 'news/category/'];
-        $this->frame->breadcrumbs([t('News'), $this->app->url('news')], [$category['name'], '']);
-        $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = $this->news->inCategory((int) $category['category_id'], $pageNumber);
-
-        return $this->frame->page(
-            $category['name'],
-            $this->frame->view->render('list', ['heading' => $category['name'], 'description' => PageFrame::authored(\Talea\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'news/category/' . $seo)),
-            ['description' => \Talea\Core\Html::plain((string) $category['description'], 300), 'part' => 'list', 'noindex' => $total === 0 && $this->app->settings()->bool('seo_hide_empty_terms')]
-                + $this->frame->seoMeta('category', [], ['category' => (string) $category['name']]),
-        );
-    }
-
-    private function tag(string $seo): Response
-    {
-        $tag = $this->app->db()->one('SELECT * FROM {tags} WHERE slug = ?', [$seo]);
-        if ($tag === null) {
-            return $this->notFound();
-        }
-        $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = $this->news->withTag((int) $tag['tag_id'], $pageNumber);
-        // a tag with a description is a topic page: intro and its own description for search engines
-        $colorScheme = trim((string) $tag['description']) !== '';
-
-        return $this->frame->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->frame->view->render('list', [
-            'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'description' => $colorScheme ? PageFrame::authored(\Talea\Core\Html::safe((string) $tag['description'])) : '',
-        ] + $this->listVariables($news, $total, $pageNumber, 'news/tag/' . $seo)), [
-            'description' => $colorScheme ? \Talea\Core\Html::plain((string) $tag['description'], 300) : '',
-            'part' => 'list',
-            'noindex' => $total === 0 && $this->app->settings()->bool('seo_hide_empty_terms'),
-        ] + $this->frame->seoMeta('tag'));
-    }
-
-    private function newsItem(string $seo): Response
-    {
-        $preview = $this->app->request->get('preview') === '1' && $this->app->auth()->user() !== null;
-        $newsItem = $this->news->bySlug($seo, $preview);
-        if ($newsItem === null) {
-            return $this->notFound();
-        }
-        if ($newsItem['language'] !== Language::siteColumn()) {
-            // the news item belongs to a different language version than the one the request came from
-            if ($newsItem['language'] !== '' && !in_array($newsItem['language'], Language::additional($this->app->settings()), true)) {
-                return $this->notFound(); // its language version is disabled: a redirect would lead back to the same URL
-            }
-            $this->app->languagePrefix = $newsItem['language'];
-
-            return Response::redirect($this->app->url('news/' . $newsItem['slug']) . ($preview ? '?preview=1' : ''), 301);
-        }
-        if (($gate = $this->gate('news', (int) $newsItem['news_id'], (string) $newsItem['title'])) !== null) {
-            return $gate;
-        }
-        // editing directly on the site works with the raw text from the database (without the outline and embedded players)
-        $raw = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {news} WHERE news_id = ?', [$newsItem['news_id']]);
-        if ($raw !== null && ($form = $this->frame->editInPlace('news', $raw, 'news/' . $newsItem['slug'])) !== null) {
-            return $this->frame->page($newsItem['title'], $form, ['noindex' => true]);
-        }
-        if (!$preview && $this->app->auth()->user() === null && ($_SERVER['HTTP_USER_AGENT'] ?? '') !== '') { // the cache warm-up sends no user agent
-            $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['news_id']]);
-        }
-
-        $this->frame->breadcrumbs([t('News'), $this->app->url('news')], [$newsItem['category_name'], $this->app->url('news/category/' . $newsItem['category_slug'])], [(string) ($newsItem['breadcrumb_title'] ?? '') !== '' ? $newsItem['breadcrumb_title'] : $newsItem['title'], '']);
-        $newsItem['faq_html'] = (new View([TALEA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
-        $newsItem = (new NewsText($this->app))->complete($newsItem);
-        $newsItem['tags'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);
-
-        $content = $this->frame->view->render('news-item', [
-            // what the editor wrote; the item itself stays as it is for the description and structured data
-            'newsItem' => array_map(PageFrame::authored(...), array_filter(array_intersect_key($newsItem, ['intro' => 1, 'text' => 1, 'faq_html' => 1, 'image_caption_html' => 1]), is_string(...))) + $newsItem,
-            'url' => $this->app->url(...),
-            'souvisejici' => $this->app->settings()->bool('related_news_auto') ? $this->news->similar($newsItem) : [],
-        ]);
-
-        return $this->frame->page($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title'], $content, [
-            'article' => $newsItem,
-            'description' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : \Talea\Core\Html::plain($newsItem['intro'], 300),
-            'keywords' => $newsItem['keywords'],
-            'image' => $newsItem['image'],
-            'noindex' => (bool) $newsItem['noindex'],
-            'type' => 'article',
-            'part' => 'news_item',
-        ] + $this->frame->seoMeta('news', $newsItem, ['category' => (string) $newsItem['category_name']]));
-    }
-
-    private function search(): Response
-    {
-        $q = mb_substr($this->app->request->get('q'), 0, 100);
-        // search is the site's most expensive query and is not cached: at most 30 searches per minute from one address
-        $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
-        if (mb_strlen($q) >= 3) {
-            if ($antispam->count($this->app->request->ip(), 'search', 0, 1) >= 30) {
-                return new Response(t('Too many searches in a row. Please try again in a moment.'), 429, ['Content-Type' => 'text/plain; charset=utf-8', 'Retry-After' => '60']);
-            }
-            $antispam->write($this->app->request->ip(), 'search', 0);
-        }
-        $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = mb_strlen($q) >= 3 && Extensions::isEnabled($this->app->settings(), 'news') ? $this->news->search($q, $pageNumber) : [[], 0];
-        // pages and collection items with their own page – regardless of diacritics, with a snippet (news are found by the
-        // fulltext above)
-        $pages = [];
-        if (mb_strlen($q) >= 3 && $pageNumber === 1) {
-            $db = $this->app->db();
-            $home = $this->frame->homePageId();
-            $candidates = array_map(fn (array $s): array => ['title' => $s['title'], 'url' => (int) $s['page_id'] === $home ? '' : $s['slug'], 'text' => (string) $s['text']],
-                $db->all('SELECT page_id, title, slug, text FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND language = ? ORDER BY sort_order LIMIT 500', [Language::siteColumn()]));
-            foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS collection, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
-                $data = json_decode((string) $p['data'], true);
-                // only text fields are searched – image paths and link URLs would add noise to the results and snippets
-                $textFields = array_column(array_filter(json_decode((string) $p['fields'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'lines', 'html'], true)), 'key');
-                $candidates[] = ['title' => $p['name'], 'url' => $p['collection'] . '/' . $p['slug'],
-                    'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string'))];
-            }
-            $pages = array_map(fn (array $v): array => ['title' => $v['title'], 'slug' => $v['url'], 'snippet' => $v['snippet']], \Talea\Core\Search::find($q, $candidates));
-        }
-
-        return $this->frame->page(
-            t('Search'),
-            $this->frame->view->render('list', ['heading' => t('Search'), 'description' => '', 'searched' => $q, 'foundPages' => $pages] + $this->listVariables($news, $total, $pageNumber, 'search', ['q' => $q])),
-            ['noindex' => true],
-        );
-    }
-
-    private function rss(): Response
-    {
-        $xml = Cache::text($this->app, 'rss|' . Language::siteColumn(), fn (): string => $this->frame->view->render('rss', [
-            'web' => $this->app->settings(),
-            'news' => $this->news->listPublished(1, 20)[0],
-            'url' => $this->app->request->origin() . $this->app->url(''),
-        ]));
-
-        return new Response($xml, 200, ['Content-Type' => 'application/rss+xml; charset=utf-8']);
-    }
-
     /**
      * The stored redirect for an old address, null when there is none. The path may have lost its .html (url_slash), while
      * imports store old addresses as they were (/2019/05/post.html), so both forms are tried. `$exactOnly` skips the other match types:
@@ -1113,27 +702,6 @@ final class Kernel
     }
 
     /**
-     * @param list<array<string, mixed>> $news
-     * @param array<string, string> $params extra parameters of the pagination links
-     * @return array<string, mixed>
-     */
-    private function listVariables(array $news, int $total, int $pageNumber, string $path, array $params = []): array
-    {
-        $this->frame->pastEnd = $pageNumber > 1 && $news === [];
-
-        return [
-            'news' => array_map(fn (array $n): array => ['intro' => PageFrame::authored((string) $n['intro'])] + $n, $news),
-            'total' => $total,
-            'page' => $pageNumber,
-            'pagesCount' => max(1, (int) ceil($total / $this->news->perPage())),
-            'pageUrl' => fn (int $s): string => $this->app->url($path) . (($query = http_build_query($params + ($s > 1 ? ['page' => $s] : []))) !== '' ? '?' . $query : ''),
-            'searched' => null,
-            'foundPages' => [],
-            'url' => $this->app->url(...),
-        ];
-    }
-
-    /**
      * The whole-site preview (Core\Preview target "web", from preview_link or Site appearance): every page, site part and
      * collection template shows its draft and the site uses the draft look. The signed link sets a cookie, so the preview
      * stays while the visitor clicks through the site, until the link expires or ?preview_end=1 ends it. An administrator
@@ -1167,7 +735,7 @@ final class Kernel
     }
 
     /** Draft instead of the published build: the builder and single previews (?build=draft), or the whole-site preview. */
-    private function wantsDraft(): bool
+    public function wantsDraft(): bool
     {
         return $this->sitePreview || $this->app->request->get('build') === 'draft';
     }
@@ -1256,7 +824,7 @@ final class Kernel
      *
      * @param string|null $previewTarget a draft preview link for this target (Core\Preview) lets its holder read it too
      */
-    private function gate(string $type, int $id, string $title, ?string $previewTarget = null): ?Response
+    public function gate(string $type, int $id, string $title, ?string $previewTarget = null): ?Response
     {
         $access = \Talea\Core\Members::access($this->app, $type, $id);
         if ($access === 'public') {
