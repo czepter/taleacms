@@ -168,6 +168,17 @@ final class FormLogicTest extends TestCase
         $this->assertSame(['', 1000.0 + 8 * 180], [$live['variant'], $live['total']], 'live: no multiply, no variant');
     }
 
+    public function testUnconditionalAmountRuleSurvivesSanitize(): void
+    {
+        [$build] = Build::sanitize(['v' => 1, 'children' => [['type' => 'form', 'content' => [
+            'fields' => [['key' => 'kaaaa', 'label' => 'Hours', 'type' => 'number'], ['key' => 'kbbbb', 'label' => 'Price', 'type' => 'estimate']],
+            'logic' => ['rules' => [['label' => 'Per hour', 'when' => [], 'then' => [['do' => 'quantity', 'field' => 'kaaaa', 'amount' => 180]]]], 'results' => []],
+        ]]]]);
+        $content = $build['children'][0]['content'];
+        $this->assertCount(1, $content['logic']['rules']);
+        $this->assertSame(540.0, FormLogic::evaluate($content, [0 => '3'])['total']);
+    }
+
     public function testRuleWithoutConditionsHolds(): void
     {
         $fields = [['key' => 'ka000', 'type' => 'text', 'label' => 'A'], ['key' => 'kb000', 'type' => 'text', 'label' => 'B']];

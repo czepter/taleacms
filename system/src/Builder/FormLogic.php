@@ -97,8 +97,8 @@ final class FormLogic
             if (!$lookBack) {
                 $errors[$at] = 'A rule can only hide or show a question that comes after the questions it asks about; the rule was dropped.';
             }
-            if ($when === [] || $then === [] || !$lookBack) {
-                $errors[$at] ??= 'A rule needs at least one condition and one action; the rule was dropped.';
+            if ($then === [] || !$lookBack) {
+                $errors[$at] ??= 'A rule needs at least one action; the rule was dropped.';
                 continue;
             }
             $rule = ['label' => mb_substr(trim(strip_tags(self::str($raw['label'] ?? ''))), 0, 120), 'match' => ($raw['match'] ?? '') === 'any' ? 'any' : 'all', 'when' => $when, 'then' => $then];
