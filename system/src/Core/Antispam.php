@@ -136,14 +136,31 @@ final class Antispam
      */
     public static function visitorIp(array $server, string $proxy): string
     {
-        $remote = (string) ($server['REMOTE_ADDR'] ?? '');
-        if ($proxy === 'cloudflare' && isset($server['HTTP_CF_CONNECTING_IP']) && self::inList($remote, self::CLOUDFLARE)) {
-            $ip = trim((string) $server['HTTP_CF_CONNECTING_IP']);
+        $peer = (string) ($server['REMOTE_ADDR'] ?? '');
 
-            return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : $remote;
+        // behind a reverse proxy of the operator (TALEA_TRUSTED_PROXIES): X-Forwarded-For is read from the right, past the proxies we trust
+        $trusted = array_filter(array_map('trim', explode(',', Config::env('TRUSTED_PROXIES'))));
+        if ($trusted !== [] && isset($server['HTTP_X_FORWARDED_FOR']) && self::inList($peer, $trusted)) {
+            foreach (array_reverse(explode(',', (string) $server['HTTP_X_FORWARDED_FOR'])) as $entry) {
+                $entry = trim($entry);
+                if (filter_var($entry, FILTER_VALIDATE_IP) === false) {
+                    break;
+                }
+                if (!self::inList($entry, $trusted)) {
+                    $peer = $entry;
+                    break;
+                }
+            }
         }
 
-        return $remote;
+        // Cloudflare may sit behind the operator's own proxy: its header counts when the resolved peer is a Cloudflare address
+        if ($proxy === 'cloudflare' && isset($server['HTTP_CF_CONNECTING_IP']) && self::inList($peer, self::CLOUDFLARE)) {
+            $ip = trim((string) $server['HTTP_CF_CONNECTING_IP']);
+
+            return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : $peer;
+        }
+
+        return $peer;
     }
 
     /**
