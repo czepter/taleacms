@@ -82,7 +82,7 @@ final class ConnectionAccessTest extends SiteTestCase
         // one application with several consents shows its strongest live access, not the alphabetically largest ('read' sorts last)
         $site->exec("INSERT INTO tl_api_tokens (user_id, name, client_id, kind, access, token_hash, created_at, expires_at)
             SELECT user_id, 'Strongest', ?, 'refresh', 'read', ?, NOW(), ? FROM tl_users WHERE username = 'admin'", [self::$client, hash('sha256', 'strongest-access-test'), date('Y-m-d H:i:s', time() + 30 * 86400)]);
-        $apps = $admin->get('/admin.php?action=account')->body;
+        $apps = $admin->get('/admin.php?action=account&tab=claude')->body;
         $this->assertMatchesRegularExpression('~<span class="badge">Strongest</span> <span class="badge">Drafts only – you publish</span>~u', $apps, 'My account shows the application with its strongest access (drafts beats read)');
         $this->assertStringNotContainsString('<span class="badge">Strongest</span> <span class="badge">Read only</span>', $apps, 'and not as read only');
         $this->assertStringContainsString('Drafts only – you publish', $admin->get('/admin.php?module=claude')->body, 'the Claude connection says the same');

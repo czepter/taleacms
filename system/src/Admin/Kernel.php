@@ -286,7 +286,7 @@ final class Kernel
         if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
             $app->session->flash('error', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));
 
-            return Response::redirect($app->url('admin.php?action=account'));
+            return Response::redirect($app->url('admin.php?action=account&tab=sign-in'));
         }
         if ($action === 'token') {
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
@@ -538,7 +538,7 @@ final class Kernel
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Talea\Core\Extensions::isEnabled($s, 'claude')) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                'admin.php?action=account#claude', \Talea\Core\AskClaude::connected($db, $s)]);
+                'admin.php?action=account&tab=claude', \Talea\Core\AskClaude::connected($db, $s)]);
         }
         $skipped = $this->skippedFirstSteps();
         $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3] || in_array($k[0], $skipped, true),

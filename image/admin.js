@@ -88,6 +88,19 @@
 		confirmDialog.querySelector('[data-no]').focus();
 	});
 
+	// A change that needs the current password (the e-mail in My account): the password field waits in <dialog data-reauth="<field>">
+	// inside the form, which opens when that field was changed and the password is still empty; [data-reauth-value] shows the new value
+	document.addEventListener('submit', function (e) {
+		var dialog = e.target.querySelector('dialog[data-reauth]');
+		var field = dialog && e.target.elements[dialog.getAttribute('data-reauth')], password = dialog && dialog.querySelector('input[type="password"]');
+		if (!field || !password || field.value === field.defaultValue || password.value !== '') { return; }
+		e.preventDefault();
+		var value = dialog.querySelector('[data-reauth-value]');
+		if (value) { value.textContent = field.value; }
+		if (!dialog.open) { dialog.showModal(); }
+		password.focus();
+	});
+
 	// Light / dark mode (the default follows the system, the choice is remembered in the browser; theme.js sets it before rendering)
 	var schemeButton = document.querySelector('[data-theme-switch]');
 	if (schemeButton) {

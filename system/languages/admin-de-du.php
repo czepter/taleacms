@@ -398,7 +398,6 @@ return [
     'Named text styles you pick for an element in the builder (Style → Typography). A change here applies everywhere the style is used.' => 'Benannte Textstile, die du im Builder bei einem Element auswählst (Stil → Typografie). Eine Änderung hier wirkt sich überall aus, wo der Stil verwendet wird.',
     'Nearly ready: check the warnings below.' => 'Fast fertig: Prüfe die Hinweise unten.',
     'Need advice? Give us a call.' => 'Brauchst du Rat? Ruf uns an.',
-    'Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.' => 'Nur nötig, wenn du die E-Mail-Adresse änderst – dorthin geht die Passwort-Zurücksetzung. Die alte Adresse erhält einen Hinweis.',
     'Needs your decision' => 'Braucht deine Entscheidung',
     'Never sent by itself – check it, then reply by e-mail.' => 'Wird nie von selbst gesendet – prüfe ihn und antworte dann per E-Mail.',
     'News authors cannot publish – review this news item and publish it.' => 'News-Autoren können nicht veröffentlichen – prüfe diesen News-Beitrag und veröffentliche ihn.',

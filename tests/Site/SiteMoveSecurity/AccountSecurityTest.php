@@ -235,7 +235,7 @@ final class AccountSecurityTest extends SiteTestCase
         $signIn('phone');
         $this->assertSame('2', $tokens(), 'two devices stay signed in');
 
-        $account = $laptop->get('/admin.php?action=account');
+        $account = $laptop->get('/admin.php?action=account&tab=password');
         $this->assertTrue($account->contains('name="op" value="remember_end"'), 'My account offers to end the other devices');
         $laptop->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'op' => 'remember_end']);
         $this->assertSame('1', $tokens(), 'ending the other devices keeps only this one');
@@ -245,7 +245,7 @@ final class AccountSecurityTest extends SiteTestCase
         $signIn('tablet');
         $csrf = $laptop->get('/admin.php?action=account')->csrf();
         $laptop->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'totp_start']);
-        $setup = $laptop->get('/admin.php?action=account');
+        $setup = $laptop->get('/admin.php?action=account&tab=sign-in');
         $this->assertSame(1, preg_match('/<code class="totp-key">([A-Z2-7 ]+)<\/code>/', $setup->body, $key), 'the setup shows the key');
         $code = trim($site->php('echo Talea\Core\Totp::code("' . str_replace(' ', '', $key[1]) . '", intdiv(time(), 30));'));
         $laptop->post('/admin.php?action=account', ['_csrf' => $setup->csrf(), 'op' => 'totp_confirm', 'code' => $code]);

@@ -20,7 +20,7 @@ $accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OA
 	<li><?= e(t('Enter this address:')) ?> <code class="totp-key" style="font-size:13px"><?= e($mcpUrl) ?></code></li>
 	<li><?= e(t('Claude sends you here to sign in. You choose what it may do: save drafts for you to publish (recommended), also publish, or only read.')) ?></li>
 </ol>
-<p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http talea <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
+<p class="help"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http talea <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account&tab=claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('The connector needs the site on HTTPS. In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
 <?php if ($isAdmin): ?>
 <h2><?= e(t('Connections')) ?></h2>
@@ -38,4 +38,4 @@ $accessNames = array_map(fn (string $label): string => t($label), Talea\Front\OA
 <?php endif ?>
 <p class="help"><?= e(t('The instructions and guardrails every connection gets are in')) ?> <a href="<?= e($app->url('admin.php?module=settings&tab=ai')) ?>"><?= e(t('AI settings')) ?></a>.</p>
 <?php endif ?>
-<p class="help"><?= e(t('Each person creates and revokes their own connections in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.</p>
+<p class="help"><?= e(t('Each person creates and revokes their own connections in')) ?> <a href="<?= e($app->url('admin.php?action=account&tab=claude')) ?>"><?= e(t('My account')) ?></a>.</p>
