@@ -8,6 +8,10 @@
  * @var list<array<string, mixed>> $enquiries
  * @var array{total: int, new: int, open: int, recent: int} $totals
  * @var int $shownTotal
+ * @var int $days
+ * @var list<array{step: int, title: string, reached: int}> $steps
+ * @var ?string $drop
+ * @var int $sent
  * @var string $filter
  * @var string $search
  * @var int $pageNumber
@@ -33,6 +37,26 @@ echo $app->view->render('admin/list/head', ['count' => (string) $totals['total']
 	<div class="tiles-item"><strong><?= $totals['open'] ?></strong><span><?= e(t('To do')) ?></span></div>
 	<div class="tiles-item"><strong><?= $totals['recent'] ?></strong><span><?= e(t('Last 30 days')) ?></span></div>
 </div>
+<?php if (($steps[0]['reached'] ?? 0) > 0): $base = $steps[0]['reached']; ?>
+<section aria-labelledby="form-steps">
+	<h2 id="form-steps"><?= e(t('Where visitors stop')) ?></h2>
+	<form method="get" action="<?= e($app->url('admin.php')) ?>" class="toolbar">
+		<input type="hidden" name="module" value="forms"><input type="hidden" name="action" value="detail"><input type="hidden" name="source" value="<?= e($form['public']) ?>"><input type="hidden" name="element" value="<?= e($form['element']) ?>">
+		<label><?= e(t('Period')) ?> <select name="days" data-submit-on-change>
+<?php foreach ([7 => t('Last 7 days'), 30 => t('Last 30 days'), 365 => t('Last 365 days')] as $value => $label): ?>
+			<option value="<?= $value ?>"<?= $days === $value ? ' selected' : '' ?>><?= e($label) ?></option>
+<?php endforeach ?>
+		</select></label>
+		<noscript><button type="submit"><?= e(t('Show')) ?></button></noscript>
+	</form>
+	<ol class="effect">
+<?php foreach ($steps as $s): $share = (int) round(100 * $s['reached'] / $base); ?>
+		<li><?= bdi($s['title']) ?> <meter min="0" max="100" value="<?= $share ?>" aria-label="<?= e($s['title']) ?>"><?= $share ?> %</meter> <?= $share ?> % · <?= $s['reached'] ?></li>
+<?php endforeach ?>
+	</ol>
+	<p class="small-text"><?= e(t('%d enquiries sent in this period.', $sent)) ?><?= $drop !== null ? ' ' . e($drop) : '' ?></p>
+</section>
+<?php endif ?>
 <?= $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'),
     'tabs' => array_map(fn (string $key, string $name): array => ['label' => t($name), 'url' => $module->url('detail', ['source' => $form['public'], 'element' => $form['element']] + array_filter(['status' => $key])), 'active' => $filter === $key],
         ['', 'open', 'resolved'], ['All', 'To do', 'Resolved']),

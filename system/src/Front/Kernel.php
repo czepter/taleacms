@@ -287,6 +287,18 @@ final class Kernel
 
             return new Response('', 204);
         }
+        if ($path === '/form-step' && $request->isPost()) {
+            // drop-off counters of multi-step forms: which step was reached, without cookies and without data about the visitor
+            $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
+            $source = Forms::internalSource($this->app->db(), $request->post('source'));
+            $step = $request->postInt('step');
+            if ($source !== '' && preg_match('/^[a-z0-9]{3,16}$/', $request->post('element')) && $step >= 1 && $step <= FormSteps::MAX_STEP && $antispam->count($request->ip(), 'form_step', 0, 60) < 120) {
+                $antispam->write($request->ip(), 'form_step', 0);
+                FormSteps::record($this->app->db(), $source, $request->post('element'), $step);
+            }
+
+            return new Response('', 204);
+        }
         if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
             // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
             // 2.16: a paired site asks for the shared design kit the same way

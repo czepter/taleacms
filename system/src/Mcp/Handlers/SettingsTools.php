@@ -309,7 +309,13 @@ trait SettingsTools
             throw new \DomainException('Statistics are for administrators and users with access to Statistics.');
         }
 
-        return \Talea\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
+        $days = (int) ($a['days'] ?? 30);
+        $report = \Talea\Core\Report::build($this->app->db(), $days);
+        // forms with drop-off counters come first (with their steps); the other forms keep the plain enquiry count
+        $funnels = array_map(fn (array $f): array => $f + ['enquiries' => $f['sent']], \Talea\Front\FormSteps::overview($this->app->db(), $days));
+        $report['forms'] = array_merge($funnels, array_values(array_filter((array) $report['forms'], fn (array $f): bool => !in_array($f['form'], array_column($funnels, 'form'), true))));
+
+        return $report + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
     }
 
     /** get_search_performance: what Search engines → Performance shows, for whoever may open it (the Statistics right) */

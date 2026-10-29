@@ -71,7 +71,11 @@ final class Forms extends Module
         $pageNumber = max(1, $this->request->getInt('page', 1));
         $all = $this->db->one("SELECT COUNT(*) AS total, SUM(CASE WHEN status < 2 THEN 1 ELSE 0 END) AS open, SUM(CASE WHEN created_at >= NOW() - INTERVAL 30 DAY THEN 1 ELSE 0 END) AS recent FROM {enquiries} WHERE source = ? AND element = ? AND category <> 'spam' AND deleted_at IS NULL", [$form['source'], $form['element']]) ?? [];
 
-        return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+        $days = in_array($this->request->getInt('days'), [7, 30, 365], true) ? $this->request->getInt('days') : 30;
+        $steps = \Talea\Front\FormSteps::steps($this->db, $form['source'], $form['element'], $days);
+
+        return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['days' => $days, 'steps' => $steps, 'drop' => \Talea\Front\FormSteps::biggestDrop($steps),
+            'sent' => \Talea\Front\FormSteps::sent($this->db, $form['source'], $form['element'], $days), 'form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'enquiries' => $this->db->all('SELECT public_id, created_at, email, status, page, data' . $sql . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'shownTotal' => (int) $this->db->value('SELECT COUNT(*)' . $sql, $params),
             'totals' => ['total' => (int) ($all['total'] ?? 0), 'new' => $form['new'], 'open' => (int) ($all['open'] ?? 0), 'recent' => (int) ($all['recent'] ?? 0)]]);
