@@ -30,6 +30,7 @@ final class Kernel
     private readonly PageFrame $frame;
     private readonly NewsPages $newsPages;
     private readonly CollectionPages $collectionPages;
+    private readonly Endpoints $endpoints;
 
     /** System URL in a foreign form (/news on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
@@ -74,6 +75,7 @@ final class Kernel
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
         $this->newsPages = new NewsPages($app, $this->frame, $this->news, $this);
         $this->collectionPages = new CollectionPages($app, $this->frame, $this);
+        $this->endpoints = new Endpoints($app, $this->frame, $this->news, $this);
     }
 
     /** The maintenance notice (setting maintenance_text) with 503. */
@@ -195,115 +197,60 @@ final class Kernel
         if ($path === '/rss.xml') {
             return $this->newsPages->rss();
         }
-        $seo = new Seo($this->app);
         if ($path === '/manifest.webmanifest') {
-            return new Response(SiteIdentity::manifest($this->app->settings(), $this->app->request->basePath()), 200, ['Content-Type' => 'application/manifest+json; charset=utf-8']);
+            return $this->endpoints->manifest();
         }
         if ($path === '/favicon.ico') {
-            // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
-            $icon = is_file(TALEA_ROOT . '/media/icon-32.png') ? $this->app->url('media/icon-32.png') : null;
-
-            return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
+            return $this->endpoints->favicon();
         }
         if (preg_match('#^/og/([a-f0-9]{32})\.png$#', $path, $m)) {
-            // a share image drawn by the site (2.12, ShareImage); a hash the site did not make is a 404
-            return ShareImage::serve($this->app, $m[1]) ?? $this->notFound();
+            return $this->endpoints->shareImage($m[1]);
         }
         if ($path === '/robots.txt') {
-            return new Response($seo->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->endpoints->robots();
         }
         if ($path === '/sitemap.xml') {
-            return new Response(Cache::text($this->app, 'sitemap', $seo->sitemapXml(...)), 200, ['Content-Type' => 'application/xml; charset=utf-8']);
+            return $this->endpoints->sitemap();
         }
         if ($path === '/feed.json') {
-            $json = Cache::text($this->app, 'feed.json|' . Language::siteColumn(), fn (): string => (string) json_encode($seo->jsonFeed($this->news->listPublished(1, 20, true)[0]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-            return new Response($json, 200, ['Content-Type' => 'application/feed+json; charset=utf-8']);
+            return $this->endpoints->jsonFeed();
         }
         if ($path === '/.well-known/security.txt' && $this->app->settings()->get('security_contact') !== '') {
-            $siteSettings = $this->app->settings();
-
-            return new Response(Seo::securityTxt($siteSettings->get('security_contact'), $request->origin() . $this->app->url(''),
-                array_values(array_unique(array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings)))), time()), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->endpoints->securityTxt();
         }
         if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
-            return new Response(Cache::text($this->app, 'llms|' . Language::siteColumn(), $seo->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->endpoints->llmsTxt();
         }
-        $indexNowKey = $this->app->settings()->get('indexnow_key');
-        if ($indexNowKey !== '' && $path === '/' . $indexNowKey . '.txt') {
-            return new Response($indexNowKey, 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+        if (preg_match('#^/(.+)\.txt$#Ds', $path, $m) && ($key = $this->endpoints->indexNowKey($m[1])) !== null) {
+            return $key;
         }
         if ($path === '/consent' && $request->isPost()) {
-            // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
-            $category = implode(',', array_intersect(explode(',', $request->post('category')), ['analytics', 'marketing'])) ?: 'none';
-            $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
-            if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->count($request->ip(), 'consent', 0, 60) < 20) {
-                $antispam->write($request->ip(), 'consent', 0);
-                $this->app->db()->insert('consents', ['visitor_token' => $request->post('id'), 'created_at' => date('Y-m-d H:i:s'), 'categories' => $category]);
-            }
-
-            return new Response('', 204);
+            return $this->endpoints->consent();
         }
         if ($path === '/popup' && $request->isPost()) {
-            // popup counters: views, closes, conversions – without cookies and without data about the visitor
-            $column = ['view' => 'impressions', 'close' => 'closes', 'conversion' => 'conversions'][$request->post('event')] ?? null;
-            $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
-            $popupId = $this->app->db()->internalId('popups', $request->post('popup'));
-            if ($column !== null && $popupId > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
-                $antispam->write($request->ip(), 'popup', 0);
-                $this->app->db()->run('UPDATE {popups} SET ' . $column . ' = ' . $column . ' + 1 WHERE popup_id = ? AND active = TRUE', [$popupId]);
-            }
-
-            return new Response('', 204);
+            return $this->endpoints->popup();
         }
         if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
-            // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
-            // 2.16: a paired site asks for the shared design kit the same way
-            $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
-            $signature = (string) ($request->serverValues()['HTTP_X_TALEA_SIGNATURE'] ?? '');
-
-            return match ($path) {
-                '/fleet/pair' => \Talea\Fleet\Console::pair($this->app, $body, $signature),
-                '/fleet/heartbeat' => \Talea\Fleet\Console::heartbeat($this->app, $body, $signature),
-                '/fleet/kit' => \Talea\Fleet\Kit::answer($this->app, $body, $signature),
-                default => \Talea\Fleet\Console::unpair($this->app, $body, $signature),
-            };
+            return $this->endpoints->fleet(substr($path, 7));
         }
         if ($path === '/vitals' && $request->isPost()) {
-            // real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies
-            return \Talea\Core\WebVitals::record($this->app);
+            return $this->endpoints->vitals();
         }
         if ($path === '/conversion' && $request->isPost()) {
-            // contact clicks (2.12): a beacon from image/web.js for a click on a phone number, an e-mail address or a WhatsApp
-            // link, counted as a lead per page and day without cookies
-            return \Talea\Core\Conversions::record($this->app);
+            return $this->endpoints->conversion();
         }
         if ($path === '/experiment' && $request->isPost()) {
-            // A/B tests: a beacon from image/web.js per view and per goal, counted per day and variant without cookies
-            return \Talea\Builder\Experiments::record($this->app);
+            return $this->endpoints->experiment();
         }
         if ($path === '/mcp') {
-            return (new \Talea\Mcp\Server($this->app))->handle();
+            return $this->endpoints->mcp();
         }
         if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#', $path, $m)) {
-            // a gated download (2.11, Core\Documents): the file arrives by e-mail after a form is sent, as a signed link
-            return \Talea\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
+            return $this->endpoints->download($m[1]);
         }
-        // subscribe: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
-        // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
         $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
         if ($path === '/subscribe' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter_signup'))) {
-            $subscription = new Subscription($this->app);
-            if ($request->isPost() && !$subscriptionLink) {
-                $back = $request->post('back');
-                $back = preg_match('~^/[^\s\\\\?#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-                $anchor = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('anchor')) ? '#' . $request->post('anchor') : '';
-
-                return Response::redirect($back . '?subscription=' . $subscription->subscribe() . $anchor, 303);
-            }
-            [$heading, $content] = $subscription->link();
-
-            return $this->frame->page($heading, '<header class="listing-header"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true]);
+            return $this->endpoints->subscribe();
         }
         if (($path === '/member' || str_starts_with($path, '/member/')) && Extensions::isEnabled($this->app->settings(), 'members')) {
             return $this->memberArea($path); // member login (Core\Members): sign-in link, sign-in, sign-out
@@ -313,7 +260,7 @@ final class Kernel
             return $routed instanceof Response ? new Response($routed->body, $routed->status, array_merge($routed->headers, ['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex'])) : $this->gatedPage($routed);
         }
         if ($path === '/form' && Extensions::isEnabled($this->app->settings(), 'enquiries')) {
-            return (new Forms($this->app))->process();
+            return $this->endpoints->form();
         }
         // online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
         // the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
@@ -321,68 +268,31 @@ final class Kernel
         // so people who booked can still cancel or add the appointment to their calendar (3.2.3)
         $bookingsOn = \Talea\Core\Booking::isOn($this->app->settings());
         if ($path === '/_booking' && $request->isPost() && $bookingsOn) {
-            return (new Booking($this->app))->process();
+            return $this->endpoints->booking();
         }
         if (($path === '/_booking/days' || $path === '/_booking/slots') && $bookingsOn) {
-            return (new Booking($this->app))->availability(substr($path, 10));
+            return $this->endpoints->bookingAvailability(substr($path, 10));
         }
         if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
-            [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
-            $this->frame->context()->types['button'] = true;
-
-            return $this->frame->page($heading, '<header class="listing-header"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true], $status);
+            return $this->endpoints->bookingCancel($m[1]);
         }
         if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#', $path, $m)) {
-            [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
-            $this->frame->context()->types['button'] = true;
-
-            return $this->frame->page($heading, '<header class="listing-header"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true], $status);
+            return $this->endpoints->bookingChoose($m[1]);
         }
         if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
-            return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
+            return $this->endpoints->bookingIcs($m[1]);
         }
         if ($path === '/health') {
-            // for an orchestrator (docker HEALTHCHECK, a load balancer): 200 when the database answers and no migration is waiting, else 503 with one word why
-            try {
-                $pending = \Talea\Core\Migrator::pending($this->app->db()) !== [];
-            } catch (\Throwable) {
-                return new Response("database\n", 503, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
-            }
-
-            return new Response($pending ? "migrations pending\n" : "ok\n", $pending ? 503 : 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+            return $this->endpoints->health();
         }
         if ($path === '/tasks') {
-            // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
-            $token = $this->app->settings()->get('tasks_token');
-            if ($token === '' || !hash_equals($token, $request->get('token'))) {
-                return new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
-            }
-            $done = [];
-            $this->app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
-            @set_time_limit(90);
-            try {
-                foreach (\Talea\Core\Scheduler::run($this->app, 'cron', 50.0) as $job => $result) { // 2.8: every due job (Core\Scheduler)
-                    $done[] = $job . ': ' . $result;
-                }
-            } catch (\Throwable $e) {
-                $done[] = 'error: ' . $e->getMessage();
-            }
-
-            return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+            return $this->endpoints->tasks();
         }
         if (preg_match('#^/screen/([a-f0-9]{32})$#', $path, $m)) {
-            // screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret, otherwise 404
-            return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
+            return $this->endpoints->screen($m[1]);
         }
         if ($path === '/status.json') {
-            $token = $this->app->settings()->get('health_token');
-            if ($token === '' || !hash_equals($token, $request->get('token'))) {
-                return Response::json(['error' => 'Invalid token.'], 403);
-            }
-            // monitoring always gets the texts in English - they must not change with the language of the shown site version
-            $checks = Language::runWith('en', fn (): array => \Talea\Core\Health::checks($this->app));
-
-            return Response::json(['status' => \Talea\Core\Health::summary($checks), 'version' => TALEA_VERSION, 'time' => date('c'), 'checks' => $checks]);
+            return $this->endpoints->status();
         }
 
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
@@ -415,8 +325,7 @@ final class Kernel
             return $this->collectionPages->testimonialPage($m[1]);
         }
         if ($path === '/_comment' && $request->isPost()) {
-            // a comment on a draft from a shared preview link that allows comments (2.15, Core\DraftComments)
-            return (new DraftComments($this->app))->post();
+            return $this->endpoints->comment();
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/_compare$#', $path, $m)) {
             return $this->collectionPages->compareProducts($m[1]);
