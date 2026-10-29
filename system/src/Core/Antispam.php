@@ -36,7 +36,10 @@ final class Antispam
     {
         $secret = self::environmentSecret($this->settings);
         if ($secret !== null) {
-            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret, '', 32));
+            // a further site (multisite) signs with its own key from the shared secret, so a link of one site is void on the others
+            $site = $this->db->prefix === $this->db->ownerPrefix ? '' : '|' . $this->db->prefix;
+
+            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret . $site, '', 32));
         }
         $key = $this->settings->get('secret_key');
         if ($key === '') {
