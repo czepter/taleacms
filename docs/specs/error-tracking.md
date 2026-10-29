@@ -30,7 +30,7 @@ against GlitchTip (self-hostable, the natural fit for a self-hosted product) and
 | SDK or own client | **Own client** `Core\ErrorReport` (one class, ~300 lines): parse the DSN, build an envelope, POST it with curl. No `sentry/sentry` | the SDK pulls in a dozen packages (Guzzle/PSR-HTTP, Symfony options resolver…) into application code that is framework-free by principle; we need one event type and no integrations |
 | Protocol | envelope endpoint `POST {scheme}://{host}/api/{project}/envelope/`, item type `event`, header `X-Sentry-Auth: Sentry sentry_version=7, sentry_key=…, sentry_client=talea/<version>` | supported by Sentry and GlitchTip; the old `/store/` endpoint is deprecated |
 | Configuration | **operator only**: `TALEA_ERROR_DSN` (+ `_FILE`), `TALEA_ERROR_ENVIRONMENT` (default `production`), `TALEA_ERROR_SAMPLE_RATE` (0–1, default 1); for `config.php` installs the keys `error_dsn`, `error_environment`, `error_sample_rate`. **Not a setting**, not in the admin, not over MCP | the DSN decides where stack traces go; a setting writable by an MCP connection or a stolen admin session would be a way to exfiltrate them. Same level as `TALEA_SECRET_KEY` |
-| What is captured | uncaught throwables, fatal errors (shutdown function, `E_ERROR`, `E_CORE_ERROR`, `E_COMPILE_ERROR`, `E_PARSE`), failing background jobs (`Scheduler::runOne`), elements that fail to render (`Builder\Renderer`), and the `error_log()` calls that report a real fault (moved to `ErrorReport::capture()` one by one) | what an operator must act on; expected failures (a mail server that is down, a webhook receiver answering 500, a refused import URL) stay out: they have their own retries and screens |
+| What is captured | uncaught throwables, fatal errors (shutdown function, `E_ERROR`, `E_CORE_ERROR`, `E_COMPILE_ERROR`, `E_PARSE`), failing background jobs (`Scheduler::runOne`), elements that fail to render (`Builder\Renderer`), MCP tool calls that fail with anything but the expected `InvalidArgumentException`/`DomainException` (`Mcp\Server::call`), an e-mail that is given up after its last retry (`Mail`, the place that records `mail.failed`), and the `error_log()` calls that report a real fault (moved to `ErrorReport::capture()` one by one) | what an operator must act on; expected failures (a single failed mail attempt, a webhook receiver answering 500, a refused import URL) stay out: they have their own retries and screens; only the final give-up of a mail is reported, because then a message is lost |
 | Levels | `fatal` (shutdown), `error` (uncaught, job), `warning` (a swallowed fault such as a skipped element) | lets a project alert on `error`+ only |
 | When it is sent | after the response: the error page is flushed first (`fastcgi_finish_request()` where available), then one POST with connect timeout 1 s, total 2 s. A failed send writes the envelope to `storage/log/outbox/` (at most 100 files); the cron loop retries them and drops what is older than 24 h | an error page never waits on the tracker; the database may be the thing that failed, so the spool is files, not a table |
 | Flood protection | the same fingerprint (class + file + line) is sent at most once per 60 s per container (a counter file in `storage/cache/errors/`); the suppressed count goes into the next event as `extra.suppressed` | a crawler hitting a broken page must not burn the project's quota or the site's CPU |
@@ -38,7 +38,10 @@ against GlitchTip (self-hostable, the natural fit for a self-hosted product) and
 | Stack trace | frames from `getTrace()` with paths relative to the install root (`system/src/Core/Db.php`), `in_app` for `system/` and `extensions/`, false for `vendor/`; five context lines from the file; **no arguments** (the client never reads `args`; `docker/php.ini` also sets `zend.exception_ignore_args=On`, new) | readable traces without leaking values; the source is public anyway, `config.php` never appears in a trace context because it holds no code that throws |
 | Tags | `release` = `talea@<TALEA_VERSION>`, `environment`, `server_name` = host of `site_url`, tags `area` (`front`/`admin`/`mcp`/`cron`/`cli`/`install`), `db_driver`, `php`, `language`, `route` (the route pattern from `Front\Router`, not the address), `module` (admin), `job` (cron), `addon` (the slug when the top in-app frame is in `extensions/<slug>/`) | group and filter by what an operator decides on: which release, which engine, which add-on |
 | Fingerprint | default grouping of the tracker; for jobs `['job', name, exception class]` | a job that fails every 5 minutes is one issue, not 288 |
-| Browser errors | phase 2, **admin and builder only**: `image/errors.js` listens to `error` / `unhandledrejection`, posts a trimmed report (message, stack, file, line, the builder module) to `POST admin.php?module=errors` (same origin, CSRF token), the server forwards it through the same client. The public site sends nothing | the admin CSP stays `script-src 'self'` and `connect-src 'self'`; the DSN never reaches a browser; visitors are not tracked and the cookie bar has nothing new to declare |
+| Browser errors | phase 2, **admin and builder**: `image/errors.js` listens to `error` / `unhandledrejection`, posts a trimmed report (message, stack, file, line, the builder module) to `POST admin.php?module=errors` (same origin, CSRF token), the server forwards it through the same client | the admin CSP stays `script-src 'self'` and `connect-src 'self'`; the DSN never reaches a browser |
+| Browser errors on the public site | phase 2, **opt-in by the operator** (`TALEA_ERROR_BROWSER=1`, off by default): the same script on public pages, built like `image/vitals.js` – no cookies, no identifiers, `navigator.sendBeacon` to `POST /js-error`, only errors from the site's own scripts (`/image/…`, so browser extensions and foreign scripts are dropped), bots skipped, at most 5 reports per page view; the server applies the same scrubbing and flood protection and adds the route tag. The visitor's IP and user agent string are not forwarded (only browser family and major version) | catches broken forms (`forms.js`), the gallery, the viewer and the cookie bar where visitors actually meet them; without cookies or identifiers the cookie bar has nothing new to declare, and the processing record gets the line only when it is on |
+| MCP errors | an unexpected throwable in a tool call is captured with tags `area=mcp`, `tool` (name), `tool_set` and the connection's role, **never the arguments** (they hold page content and enquiries); the client gets a JSON-RPC tool error with the event id instead of the HTML error page | today a bug in a tool reaches the global handler and the MCP client receives an HTML 500 page; the event id lets the operator find what Claude saw |
+| E-mail | the final give-up after `Mail::RETRY_DELAYS` is reported once as `warning` with tag `mail_transport` (smtp/mail/service) and the transport's error text, grouped by that text; recipient and subject are never sent. The `catch (\Throwable)` blocks in `Mail` that guard the mail log report a `warning` too, so a broken mail table does not stay silent | a lost message is the e-mail fault an operator must act on; a transient outage is not |
 | Performance tracing | out of scope for now (phase 3 at most: one sampled transaction per request with the total duration and the number of queries) | Talea already measures web vitals itself (`Core\WebVitals`); traces add cost and data for little gain on small sites |
 | Cron monitor | phase 3: `TALEA_HEARTBEAT_URL` – the background loop GETs it after each successful run (GlitchTip heartbeat monitors, Sentry cron check-ins via their URL form, Uptime Kuma push) | "jobs stopped" is the error that never throws |
 | Where it shows in Talea | System status gets a row "Error reporting": off / on, to `<host>`, last sent, waiting in the outbox; the fleet heartbeat gets `error_reporting: true/false`; the errors.log line gets the event id (`… [event 3f2a…]`) so the log and the tracker can be matched | the operator sees that it works without opening the tracker |
@@ -65,26 +68,32 @@ against GlitchTip (self-hostable, the natural fit for a self-hosted product) and
 4. Swallowed faults: `Scheduler::runOne()` (level `error`, tag `job`, fingerprint), `Builder\Renderer` (level `warning`, the element
    type, never its content), `PageFrame` site parts / pop-ups, `SeoScore`, `ImportRecheck`, `Connectors` – each `error_log()` that
    reports a fault becomes `ErrorReport::capture()`, which still writes errors.log.
-5. CLI: `system/docker.php` and `bin/migrate` capture before printing and exiting; `php system/docker.php error-test` sends a test
+5. MCP: `Mcp\Server::call()` catches `\Throwable` after the expected exceptions, captures it with the tool tags and answers
+   `isError` with "Internal error (event <id>)"; the same for the runners (`run_tool` …), tagged with the inner tool.
+6. Mail: `ErrorReport::capture()` next to `Events::record('mail.failed')` and in the guard blocks of `Mail`; the newsletter run
+   (`Core\Mailing`) reports a run that stops with an exception, not each refused recipient.
+7. CLI: `system/docker.php` and `bin/migrate` capture before printing and exiting; `php system/docker.php error-test` sends a test
    event and prints the event id or the reason it failed (the operator's first step after setting the DSN).
-6. Cron: `ErrorReport::retryOutbox()` at the start of the job loop.
-7. System status row, heartbeat flag, errors.log line format, processing-record line (texts through `t()`, translations with
+8. Cron: `ErrorReport::retryOutbox()` at the start of the job loop.
+9. System status row, heartbeat flag, errors.log line format, processing-record line (texts through `t()`, translations with
    `tools/add-translations.py`).
-8. Docs: `docker/README.md` (variables), `docs/DEPLOYMENT.md` ("Error tracking": GlitchTip in the compose file next to the site,
+10. Docs: `docker/README.md` (variables), `docs/DEPLOYMENT.md` ("Error tracking": GlitchTip in the compose file next to the site,
    or a hosted project; what is sent, what is not), `config.sample.php` (commented keys).
 
-### Phase 2 – admin and builder in the browser
+### Phase 2 – errors in the browser
 
-9. `image/errors.js` (loaded by `admin.php` and `builder.php` only when `ErrorReport::enabled()`, so a site without a DSN emits no
+11. `image/errors.js` (loaded by `admin.php` and `builder.php` only when `ErrorReport::enabled()`, by `Seo::head()` on public pages only when `TALEA_ERROR_BROWSER=1` as well, so a site without a DSN emits no
    script – "what nothing emits has no script"), throttled to 10 reports per page view; listed in `tests/Unit/ScriptsTest.php`.
-10. `Modules\Errors` (POST only, CSRF, signed-in staff, size limit 16 KB, rate limit through `Antispam::tally`) forwards to
+12. `Modules\Errors` (POST only, CSRF, signed-in staff, size limit 16 KB, rate limit through `Antispam::tally`) forwards to
     `ErrorReport::message()` with area `admin`/`builder` and the browser's stack as an exception value; the parity map in
     `tests/Unit/Mcp/ParityTest.php` gets "admin: browser error reports".
+13. `POST /js-error` in `Front\Endpoints` (a route in `Kernel::routes()` and `tools/contracts/routes.json`, reserved slug), body limit 8 KB,
+    per-IP limit through `Antispam::tally`, answers 204 also when reporting is off, never cached.
 
 ### Phase 3 – optional
 
-11. `TALEA_HEARTBEAT_URL` after each cron run.
-12. A sampled transaction per request (`TALEA_ERROR_TRACES_RATE`, default 0) if phase 1 shows the need.
+14. `TALEA_HEARTBEAT_URL` after each cron run.
+15. A sampled transaction per request (`TALEA_ERROR_TRACES_RATE`, default 0) if phase 1 shows the need.
 
 ## Tests
 
@@ -94,14 +103,16 @@ against GlitchTip (self-hostable, the natural fit for a self-hosted product) and
 - A fake tracker `tools/fake/sentry.php` (like `tools/fake/ai.php`) that stores received envelopes; site test
   (`tests/Site/ErrorReportTest.php`): a page that throws (through a test-only add-on) answers 500 with the error page **and** the
   fake receives one event with the release, the route tag, no cookie and no IP; a failing job sends one grouped event; with the
-  fake down the envelope lands in the outbox and the next cron run delivers it; without a DSN nothing is sent and no script is emitted.
+  fake down the envelope lands in the outbox and the next cron run delivers it; a tool that throws a `TypeError` answers a JSON-RPC tool error with the event id and the fake receives no arguments; a mail that exhausts its retries
+  sends one event without recipient or subject; a public page with `TALEA_ERROR_BROWSER=1` emits the script, without it emits none;
+  without a DSN nothing is sent and no script is emitted.
 - Manual check against a real GlitchTip (the `glitchtip` service in `docker-compose-dev.yaml`, profile `glitchtip`, prebuilt image)
   and a free Sentry project before the release.
 - `php tools/check-english.php`, `php tools/sql-dialect-scan.php` (no SQL is added), `php tools/contracts.php` (no MCP change).
 
 ## Out of scope
 
-Sending errors from the public site's visitors' browsers, any switch that sends personal data, user feedback dialogs, session
+Public browser errors switched on by default, any switch that sends personal data, user feedback dialogs, session
 replay, a Sentry SDK dependency, configuring the DSN from the admin or MCP, a Talea-hosted error collector.
 
 ## Open questions
