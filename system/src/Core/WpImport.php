@@ -6,7 +6,6 @@ namespace Talea\Core;
 
 use Talea\Admin\Modules\Media;
 use Talea\Admin\Modules\Redirects;
-use Talea\Admin\Modules\Pages;
 
 /**
  * Import from WordPress: pages, posts (→ news), categories, tags, redirects from old URLs and (separately) images.
@@ -648,7 +647,7 @@ final class WpImport
             $seo = (string) $existing['slug'];
             $fields = json_decode((string) $existing['fields'], true) ?: $fields;
         } else {
-            $seo = self::availableSlug($wanted, fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
+            $seo = self::availableSlug($wanted, fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
                 || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ?', [$url]) !== null || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null);
             // a product catalogue keeps the preset (the enquiry basket and the comparison find its fields), its structured data and item template
             $schema = $preset !== null && is_array($preset['schema']) ? \Talea\Builder\CollectionSchema::sanitize($preset['schema'], $fields) : null;
@@ -884,7 +883,7 @@ final class WpImport
      */
     private function freeSlug(string $table, string $base, string $language, string $path, array &$state, int $max): string
     {
-        $reserved = fn (string $slug): bool => $table === 'pages' && (in_array($slug, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$slug]));
+        $reserved = fn (string $slug): bool => $table === 'pages' && (in_array($slug, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$slug]));
         $inLanguage = fn (string $slug): bool => $this->db->value('SELECT 1 FROM {' . $table . '} WHERE slug = ? AND language = ?', [$slug, $language]) !== null;
         $slug = Slug::makeUnique($base, fn (string $url): bool => $reserved($url) || $this->slugTaken($table, $url, $language), $max);
         if ($slug !== $base && !$reserved($base) && !$inLanguage($base)) {

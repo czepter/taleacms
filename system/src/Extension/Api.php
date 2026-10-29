@@ -179,7 +179,9 @@ final class Api
      * goes to fn (\Talea\Core\Request $request, string $rest): array|\Talea\Core\Response|null, $rest being the path after the prefix, without slashes
      * at the ends. An array [title, html, status] is shown inside the page frame; a Response is sent as it is. Both are answered
      * private, no-store and noindex, never cached – for content that is not public (client galleries). null = 404. Unlike the early hooks the
-     * handler may take its time (a download); an exception is a server error of this request only.
+     * handler may take its time (a download); an exception is a server error of this request only. Talea's own addresses always win: a
+     * prefix that is the first segment of a core address or a reserved slug (Front\Kernel::reservedSlugs(): news, form, health, member …)
+     * is refused like a prefix another add-on owns, and add-on routes are asked after every core route, before pages and collections.
      */
     public function route(string $prefix, callable $handler): void
     {

@@ -316,19 +316,19 @@ parameters:
 			message: '#^PHPDoc tag @param references unknown parameter\: \$meta$#'
 			identifier: parameter.notFound
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Property Talea\\Builder\\Context\:\:\$menu \(list\<array\{title\: string, slug\: string\}\>\) does not accept array\{main\: list\<array\<string, mixed\>\>, footer\: list\<array\<string, mixed\>\>\}\.$#'
 			identifier: assign.propertyType
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>withoutCache" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Method Talea\\Install\\Installer\:\:requirements\(\) should return list\<array\{nazev\: string, ok\: bool, info\: string\}\> but returns array\{0\: array\{name\: string, ok\: bool, info\: non\-falsy\-string\}, 1\: array\{name\: string, ok\: bool, info\: string\}, 2\: array\{name\: string, ok\: bool, info\: string\}, 3\: array\{name\: string, ok\: bool, info\: string\}, 4\?\: array\{name\: string, ok\: bool, info\: string\}\}\.$#'

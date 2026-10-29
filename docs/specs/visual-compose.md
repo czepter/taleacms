@@ -2,12 +2,12 @@
 
 Status: draft for review. Owner decision: "add a real visual compose with drag and drop etc."
 
-Status of phase A (#22): built, M1–M4 (`image/builder-overlay.js`, `builder-handles.js`, `builder-keys.js`). Deviations from the text below:
+Status of phase A (#22): built, M1–M4 (`image/builder/overlay.js`, `handles.js`, `keys.js`; since #229 the builder is ES modules, see section 4). Deviations from the text below:
 resize handles are on the right edge, the bottom edge and the bottom-right corner only (the other edges would not move the element's
 visible edge in a top-left flowing layout); padding handles write `padding_y` / `padding_x` (the model has no per-side padding);
 "distribute" and equal-spacing hints are not built; the move gesture is a toolbar grip (pointer events) in place of the old ⠿ handle.
 
-Status of phase B (#23): built (`image/builder-compose.js`; style properties `grid_column_start`, `grid_column_end`, `grid_row_start`, `grid_row_end`, `layer`;
+Status of phase B (#23): built (`image/builder/compose.js`; style properties `grid_column_start`, `grid_column_end`, `grid_row_start`, `grid_row_end`, `layer`;
 Section fields `layout`, `stack_from`). Deviations from the text above: the layer scale is stored by name and renders `z-index` -1 / 0 / 1 / 2;
 rows are `minmax(var(--tl-space-l), auto)` (the unit is fixed, a row still grows with its text, so a paragraph never overflows its cell);
 Stack to Compose reads the positions from the desktop canvas (on tablet or phone it writes one clean column); a tablet or phone placement is possible
@@ -17,7 +17,7 @@ with `stack_from` = phone only. Phase C (focal point, canvas background) is not 
 
 The builder already has drag and drop of *structure*: dragging elements and ready-made sections from the left panel onto the
 canvas with an insertion line, a move handle on the selected element, drag in the Structure tree, tap-to-move on touch,
-inline text editing, undo/redo and copy/paste (`image/builder.js`). Everything about *size, space and layout* still goes
+inline text editing, undo/redo and copy/paste (`image/builder/`). Everything about *size, space and layout* still goes
 through form fields in the style panel (`Style::PROPERTIES`: Grid columns, Span columns, Gap, Padding…). A non-designer
 cannot see what a value does until they type it. Direct manipulation lets them grab the thing and pull.
 
@@ -80,9 +80,10 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
 
 ## 4. Technical notes
 
-- **Where the code goes:** `builder.js` is 1,861 lines in one IIFE. New work goes into separate files loaded by the editor
-  page (`image/builder-handles.js`, `builder-compose.js`), sharing a small explicit interface exposed by `builder.js`
-  (`applyChange`, `find`, `state`, `previewDoc`). Native `<script>` files, no bundler.
+- **Where the code goes:** the builder is native ES modules in `image/builder/` (#229, no bundler): the compose work is
+  `overlay.js`, `handles.js`, `keys.js` and `compose.js`, which import what they use (`applyChange`, `find`, `state` from `core.js`,
+  `previewDoc` from `canvas.js`) and share the toolkit `C` that `overlay.js` exports. `window.taleaBuilder` remains only as a handle
+  for the browser test (`tools/test-browser.mjs`); no module reads it.
 - **Overlay layer:** handles, guides and the marquee live in one overlay element inside the canvas iframe (like
   `#tl-bd-grip` and `#tl-bd-place` today), `pointer-events` only on the handles. It is never part of the saved page and
   never rendered on the public site (the canvas is `?build=draft&editor=1`).

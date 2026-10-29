@@ -115,7 +115,7 @@ final class Components extends Module
     /** @return list<array{id: int, public_id: string, name: string, properties: list<array<string, mixed>>, outline: list<array{0: int, 1: string}>}> */
     public static function listForEditor(\Talea\Core\Db $db): array
     {
-        // outline: the component's headings as [level, text] for the builder's heading check (image/builder.js, check())
+        // outline: the component's headings as [level, text] for the builder's heading check (image/builder/panels.js, check())
         $builds = KomponentyStavby::builds($db);
 
         return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'public_id' => (string) $k['public_id'], 'name' => $k['name'], 'properties' => $k['properties'],

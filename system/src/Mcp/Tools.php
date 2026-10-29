@@ -608,7 +608,7 @@ final class Tools
                 : ($previous !== null ? basename((string) $previous['slug']) : $data['title']);
             $prefix = $parent !== null ? $parent['slug'] . '/' : '';
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
-            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $db))) {
+            if ($parent === null && (in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(\Talea\Core\Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $db))) {
                 throw new \InvalidArgumentException('The address “' . $seo . '” is used by the system, choose another.');
             }
             if (\Talea\Core\Slug::taken($db, 'pages', $seo, $language, (int) ($previous['page_id'] ?? 0))) {
@@ -1192,7 +1192,7 @@ final class Tools
     private function availableCollectionSlug(string $given, int $collectionId): string
     {
         $seo = slugify($given, 110);
-        if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->app->db())
+        if ($seo === '' || in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->app->db())
             || $this->app->db()->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $collectionId]) !== null) {
             throw new \InvalidArgumentException('The address “' . $seo . '” is already used by the system or another collection.');
         }

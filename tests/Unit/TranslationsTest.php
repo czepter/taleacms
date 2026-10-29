@@ -190,8 +190,8 @@ final class TranslationsTest extends TestCase
     public function testBuilderTexts(): void
     {
         $builderScripts = '';
-        foreach (['builder', 'builder-overlay', 'builder-handles', 'builder-keys', 'builder-compose'] as $builderScript) { // the editor and the compose scripts (direct manipulation on the canvas)
-            $builderScripts .= (string) file_get_contents(TALEA_ROOT . '/image/' . $builderScript . '.js');
+        foreach (glob(TALEA_ROOT . '/image/builder/*.js') ?: [] as $builderScript) { // the editor's ES modules, the direct manipulation on the canvas included
+            $builderScripts .= (string) file_get_contents($builderScript);
         }
         preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", $builderScripts, $enJs);
         preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-en.js'), $enJsDictionary);

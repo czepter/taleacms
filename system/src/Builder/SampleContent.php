@@ -13,7 +13,7 @@ namespace Talea\Builder;
  */
 final class SampleContent
 {
-    /** A placeholder: a short text in square brackets with a letter in it – [number], [Customer's name]. The builder repeats it (image/builder.js). */
+    /** A placeholder: a short text in square brackets with a letter in it – [number], [Customer's name]. The builder repeats it (image/builder/panels.js, placeholder()). */
     public const string PLACEHOLDER = '/\[[^\[\]{}<>\n]{0,60}\p{L}[^\[\]{}<>\n]{0,60}\]/u';
 
     /** The invented reviews, names, prices and figures of earlier starter sections – whole field values, compared case-insensitively. */
