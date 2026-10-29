@@ -119,12 +119,22 @@ final class LinkHealing
     /** Links in HTML: href attributes only (an image source is a file, not an address that moves). */
     public static function html(string $html, string $old, string $new, string $origin = '', bool $anyVersion = true): string
     {
-        return (string) preg_replace_callback('#(\bhref\s*=\s*)(["\'])(.*?)\2#is', function (array $m) use ($old, $new, $origin, $anyVersion): string {
-            $decoded = html_entity_decode($m[3], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $healed = self::rewrite($decoded, $old, $new, $origin, $anyVersion);
+        if (!str_contains($html, $old)) {
+            return $html;
+        }
+        $changed = false;
+        // on the parsed tree, never over the raw markup: "href='" inside a title or in the text is not an attribute
+        $out = Html::transform($html, function (\Dom\HTMLElement $body) use ($old, $new, $origin, $anyVersion, &$changed): void {
+            foreach ($body->querySelectorAll('[href]') as $el) {
+                $healed = self::rewrite((string) $el->getAttribute('href'), $old, $new, $origin, $anyVersion);
+                if ($healed !== null) {
+                    $el->setAttribute('href', $healed);
+                    $changed = true;
+                }
+            }
+        });
 
-            return $healed === null ? $m[0] : $m[1] . $m[2] . htmlspecialchars($healed, ENT_QUOTES | ENT_HTML5, 'UTF-8', false) . $m[2];
-        }, $html);
+        return $changed ? $out : $html;
     }
 
     /**

@@ -5,7 +5,7 @@
 	admin off
 	frankenphp
 	servers {
-		# the proxy's X-Forwarded-Proto/-For reach PHP (Talea uses them for HTTPS and the visitor's address)
+		# the proxy's X-Forwarded-Proto reaches PHP (HTTPS). REMOTE_ADDR stays the proxy: Talea reads the visitor from X-Forwarded-For itself, see TALEA_TRUSTED_PROXIES
 		trusted_proxies static private_ranges
 	}
 }

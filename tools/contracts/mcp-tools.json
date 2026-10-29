@@ -670,7 +670,7 @@
         "parameters": [],
         "required": [],
         "annotations": {
-            "readOnlyHint": true,
+            "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": false
         }

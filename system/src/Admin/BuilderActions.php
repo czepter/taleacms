@@ -75,7 +75,7 @@ trait BuilderActions
         $e = $this->describeTarget($target);
         $collections = array_map(fn (array $k): array => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Talea\Core\Extensions::enabled($app->settings());
-        $schema = ElementSchema::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
+        $schema = ElementSchema::schema($app->auth()->canWriteCode(), $target['language'], $e['parts'], $extensions);
         $components = \Talea\Admin\Modules\Components::listForEditor($this->db);
         $forms = \Talea\Admin\Modules\Forms::listForEditor($this->db);
         foreach ($schema['elements'] as &$element) {
@@ -164,7 +164,7 @@ trait BuilderActions
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
-        [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['draft'] ?? $target['build']));
+        [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['draft'] ?? $target['build']));
         $build = $this->shapeBuild($build);
         $json = Build::toJson($build);
         $this->saveDraft($target, $json);
@@ -293,10 +293,11 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t('The clipboard does not contain Talea elements.')], 400);
         }
         $admin = $this->app->auth()->isAdmin();
-        // an editor's code elements are left out by Build::sanitize, with its own note
-        $code = !$admin || ElementClipboard::isSigned($decoded, (new Antispam($this->db, $this->app->settings()))->key());
-        [$elements, $created, $images, $droppedCode] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin, $code);
-        [$build, $errors] = Build::sanitize(['children' => $elements], $admin);
+        $canCode = $this->app->auth()->canWriteCode();
+        // an editor's code elements (and the demo's) are left out by Build::sanitize, with its own note
+        $code = !$canCode || ElementClipboard::isSigned($decoded, (new Antispam($this->db, $this->app->settings()))->key());
+        [$elements, $created, $images, $droppedCode] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin, $code, $canCode);
+        [$build, $errors] = Build::sanitize(['children' => $elements], $canCode);
         $messages = array_values($errors);
         if ($droppedCode > 0) {
             array_unshift($messages, t('Custom HTML elements left out: %d – code is pasted only from a copy an administrator made on this site.', $droppedCode));
@@ -359,7 +360,7 @@ trait BuilderActions
         if (!$this->request->isPost() || $name === '' || !is_array($element)) {
             return Response::json(['ok' => false, 'error' => t('The section needs a name.')], 400);
         }
-        [$build] = Build::sanitize(['children' => [$element]], $this->app->auth()->isAdmin());
+        [$build] = Build::sanitize(['children' => [$element]], $this->app->auth()->canWriteCode());
         if (($build['children'][0] ?? null) === null) {
             return Response::json(['ok' => false, 'error' => t('The element could not be saved.')], 400);
         }
@@ -601,7 +602,7 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t($e->getMessage())], 502);
         }
         ['build' => $build, 'notes' => $messages] = \Talea\Builder\HtmlConverter::saveToSite($this->db, $html, false);
-        [$clean] = Build::sanitize($build, $this->app->auth()->isAdmin());
+        [$clean] = Build::sanitize($build, $this->app->auth()->canWriteCode());
         if ($clean['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('The assistant did not return a usable section. Try refining the description.')], 502);
         }

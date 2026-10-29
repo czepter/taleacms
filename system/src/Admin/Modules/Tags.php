@@ -43,6 +43,10 @@ final class Tags extends Module
         if (!$this->request->isPost() || $tag === null) {
             return $this->back();
         }
+        if (!$this->app->auth()->canPublish()) {
+            // like Categories: a tag is public structure (its address, merge redirects), an author-level role only adds tags while writing news
+            return $this->back('Tags are changed by an editor or an administrator.', type: 'error');
+        }
         if ($name === '') {
             return $this->back('Enter the tag name.', '', ['edit' => $tag['public_id']], 'error');
         }
@@ -64,6 +68,9 @@ final class Tags extends Module
 
     protected function actionDelete(): Response
     {
+        if ($this->request->isPost() && !$this->app->auth()->canPublish()) {
+            return $this->back('Tags are changed by an editor or an administrator.', type: 'error');
+        }
         if ($this->request->isPost()) {
             $id = $this->idParam('tag_id');
             $this->db->delete('news_tags', ['tag_id' => $id]);

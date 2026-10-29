@@ -22,6 +22,16 @@ final class Auth
     /** After this many wrong passwords or codes in a row the account is locked for 15 minutes (it unlocks itself again). */
     private const int MAX_ERRORS = 10;
 
+    /**
+     * Cookie of a browser that completed a sign-in to an account before: while that account is locked, the browser may still sign in
+     * (password and code). Without it, anyone could keep any account locked from one address and shut its owner out. Value: a random
+     * token, its sha256 in user_devices; it ends with a new password, a change of two-factor sign-in or passkeys, and after
+     * KNOWN_DEVICE_DAYS. Wrong guesses from it still count, and after KNOWN_DEVICE_FAILURES of them it no longer opens a locked account.
+     */
+    public const string KNOWN_DEVICE_COOKIE = 'tl_device';
+    public const int KNOWN_DEVICE_DAYS = 365;
+    private const int KNOWN_DEVICE_FAILURES = 5;
+
     /** A sign-in ends after this many seconds without a request (3.3.3, N60); an open admin page keeps it alive (image/admin.js). */
     public const int IDLE_LIMIT = 8 * 3600;
 
@@ -82,14 +92,15 @@ final class Auth
         // A locked or blocked account is never checked against its own password (3.3.3, N51): a different answer to the
         // right password would confirm it, and the lock would shut out only the real owner. The dummy hash is verified
         // instead – for a nonexistent user too – so the response time is the same in every case.
-        $closed = $user !== null && (!empty($user['blocked']) || self::isLocked($user));
+        $closed = $user !== null && (!empty($user['blocked']) || $this->lockedFor($user));
         $typed = self::matchingPassword($password, $user !== null && !$closed ? (string) $user['password'] : self::DUMMY_HASH);
 
         if ($typed === null || $user === null || $closed) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($address), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null && !$closed) {
-                // after 10 errors in a row the account is locked for 15 minutes - not permanently, otherwise anyone could lock the site administrator out
+                // after 10 errors in a row the account is locked for 15 minutes - not permanently, and a known device still gets in (lockedFor)
                 $this->countError($user);
+                $this->countDeviceFailure($user);
             }
 
             return t(self::SIGN_IN_FAILED);
@@ -151,6 +162,54 @@ final class Auth
         return $user['locked_until'] !== null && strtotime((string) $user['locked_until']) > time();
     }
 
+    /** The account is locked and this browser has not signed in to it before (KNOWN_DEVICE_COOKIE). @param array<string, mixed> $user */
+    private function lockedFor(array $user): bool
+    {
+        return self::isLocked($user) && !$this->knownDevice($user);
+    }
+
+    /** The sha256 of the known-device cookie of this request when it has the right shape, '' otherwise. */
+    private static function deviceHash(): string
+    {
+        $cookie = $_COOKIE[self::KNOWN_DEVICE_COOKIE] ?? '';
+
+        return is_string($cookie) && preg_match('/^[a-f0-9]{64}$/', $cookie) === 1 ? hash('sha256', $cookie) : '';
+    }
+
+    /** This browser has a live known-device row of the account with fewer than KNOWN_DEVICE_FAILURES failures. @param array<string, mixed> $user */
+    private function knownDevice(array $user): bool
+    {
+        $hash = self::deviceHash();
+
+        return $hash !== '' && (int) $this->db->value(
+            'SELECT COUNT(*) FROM {user_devices} WHERE token_hash = ? AND user_id = ? AND failures < ? AND created_at > NOW() - INTERVAL ' . self::KNOWN_DEVICE_DAYS . ' DAY',
+            [$hash, $user['user_id'], self::KNOWN_DEVICE_FAILURES],
+        ) > 0;
+    }
+
+    /** A wrong password or code made with this browser's known-device cookie (of this account) is recorded on it. @param array<string, mixed> $user */
+    private function countDeviceFailure(array $user): void
+    {
+        if (self::deviceHash() !== '') {
+            $this->db->run('UPDATE {user_devices} SET failures = failures + 1 WHERE token_hash = ? AND user_id = ?', [self::deviceHash(), $user['user_id']]);
+        }
+    }
+
+    /** A new known-device token for this browser in place of its old one; the cookie lasts KNOWN_DEVICE_DAYS. */
+    private function issueDevice(int $idu): void
+    {
+        $token = bin2hex(random_bytes(32));
+        if (self::deviceHash() !== '') {
+            $this->db->delete('user_devices', ['token_hash' => self::deviceHash()]);
+        }
+        if (random_int(1, 50) === 1) {
+            $this->db->run('DELETE FROM {user_devices} WHERE created_at < NOW() - INTERVAL ' . self::KNOWN_DEVICE_DAYS . ' DAY');
+        }
+        $this->db->insert('user_devices', ['user_id' => $idu, 'token_hash' => hash('sha256', $token), 'failures' => 0, 'created_at' => date('Y-m-d H:i:s')]);
+        $this->session->cookie(self::KNOWN_DEVICE_COOKIE, $token, time() + self::KNOWN_DEVICE_DAYS * 86400);
+        $_COOKIE[self::KNOWN_DEVICE_COOKIE] = $token;
+    }
+
     /** One more wrong password, code or passkey for the account; the tenth in a row locks it for 15 minutes. @param array<string, mixed> $user */
     private function countError(array $user): void
     {
@@ -171,6 +230,7 @@ final class Auth
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
         $this->user = false;
+        $this->issueDevice($idu);
         if ($remember) {
             $token = bin2hex(random_bytes(32));
             $expires = time() + self::REMEMBER_DAYS * 86400;
@@ -240,6 +300,7 @@ final class Auth
     public function forgetOtherDevices(int $idu): void
     {
         $this->db->run('DELETE FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ?', [$idu, self::rememberHash()]);
+        $this->db->run('DELETE FROM {user_devices} WHERE user_id = ? AND token_hash <> ?', [$idu, self::deviceHash()]);
     }
 
     /** Ends the "stay signed in" token of this browser and drops its cookie. */
@@ -277,6 +338,9 @@ final class Auth
         if (self::rememberHash() !== '') {
             $this->db->run('UPDATE {user_remember_tokens} SET fingerprint = ? WHERE token_hash = ? AND user_id = ?', [self::passwordHash($newHash), self::rememberHash(), $this->id()]);
         }
+        // the known browsers of the account end with the old password; this one gets a new token
+        $this->db->delete('user_devices', ['user_id' => $this->id()]);
+        $this->issueDevice((int) $this->id());
         $this->user = false;
     }
 
@@ -299,7 +363,7 @@ final class Auth
             return t('Too many attempts. Try again in 15 minutes.');
         }
         $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [(int) $this->session->get('pending_user')['user_id']]);
-        if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
+        if ($user !== null && $this->lockedFor($user)) {
             $this->session->remove('pending_user');
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
@@ -314,6 +378,7 @@ final class Auth
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
                 $this->countError($user);
+                $this->countDeviceFailure($user);
             }
 
             return t('The code is not correct.');
@@ -391,11 +456,8 @@ final class Auth
             array_merge([hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))], $pending !== null ? [(int) $pending['user_id']] : []));
         $userId = $pending !== null ? (int) $pending['user_id'] : (int) ($key['user_id'] ?? 0);
         $user = $userId === 0 ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$userId]);
-        if ($user !== null && self::isLocked($user)) {
-            $this->session->remove('pending_user');
-
-            return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
-        }
+        // no lock check: a passkey assertion cannot be guessed, so it opens a locked account (as first step or as second factor);
+        // everything else about it is still verified below, and wrong ones still count
         try {
             if ($key === null || $user === null) {
                 throw new \RuntimeException($pending !== null ? 'This key does not belong to the account.' : 'This passkey is not registered on this site.');
@@ -405,6 +467,7 @@ final class Auth
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 $this->countError($user);
+                $this->countDeviceFailure($user);
             }
 
             return t($e->getMessage());
@@ -424,7 +487,7 @@ final class Auth
      */
     private function recordSignIn(int $idu): void
     {
-        $this->db->update('users', ['failed_logins' => 0, 'last_login_at' => date('Y-m-d H:i:s')], ['user_id' => $idu]);
+        $this->db->update('users', ['failed_logins' => 0, 'locked_until' => null, 'last_login_at' => date('Y-m-d H:i:s')], ['user_id' => $idu]);
     }
 
     public function logout(): void
@@ -552,7 +615,7 @@ final class Auth
      */
     public function canWriteCode(): bool
     {
-        return $this->isAdmin() && ($this->connection['access'] ?? 'full') === 'full';
+        return $this->isAdmin() && !Demo::active() && ($this->connection['access'] ?? 'full') === 'full';
     }
 
     /** Does the signed-in user have access to the module? Admin always; others according to tl_user_permissions. */
