@@ -81,7 +81,7 @@ final class LibraryTest extends TestCase
         }
         $this->assertSame([], $siteErrors, 'Library::SITES: the presets and sections of the sample sites exist');
 
-        // pages of the sample sites pass the builder's pre-publish check (image/builder.js, check()): buttons with a link,
+        // pages of the sample sites pass the builder's pre-publish check (image/builder/panels.js, check()): buttons with a link,
         // no empty image, a single h1 and an outline without a skipped level – in Czech and English, with all extensions and without them
         $pageCheck = function (array $build): array {
             $findings = [];

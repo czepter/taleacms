@@ -85,7 +85,7 @@ final class ElementsTest extends TestCase
             preg_match(\Talea\Builder\Build::ATTRIBUTE_PATTERN, 'data-before-after'), preg_match('/data-\(insert\|[^)]*before-after/', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/PageFrame.php'))], '2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute');
     }
 
-    /** the form element's inspector shows each field as a row: the summary names real fields, the groups are the ones builder.js folds */
+    /** the form element's inspector shows each field as a row: the summary names real fields, the groups are the ones the inspector (image/builder/inspector.js) folds */
     public function testFormFieldRows(): void
     {
         $fields = \Talea\Builder\Elements\Form::properties()['fields'];
