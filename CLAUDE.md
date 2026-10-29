@@ -185,6 +185,17 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Login: by user name or e-mail (an address two accounts share signs neither in), `password_hash`, TOTP, passkeys (`Core\Passkey`; added only to a TOTP account; instead of the code after the password, or alone on the first step when the device verified its owner – UV flag, no account named in the challenge), password reset `Admin\PasswordReset`.
   "Stay signed in" (`Auth::REMEMBER_COOKIE` `tl_remember`, 30 days from the sign-in, set only after the second step): its sha256 and the password fingerprint in `user_remember_tokens`; `Auth::user()` trades it for a new session once the old one ended; sign-out or a new password ends it; turning two-factor sign-in on or off, removing a passkey or an administrator's 2FA reset end it on the account's other devices (`Auth::forgetOtherDevices`), and My account can end them too; the cookie bypasses `Front\Cache`.
 
+## Multisite (`TALEA_MULTISITE`, off by default; `docs/specs/multisite.md`)
+
+One install serves several sites of one owner: the owner is the database, a site is a table prefix (`Db::OWNER_TABLES` use the owner prefix and are shared:
+users, media, components/facts with `site_id`, tokens, the agent journal, `sites`/`site_domains`). `App::boot()` routes the host through `Core\Sites::resolve()`
+(unknown host = 404, `App::$site`); the lifecycle (paused, archived) is in `Front\Kernel`; new sites are provisioned by cron (`Sites::provision`), never on a
+request; admin area `Modules\Sites` with the sign-in handoff between hosts. Signing keys are per site (`Antispam::key()`). MCP: every tool takes an optional
+`site` (public id; added like `reason`, not in the contract file; `Server::onSite()` runs the call on an `App` of that site and switches the static state),
+the site tools are `Mcp\Handlers\SiteTools` (administrators, flag on). `agent_journal.site_prefix` makes undo write back on the right site. A Talea archive
+import is refused with several sites (`SiteImport::refusal()`). Flag off = nothing here is consulted. Never fall back to site 1 when a prefix or a
+site id is unknown (`Sites::currentId()` throws).
+
 ## Import and export
 
 `Modules\Transfer` + `Core\WpFile` (streamed WXR), `Core\WpContent` (cleaning, Gutenberg blocks), `Core\WpImport`, `Core\ImageDownloader`;

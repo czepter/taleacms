@@ -64,7 +64,7 @@ final class Guide
         'newsletter_settings' => 'newsletter',
         'addons' => 'addons',
         'fleet' => 'fleet-console',
-        'sites' => 'fleet-console', // no article of its own yet
+        'sites' => 'sites',
     ];
 
     /** Settings tab => article#anchor */

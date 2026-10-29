@@ -73,13 +73,43 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   `UNION ALL` of the sites' tables, paged and filtered like the list of one site; Bookings: the sites' agendas merged by time (people and
   services are per site, so those two filters are off). A row of another site names its site and opens there through the sign-in handoff
   (`Sites::landing()`: the handoff may carry an administration address to land on, validated, never a host).
-- Known limit: a Talea import (`SiteImport`) empties and fills owner tables (components, facts, media) – it is not meant for an install
-  with several sites.
+- **Talea import:** `SiteImport` empties and fills owner tables (media, components, facts), which would delete the other sites' files and
+  shared rows. It is refused (`SiteImport::refusal()`: the Import screen, the start and the batch itself) while the flag is on and more
+  than one site is not in the trash. The Backups tab says a restore puts back every site.
 
-## Phases
+## Claude (MCP) across sites (phase 1, stage 4)
+
+- A connection (a token is an owner row) acts on the site whose host it calls. When the flag is on, `Server::withReason()` adds an optional
+  `site` string (a site's public id) to every tool's schema except the site tools and the meta tools – exactly like `reason`, so the
+  contract file `tools/contracts/mcp-tools.json` does not change for it. `Server::call` strips it and `Server::onSite()` resolves it among the
+  owner's sites: unknown, trashed or not yet set up is an error result, never a silent fallback. The call then goes through `call()` again on a
+  `Server` built for an `App` of that site (same configuration with `site_prefix`, the user and the connection signed in), so access, guardrails,
+  the journal, the change log and the cache all hold for that site; a result that is an object names the site (`on_site`). Add-on tools refuse
+  `site` (add-ons are loaded once for the called site).
+- **Static state** switched for the call and put back afterwards: `Front\Cache` (page-cache folder), the time zone, `Core\Language` (site language
+  and register), the memos of `Core\Slug` and `Core\Routes`. `Core\Facts` keys its memo by prefix by itself; `Sites::currentId()` is keyed by prefix.
+- **Undo:** `agent_journal.site_prefix` (owner table, '' = the owner's own site) records the site an entry belongs to; `AgentJournal::undo`
+  writes each row back on that site (same connection), so a session spanning several sites is taken back in one step.
+- **Site tools** (`Mcp\Handlers\SiteTools`, only with the flag, administrators only, access "write" so a drafts-only or read-only connection cannot use
+  them): `list_owner_sites` (read), `create_site`, `update_site` (name, status, redirect target, trash, restore), `add_site_domain`,
+  `update_site_domain` (primary, redirect), `remove_site_domain` (destructive). `list_sites` and `get_site` belong to the fleet console.
+  Results carry public ids only. The server instructions mention the `site` argument.
+
+## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,
   backups over all prefixes, the cron loop, per-site cache folders.
 - **Phase 1:** the flag and its startup guard, host routing (`site_domains`), the Sites area and switcher, sign-in handoff
   between hosts, clone, lifecycle states, the inbox across sites, shared components and facts, one Claude connection with an
   optional `site` argument.
+
+### Deviations from the first design, and what stays open
+
+- Signed links are bound to a site by a per-site derived key, not by a site id in the payload (above).
+- A new site is provisioned by cron (`docker.php cron`), never on a page request: the admin and MCP only insert the row.
+- A clone is an SQL copy (`INSERT … SELECT`) of the source's site tables without logs, queues, counters and visitors' data, with an
+  allow-list of settings (`SiteExport::SETTINGS` and the account settings); secrets are made again.
+- The `site` argument is added to the schema like `reason` and is not in the contract file.
+- Importing a Talea archive is refused while the install has several sites (above).
+- Open for later phases: several owners (databases) in one install, per-site roles, domain verification and certificates, moving a single site
+  between installs.

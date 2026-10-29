@@ -548,3 +548,26 @@ above) or keeping your content outside Talea. Enquiries, subscribers and account
 
 Kaleta's public read-only API of 1.x (`/api/news`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
 Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.
+
+## 14. Several sites
+
+With `TALEA_MULTISITE=1` (see [DEPLOYMENT.md](DEPLOYMENT.md)) one installation serves several sites of the same owner, for example a studio
+site, a side business and a course site. **Settings → Sites** lists them: name, state (live, paused, archived), host names, whether the
+site is set up and how much space it takes.
+
+- **New site:** empty or a copy of an existing site (content, look and settings – never the visitors' data such as enquiries,
+  bookings, subscribers or members). A new site starts paused and is set up in the background within a few minutes.
+- **Host names:** each site answers to its own host names; the first one is primary, others can redirect to it. An unknown host gets
+  a plain 404.
+- **States:** paused sites answer visitors with a short "not public yet" page, archived sites either redirect to another site or become
+  read-only. A deleted site stays in the trash for 30 days.
+- **Switcher:** the site name in the sidebar opens another site and signs you in there. Enquiries and Bookings can list every
+  site; a row opens on its own site.
+- **Shared and own:** media, users, components and facts are shared by default across sites; a component or fact can be shared with
+  every site or kept for one.
+- **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as
+  `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
+  (administrators with a full-access connection only; a connection limited to drafts or to reading cannot change sites).
+- **Backups and imports:** a backup holds every site and a restore puts all of them back. A Talea archive can be imported only while
+  the install has one site.
+

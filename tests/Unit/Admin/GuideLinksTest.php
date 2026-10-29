@@ -14,7 +14,7 @@ final class GuideLinksTest extends TestCase
         // the articles of the guide on taleacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
         $guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
             'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
-            'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons', 'bookings', 'claude-operator'];
+            'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons', 'bookings', 'claude-operator', 'sites'];
         $guideTargets = [...\Talea\Admin\Guide::MODULES, ...\Talea\Admin\Guide::SETTINGS, ...\Talea\Admin\Guide::BUILDER];
         $this->assertSame([[], [], []], [
             array_values(array_diff(array_map(fn (string $c): string => $c::IDENT, \Talea\Admin\Kernel::MODULES), array_keys(\Talea\Admin\Guide::MODULES), ['settings'])),
