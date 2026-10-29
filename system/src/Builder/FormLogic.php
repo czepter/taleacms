@@ -33,25 +33,31 @@ final class FormLogic
         $logic = is_array($logic) ? $logic : [];
         $position = [];
         foreach ($fields as $i => $f) {
-            $position[(string) ($f['key'] ?? '')] ??= (int) $i;
+            if (self::str($f['key'] ?? '') !== '') {
+                $position[self::str($f['key'])] ??= (int) $i;
+            }
         }
         $results = self::sanitizeResults(is_array($logic['results'] ?? null) ? $logic['results'] : [], $place . '.results', $errors);
         $variants = array_column($results, 'key');
 
         $rules = [];
-        foreach (array_slice(array_values(is_array($logic['rules'] ?? null) ? $logic['rules'] : []), 0, self::MAX_RULES) as $n => $raw) {
+        foreach (self::cap($logic['rules'] ?? null, self::MAX_RULES, $place . '.rules', $errors) as $n => $raw) {
             $at = $place . '.rules.' . $n;
             if (!is_array($raw)) {
                 continue;
             }
             $broken = false;
             $when = [];
-            foreach (array_slice(array_values(is_array($raw['when'] ?? null) ? $raw['when'] : []), 0, self::MAX_CONDITIONS) as $c) {
-                $key = is_array($c) ? (string) ($c['field'] ?? '') : '';
-                $op = is_array($c) ? (string) ($c['op'] ?? '') : '';
-                if (!isset($position[$key]) || !in_array($op, self::OPERATORS, true)) {
-                    $errors[$at . '.when'] = 'A condition names an unknown question or operator and was dropped.';
-                    continue;
+            foreach (self::cap($raw['when'] ?? null, self::MAX_CONDITIONS, $at . '.when', $errors) as $c) {
+                $key = is_array($c) ? self::str($c['field'] ?? '') : '';
+                $op = is_array($c) ? self::str($c['op'] ?? '') : '';
+                $known = isset($position[$key]);
+                if (!$known || !in_array($op, self::OPERATORS, true)) {
+                    // kept so that the editor can show it, but the whole rule does nothing: dropping it would make the rule fire more broadly
+                    $broken = true;
+                    $errors[$at . '.when'] = 'A condition names an unknown question or operator; the rule does nothing until you fix it.';
+                    $key = preg_match('/^k[a-z0-9]{4}$/', $key) === 1 ? $key : '';
+                    $op = in_array($op, self::OPERATORS, true) ? $op : '';
                 }
                 $one = ['field' => $key, 'op' => $op];
                 if (!in_array($op, ['empty', 'not_empty'], true)) {
@@ -65,7 +71,7 @@ final class FormLogic
                     if ($op === 'between') {
                         $one['to'] = $to;
                     }
-                    $options = self::options($fields[$position[$key]]);
+                    $options = $known ? self::options($fields[$position[$key]]) : null;
                     if (in_array($op, ['is', 'is_not', 'contains', 'not_contains'], true) && $options !== null && !in_array($value, $options, true)) {
                         $broken = true;
                         $errors[$at . '.when'] = 'A condition names an answer (' . mb_substr($value, 0, 40) . ') that the question does not offer; the rule does nothing until you fix it.';
@@ -73,16 +79,16 @@ final class FormLogic
                 }
                 $when[] = $one;
             }
-            $latest = $when === [] ? -1 : max(array_map(fn (array $c): int => $position[$c['field']], $when));
+            $latest = $when === [] ? -1 : max(array_map(fn (array $c): int => $position[$c['field']] ?? -1, $when));
             $then = [];
             $lookBack = true;
-            foreach (array_slice(array_values(is_array($raw['then'] ?? null) ? $raw['then'] : []), 0, self::MAX_ACTIONS) as $a) {
+            foreach (self::cap($raw['then'] ?? null, self::MAX_ACTIONS, $at . '.then', $errors) as $a) {
                 $action = is_array($a) ? self::action($a, $position, $variants, $broken) : null;
                 if ($action === null) {
                     $errors[$at . '.then'] = 'An action is unknown or incomplete and was dropped.';
                     continue;
                 }
-                if (in_array($action['do'], ['skip', 'show_when'], true) && $position[$action['field']] <= $latest) {
+                if (in_array($action['do'], ['skip', 'show_when'], true) && ($position[$action['field']] ?? PHP_INT_MAX) <= $latest) {
                     $lookBack = false;
                     continue;
                 }
@@ -95,7 +101,7 @@ final class FormLogic
                 $errors[$at] ??= 'A rule needs at least one condition and one action; the rule was dropped.';
                 continue;
             }
-            $rule = ['label' => mb_substr(trim(strip_tags((string) ($raw['label'] ?? ''))), 0, 120), 'match' => ($raw['match'] ?? '') === 'any' ? 'any' : 'all', 'when' => $when, 'then' => $then];
+            $rule = ['label' => mb_substr(trim(strip_tags(self::str($raw['label'] ?? ''))), 0, 120), 'match' => ($raw['match'] ?? '') === 'any' ? 'any' : 'all', 'when' => $when, 'then' => $then];
             $rules[] = $broken ? ['broken' => true] + $rule : $rule;
         }
 
@@ -105,8 +111,13 @@ final class FormLogic
     /** @param array<string, int> $position @param list<string> $variants */
     private static function action(array $a, array $position, array $variants, bool &$broken): ?array
     {
-        $do = (string) ($a['do'] ?? '');
-        $field = (string) ($a['field'] ?? '');
+        $do = self::str($a['do'] ?? '');
+        $field = self::str($a['field'] ?? '');
+        if (in_array($do, ['quantity', 'skip', 'show_when'], true) && !isset($position[$field])) {
+            $broken = true; // an unknown target: the rule does nothing, the editor shows it
+            $field = preg_match('/^k[a-z0-9]{4}$/', $field) === 1 ? $field : '';
+            $position[$field] = PHP_INT_MAX;
+        }
         switch ($do) {
             case 'add':
                 $amount = self::amount($a['amount'] ?? null);
@@ -124,7 +135,7 @@ final class FormLogic
             case 'show_when':
                 return isset($position[$field]) ? ['do' => $do, 'field' => $field] : null;
             case 'result':
-                $variant = (string) ($a['variant'] ?? '');
+                $variant = self::str($a['variant'] ?? '');
                 if (preg_match('/^v[a-z0-9]{1,8}$/', $variant) !== 1) {
                     return null;
                 }
@@ -134,6 +145,22 @@ final class FormLogic
         }
 
         return null;
+    }
+
+    private static function str(mixed $v): string
+    {
+        return is_scalar($v) ? (string) $v : '';
+    }
+
+    /** The first $max entries of a list; the rest is reported. @return list<mixed> */
+    private static function cap(mixed $list, int $max, string $at, array &$errors): array
+    {
+        $list = is_array($list) ? array_values($list) : [];
+        if (count($list) > $max) {
+            $errors[$at] = 'At most ' . $max . ' entries are kept; the rest was dropped.';
+        }
+
+        return array_slice($list, 0, $max);
     }
 
     private static function amount(mixed $v): ?float
@@ -148,8 +175,8 @@ final class FormLogic
     {
         $clean = [];
         $seen = [];
-        foreach (array_slice(array_values($results), 0, self::MAX_RESULTS) as $n => $r) {
-            $key = is_array($r) ? (string) ($r['key'] ?? '') : '';
+        foreach (self::cap($results, self::MAX_RESULTS, $place, $errors) as $n => $r) {
+            $key = is_array($r) ? self::str($r['key'] ?? '') : '';
             if (preg_match('/^v[a-z0-9]{1,8}$/', $key) !== 1 || isset($seen[$key])) {
                 $errors[$place . '.' . $n] = 'A result needs a unique key (v followed by letters or digits); it was dropped.';
                 continue;
@@ -162,10 +189,10 @@ final class FormLogic
             }
             $clean[] = [
                 'key' => $key,
-                'heading' => mb_substr(trim(strip_tags((string) ($r['heading'] ?? ''))), 0, 120),
-                'text' => mb_substr(strip_tags((string) ($r['text'] ?? '')), 0, 2000),
+                'heading' => mb_substr(trim(strip_tags(self::str($r['heading'] ?? ''))), 0, 120),
+                'text' => mb_substr(strip_tags(self::str($r['text'] ?? '')), 0, 2000),
                 'show_amount' => (bool) ($r['show_amount'] ?? false),
-                'button_text' => mb_substr(trim(strip_tags((string) ($r['button_text'] ?? ''))), 0, 80),
+                'button_text' => mb_substr(trim(strip_tags(self::str($r['button_text'] ?? ''))), 0, 80),
                 'button_link' => Build::link(is_scalar($r['button_link'] ?? null) ? (string) $r['button_link'] : '', $place . '.' . $n . '.button_link', $errors),
                 'image' => $okImage ? $image : '',
             ];
@@ -310,7 +337,9 @@ final class FormLogic
         $fields = array_values($fields);
         $position = [];
         foreach ($fields as $i => $f) {
-            $position[(string) ($f['key'] ?? '')] ??= $i;
+            if (self::str($f['key'] ?? '') !== '') {
+                $position[self::str($f['key'])] ??= $i;
+            }
         }
         $visible = [];
         foreach ($fields as $i => $f) {

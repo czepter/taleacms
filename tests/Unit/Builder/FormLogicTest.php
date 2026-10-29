@@ -86,11 +86,52 @@ final class FormLogicTest extends TestCase
         $rule = $logic['rules'][0];
         $this->assertSame(120, mb_strlen($rule['label']));
         $this->assertSame('all', $rule['match']);
-        $this->assertCount(1, $rule['when']);
+        $this->assertCount(3, $rule['when'], 'a bad condition is kept, never silently dropped');
+        $this->assertTrue($rule['broken'], 'and it makes the whole rule inert');
+        $this->assertSame([], FormLogic::rules(['fields' => $fields, 'logic' => $logic]));
         $this->assertSame([['do' => 'multiply', 'by' => 100.0], ['do' => 'add', 'amount' => 1.5], ['do' => 'result', 'variant' => 'vabc']], $rule['then']);
         $this->assertCount(1, $logic['results']);
         $this->assertSame(['show_amount' => true, 'button_link' => '', 'image' => ''], array_intersect_key($logic['results'][0], ['button_link' => 1, 'image' => 1, 'show_amount' => 1]));
         $this->assertNotEmpty($errors);
+    }
+
+    public function testUnknownActionTargetBreaksTheRule(): void
+    {
+        $errors = [];
+        $fields = [['key' => 'ka000', 'type' => 'text'], ['key' => 'kb000', 'type' => 'text']];
+        $logic = FormLogic::sanitize(['rules' => [['when' => [['field' => 'ka000', 'op' => 'empty']], 'then' => [['do' => 'skip', 'field' => 'kzzzz']]]]], $fields, 'x', $errors);
+        $this->assertTrue($logic['rules'][0]['broken']);
+        $this->assertSame('kzzzz', $logic['rules'][0]['then'][0]['field']);
+    }
+
+    public function testArraysInEverySlotDoNotThrow(): void
+    {
+        $errors = [];
+        $fields = [['key' => 'ka000', 'type' => 'text'], ['key' => 'kb000', 'type' => 'text']];
+        $x = ['x'];
+        $logic = FormLogic::sanitize(['rules' => [
+            ['label' => $x, 'match' => $x, 'when' => [['field' => $x, 'op' => $x, 'value' => $x, 'to' => $x]], 'then' => [['do' => $x, 'field' => $x, 'variant' => $x, 'amount' => $x, 'by' => $x]]],
+            ['when' => [['field' => 'ka000', 'op' => 'empty']], 'then' => [['do' => 'skip', 'field' => $x], ['do' => 'result', 'variant' => $x]]],
+        ], 'results' => [['key' => $x], ['key' => 'vabc', 'heading' => $x, 'text' => $x, 'button_text' => $x, 'button_link' => $x, 'image' => $x]]], $fields, 'x', $errors);
+        $this->assertIsArray($logic['rules']);
+        $this->assertCount(1, $logic['results']);
+    }
+
+    public function testLimitsAreReported(): void
+    {
+        $errors = [];
+        $fields = [['key' => 'ka000', 'type' => 'text'], ['key' => 'kb000', 'type' => 'text']];
+        $rule = ['when' => [['field' => 'ka000', 'op' => 'empty']], 'then' => [['do' => 'skip', 'field' => 'kb000']]];
+        $logic = FormLogic::sanitize(['rules' => array_fill(0, FormLogic::MAX_RULES + 1, $rule)], $fields, 'x', $errors);
+        $this->assertCount(FormLogic::MAX_RULES, $logic['rules']);
+        $this->assertArrayHasKey('x.rules', $errors);
+    }
+
+    public function testKeylessFieldsAreNotAddressable(): void
+    {
+        $fields = [['type' => 'text'], ['key' => 'kb000', 'type' => 'text']];
+        $rule = ['when' => [['field' => '', 'op' => 'empty']], 'then' => [['do' => 'show_when', 'field' => 'kb000']]];
+        $this->assertFalse(FormLogic::visible($fields, [$rule], [])[1]);
     }
 
     public function testFormSanitizeElementRunsLogic(): void
