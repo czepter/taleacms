@@ -489,7 +489,7 @@ final class ErrorReport
         $line = $e->getLine();
         foreach ([...$trace, ['function' => '{main}']] as $call) {
             if ($file !== '') {
-                $function = isset($call['class']) ? $call['class'] . ($call['type'] ?? '::') . $call['function'] : (string) ($call['function'] ?? '');
+                $function = isset($call['class']) ? $call['class'] . ($call['type'] ?? '::') . $call['function'] : $call['function'];
                 $frames[] = self::frame($file, $line, $function);
             }
             $file = (string) ($call['file'] ?? '');
