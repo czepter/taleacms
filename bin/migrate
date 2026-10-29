@@ -53,6 +53,10 @@ try {
 // with the flag on, site 1 answers to the host of its site address from the first start
 try {
     $db = \Talea\Core\Db::fromConfig($config['db']);
+    if ($db->tableExists('owners') && !\Talea\Core\Owners::enabled() && (int) $db->value('SELECT COUNT(*) FROM {owners}') > 1) {
+        fwrite(STDERR, "This database has more than one owner, but TALEA_OWNERS (with TALEA_MULTISITE) is off. Set TALEA_MULTISITE=1 and TALEA_OWNERS=1 and start again.\n");
+        exit(1);
+    }
     if ($db->tableExists('sites')) {
         if (!\Talea\Core\Sites::enabled()) {
             if ((int) $db->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'") > 1) {
