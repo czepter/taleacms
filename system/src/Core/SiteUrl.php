@@ -18,12 +18,12 @@ final class SiteUrl
     }
 
     /**
-     * Whether the server's address rules this site: TALEA_SITE_URL is the address of the install, that is of site 1 (the owner prefix).
+     * Whether the server's address rules this site: TALEA_SITE_URL is the address of the install, that is of the first owner's site 1 (the install prefix).
      * A further site has its own address (its domains), which its administrator edits like any setting.
      */
     public static function locked(Db $db): bool
     {
-        return self::fromEnvironment() !== '' && $db->prefix === $db->ownerPrefix;
+        return self::fromEnvironment() !== '' && $db->prefix === $db->installPrefix;
     }
 
     /**

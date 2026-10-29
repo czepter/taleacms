@@ -36,8 +36,9 @@ final class Antispam
     {
         $secret = self::environmentSecret($this->settings);
         if ($secret !== null) {
-            // a further site (multisite) signs with its own key from the shared secret, so a link of one site is void on the others
-            $site = $this->db->prefix === $this->db->ownerPrefix ? '' : '|' . $this->db->prefix;
+            // a further site (multisite) and a further owner's site 1 sign with a key of their own from the shared secret (site prefixes are
+            // unique in the whole install), so a link of one site is void on the others; the install's own site 1 keeps the plain key
+            $site = $this->db->prefix === $this->db->installPrefix ? '' : '|' . $this->db->prefix;
 
             return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret . $site, '', 32));
         }

@@ -309,7 +309,7 @@ final class Server
         $config = $this->app->config;
         $config['db']['site_prefix'] = (string) $row['prefix'];
         $request = \Talea\Core\Request::fromGlobals();
-        $app = new App($config, $request, ['site_id' => (int) $row['site_id'], 'public_id' => (string) $row['public_id'], 'prefix' => (string) $row['prefix'], 'status' => (string) $row['status'],
+        $app = new App($config, $request, ['site_id' => (int) $row['site_id'], 'public_id' => (string) $row['public_id'], 'prefix' => (string) $row['prefix'], 'owner_prefix' => $db->ownerPrefix, 'status' => (string) $row['status'],
             'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true]);
         $app->auth()->signInAs((array) $this->user);
         $conn = (array) $this->app->auth()->connection();
@@ -324,7 +324,7 @@ final class Server
         $request->setOrigin($origin !== '' ? $origin : ($host !== null ? \Talea\Core\Sites::originOn($this->app->request, $host) : ''));
 
         $before = [\Talea\Front\Cache::site(), \Talea\Core\Language::code(), date_default_timezone_get()];
-        $owner = (string) $row['prefix'] === $db->ownerPrefix;
+        $owner = (string) $row['prefix'] === $db->installPrefix; // the install's own site 1 keeps the plain cache folder
         \Talea\Front\Cache::useSite($owner ? null : (string) $row['prefix']);
         \Talea\Core\Slug::setPerLanguage(null);
         \Talea\Core\Routes::setNewsSlug(null);

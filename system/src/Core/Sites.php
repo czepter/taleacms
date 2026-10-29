@@ -38,21 +38,29 @@ final class Sites
 
     /**
      * The site that answers to this host (lower-case, no port), with the matched domain's flags and the host the site prefers.
-     * null = no such domain.
+     * null = no such domain. With several owners (TALEA_OWNERS) the domains of every set-up owner are read in one query – a host is
+     * unique in the whole install – and the result names the owner's prefix; without, only this owner's.
      *
-     * @return array{site_id: int, public_id: string, prefix: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool}|null
+     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool}|null
      */
     public static function resolve(Db $db, string $host): ?array
     {
-        $r = $db->all(
-            'SELECT s.site_id, s.public_id, s.prefix, s.status, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary,
-                (SELECT p.host FROM {site_domains} p WHERE p.site_id = s.site_id AND p.is_primary = TRUE ORDER BY p.domain_id LIMIT 1) AS primary_host
-             FROM {site_domains} d JOIN {sites} s ON s.site_id = d.site_id WHERE d.host = ?',
-            [$host],
-        )[0] ?? null;
+        $owners = Owners::enabled() ? Owners::readyPrefixes($db) : [$db->ownerPrefix];
+        $selects = [];
+        foreach ($owners as $i => $owner) {
+            $o = $db->forOwner($owner);
+            $sites = $db->dialect()->quote($o->table('sites'));
+            $domains = $db->dialect()->quote($o->table('site_domains'));
+            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary,
+                (SELECT p.host FROM ' . $domains . ' p WHERE p.site_id = s.site_id AND p.is_primary = TRUE ORDER BY p.domain_id LIMIT 1) AS primary_host
+             FROM ' . $domains . ' d JOIN ' . $sites . ' s ON s.site_id = d.site_id WHERE d.host = ?';
+        }
+        $rows = $db->all(implode(' UNION ALL ', $selects), array_fill(0, count($selects), $host));
+        usort($rows, fn (array $a, array $b): int => (int) $a['owner_idx'] <=> (int) $b['owner_idx']);
+        $r = $rows[0] ?? null;
 
         return $r === null ? null : [
-            'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'status' => (string) $r['status'],
+            'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'status' => (string) $r['status'],
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
         ];
@@ -549,7 +557,7 @@ final class Sites
         if ($host === null) {
             return 'Enter a host name such as www.example.com – no http://, no port, no path.';
         }
-        if ($db->value('SELECT 1 FROM {site_domains} WHERE host = ?', [$host]) !== null) {
+        if (Owners::hostTaken($db, $host)) {
             return 'This host name is already used by a site.';
         }
         $first = $db->value('SELECT 1 FROM {site_domains} WHERE site_id = ?', [$siteId]) === null;

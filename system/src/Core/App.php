@@ -29,12 +29,18 @@ final class App
         Demo::configure($config['demo'] ?? null);
     }
 
-    /** Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet. $sitePrefix: a further site's tables (multisite). */
-    public static function boot(?string $sitePrefix = null): self
+    /**
+     * Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet.
+     * $sitePrefix: a further site's tables (multisite); $ownerPrefix: the tables of a further owner (its site 1 is its owner prefix).
+     */
+    public static function boot(?string $sitePrefix = null, ?string $ownerPrefix = null): self
     {
         $config = Config::load();
         if ($config !== null && $sitePrefix !== null) {
             $config['db']['site_prefix'] = $sitePrefix;
+            if ($ownerPrefix !== null && $ownerPrefix !== ($config['db']['prefix'] ?? 'tl_')) {
+                $config['db']['owner_prefix'] = $ownerPrefix;
+            }
             \Talea\Front\Cache::useSite($sitePrefix);
         }
         if ($config === null) {
@@ -54,6 +60,9 @@ final class App
         $site = null;
         if ($sitePrefix === null && PHP_SAPI !== 'cli' && Sites::enabled()) {
             $site = self::routeHost($config);
+            if ($site['owner_prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
+                $config['db']['owner_prefix'] = $site['owner_prefix'];
+            }
             if ($site['prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
                 $config['db']['site_prefix'] = $site['prefix'];
                 \Talea\Front\Cache::useSite($site['prefix']);
@@ -89,7 +98,7 @@ final class App
                 }
                 exit($setUp ? "This site is being set up\n" : "Not found\n");
             }
-            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true];
+            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true];
         }
         if ($site['redirect_to_primary'] && !$site['is_primary'] && $site['primary_host'] !== null) {
             header('Location: ' . Sites::originOn($request, $site['primary_host']) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);
