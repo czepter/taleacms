@@ -57,8 +57,8 @@ final class ParityTest extends TestCase
                 'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
             'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'personal' => 'erase_personal_data',
                 'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
-            // the forms of the site and their answers: read from the builds and the enquiries, edited in the builder
-            'forms' => ['list' => $readOnly, 'detail' => $readOnly],
+            // the forms of the site (records, docs/specs/form-builder.md) and their answers; a form's build is edited in the builder
+            'forms' => $builderParity + ['list' => 'list_forms', 'detail' => $readOnly, 'new' => $readOnly, 'create' => 'create_form', 'delete' => 'delete_form'],
             // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
             'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
                 'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',

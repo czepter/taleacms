@@ -111,7 +111,7 @@ $deletable = 0;
 <p class="help"><?= e($withoutAltTotal === 0 ? t('Every image has a description for blind visitors (alt).') : t('Only the owner of an image or an administrator can describe it.')) ?></p>
 <?php else: ?>
 <p class="help"><?= e(t('Describe what each image shows – screen readers and search engines read it. Empty fields are skipped; the rest is saved together.')) ?><?= $withoutAltTotal > count($withoutAlt) ? ' ' . e(t('Showing the first %d of %d.', count($withoutAlt), $withoutAltTotal)) : '' ?></p>
-<form class="form" method="post" action="<?= e($module->url('save_alts')) ?>">
+<form class="form" method="post" action="<?= e($module->url('save_alts')) ?>" data-no-page-save>
 	<?= $csrf ?>
 	<div class="tab-wrap">
 	<table class="listing cleanup">

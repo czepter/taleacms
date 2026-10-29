@@ -72,6 +72,9 @@ final class Context
     /** @var array<string, true> elements whose CSS is already on the page */
     public array $styles = [];
 
+    /** A draft is being shown (the builder's canvas or ?build=draft for whoever may see it): a placed form shows its form's draft too. */
+    public bool $draft = false;
+
     /** Where the build being rendered comes from: „page:<id>“ or „part:<typ>:<jazyk>“ (the form finds its fields by it). */
     public string $source = '';
 

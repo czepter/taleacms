@@ -92,17 +92,28 @@
         "button_text",
         "calculation",
         "confirmation",
+        "confirmation_reply_to",
+        "confirmation_sender",
+        "confirmation_subject",
+        "confirmation_text",
         "fields",
         "logic",
         "name",
         "next_steps",
         "no_captcha",
+        "notification_subject",
         "recipient",
         "reply_within_hours",
         "send_file",
         "thank_you",
         "thank_you_page",
         "who_replies"
+    ],
+    "form_embed": [
+        "button_text",
+        "form",
+        "thank_you_page",
+        "widths"
     ],
     "gallery": [
         "arrow_position",

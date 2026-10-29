@@ -7,36 +7,6 @@ parameters:
 			path: system/src/Admin/Kernel.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between ''collections'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Collections.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''components'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Components.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''pages'' and ''pages'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: system/src/Admin/Modules/Pages.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''popups'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Popups.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''parts'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/SiteParts.php
-
-		-
 			message: '#^Match expression does not handle remaining value\: mixed$#'
 			identifier: match.unhandled
 			count: 1

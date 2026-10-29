@@ -135,6 +135,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -215,6 +216,20 @@
             "name",
             "page",
             "goal"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "create_form": {
+        "parameters": {
+            "name": "string",
+            "starter": "string"
+        },
+        "required": [
+            "name"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -415,6 +430,19 @@
             "openWorldHint": false
         }
     },
+    "delete_form": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "delete_hours_exception": {
         "parameters": {
             "id": "integer"
@@ -510,6 +538,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -556,6 +585,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "operations": "array",
@@ -652,6 +682,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -861,6 +892,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -919,6 +951,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -1075,6 +1108,15 @@
         "parameters": {
             "language": "string"
         },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_forms": {
+        "parameters": [],
         "required": [],
         "annotations": {
             "readOnlyHint": true,
@@ -1321,6 +1363,7 @@
             "collection": "string",
             "comments": "boolean",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "minutes": "integer",
@@ -1381,6 +1424,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -1493,6 +1537,7 @@
         "parameters": {
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -1653,6 +1698,7 @@
             "build": "object",
             "collection": "string",
             "component": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",
@@ -1867,6 +1913,7 @@
             "collection": "string",
             "component": "string",
             "element": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "name": "string",
@@ -2028,6 +2075,7 @@
             "collection": "string",
             "component": "string",
             "element": "string",
+            "form": "string",
             "id": "string",
             "language": "string",
             "part": "string",

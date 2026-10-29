@@ -61,7 +61,7 @@ $message = match ($v['state']) {
 
 <?php if (in_array($x['status'], ['running', 'stopped'], true)): ?>
 <h2><?= e(t('Apply the result')) ?></h2>
-<form class="form" method="post" action="<?= e($module->url('promote')) ?>">
+<form class="form" method="post" action="<?= e($module->url('promote')) ?>" data-no-page-save>
 <?= $csrf ?>
 <input type="hidden" name="experiment_id" value="<?= e($x['public_id']) ?>">
 <div class="row"><label for="reason"><?= e(t('Reason (for the change log)')) ?></label><div><input class="textfield wide" id="reason" name="reason" maxlength="200"></div></div>
@@ -81,7 +81,7 @@ $message = match ($v['state']) {
 <?php endif ?>
 
 <?php if (in_array($x['status'], ['draft', 'running', 'stopped'], true)): ?>
-<form class="form" method="post" action="<?= e($module->url('auto')) ?>">
+<form class="form" method="post" action="<?= e($module->url('auto')) ?>" data-no-page-save>
 <?= $csrf ?>
 <input type="hidden" name="experiment_id" value="<?= e($x['public_id']) ?>">
 <div class="row"><label><input type="checkbox" name="auto_promote" value="1"<?= $x['auto_promote'] ? ' checked' : '' ?>> <?= e(t('Promote the winner automatically when all guardrails are met')) ?></label></div>

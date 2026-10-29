@@ -54,8 +54,8 @@ final class FormContextTest extends SiteTestCase
 
     public function testTheFormKeepsTheNextStepsTheWorkingHoursAndWhoReplies(): void
     {
-        $this->assertSame('1|1|1', (string) $this->site()->value("SELECT CONCAT(build LIKE '%\"next_steps\":\"We will c%', '|', build LIKE '%\"reply_within_hours\":4%', '|', build LIKE '%\"who_replies\":\"Jane from the off%') FROM tl_pages WHERE page_id = ?", [self::$page]),
-            'next steps: the form keeps the steps, the working hours and who replies');
+        $this->assertSame('1|1|1', (string) $this->site()->value("SELECT CONCAT(build LIKE '%\"next_steps\":\"We will c%', '|', build LIKE '%\"reply_within_hours\":4%', '|', build LIKE '%\"who_replies\":\"Jane from the off%') FROM tl_forms WHERE origin LIKE ?", ['page:' . self::$page . '|%']),
+            'next steps: the form keeps the steps, the working hours and who replies'); // publishing made the form a record (docs/specs/form-builder.md)
     }
 
     public function testTheTopicOnAPageIsThePageTitleWhateverWasPosted(): void

@@ -40,12 +40,12 @@ final class SecurityHardeningTest extends TestCase
         $this->assertSame([], array_filter($rules[1], fn (string $rule): bool => !str_starts_with($rule, '(?i)')), 'media/.htaccess: every rule matches any case (LOGO.SVG gets the CSP)');
 
         $this->assertSame(['media/2026/09/Photo.jpg', 'media/2026/09/route.gpx', 'media/2026/09/photo.jpg.webp', 'media/2026/09/logo.svg', null],
-            array_map(\Talea\Core\SiteImport::mediaTarget(...), ['media/2026/09/Photo.JPG', 'media/2026/09/route.GPX', 'media/2026/09/photo.JPG.webp', 'media/2026/09/logo.SVG', 'media/x.PHP']),
-            'SiteImport::mediaTarget writes the extensions in lower case');
+            array_map(\Talea\Core\ArchiveMedia::path(...), ['media/2026/09/Photo.JPG', 'media/2026/09/route.GPX', 'media/2026/09/photo.JPG.webp', 'media/2026/09/logo.SVG', 'media/x.PHP']),
+            'ArchiveMedia::path writes the extensions in lower case');
         $this->assertSame(['image' => 'media/2026/09/Photo.jpg', 'build' => '{"src":"media\\/2026\\/09\\/Photo.jpg"}', 'other' => ['media/2026/09/a.png']],
-            \Talea\Core\SiteImport::renameMedia(['image' => 'media/2026/09/Photo.JPG', 'build' => '{"src":"media\\/2026\\/09\\/Photo.JPG"}', 'other' => ['media/2026/09/a.png']],
+            \Talea\Core\ArchiveMedia::rename(['image' => 'media/2026/09/Photo.JPG', 'build' => '{"src":"media\\/2026\\/09\\/Photo.JPG"}', 'other' => ['media/2026/09/a.png']],
                 ['media/2026/09/Photo.JPG' => 'media/2026/09/Photo.jpg']),
-            'SiteImport::renameMedia: the content follows the new name, also inside JSON');
+            'ArchiveMedia::rename: the content follows the new name, also inside JSON');
 
         $folder = sys_get_temp_dir() . '/talea-import-' . bin2hex(random_bytes(4));
         mkdir($folder);
@@ -55,11 +55,11 @@ final class SecurityHardeningTest extends TestCase
         file_put_contents($folder . '/notes.txt', 'Opening hours: [hours]');
         try {
             $this->assertSame([true, false, false, true], [
-                \Talea\Core\SiteImport::contentMatches($png, 'media/2026/09/a.png'),
-                \Talea\Core\SiteImport::contentMatches($folder . '/page.html', 'media/2026/09/a.jpg'),
-                \Talea\Core\SiteImport::contentMatches($folder . '/page.html', 'media/2026/09/a.pdf'),
-                \Talea\Core\SiteImport::contentMatches($folder . '/notes.txt', 'media/2026/09/a.txt'),
-            ], 'SiteImport::contentMatches: an image must be a raster image, an attachment must not be HTML');
+                \Talea\Core\ArchiveMedia::contentMatches($png, 'media/2026/09/a.png'),
+                \Talea\Core\ArchiveMedia::contentMatches($folder . '/page.html', 'media/2026/09/a.jpg'),
+                \Talea\Core\ArchiveMedia::contentMatches($folder . '/page.html', 'media/2026/09/a.pdf'),
+                \Talea\Core\ArchiveMedia::contentMatches($folder . '/notes.txt', 'media/2026/09/a.txt'),
+            ], 'ArchiveMedia::contentMatches: an image must be a raster image, an attachment must not be HTML');
         } finally {
             array_map(unlink(...), glob($folder . '/*') ?: []);
             rmdir($folder);

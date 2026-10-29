@@ -571,6 +571,9 @@ a.danger:hover {
 
 /* listing tables */
 
+/* a listing takes the whole width: the 1320px cap made wide tables scroll while the window had room */
+.content:has(table.listing) { max-width: none; }
+
 .tab-wrap {
 	overflow-x: auto;
 	border: 1px solid var(--card-line);
@@ -2335,6 +2338,59 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .bookings-agenda { flex: 999 1 480px; min-width: 0; display: grid; gap: 10px; }
 .bookings-settings > summary h2 { margin: 0; font-size: 15px; }
 .bookings-settings .form { border-radius: 0; max-width: none; }
+
+/* ---------- One booking (views/admin/bookings/detail.php): the appointment and the answer beside the contact ---------- */
+/* the contact wraps below the answer whenever the content column is narrow, whatever the window */
+.booking-detail { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; max-width: 1040px; }
+.booking-main { flex: 999 1 480px; display: grid; gap: 20px; min-width: 0; }
+.booking-side { flex: 1 1 260px; min-width: 0; }
+.booking-card { padding: 20px 24px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--surface); }
+.booking-card > h2 { margin: 0 0 12px; font-size: 15px; }
+.booking-card > h2.booking-when-title { margin-bottom: 4px; }
+.booking-card p { margin: 0 0 8px; }
+.booking-card .booking-status { margin: 0 0 16px; }
+.booking-date { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.booking-time { font-size: 18px; font-variant-numeric: tabular-nums; }
+.booking-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; margin: 12px 0 0; }
+.booking-facts dt { color: var(--text-weak); }
+.booking-facts dd { margin: 0; font-weight: 600; }
+.booking-card .notice { margin: 16px 0 0; }
+.booking-name { font-size: 17px; }
+.booking-note { margin: 12px 0; padding: 10px 12px; border-radius: var(--radius); background: var(--accent-light); overflow-wrap: anywhere; }
+.booking-meta { margin-top: 12px; overflow-wrap: anywhere; }
+.booking-card .help { font-size: 12px; font-weight: 400; color: var(--text-weak); }
+.booking-anonymise { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.booking-anonymise .quiet-link { padding: 10px 0; border: 0; background: none; font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.booking-anonymise .help { margin: 0; }
+/* the answer: three tiles are radios outside every form; :has() shows the form of the chosen one, no script */
+.answer-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 0 0 20px; padding: 0; border: 0; }
+.answer-tile { display: flex; flex-direction: column; gap: 4px; min-height: 44px; padding: 12px 14px; border: 1px solid var(--line-field); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
+.answer-tile:hover { border-color: var(--text-weak); }
+.answer-tile:has(input:checked) { border-color: var(--accent); background: var(--accent-light); box-shadow: inset 0 0 0 1px var(--accent); }
+.answer-tile:has(input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 2px; }
+.answer-title { font-weight: 600; }
+.answer-effect { font-size: 13px; line-height: 1.35; color: var(--text-weak); }
+.answer-section { display: none; }
+.booking-answer:has(#answer-accept:checked) .answer-accept,
+.booking-answer:has(#answer-propose:checked) .answer-propose,
+.booking-answer:has(#answer-decline:checked) .answer-decline { display: block; }
+.answer-section > .help { margin: 8px 0 0; }
+.answer-section > .btn { margin-top: 4px; }
+.answer-field { margin-top: 12px; }
+.answer-field label { display: block; margin-bottom: 4px; font-weight: 600; }
+.answer-field + .btn { margin-top: 12px; }
+.answer-link { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.answer-link:hover { color: var(--accent-dark); }
+.answer-days { display: grid; gap: 14px; }
+.answer-day h3 { margin: 0 0 6px; font-size: 14px; }
+.answer-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.answer-chip { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--line-field); border-radius: 999px; background: var(--surface); font-variant-numeric: tabular-nums; cursor: pointer; }
+.answer-chip:hover { border-color: var(--text-weak); }
+.answer-chip:has(input:checked) { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.answer-chip:has(input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 2px; }
+@media (max-width: 640px) {
+	.booking-card { padding: 16px; }
+}
 
 /* ---------- Analytics (views/admin/stats/list.php): period and note, tiles as cards, the chart in a card, running experiments ---------- */
 .stats-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: -8px 0 18px; }
