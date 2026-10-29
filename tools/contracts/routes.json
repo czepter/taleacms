@@ -195,6 +195,14 @@
         "methods": [
             "POST"
         ],
+        "pattern": "/form-step",
+        "when": "extension:enquiries",
+        "handler": "Endpoints::formStep"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
         "pattern": "/fleet/{action:pair|heartbeat|unpair|kit}",
         "when": "extension:fleet",
         "handler": "Endpoints::fleet"

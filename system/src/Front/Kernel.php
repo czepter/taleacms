@@ -197,6 +197,7 @@ final class Kernel
             ->add('ANY', '/{file:.+}.txt', [Endpoints::class, 'indexNowKey']) // only the file named after the setting indexnow_key answers
             ->add('POST', '/consent', [Endpoints::class, 'consent'])
             ->add('POST', '/popup', [Endpoints::class, 'popup'])
+            ->add('POST', '/form-step', [Endpoints::class, 'formStep'], $extension('enquiries'), 'extension:enquiries')
             ->add('POST', '/fleet/{action:pair|heartbeat|unpair|kit}', [Endpoints::class, 'fleet'], $extension('fleet'), 'extension:fleet')
             ->add('POST', '/vitals', [Endpoints::class, 'vitals'])
             ->add('POST', '/conversion', [Endpoints::class, 'conversion'])
