@@ -565,6 +565,9 @@ a.danger:hover {
 
 /* listing tables */
 
+/* a listing takes the whole width: the 1320px cap made wide tables scroll while the window had room */
+.content:has(table.listing) { max-width: none; }
+
 .tab-wrap {
 	overflow-x: auto;
 	border: 1px solid var(--card-line);
