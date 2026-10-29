@@ -30,7 +30,8 @@ final class SettingsFormsTest extends TestCase
                     'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
                     'service', 'connect', 'hosting', 'disconnect', // the analytics tab: which service's page, the wizard step, cloud or own installation, "Disconnect" (Settings::actionSave)
                     'screen_collections', 'new_screen_token', 'smtp_ses_region', // smtp_ses_region: read by MailServices::settle(); 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
-                    'instructions_seen', 'month'], true)) { // #149: the acknowledge button (ClaudeSettings::actionAcknowledgeInstructions); #161: the month a report send or view names
+                    'kind_key', 'kind_name', 'kind_description', 'kind_move', 'kind_delete', // the kinds of enquiries (Triage::storeKinds in Settings::actionSave)
+                    'instructions_seen', 'month'], true)) { // #149: the acknowledge button (Settings::actionAcknowledgeInstructions); #161: the month a report send or view names
                     $unknownFields[] = basename($view) . ': ' . $name;
                 }
             }

@@ -17,9 +17,11 @@ final class PublicIdTest extends DatabaseTestCase
     public function testEveryListedTableHasAUniquePublicIdColumn(): void
     {
         foreach (Db::PUBLIC_ID_TABLES as $table) {
-            $sql = $this->isPostgres()
+            $sql = $this->isSqlite()
+                ? "SELECT COUNT(*) FROM pragma_index_list(?) il WHERE il.\"unique\" = 1 AND il.origin = 'c' AND (SELECT group_concat(name) FROM pragma_index_info(il.name)) = 'public_id'"
+                : ($this->isPostgres()
                 ? "SELECT COUNT(*) FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey) WHERE i.indrelid = ?::regclass AND i.indisunique AND NOT i.indisprimary AND a.attname = 'public_id' AND i.indnatts = 1"
-                : "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'public_id' AND non_unique = 0 AND index_name <> 'PRIMARY'";
+                : "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'public_id' AND non_unique = 0 AND index_name <> 'PRIMARY'");
             $this->assertSame(1, (int) $this->db()->value($sql, [$this->isPostgres() ? '"' . $this->db()->prefix . $table . '"' : $this->db()->prefix . $table]), "$table: unique public_id");
         }
     }

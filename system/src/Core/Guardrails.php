@@ -87,15 +87,15 @@ final class Guardrails
             $access = 'destructive';
         }
         if ($access === 'destructive' && !$settings->bool('claude_destructive')) {
-            return 'The site owner switched off deleting and discarding for Claude (Claude settings → Guardrails for Claude). Tell the user what you wanted to remove – they can do it in the admin.';
+            return 'The site owner switched off deleting and discarding for Claude (Settings → AI → Guardrails for the AI). Tell the user what you wanted to remove – they can do it in the admin.';
         }
         $page = self::targetPage($tool, $arguments);
         if ($page !== null && in_array($page, self::protectedPages($settings), true)) {
-            return 'Page ' . $page . ' is protected from changes by Claude (Claude settings → Guardrails for Claude). Suggest the change to the user instead.';
+            return 'Page ' . $page . ' is protected from changes by Claude (Settings → AI → Guardrails for the AI). Suggest the change to the user instead.';
         }
         $limit = $settings->int('claude_change_limit');
         if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {change_log} WHERE module = 'claude' AND via = ? AND created_at > NOW() - INTERVAL 1 HOUR", [$connection]) >= $limit) {
-            return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
+            return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Settings → AI → Guardrails for the AI). Stop here and tell the user what is done and what is left.';
         }
 
         return null;
@@ -110,13 +110,13 @@ final class Guardrails
     {
         $settings = $app->settings();
         if ($page !== null && in_array($page, self::protectedPages($settings), true)) {
-            return t('This page is protected from changes by the assistant (Claude settings → Guardrails for Claude).');
+            return t('This page is protected from changes by the assistant (Settings → AI → Guardrails for the AI).');
         }
         $limit = $settings->int('claude_change_limit');
         $user = $app->auth()->id();
         if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {change_log} WHERE module = 'assistant' AND action IN ('ask', 'wizard') AND user_id = ? AND created_at > ?",
             [$user, date('Y-m-d H:i:s', time() - 3600)]) >= $limit) {
-            return t('You reached the limit of %d changes an hour that the site owner set (Claude settings → Guardrails for Claude).', $limit);
+            return t('You reached the limit of %d changes an hour that the site owner set (Settings → AI → Guardrails for the AI).', $limit);
         }
 
         return null;

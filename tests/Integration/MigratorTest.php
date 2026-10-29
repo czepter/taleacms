@@ -26,15 +26,17 @@ final class MigratorTest extends DatabaseTestCase
     public function testAFreshDatabaseHasTheTablesOfTheSchema(): void
     {
         $schema = $this->isPostgres() ? 'current_schema()' : 'DATABASE()';
-        $tables = (int) $this->db()->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $schema AND table_name LIKE ?", [self::PREFIX . '%']);
+        $tables = (int) $this->db()->value($this->isSqlite()
+            ? "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE ?"
+            : "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $schema AND table_name LIKE ?", [self::PREFIX . '%']);
 
         $this->assertGreaterThanOrEqual(90, $tables);
     }
 
     public function testEveryTableAndColumnInheritsTheDatabaseCollation(): void
     {
-        if ($this->isPostgres()) {
-            $this->markTestSkipped('MySQL: tables inherit utf8mb4_0900_ai_ci. PostgreSQL: the lookup columns carry the talea_ci collation, see testLookupColumnsIgnoreCaseAndAccents.');
+        if (!$this->isMySql()) {
+            $this->markTestSkipped('MySQL: tables inherit utf8mb4_0900_ai_ci. PostgreSQL and SQLite: the lookup columns carry their own collation, see testLookupColumnsIgnoreCaseAndAccents.');
         }
         $this->assertSame([], array_column($this->db()->all(
             'SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_collation <> ?', ['utf8mb4_0900_ai_ci'],
@@ -46,6 +48,18 @@ final class MigratorTest extends DatabaseTestCase
 
     public function testForeignKeyNamesCarryThePrefix(): void
     {
+        if ($this->isSqlite()) {
+            // SQLite keeps a constraint's name only in the table's CREATE statement
+            $names = [];
+            foreach ($this->db()->all("SELECT sql FROM sqlite_master WHERE type = 'table' AND sql LIKE '%FOREIGN KEY%'") as $r) {
+                preg_match_all('/CONSTRAINT [`"]([^`"]+)[`"] FOREIGN KEY/', (string) $r['sql'], $m);
+                $names = [...$names, ...$m[1]];
+            }
+            $this->assertNotSame([], $names);
+            $this->assertSame([], array_values(array_filter($names, fn (string $n): bool => !str_starts_with($n, self::PREFIX . 'fk_'))));
+
+            return;
+        }
         $schema = $this->isPostgres() ? 'current_schema()' : 'DATABASE()';
         $this->assertSame([], array_column($this->db()->all(
             "SELECT constraint_name AS n FROM information_schema.referential_constraints WHERE constraint_schema = $schema AND constraint_name NOT LIKE ?", [self::PREFIX . 'fk\_%'],
@@ -69,7 +83,8 @@ final class MigratorTest extends DatabaseTestCase
         $db = $this->db();
         $db->insert('users', ['username' => 'Zoë', 'password' => 'x', 'email' => 'Zoe@Example.test']);
 
-        $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE username = ?', ['zoe']), 'username: any case, any accents');
+        // SQLite's NOCASE folds the letters A to Z only: there an accent still counts in `=` (LIKE through likeInsensitive() ignores it)
+        $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE username = ?', [$this->isSqlite() ? 'zoë' : 'zoe']), 'username: any case, any accents');
         $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE email = ?', ['zoe@example.TEST']));
         $this->assertSame(1, (int) $db->value('SELECT COUNT(*) FROM {users} WHERE ' . $db->dialect()->likeInsensitive('username'), ['ZO%']), 'LIKE too');
     }

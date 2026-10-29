@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Talea\Import;
 
 use Talea\Admin\Modules\Media as MediaLibrary;
-use Talea\Admin\Modules\Pages;
 use Talea\Admin\Modules\Redirects;
 use Talea\Core\Db;
 use Talea\Core\ImageDownloader;
@@ -359,7 +358,7 @@ final class Batch
         // a page has its slug directly under the site root, so it must not take a slug the system uses
         $seo = Slug::makeUnique(
             slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110),
-            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
+            fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
                 || Slug::taken($this->db, 'pages', $url, $language),
             120,
         );

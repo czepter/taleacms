@@ -18,7 +18,7 @@ use Talea\Core\Uuid;
  */
 final class PublicIds
 {
-    private const array PAGE = ['id' => 'pages', 'popup' => 'popups', 'component' => 'components'];
+    private const array PAGE = ['id' => 'pages', 'popup' => 'popups', 'component' => 'components', 'form' => 'forms'];
 
     /** Arguments naming a row: tool => path => rule. A value that is not the UUID of an existing row is refused. */
     private const array IN = [
@@ -27,7 +27,7 @@ final class PublicIds
         'create_page' => ['parent' => 'pages', 'translation_of' => 'pages'],
         'update_page' => ['id' => 'pages', 'parent' => 'pages', 'translation_of' => 'pages'],
         'save_menu' => ['items.*.page_id' => 'pages', 'items.*.children.*.page_id' => 'pages', 'items.*.children.*.children.*.page_id' => 'pages'],
-        'get_build' => self::PAGE, 'edit_build' => self::PAGE, 'save_build' => self::PAGE, 'publish_build' => self::PAGE, 'list_build_versions' => self::PAGE, 'compare_build_version' => self::PAGE,
+        'get_build' => self::PAGE, 'try_form' => self::PAGE, 'edit_build' => self::PAGE, 'save_build' => self::PAGE, 'publish_build' => self::PAGE, 'list_build_versions' => self::PAGE, 'compare_build_version' => self::PAGE,
         'restore_build_version' => self::PAGE, 'discard_draft' => self::PAGE, 'preview_link' => self::PAGE, 'save_section' => self::PAGE,
         'insert_section' => self::PAGE + ['saved_section' => 'sections'],
         'build_from_html' => ['id' => 'pages', 'popup' => 'popups'],
@@ -35,14 +35,14 @@ final class PublicIds
         'create_experiment' => ['page' => 'pages', 'variant_page' => 'pages', 'goal_page' => 'pages'],
         'get_experiment_result' => ['id' => 'experiments'], 'update_experiment' => ['id' => 'experiments'], 'promote_experiment_winner' => ['id' => 'experiments'], 'delete_experiment' => ['id' => 'experiments'],
         'save_part_variant' => ['pages.*' => 'pages'],
-        'save_component' => ['id' => 'components'], 'delete_component' => ['id' => 'components'], 'delete_section' => ['id' => 'sections'],
+        'save_component' => ['id' => 'components'], 'delete_component' => ['id' => 'components'], 'delete_section' => ['id' => 'sections'], 'delete_form' => ['id' => 'forms'],
         'get_news' => ['id' => 'news'], 'update_news' => ['id' => 'news'], 'trash_news' => ['id' => 'news'], 'get_social_drafts' => ['id' => 'news'],
         'update_category' => ['id' => 'categories'], 'delete_category' => ['id' => 'categories'],
         'update_media' => ['id' => 'media'], 'delete_media' => ['id' => 'media'],
         'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['id' => 'enquiries'], 'request_testimonial' => ['id' => 'enquiries'],
         'save_collection_item' => ['id' => 'collection_items'], 'delete_collection_item' => ['id' => 'collection_items'], 'list_item_versions' => ['id' => 'collection_items'],
         'restore_item_version' => ['id' => 'collection_items'], 'get_email_signature' => ['id' => 'collection_items'], 'list_notice_log' => ['id' => 'collection_items'],
-        'restore_from_trash' => ['id' => ['type', ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items']]],
+        'restore_from_trash' => ['id' => ['type', ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items', 'enquiry' => 'enquiries']]],
         'update_settings' => ['settings.home_page' => 'pages'],
         'list_draft_comments' => ['page_id' => 'pages'],
         'list_bookings' => ['staff' => 'booking_staff', 'service' => 'booking_services'], 'booking_availability' => ['staff' => 'booking_staff', 'service' => 'booking_services'],
@@ -69,13 +69,14 @@ final class PublicIds
         'get_page' => ['id' => 'pages', 'parent' => 'pages', 'translation_of' => 'pages'],
         'create_page' => ['id' => 'pages'], 'update_page' => ['id' => 'pages'], 'trash_page' => ['id' => 'pages'],
         'get_menu' => self::MENU, 'save_menu' => self::MENU,
-        'list_trash' => ['pages.*.id' => 'pages', 'news.*.id' => 'news', 'collection_items.*.id' => 'collection_items'],
-        'restore_from_trash' => ['id' => ['restored', ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items']]],
+        'list_trash' => ['pages.*.id' => 'pages', 'news.*.id' => 'news', 'collection_items.*.id' => 'collection_items', 'enquiries.*.id' => 'enquiries'],
+        'restore_from_trash' => ['id' => ['restored', ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items', 'enquiry' => 'enquiries']]],
         'translation_status' => ['items.*.id' => self::BY_TYPE, 'items.*.translations.*.id' => self::BY_TYPE],
         'list_site_parts' => ['*.pages.*' => 'pages'],
         'save_part_variant' => ['pages.*' => 'pages'],
         'delete_section' => ['deleted' => 'sections'], 'save_section' => ['id' => 'sections'],
         'list_components' => ['*.id' => 'components'], 'save_component' => ['id' => 'components'], 'delete_component' => ['deleted' => 'components'],
+        'list_forms' => ['*.id' => 'forms'], 'create_form' => ['id' => 'forms'], 'delete_form' => ['deleted' => 'forms'],
         'list_popups' => ['*.rules.pages.*' => 'pages'], 'save_popup' => ['rules.pages.*' => 'pages'], 'delete_popup' => ['deleted' => 'popups'],
         'create_collection' => ['list_page.id' => 'pages', 'more_pages.*.id' => 'pages'],
         'list_collection_items' => ['items.*.id' => 'collection_items'], 'save_collection_item' => ['id' => 'collection_items'],
@@ -86,7 +87,7 @@ final class PublicIds
         'list_categories' => ['*.id' => 'categories'], 'create_category' => ['id' => 'categories'], 'update_category' => ['id' => 'categories'], 'delete_category' => ['deleted' => 'categories'],
         'list_media' => ['*.id' => 'media'], 'upload_file' => ['id' => 'media'], 'update_media' => ['id' => 'media'], 'delete_media' => ['deleted' => 'media'],
         'list_media_without_alt' => ['images.*.id' => 'media'],
-        'list_enquiries' => ['*.id' => 'enquiries'], 'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['deleted' => 'enquiries'],
+        'list_enquiries' => ['*.id' => 'enquiries'], 'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['trashed' => 'enquiries'],
         'triage_enquiries' => ['enquiries.*.id' => 'enquiries'], 'find_personal_data' => ['enquiry_ids.*' => 'enquiries'],
         'erase_personal_data' => ['kept_testimonials.*' => 'collection_items'],
         'update_settings' => ['saved.home_page' => 'pages', 'settings.home_page' => 'pages'],

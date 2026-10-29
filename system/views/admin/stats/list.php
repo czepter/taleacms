@@ -34,15 +34,16 @@ $table = function (string $title, array $rows, array $columns, string $empty = '
     echo '</tbody></table></div></div>';
 };
 $percent = fn (?float $p): string => $p === null ? '–' : e(format_count($p, 1)) . ' %';
-// real-user speed (Core\WebVitals): the p75 value with Google's rating as a badge
+// real-user speed (Core\WebVitals): the p75 value with Google's rating as a badge, marked as not yet meaningful below WebVitals::RATE_FROM measurements
 $ratingBadge = ['good' => ['badge-published', 'good'], 'needs_improvement' => ['badge-draft', 'needs improvement'], 'poor' => ['badge-error', 'poor']];
 $vital = function (array $r, string $metric, callable $format) use ($ratingBadge): string {
     if ($r[$metric . '_p75'] === null) {
         return '–';
     }
     [$class, $label] = $ratingBadge[$r[$metric . '_rating']] ?? ['', $r[$metric . '_rating']];
+    $tentative = $r[$metric . '_tentative'] ? ' <span class="badge" title="' . e(t('Fewer than %s measurements: one unusual page view can decide this value.', \Talea\Core\WebVitals::RATE_FROM)) . '">' . e(t('not yet meaningful')) . '</span>' : '';
 
-    return e($format((float) $r[$metric . '_p75'])) . ' <span class="badge ' . $class . '">' . e(t($label)) . '</span>';
+    return e($format((float) $r[$metric . '_p75'])) . ' <span class="badge ' . $class . '">' . e(t($label)) . '</span>' . $tentative;
 };
 ?>
 <div class="stats-head">

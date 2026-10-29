@@ -75,6 +75,7 @@ final class SeoScore
             $score = ContentCheck::analyse(self::input($app, $kind, $row))['score'];
         } catch (\Throwable $e) {
             error_log('Talea: SEO score of ' . $kind . ' ' . $id . ' failed: ' . $e->getMessage());
+            ErrorReport::capture($e, 'warning', ['tags' => ['content' => $kind]]);
 
             return null;
         }
@@ -82,6 +83,7 @@ final class SeoScore
             $db->run("UPDATE {{$table}} SET seo_score = ?, seo_checked_at = ? WHERE $key = ?", [$score, date('Y-m-d H:i:s'), $id]);
         } catch (\Throwable $e) {
             error_log('Talea: storing the SEO score of ' . $kind . ' ' . $id . ' failed: ' . $e->getMessage());
+            ErrorReport::capture($e, 'warning', ['tags' => ['content' => $kind]]);
         }
 
         return $score;

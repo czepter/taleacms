@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Talea\Builder\Build;
 use Talea\Builder\Context;
 use Talea\Builder\Elements\BeforeAfter;
 use Talea\Builder\Elements\BulletList;
@@ -14,6 +13,7 @@ use Talea\Builder\Elements\PricingTable;
 use Talea\Builder\Elements\Progress;
 use Talea\Builder\Elements\Timeline;
 use Talea\Builder\Icons;
+use Talea\Builder\Renderer;
 use Talea\Builder\Style;
 use Talea\Core\App;
 use Talea\Core\Db;
@@ -104,7 +104,7 @@ final class RightToLeftTest extends TestCase
         $context = new Context((new \ReflectionClass(App::class))->newInstanceWithoutConstructor());
         $context->types = [Timeline::TYPE => true, BeforeAfter::TYPE => true, Hotspots::TYPE => true, PricingTable::TYPE => true, Progress::TYPE => true];
 
-        return Language::runWith($code, fn (): string => Build::css((new \ReflectionClass(Db::class))->newInstanceWithoutConstructor(), $context));
+        return Language::runWith($code, fn (): string => Renderer::css((new \ReflectionClass(Db::class))->newInstanceWithoutConstructor(), $context));
     }
 
     public function testAnArabicPageAddsTheRulesLogicalPropertiesCannotSay(): void

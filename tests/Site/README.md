@@ -17,6 +17,10 @@ cloned natively). The suite must be green on both engines. The SQL a test writes
 `Support/TestSql.php` (GROUP_CONCAT, IF, IFNULL, JSON_EXTRACT, `visible = 1`, REPLACE INTO, …); what it cannot translate is written portable or branches on
 `TestDatabase::isPostgres()`. Fetched booleans are 1/0 on both engines.
 
+SQLite: `TALEA_TEST_DB_DRIVER=sqlite vendor/bin/paratest --testsuite site --processes 6` – no server; the databases are files in `TALEA_TEST_SQLITE_DIR`
+(default a folder in the temp dir), the template site is cloned by copying its file, and a site's `storage/database` links to that folder. `TestSql` covers
+what SQLite lacks (docs/specs/sqlite.md section 5); a test that needs engine-specific SQL branches on `TestDatabase::driver()`.
+
 ## Writing a test
 
 ```php

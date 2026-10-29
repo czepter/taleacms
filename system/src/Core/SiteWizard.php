@@ -180,7 +180,7 @@ final class SiteWizard
         }
         $language = Language::column($app->settings(), $answers['language']);
         $slug = slugify($page['title'], 100);
-        for ($i = 2; in_array($slug, \Talea\Admin\Modules\Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$slug]) || Routes::isNewsSlug($slug, $db) || $db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$slug]) !== null; $i++) {
+        for ($i = 2; in_array($slug, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$slug]) || Routes::isNewsSlug($slug, $db) || $db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$slug]) !== null; $i++) {
             $slug = slugify($page['title'], 94) . '-' . $i;
         }
         $json = Build::toJson($build);

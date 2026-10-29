@@ -51,7 +51,9 @@ final class Health
             $ok = is_dir(TALEA_ROOT . '/' . $folder) ? is_writable(TALEA_ROOT . '/' . $folder) : is_writable(TALEA_ROOT);
             $add(t('Files'), t('Write access to %s/', $folder), $ok, $ok ? $purpose : t('%s - set write permissions', $purpose));
         }
-        $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        if (!Config::fromEnv()) { // in a container install.php belongs to the image and refuses to run once installed
+            $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        }
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);
@@ -105,7 +107,7 @@ final class Health
                     default => t('requests are picked up only when someone asks Claude'),
                 },
         } . ($claude['expiring'] ? ' – ' . t('a connection ends %s, connect Claude again before then', $when($claude['expires'])) : ''),
-            $claude['state'] !== 'off' ? [['text' => t('AI settings'), 'url' => $app->url('admin.php?module=claude_settings')]] : []);
+            $claude['state'] !== 'off' ? [['text' => t('Claude connection'), 'url' => $app->url('admin.php?module=claude')]] : []);
 
         // --- operation
         $log = TALEA_ROOT . '/storage/log/errors.log';
@@ -117,6 +119,15 @@ final class Health
             }
         }
         $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
+        // error tracking (Core\ErrorReport): set by the operator with TALEA_ERROR_DSN; a failed send since the last good one warns
+        $tracking = ErrorReport::status();
+        $add(t('Operation'), t('Error tracking'), !$tracking['enabled'] || $tracking['failed_at'] === 0 ? 'ok' : 'warning', !$tracking['enabled']
+            ? t('off - set TALEA_ERROR_DSN to send errors to Sentry or GlitchTip')
+            : t('to %s (%s)', $tracking['host'], $tracking['environment'])
+                . ($tracking['sent_at'] > 0 ? ', ' . t('last report %s', $when(date('Y-m-d H:i:s', $tracking['sent_at']))) : '')
+                . ($tracking['failed_at'] > 0 ? ', ' . t('the last report failed: %s', $tracking['error']) : '')
+                . ($tracking['outbox'] > 0 ? ', ' . t('%d waiting to be sent', $tracking['outbox']) : '')
+                . ($tracking['browser'] ? ', ' . t('browser errors of the public site too') : ''));
         $last = Backup::listAll()[0]['time'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
         $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));

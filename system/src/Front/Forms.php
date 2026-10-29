@@ -12,6 +12,7 @@ use Talea\Builder\SiteParts;
 use Talea\Builder\Components;
 use Talea\Builder\Elements\Form;
 use Talea\Builder\Build;
+use Talea\Builder\FormLogic;
 
 /**
  * Submission of a builder form (POST /form). Fields and recipient are taken from the PUBLISHED build by source and
@@ -92,17 +93,39 @@ final class Forms
         $fields = $element['content']['fields'];
         $answers = [];
         foreach ($fields as $i => $f) {
-            $answers[$i] = $f['type'] === 'checkboxes' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
+            $answers[$i] = match ($f['type']) {
+                'checkboxes' => array_values(array_intersect(Form::options($f), $r->postList('p' . $i))),
+                // a time range arrives as two times; both empty = no answer, anything else is checked in the loop below
+                'timerange' => ($times = array_map('trim', $r->postList('p' . $i))) === [] || implode('', $times) === '' ? '' : implode('-', $times),
+                default => trim($r->post('p' . $i)),
+            };
         }
-        $visible = Form::visible($fields, $answers);
+        $calculation = FormLogic::evaluate($element['content'], $answers);
+        $visible = $calculation['visible'];
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
+        // the first estimate field is the form's result (FormLogic::evaluate, Front\FormResult); another one would store it twice
+        $firstEstimate = array_search('estimate', array_column($fields, 'type'), true);
         foreach ($element['content']['fields'] as $i => $field) {
-            if ($field['type'] === 'step' || !($visible[$i] ?? true)) {
+            // the estimate is stored even when a rule hides it: the result link needs it (Front\FormResult)
+            if ($field['type'] === 'step' || ($field['type'] === 'estimate' && $i !== $firstEstimate) || (!($visible[$i] ?? true) && !($field['type'] === 'estimate' && $calculation['after_contact']))) {
                 continue;
             }
             $types[] = $field['type'];
             if ($field['type'] === 'estimate') {
-                $data[] = [$field['label'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['base_price'] ?? '')), mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10))];
+                $variant = FormResult::variant($element['content'], $calculation['variant']);
+                $data[] = [$field['label'], $variant === null ? $calculation['shown'] : $variant['heading'] . ($variant['show_amount'] ? "\n" . $calculation['shown'] : '')];
+                if ($calculation['lines'] !== []) {
+                    $data[] = [t('Breakdown'), implode("\n", FormResult::lines($element['content'], $calculation['lines']))];
+                    $types[] = 'info';
+                }
+                continue;
+            }
+            if ($field['type'] === 'timerange') {
+                $range = (string) $answers[$i];
+                if (($range !== '' && FormLogic::value($field, $range) === null) || ($field['required'] && $range === '')) {
+                    return $redirectUri('field', $i);
+                }
+                $data[] = [$field['label'], str_replace('-', ' – ', $range)];
                 continue;
             }
             if ($field['type'] === 'file') {
@@ -192,13 +215,14 @@ final class Forms
         $idp = $db->insert('enquiries', [
             'created_at' => date('Y-m-d H:i:s'), 'form' => mb_substr((string) $element['content']['name'], 0, 120), 'source' => $source, 'element' => $element['id'],
             'page' => mb_substr($back, 0, 255), 'topic' => $about, 'landing_page' => $landing, 'referrer' => $referrer, 'campaign' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'status' => 0,
+            'form_id' => isset($element['form_id']) ? (int) $element['form_id'] : null,
         ]);
         \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Talea\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
         // spam the assistant recognised is kept under the Spam filter and sends nothing; the sender sees the usual thank-you
         if (!\Talea\Core\Triage::spam($this->app, $idp)) {
-            $this->notify($idp, $element, $data, $email, $campaign, $about);
+            $this->notify($idp, $element, $data, $email, $campaign, $about, $types);
             \Talea\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['content']['name'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
             // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits
             \Talea\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['content']['name'], $about, $email, $back, \Talea\Core\EnquiryDelivery::fields($data, $types));
@@ -206,13 +230,26 @@ final class Forms
                 \Talea\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
             }
             if (!empty($element['content']['confirmation']) && $email !== '') {
-                // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
-                // content, so the form cannot be abused to send out other people's texts
+                // confirmation to the sender: the thank-you text, the next steps (2.12) and the form name – or the owner's own text,
+                // which repeats only answers that cannot carry someone else's words (Front\FormMail): the form cannot be abused to
+                // send out other people's texts
                 $siteSettings = $this->app->settings();
+                $resultBlock = $calculation['after_contact'] ? FormResult::mailBlock($element['content'], $answers, $calculation) : '';
                 $nextSteps = NextSteps::text($this->app, $element['content']);
-                Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['content']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
-                    . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
+                $extra = ['site name' => $siteSettings->get('site_name'), 'next steps' => $nextSteps, 'result' => $resultBlock];
+                $own = trim((string) ($element['content']['confirmation_text'] ?? ''));
+                $body = $own !== '' ? FormMail::fill($own, $data, $types, true, $extra)
+                    : $element['content']['thank_you'] . ($resultBlock !== '' ? "\n\n" . $resultBlock : '') . ($nextSteps !== '' ? "\n\n" . $nextSteps : '');
+                $subject = trim((string) ($element['content']['confirmation_subject'] ?? ''));
+                $replyTo = trim((string) ($element['content']['confirmation_reply_to'] ?? ''));
+                Mail::send($siteSettings, $email, $subject !== '' ? FormMail::subject(FormMail::fill($subject, $data, $types, true, $extra)) : t('Confirmation: %s', $siteSettings->get('site_name')),
+                    $body . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '',
+                    array_filter(['From-Name' => trim((string) ($element['content']['confirmation_sender'] ?? '')), 'Reply-To' => count(Mail::addresses($replyTo)) === 1 ? $replyTo : '']));
             }
+        }
+        if ($calculation['after_contact']) {
+            // the result shows at the form by a signed link; the thank-you page does not apply
+            return Response::redirect(FormResult::url($this->app, $back, $element, $db->publicId('enquiries', $idp), $calculation['variant']), 303);
         }
         $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 
@@ -237,15 +274,16 @@ final class Forms
     }
 
     /**
-     * The source a form carries (page:<uuid>, collection:<uuid>, popup:<uuid>, part:…) as the system stores it (with the integer key).
-     * A page, collection or pop-up that is not a public id of an existing row gives '' – integer keys from outside are never accepted.
+     * The source a form carries (page:<uuid>, collection:<uuid>, popup:<uuid>, form:<uuid>, part:…) as the system stores it (with the
+     * integer key). A page, collection, pop-up or form that is not a public id of an existing row gives '' – integer keys from outside
+     * are never accepted.
      */
     public static function internalSource(\Talea\Core\Db $db, string $source): string
     {
-        if (!preg_match('/^(page|collection|popup):(.*)$/s', $source, $m)) {
+        if (!preg_match('/^(page|collection|popup|form):(.*)$/s', $source, $m)) {
             return $source;
         }
-        $id = $db->internalId(['page' => 'pages', 'collection' => 'collections', 'popup' => 'popups'][$m[1]], $m[2]);
+        $id = $db->internalId(['page' => 'pages', 'collection' => 'collections', 'popup' => 'popups', 'form' => 'forms'][$m[1]], $m[2]);
 
         return $id > 0 ? $m[1] . ':' . $id : '';
     }
@@ -258,23 +296,30 @@ final class Forms
 
     /**
      * An element of a given type from the PUBLISHED build the source names (a page, a site part, a collection template, a
-     * pop-up), by its id – also inside a component. The forms and the booking (3.0, Front\Booking) take their settings
-     * from here, never from the browser.
+     * pop-up, a form's own page), by its id – also inside a component. The forms and the booking (3.0, Front\Booking) take their
+     * settings from here, never from the browser. Asked for a form, a placement (Elements\FormEmbed) counts too: it comes back as
+     * the Form element of its published form (Builder\FormRecords::resolve), with the form's id in form_id.
      *
      * @return array<string, mixed>|null
      */
     public static function findElement(\Talea\Core\Db $db, string $source, string $id, string $type): ?array
     {
         $build = match (true) {
+            (bool) preg_match('/^form:(\d+)$/', $source, $m) => \Talea\Builder\FormRecords::definitionBuild(Build::fromJson((string) $db->value('SELECT build FROM {forms} WHERE form_id = ?', [(int) $m[1]]))),
             (bool) preg_match('/^page:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = TRUE', [(int) $m[1]])),
             (bool) preg_match('/^part:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
             (bool) preg_match('/^collection:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = TRUE', [(int) $m[1]])),
             (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = TRUE', [(int) $m[1]])),
             default => null,
         };
-        foreach ($id === '' ? [] : self::elements($db, $build, $type) as $p) {
+        $form = $type === Form::TYPE;
+        foreach ($id === '' ? [] : self::elements($db, $build, $form ? [Form::TYPE, \Talea\Builder\Elements\FormEmbed::TYPE] : $type) as $p) {
             if ($p['id'] === $id) {
-                return $p;
+                if ($p['type'] === \Talea\Builder\Elements\FormEmbed::TYPE) {
+                    return \Talea\Builder\FormRecords::resolve($db, $p);
+                }
+
+                return $form && preg_match('/^form:(\d+)$/', $source, $m) ? $p + ['form_id' => (int) $m[1]] : $p;
             }
         }
 
@@ -286,18 +331,24 @@ final class Forms
      * page order. The Forms overview in the admin lists the forms of the site with it.
      *
      * @param array<string, mixed>|null $build
+     * @param string|list<string> $type one type or several
+     * @param bool $components false = not inside components (each component's own build answers for them)
      * @return list<array<string, mixed>>
      */
-    public static function elements(\Talea\Core\Db $db, ?array $build, string $type): array
+    public static function elements(\Talea\Core\Db $db, ?array $build, string|array $type, bool $components = true): array
     {
         $found = [];
-        $walk = function (array $children, array $nesting = []) use (&$walk, &$found, $db, $type): void {
+        $types = (array) $type;
+        $walk = function (array $children, array $nesting = []) use (&$walk, &$found, $db, $types, $components): void {
             foreach ($children as $p) {
-                if (($p['type'] ?? '') === $type && ($p['id'] ?? '') !== '') {
+                if (!is_array($p)) {
+                    continue;
+                }
+                if (in_array($p['type'] ?? '', $types, true) && ($p['id'] ?? '') !== '') {
                     $found[] = $p;
                 }
                 $walk($p['children'] ?? [], $nesting);
-                $idm = ($p['type'] ?? '') === \Talea\Builder\Elements\Component::TYPE ? (int) ($p['content']['component'] ?? 0) : 0;
+                $idm = $components && ($p['type'] ?? '') === \Talea\Builder\Elements\Component::TYPE ? (int) ($p['content']['component'] ?? 0) : 0;
                 if ($idm > 0 && !in_array($idm, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
                     $component = Components::byId($db, $idm);
                     $inner = $component === null ? null : Build::fromJson($component['build'] ?? $component['build_draft']);
@@ -345,7 +396,8 @@ final class Forms
         return implode(' / ', array_filter(array_map(fn (string $k): string => is_string($utm[$k] ?? null) ? $utm[$k] : '', self::UTM), fn (string $h): bool => $h !== ''));
     }
 
-    private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = ''): void
+    /** @param list<array{0: string, 1: string}> $data @param list<string> $types */
+    private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = '', array $types = []): void
     {
         $siteSettings = $this->app->settings();
         [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
@@ -359,7 +411,10 @@ final class Forms
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $this->app->db()->publicId('enquiries', $idp)));
         $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
-        Mail::send($siteSettings, implode(', ', $to), t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')), $text, '', $headers);
+        // the owner's own subject may name any answer (it goes to the owner); otherwise "<form>: <site>"
+        $subject = trim((string) ($element['content']['notification_subject'] ?? ''));
+        Mail::send($siteSettings, implode(', ', $to), $subject !== '' ? FormMail::subject(FormMail::fill($subject, $data, $types, false, ['site name' => $siteSettings->get('site_name')]))
+            : t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')), $text, '', $headers);
     }
 
     /**

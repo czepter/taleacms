@@ -30,7 +30,7 @@ final class Report
         $totals = fn (string $from, string $to): array => [
             'visits' => (int) $db->value('SELECT COALESCE(SUM(visits), 0) FROM {stats_days} WHERE day >= ? AND day < ?', [$from, $to]),
             'views' => (int) $db->value('SELECT COALESCE(SUM(views), 0) FROM {stats_days} WHERE day >= ? AND day < ?', [$from, $to]),
-            'enquiries' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at >= ? AND created_at < ?', [$from . ' 00:00:00', $to . ' 00:00:00']),
+            'enquiries' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ?', [$from . ' 00:00:00', $to . ' 00:00:00']),
             'signups' => (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE created_at >= ? AND created_at < ? AND status = 1', [$from . ' 00:00:00', $to . ' 00:00:00']),
             'contact_clicks' => Conversions::total(Conversions::summary($db, $from, $to)),
         ];
@@ -61,7 +61,7 @@ final class Report
         $sum = fn (string $sql, array $params = []): int => (int) $db->value($sql, $params);
 
         $traffic = $db->pairs('SELECT day, CONCAT(visits, \':\', views) FROM {stats_days} WHERE day >= ?', [$since]);
-        $enquiriesByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {enquiries} WHERE created_at >= ? GROUP BY DATE(created_at)', [$sinceTime]);
+        $enquiriesByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? GROUP BY DATE(created_at)', [$sinceTime]);
         $signupsByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {subscribers} WHERE created_at >= ? AND status = 1 GROUP BY DATE(created_at)', [$sinceTime]);
         $daysOut = [];
         for ($i = $days - 1; $i >= 0; $i--) {
@@ -76,7 +76,7 @@ final class Report
         // leads by where they came from; the page of the form counts both enquiries and sign-ups
         $leadsBy = function (string $enquiryColumn, ?string $signupColumn) use ($db, $sinceTime): array {
             $rows = [];
-            foreach ($db->all("SELECT {$enquiryColumn} AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND {$enquiryColumn} <> '' GROUP BY {$enquiryColumn}", [$sinceTime]) as $r) {
+            foreach ($db->all("SELECT {$enquiryColumn} AS k, COUNT(*) AS n FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? AND {$enquiryColumn} <> '' GROUP BY {$enquiryColumn}", [$sinceTime]) as $r) {
                 $rows[$r['k']]['enquiries'] = (int) $r['n'];
             }
             if ($signupColumn !== null) {
@@ -139,7 +139,7 @@ final class Report
             'devices' => array_map(fn (array $r): array => ['device' => $r['device'], 'visits' => (int) $r['n']],
                 $db->all('SELECT device, SUM(visits) AS n FROM {stats_devices} WHERE day >= ? GROUP BY device ORDER BY n DESC', [$since])),
             'forms' => array_map(fn (array $r): array => ['form' => $r['form'], 'enquiries' => (int) $r['n']],
-                $db->all('SELECT form, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? GROUP BY form ORDER BY n DESC LIMIT 20', [$sinceTime])),
+                $db->all('SELECT form, COUNT(*) AS n FROM {enquiries} WHERE deleted_at IS NULL AND created_at >= ? GROUP BY form ORDER BY n DESC LIMIT 20', [$sinceTime])),
             // pop-up counters are kept since the pop-up was made (or reset), not per day
             'popups' => array_map(fn (array $r): array => ['popup' => $r['name'], 'active' => (bool) $r['active'], 'views' => (int) $r['impressions'], 'closes' => (int) $r['closes'],
                 'conversions' => (int) $r['conversions'], 'conversion' => (int) $r['impressions'] > 0 ? round(100 * (int) $r['conversions'] / (int) $r['impressions'], 1) : null],

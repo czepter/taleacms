@@ -153,7 +153,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $site->exec("UPDATE tl_requests SET status = 'done' WHERE status = 'new'");
         $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'); // a served call: the connection is active
         $this->assertPage('/admin.php', 200, ['class="claude-chip status status-live"', 'data-claude-state="active"', 'Claude connected'], message: '#154: the chip says Claude is connected');
-        $this->assertPage('/admin.php?module=claude_settings', 200, ['id="claude-status-heading"', 'Claude is connected', 'picked up only when someone asks Claude'], message: '#154: the AI settings open with the status panel');
+        $this->assertPage('/admin.php?module=claude', 200, ['id="claude-status-heading"', 'Claude is connected', 'picked up only when someone asks Claude'], message: '#154: the Claude connection opens with the status panel');
         $this->assertPage('/admin.php?module=requests', 200, ['data-claude-state="active"', 'Requests are picked up only when someone asks Claude'], as: $this->staff(), message: '#154: staff with Ask AI see the chip and how requests are picked up');
 
         $csrf = $this->staff()->get('/admin.php')->csrf();

@@ -496,114 +496,17 @@
 		}, true);
 	});
 
-	/* ---------- forms: after an error restore the filled-in values, after a submit report a conversion ---------- */
+	/* ---------- forms: a submit is reported as a conversion (the form itself is image/forms.js) ---------- */
 
-	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
-	document.querySelectorAll('form[data-form]').forEach(function (f) {
-		var key = 'tl-form-' + f.getAttribute('data-form');
-		var wait = f.querySelector('input[data-wait]');
-		f.addEventListener('submit', function (e) {
-			var values = {};
-			Array.prototype.forEach.call(f.elements, function (p) {
-				if (!/^p\d+$/.test(p.name)) { return; }
-				if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { values[p.name] = p.value; } } else { values[p.name] = p.value; }
-			});
-			try { sessionStorage.setItem(key, JSON.stringify(values)); } catch (error) { /* private mode */ }
-			// the bot protection rejects a form submitted a few seconds after the page loads (with autofill even a person
-			// can manage that) – instead of an error, the submit is delayed by the remaining time
-			// counted from the server's first response (the page was created before it), not from clicking the link
-			var navigation = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
-			var remaining = wait ? parseInt(wait.getAttribute('data-wait'), 10) * 1000 + 250 - (performance.now() - (navigation ? navigation.responseStart : 0)) : 0;
-			if (remaining > 0) {
-				e.preventDefault();
-				var button = f.querySelector('[type=submit]');
-				if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-				setTimeout(function () { f.submit(); }, remaining);
-			}
-		});
-		if (!f.hasAttribute('data-restore')) { return; }
-		var storedForm = null;
-		try { storedForm = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (error) { /* nothing */ }
-		if (!storedForm) { return; }
-		Array.prototype.forEach.call(f.elements, function (p) {
-			if (!(p.name in storedForm)) { return; }
-			if (p.type === 'checkbox' || p.type === 'radio') { p.checked = p.value === storedForm[p.name]; } else { p.value = storedForm[p.name]; }
-		});
-	});
+	// the answers image/forms.js keeps in the visitor's browser (sessionStorage) disappear after a successful submit
 	var sent = new URLSearchParams(location.search).get('sent');
 	Array.prototype.map.call(document.querySelectorAll('[data-sent]'), function (h) { return h.getAttribute('data-sent'); }).concat(sent ? [sent] : []).forEach(function (name) {
 		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('tl-form-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
 		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
 		window.dispatchEvent(new CustomEvent('talea:form_sent', { detail: { form: name } }));
-				track({ event: 'generate_lead', form_name: name });
+		track({ event: 'generate_lead', form_name: name });
 	});
 	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter_signup' }); }
-
-	/* ---------- multi-step forms, conditions and the price estimate (2.12, Builder\Elements\Form): without the script every
-	   step and every field is shown, and the server checks the answers and computes the estimate itself ---------- */
-
-	function answersOf(form, name) {
-		var values = [];
-		form.querySelectorAll('[name="' + name + '"], [name="' + name + '[]"]').forEach(function (el) {
-			if (el.disabled) { return; } // a field hidden by its own condition answers nothing
-			if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked) { values.push(el.value); } } else if (el.value !== '') { values.push(el.value); }
-		});
-		return values;
-	}
-	function refreshForm(form) {
-		// in document order, so a field hidden by an earlier condition also hides the fields that depend on it
-		form.querySelectorAll('[data-when]').forEach(function (box) {
-			var values = answersOf(form, box.getAttribute('data-when')), expected = box.getAttribute('data-when-value');
-			var show = expected === '*' ? values.length > 0 : values.indexOf(expected) !== -1;
-			box.hidden = !show;
-			box.querySelectorAll('input, select, textarea').forEach(function (el) { el.disabled = !show; });
-		});
-		form.querySelectorAll('[data-estimate]').forEach(function (box) {
-			var total = parseFloat(box.getAttribute('data-base')) || 0;
-			form.querySelectorAll('option[data-price]').forEach(function (o) { if (o.selected && !o.parentNode.disabled) { total += parseFloat(o.getAttribute('data-price')); } });
-			form.querySelectorAll('input[data-price]').forEach(function (el) { if (el.checked && !el.disabled) { total += parseFloat(el.getAttribute('data-price')); } });
-			form.querySelectorAll('input[data-price-per]').forEach(function (el) {
-				var n = parseFloat(el.value.replace(',', '.'));
-				if (!el.disabled && !isNaN(n)) { total += n * parseFloat(el.getAttribute('data-price-per')); }
-			});
-			var currency = box.getAttribute('data-currency');
-			box.querySelector('output').textContent = new Intl.NumberFormat(locale(undefined), { maximumFractionDigits: total % 1 ? 2 : 0 }).format(total) + (currency ? '\u00a0' + currency : '');
-		});
-	}
-	document.querySelectorAll('form[data-form]').forEach(function (form) {
-		if (form.querySelector('[data-when], [data-estimate]')) {
-			form.addEventListener('input', function () { refreshForm(form); });
-			form.addEventListener('change', function () { refreshForm(form); });
-			refreshForm(form);
-		}
-		var wrapper = form.querySelector('[data-steps]');
-		if (!wrapper) { return; }
-		var steps = Array.prototype.slice.call(wrapper.children).filter(function (el) { return el.classList.contains('tl-step'); });
-		var submit = form.querySelector('button[type=submit]'), submitRow = submit ? submit.closest('.tl-field') : null;
-		var nav = document.createElement('p');
-		nav.className = 'tl-steps-navigation';
-		nav.innerHTML = '<span aria-live="polite"></span><button type="button" class="tl-button tl-button--outline">' + A('Back') + '</button><button type="button" class="tl-button tl-button--primary">' + A('Next') + '</button>';
-		wrapper.after(nav);
-		var back = nav.children[1], next = nav.children[2], current = 0;
-		steps.forEach(function (step, i) { if (step.querySelector('[aria-invalid="true"]')) { current = i; } }); // after an error: the step with the marked field
-		function show(i) {
-			current = i;
-			steps.forEach(function (step, j) { step.hidden = j !== i; });
-			nav.firstChild.textContent = T('Step') + ' ' + (i + 1) + ' / ' + steps.length;
-			back.hidden = i === 0;
-			next.hidden = i === steps.length - 1;
-			if (submitRow) { submitRow.hidden = i !== steps.length - 1; }
-		}
-		next.addEventListener('click', function () {
-			var invalid = Array.prototype.filter.call(steps[current].querySelectorAll('input, select, textarea'), function (el) { return !el.disabled && !el.checkValidity(); })[0];
-			if (invalid) { invalid.reportValidity(); return; }
-			show(current + 1);
-			var first = steps[current].querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
-			if (first) { first.focus(); }
-		});
-		back.addEventListener('click', function () { show(current - 1); });
-		show(current);
-	});
 
 	/* ---------- conversion events for Google Tag Manager (2.6): calls, e-mails and downloads; only when the site has a data layer.
 	   Contact clicks (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead for the site's own statistics

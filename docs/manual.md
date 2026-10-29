@@ -248,6 +248,38 @@ server, the secret key never leaves the admin, and a single form can opt out in 
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `talea:form_sent` event (and a `dataLayer` entry).
 
+**Quick check with an estimate (quiz).** A form can ask a few questions and answer with a first price – put the section
+*Quick check with estimate* on a page, or turn any form into one. Use **Step** fields to split the form into screens (a
+progress bar shows where the visitor is). A single-choice or several-choice question can show **image tiles** or **icon
+tiles** (one image from Media or one icon per option, in the order of the options), a number can be a **slider** (lowest,
+highest, step), and **Time range** counts the hours from – to (22:00–02:00 is four hours). "Go to the next step when an option
+is chosen" saves a click on single-choice questions. Options carry amounts as `Label | 1200`; the **Price estimate** field adds
+them up and shows a range (percent below and above, rounded to a multiple, with a lowest amount) and a breakdown.
+Texts in square brackets in the starter section are placeholders: replace every one with your own wording and amounts.
+
+*Show the estimate* has two modes. **While answering** shows the running total. **After the visitor sent their contact details**
+puts no amount in the page at all: the visitor answers, leaves name and e-mail, and is taken back to the same page, where the
+result appears at the form. The result belongs to a signed link that works for 24 hours; after that, or if the enquiry was
+deleted or anonymised, the visitor sees "This result is no longer available." with the form's button, never any contact
+data. A thank-you page does not apply in this mode. If the form sends a confirmation, it can carry the result (the heading,
+the chosen options and the breakdown, never what the visitor typed). The enquiry stores the answers plus two entries, the
+result and the breakdown; the notification, CSV, webhook and CRM delivery work as before.
+
+**Edit logic…** at the form opens a screen with three tabs. **Rules**: each rule is a readable sentence in run order (drag to
+reorder) – if *all* or *any* of the conditions hold (is, is not, contains, greater, smaller, between, weekday, month, empty),
+then add an amount, add an amount times a number, multiply the total, skip a question, show a question only then, or choose a
+result. A rule that names a question or an option which no longer exists is marked as broken and does nothing until you fix
+or delete it; renaming a question keeps its rules working. **Results**: the result variants (heading, text, show the amount
+or not, a button with a link, an image) – for example "we make you a personal offer" for a case the price cannot cover.
+**Try it**: answer the questions and see which questions are visible, every line of the breakdown, the total, the range and
+the result, computed by the server from the current draft. Claude does the same over the connection: it reads and writes
+the rules with the page build and checks a quiz with `try_form`.
+
+**Where visitors drop out.** Open **Enquiries → Forms** and a form: for each step it shows how many of the visitors who started
+reached it, and points out the weakest step. Counting starts with the visitor's first answer; steps skipped by a rule send
+nothing; nothing is stored about the person (no cookie, no answers, no amounts). Claude reads the same numbers with
+`get_stats` (key `form_steps`).
+
 **Google Tag Manager** (Settings → Analytics, 2.6): enter the container ID (`GTM-…`). Consent mode is built in – with the
 built-in cookie bar the container starts only after the visitor allows analytics or marketing. Talea sends conversion
 events to the data layer: `generate_lead` (a form was sent), `sign_up` (newsletter), `popup_conversion`, `click_phone`,
@@ -261,7 +293,8 @@ receiver check that the call came from your site. The **delivery log** shows eve
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
 
-Submitted messages are in **Enquiries → Inbox**: status (new, read, resolved), reply by email, CSV export. **Enquiries → Forms**
+Submitted messages are in **Enquiries → Inbox**: status (new, read, resolved), reply by email, CSV export. A deleted enquiry
+goes to the **Trash** tab of the inbox and can be restored for 30 days; then it is deleted for good with its attachments. **Enquiries → Forms**
 lists every form of the site – on which page, site part, pop-up or item template it stands, whether it is published or only in a
 draft – with its answers; open a form to see its answers as a table, one column per field. A form that is no longer on any page
 stays in the list while it has answers. Bookings sit in the same section: an enquiry or a booking is a lead, not yet a customer. The main menu
@@ -351,8 +384,11 @@ switcher** element to the footer (a dropdown that opens upwards) and turn off *L
 
 ## 10. Writing assistant and Claude
 
-Enable the **writing assistant** under **Features** – it uses your own key. Choose a provider (Anthropic Claude, OpenAI, Google Gemini, Mistral), enter
-the API key and model. The assistant only suggests. Text goes to the provider only when you click an assistant button.
+Administrators set up the AI under **Settings → AI**. Enable the **writing assistant** under **Features** – it uses your own key. Then choose a provider
+(Anthropic Claude, OpenAI, Google Gemini, Mistral), enter the API key and model under **Settings → AI → Your own AI key**. The **Instructions for the AI**
+and the **Guardrails for the AI** are on the same screen; the instructions (brand voice, words to use or avoid) hold for the writing assistant and for
+every Claude connection alike. Connecting Claude is a screen of its own for everyone who signs in: **AI → Claude connection**.
+The assistant only suggests. Text goes to the provider only when you click an assistant button.
 
 - In the builder: **✨ Create a section with AI** (describe what it should contain) and **Rewrite with AI** on element text
   (shorter, longer, more formal, friendlier, fix mistakes). Check the result and fill in facts yourself. Ctrl+Z undoes the change.
@@ -403,14 +439,14 @@ name of its connection, and can show only Claude's changes or only people's; Cla
 **Is Claude connected?** Under the logo every screen says so with a dot and a word: *Claude connected* (it called the
 site in the last week), *Claude idle* with its last call, *Claude: requests wait* (the scheduled run that picks up
 requests stopped) or *Claude not connected* – on a phone only the dot. Only a connection that can call counts: a valid
-token of an account that is not blocked and has the two-factor sign-in the site requires. **AI → AI settings** opens with
+token of an account that is not blocked and has the two-factor sign-in the site requires. **AI → Claude connection** shows administrators
 the details (last call, how requests are picked up, when a connection ends, what to do next); a new request waiting
 over 48 hours with nothing to pick it up is marked in Ask AI, and System status and `get_health` report the connection.
 
-**Instructions for the AI.** Under **AI → AI settings** write what Claude should keep to – how you address
+**Instructions for the AI.** Under **Settings → AI** write what Claude should keep to – how you address
 customers, words to use or avoid, house rules. Every connection gets them when it connects. A connection may change them
 too, so every change – in the admin or through Claude – goes to the change log with the whole text before and after, and
-**Home** tells the administrators until one of them has looked at the change in AI settings and pressed **I have checked
+**Home** tells the administrators until one of them has looked at the change in Settings → AI and pressed **I have checked
 the instructions**. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site. The longer ones are complete runbooks, from the first step to the hand-over:

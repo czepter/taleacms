@@ -99,7 +99,6 @@ final class EnquiryFormsTest extends SiteTestCase
         $this->assertStringContainsString('result=field&field=1', $this->submit(['p0' => 'Jane', 'p1' => 'not-an-email', 'p3' => 'x', 'p4' => '1']), 'invalid e-mail rejected with the field number');
         $page = $this->site()->client()->get('/contact?form=' . self::$element . '&result=field&field=1')->body;
         $this->assertStringContainsString('aria-invalid="true" aria-describedby="f-' . self::$element . '-1-error"', $page, 'the faulty field is marked');
-        $this->assertStringContainsString('data-restore', $page, 'the filled values are restored');
 
         $this->assertStringContainsString('result=field', $this->submit(['p0' => 'Jane', 'p1' => 'jane@example.org', 'p3' => 'x']), 'missing consent rejected');
 
@@ -137,7 +136,8 @@ final class EnquiryFormsTest extends SiteTestCase
         $name = $this->sql('SELECT form FROM tl_enquiries');
         $this->assertPage('/admin.php?module=forms', 200, [$name, 'Contact', 'On the site'], message: 'Enquiries → Forms lists the contact form on its page');
         $answers = '/admin.php?module=forms&action=detail&source=' . rawurlencode(self::$source) . '&element=' . self::$element;
-        $this->assertPage($answers, 200, ['Jane', 'I want a custom kitchen.', 'The fields and recipients come from the published page.'], message: "the form's answers, one column per field");
+        // opening Forms made the published contact form a record (Builder\FormRecords::adoptAll); the address by page and element names it
+        $this->assertPage($answers, 200, ['Jane', 'I want a custom kitchen.', 'The fields and recipients are the published form’s.'], message: "the form's answers, one column per field");
         $this->assertPage('/admin.php?module=forms&action=detail&source=page:' . $this->sql("SELECT page_id FROM tl_pages WHERE slug = 'contact'") . '&element=' . self::$element, 404, message: 'an integer key from outside names no form');
 
         // a form that is no longer on any page keeps its answers

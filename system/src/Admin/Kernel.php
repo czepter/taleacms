@@ -119,7 +119,7 @@ final class Kernel
         Modules\Stats::class,
         Modules\Experiments::class,
         Modules\Requests::class,
-        Modules\ClaudeSettings::class,
+        Modules\Claude::class,
         Modules\Schedules::class,
         Modules\Notebook::class,
         Modules\Settings::class,
@@ -131,7 +131,6 @@ final class Kernel
         Modules\Roles::class,
         Modules\Connectors::class,
         Modules\Extensions::class,
-        Modules\AssistantSettings::class,
         Modules\NewsletterSettings::class,
         Modules\Addons::class,
         Modules\Transfer::class,
@@ -154,7 +153,7 @@ final class Kernel
         'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
-        'Features' => [['extensions', '', 'Features and add-ons'], ['assistant_settings', '', 'Writing assistant'], ['newsletter_settings', '', 'Newsletter'], ['claude_settings', '', 'AI settings']],
+        'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'ai', 'AI']],
         'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 
@@ -193,7 +192,7 @@ final class Kernel
     public static function waiting(App $app, array $modules): array
     {
         $counts = array_intersect_key([
-            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam')",
+            'enquiries' => "(SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam' AND deleted_at IS NULL)",
             'bookings' => "(SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW())",
         ], $modules);
         if ($counts === []) {
@@ -271,9 +270,13 @@ final class Kernel
             Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
             Modules\Pages::emptyTrash($app->db());
             Modules\Collections::emptyTrash($app->db());
+            Modules\Enquiries::emptyTrash($app->db());
         }
 
         $ident = $request->get('module');
+        \Talea\Core\ErrorReport::tag('module', $ident !== '' ? $ident : 'dashboard');
+        \Talea\Core\ErrorReport::tag('action', $action);
+        \Talea\Core\ErrorReport::tag('role', \Talea\Core\Auth::TYPES[(int) ($app->auth()->user()['admin'] ?? -1)] ?? 'custom');
         if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
             $app->session->flash('error', \Talea\Core\Demo::refusal());
 
@@ -401,7 +404,7 @@ final class Kernel
             }
             // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
             if (($change = \Talea\Core\ClaudeInstructions::pending($this->app)) !== null) {
-                $warnings[] = [\Talea\Core\ClaudeInstructions::who($change) . ' ' . t('Check them.'), $this->app->url('admin.php?module=claude_settings#instructions-change'), t('Check the instructions')];
+                $warnings[] = [\Talea\Core\ClaudeInstructions::who($change) . ' ' . t('Check them.'), $this->app->url('admin.php?module=settings&tab=ai#instructions-change'), t('Check the instructions')];
             }
         }
         // recently edited content: pages and news together
@@ -466,7 +469,7 @@ final class Kernel
         $before = date('Y-m-d 00:00:00', strtotime('-' . (2 * $days - 1) . ' days'));
 
         return ['days' => $days, 'parts' => array_keys($parts), 'report' => $report]
-            + (isset($parts['enquiries']) ? ['unread' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0')] : [])
+            + (isset($parts['enquiries']) ? ['unread' => (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND deleted_at IS NULL')] : [])
             + (isset($parts['bookings']) ? ['bookings' => [
                 'count' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ?', [$since]),
                 'previous' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ?', [$before, $since]),

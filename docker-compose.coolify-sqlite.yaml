@@ -1,0 +1,28 @@
+# Talea + SQLite on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify-sqlite.yaml.
+# No database server: the database is one file in the storage volume (storage/database/talea.sqlite). For a small site, a demo
+# or a trial, one replica only (SQLite has one writer at a time, docs/specs/sqlite.md); a busier site takes MySQL or PostgreSQL
+# (docker-compose.coolify-mysql.yaml, docker-compose.coolify-postgres.yaml).
+# Coolify fills the SERVICE_* magic variables: the domain (set it on the web service, port 8080) and the site's secret
+# (TALEA_SECRET_KEY; keep it with your backups, see docs/DEPLOYMENT.md).
+# Optional: add TALEA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab; TALEA_TAG pins a version (1.4.2, 1.4).
+# Without Coolify: `docker compose -f docker-compose.coolify-sqlite.yaml up -d` with TALEA_SITE_URL set, and a port mapping of your own.
+
+services:
+  web:
+    image: ghcr.io/czepter/talea:${TALEA_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_WEB_8080
+      - TALEA_SITE_URL=${SERVICE_URL_WEB}
+      - TALEA_DB_DRIVER=sqlite
+      - TALEA_AI_URL=${TALEA_AI_URL:-}
+      - TALEA_SECRET_KEY=${SERVICE_PASSWORD_64_SECRET}
+    volumes:
+      - storage:/app/storage
+      - media:/app/media
+      - extensions:/app/extensions
+
+volumes:
+  storage:
+  media:
+  extensions:

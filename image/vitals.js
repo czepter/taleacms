@@ -13,6 +13,12 @@
 	var lcp = null, cls = 0, sent = false;
 	var sessionValue = 0, sessionStart = 0, sessionLast = 0;
 	var interactions = {};
+	// a page loaded in a background tab paints when the visitor looks at it: no LCP from paints after the page was first
+	// hidden (a prerendered page is hidden too, but it counts from its activation, see send())
+	var firstHidden = document.visibilityState === 'hidden' && !document.prerendering ? 0 : Infinity;
+	document.addEventListener('visibilitychange', function (e) {
+		if (document.visibilityState === 'hidden') { firstHidden = Math.min(firstHidden, e.timeStamp); }
+	}, true);
 
 	function observe(type, each, options) {
 		try {
@@ -22,7 +28,9 @@
 	}
 
 	// LCP: the last candidate before the first interaction; renderTime is missing for cross-origin images without Timing-Allow-Origin
-	observe('largest-contentful-paint', function (e) { lcp = e.renderTime || e.loadTime || e.startTime; });
+	observe('largest-contentful-paint', function (e) {
+		if (e.startTime < firstHidden) { lcp = e.renderTime || e.loadTime || e.startTime; }
+	});
 
 	// CLS: the largest session window of shifts (gap under 1 s, window under 5 s), shifts after input do not count
 	observe('layout-shift', function (e) {
@@ -53,7 +61,9 @@
 		sent = true;
 		var body = new URLSearchParams();
 		body.set('path', location.pathname);
-		body.set('lcp', String(Math.round(lcp)));
+		// a prerendered page (the browser loaded it ahead) counts from the moment the visitor opened it
+		var navigation = performance.getEntriesByType('navigation')[0];
+		body.set('lcp', String(Math.round(Math.max(0, lcp - (navigation && navigation.activationStart || 0)))));
 		body.set('cls', cls.toFixed(4));
 		var responsiveness = inp();
 		if (responsiveness !== null) { body.set('inp', String(Math.round(responsiveness))); }

@@ -27,14 +27,14 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'ai' => 'AI', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Tabs that belong to a feature (Core\Extensions): with the feature off the tab is not offered. */
     public const array TAB_EXTENSIONS = ['enquiries' => 'enquiries'];
 
     /** Company types for the field company_type (choice:…). */
-    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
+    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization|Person';
 
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
@@ -44,7 +44,7 @@ class Settings extends Module
      */
     private const array FIELDS = [
         'general' => [
-            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
+            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'redirect_to_site_url' => 'flag', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
             'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone', 'trusted_proxy' => 'choice:|cloudflare',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
@@ -89,11 +89,12 @@ class Settings extends Module
             'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_provider' => 'choice:' . \Talea\Core\MailServices::CHOICES, 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000'],
         // the monthly report (2.9) and its archive (#161, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
         'reports' => ['report_monthly' => 'flag', 'report_recipients' => 'emails'],
-        // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
-        'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
+        // AI (administrators): the writing assistant's provider, key and model, the instructions it and every Claude connection follow,
+        // Claude's guardrails; connecting Claude is for everyone (Modules\Claude)
+        'ai' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#',
+            'claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
         'extensions' => [], // the switches are saved by Extensions::save (actionSave)
-        // the writing assistant and the newsletter connection have their own screens (Modules\AssistantSettings, Modules\NewsletterSettings)
-        'assistant' => ['ai_provider' => 'choice:' . \Talea\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#'],
+        // the newsletter connection has its own screen (Modules\NewsletterSettings)
         'newsletter' => ['newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
             'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
@@ -159,7 +160,7 @@ class Settings extends Module
         return ['tab' => $tab] + ($service !== '' ? ['service' => $service] : []) + ($service !== '' && $this->request->post('connect') === '1' ? ['connect' => '1'] : []);
     }
 
-    /** Settings and the screens built on it (Features, Business details, Claude settings, System status) share the templates in admin/settings/. */
+    /** Settings and the screens built on it (Features, Business details, System status) share the templates in admin/settings/. */
     protected function view(string $template, string $heading, array $data = []): Response
     {
         $data += ['app' => $this->app, 'module' => $this, 'csrf' => $this->app->session->csrfField()];
@@ -188,6 +189,7 @@ class Settings extends Module
         $invalid = $this->app->session->get('settings_invalid');
         $this->app->session->set('settings_invalid', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['fields' => [], 'values' => []];
+        $models = $tab === 'ai' ? $this->assistantModels() : ['list' => [], 'time' => 0, 'error' => ''];
 
         return $this->view('list', static::IDENT === 'settings' ? (self::TABS[$tab] ?? 'Settings') : 'Settings', [
             'tab' => $tab,
@@ -228,6 +230,11 @@ class Settings extends Module
             // #161: the archived monthly reports, the month the archive starts with and the month the job stores next
             'reports' => $tab === 'reports' ? ['months' => \Talea\Core\ReportArchive::months($this->db), 'first' => \Talea\Core\ReportArchive::firstMonth($this->db),
                 'previous' => \Talea\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
+            'kinds' => $tab === 'enquiries' ? \Talea\Core\Triage::kinds($settings) : [],
+            'instructionsChange' => $tab === 'ai' ? \Talea\Core\ClaudeInstructions::pending($this->app) : null, // the change Home points to, before and after (#149)
+            'assistant' => Extensions::isEnabled($settings, 'assistant'),
+            'models' => $models['list'], 'modelsTime' => $models['time'], 'modelsError' => $models['error'],
+            'kindCounts' => $tab === 'enquiries' ? array_map('intval', $this->db->pairs("SELECT category, COUNT(*) FROM {enquiries} WHERE category <> '' AND deleted_at IS NULL GROUP BY category")) : [],
             'retentionSuggestion' => $tab === 'enquiries' ? \Talea\Core\Jobs::suggestedRetention($settings->get('company_country'), $settings->get('site_language')) : null,
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
                 ? $this->db->one('SELECT page_id, public_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
@@ -262,6 +269,9 @@ class Settings extends Module
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
+            }
+            if ($key === 'site_url' && \Talea\Core\SiteUrl::fromEnvironment() !== '') {
+                continue; // the server sets the address (TALEA_SITE_URL): the field is read-only
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
             // a missing checkbox or list still means "off" / "none"
@@ -314,13 +324,20 @@ class Settings extends Module
         if ($tab === 'seo') {
             Seo::ensureIndexNowKey($settings);
         }
+        if ($tab === 'enquiries' && $this->request->hasPost('kind_name')) {
+            // the kinds: renamed, described, moved or removed; enquiries of a removed kind count as not sorted again
+            $settings->set('enquiry_kinds', \Talea\Core\Triage::storeKinds($this->request->postList('kind_key'), $this->request->postList('kind_name'),
+                $this->request->postList('kind_description'), $this->request->post('kind_move'), $this->request->hasPost('kind_delete') ? $this->request->postInt('kind_delete') : null));
+            $keys = array_keys(\Talea\Core\Triage::kinds($settings));
+            $this->db->run("UPDATE {enquiries} SET category = '' WHERE category <> '' AND category NOT IN (" . implode(', ', array_fill(0, count($keys), '?')) . ')', $keys);
+        }
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('extensions'));
             if (Extensions::isEnabled($settings, 'news')) {
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
         }
-        if ($tab === 'assistant') {
+        if ($tab === 'ai' && array_key_exists('ai_provider', $_POST)) { // the key fields are shown only while the writing assistant is on
             $providerChanged = $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous');
             if ($settings->get('ai_key') === '') {
                 $settings->set('ai_models', ''); // a removed key: the list it loaded goes too
@@ -782,6 +799,40 @@ class Settings extends Module
         return $this->back(t('The accessibility statement is ready as a hidden page – review it, then publish it: %s', $this->app->url('admin.php?module=pages&action=builder&id=' . $this->db->publicId('pages', (int) $id))), '', ['tab' => 'cookies']);
     }
 
+    /**
+     * The writing assistant's models for the AI tab, from the provider's own list (Core\Assistant::loadModels): the list, when it
+     * was loaded and why it could not be.
+     *
+     * @return array{list: list<array{id: string, name: string}>, time: int, error: string}
+     */
+    private function assistantModels(): array
+    {
+        $settings = $this->app->settings();
+        if (!Extensions::isEnabled($settings, 'assistant')) {
+            return ['list' => [], 'time' => 0, 'error' => ''];
+        }
+        $assistant = new \Talea\Core\Assistant($settings);
+        // a key saved before the list came from the provider (or under another provider): load it once
+        $error = $settings->get('ai_key') !== '' && $assistant->models() === [] ? (string) $assistant->verifyKey() : '';
+
+        return ['list' => $assistant->models(), 'time' => $assistant->modelsTime(), 'error' => $error];
+    }
+
+    /**
+     * An administrator checked the changed instructions (#149): Home stops pointing to them until the next change. The form
+     * carries the fingerprint of the text shown, so a change made in the meantime is not acknowledged unseen.
+     */
+    protected function actionAcknowledgeInstructions(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+
+        return \Talea\Core\ClaudeInstructions::acknowledge($this->app->settings(), $this->request->post('instructions_seen'))
+            ? $this->back('Thank you. Home no longer points to the instructions until they change again.', '', ['tab' => 'ai'])
+            : $this->back('The instructions changed again in the meantime – check them once more.', '', ['tab' => 'ai'], 'error');
+    }
+
     protected function tab(string $tab): string
     {
         return isset(self::TABS[$tab]) && self::tabAvailable($tab, $this->app->settings()) ? $tab : 'general';
@@ -808,7 +859,7 @@ class Settings extends Module
      * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
      * cookies_text_de, cookies_policy_url_de) has the type of its base. null = not a field of the admin form.
      */
-    private static function fieldType(string $key): ?string
+    public static function fieldType(string $key): ?string
     {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {

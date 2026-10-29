@@ -79,9 +79,10 @@ final class AdministrationTest extends SiteTestCase
             $this->assertSame($target, (string) preg_replace('#.*/admin/#', '', $redirect), "3.2: settings&tab=$tab leads to $target");
         }
         $this->assertPage('/admin.php?module=status', 200, 'Cron', message: '3.2: System status is its own screen');
-        $this->assertPage('/admin.php?module=claude_settings', 200, 'name="claude_instructions"', message: '3.2: Claude settings hold the instructions and the guardrails');
+        $this->assertPage('/admin.php?module=settings&tab=ai', 200, ['name="claude_instructions"', 'name="claude_protected_pages"'], message: 'Settings → AI holds the instructions and the guardrails');
+        $this->assertPageLacks('/admin.php?module=claude', 'name="claude_instructions"', message: 'the Claude connection is only about connecting');
         $this->assertPage('/admin.php?module=facts', 200, 'tabs-hub', message: '3.2: Business details show the hub tabs');
-        $this->assertPage('/admin.php', 200, '/admin/claude_settings', message: '3.2: the menu leads to the hubs');
+        $this->assertPage('/admin.php', 200, '/admin/claude', message: '3.2: the menu leads to the hubs');
         $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
 
         // 3.3.2 (N41): the cron and monitoring tokens change only from System status
@@ -148,8 +149,8 @@ final class AdministrationTest extends SiteTestCase
 
         // news without a category: a default category is created in the site language
         $pdo = $this->site()->pdo;
-        // MySQL: foreign_key_checks; PostgreSQL: no triggers (foreign keys) in this session
-        $pdo->exec(\Talea\Tests\Support\TestDatabase::isPostgres() ? 'SET session_replication_role = replica' : 'SET FOREIGN_KEY_CHECKS=0');
+        // MySQL: foreign_key_checks; PostgreSQL: no triggers (foreign keys) in this session; SQLite: the foreign_keys pragma
+        $pdo->exec(match (\Talea\Tests\Support\TestDatabase::driver()) { 'pgsql' => 'SET session_replication_role = replica', 'sqlite' => 'PRAGMA foreign_keys = OFF', default => 'SET FOREIGN_KEY_CHECKS=0' });
         $pdo->exec('DROP TABLE IF EXISTS kat_zaloha');
         $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM tl_categories');
         $pdo->exec('DELETE FROM tl_categories');
@@ -162,7 +163,7 @@ final class AdministrationTest extends SiteTestCase
             $pdo->exec('INSERT INTO tl_categories SELECT * FROM kat_zaloha');
             $pdo->exec('DROP TABLE kat_zaloha');
             $pdo->exec("UPDATE tl_settings SET value='en' WHERE name='site_language'");
-            $pdo->exec(\Talea\Tests\Support\TestDatabase::isPostgres() ? 'SET session_replication_role = DEFAULT' : 'SET FOREIGN_KEY_CHECKS=1');
+            $pdo->exec(match (\Talea\Tests\Support\TestDatabase::driver()) { 'pgsql' => 'SET session_replication_role = DEFAULT', 'sqlite' => 'PRAGMA foreign_keys = ON', default => 'SET FOREIGN_KEY_CHECKS=1' });
         }
     }
 

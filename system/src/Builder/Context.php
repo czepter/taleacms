@@ -15,10 +15,10 @@ final class Context
     /** The page has an element with a display condition – it must not go into the page cache. */
     public bool $withoutCache = false;
 
-    /** The page has a Compose section: Build::css adds its grid CSS (a page without one weighs nothing extra). */
+    /** The page has a Compose section: Renderer::css adds its grid CSS (a page without one weighs nothing extra). */
     public bool $compose = false;
 
-    /** The page has a slider (carousel, gallery slideshow): Build::css adds the CSS of its arrows and dots. */
+    /** The page has a slider (carousel, gallery slideshow): Renderer::css adds the CSS of its arrows and dots. */
     public bool $slider = false;
 
     /** @var array<string, true> element types on the page */
@@ -71,6 +71,9 @@ final class Context
 
     /** @var array<string, true> elements whose CSS is already on the page */
     public array $styles = [];
+
+    /** A draft is being shown (the builder's canvas or ?build=draft for whoever may see it): a placed form shows its form's draft too. */
+    public bool $draft = false;
 
     /** Where the build being rendered comes from: „page:<id>“ or „part:<typ>:<jazyk>“ (the form finds its fields by it). */
     public string $source = '';

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Talea\Builder;
 
 /**
- * Pre-publish check of a build for Claude (MCP) – the same rules as in the builder (image/builder.js, check()):
+ * Pre-publish check of a build for Claude (MCP) – the same rules as in the builder (image/builder/panels.js, check()):
  * buttons without a link, images without a file or description and, for pages, the heading outline. Text contrast is
  * missing here: it needs the rendered page, and the builder checks it in the browser.
  */
@@ -56,6 +56,14 @@ final class Check
                         $findings[] = ['id' => $id, 'message' => t('The structured data has no valid type – choose one or remove the element.')];
                     } elseif (($missing = StructuredData::missing($node)['required']) !== []) {
                         $findings[] = ['id' => $id, 'message' => t('The structured data “%s” is missing required properties: %s.', $node['type'], implode(', ', $missing))];
+                    }
+                }
+                if ($type === 'form') {
+                    // a rule kept with broken: true (FormLogic::sanitize) does nothing on the site until it is fixed
+                    $broken = array_filter(is_array($o['logic']['rules'] ?? null) ? $o['logic']['rules'] : [], static fn (mixed $r): bool => is_array($r) && !empty($r['broken']));
+                    if ($broken !== []) {
+                        $names = array_map(static fn (mixed $r, int|string $n): string => trim((string) ($r['label'] ?? '')) !== '' ? '“' . mb_substr(trim((string) $r['label']), 0, 40) . '”' : '#' . ((int) $n + 1), $broken, array_keys($broken));
+                        $findings[] = ['id' => $id, 'message' => t('The form “%s” has rules that do nothing until you fix them in the form logic: %s.', self::text($o['name'] ?? ''), implode(', ', $names))];
                     }
                 }
                 if (is_array($p['children'] ?? null)) {

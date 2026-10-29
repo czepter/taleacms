@@ -351,15 +351,23 @@ final class Audit
 
     /**
      * Job openings (2.11): a visible job without a closing date ("true until") never hides itself, and its JobPosting has no
-     * validThrough – Google then cannot tell it from an expired one (Builder\CollectionSchema).
+     * validThrough – Google then cannot tell it from an expired one (Builder\CollectionSchema). On a person's site no job has a
+     * JobPosting at all: it needs a hiring organisation.
      */
     private function jobs(): void
     {
-        foreach ($this->app->db()->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS collection, k.name AS collection_name, k.detail FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id'
-            . ' WHERE k.preset = ? AND p.visible = TRUE AND p.deleted_at IS NULL AND p.valid_until IS NULL ORDER BY p.name', [Jobs::PRESET]) as $p) {
-            $this->add('job', t('Item “%s” (%s)', $p['name'], $p['collection_name']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
-                'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']),
-                $p['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'] : null, ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]);
+        $person = \Talea\Front\Company::type($this->app->settings()) === 'Person';
+        foreach ($this->app->db()->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, p.valid_until, k.slug AS collection, k.name AS collection_name, k.detail FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id'
+            . ' WHERE k.preset = ? AND p.visible = TRUE AND p.deleted_at IS NULL ORDER BY p.name', [Jobs::PRESET]) as $p) {
+            $messages = array_filter([
+                $person ? t('Job opening on a personal site – search engines need a hiring organisation, so the job gets no job posting data. If you hire as a business, choose a business type in Settings → Business details.') : '',
+                $p['valid_until'] === null ? t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.') : '',
+            ]);
+            foreach ($messages as $message) {
+                $this->add('job', t('Item “%s” (%s)', $p['name'], $p['collection_name']), $message,
+                    'admin.php?module=collections&action=item&id=' . $this->app->db()->publicId('collections', (int) $p['collection_id']) . '&item=' . $this->app->db()->publicId('collection_items', (int) $p['item_id']),
+                    $p['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $p['collection'] . '/' . $p['slug'] : null, ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]);
+            }
         }
     }
 

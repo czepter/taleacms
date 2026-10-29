@@ -36,6 +36,9 @@ final class WebVitals
     public const float WORSE_BY = 0.25;
     public const int MIN_SAMPLES = 30;
 
+    /** Below this many measurements a metric's rating is tentative: the p75 is then the worst sample or nearly, one odd page view decides it. */
+    public const int RATE_FROM = 10;
+
     /** Index of the bucket a value falls into (the open last bucket = count(BUCKETS[metric])). */
     public static function bucket(string $metric, float $value): int
     {
@@ -145,7 +148,7 @@ final class WebVitals
     /**
      * Pages with their p75 values and ratings for the Statistics screen and get_stats – the most measured first.
      *
-     * @return list<array{path: string, samples: int, lcp_p75: ?float, lcp_rating: ?string, cls_p75: ?float, cls_rating: ?string, inp_p75: ?float, inp_rating: ?string}>
+     * @return list<array{path: string, samples: int, lcp_p75: ?float, lcp_rating: ?string, lcp_tentative: bool, cls_p75: ?float, cls_rating: ?string, cls_tentative: bool, inp_p75: ?float, inp_rating: ?string, inp_tentative: bool}>
      */
     public static function pages(Db $db, string $since, int $limit = 20): array
     {
@@ -156,6 +159,7 @@ final class WebVitals
                 $p75 = self::percentile($metric, $metrics[$metric] ?? []);
                 $row[$metric . '_p75'] = $p75;
                 $row[$metric . '_rating'] = $p75 === null ? null : self::rating($metric, $p75);
+                $row[$metric . '_tentative'] = $p75 !== null && array_sum($metrics[$metric]) < self::RATE_FROM;
             }
             $out[] = $row;
         }

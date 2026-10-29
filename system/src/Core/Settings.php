@@ -12,7 +12,8 @@ final class Settings
     /** Default values; at the same time the list of all known settings. */
     public const array DEFAULTS = [
         'site_name' => 'My website',
-        'site_url' => '',          // https://www.example.cz - links in e-mails, feeds and notifications are built from it (not from the Host header)
+        'site_url' => '',          // https://www.example.cz - links in e-mails, feeds and notifications are built from it (not from the Host header); TALEA_SITE_URL wins (Core\SiteUrl)
+        'redirect_to_site_url' => '0', // a GET on another host (www, an old domain) gets a 301 to the same path on site_url (Front\Kernel::hostRedirect)
         'site_description' => '',
         'keywords' => '',
         'site_email' => '',
@@ -36,6 +37,7 @@ final class Settings
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete
         'triage_assistant' => '0',      // new enquiries are sorted by the AI assistant (2.12, Core\Triage) – off: the text goes to the AI provider
         'spam_assistant' => '0',        // the AI assistant checks a new enquiry for spam before anyone is notified (Core\Triage::spam) – off: the text goes to the AI provider
+        'enquiry_kinds' => '',          // the kinds enquiries are sorted into (JSON, Core\Triage::kinds, Settings → Enquiries); empty = the built-in ones
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries
         'look_draft' => '',           // draft of the look not published yet (JSON, Core\Look): design system, classes, menus
         'design_system' => '',        // colors, fonts, scale and dimensions of the site (JSON, Builder\DesignSystem); empty = default

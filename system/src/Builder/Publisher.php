@@ -8,7 +8,7 @@ use Talea\Core\App;
 use Talea\Core\Db;
 
 /**
- * Publishing a build draft (page, site part, collection, component or popup) – from the editor and from MCP. The previous published version goes to the history
+ * Publishing a build draft (page, site part, collection, component, popup or form) – from the editor and from MCP. The previous published version goes to the history
  * (tl_build_revisions, the last 20 for each target), the site cache is cleared.
  */
 final class Publisher
@@ -18,7 +18,7 @@ final class Publisher
     /** Page: the content without the layout is saved into the text – search, llms.txt, the API and the return to text draw on it. */
     public static function page(App $app, array $page): void
     {
-        $new = $page['build_draft'] ?? $page['build'];
+        $new = FormRecords::adopt($app, 'page:' . (int) $page['page_id'], 'page:' . (int) $page['page_id'], $page['build_draft'] ?? $page['build']);
         self::version($app, ['page_id' => $page['page_id']], $page['build'], $new, $page['updated_at'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
         $app->db()->update('pages', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['page_id' => $page['page_id']]);
@@ -28,8 +28,9 @@ final class Publisher
 
     public static function part(App $app, array $row): void
     {
-        $new = $row['build_draft'] ?? $row['build'];
         $variant = (string) ($row['variant'] ?? '');
+        $source = 'part:' . $row['type'] . ':' . $row['language'] . ($variant !== '' ? ':' . $variant : '');
+        $new = FormRecords::adopt($app, $source, $source, $row['build_draft'] ?? $row['build']);
         self::version($app, ['part' => SiteParts::versionKey($row['type'], $row['language'], $variant)], $row['build'], $new, $row['updated_at'] ?? null);
         $app->db()->update('site_parts', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['type' => $row['type'], 'language' => $row['language'], 'variant' => $variant]);
         \Talea\Front\Cache::clear();
@@ -41,7 +42,7 @@ final class Publisher
      */
     public static function collection(App $app, array $collection): void
     {
-        $new = $collection['build_draft'] ?? $collection['build'];
+        $new = FormRecords::adopt($app, Collections::templateKey($collection), 'collection:' . (int) $collection['collection_id'], $collection['build_draft'] ?? $collection['build']);
         self::version($app, ['part' => Collections::templateKey($collection)], $collection['build'], $new, $collection['updated_at'] ?? null);
         Collections::writeTemplate($app->db(), $collection, ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')]);
         \Talea\Front\Cache::clear();
@@ -50,7 +51,7 @@ final class Publisher
     /** Popup (versions under the key „popup:<idpp>“). */
     public static function popup(App $app, array $popup): void
     {
-        $new = $popup['build_draft'] ?? $popup['build'];
+        $new = FormRecords::adopt($app, 'popup:' . (int) $popup['popup_id'], 'popup:' . (int) $popup['popup_id'], $popup['build_draft'] ?? $popup['build']);
         self::version($app, ['part' => 'popup:' . (int) $popup['popup_id']], $popup['build'], $new, $popup['updated_at'] ?? null);
         $app->db()->update('popups', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['popup_id' => $popup['popup_id']]);
         \Talea\Front\Cache::clear();
@@ -59,9 +60,21 @@ final class Publisher
     /** Component (versions under the key „component:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
-        $new = $component['build_draft'] ?? $component['build'];
+        // a form inside a component sends as the page it is on: its enquiries are not reassigned here
+        $new = FormRecords::adopt($app, 'component:' . (int) $component['component_id'], '', $component['build_draft'] ?? $component['build']);
         self::version($app, ['part' => 'component:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
         $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
+        \Talea\Front\Cache::clear();
+    }
+
+    /** Form (versions under the key „form:<id>“, docs/specs/form-builder.md) – the change shows wherever the form is placed. */
+    public static function form(App $app, array $form): void
+    {
+        $new = Build::toJson(FormRecords::definitionBuild(Build::fromJson($form['build_draft'] ?? $form['build'])));
+        self::version($app, ['part' => 'form:' . (int) $form['form_id']], $form['build'], $new, $form['updated_at'] ?? null);
+        $name = trim((string) (FormRecords::definition(Build::fromJson($new))['content']['name'] ?? ''));
+        $app->db()->update('forms', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($name !== '' ? ['name' => mb_substr($name, 0, 120)] : []), ['form_id' => $form['form_id']]);
+        FormRecords::forget();
         \Talea\Front\Cache::clear();
     }
 

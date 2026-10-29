@@ -7,7 +7,7 @@ which ships a ZIP for PHP hosting and installs its updates from the administrati
 ## Install
 
 ```bash
-cp docker-compose.yaml compose.yaml        # on Coolify: docker-compose.coolify-{mysql,mariadb,postgres}.yaml
+cp docker-compose.yaml compose.yaml        # on Coolify: docker-compose.coolify-{mysql,mariadb,postgres,sqlite}.yaml
 docker compose up -d                       # pulls ghcr.io/czepter/talea; TALEA_TAG pins a version (default latest)
 ```
 
@@ -45,16 +45,66 @@ On start the entrypoint
 1. writes a database backup to `storage/backups/` **when migrations are pending** (`TALEA_BACKUP_BEFORE_MIGRATE=0` skips it),
 2. runs `bin/migrate --if-installed`: pending migrations are applied before the container serves traffic; `GET_LOCK` serialises
    several replicas, so two containers never apply the same migration,
-3. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
+3. stores `TALEA_SITE_URL` as the site address when it differs (see "Site address and domain moves"),
+4. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
 
 Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release;
 a staging site follows a pre-release tag (`X.Y.Z-rc.N`). All tags: docs/RELEASING.md, "Image tags".
+
+## Site address and domain moves
+
+The site address (`site_url`, Settings → General) is what canonical addresses, `og:url`, the sitemap, `robots.txt`, feeds and the links
+in e-mails (password resets, member sign-in, bookings) are built from; the Host header never is.
+
+- **With `TALEA_SITE_URL` set** the variable wins. The installer takes it as the first address, and every container start compares it
+  with the stored one (`php system/docker.php site-url`, never on a page request): a different value is stored, written to the change
+  log (Settings, `site_url`, old → new, reason `TALEA_SITE_URL`) and the page cache is emptied, so no cached page keeps the old host.
+  The admin field is read-only, and `update_settings` over MCP refuses `site_url`. A value that is not `https://host` or
+  `https://host:port` (no path) is reported in the container log and changes nothing.
+- **Without it** an administrator changes the address in Settings → General, or a Claude connection with full access sets `site_url`
+  with `update_settings` (never a drafts-only one: password-reset and member links are built from it). The change log and the cache
+  work as above.
+
+A domain move on Coolify: add the new domain to the service (`SERVICE_URL_WEB`, which the compose files pass as `TALEA_SITE_URL`) and
+restart it. Nothing to do in the administration.
+
+**Other addresses.** "Redirect other addresses to the site address" (Settings → General, off by default; `redirect_to_site_url`) sends
+a GET on any other host to the same path on the site address with a 301: with or without `www`, or the old host after a move. `/health`,
+`/tasks`, `/mcp`, the OAuth and `/.well-known/` addresses, signed preview links (`preview_key`, `/_popup/…`) and the administration answer
+on every host. Passkeys belong to the host they were registered on: after a move, sign in with the password (and the code) on the new
+address and add the passkey again in My account.
 
 ## Health
 
 `GET /health` answers `200 ok` when the database answers and no migration is pending, and `503` with one word (`migrations pending`,
 `database`) otherwise. No session, no cache. Use it as the orchestrator's readiness probe; the image's own `HEALTHCHECK` only checks
 that the port answers, so a half-migrated container is not restarted in a loop.
+
+## Error tracking
+
+Errors can go to a Sentry or GlitchTip project (GlitchTip is open source and self-hostable; both speak the same protocol). Create a
+project there, copy its DSN and set it on the site:
+
+```
+TALEA_ERROR_DSN=https://<key>@glitchtip.example.com/<project>   # or TALEA_ERROR_DSN_FILE for a secret
+TALEA_ERROR_ENVIRONMENT=production                             # default production; staging, test …
+TALEA_ERROR_SAMPLE_RATE=1                                      # 0–1, the share of events sent
+TALEA_ERROR_BROWSER=0                                          # 1 = also the public site's browser errors
+```
+
+On classic hosting the same keys go into `config.php` (`error_dsn`, `error_environment`, `error_sample_rate`, `error_browser`); the
+variables win. The DSN is never a setting of the admin or of an MCP connection. After a restart, `php system/docker.php error-test`
+sends a test event and prints its id or why it did not arrive; System status (Operation → Error tracking) shows the last report.
+
+What is reported: uncaught errors and fatal errors of the site, the admin, MCP tool calls, the background jobs and `bin/migrate`,
+elements and site parts that could not be rendered, an e-mail given up after its last retry, and JavaScript errors of the admin and the
+builder (of the public site only with `TALEA_ERROR_BROWSER=1`). What is sent: the error with its stack trace (paths inside the install,
+a few lines of source, no arguments), the release (`talea@<version>`), the area, route, admin module, MCP tool, job or add-on, the role of
+the signed-in person and the browser's name and version. What is never sent: IP addresses, cookies, request bodies, names, e-mail
+addresses, the values of query parameters other than `module`, `action`, `tab`, `page` and the like; messages are scrubbed of e-mail
+addresses, tokens and the values in database errors. The same fault is sent once a minute at most; reports the tracker did not take
+wait in `storage/log/outbox/` and are retried by the background jobs for a day. `storage/log/errors.log` keeps every uncaught error
+with its trace and the event id, with or without a tracker. When the DSN is set, the record of processing names the tracker's host.
 
 ## Rollback
 

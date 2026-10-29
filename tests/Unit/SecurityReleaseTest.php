@@ -54,9 +54,9 @@ final class SecurityReleaseTest extends TestCase
             $liveMarkup(\Talea\Core\Assistant::compose($n23Parts['skeleton'], $n23Parts['segments'])),
         ], '3.3.2 N23: video embedding and the translation skeleton work on the DOM, older text stays inert');
         $this->assertSame(['', '<style>p::after{content:"\3c b>"}</style>', '<iframe src="https://mapy.cz/x"></iframe>', '<p title="&lt;/p&gt;&lt;img src=x onerror=alert(1)&gt;">x</p>', '<svg><style><a>y</a></style></svg>'], [
-            \Talea\Builder\Build::code('<select><option>a</option><img src=x onerror=alert(1)></select><datalist><option value="x"></datalist><selectedcontent></selectedcontent>'),
-            \Talea\Builder\Build::code('<style>p::after{content:"<b>"}</style>'), \Talea\Builder\Build::code('<iframe src="https://mapy.cz/x"><img src=x onerror=alert(1)></iframe>'),
-            \Talea\Builder\Build::code('<p title="</p><img src=x onerror=alert(1)>">x</p>'), \Talea\Builder\Build::code('<svg><style><a onclick="x()">y</a></style></svg>'),
+            \Talea\Builder\CodeFilter::code('<select><option>a</option><img src=x onerror=alert(1)></select><datalist><option value="x"></datalist><selectedcontent></selectedcontent>'),
+            \Talea\Builder\CodeFilter::code('<style>p::after{content:"<b>"}</style>'), \Talea\Builder\CodeFilter::code('<iframe src="https://mapy.cz/x"><img src=x onerror=alert(1)></iframe>'),
+            \Talea\Builder\CodeFilter::code('<p title="</p><img src=x onerror=alert(1)>">x</p>'), \Talea\Builder\CodeFilter::code('<svg><style><a onclick="x()">y</a></style></svg>'),
         ], '3.3.2 N30: custom HTML keeps no <select> family, no < in raw text and no raw < or > in attributes');
         $this->assertSame(['text'], array_column(\Talea\Builder\HtmlConverter::convert('<p>Text</p><video src="https://old.example/v.mp4" controls></video><svg><circle r="1"></circle></svg>', false)['build']['children'][0]['children'] ?? [], 'type'), '3.3.2 N30: imported pages are converted without administrator rights – no Custom HTML');
         $n6Html = (new \ReflectionMethod(\Talea\Core\SiteImport::class, 'html'))->invoke(null, '<p class="lead" onclick="x()">Hi <a href="javascript:alert(1)">x</a></p><script>alert(1)</script><figure class="gallery"><img src="media/2026/01/a.jpg" alt="A" width="10" height="10" loading="lazy" data-id="5"></figure><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>', 100000);
@@ -67,7 +67,8 @@ final class SecurityReleaseTest extends TestCase
     public function testCustomAttributes(): void
     {
         // every data-* attribute a script on the public page mentions must be refused as a custom attribute – a new hook in web.js fails here until it is reserved
-        $frontScripts = ['image/web.js' => (string) file_get_contents(TALEA_ROOT . '/image/web.js'), 'image/vitals.js' => (string) file_get_contents(TALEA_ROOT . '/image/vitals.js')];
+        $frontScripts = ['image/web.js' => (string) file_get_contents(TALEA_ROOT . '/image/web.js'), 'image/vitals.js' => (string) file_get_contents(TALEA_ROOT . '/image/vitals.js'),
+            'image/forms.js' => (string) file_get_contents(TALEA_ROOT . '/image/forms.js')];
         foreach (glob(TALEA_SYSTEM . '/views/front/*.php') ?: [] as $frontView) {
             preg_match_all('#<script>(.*?)</script>#s', (string) file_get_contents($frontView), $inlineScripts);
             $frontScripts['views/front/' . basename($frontView)] = implode("\n", $inlineScripts[1]);
@@ -90,13 +91,13 @@ final class SecurityReleaseTest extends TestCase
             }
         }
         $this->assertSame([true, [], []], [
-            count($frontScripts) > 5, $unreserved, $hidden], '3.3.2 N25: every data-* hook of the public scripts (web.js, vitals.js, inline scripts of the site views, editor.js on the page) is reserved; each is written in full');
+            count($frontScripts) > 5, $unreserved, $hidden], '3.3.2 N25: every data-* hook of the public scripts (web.js, vitals.js, forms.js, inline scripts of the site views, editor.js on the page) is reserved; each is written in full');
         [$n25Build, $n25Errors] = \Talea\Builder\Build::sanitize(['children' => [['type' => 'store_locator', 'attributes' => ['data-leaflet' => 'https://evil.example/', 'data-attribution' => '<img src=x onerror=alert(1)>',
             'data-basket' => 'javascript:alert(1)', 'data-compare-url' => 'javascript:alert(2)', 'data-product' => '{}', 'data-popup' => '1', 'data-collection' => 'x', 'data-locator' => '', 'data-track' => 'ok']]]], false);
         $this->assertSame([['data-track' => 'ok'], true], [
             $n25Build['children'][0]['attributes'] ?? [], isset($n25Errors['children[0].attributes'])], '3.3.2 N25: the hooks of the store locator, the basket, the comparison and the popups cannot be saved as custom attributes; a harmless one stays');
         $n25App = new \Talea\Core\App([]);
-        $n25Html = fn (array $build): string => \Talea\Builder\Build::html($build, new \Talea\Builder\Context($n25App));
+        $n25Html = fn (array $build): string => \Talea\Builder\Renderer::html($build, new \Talea\Builder\Context($n25App));
         // a build stored before 3.3.2 (never sanitized again): the hook is left out, the element renders as before
         $n25Stored = $n25Html(['children' => [['id' => 'h1', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Hi'], 'attributes' => ['data-leaflet' => 'https://evil.example/', 'data-basket' => 'javascript:alert(1)', 'onclick' => 'alert(1)', 'data-x' => 'y', 'title' => 'T']]]]);
         [$n25Button] = \Talea\Builder\Build::sanitize(['children' => [['type' => 'button', 'content' => ['text' => 'Go', 'link' => 'https://example.com/', 'new_window' => true], 'attributes' => ['rel' => 'opener', 'title' => 'Mine']],
@@ -116,7 +117,7 @@ final class SecurityReleaseTest extends TestCase
     public function testFactsInAddresses(): void
     {
         $n25App = new \Talea\Core\App([]);
-        $n25Html = fn (array $build): string => \Talea\Builder\Build::html($build, new \Talea\Builder\Context($n25App));
+        $n25Html = fn (array $build): string => \Talea\Builder\Renderer::html($build, new \Talea\Builder\Context($n25App));
         $n26Cache = new \ReflectionProperty(\Talea\Core\Facts::class, 'cache');
         $n26Fact = fn (string $key, string $type, string $value): array => ['key' => $key, 'label' => $key, 'type' => $type, 'value' => $value, 'display' => $value, 'schema' => '', 'source' => '', 'updated' => null, 'builtIn' => false, 'translated' => false];
         $n26Cache->setValue(null, [\Talea\Core\Language::siteColumn() => ['promo' => $n26Fact('promo', 'text', 'javascript:alert(document.domain)'), 'shop' => $n26Fact('shop', 'url', 'https://shop.example/a?b=1&c=2'),
@@ -182,12 +183,12 @@ final class SecurityReleaseTest extends TestCase
         $n38Visitor = $n38Query . '<p>' . e('{{ext.naive.echo}}') . '</p>';
         $n38Context = new \Talea\Builder\Context($n25App);
         $n38Context->content = $n38Visitor;
-        $n38Wrapper = \Talea\Builder\Build::html(['children' => [['id' => 't1', 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'type' => 'page_content', 'tag' => 'div', 'content' => []]]], $n38Context);
-        $kernelSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Kernel.php');
-        preg_match('/private function page\(.*?\n    }\n/s', $kernelSource, $pageMethod);
+        $n38Wrapper = \Talea\Builder\Renderer::html(['children' => [['id' => 't1', 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'type' => 'page_content', 'tag' => 'div', 'content' => []]]], $n38Context);
+        $kernelSource = implode('', array_map(fn (string $f): string => (string) file_get_contents($f), glob(TALEA_SYSTEM . '/src/Front/*.php') ?: []));
+        preg_match('/public function page\(.*?\n    }\n/s', (string) file_get_contents(TALEA_SYSTEM . '/src/Front/PageFrame.php'), $pageMethod);
         $this->assertSame([$n38Query, true, true, false, false, true, true, true], [
             \Talea\Extension\Registry::fillTokens($n38Query), str_contains($n38Wrapper, '<p>own</p>'), str_contains($n38Wrapper, $n38Visitor), str_contains($n38Wrapper, '<img'), str_contains($n38Wrapper, 'NAIVE'),
-            $n38Context->content === $n38Visitor, ($pageMethod[0] ?? '') !== '' && !str_contains($pageMethod[0], 'fillTokens('), substr_count($kernelSource, 'self::authored(') >= 5], '3.3.2 N38: an escaped-quote token (a visitor\'s search query) is never run; a site-part wrapper fills its own tokens but not the page content it wraps; the page as a whole is not filled');
+            $n38Context->content === $n38Visitor, ($pageMethod[0] ?? '') !== '' && !str_contains($pageMethod[0], 'fillTokens('), substr_count($kernelSource, '::authored(') >= 5], '3.3.2 N38: an escaped-quote token (a visitor\'s search query) is never run; a site-part wrapper fills its own tokens but not the page content it wraps; the page as a whole is not filled');
         $n26Cache->setValue(null, []);
     }
 
@@ -207,7 +208,7 @@ final class SecurityReleaseTest extends TestCase
                 || !\Talea\Core\Demo::blocksAdmin($ident, 'delete_backup', '', true) || !\Talea\Core\Demo::blocksAdmin($ident, 'fleet_pair', '', true)
                 || \Talea\Core\Demo::blocksAdmin($ident, 'list', '', false))),
             \Talea\Core\Demo::blocksAdmin('settings', 'save', 'general', true), \Talea\Core\Demo::blocksAdmin('settings', 'save', 'mail', true), \Talea\Core\Demo::blocksAdmin('business', 'hours_add', '', true),
-            \Talea\Core\Demo::blocksAdmin('status', 'save', '', true), \Talea\Core\Demo::blocksAdmin('claude_settings', 'save', '', true), \Talea\Core\Demo::blocksAdmin('pages', 'save', '', true)], '3.3.2 (N24): the demo filters every Settings screen by its class – no backup, restore, download or pairing action through any of them; looking is allowed');
+            \Talea\Core\Demo::blocksAdmin('status', 'save', '', true), \Talea\Core\Demo::blocksAdmin('settings', 'save', 'ai', true), \Talea\Core\Demo::blocksAdmin('pages', 'save', '', true)], '3.3.2 (N24): the demo filters every Settings screen by its class – no backup, restore, download or pairing action through any of them; looking is allowed');
         $this->assertSame([false, false, false, true, true, true, true, true, true, true, true], array_map(fn (array $k): bool => \Talea\Core\Demo::blocksSetting($k[0], $k[1]),
             [['site_name', 'text'], ['company_city', 'text'], ['ga4_id', 'pattern'], ['matomo_url', 'url'], ['gtm_id', 'pattern'], ['head_code', 'code'], ['captcha_secret', 'secret'], ['cookies_policy_url', 'text'], ['maintenance', 'flag'], ['webhook_url', 'url'], ['site_email', 'email']]), '3.3.2 (N24): the demo saves only allow-listed settings – never script hosts, code, secrets, the policy link or maintenance');
         $this->assertSame([['/privacy-policy', 'https://example.com/p', '', null, null, null, null], ['/zasady', 'http://old.example/p', '', '', '', '', '/x']], [
@@ -222,7 +223,7 @@ final class SecurityReleaseTest extends TestCase
         $this->assertSame(['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown'], array_map(\Talea\Core\Antispam::network(...),
             ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), '3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4 address written as IPv6 counts as itself)');
         $this->assertSame([10, true, true], [\Talea\Core\PageLock::ATTEMPTS, \Talea\Core\PageLock::PAGE_ATTEMPTS > \Talea\Core\PageLock::ATTEMPTS,
-            str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::network(')], '3.3.2 (N34): a page password has a limit per address and one per page across all addresses');
+            str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::visitorKey(')], '3.3.2 (N34): a page password has a limit per address and one per page across all addresses');
         $htaccess332 = (string) file_get_contents(TALEA_ROOT . '/.htaccess');
         $router332 = (string) file_get_contents(TALEA_SYSTEM . '/dev-router.php');
         preg_match("/if \\(preg_match\\('(#\\^\\/\\(system.+?#i)', \\\$path\\)\\)/", $router332, $routerRule);

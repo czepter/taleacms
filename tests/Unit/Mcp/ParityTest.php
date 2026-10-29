@@ -20,10 +20,11 @@ final class ParityTest extends TestCase
             'build_ask' => 'admin: the Ask box edits the draft with the operations of edit_build under the same guardrails (#31) – Claude uses edit_build itself',
             'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
             'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
-            'build_share' => 'preview_link', 'build_versions' => $readOnly, 'build_compare' => 'compare_build_version', 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
+            'build_share' => 'preview_link', 'build_versions' => $readOnly, 'build_compare' => 'compare_build_version', 'build_form_try' => 'try_form', 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
             'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Talea site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
         ];
         $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
+            'acknowledge_instructions' => 'admin: a person confirms having checked changed instructions for Claude (#149) – a connection must not clear the notice about a change it may have made itself',
             'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log',
             'test_mail' => 'admin: mail server settings', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
             'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
@@ -55,9 +56,9 @@ final class ParityTest extends TestCase
             'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
                 'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
             'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'personal' => 'erase_personal_data',
-                'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
-            // the forms of the site and their answers: read from the builds and the enquiries, edited in the builder
-            'forms' => ['list' => $readOnly, 'detail' => $readOnly],
+                'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
+            // the forms of the site (records, docs/specs/form-builder.md) and their answers; a form's build is edited in the builder
+            'forms' => $builderParity + ['list' => 'list_forms', 'detail' => $readOnly, 'new' => $readOnly, 'create' => 'create_form', 'delete' => 'delete_form'],
             // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
             'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
                 'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
@@ -107,8 +108,8 @@ final class ParityTest extends TestCase
                 'source_images' => 'admin: structured import (3.0)', 'source_delete' => 'admin: structured import (3.0)',
                 'source_fetch' => 'admin: structured import (3.0) – the API token is typed in the admin, kept in the session only, never over MCP'],
             'settings' => $settingsParity, 'extensions' => $settingsParity, 'business' => $settingsParity, 'status' => $settingsParity,
-            'claude_settings' => $settingsParity + ['acknowledge_instructions' => 'admin: a person confirms having checked changed instructions for Claude (#149) – a connection must not clear the notice about a change it may have made itself'],
-            'assistant_settings' => $settingsParity, 'newsletter_settings' => $settingsParity,
+            'claude' => ['list' => $readOnly],
+            'newsletter_settings' => $settingsParity,
             'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
             'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'],
             // 2.17: scheduled runs – what a routine in Claude does on the site and when is the administrator's decision; Claude only gets the due runs and reports them

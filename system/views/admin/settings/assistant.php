@@ -1,6 +1,6 @@
 <?php
 /**
- * The "Writing assistant" screen (Modules\AssistantSettings): provider, key and the model from the provider's own list.
+ * The writing assistant's own key on Settings → AI (settings/ai.php): provider, key and the model from the provider's own list.
  *
  * @var list<array{id: string, name: string}> $models  the provider's models, newest first (Core\Assistant::loadModels)
  * @var int $modelsTime  when the list was loaded

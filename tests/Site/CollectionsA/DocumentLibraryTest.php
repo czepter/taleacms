@@ -108,7 +108,8 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->mcpText('save_build', ['id' => $this->site()->publicId('pages', $page), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['id' => 'gate123', 'type' => 'form', 'content' => ['name' => 'Price list by e-mail', 'send_file' => '/media/pricelist-v2.pdf', 'fields' => [['label' => 'E-mail', 'type' => 'email', 'required' => true]]]],
         ]]]]]);
-        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"send_file":"/media/pricelist-v2.pdf"%\' FROM tl_pages WHERE page_id = ?', [$page]), 'the published form keeps the file to send');
+        // publishing made the form a record placed on the page (docs/specs/form-builder.md)
+        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"send_file":"/media/pricelist-v2.pdf"%\' FROM tl_forms WHERE origin = ?', ['page:' . $page . '|gate123']), 'the published form keeps the file to send');
 
         $site->clearPageCache();
         $visitor = $this->visitor();

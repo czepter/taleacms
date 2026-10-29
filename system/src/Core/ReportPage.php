@@ -207,7 +207,7 @@ final class ReportPage
             $add('enquiries', t('Enquiries'), [
                 $pairs([[t('Enquiries received'), $n($enquiries['total'] ?? 0)], [t('Nobody has opened yet (now)'), $n($enquiries['unanswered'] ?? 0)]]),
                 $table(t('By form'), [t('Form'), t('Enquiries')], array_map(static fn (array $f): array => [(string) $f['form'] !== '' ? (string) $f['form'] : t('Form'), $n($f['n'])], (array) ($enquiries['forms'] ?? [])), [1]),
-                $table(t('By category'), [t('Category'), t('Enquiries')], array_map(static fn (array $c): array => [t(Triage::CATEGORIES[$c['category']] ?? (string) $c['category']), $n($c['n'])], (array) ($enquiries['categories'] ?? [])), [1]),
+                $table(t('By category'), [t('Category'), t('Enquiries')], array_map(static fn (array $c): array => [isset(Triage::CATEGORIES[$c['category']]) ? t(Triage::CATEGORIES[$c['category']][0]) : (string) $c['category'], $n($c['n'])], (array) ($enquiries['categories'] ?? [])), [1]),
                 $table(t('By page'), [t('Page'), t('Enquiries')], array_map(static fn (array $p): array => [(string) $p['path'], $n($p['n'])], (array) ($enquiries['pages'] ?? [])), [1]),
             ]);
         }

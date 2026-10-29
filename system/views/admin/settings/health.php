@@ -15,7 +15,7 @@ $group = '';
 <tr>
 	<td class="center"><span class="badge badge-<?= ['ok' => 'published', 'warning' => 'draft', 'error' => 'error'][$k['status']] ?>" title="<?= e(t(['ok' => 'OK', 'warning' => 'warning', 'error' => 'error'][$k['status']])) ?>"><?= $icons[$k['status']] ?></span></td>
 	<td><strong><?= e($k['name']) ?></strong></td>
-	<td><?= Talea\Admin\MenuPaths::links($app->url('admin.php'), (string) $k['info'], ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings']) ?><?php if (($k['links'] ?? []) !== []): ?><br><span class="small-text"><?php foreach ($k['links'] as $i => $link): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
+	<td><?= Talea\Admin\MenuPaths::links($app->url('admin.php'), (string) $k['info'], ['settings', 'appearance', 'menu', 'business', 'status', 'claude']) ?><?php if (($k['links'] ?? []) !== []): ?><br><span class="small-text"><?php foreach ($k['links'] as $i => $link): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -36,9 +36,12 @@ $group = '';
 </fieldset>
 <fieldset>
 <legend><?= e(t('Background jobs (cron)')) ?></legend>
+<?php $webCron = !Talea\Core\Config::fromEnv(); // a container runs the jobs itself (docker/entrypoint.sh) ?>
+<?php if ($webCron): ?>
 <p><?= e(t('Scheduled news, notifications and outgoing mail run on site visits. A low-traffic site makes them more precise by calling this address every 5 minutes from your hosting\'s cron:')) ?></p>
 <?php if ($tasksToken !== ''): ?>
 <p><code>*/5 * * * * curl -s "<?= e($siteUrl) ?>tasks?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
+<?php endif ?>
 <?php endif ?>
 <div class="tab-wrap"><table class="listing">
 <thead><tr><th scope="col"><?= e(t('Job')) ?></th><th scope="col"><?= e(t('Runs')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><?= e(t('Result')) ?></th></tr></thead>
@@ -49,7 +52,9 @@ $group = '';
 		<td><?php if ($j['last_run'] === null): ?><?= e(t('not run yet')) ?><?php elseif ($j['failures'] > 0): ?><span class="badge badge-error"><?= e(t('failed %d×', $j['failures'])) ?></span> <?= e($j['last_error']) ?><?php else: ?><span class="badge badge-published"><?= e(t('ok')) ?></span><?php endif ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
+<?php if ($webCron): ?>
 <p><button class="navigation" type="submit" name="new_tasks_token" value="1"><?= e(t($tasksToken !== '' ? 'Create a new address (the old one stops working)' : 'Create the cron address')) ?></button></p>
+<?php endif ?>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Alerts')) ?></legend>

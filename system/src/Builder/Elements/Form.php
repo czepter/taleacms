@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Talea\Builder\Elements;
 
 use Talea\Core\Antispam;
+use Talea\Builder\Build;
 use Talea\Builder\Context;
 use Talea\Builder\Element;
+use Talea\Builder\FormLogic;
 
 /**
- * Enquiry / contact form. It is sent to /form (Front\Forms): the server takes the fields from the published build
+ * Enquiry / contact form: its fields and what happens after sending. It lives in a form's own build (Builder\FormRecords) and
+ * pages place it (Elements\FormEmbed); written inside another build it renders as itself until that build is published.
+ * It is sent to /form (Front\Forms): the server takes the fields from the published build
  * (not from the browser), verifies them, saves the enquiry ("Admin → Enquiries") and sends a notification e-mail.
  * Protection without cookies and CAPTCHA (Core\Antispam), so the page with the form stays in the cache.
  */
@@ -17,8 +21,10 @@ final class Form extends Element
 {
     public const string TYPE = 'form';
     public const string EXTENSION = 'enquiries';
-    public const string NAME = 'Form';
-    public const string DESCRIPTION = 'An enquiry or question – submitted messages are in Enquiries and arrive by email.';
+    public const string NAME = 'Form fields';
+    public const string DESCRIPTION = 'The fields of a form and what happens after sending – submitted messages are in Enquiries and arrive by email. Also a quiz or a quote calculator. It lives in a form of Enquiries → Forms; pages place it with the Form element, and one written inside a page becomes such a form when the page is published.';
+    /** Pages place a form (Elements\FormEmbed); the fields are edited in the form builder (docs/specs/form-builder.md). */
+    public const bool OFFERED = false;
     public const string ICON = 'form';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['form'];
@@ -27,7 +33,11 @@ final class Form extends Element
     public const array FIELD_TYPES = ['text' => 'text', 'email' => 'email', 'tel' => 'phone', 'textarea' => 'longer text', 'select' => 'choice from a list',
         'radio' => 'single choice (radio buttons)', 'checkboxes' => 'several choices (checkboxes)', 'date' => 'date', 'number' => 'number', 'file' => 'attachment (file)',
         'checkbox' => 'checkbox (consent)', 'hidden' => 'hidden value (e.g. the product the form is about)', 'basket' => 'enquiry basket (products added with Add to enquiry)',
-        'step' => 'new step (a multi-step form – the label is the step title)', 'estimate' => 'price estimate (adds up the prices of the answers)'];
+        'step' => 'new step (a multi-step form – the label is the step title)', 'estimate' => 'price estimate (adds up the prices of the answers)',
+        'timerange' => 'time range (from – to, counts as hours)'];
+
+    /** How a radio, checkboxes or number field looks: a list (default), tiles with an image or an icon per option, or a slider (number). */
+    public const array DISPLAYS = ['list' => 'list', 'image_tiles' => 'tiles with an image', 'icon_tiles' => 'tiles with an icon', 'slider' => 'slider (number)'];
 
     /** An option with a price for the estimate (2.12): "Label | 1200" – the visitor sees and sends only the label. */
     private const string PRICED_OPTION = '/^(.*?)\s*\|\s*(-?\d[\d \x{a0}]*(?:[.,]\d+)?)\s*$/u';
@@ -45,7 +55,9 @@ final class Form extends Element
             'name' => ['type' => 'text', 'label' => 'Form name (in Enquiries and in the email)', 'default' => t('Enquiry'), 'max' => 120],
             // the editor shows each field as one row (summary = what the row says) and groups its settings (group): the options,
             // the price estimate and the condition – only the inspector reads summary and group, the saved build is the same
-            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 20, 'summary' => ['label', 'type', 'required'], 'fields' => [
+            'fields' => ['type' => 'items', 'label' => 'Form fields', 'max' => 40, 'summary' => ['label', 'type', 'required'], 'fields' => [
+                // a stable id of the field (rules refer to it, so renaming the label breaks nothing); assigned by sanitizeElement, never shown
+                'key' => ['type' => 'text', 'label' => 'Key', 'default' => '', 'max' => 5, 'hidden' => true],
                 'label' => ['type' => 'text', 'label' => 'Label', 'default' => '', 'max' => 200],
                 'type' => ['type' => 'choice', 'label' => 'Type', 'default' => 'text', 'options' => self::FIELD_TYPES],
                 'required' => ['type' => 'boolean', 'label' => 'Required', 'default' => false],
@@ -53,10 +65,23 @@ final class Form extends Element
                 'choices' => ['type' => 'lines', 'label' => 'Options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'radio'], 'group' => 'options'],
                 'checkbox_options' => ['type' => 'lines', 'label' => 'Options to tick (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'checkboxes'], 'group' => 'options'],
                 'value' => ['type' => 'text', 'label' => 'Value sent with the form (not shown to the visitor)', 'default' => '', 'max' => 300, 'when' => ['type' => 'hidden'], 'group' => 'options'],
+                // how the answers look: tiles (one image from Media or one icon key per option, same order) and the slider range of a number
+                'display' => ['type' => 'choice', 'label' => 'Look of the answers', 'default' => 'list', 'options' => self::DISPLAYS, 'when' => ['type' => ['radio', 'checkboxes', 'number']], 'group' => 'options'],
+                'option_media' => ['type' => 'lines', 'label' => 'Image (media/…) or icon name per option, one per line in the order of the options', 'default' => '', 'max' => 4000, 'when' => ['type' => ['radio', 'checkboxes']], 'group' => 'options'],
+                'min' => ['type' => 'text', 'label' => 'Slider: lowest value', 'default' => '', 'max' => 12, 'when' => ['type' => 'number'], 'group' => 'options'],
+                'max' => ['type' => 'text', 'label' => 'Slider: highest value', 'default' => '', 'max' => 12, 'when' => ['type' => 'number'], 'group' => 'options'],
+                'step' => ['type' => 'text', 'label' => 'Slider: step', 'default' => '', 'max' => 12, 'when' => ['type' => 'number'], 'group' => 'options'],
+                'advance' => ['type' => 'boolean', 'label' => 'Go to the next step when an option is chosen', 'default' => false, 'when' => ['type' => 'radio'], 'group' => 'options'],
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
                 'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number'], 'group' => 'estimate'],
                 'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
-                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'currency' => ['type' => 'text', 'label' => 'Currency (older forms; use the unit after the amount)', 'default' => '', 'max' => 10, 'hidden' => true],
+                'unit_prefix' => ['type' => 'text', 'label' => 'Unit before the amount (e.g. $)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'unit_suffix' => ['type' => 'text', 'label' => 'Unit after the amount (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'range_below' => ['type' => 'number', 'label' => 'Range: percent below the amount (0 = none)', 'default' => 0, 'min' => 0, 'max' => 90, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'range_above' => ['type' => 'number', 'label' => 'Range: percent above the amount (0 = none)', 'default' => 0, 'min' => 0, 'max' => 90, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'round_to' => ['type' => 'number', 'label' => 'Round to a multiple of (0 = no rounding)', 'default' => 0, 'min' => 0, 'max' => 100000, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
+                'minimum' => ['type' => 'text', 'label' => 'Lowest amount shown (empty = none)', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate'], 'group' => 'estimate'],
                 // conditions (2.12): the field shows only when another field has a value
                 'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200, 'group' => 'condition'],
                 'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200, 'group' => 'condition'],
@@ -67,12 +92,23 @@ final class Form extends Element
                 ['label' => t('How can we help you?'), 'type' => 'textarea', 'required' => true, 'options' => ''],
                 ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => ''],
             ]],
+            // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
+            'calculation' => ['type' => 'choice', 'label' => 'Show the estimate', 'default' => 'live', 'options' => ['live' => 'while answering', 'after_contact' => 'after the visitor sent their contact details']],
+            'logic' => ['type' => 'form_logic', 'label' => 'Logic for a quiz or quote calculator. Options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.', 'default' => ['rules' => [], 'results' => []]],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
             'bcc' => ['type' => 'text', 'label' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'default' => '', 'max' => 190],
-            'thank_you_page' => ['type' => 'link', 'label' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'default' => ''],
+            'notification_subject' => ['type' => 'text', 'label' => 'Subject of the notification to you (empty = “form name: site name”); {Field label} puts in an answer', 'default' => '', 'max' => 200],
+            // when: the inspector offers it only in live mode; note: what it says in its place otherwise (the server ignores a stored value then)
+            'thank_you_page' => ['type' => 'link', 'label' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'default' => '', 'when' => ['calculation' => 'live'],
+                'note' => 'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.'],
             'confirmation' => ['type' => 'boolean', 'label' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'default' => false],
+            // the thank-you e-mail in the owner's words (Front\FormMail): empty = the thank-you message, the result and the next steps
+            'confirmation_subject' => ['type' => 'text', 'label' => 'Subject of the thank-you e-mail (empty = “Confirmation: site name”)', 'default' => '', 'max' => 200, 'when' => ['confirmation' => true]],
+            'confirmation_text' => ['type' => 'lines', 'label' => 'Text of the thank-you e-mail (empty = the thank-you message). {Field label} puts in an answer, {Field label|text} says what stands when it is empty; also {site name}, {next steps} and {result}. Only names, dates, numbers and chosen options are put in – never text the visitor wrote freely.', 'default' => '', 'max' => 4000, 'when' => ['confirmation' => true]],
+            'confirmation_sender' => ['type' => 'text', 'label' => 'Sender name of the thank-you e-mail (empty = the site’s; the address stays the site’s)', 'default' => '', 'max' => 120, 'when' => ['confirmation' => true]],
+            'confirmation_reply_to' => ['type' => 'text', 'label' => 'Replies to the thank-you e-mail go to (empty = as in Settings → Mail)', 'default' => '', 'max' => 190, 'when' => ['confirmation' => true]],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
             'send_file' => ['type' => 'link', 'label' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'default' => '', 'media' => 'file'],
             'no_captcha' => ['type' => 'boolean', 'label' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'default' => false],
@@ -81,6 +117,77 @@ final class Form extends Element
             'reply_within_hours' => ['type' => 'number', 'label' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'default' => 0, 'min' => 0, 'max' => \Talea\Front\NextSteps::MAX_HOURS],
             'who_replies' => ['type' => 'text', 'label' => 'Who replies (e.g. “Jana from the office”)', 'default' => '', 'max' => 120],
         ];
+    }
+
+    /**
+     * Runs the logic of the form element $elementId of a build with answers given by field key (what try_form and the builder's try do).
+     *
+     * @param array<string, mixed> $answers field key => answer, untrusted (a list for checkboxes, "HH:MM-HH:MM" for a time range)
+     * @return array{visible: list<string>, lines: list<array{label: string, amount: float}>, total: float, shown: string, variant: string, unknown_keys: list<string>}
+     */
+    public static function tryOut(array $build, string $elementId, array $answers): array
+    {
+        $form = Build::elementsOfType($build, static fn (string $class): bool => $class === self::class)[$elementId]
+            ?? throw new \InvalidArgumentException('The form element is not in the build. Element ids are in get_build.');
+        $content = $form['content'] ?? [];
+        $keys = array_column($content['fields'] ?? [], 'key');
+        $byIndex = [];
+        $unknown = [];
+        foreach ($answers as $key => $answer) {
+            $index = array_search((string) $key, $keys, true);
+            if ($index === false) {
+                $unknown[] = (string) $key;
+            } else {
+                // answers are untrusted: only scalars count (a nested value is ignored)
+                $byIndex[$index] = is_array($answer) ? array_map('strval', array_values(array_filter($answer, 'is_scalar'))) : (is_scalar($answer) ? (string) $answer : '');
+            }
+        }
+        $result = FormLogic::evaluate($content, $byIndex);
+
+        return [
+            'visible' => array_map(static fn (int $i): string => (string) $keys[$i], array_keys(array_filter($result['visible']))),
+            'lines' => array_map(static fn (array $line): array => ['label' => $line[0], 'amount' => $line[1]], $result['lines']),
+            'total' => $result['total'], 'shown' => $result['shown'], 'variant' => $result['variant'], 'unknown_keys' => $unknown,
+        ];
+    }
+
+    /** Every field gets a unique key /^k[a-z0-9]{4}$/: a valid unused one is kept, otherwise a new one is drawn. */
+    public static function sanitizeElement(array $content, string $place, array &$errors): array
+    {
+        $used = [];
+        foreach ($content['fields'] ?? [] as $i => $field) {
+            $key = (string) ($field['key'] ?? '');
+            if (preg_match('/^k[a-z0-9]{4}$/', $key) !== 1 || isset($used[$key])) {
+                do {
+                    $key = 'k' . substr(bin2hex(random_bytes(3)), 0, 4);
+                } while (isset($used[$key]));
+            }
+            $used[$key] = true;
+            $content['fields'][$i]['key'] = $key;
+            // per option one image from Media or one icon key; anything else is dropped (the tile then shows the label alone)
+            $lines = [];
+            foreach (explode("\n", (string) ($field['option_media'] ?? '')) as $n => $line) {
+                $line = trim($line);
+                if ($line !== '' && preg_match(Build::IMAGE_PATTERN, $line) !== 1 && !isset(\Talea\Builder\Icons::SET[$line])) {
+                    $errors[$place . '.fields.' . $i . '.option_media'] = 'Option ' . ($n + 1) . ': use an image from Media (media/…) or an icon name.';
+                    $line = '';
+                }
+                $lines[] = $line;
+            }
+            $content['fields'][$i]['option_media'] = rtrim(implode("\n", $lines));
+        }
+        if (($content['calculation'] ?? 'live') === 'after_contact' && !in_array('estimate', array_column($content['fields'] ?? [], 'type'), true)) {
+            $errors[$place . '.calculation'] = 'Showing the estimate after the contact details needs an estimate field; it was set to "while answering".';
+            $content['calculation'] = 'live';
+        }
+        $replyTo = trim((string) ($content['confirmation_reply_to'] ?? ''));
+        if ($replyTo !== '' && count(\Talea\Core\Mail::addresses($replyTo)) !== 1) {
+            $errors[$place . '.confirmation_reply_to'] = 'Replies to the thank-you e-mail need one valid e-mail address.';
+            $content['confirmation_reply_to'] = '';
+        }
+        $content['logic'] = FormLogic::sanitize($content['logic'] ?? null, array_values($content['fields'] ?? []), $place . '.logic', $errors);
+
+        return $content;
     }
 
     public static function baseCss(): string
@@ -126,7 +233,42 @@ final class Form extends Element
 .tl-form-done p + p, .tl-form-done ol + p { margin-block-start: var(--tl-space-s); }
 .tl-form-done .tl-steps-heading { font-weight: 600; }
 .tl-form-done ol { margin: var(--tl-space-2xs) 0 0; padding-inline-start: 1.5em; }
+.tl-form-done .tl-result-image { display: block; max-inline-size: 100%; block-size: auto; border-radius: var(--tl-radius-m, 0.5rem); }
+.tl-form-done .tl-result-heading { font-size: var(--tl-step-2, 1.5rem); line-height: 1.2; }
+.tl-form-done .tl-result-amount { font-size: var(--tl-step-3, 2rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tl-form-done .tl-result-breakdown { display: grid; gap: var(--tl-space-3xs, 0.25rem); margin: var(--tl-space-s) 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.tl-form-done .tl-result-breakdown li { display: flex; justify-content: space-between; gap: var(--tl-space-m); border-block-end: 1px solid var(--tl-color-line); padding-block-end: var(--tl-space-3xs, 0.25rem); }
+.tl-field .tl-tiles { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--tl-space-xs); }
+.tl-field .tl-tiles label { position: relative; flex-direction: column; justify-content: flex-start; padding: var(--tl-space-xs); border: 2px solid var(--tl-color-line); border-radius: var(--tl-radius-m); background: var(--tl-color-background); text-align: center; cursor: pointer; }
+.tl-tiles input { position: absolute; inset-block-start: 0.5rem; inset-inline-start: 0.5rem; z-index: 1; }
+.tl-tiles label:has(input:checked) { border-color: var(--tl-color-primary); background: var(--tl-color-primary-soft); }
+.tl-tiles label:has(input:focus-visible) { outline: 2px solid var(--tl-color-primary); outline-offset: 2px; }
+.tl-tile-media { display: grid; place-items: center; inline-size: 100%; }
+.tl-tile-media img { inline-size: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--tl-radius); }
+.tl-tile-media svg { inline-size: 2.5rem; block-size: 2.5rem; color: var(--tl-color-primary); }
+.tl-range-row { display: flex; gap: var(--tl-space-xs); align-items: center; }
+.tl-range-row input { flex: 1; accent-color: var(--tl-color-primary); }
+.tl-range-row output { min-inline-size: 3em; font-weight: 700; text-align: end; }
+.tl-field .tl-timerange-inputs { display: flex; flex-wrap: wrap; gap: var(--tl-space-s); }
+.tl-field .tl-timerange-inputs label { flex-direction: column; align-items: stretch; gap: var(--tl-space-3xs, 0.15rem); }
+.tl-form-layout, .tl-form-layout .tl-step { grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: var(--tl-space-m); }
+.tl-form-layout > *, .tl-form-layout .tl-step > * { grid-column: 1 / -1; }
+@media (min-width: 768px) { .tl-form-layout .tl-span-4 { grid-column: span 4; } .tl-form-layout .tl-span-3 { grid-column: span 3; } .tl-form-layout .tl-span-2 { grid-column: span 2; } }
 .tl-form [hidden] { display: none !important; }'; // the display of steps, fields and buttons above would otherwise beat the hidden attribute
+    }
+
+    /** A field's width in columns of six (2, 3 or 4) as a class on its outermost tag; anything else leaves it full width. */
+    private static function span(string $html, int $span): string
+    {
+        if ($html === '' || !in_array($span, [2, 3, 4], true)) {
+            return $html;
+        }
+        $marked = preg_replace('/^<([a-z]+)\b([^>]*?)\bclass="/', '<$1$2class="tl-span-' . $span . ' ', $html, 1, $count);
+        if ($count === 1) {
+            return (string) $marked;
+        }
+
+        return (string) preg_replace('/^<([a-z]+)\b/', '<$1 class="tl-span-' . $span . '"', $html, 1);
     }
 
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
@@ -168,6 +310,9 @@ final class Form extends Element
         $result = $r->get('form') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         $hasBasket = in_array('basket', array_column($o['fields'], 'type'), true);
+        if (($screen = \Talea\Front\FormResult::html($k->app, $p, $k, $a)) !== null) {
+            return $screen; // the result of a quiz or calculator that shows it after the contact details (signed link)
+        }
         if ($result === 'ok') {
             // data-sent: image/web.js reports the conversion (the talea:form_sent event and dataLayer, when the site has it);
             // data-basket-sent: the enquiry basket was sent – the script empties it
@@ -184,6 +329,9 @@ final class Form extends Element
         $html = $result !== '' ? '<p class="tl-form-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'field' ? $r->getInt('field', -1) : -1;
         [$steps, $stepTitle, $current] = [[], '', ''];
+        $afterContact = ($o['calculation'] ?? 'live') === 'after_contact';
+        [$logic, $targets] = self::logicForPage($o, $afterContact);
+        $widths = \Talea\Builder\FormRecords::widths($o['widths'] ?? []);
         foreach ($o['fields'] as $i => $field) {
             if ($field['type'] === 'hidden') {
                 // the value is the form's own (Front\Forms) and the visitor normally neither sees nor sends it; on a collection item
@@ -199,13 +347,13 @@ final class Form extends Element
             }
             $one = match ($field['type']) {
                 'basket' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
-                'estimate' => self::estimateField($field, $o['fields']),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings())),
+                'estimate' => self::estimateField($field, $o['fields'], $afterContact),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings()), $k, !$afterContact),
             };
-            // a condition (2.12): the script shows the field only for the answer; without the script it is always shown
-            $when = mb_strtolower(trim((string) ($field['show_when_field'] ?? '')));
-            $target = $when !== '' ? array_search($when, array_map(fn (array $f): string => mb_strtolower(trim((string) $f['label'])), $o['fields']), true) : false;
-            $current .= $one !== '' && $target !== false ? '<div class="tl-condition" data-when="p' . (int) $target . '" data-when-value="' . e(trim((string) ($field['show_when_value'] ?? ''))) . '">' . $one . '</div>' : $one;
+            // a field a rule shows or skips (2.12): the script (data-logic) hides it as the answers change; without the script it is always shown
+            $one = $one !== '' && isset($targets[$i]) ? '<div class="tl-condition" data-field="' . $i . '">' . $one . '</div>' : $one;
+            // its width where the form is placed (Elements\FormEmbed): columns of six, on the outermost tag of the field
+            $current .= self::span($one, (int) ($widths[(string) ($field['key'] ?? '')] ?? 0));
         }
         if ($steps === []) {
             $html .= $current;
@@ -217,16 +365,71 @@ final class Form extends Element
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
-        // data-form: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
+        // data-form: after an error image/forms.js puts back into the fields what the visitor filled in (only their browser keeps it)
         $files = in_array('file', array_column($o['fields'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
-        return '<form' . Text::withClass($a, 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"' . ($result !== '' ? ' data-restore' : '') . '>'
+        return '<form' . Text::withClass($a, $widths !== [] ? 'tl-form tl-form-layout' : 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
+            . ($logic !== [] ? ' data-logic="' . e((string) json_encode($logic, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)) . '"' : '') . '>'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('form|' . $k->source . '|' . $p['id'])
             . $html
             . (empty($o['no_captcha']) ? self::captcha($k) : '')
             . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e($o['button_text']) . '</button></p></form>';
+    }
+
+    /**
+     * What the browser may know of the logic (data-logic of the form) and which fields a rule shows or skips. Rules that are not
+     * broken, without labels; amounts only in a live form (add, quantity) and only those, multiply and result variants stay on the
+     * server; a form that shows its result after the contact details carries no amount at all.
+     *
+     * @return array{0: array<string, mixed>, 1: array<int, true>} [data-logic or [], field index => true]
+     */
+    private static function logicForPage(array $o, bool $afterContact): array
+    {
+        $index = [];
+        foreach ($o['fields'] as $i => $f) {
+            if ((string) ($f['key'] ?? '') !== '') {
+                $index[(string) $f['key']] = $i;
+            }
+        }
+        $allowed = $afterContact ? ['skip', 'show_when'] : ['skip', 'show_when', 'add', 'quantity'];
+        [$rules, $targets] = [[], []];
+        foreach (FormLogic::rules($o) as $rule) {
+            $then = [];
+            foreach ($rule['then'] ?? [] as $action) {
+                if (!in_array($action['do'] ?? '', $allowed, true)) {
+                    continue;
+                }
+                unset($action['label']);
+                $then[] = $action;
+                if (in_array($action['do'], ['skip', 'show_when'], true) && isset($index[(string) ($action['field'] ?? '')])) {
+                    $targets[$index[$action['field']]] = true;
+                }
+            }
+            if ($then !== []) {
+                $rules[] = ['match' => $rule['match'] ?? 'all', 'when' => $rule['when'] ?? [], 'then' => $then];
+            }
+        }
+        $estimate = null;
+        foreach ($o['fields'] as $f) {
+            if ($f['type'] === 'estimate') {
+                $estimate = $f;
+                break;
+            }
+        }
+        if ($rules === [] && ($afterContact || $estimate === null)) {
+            return [[], $targets];
+        }
+        $logic = ['fields' => array_map(static fn (array $f): array => ['key' => (string) ($f['key'] ?? ''), 'type' => (string) $f['type']], array_values($o['fields'])), 'rules' => $rules];
+        if (!$afterContact && $estimate !== null) {
+            $logic['estimate'] = ['base' => self::price($estimate['base_price'] ?? ''), 'below' => (float) ($estimate['range_below'] ?? 0), 'above' => (float) ($estimate['range_above'] ?? 0),
+                'round' => (float) ($estimate['round_to'] ?? 0), 'minimum' => self::price($estimate['minimum'] ?? ''),
+                'prefix' => mb_substr(trim((string) ($estimate['unit_prefix'] ?? '')), 0, 10),
+                'suffix' => mb_substr(trim((string) (($estimate['unit_suffix'] ?? '') !== '' ? $estimate['unit_suffix'] : ($estimate['currency'] ?? ''))), 0, 10)];
+        }
+
+        return [$logic, $targets];
     }
 
     /**
@@ -258,7 +461,7 @@ final class Form extends Element
             . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-basket-field' . ($field['required'] ? ' data-required' : '') . '>' . $message . '</div>';
     }
 
-    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = ''): string
+    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', ?Context $k = null, bool $amounts = true): string
     {
         $id = 'f-' . $element . '-' . $i;
         $displayName = 'p' . $i;
@@ -276,31 +479,71 @@ final class Form extends Element
         if ($field['type'] === 'hidden') {
             return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
         }
-        if ($field['type'] === 'checkboxes') {
-            $options = '';
-            foreach (self::optionPrices($field) as $m => $price) {
-                $options .= '<label><input type="checkbox" name="' . $displayName . '[]" value="' . e((string) $m) . '"' . self::priceAttribute($price) . $marking . '> ' . e((string) $m) . '</label>';
-            }
-            // required = at least one ticked; the browser cannot say that about a group, the server does (Front\Forms)
-            return '<div class="tl-field tl-field-checkboxes"><fieldset' . ($field['required'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
+        if ($field['type'] === 'timerange') {
+            $time = fn (string $name): string => '<label><span>' . e($name) . '</span><input type="time" name="' . $displayName . '[]"' . $required . $marking . '></label>';
+
+            return '<div class="tl-field tl-timerange"><fieldset' . ($field['required'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend><div class="tl-timerange-inputs">'
+                . $time(t('From')) . $time(t('To')) . '</div></fieldset>' . $message . '</div>';
         }
-        if ($field['type'] === 'radio') {
+        if ($field['type'] === 'checkboxes' || $field['type'] === 'radio') {
+            $multiple = $field['type'] === 'checkboxes';
+            $display = (string) ($field['display'] ?? 'list');
+            $tiles = in_array($display, ['image_tiles', 'icon_tiles'], true);
+            $media = explode("\n", (string) ($field['option_media'] ?? ''));
+            // an option's image or icon has the same line number as the option (its first line when a label repeats)
+            $choices = $multiple ? 'checkbox_options' : 'choices';
+            $line = [];
+            foreach (explode("\n", (string) ($field[$choices] ?? '')) as $n => $text) {
+                $label = array_key_first(self::optionPrices(['type' => $field['type'], $choices => $text]));
+                if ($label !== null) {
+                    $line += [(string) $label => $n];
+                }
+            }
             $options = '';
             $j = 0;
             foreach (self::optionPrices($field) as $m => $price) {
-                $options .= '<label><input type="radio" name="' . $displayName . '" value="' . e((string) $m) . '"' . self::priceAttribute($price) . ($j++ === 0 ? $required . $marking : '') . '> ' . e((string) $m) . '</label>';
+                $picture = '';
+                if ($tiles) {
+                    $source = trim($media[$line[(string) $m] ?? $j] ?? '');
+                    $picture = match (true) {
+                        $display === 'image_tiles' && preg_match(Build::IMAGE_PATTERN, $source) === 1 => '<span class="tl-tile-media"><img src="' . e($k?->image($source) ?? $source) . '" alt="" loading="lazy"></span>',
+                        $display === 'icon_tiles' && isset(\Talea\Builder\Icons::SET[$source]) => '<span class="tl-tile-media">' . \Talea\Builder\Icons::svg($source) . '</span>',
+                        default => '',
+                    };
+                }
+                $input = $multiple
+                    ? '<input type="checkbox" name="' . $displayName . '[]" value="' . e((string) $m) . '"' . ($amounts ? self::priceAttribute($price) : '') . $marking . '>'
+                    : '<input type="radio" name="' . $displayName . '" value="' . e((string) $m) . '"' . ($amounts ? self::priceAttribute($price) : '') . ($j === 0 ? $required . $marking : '') . '>';
+                $options .= '<label>' . $input . $picture . ($tiles ? '<span>' . e((string) $m) . '</span>' : ' ' . e((string) $m)) . '</label>';
+                $j++;
             }
+            $class = $tiles ? ' class="tl-tiles tl-tiles--' . ($display === 'image_tiles' ? 'image' : 'icon') . '"' : '';
+            // required = at least one ticked; the browser cannot say that about a group, the server does (Front\Forms)
+            $aria = $multiple && $field['required'] ? ' aria-required="true"' : '';
+            $advance = !$multiple && !empty($field['advance']) ? ' data-advance' : '';
 
-            return '<div class="tl-field"><fieldset><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
+            return '<div class="tl-field' . ($multiple ? ' tl-field-checkboxes' : '') . '"><fieldset' . $class . $aria . $advance . '><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
+        }
+        if ($field['type'] === 'number' && ($field['display'] ?? '') === 'slider') {
+            $min = self::price($field['min'] ?? '');
+            $max = self::price($field['max'] ?? '') ?: 100.0;
+            $max = $max > $min ? $max : $min + 100;
+            $step = self::price($field['step'] ?? '');
+            $step = $step > 0 ? $step : 1.0;
+
+            return '<p class="tl-field tl-range"><label for="' . $id . '">' . $labelText . $star . '</label><span class="tl-range-row"><input id="' . $id . '" name="' . $displayName . '" type="range" min="' . self::plain($min) . '" max="' . self::plain($max)
+                . '" step="' . self::plain($step) . '" value="' . self::plain($min) . '"'
+                . ($amounts && self::price($field['unit_price'] ?? '') != 0.0 ? ' data-price-per="' . self::price($field['unit_price']) . '"' : '') . $required . $marking
+                . '><output for="' . $id . '">' . self::plain($min) . '</output></span>' . $message . '</p>';
         }
         $label = '<label for="' . $id . '">' . $labelText . $star . '</label>';
         $input = match ($field['type']) {
             'textarea' => '<textarea id="' . $id . '" name="' . $displayName . '" maxlength="5000"' . $required . $marking . '></textarea>',
             'select' => '<select id="' . $id . '" name="' . $displayName . '"' . $required . $marking . '><option value="">' . e(t('— choose —')) . '</option>'
-                . implode('', array_map(fn (string|int $m, float $price): string => '<option' . self::priceAttribute($price) . '>' . e((string) $m) . '</option>', array_keys($prices = self::optionPrices($field)), $prices)) . '</select>',
+                . implode('', array_map(fn (string|int $m, float $price): string => '<option' . ($amounts ? self::priceAttribute($price) : '') . '>' . e((string) $m) . '</option>', array_keys($prices = self::optionPrices($field)), $prices)) . '</select>',
             'date' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $required . $marking . '>',
             'number' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"'
-                . (self::price($field['unit_price'] ?? '') != 0.0 ? ' data-price-per="' . self::price($field['unit_price']) . '"' : '') . $required . $marking . '>',
+                . ($amounts && self::price($field['unit_price'] ?? '') != 0.0 ? ' data-price-per="' . self::price($field['unit_price']) . '"' : '') . $required . $marking . '>',
             'file' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
                 . '<small class="tl-field-help">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
@@ -361,13 +604,24 @@ final class Form extends Element
      *
      * @param list<array<string, mixed>> $fields
      */
-    private static function estimateField(array $field, array $fields): string
+    private static function estimateField(array $field, array $fields, bool $afterContact = false): string
     {
+        if ($afterContact) {
+            // the result comes with the answer to the contact details: nothing of the calculation is in the page
+            return '<p class="tl-field tl-estimate-later">' . e(t('You will see your estimate after sending.')) . '</p>';
+        }
         $base = self::price($field['base_price'] ?? '');
-        $currency = mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10);
+        $currency = mb_substr(trim((string) (($field['unit_suffix'] ?? '') !== '' ? $field['unit_suffix'] : ($field['currency'] ?? ''))), 0, 10);
+        $prefix = mb_substr(trim((string) ($field['unit_prefix'] ?? '')), 0, 10);
 
         return '<p class="tl-field tl-estimate" data-estimate data-base="' . $base . '" data-currency="' . e($currency) . '"><span>' . e((string) $field['label']) . '</span> <output aria-live="polite">'
-            . e(self::money($base, $currency)) . '</output><small class="tl-field-help">' . e(t('An estimate from your answers – the final price follows in our reply.')) . '</small></p>';
+            . e(self::money($base, $currency, $prefix)) . '</output><small class="tl-field-help">' . e(t('An estimate from your answers – the final price follows in our reply.')) . '</small></p>';
+    }
+
+    /** A number for an attribute: 10 not 10.0. */
+    private static function plain(float $n): string
+    {
+        return $n == floor($n) && abs($n) < 1e12 ? (string) (int) $n : (string) $n;
     }
 
     /** The price of an option for the estimate script; nothing without one. */
@@ -384,82 +638,11 @@ final class Form extends Element
         return is_numeric($v) ? (float) $v : 0.0;
     }
 
-    /**
-     * Which fields are shown for the given answers (2.12): a field with a condition only when the field with that label has
-     * that value (a choice: equals it; options to tick: it is ticked; a "*" value: anything filled in). A condition on a
-     * field that does not exist or is itself hidden hides the field. Pure – the server and the tests use it.
-     *
-     * @param list<array<string, mixed>> $fields
-     * @param array<int, string|list<string>> $answers index => value (a list for options to tick)
-     * @return array<int, bool>
-     */
-    public static function visible(array $fields, array $answers): array
-    {
-        $byLabel = [];
-        foreach ($fields as $i => $f) {
-            $byLabel[mb_strtolower(trim((string) ($f['label'] ?? '')))] ??= $i;
-        }
-        $visible = [];
-        $resolve = function (int $i, int $depth) use (&$resolve, &$visible, $fields, $answers, $byLabel): bool {
-            if (isset($visible[$i])) {
-                return $visible[$i];
-            }
-            $when = mb_strtolower(trim((string) ($fields[$i]['show_when_field'] ?? '')));
-            if ($when === '') {
-                return $visible[$i] = true;
-            }
-            $target = $byLabel[$when] ?? null;
-            if ($target === null || $target === $i || $depth > 10 || !$resolve($target, $depth + 1)) {
-                return $visible[$i] = false;
-            }
-            $expected = trim((string) ($fields[$i]['show_when_value'] ?? ''));
-            $answer = $answers[$target] ?? '';
-
-            return $visible[$i] = is_array($answer) ? ($expected === '*' ? $answer !== [] : in_array($expected, $answer, true))
-                : ($expected === '*' ? trim($answer) !== '' : trim($answer) === $expected);
-        };
-        foreach (array_keys($fields) as $i) {
-            $resolve($i, 0);
-        }
-
-        return $visible;
-    }
-
-    /**
-     * The price estimate (2.12): the base price, plus the price of every chosen or ticked option, plus every number × its
-     * price per unit – only of the fields that are shown. Pure; the server computes it again, never trusting the browser.
-     *
-     * @param list<array<string, mixed>> $fields
-     * @param array<int, string|list<string>> $answers
-     * @param array<int, bool> $visible
-     */
-    public static function estimate(array $fields, array $answers, array $visible, float $base): float
-    {
-        $total = $base;
-        foreach ($fields as $i => $f) {
-            if (!($visible[$i] ?? true)) {
-                continue;
-            }
-            $answer = $answers[$i] ?? '';
-            $type = (string) ($f['type'] ?? '');
-            if (in_array($type, ['select', 'radio', 'checkboxes'], true)) {
-                $prices = self::optionPrices($f);
-                foreach ((array) $answer as $chosen) {
-                    $total += $prices[(string) $chosen] ?? 0.0;
-                }
-            } elseif ($type === 'number' && is_string($answer) && is_numeric(str_replace(',', '.', $answer))) {
-                $total += (float) str_replace(',', '.', $answer) * self::price($f['unit_price'] ?? '');
-            }
-        }
-
-        return round($total, 2);
-    }
-
-    /** An amount for visitors: whole numbers with the thousands separator of the language, the currency after it. */
-    public static function money(float $amount, string $currency): string
+    /** An amount for visitors: whole numbers with the thousands separator of the language, an optional unit before and after it. */
+    public static function money(float $amount, string $suffix, string $prefix = ''): string
     {
         $number = format_count($amount, abs($amount - round($amount)) < 0.005 ? 0 : 2);
 
-        return trim($number . ($currency !== '' ? "\u{a0}" . $currency : ''));
+        return trim($prefix . $number . ($suffix !== '' ? "\u{a0}" . $suffix : ''));
     }
 }

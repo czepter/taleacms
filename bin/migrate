@@ -42,6 +42,9 @@ try {
     }
     $applied = Migrator::migrate($config['db']);
 } catch (Throwable $e) {
+    \Talea\Core\ErrorReport::configure($config);
+    \Talea\Core\ErrorReport::tag('area', 'migrate');
+    \Talea\Core\ErrorReport::capture($e, 'fatal', ['handled' => false]); // sent by the shutdown function, before the exit code reaches the entrypoint
     fwrite(STDERR, 'Migration failed: ' . $e->getMessage() . "\n");
     exit(1);
 }

@@ -148,7 +148,8 @@ final class Prompts
                 5. The header and the footer: start with `apply_part_template` (`part` header or footer, `language` for each
                    version), then `edit_build` or `save_build` with `part`. The menus: `save_menu` (`location` main or footer,
                    `language`).
-                6. Forms: the Form element with the same fields and the same recipient. Pop-ups: `save_popup` (a new one is
+                6. Forms: `create_form` with the same fields and the same recipient, placed with the Form element (a form
+                   element written inside the page becomes a form when the page is published). Pop-ups: `save_popup` (a new one is
                    inactive).
                 7. Compare `preview_link` with the old page and fix the differences. The page stays a draft.
 
@@ -181,7 +182,8 @@ final class Prompts
                 Give the user: what was moved, what was not and why (variations, orders, accounts, scripts), the remaining
                 warnings of the report, preview links of the main pages and `list_pending_review`. List what only an
                 administrator can do in the administration: mail, the time zone, analytics and code for the page head,
-                off-site backups, the site address (`site_url`) and switching the domain.
+                off-site backups and pointing the domain at the site. The site address (`site_url`) follows with `update_settings`
+                (full access) once the domain answers, unless the server sets it (TALEA_SITE_URL).
 
                 Publishing is the user's call. On their explicit instruction, with full access and the publishing permission:
                 `publish_build` per page, `update_page` with `visible` true, `publish_look` for the look and the menus, and
@@ -277,7 +279,8 @@ final class Prompts
                 ## 9. Check before launch
 
                 - **Address and domain.** The site address (`site_url`, Settings → General) must be the final https address –
-                  links in e-mails and feeds are built from it. An administrator sets it and points the domain at the site.
+                  links in e-mails and feeds are built from it. An administrator points the domain at the site; the address
+                  is then set with `update_settings` (`site_url`, full access), unless the server sets it (TALEA_SITE_URL).
                 - **Old addresses.** If the site replaces an older one, every old address must keep working: `save_redirect`
                   for each, or the prompt migrate_site for a whole move.
                 - **Search engines.** Every page needs a title and a search engine description (`update_page` with
@@ -350,8 +353,8 @@ final class Prompts
                 ## 5. Enquiries
 
                 Enquiries hold personal data; use them only for what the user asks. `triage_enquiries` returns those not
-                sorted yet: save a suggestion for each with `update_enquiry` – the `category` (sales, support, job, supplier,
-                spam or other), the `priority` and a `draft_reply` in the language of the enquiry. A person checks and sends
+                sorted yet: save a suggestion for each with `update_enquiry` – the `category` (one of the site's kinds that
+                `triage_enquiries` lists with how to recognise each), the `priority` and a `draft_reply` in the language of the enquiry. A person checks and sends
                 the reply. Never promise prices, dates or facts the site does not state. `list_enquiries` shows the rest.
 
                 ## 6. What waits for a person
@@ -765,7 +768,7 @@ final class Prompts
     {
         $s = $app->settings();
         $text = match ($uri) {
-            self::INSTRUCTIONS_URI => self::instructions($app) ?: 'The site owner has not written any instructions yet (Claude settings).',
+            self::INSTRUCTIONS_URI => self::instructions($app) ?: 'The site owner has not written any instructions yet (Settings → AI).',
             self::OVERVIEW_URI => (string) json_encode([
                 'site' => $s->get('site_name'), 'url' => $app->request->origin() . $app->url(''), 'description' => $s->get('site_description'),
                 'talea_version' => TALEA_VERSION, 'languages' => array_values(array_unique(array_merge([\Talea\Core\Language::defaults($s)], \Talea\Core\Language::additional($s)))),
@@ -777,7 +780,7 @@ final class Prompts
         return ['contents' => [['uri' => $uri, 'mimeType' => $uri === self::OVERVIEW_URI ? 'application/json' : 'text/plain', 'text' => $text]]];
     }
 
-    /** The site owner's instructions for Claude (Claude settings). */
+    /** The site owner's instructions for Claude (Settings → AI). */
     public static function instructions(App $app): string
     {
         return trim($app->settings()->get('claude_instructions'));
@@ -798,6 +801,13 @@ final class Prompts
         if (($app->auth()->connection()['tool_set'] ?? 'all') === 'essentials') {
             $text .= ' THIS CONNECTION LISTS THE ESSENTIAL TOOLS ONLY: every other tool it may use (news, redirects, settings, bookings, newsletters…) is found with find_tools and run by name with run_read_tool (reads), '
                 . 'run_tool (drafts and changes) or run_destructive_tool (removes, sends or reaches outside the site – confirm the exact action with the user first). The runners give exactly what a direct call gives.';
+        }
+        // the tools of a switched-off feature are not listed: without this Claude rebuilds the feature by hand (a blog as a collection)
+        $off = array_diff_key(\Talea\Core\Extensions::CATALOG, array_flip(\Talea\Core\Extensions::enabled($app->settings())));
+        if ($off !== []) {
+            $text .= ' SWITCHED OFF ON THIS SITE: ' . implode(', ', array_map(fn (string $key, array $row): string => $row[0] . ' (' . $key . ')', array_keys($off), $off))
+                . ' – their tools are not listed (a blog is News). Never rebuild such a feature with pages or a collection: ask the user to switch it on; an administrator does it with update_settings '
+                . '{"settings":{"extensions":[the extensions from site_info and the new key]}}, and its tools appear in the next conversation.';
         }
         $address = \Talea\Core\Language::visitorAddress($app->settings());
         if ($address !== null) {
@@ -825,7 +835,7 @@ final class Prompts
             . '(8) Pop-ups (a newsletter sign-up, a download, an announcement bar): save_popup with a template creates one (inactive), build its content with the *_build tools and the popup parameter, set type, trigger, frequency and rules with save_popup; activate it (active: true) only after publishing and only when the user asks. list_popups shows views, closes and conversions. '
             . '(9) Translating into another language version (the admin switches languages on): create_page with language, translation_of and copy_build, then get_build with texts_only and edit_build “update” operations for the texts and links (internal links point to the translated pages); the header and footer with the part and language parameters (they start as a copy of the default language); save_menu with language; a collection item translation with the same slug and language; a collection item template with collection and language. '
             . '(10) Newsletters (Newsletter extension): draft_newsletter writes one e-mail styled by the design system – subject, introduction, the latest or chosen news items and a button; check the returned text, send_test_newsletter sends it to the user, and send_newsletter goes to all subscribers only when the user explicitly asks (it cannot be taken back). '
-            . '(11) Cleaning up: pages, news items and collection items go to the trash (trash_page, trash_news, delete_collection_item) and come back with restore_from_trash for 30 days (list_trash). Other deletes (collections, categories, pop-ups, components, saved sections, media, enquiries) are final – use them only when the user explicitly asks. A repeated block belongs in a component (save_component, then the *_build tools with component); a section the user saved in the builder is in builder_schema → saved_sections. '
+            . '(11) Cleaning up: pages, news items, collection items and enquiries go to the trash (trash_page, trash_news, delete_collection_item, delete_enquiry) and come back with restore_from_trash for 30 days (list_trash). Other deletes (collections, categories, pop-ups, components, saved sections, media) are final – use them only when the user explicitly asks. A repeated block belongs in a component (save_component, then the *_build tools with component); a section the user saved in the builder is in builder_schema → saved_sections. A form is defined once and placed: list_forms, create_form, then the *_build tools with form for its fields, logic and thank-you e-mail; a page places it with a form_embed element (which form, a thank-you page, the button text, field widths). A form element written inside a page becomes such a form when the page is published. '
             . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_website or the WordPress import bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched. '
             . '(13) Looking after the site (2.8): get_health first when something seems wrong, list_events for what happened since you last looked (keep next_since_id). '
             . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. '

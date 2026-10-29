@@ -42,7 +42,7 @@ final class OAuth
     public const int REFRESH_WINDOW = 3600;
     private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/';
 
-    /** One name for each access level: the consent screen, My account, Claude settings and Users say the same (translated with t() where shown). */
+    /** One name for each access level: the consent screen, My account, the Claude connection and Users say the same (translated with t() where shown). */
     public const array ACCESS_LABELS = ['drafts' => 'Drafts only – you publish', 'full' => 'Can also publish', 'read' => 'Read only'];
 
     /**

@@ -7,46 +7,10 @@ parameters:
 			path: system/src/Admin/Kernel.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between ''collections'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Collections.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''components'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Components.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''pages'' and ''pages'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: system/src/Admin/Modules/Pages.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''popups'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/Popups.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''parts'' and ''pages'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: system/src/Admin/Modules/SiteParts.php
-
-		-
 			message: '#^Match expression does not handle remaining value\: mixed$#'
 			identifier: match.unhandled
 			count: 1
 			path: system/src/Admin/Modules/Transfer.php
-
-		-
-			message: '#^Offset ''content'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: system/src/Builder/Build.php
 
 		-
 			message: '#^Match expression does not handle remaining value\: string$#'
@@ -181,6 +145,12 @@ parameters:
 			path: system/src/Builder/Looks.php
 
 		-
+			message: '#^Offset ''content'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: system/src/Builder/Renderer.php
+
+		-
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
@@ -259,18 +229,6 @@ parameters:
 			path: system/src/Core/MigrationReport.php
 
 		-
-			message: '#^Offset ''username'' does not exist on array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, user\: string, password\: string, prefix\?\: string\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: system/src/Core/Migrator.php
-
-		-
-			message: '#^Parameter \#1 \$c of static method Talea\\Core\\Db\:\:fromConfig\(\) expects array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, username\: string, password\: string, prefix\?\: string\}, array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, user\: string, password\: string, prefix\?\: string\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: system/src/Core/Migrator.php
-
-		-
 			message: '#^Offset ''item_id'' does not exist on array\{idp\: int, visible\: bool, posted\: string, taken_down\: string\}\.$#'
 			identifier: offsetAccess.notFound
 			count: 1
@@ -328,19 +286,19 @@ parameters:
 			message: '#^PHPDoc tag @param references unknown parameter\: \$meta$#'
 			identifier: parameter.notFound
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Property Talea\\Builder\\Context\:\:\$menu \(list\<array\{title\: string, slug\: string\}\>\) does not accept array\{main\: list\<array\<string, mixed\>\>, footer\: list\<array\<string, mixed\>\>\}\.$#'
 			identifier: assign.propertyType
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>withoutCache" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
-			path: system/src/Front/Kernel.php
+			path: system/src/Front/PageFrame.php
 
 		-
 			message: '#^Method Talea\\Install\\Installer\:\:requirements\(\) should return list\<array\{nazev\: string, ok\: bool, info\: string\}\> but returns array\{0\: array\{name\: string, ok\: bool, info\: non\-falsy\-string\}, 1\: array\{name\: string, ok\: bool, info\: string\}, 2\: array\{name\: string, ok\: bool, info\: string\}, 3\: array\{name\: string, ok\: bool, info\: string\}, 4\?\: array\{name\: string, ok\: bool, info\: string\}\}\.$#'
@@ -351,12 +309,6 @@ parameters:
 		-
 			message: '#^Offset 0\|1\|2\|3 on array\{array\{''hero'', ''benefits'', ''numbers'', ''testimonials'', ''news'', ''call\-to\-action''\}, array\{\}, array\{''page\-title'', ''services'', ''faq'', ''call\-to\-action''\}, array\{''page\-title'', ''contact'', ''enquiry''\}\}\|array\{array\{''hero\-centered'', ''logos'', ''benefits\-list'', ''numbers\-light'', ''quote'', ''call\-to\-action''\}, array\{''page\-title'', ''story'', ''team'', ''history'', ''careers''\}, array\{''page\-title'', ''services'', ''pricing'', ''faq\-columns''\}, array\{''page\-title'', ''contact\-form'', ''branches''\}\}\|array\{array\{''hero\-image'', ''guarantees'', ''process'', ''portfolio'', ''testimonials'', ''call\-to\-action''\}, array\{''page\-title'', ''story'', ''values'', ''team''\}, array\{''page\-title'', ''alternating'', ''services\-list'', ''faq'', ''cta\-bar''\}, array\{''page\-title'', ''contact\-form''\}\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 1
-			path: system/src/Install/Installer.php
-
-		-
-			message: '#^Parameter \#1 \$config of static method Talea\\Core\\Migrator\:\:migrate\(\) expects array\{driver\?\: string, host\?\: string, port\?\: int, socket\?\: string, name\: string, user\: string, password\: string, prefix\?\: string\}, array\{driver\: string, host\: non\-empty\-string, port\: int, name\: string, username\: string, password\: string, prefix\: string\} given\.$#'
-			identifier: argument.type
 			count: 1
 			path: system/src/Install/Installer.php
 

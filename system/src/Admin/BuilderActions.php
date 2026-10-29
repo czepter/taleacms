@@ -13,6 +13,7 @@ use Talea\Builder\Library;
 use Talea\Builder\Collections;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 use Talea\Builder\ElementClipboard;
 use Talea\Builder\Style;
 
@@ -57,6 +58,12 @@ trait BuilderActions
         return str_starts_with($back, $admin) && preg_match('#^[a-z_]+/builder(?:/[A-Za-z0-9_.-]+)?(?:\?[^\s"<>]*)?$#', substr($back, strlen($admin))) === 1 ? ['url' => $back, 'text' => t('Back to the page')] : null;
     }
 
+    /** What the target may hold of a sanitized build before it is saved; a form keeps its fields alone (Modules\Forms). @return array<string, mixed> */
+    protected function shapeBuild(array $build): array
+    {
+        return $build;
+    }
+
     /** Full-screen build editor: canvas with the real site page, tree, properties. */
     protected function actionBuilder(): Response
     {
@@ -68,12 +75,18 @@ trait BuilderActions
         $e = $this->describeTarget($target);
         $collections = array_map(fn (array $k): array => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Talea\Core\Extensions::enabled($app->settings());
-        $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
+        $schema = ElementSchema::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
         $components = \Talea\Admin\Modules\Components::listForEditor($this->db);
+        $forms = \Talea\Admin\Modules\Forms::listForEditor($this->db);
         foreach ($schema['elements'] as &$element) {
             if ($element['type'] === 'component') {
                 $element['properties']['component'] = ['type' => 'choice', 'label' => 'Component', 'default' => '',
                     'options' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'name' => $k['name']], $components), 'name', 'id')];
+            }
+            if ($element['type'] === \Talea\Builder\Elements\FormEmbed::TYPE) {
+                // in the editor, a choice of the site's forms (Enquiries → Forms); the validator keeps the public id as text
+                $element['properties']['form'] = ['type' => 'choice', 'label' => 'Form', 'default' => '',
+                    'options' => ['' => '—'] + array_column(array_map(fn (array $f): array => ['id' => $f['id'], 'name' => $f['name'] . ($f['published'] ? '' : ' (' . t('not published') . ')')], $forms), 'name', 'id')];
             }
             if ($element['type'] === 'gallery') {
                 // in the editor, a choice of Media folders (the validator keeps the folder's public id as text)
@@ -92,7 +105,8 @@ trait BuilderActions
         $defaultLanguage = Language::defaults($app->settings());
         $data = [
             'page' => ['id' => $e['id'] ?? null, 'title' => $target['title'], 'url' => $e['url'], 'visible' => $e['visible'], 'published' => $target['build'] !== null, 'can_publish' => $app->auth()->canPublish(),
-                'headings' => (bool) ($e['headings'] ?? false), 'description' => (string) ($e['description'] ?? ''), 'image' => (string) ($e['image'] ?? '')], // check before publishing: the page should have one h1 and not skip levels
+                'headings' => (bool) ($e['headings'] ?? false), 'description' => (string) ($e['description'] ?? ''), 'image' => (string) ($e['image'] ?? ''), // check before publishing: the page should have one h1 and not skip levels
+                'form' => (bool) ($e['form'] ?? false)], // the form builder (Modules\Forms): the build is the form's fields alone
             'build' => Build::fromJson($target['draft'] ?? $target['build']),
             'changed' => $target['draft'] !== null && $target['draft'] !== $target['build'],
             'version' => self::computeBuildVersion($target['draft'] ?? $target['build']),
@@ -102,6 +116,7 @@ trait BuilderActions
             'direction' => Language::dir(Language::ofContent($app->settings(), (string) $target['language'])),
             'collections' => $collections,
             'components' => $components,
+            'forms' => $forms, // the forms a Form element can place, with their fields for the widths (Elements\FormEmbed)
             'ai' => (new \Talea\Core\Assistant($app->settings()))->isReady(),
             'ai_provider' => \Talea\Core\Assistant::PROVIDERS[$app->settings()->get('ai_provider')][0] ?? \Talea\Core\Assistant::PROVIDERS['anthropic'][0], // named in the Ask box's notice about what is sent
             'detail_collection' => $e['collection'] ?? null,
@@ -124,9 +139,10 @@ trait BuilderActions
             'urls' => array_map(fn (string $action): string => $this->url($action, $target['params']), [
                 'save' => 'build_save', 'publish' => 'build_publish', 'discard' => 'build_discard', 'section' => 'build_section', 'class' => 'build_class',
                 'versions' => 'build_versions', 'compare' => 'build_compare', 'restore' => 'build_restore','ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',
-                'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve',
+                'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve', 'form_try' => 'build_form_try',
             ]) + ['delete_section' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['params']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
                 'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
+                'form' => $app->auth()->hasModule('enquiries') ? $app->url('admin.php?module=forms&action=builder') : null, 'form_new' => $app->auth()->hasModule('enquiries') ? $app->url('admin.php?module=forms&action=new') : null,
                 'section_preview' => $app->url('_section/'),
                 'guide' => \Talea\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Talea\Core\Language::code())],
         ];
@@ -149,6 +165,7 @@ trait BuilderActions
             return $conflict;
         }
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['draft'] ?? $target['build']));
+        $build = $this->shapeBuild($build);
         $json = Build::toJson($build);
         $this->saveDraft($target, $json);
 
@@ -489,6 +506,20 @@ trait BuilderActions
         return Response::json(['ok' => true] + $diff);
     }
 
+    /** Runs the logic of a form element of the draft with answers by field key (JSON): the same answer as MCP try_form. */
+    protected function actionBuildFormTry(): Response
+    {
+        $target = $this->loadBuildTarget();
+        $answers = json_decode($this->request->get('answers'), true);
+        try {
+            $build = $target === null ? throw new \InvalidArgumentException(t('Page does not exist.')) : (Build::fromJson($target['draft'] ?? $target['build']) ?? ['v' => Build::VERSION, 'children' => []]);
+
+            return Response::json(\Talea\Builder\Elements\Form::tryOut($build, $this->request->get('element'), is_array($answers) ? $answers : []));
+        } catch (\InvalidArgumentException $e) {
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 404);
+        }
+    }
+
     /** An older version is loaded into the draft; it is published only with the Publish button. */
     protected function actionBuildRestore(): Response
     {
@@ -527,13 +558,16 @@ trait BuilderActions
 
     /**
      * Schema labels (names of elements, fields, style properties and their options) into the admin language. The default
-     * content of elements is not translated – it is in the page language (Build::schema).
+     * content of elements is not translated – it is in the page language (ElementSchema::schema).
      */
     private static function translateSchema(array $schema): array
     {
         $field = function (array $properties) use (&$field): array {
             foreach ($properties as $key => $d) {
                 $properties[$key]['label'] = t((string) ($d['label'] ?? ''));
+                if (isset($d['note'])) {
+                    $properties[$key]['note'] = t((string) $d['note']);
+                }
                 if (isset($d['options'])) {
                     $properties[$key]['options'] = array_map(fn (string $m): string => t($m), $d['options']);
                 }
@@ -591,7 +625,7 @@ trait BuilderActions
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
-        $refusal = \Talea\Core\Guardrails::assistantRefusal($this->app, static::IDENT === 'pages' ? (int) $target['row']['page_id'] : null);
+        $refusal = \Talea\Core\Guardrails::assistantRefusal($this->app, isset($target['row']['page_id']) ? (int) $target['row']['page_id'] : null);
         if ($refusal !== null) {
             return Response::json(['ok' => false, 'error' => $refusal], 403);
         }

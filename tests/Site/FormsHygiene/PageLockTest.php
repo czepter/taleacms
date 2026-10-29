@@ -45,9 +45,13 @@ final class PageLockTest extends SiteTestCase
         $this->assertFalse($this->secretOn($this->site()->client('lock-other')), 'page lock: another visitor still sees the form');
     }
 
-    public function testPastThePageCapOnlyWrongPasswordsAreRefused(): void
+    public function testPastThePageCapNoPasswordIsChecked(): void
     {
-        // 3.3.3 (N58): past the page's cap of wrong passwords from all addresses only wrong ones are refused – the right one still opens
+        // past the page's cap of wrong passwords from all addresses no guess gets an answer, the right one included;
+        // a reader who opened the page before keeps it
+        $reader = $this->site()->client('lock-reader');
+        $reader->get('/partner-ceny');
+        $reader->post('/partner-ceny', ['tl_page_password' => 'partner-2026']);
         $directory = $this->site()->path('storage/cache/limits');
         @mkdir($directory, 0775, true);
         $files = [];
@@ -55,18 +59,46 @@ final class PageLockTest extends SiteTestCase
             $files[] = $directory . '/page-lock-all-' . (intdiv(time(), 900) + $n) . '-' . substr(hash('sha256', 'page-' . self::$page), 0, 24);
         }
         foreach ($files as $file) {
-            file_put_contents($file, str_repeat('.', 120));
+            file_put_contents($file, str_repeat('.', 100));
         }
 
         $visitor = $this->site()->client('lock-visitor-3');
         $visitor->get('/partner-ceny');
         $wrong = $visitor->post('/partner-ceny', ['tl_page_password' => 'wrong-again']);
-        $this->assertSame(403, $wrong->status, 'page lock: past the cap a wrong password is refused');
-        $this->assertTrue($wrong->contains('Too many attempts'), 'page lock: as too many attempts');
-        $this->assertSame(303, $visitor->post('/partner-ceny', ['tl_page_password' => 'partner-2026'])->status, 'page lock: the right password still passes');
-        $this->assertTrue($this->secretOn($visitor), 'page lock: and opens the page');
+        $right = $visitor->post('/partner-ceny', ['tl_page_password' => 'partner-2026']);
+        $this->assertSame([403, true], [$wrong->status, $wrong->contains('Too many attempts')], 'page lock: past the cap a wrong password is refused as too many attempts');
+        $this->assertSame([403, true], [$right->status, $right->contains('Too many attempts')], 'page lock: and the right one the same way');
+        $this->assertFalse($this->secretOn($visitor), 'page lock: the page stays closed');
+        $this->assertTrue($this->secretOn($reader), 'page lock: a reader who opened it before still sees it');
 
         array_map('unlink', $files);
+    }
+
+    public function testTheWrongPasswordThatReachesTheCapTellsTheOwnerOnce(): void
+    {
+        $directory = $this->site()->path('storage/cache/limits');
+        @mkdir($directory, 0775, true);
+        $window = intdiv(time(), 900);
+        $file = $directory . '/page-lock-all-' . $window . '-' . substr(hash('sha256', 'page-' . self::$page), 0, 24);
+        file_put_contents($file, str_repeat('.', \Talea\Core\PageLock::PAGE_ATTEMPTS - 2));
+        $logged = fn (): int => (int) $this->site()->value("SELECT COUNT(*) FROM tl_change_log WHERE action = 'page password paused'");
+        $reader = $this->site()->client('lock-cap-0');
+        $reader->get('/partner-ceny');
+        $reader->post('/partner-ceny', ['tl_page_password' => 'partner-2026']);
+        clearstatcache();
+        $this->assertSame(\Talea\Core\PageLock::PAGE_ATTEMPTS - 2, filesize($file), 'page lock: the right password gives its place in the page cap back');
+
+        foreach (['lock-cap-1', 'lock-cap-2', 'lock-cap-3'] as $name) {
+            $visitor = $this->site()->client($name);
+            $visitor->get('/partner-ceny');
+            $visitor->post('/partner-ceny', ['tl_page_password' => 'wrong-' . $name]);
+        }
+        if (intdiv(time(), 900) !== $window) {
+            $this->markTestSkipped('the tries fell into two counting windows');
+        }
+
+        $this->assertSame(1, $logged(), 'page lock: reaching the cap writes one change-log row, the refused tries after it none');
+        @unlink($file);
     }
 
     public function testALockedPageIsNeverInTheCacheTheSitemapOrTheSearch(): void

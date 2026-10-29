@@ -21,6 +21,19 @@ final class BuildCheckTest extends TestCase
         $this->assertSame(['c', 'd', 'a', 'b'], array_column($buildCheck, 'id'), 'Build check: button without a link, image without alt, missing h1 and a skipped level');
     }
 
+    public function testBrokenFormRulesAreReported(): void
+    {
+        $form = ['id' => 'f', 'type' => 'form', 'content' => ['name' => 'Quote', 'logic' => ['rules' => [
+            ['label' => 'Fine', 'match' => 'all', 'when' => [], 'then' => [['do' => 'add', 'amount' => 1]]],
+            ['broken' => true, 'label' => 'Old colour', 'match' => 'all', 'when' => [], 'then' => [['do' => 'add', 'amount' => 1]]],
+            ['broken' => true, 'label' => '', 'match' => 'all', 'when' => [], 'then' => [['do' => 'add', 'amount' => 1]]],
+        ], 'results' => []]]];
+        $findings = \Talea\Builder\Check::builds(['v' => 1, 'children' => [['id' => 's', 'type' => 'section', 'children' => [$form]]]], false);
+        $this->assertSame([['id' => 'f', 'message' => 'The form “Quote” has rules that do nothing until you fix them in the form logic: “Old colour”, #3.']], $findings);
+        $form['content']['logic']['rules'] = [$form['content']['logic']['rules'][0]];
+        $this->assertSame([], \Talea\Builder\Check::builds(['v' => 1, 'children' => [$form]], false), 'a form without broken rules is fine');
+    }
+
     public function testTheH1OfAComponentCountsForThePage(): void
     {
         $hero = ['v' => 1, 'children' => [['id' => 'h', 'type' => 'heading', 'tag' => 'h1', 'content' => ['text' => '{{title}}']]]];

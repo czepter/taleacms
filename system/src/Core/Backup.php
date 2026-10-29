@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 /**
- * Database backups to storage/backups/ (not accessible from the web). Without mysqldump - works on shared hosting too.
+ * Database backups to storage/backups/ (not accessible from the web). Without mysqldump or pg_dump - works on shared hosting too; an SQLite site gets the same kind of file.
  */
 final class Backup
 {
@@ -148,7 +148,7 @@ final class Backup
             $statement .= $row;
             if (str_ends_with(rtrim($row), ';')) {
                 // a backup can contain only tables of this installation
-                if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
+                if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE|DELETE FROM) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
                     foreach ($names[1] as $name) {
                         if (!str_starts_with($name, $prefix)) {
                             throw new \RuntimeException('The backup contains a foreign table ' . $name . ' – the restore was stopped.');

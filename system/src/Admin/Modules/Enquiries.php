@@ -10,6 +10,8 @@ use Talea\Core\Response;
 /**
  * Enquiries and messages from the site's forms (the Form element in the builder, Front\Forms). Status: 0 new, 1 read, 2 handled.
  * They contain personal data – they delete themselves after the set number of months and can be exported to CSV.
+ * Deleting moves an enquiry to the trash (deleted_at): it is left out of every list, count and report and is removed with its
+ * attachments after 30 days (emptyTrash) unless someone restores it.
  */
 final class Enquiries extends Module
 {
@@ -32,23 +34,27 @@ final class Enquiries extends Module
         \Talea\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
         self::deleteExpired($this->db, $this->app->settings());
         $filter = $this->request->get('status');
+        $trash = $filter === 'trash';
         $conditions = match ($filter) {
             'open' => ['status < 2'],
             'resolved' => ['status = 2'],
             'mine' => ['assigned_to = ' . (int) $this->app->auth()->id()],
             default => [],
         };
+        $conditions[] = $trash ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
         $params = [];
         // the kind from triage (2.12): spam stays out of the list unless asked for; '-' = not sorted yet
         $kind = $this->request->get('category');
         if ($kind === '-') {
             $conditions[] = "category = ''";
-        } elseif (isset(\Talea\Core\Triage::CATEGORIES[$kind])) {
+        } elseif (isset(\Talea\Core\Triage::kinds($this->app->settings())[$kind])) {
             $conditions[] = 'category = ?';
             $params[] = $kind;
         } else {
             $kind = '';
-            $conditions[] = "category <> 'spam'";
+            if (!$trash) { // the trash shows spam too
+                $conditions[] = "category <> 'spam'";
+            }
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
@@ -58,20 +64,21 @@ final class Enquiries extends Module
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
         }
-        $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
+        $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: the trash condition is always there
         $pageNumber = max(1, $this->request->getInt('page', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to FROM {enquiries} ' . $whereParts . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to, deleted_at FROM {enquiries} ' . $whereParts . ' ORDER BY ' . ($trash ? 'deleted_at DESC, ' : '') . 'enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
-            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam' AND deleted_at IS NULL"),
+            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NOT NULL'), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT user_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"),
         ]);
     }
 
     protected function actionDetail(): Response
     {
-        $p = $this->db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam()]);
+        $p = $this->db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ? AND deleted_at IS NULL', [$this->idParam()]);
         if ($p === null) {
             return $this->error('The enquiry does not exist.', 404);
         }
@@ -84,7 +91,8 @@ final class Enquiries extends Module
             'testimonials' => \Talea\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
             'users' => $this->listAssignees((int) $p['assigned_to']), 'assignedPublicId' => $this->publicId((int) $p['assigned_to'], 'users'),
             // the inbox beside the open enquiry: the latest ones that are not spam (the full list with filters is the list screen)
-            'inbox' => $this->db->all("SELECT public_id, created_at, form, email, status, data FROM {enquiries} WHERE category <> 'spam' ORDER BY enquiry_id DESC LIMIT " . self::INBOX)]);
+            'inbox' => $this->db->all("SELECT public_id, created_at, form, email, status, category, data FROM {enquiries} WHERE category <> 'spam' AND deleted_at IS NULL ORDER BY enquiry_id DESC LIMIT " . self::INBOX),
+            'kinds' => \Talea\Core\Triage::names($this->app->settings())]);
     }
 
     /**
@@ -128,9 +136,13 @@ final class Enquiries extends Module
         $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
+            $by = (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin');
             \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'),
-                $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null),
-                (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
+                $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null, array_keys(\Talea\Core\Triage::kinds($this->app->settings()))), $by);
+            if ($this->request->hasPost('category') && $this->request->post('category') === '' && (string) $this->db->value('SELECT category FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== '') {
+                // "Not sorted yet" chosen for a sorted enquiry, or "Not spam" on one a machine sorted as spam: a person's decision, kept like a kind
+                $this->db->update('enquiries', ['category' => '', 'triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
+            }
             if ($this->request->hasPost('note')) {
                 $who = $this->idParam('assigned_to', 'users');
                 $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
@@ -156,19 +168,19 @@ final class Enquiries extends Module
             'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($displayName)]);
     }
 
-    /** In bulk: mark as handled, or delete (including attachments). */
+    /** In bulk: mark as handled, or move to the trash. */
     protected function actionBulk(): Response
     {
-        $ids = array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('enquiries', $uuid), $this->request->postList('selected'))));
+        $ids = $this->selected();
         if (!$this->request->isPost() || $ids === []) {
             return $this->back();
         }
         $v = implode(',', $ids);
         if ($this->request->post('bulk') === 'delete') {
-            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . $v . ')'));
-            $this->db->run('DELETE FROM {enquiries} WHERE enquiry_id IN (' . $v . ')');
+            $moved = self::trash($this->db, $ids);
+            \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'moved to trash', (string) $moved);
 
-            return $this->back(t('Enquiries deleted: %d.', count($ids)));
+            return $this->back(t('Enquiries moved to the trash: %d. They can be restored for 30 days (Enquiries → Trash).', $moved));
         }
         $this->db->run('UPDATE {enquiries} SET status = 2 WHERE enquiry_id IN (' . $v . ')');
 
@@ -199,12 +211,67 @@ final class Enquiries extends Module
 
     protected function actionDelete(): Response
     {
-        if ($this->request->isPost()) {
-            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->idParam('enquiry_id')]));
-            $this->db->delete('enquiries', ['enquiry_id' => $this->idParam('enquiry_id')]);
+        if ($this->request->isPost() && self::trash($this->db, [$this->idParam('enquiry_id')]) > 0) {
+            \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'moved to trash', '1');
         }
 
-        return $this->back('The enquiry was deleted.');
+        return $this->back('The enquiry was moved to the trash. You can restore it for 30 days.');
+    }
+
+    /** Back from the trash, as it was. */
+    protected function actionRestore(): Response
+    {
+        $ids = $this->selected();
+        $restored = $ids === [] || !$this->request->isPost() ? 0 : self::restore($this->db, $ids);
+        if ($restored > 0) {
+            \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'restored from trash', (string) $restored);
+        }
+
+        return $this->back(t('Enquiries restored: %d.', $restored), '', ['status' => 'trash'], $restored > 0 ? 'ok' : 'error');
+    }
+
+    /** Permanent deletion from the trash, with the attachments. */
+    protected function actionDeletePermanently(): Response
+    {
+        $ids = $this->selected();
+        $deleted = 0;
+        if ($ids !== [] && $this->request->isPost()) {
+            $in = ' WHERE deleted_at IS NOT NULL AND enquiry_id IN (' . implode(',', $ids) . ')';
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries}' . $in));
+            $deleted = $this->db->run('DELETE FROM {enquiries}' . $in)->rowCount();
+            \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'deleted permanently', (string) $deleted);
+        }
+
+        return $this->back(t('Enquiries permanently deleted: %d.', $deleted), '', ['status' => 'trash'], $deleted > 0 ? 'ok' : 'error');
+    }
+
+    /** @return list<int> the internal ids of the ticked enquiries */
+    private function selected(): array
+    {
+        return array_values(array_filter(array_map(fn (string $uuid): int => $this->db->internalId('enquiries', $uuid), $this->request->postList('selected'))));
+    }
+
+    /**
+     * Moves enquiries to the trash (admin and MCP); returns how many were moved.
+     *
+     * @param list<int> $ids
+     */
+    public static function trash(\Talea\Core\Db $db, array $ids): int
+    {
+        return $ids === [] ? 0 : $db->run('UPDATE {enquiries} SET deleted_at = NOW() WHERE deleted_at IS NULL AND enquiry_id IN (' . implode(',', array_map('intval', $ids)) . ')')->rowCount();
+    }
+
+    /** @param list<int> $ids */
+    public static function restore(\Talea\Core\Db $db, array $ids): int
+    {
+        return $ids === [] ? 0 : $db->run('UPDATE {enquiries} SET deleted_at = NULL WHERE deleted_at IS NOT NULL AND enquiry_id IN (' . implode(',', array_map('intval', $ids)) . ')')->rowCount();
+    }
+
+    /** Enquiries longer than 30 days in the trash are deleted with their attachments (with pages and news, on an admin visit). */
+    public static function emptyTrash(\Talea\Core\Db $db): void
+    {
+        self::deleteAttachments($db->all('SELECT data FROM {enquiries} WHERE deleted_at < NOW() - INTERVAL 30 DAY'));
+        $db->run('DELETE FROM {enquiries} WHERE deleted_at < NOW() - INTERVAL 30 DAY');
     }
 
     /**
@@ -241,13 +308,13 @@ final class Enquiries extends Module
         return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Talea\Core\PersonalData::find($this->db, $email) : null]);
     }
 
-    /** All enquiries to CSV (UTF-8 with BOM, semicolon – opens directly in Excel). */
+    /** All enquiries (not those in the trash) to CSV (UTF-8 with BOM, semicolon – opens directly in Excel). */
     protected function actionCsv(): Response
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content')], ';', '"', '');
-        foreach ($this->db->all('SELECT * FROM {enquiries} ORDER BY enquiry_id') as $p) {
+        foreach ($this->db->all('SELECT * FROM {enquiries} WHERE deleted_at IS NULL ORDER BY enquiry_id') as $p) {
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,

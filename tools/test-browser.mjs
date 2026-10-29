@@ -73,15 +73,56 @@ const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
-  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
+  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=forms', '/admin.php?module=forms&action=new', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
   '/admin.php?module=bookings'];
 for (const url of ADMIN_PAGES) {
   await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
 }
 
+// a collection's fields are tiles on the item form's grid, each with its settings in the sidebar (collections/form.php): the typing
+// shows on the tile, Earlier / Later moves it without a reload, and the item form lays the fields out by their width
+await step('collection fields: add, width and description, reorder, the item form follows', async () => {
+  const addField = async (label, width) => {
+    await page.click('.field-tile-add');
+    const panel = '#' + await page.locator('.field-tile-add').getAttribute('aria-controls');
+    await page.fill(`${panel} [data-field-prop="label"]`, label);
+    await page.click(`${panel} label:has(> input[data-field-prop="width"][value="${width}"])`);
+  };
+  const save = () => Promise.all([page.waitForNavigation(), page.click('.website-settings-foot .btn')]);
+  const tile = (label) => page.locator('.field-grid [draggable="true"]', { hasText: label });
+  const order = () => page.locator('.field-grid [draggable="true"] [data-tile="label"]').allTextContents();
+  await visit('/admin.php?module=collections&action=new');
+  await page.fill('#name', 'Walk stories');
+  await addField('Place', 'third');
+  await save();
+  const id = page.url().match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)[0];
+  await visit(`/admin.php?module=collections&action=edit&id=${id}`);
+  await addField('Lead', 'half');
+  await save();
+  await visit(`/admin.php?module=collections&action=edit&id=${id}`);
+  await tile('Place').click();
+  const panel = '#' + await tile('Place').getAttribute('aria-controls');
+  if (!(await page.locator(panel).isVisible())) { throw new Error('the tile does not open its settings'); }
+  await page.fill(`${panel} [data-field-prop="help"]`, 'Town or venue');
+  if ((await tile('Place').locator('[data-tile="help"]').textContent()) !== 'Town or venue') { throw new Error('the tile does not show the description'); }
+  if (!(await tile('Place').getAttribute('class')).includes('field-tile-third')) { throw new Error('the tile is not a third wide'); }
+  await page.click(`${panel} [data-field-move="1"]`);
+  const moved = await order();
+  if (moved.indexOf('Lead') > moved.indexOf('Place')) { throw new Error(`Later did not move the tile: ${moved.join(', ')}`); }
+  await nothingSpillsOut();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-fields.png`, fullPage: true }); }
+  await save();
+  await visit(`/admin.php?module=collections&action=item&id=${id}`);
+  const fields = await page.locator('.item-main > .item-field').evaluateAll((els) => els.map((e) => e.className + ' ' + e.querySelector('label').textContent.trim()));
+  const at = (label) => fields.findIndex((f) => f.endsWith(label));
+  if (!(at('Lead') < at('Place') && fields[at('Place')].includes('item-field-third') && fields[at('Lead')].includes('item-field-half'))) { throw new Error(`the item form: ${fields.join(' | ')}`); }
+  await nothingSpillsOut();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-item-fields.png`, fullPage: true }); }
+});
+
 // #155: the "Connect an application" screen stands in the focused frame (views/admin/bare.php), which loads only admin.css: its access
-// choices are option cards (a hidden radio, a border, the title on its own line), "new, not verified" and "recommended" are badges
+// choices are option cards (a hidden radio, a border, the title on its own line), "new, not verified" and "recommended" are badges (a tint)
 await step('Claude connection consent: the access choices are cards, the labels are badges', async () => {
   const redirect = 'https://claude.ai/api/mcp/auth_callback';
   const client = await (await fetch(`${BASE}/oauth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -91,10 +132,10 @@ await step('Claude connection consent: the access choices are cards, the labels 
   const look = await page.evaluate(() => {
     const card = document.querySelector('.oauth-consent .card-option');
     return card ? { radio: getComputedStyle(card.querySelector('input')).opacity, border: getComputedStyle(card).borderTopWidth, title: getComputedStyle(card.querySelector('strong')).display,
-      badges: [...document.querySelectorAll('.oauth-consent .badge')].map((b) => `${b.textContent.trim()} ${getComputedStyle(b).borderTopWidth}`) } : null;
+      badges: [...document.querySelectorAll('.oauth-consent .badge')].map((b) => `${b.textContent.trim()} ${getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)' ? 'tinted' : 'plain'}`) } : null;
   });
   if (!look) { throw new Error('no access choices on the consent screen'); }
-  if (look.radio !== '0' || look.border !== '2px' || look.title !== 'block' || look.badges.join('|') !== 'new, not verified 1px|recommended 1px') {
+  if (look.radio !== '0' || look.border !== '2px' || look.title !== 'block' || look.badges.join('|') !== 'new, not verified tinted|recommended tinted') {
     throw new Error(`the consent screen is unstyled: ${JSON.stringify(look)}`);
   }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/oauth-consent.png`, fullPage: true }); }
@@ -716,6 +757,140 @@ await step('compose (free placement): convert, resize and move by grid lines, ov
   await toggle().click();
   tree = await savedBuild(page, 'free');
   expect(find(tree.children, 'cf1').content.layout === 'compose' && find(tree.children, 'cfa').style?.base?.grid_row_end && find(tree.children, 'cfb').style?.base?.grid_column_end, 'the saved draft lacks the compose layout or the placements');
+});
+
+// editing on its own copy of the compose page (#232): the Style panel, the Add panel, the canvas, the paste dialog and the keys
+await step('builder (editing): a Style-panel value reaches the draft and the canvas', async () => {
+  await openBuilder(page, 'editing');
+  await pick(page, 'ch1');
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  const align = page.locator('#bd-v-text_align');
+  await align.waitFor({ timeout: 5000 });
+  await align.selectOption('center');
+  expect(find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'ch1').style?.base?.text_align === 'center', 'the Text alignment select did not write the style of the heading');
+  await idle(page);
+  await until(page, () => { const d = window.taleaBuilder.previewDoc(); const h = d && d.querySelector('[data-tl-id="ch1"]'); return !!h && d.defaultView.getComputedStyle(h).textAlign === 'center'; }, null, 'the canvas shows the heading centred');
+  const build = await savedBuild(page, 'editing');
+  expect(find(build.children, 'ch1').style?.base?.text_align === 'center', 'the saved draft lacks the text alignment');
+});
+
+await step('builder (editing): an element dragged from the Add panel lands where it is dropped on the canvas', async () => {
+  await openBuilder(page, 'editing');
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
+  await page.locator('.bd-elements button').first().waitFor({ timeout: 5000 });
+  // Playwright cannot drive a real HTML5 drag from the admin page into the canvas iframe reliably, so the drag events are dispatched
+  // by hand: they still run the editor's own handlers (startDrag on the Add panel button, canvasSpot and dropAt on the canvas)
+  const failed = await page.evaluate(() => {
+    const B = window.taleaBuilder;
+    const name = B.D.schema.elements.find((p) => p.type === 'heading').name;
+    const source = [...document.querySelectorAll('.bd-elements button')].find((b) => b.textContent.trim() === name);
+    if (!source) { return `no "${name}" button in the Add panel`; }
+    const transfer = new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    const target = B.previewDoc().querySelector('[data-tl-id="txt5"]');
+    const r = target.getBoundingClientRect();
+    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.8, dataTransfer: transfer, bubbles: true, cancelable: true };
+    target.dispatchEvent(new DragEvent('dragover', at));
+    target.dispatchEvent(new DragEvent('drop', at));
+    source.dispatchEvent(new DragEvent('dragend', { dataTransfer: transfer, bubbles: true }));
+    return '';
+  });
+  expect(!failed, failed);
+  const id = await page.evaluate(() => window.taleaBuilder.state.selected);
+  const build = await savedBuild(page, 'editing');
+  const dropped = find(build.children, id);
+  const column = find(build.children, 'colb');
+  expect(dropped && dropped.type === 'heading', `the drop did not insert a heading: ${JSON.stringify(dropped)}`);
+  expect(column.children.map((c) => c.id).join() === `txt5,${id}`, `the heading is not after the text it was dropped on: ${column.children.map((c) => c.id)}`);
+});
+
+await step('builder (editing): double-click edits a heading on the canvas', async () => {
+  await openBuilder(page, 'editing');
+  await node(page, 'ch1').dblclick();
+  await until(page, () => window.taleaBuilder.state.editingCanvas, null, 'the double-click made the heading editable on the canvas');
+  await page.keyboard.press('End'); // the double-click selected a word: typing would replace it
+  await page.keyboard.type(' edited');
+  await page.keyboard.press('Enter'); // ends the editing of a heading
+  await until(page, () => !window.taleaBuilder.state.editingCanvas, null, 'Enter ended the editing');
+  const build = await savedBuild(page, 'editing');
+  const text = find(build.children, 'ch1').content.text;
+  expect(/^Compose test(\s|&nbsp;)edited$/.test(text), `the heading text is ${text}`);
+});
+
+await step('builder (editing): the "Paste from another Talea site" dialog refuses other text, closes and inserts', async () => {
+  await openBuilder(page, 'editing');
+  const open = async () => {
+    await page.locator('button[aria-label="More actions"]').first().click();
+    await page.locator('.bd-more button', { hasText: 'Paste from another Talea site' }).first().click();
+    await page.locator('dialog[open] h2', { hasText: 'Paste from another Talea site' }).waitFor({ timeout: 5000 });
+  };
+  await pick(page, 'txt1');
+  await open();
+  await page.locator('dialog[open] textarea').fill('not a copy');
+  await page.locator('dialog[open] .bd-btn-main').click();
+  expect(await page.locator('dialog[open] .bd-share-error').isVisible(), 'other text gives no error in the dialog');
+  await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).click();
+  expect(!(await page.locator('dialog[open]').count()), 'Close did not close the paste dialog');
+  await open();
+  await page.locator('dialog[open] textarea').fill(JSON.stringify({ talea: 'elements', v: 1, site: new URL(BASE).origin, elements: [{ type: 'text', content: { html: '<p>Pasted 232</p>' } }] }));
+  await page.locator('dialog[open] .bd-btn-main').click();
+  expect(!(await page.locator('dialog[open]').count()), 'Insert did not close the paste dialog');
+  await until(page, () => JSON.stringify(window.taleaBuilder.state.build).includes('Pasted 232'), null, 'the pasted text is in the page');
+  const build = await savedBuild(page, 'editing');
+  const column = find(build.children, 'col1');
+  expect(column.children.length === 2 && column.children[0].id === 'txt1' && JSON.stringify(column.children[1]).includes('Pasted 232'), `the pasted text is not after the selected one: ${JSON.stringify(column.children).slice(0, 300)}`);
+});
+
+await step('builder (editing): Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctrl+Shift+Z undo and redo', async () => {
+  await openBuilder(page, 'editing');
+  const columnIds = () => page.evaluate(() => { const walk = (c) => { for (const p of c ?? []) { if (p.id === 'col2') { return p; } const f = walk(p.children); if (f) { return f; } } return null; }; return walk(window.taleaBuilder.state.build.children).children.map((p) => p.id); });
+  await pick(page, 'txt2');
+  await page.keyboard.press('Control+d');
+  const copy = await page.evaluate(() => window.taleaBuilder.state.selected);
+  expect(copy !== 'txt2' && (await columnIds()).join() === `txt2,${copy}`, `Ctrl+D did not put a copy after the text: ${await columnIds()}`);
+  await idle(page);
+  await page.keyboard.press('Delete');
+  expect((await columnIds()).join() === 'txt2', `Delete did not remove the copy: ${await columnIds()}`);
+  await idle(page);
+  await page.keyboard.press('Control+z');
+  expect((await columnIds()).join() === `txt2,${copy}`, `Ctrl+Z did not bring the copy back: ${await columnIds()}`);
+  await idle(page);
+  await page.keyboard.press('Control+Shift+z');
+  expect((await columnIds()).join() === 'txt2', `Ctrl+Shift+Z did not remove it again: ${await columnIds()}`);
+  const build = await savedBuild(page, 'editing');
+  expect(find(build.children, 'col2').children.map((c) => c.id).join() === 'txt2', 'the saved draft does not match the last redo');
+});
+
+await step('forms: a new form opens in the form builder, a page places it and gives its fields a width', async () => {
+  await visit('/admin.php?module=forms&action=new');
+  await page.fill('input[name="name"]', 'Browser form');
+  await Promise.all([page.waitForURL(/\/forms\/builder\//), page.click('form.form input[type="submit"]')]);
+  await until(page, () => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('form.tl-form'), null, 'the form builder shows the form on its canvas');
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
+  expect(await page.getByText('A form holds only its fields.').count() === 1, 'the form builder offers no elements to add');
+  const form = new URL(page.url()).pathname.split('/').pop();
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await until(page, () => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id]'), null, 'the page builder is open');
+  const offered = await page.evaluate(() => window.taleaBuilder.D.schema.elements.filter((p) => p.offered !== false).map((p) => p.type));
+  expect(offered.includes('form_embed') && !offered.includes('form'), `the Add panel offers the placement, not the fields: ${offered.join()}`);
+  const id = await page.evaluate((chosen) => {
+    const B = window.taleaBuilder;
+    const n = B.newElement('form_embed');
+    n.content.form = chosen;
+    B.applyChange(() => { B.state.build.children.push(n); B.state.selected = n.id; });
+    B.redrawPanels();
+    return n.id;
+  }, form);
+  await idle(page);
+  await until(page, (placed) => window.taleaBuilder.previewDoc().querySelector(`form.tl-form[data-tl-id="${placed}"]`), id, 'the canvas shows the placed form, its draft');
+  await page.locator('.bd-form-widths select').first().selectOption('3');
+  await idle(page);
+  await until(page, (placed) => window.taleaBuilder.previewDoc().querySelector(`form.tl-form-layout[data-tl-id="${placed}"] .tl-span-3`), id, 'the field is half as wide on the canvas');
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  const saved = find(await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build.children), id);
+  expect(saved && saved.content.form === form && Object.values(saved.content.widths || {}).join() === '3', `the draft keeps the placement: ${JSON.stringify(saved)}`);
+  await page.evaluate((placed) => { const B = window.taleaBuilder; B.applyChange(() => { B.state.build.children = B.state.build.children.filter((c) => c.id !== placed); }); }, id);
+  await idle(page);
 });
 
 await step('builder: site header', async () => {

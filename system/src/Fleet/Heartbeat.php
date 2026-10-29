@@ -50,13 +50,14 @@ final class Heartbeat
             'cron_last_run' => $s->int('tasks_last_run') ?: null,
             'last_backup' => $backup !== null ? (int) $backup['time'] : null,
             'offsite_backup' => $s->get('remote_backup') !== 'off',
-            'enquiries_unanswered' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0') : null,
-            'enquiries_7_days' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > NOW() - INTERVAL 7 DAY') : null,
+            'enquiries_unanswered' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND deleted_at IS NULL') : null,
+            'enquiries_7_days' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > NOW() - INTERVAL 7 DAY AND deleted_at IS NULL') : null,
             'visits_7_days' => \Talea\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(visits), 0) FROM {stats_days} WHERE day > CURRENT_DATE - INTERVAL 7 DAY') : null,
             'audit' => $audit,
             'problems_7_days' => Events::problems($db, 168),
             'claude' => Extensions::isEnabled($s, 'claude'),
             'kit_version' => $s->int('fleet_kit_version') ?: null, // the shared design kit this site applied (2.16, Fleet\Kit)
+            'error_reporting' => \Talea\Core\ErrorReport::enabled(), // errors go to Sentry or GlitchTip (TALEA_ERROR_DSN); the host is not told
         ];
     }
 }

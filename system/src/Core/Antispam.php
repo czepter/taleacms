@@ -12,7 +12,7 @@ namespace Talea\Core;
  */
 final class Antispam
 {
-    /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-wait). */
+    /** A form sent sooner is rejected (bot); image/forms.js delays sending by the remainder (attribute data-wait). */
     public const int MIN_SECONDS = 4;
 
     /** The minimum age; the automated tests shorten it (TALEA_ANTISPAM_MIN, like the other TALEA_* test switches) so they do not wait four seconds per form. */
@@ -204,6 +204,23 @@ final class Antispam
         clearstatcache(true, $file);
 
         return (int) @filesize($file);
+    }
+
+    /** Takes back one request tally() counted in the current window (a try that turned out not to count). */
+    public static function untally(string $key, string $kind, int $window): void
+    {
+        $handle = @fopen(TALEA_ROOT . '/storage/cache/limits/' . $kind . '-' . intdiv(time(), $window) . '-' . substr(hash('sha256', $key), 0, 24), 'r+');
+        if ($handle === false) {
+            return;
+        }
+        if (flock($handle, LOCK_EX)) {
+            $size = (int) fstat($handle)['size'];
+            if ($size > 0) {
+                ftruncate($handle, $size - 1);
+            }
+            flock($handle, LOCK_UN);
+        }
+        fclose($handle);
     }
 
     /** The clean-up job: counter files older than two hours. */

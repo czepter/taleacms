@@ -28,11 +28,19 @@ abstract class Element
     public const string EXTENSION = '';
     /** Offered only in site parts (header, footer, wrappers) – logo, navigation, page content. */
     public const bool PARTS_ONLY = false;
+    /** Offered in the builder's Add panel; false = only edited where it already is (the fields of a form: pages place a form instead). */
+    public const bool OFFERED = true;
 
     /** @return array<string, array<string, mixed>> content fields: key => [type, label, default, options, fields, max] */
     public static function properties(): array
     {
         return [];
+    }
+
+    /** Element-specific clean-up of the already sanitized content (cross-field rules such as unique keys); the default changes nothing. */
+    public static function sanitizeElement(array $content, string $place, array &$errors): array
+    {
+        return $content;
     }
 
     /** @return list<array<string, mixed>> default inner content of a newly inserted container (the editor gives it new ids) */

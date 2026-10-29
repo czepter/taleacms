@@ -53,7 +53,7 @@ $back = [2 => $module->url('', $answers), 3 => $module->url('features', $answers
 <?php endif ?>
 </div>
 <?php if (!$ready): ?>
-<p class="help"><?= e(t('With your own AI key (Features → Writing assistant) the assistant can also draft the pages and their texts.')) ?></p>
+<p class="help"><?= e(t('With your own AI key (AI settings) the assistant can also draft the pages and their texts.')) ?></p>
 <?php endif ?>
 <?php endif ?>
 <p class="navigation-row">

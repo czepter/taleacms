@@ -402,11 +402,18 @@ final class Seo
         // contact clicks (2.12, Core\Conversions) follow the same switch as the speed beacon below: the script counts a click on a
         // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-conversion
         $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' : '';
-        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . $clicks . '></script>';
+        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::SCRIPT_TEXTS) . $clicks . '></script>';
+        // forms (steps, conditions, the estimate): a script of their own, kept by Front\PageFrame only on a page with a form
+        $h[] = '<script src="' . e($this->app->url('image/forms.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::FORM_SCRIPT_TEXTS) . '></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
             // without it; the beacon goes to POST /vitals without cookies or identifiers
             $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
+        }
+        if (\Talea\Core\ErrorReport::browserOnSite()) {
+            // browser errors of the site's own scripts to the error tracking, only when the operator switched it on
+            // (TALEA_ERROR_BROWSER=1): no cookies, no identifiers, the beacon goes to POST /js-error
+            $h[] = '<script src="' . e($this->app->url('image/errors.js')) . '?v=' . $version . '" data-errors="' . e($this->app->url('js-error')) . '"></script>';
         }
         $h[] = $this->analyticsCode();
         if (trim($s->get('head_code')) !== '') {
@@ -424,17 +431,22 @@ final class Seo
      * them like any other text.
      */
     public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close',
-        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.', 'Back', 'Next', 'Step',
+        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.',
         'Previous month', 'Next month', 'No free times on this day.', 'Choose a service first.', 'Loading…', 'Chosen time: %s', 'Slide %s of %s'];
 
+    /** Texts that image/forms.js shows to the visitor. */
+    public const array FORM_SCRIPT_TEXTS = ['Back', 'Next', 'Step', 'about %s', 'from %s'];
+
     /**
-     * The data-texts attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)
-     * as JSON. No extra request and no inline script; the English version needs nothing – the script has English built in.
+     * The data-texts attribute for the <script> tag with image/web.js or image/forms.js: translations of the script texts (source =>
+     * translation) as JSON. No extra request and no inline script; the English version needs nothing – the script has English built in.
+     *
+     * @param list<string> $texts
      */
-    private static function scriptTextsAttribute(): string
+    private static function scriptTextsAttribute(array $texts): string
     {
         $translations = [];
-        foreach (self::SCRIPT_TEXTS as $source) {
+        foreach ($texts as $source) {
             if (t($source) !== $source) {
                 $translations[$source] = t($source);
             }
@@ -579,9 +591,9 @@ final class Seo
     private function structuredData(string $title, array $meta, ?array $newsItem): array
     {
         $s = $this->app->settings();
-        // company from "Settings → Business details" (Organization or LocalBusiness with address, opening hours and map)
-        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Talea\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
-        if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Talea\Core\Hours::schema(\Talea\Core\Hours::exceptions($this->app->db()))) !== []) {
+        // company from "Settings → Business details" (Organization or LocalBusiness with address, opening hours and map; Person on a personal site)
+        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...), \Talea\Core\Facts::schema($this->app)); // + facts with a schema property (2.10)
+        if (!in_array($issuer['@type'], ['Organization', 'Person'], true) && ($special = \Talea\Core\Hours::schema(\Talea\Core\Hours::exceptions($this->app->db()))) !== []) {
             $issuer['specialOpeningHoursSpecification'] = $special; // holidays and other exceptions to the opening hours (2.10)
         }
         if ($newsItem === null) {
@@ -600,7 +612,8 @@ final class Seo
             foreach ($meta['structured'] ?? [] as $i => $node) {
                 // typed structured data of the page (the Structured data element): joins the same graph, linked to the company and website nodes;
                 // a manual FAQPage replaces the automatic one so the page never carries two
-                $rendered = \Talea\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']);
+                $rendered = \Talea\Builder\StructuredData::render($node, $this->absoluteUrl(...), ['company' => (string) $issuer['@id'], 'web' => $this->siteSettings . '#web']
+                    + ($issuer['@type'] !== 'Person' ? ['organization' => (string) $issuer['@id']] : [])); // a job needs an organisation, never a person
                 if (($rendered['@type'] ?? '') === 'FAQPage') {
                     $chart = array_values(array_filter($chart, fn (array $c): bool => ($c['@type'] ?? '') !== 'FAQPage'));
                 }

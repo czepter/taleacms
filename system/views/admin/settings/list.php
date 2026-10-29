@@ -35,7 +35,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
     // a hint without its own HTML: menu paths ("Settings → Mail") turn into links
-    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Talea\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
+    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Talea\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude'])) . '</span>' : '';
     echo '<div class="row">';
     if ($kind === 'flag') {
         echo '<span class="caption">' . e($labelText) . '</span><div class="options"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
@@ -48,13 +48,15 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     echo '</div>';
 };
 ?>
-<form class="form" method="post" action="<?= e($module->url('save')) ?>"<?php if ($tab === 'enquiries'): // a shorter period deletes at once ?> data-confirm="<?= e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) ?>"<?php endif ?>>
+<?php // on the Enquiries tab a shorter period deletes at once: the save buttons ask, the buttons that order the kinds do not
+$saveConfirm = $tab === 'enquiries' ? ' data-confirm="' . e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) . '"' : ''; ?>
+<form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
-<button type="submit" class="default-sending" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
+<button type="submit" class="default-sending" tabindex="-1" aria-hidden="true"<?= $saveConfirm ?>><?= e(t('Save settings')) ?></button>
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
 <?php if (!in_array($tab, ['health', 'console', 'analytics'], true)): // the analytics pages bring their own buttons ?>
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"></p>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"<?= $saveConfirm ?>></p>
 <?php endif ?>
 </form>

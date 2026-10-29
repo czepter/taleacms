@@ -69,20 +69,21 @@ $n = function () use (&$step): int {
 <?php if (empty($envDb)): ?>
 <section class="step">
 	<h2><span><?= $n() ?></span> <?= e(t('Database')) ?></h2>
-	<p><?= e(t('MySQL, MariaDB or PostgreSQL. Create an empty database beforehand – in your hosting control panel.')) ?></p>
-	<div class="field">
+	<p><?= e(t('MySQL, MariaDB or PostgreSQL. Create an empty database beforehand – in your hosting control panel.')) ?> <?= e(t('SQLite needs no server: the database is a file in storage/database/ – leave the server, user and password empty.')) ?></p>
+	<div class="field database">
 		<div class="full"><label for="db_driver"><?= e(t('Database type')) ?></label><select id="db_driver" name="db_driver">
 			<option value="mysql"<?= $data['db_driver'] === 'mysql' ? ' selected' : '' ?>>MySQL / MariaDB</option>
 			<option value="pgsql"<?= $data['db_driver'] === 'pgsql' ? ' selected' : '' ?>>PostgreSQL</option>
+			<option value="sqlite"<?= $data['db_driver'] === 'sqlite' ? ' selected' : '' ?>><?= e(t('SQLite (a file, no server)')) ?></option>
 		</select><?= $error('db_driver') ?></div>
-		<div class="full with-port">
+		<div class="full with-port server">
 			<div><label for="db_host"><?= e(t('Server')) ?></label><input type="text" id="db_host" name="db_host" value="<?= e($data['db_host']) ?>"><?= $error('db_host') ?></div>
 			<div><label for="db_port"><?= e(t('Port')) ?></label><input type="number" id="db_port" name="db_port" value="<?= e($data['db_port']) ?>" placeholder="3306 / 5432"></div>
 		</div>
-		<div><label for="db_name"><?= e(t('Database name')) ?></label><input type="text" id="db_name" name="db_name" value="<?= e($data['db_name']) ?>" required><?= $error('db_name') ?></div>
+		<div><label for="db_name"><?= e(t('Database name')) ?></label><input type="text" id="db_name" name="db_name" value="<?= e($data['db_name']) ?>"><?= $error('db_name') ?></div>
 		<div><label for="db_prefix"><?= e(t('Table prefix')) ?></label><input type="text" id="db_prefix" name="db_prefix" value="<?= e($data['db_prefix']) ?>" required><?= $error('db_prefix') ?></div>
-		<div><label for="db_user"><?= e(t('User')) ?></label><input type="text" id="db_user" name="db_user" value="<?= e($data['db_user']) ?>" required><?= $error('db_user') ?></div>
-		<div><label for="db_password"><?= e(t('Password')) ?></label><input type="password" id="db_password" name="db_password" autocomplete="off"></div>
+		<div class="server"><label for="db_user"><?= e(t('User')) ?></label><input type="text" id="db_user" name="db_user" value="<?= e($data['db_user']) ?>"><?= $error('db_user') ?></div>
+		<div class="server"><label for="db_password"><?= e(t('Password')) ?></label><input type="password" id="db_password" name="db_password" autocomplete="off"></div>
 	</div>
 </section>
 <?php endif ?>

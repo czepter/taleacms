@@ -29,7 +29,7 @@ final class Guide
         'facts' => 'company-details#business-facts',
         'business' => 'company-details', // 3.2: the Business details hub (formerly Business details)
         'status' => 'site-health', // 3.2: System status (formerly a Settings tab)
-        'claude_settings' => 'claude-connect', // 3.2: Claude settings (connecting, instructions, guardrails)
+        'claude' => 'claude-connect', // 3.2: connecting Claude
         'blueprints' => 'industry-blueprints',
         'wizard' => 'industry-blueprints', // #31: the first-run wizard starts from a blueprint
         'connectors' => 'connections',
@@ -61,7 +61,6 @@ final class Guide
         'schedules' => 'claude-capabilities', // 2.17: scheduled runs – what a routine in Claude does on the site is described with its capabilities
         'transfer' => 'wordpress-import',
         'extensions' => 'extensions',
-        'assistant_settings' => 'ai-assistant',
         'newsletter_settings' => 'newsletter',
         'addons' => 'addons',
         'fleet' => 'fleet-console',
@@ -75,6 +74,7 @@ final class Guide
         'analytics' => 'statistics#settings-analytics',
         'cookies' => 'privacy-cookies',
         'enquiries' => 'forms#enquiries',
+        'ai' => 'ai-assistant',
         'mail' => 'email',
         'reports' => 'email',
         'webhooks' => 'forms#connecting-other-tools',

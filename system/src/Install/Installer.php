@@ -8,6 +8,7 @@ use Talea\Core\Auth;
 use Talea\Core\Config;
 use Talea\Core\Db;
 use Talea\Core\Dialect\Dialect;
+use Talea\Core\Dialect\Sqlite;
 use Talea\Core\Migrator;
 use Talea\Core\Request;
 use Talea\Core\Response;
@@ -15,6 +16,7 @@ use Talea\Core\Extensions;
 use Talea\Core\View;
 use Talea\Builder\Library;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 
 /**
  * Web installer: checks the server, creates the tables and the first administrator and writes config.php. Talea is
@@ -102,14 +104,15 @@ final class Installer
                 $data = ['db_driver' => $envDb['driver'], 'db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                     'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
-            $data['db_driver'] = in_array($data['db_driver'], ['mysql', 'pgsql'], true) ? $data['db_driver'] : 'mysql';
+            $data['db_driver'] = in_array($data['db_driver'], ['mysql', 'pgsql', 'sqlite'], true) ? $data['db_driver'] : 'mysql';
             $data['site_language'] = isset(\Talea\Core\Language::AVAILABLE[$data['site_language']]) ? $data['site_language'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('extensions'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['starter'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
+                    // a container runs the jobs itself (docker/entrypoint.sh)
+                    'cron' => Config::fromEnv() ? null : '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
             }
         }
 
@@ -119,15 +122,16 @@ final class Installer
     /**
      * After installation the installer deletes itself, so the administrator does not have to use FTP. When the hosting does
      * not allow it (file permissions), a prompt to delete it remains and the system health page keeps warning about the file.
-     * In a development copy (a .git folder) it is not deleted.
+     * In a development copy (a .git folder) it is not deleted. In a container it belongs to the image and stays (null: nothing to say),
+     * the installer refuses to run once installed.
      */
-    private function deleteSelf(): bool
+    private function deleteSelf(): ?bool
     {
+        if (Config::fromEnv()) {
+            return null;
+        }
         if (is_dir(TALEA_ROOT . '/.git')) {
             return false;
-        }
-        if (Config::fromEnv()) {
-            return true; // the file belongs to the image; the installer refuses to run once installed
         }
 
         return !is_file(TALEA_ROOT . '/install.php') || @unlink(TALEA_ROOT . '/install.php');
@@ -140,7 +144,7 @@ final class Installer
 
         $requirements = [
             ['name' => t('PHP 8.5 or newer'), 'ok' => PHP_VERSION_ID >= 80500, 'info' => t('running') . ' ' . PHP_VERSION],
-            ['name' => t('pdo_mysql or pdo_pgsql extension'), 'ok' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql'), 'info' => t('connection to a MySQL / MariaDB or PostgreSQL database')],
+            ['name' => t('pdo_mysql, pdo_pgsql or pdo_sqlite extension'), 'ok' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql') || extension_loaded('pdo_sqlite'), 'info' => t('connection to a MySQL / MariaDB or PostgreSQL database, or an SQLite file')],
             ['name' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
             ['name' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
             ['name' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
@@ -163,7 +167,17 @@ final class Installer
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
             $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. tl_).');
         }
-        if ($d['db_name'] === '' || $d['db_user'] === '') {
+        $sqlite = $d['db_driver'] === 'sqlite';
+        if ($sqlite && !Config::fromEnv()) {
+            // a file name only, kept in storage/database/ (not reachable from the web) and never ending in .php; an empty name is the default file
+            if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(\.(?:sqlite3?|db))?$/', $d['db_name'], $m) === 1) {
+                $d['db_name'] = dirname(Sqlite::DEFAULT_FILE) . '/' . $d['db_name'] . (isset($m[1]) ? '' : '.sqlite');
+            } elseif ($d['db_name'] === '') {
+                $d['db_name'] = Sqlite::DEFAULT_FILE;
+            } else {
+                $errors['db_name'] = t('SQLite: the file name may hold letters, digits, hyphens and underscores and end in .sqlite or .db; the file is kept in storage/database/.');
+            }
+        } elseif (!$sqlite && ($d['db_name'] === '' || $d['db_user'] === '')) {
             $errors['db_name'] = t('Fill in the database name and user.');
         }
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['username'])) {
@@ -182,10 +196,10 @@ final class Installer
         }
 
         if (!extension_loaded('pdo_' . $d['db_driver'])) {
-            return ['db_driver' => t('The PHP extension for this database type is missing (pdo_mysql or pdo_pgsql).')];
+            return ['db_driver' => t('The PHP extension for this database type is missing (pdo_mysql, pdo_pgsql or pdo_sqlite).')];
         }
         $config = [
-            'db' => [
+            'db' => $sqlite ? ['driver' => 'sqlite', 'name' => $d['db_name'], 'prefix' => $d['db_prefix']] : [
                 'driver' => $d['db_driver'],
                 'host' => $d['db_host'] !== '' ? $d['db_host'] : 'localhost',
                 'port' => (int) $d['db_port'] ?: Dialect::forDriver($d['db_driver'])->defaultPort(),
@@ -311,7 +325,7 @@ final class Installer
                 $row = ['title' => $title, 'slug' => $url, 'text' => $text, 'in_menu' => $inMenu, 'sort_order' => ($i + 1) * 10];
                 if (($siteSettings['pages'][$i] ?? []) !== []) {
                     // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
-                    $build = Library::page($db, $siteSettings['pages'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
+                    $build = Library::page($db, $siteSettings['pages'][$i], $title, $siteLanguage, ElementSchema::disabledTypes($extensions), true);
                     $row['build'] = Build::toJson($build);
                     $row['text'] = Build::asText($build);
                 }
