@@ -26,7 +26,7 @@ final class Conversions
     /** Type => the key the Statistics screen, get_stats (contact_clicks) and the monthly report use. */
     public const array KEYS = ['tel' => 'calls', 'mailto' => 'emails', 'whatsapp' => 'whatsapp'];
 
-    /** A link that counts – Front\Kernel keeps image/web.js on a page with one when the statistics are on (the same test as in the script). */
+    /** A link that counts – Front\PageFrame keeps image/web.js on a page with one when the statistics are on (the same test as in the script). */
     public const string LINK_PATTERN = '/href="(?:tel:|mailto:|https?:\/\/(?:wa\.me|api\.whatsapp\.com)\/|whatsapp:)/i';
 
     /** Rows older than this are deleted, like the rest of the statistics. */

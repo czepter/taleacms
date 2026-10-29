@@ -1,6 +1,7 @@
 <?php
 /**
- * Full-screen page builder. All controls are assembled by image/builder.js from the data below; without JavaScript it only explains why.
+ * Full-screen page builder. All controls are assembled by the ES modules in image/builder/ (entry main.js, which imports the rest) from the
+ * data below; without JavaScript it only explains why.
  * The canvas is a real page of the site (?build=draft&editor=1) – what the editor shows is exactly what the visitor will see.
  *
  * @var Talea\Core\App $app
@@ -35,11 +36,6 @@ $language = Talea\Core\Language::code();
 <?php endforeach ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= $version ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $version ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-file="<?= Talea\Core\Files::limit() ?>" data-max-file-text="<?= e(Talea\Core\Files::limitText()) ?>" data-max-page="<?= Talea\Core\Images::MAX_SIDE ?>" defer></script>
-<script src="<?= e($app->url('image/builder.js')) ?>?v=<?= $version ?>" defer></script>
-<script src="<?= e($app->url('image/builder-overlay.js')) ?>?v=<?= $version ?>" defer></script>
-<script src="<?= e($app->url('image/builder-handles.js')) ?>?v=<?= $version ?>" defer></script>
-<script src="<?= e($app->url('image/builder-keys.js')) ?>?v=<?= $version ?>" defer></script>
-<script src="<?= e($app->url('image/builder-compose.js')) ?>?v=<?= $version ?>" defer></script>
-<script src="<?= e($app->url('image/builder-structured.js')) ?>?v=<?= $version ?>" defer></script>
+<script type="module" src="<?= e($app->url('image/builder/main.js')) ?>?v=<?= $version ?>"></script>
 </body>
 </html>

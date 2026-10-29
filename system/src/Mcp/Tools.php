@@ -608,7 +608,7 @@ final class Tools
                 : ($previous !== null ? basename((string) $previous['slug']) : $data['title']);
             $prefix = $parent !== null ? $parent['slug'] . '/' : '';
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
-            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $db))) {
+            if ($parent === null && (in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(\Talea\Core\Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $db))) {
                 throw new \InvalidArgumentException('The address “' . $seo . '” is used by the system, choose another.');
             }
             if (\Talea\Core\Slug::taken($db, 'pages', $seo, $language, (int) ($previous['page_id'] ?? 0))) {
@@ -719,10 +719,10 @@ final class Tools
     }
 
     /**
-     * builder_schema: the builder schema (Builder\Build::overview), the section library,
+     * builder_schema: the builder schema (Builder\ElementSchema::overview), the section library,
      * saved sections, components, classes and design system tokens.
      *
-     * @param array<string, mixed> $schema Build::schema()
+     * @param array<string, mixed> $schema ElementSchema::schema()
      * @param array<string, mixed> $a
      */
     private function englishSchema(array $schema, array $a): array
@@ -730,7 +730,7 @@ final class Tools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
         $only = is_array($a['elements'] ?? null) ? array_values(array_filter($a['elements'], 'is_string')) : [];
-        $out = Build::overview($schema, $only, !empty($a['full']));
+        $out = \Talea\Builder\ElementSchema::overview($schema, $only, !empty($a['full']));
         if ($only !== [] && empty($a['full'])) {
             return $out;
         }
@@ -1192,7 +1192,7 @@ final class Tools
     private function availableCollectionSlug(string $given, int $collectionId): string
     {
         $seo = slugify($given, 110);
-        if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->app->db())
+        if ($seo === '' || in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->app->db())
             || $this->app->db()->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $collectionId]) !== null) {
             throw new \InvalidArgumentException('The address “' . $seo . '” is already used by the system or another collection.');
         }

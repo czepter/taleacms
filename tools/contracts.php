@@ -2,8 +2,9 @@
 /**
  * Talea – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
  * and checked by tests/Unit/ContractsTest.php: an MCP tool or parameter, an MCP prompt or its argument, a design token or a
- * builder element (and its content properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
- * deliberate addition, record it:
+ * builder element (and its content properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). The
+ * public addresses (Front\Kernel::routes(), routes.json) are recorded too, so any change to them shows up in review. After a deliberate
+ * addition, record it:
  *
  *   php tools/contracts.php --update
  *
@@ -71,10 +72,10 @@ function talea_element_contract(): array
 }
 
 /**
- * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters and the
- * access levels of tools – what add-ons are written against.
+ * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters, the
+ * access levels of tools and the address prefixes Talea keeps for itself (Api::route() refuses them) – what add-ons are written against.
  *
- * @return array{version: int, supported: list<int>, methods: array<string, list<string>>, v2_methods: list<string>, filters: list<string>, tool_access: list<string>, runners: list<string>, capabilities: list<string>}
+ * @return array{version: int, supported: list<int>, methods: array<string, list<string>>, v2_methods: list<string>, filters: list<string>, tool_access: list<string>, runners: list<string>, capabilities: list<string>, reserved_prefixes: list<string>}
  */
 function talea_extension_contract(): array
 {
@@ -92,7 +93,30 @@ function talea_extension_contract(): array
 
     // version 2 is additive: "methods" lists all of them, "v2_methods" the ones an add-on of API 1 may not call (the rest is what version 1 had)
     return ['version' => Talea\Extension\Api::VERSION, 'supported' => Talea\Extension\Api::SUPPORTED, 'methods' => $methods, 'v2_methods' => $v2, 'filters' => array_keys(Talea\Extension\Api::FILTERS),
-        'tool_access' => Talea\Extension\Api::TOOL_ACCESS, 'runners' => Talea\Extension\Api::RUNNERS, 'capabilities' => array_keys(Talea\Extension\Api::CAPABILITIES)];
+        'tool_access' => Talea\Extension\Api::TOOL_ACCESS, 'runners' => Talea\Extension\Api::RUNNERS, 'capabilities' => array_keys(Talea\Extension\Api::CAPABILITIES),
+        'reserved_prefixes' => talea_sorted(Talea\Front\Kernel::reservedSlugs())];
+}
+
+/**
+ * @param list<string> $values
+ * @return list<string>
+ */
+function talea_sorted(array $values): array
+{
+    sort($values);
+
+    return $values;
+}
+
+/**
+ * The public addresses in the order they are tried (Front\Kernel::routes()): method, pattern, condition, handler. The table is read
+ * without a site or a database.
+ *
+ * @return list<array{methods: list<string>, pattern: string, when: string, handler: string}>
+ */
+function talea_route_contract(): array
+{
+    return Talea\Front\Kernel::routes()->routes();
 }
 
 /**
@@ -207,12 +231,21 @@ function talea_contract_diff(): array
                 }
             }
         }
+        if (($recordedApi['reserved_prefixes'] ?? []) !== $currentApi['reserved_prefixes']) {
+            $added[] = 'extension API: reserved prefixes changed';
+        }
         foreach (array_diff($recordedApi['filters'], $currentApi['filters']) as $filter) {
             $broken[] = "extension API: filter $filter removed";
         }
         foreach (array_diff(array_keys($currentApi['methods']), array_keys($recordedApi['methods'])) as $method) {
             $added[] = "extension API: $method()";
         }
+    }
+
+    // a route may change (moving code, a new address), but never unseen: the recorded table has to be updated with it
+    $routeFile = __DIR__ . '/contracts/routes.json';
+    if (!is_file($routeFile) || json_decode((string) file_get_contents($routeFile), true) !== talea_route_contract()) {
+        $added[] = 'public routes changed (tools/contracts/routes.json)';
     }
 
     return ['broken' => $broken, 'added' => $added];
@@ -231,7 +264,8 @@ if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __F
         file_put_contents(__DIR__ . '/contracts/design-tokens.json', $json(talea_token_contract()));
         file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(talea_element_contract()));
         file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(talea_extension_contract()));
-        echo 'recorded: ' . count(talea_mcp_contract()) . ' MCP tools, ' . count(talea_prompt_contract()) . ' MCP prompts, ' . count(talea_token_contract()) . ' design tokens, ' . count(talea_element_contract()) . " builder elements\n";
+        file_put_contents(__DIR__ . '/contracts/routes.json', $json(talea_route_contract()));
+        echo 'recorded: ' . count(talea_mcp_contract()) . ' MCP tools, ' . count(talea_prompt_contract()) . ' MCP prompts, ' . count(talea_token_contract()) . ' design tokens, ' . count(talea_element_contract()) . ' builder elements, ' . count(talea_route_contract()) . " public routes\n";
         exit(0);
     }
     $diff = talea_contract_diff();

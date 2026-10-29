@@ -20,15 +20,12 @@ final class FileSizeTest extends TestCase
      * the entry; do not raise a number, move code out instead.
      */
     private const array CEILINGS = [
-        'image/builder.js' => 2216,
         'image/web.js' => 1142,
         'system/src/Admin/Modules/Pages.php' => 1087,
         'system/src/Admin/Modules/Settings.php' => 921,
-        'system/src/Builder/Build.php' => 1077,
         'system/src/Core/Booking.php' => 1400,
         'system/src/Core/SiteImport.php' => 1172,
         'system/src/Core/WpImport.php' => 1392,
-        'system/src/Front/Kernel.php' => 1740,
         'system/src/Mcp/Tools.php' => 1240,
     ];
 

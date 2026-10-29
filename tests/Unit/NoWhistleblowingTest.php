@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Unit;
 
-use Talea\Admin\Modules\Pages;
 use PHPUnit\Framework\TestCase;
 
 /** The whistleblowing channel was removed (issue #21): nothing in the code, views, dictionaries or scripts may bring it back. */
@@ -26,6 +25,6 @@ final class NoWhistleblowingTest extends TestCase
 
     public function testItsAddressIsNoLongerReserved(): void
     {
-        $this->assertNotContains('_report', Pages::RESERVED_SLUGS);
+        $this->assertNotContains('_report', \Talea\Front\Kernel::reservedSlugs());
     }
 }

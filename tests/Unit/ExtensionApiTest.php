@@ -67,4 +67,33 @@ final class ExtensionApiTest extends TestCase
         $apiContract = json_decode((string) file_get_contents(TALEA_ROOT . '/tools/contracts/extension-api.json'), true);
         $this->assertSame([2, [1, 2], ['earlyRequest', 'eventType', 'handoverFindings', 'healthRows', 'httpGet', 'notFound', 'route', 'settings'], ['string $name', 'int $interval', 'string $label', 'callable $run', 'string $runner']], [$apiContract['version'], $apiContract['supported'], $apiContract['v2_methods'], $apiContract['methods']['job']], 'API 2: the contract records version 2, both supported versions, and which methods are new in 2');
     }
+
+    /** Core addresses always win (#228): Api::route() refuses Talea's own prefixes; add-on routes come after every core route, before pages */
+    public function testRoutePrefixesOfTaleaAreRefused(): void
+    {
+        $api = new \Talea\Extension\Api(\Talea\Extension\Registry::get(), 'routetest', new \Talea\Core\App(['db' => []], new \Talea\Core\Request([], [], [])), 2, ['routes']);
+        $refused = [];
+        foreach (['news', 'form', 'health', 'tasks', 'screen', 'member', 'fleet', 'experiment', 'oauth', 'admin', 'media'] as $prefix) {
+            try {
+                $api->route($prefix, fn () => null);
+            } catch (\RuntimeException $e) {
+                $refused[$prefix] = $e->getMessage();
+            }
+        }
+        $api->route('routetest-pics', fn () => null);
+        $taken = '';
+        try {
+            $api->route('routetest-pics', fn () => null);
+        } catch (\RuntimeException $e) {
+            $taken = $e->getMessage();
+        }
+        $this->assertSame([11, 'The address /form/ belongs to Talea.', 'The address /routetest-pics/ already belongs to another add-on.'], [count($refused), $refused['form'] ?? '', $taken],
+            'a prefix of a core route or a reserved slug is refused the way a prefix another add-on owns is; a free prefix is accepted once');
+        $handlers = array_column(\Talea\Front\Kernel::routes()->routes(), 'handler');
+        $addOn = array_search('Kernel::addOnRoute', $handlers, true);
+        $this->assertSame([true, 'Endpoints::status', 'Kernel::pageAt'], [$addOn === (int) array_search('Kernel::pageAt', $handlers, true) - 1, $handlers[$addOn - 1] ?? '', $handlers[$addOn + 1] ?? ''],
+            'add-on routes are asked after the last core route and right before pages and collections');
+        $this->assertSame([], array_diff(['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', 'member', 'fleet', 'experiment', 'oauth'],
+            \Talea\Front\Kernel::reservedSlugs()), 'the reserved slugs come from the route table and keep the addresses outside it');
+    }
 }

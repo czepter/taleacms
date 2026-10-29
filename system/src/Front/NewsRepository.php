@@ -118,7 +118,7 @@ final class NewsRepository
     public function bySlug(string $seo, bool $includeUnpublished = false): ?array
     {
         // with slugs per language /news/x and /en/news/x may be two news items: the one of the version asked for comes first; one of
-        // another version still answers there (Front\Kernel redirects to its own version)
+        // another version still answers there (Front\NewsPages redirects to its own version)
         $newsItem = $this->db->one(self::SELECT . ' WHERE c.slug = ? AND c.deleted_at IS NULL' . ($includeUnpublished ? '' : ' AND ' . self::PUBLISHED) . ' ORDER BY c.language = ? DESC LIMIT 1',
             [$seo, \Talea\Core\Language::siteColumn()]);
         if ($newsItem === null) {

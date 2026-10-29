@@ -295,7 +295,7 @@ final class Notices
             }
         }
         if ($posted + $takenDown > 0) {
-            \Talea\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
+            \Talea\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\CollectionPages)
         }
 
         return 'posted ' . $posted . ', taken down ' . $takenDown;

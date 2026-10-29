@@ -35,18 +35,18 @@ final class ComposeTest extends TestCase
         $this->assertSame(['base' => ['gap' => 's']], $composeToStack['children'][0]['children'][0]['style'], 'Build::sanitize: switching a section back to stack drops every placement and keeps the rest of the style');
         $composeContext = new \Talea\Builder\Context($headerApp);
         $composeContext->source = 'page:6';
-        $composeHtml = \Talea\Builder\Build::html($composeClean, $composeContext);
-        $composeCss = \Talea\Builder\Build::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $composeContext);
+        $composeHtml = \Talea\Builder\Renderer::html($composeClean, $composeContext);
+        $composeCss = \Talea\Builder\Renderer::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $composeContext);
         $this->assertSame([true, true, true, true, true], [
             str_contains($composeHtml, '<div class="tl-wrap tl-compose">'), str_contains($composeContext->css, '#s-cs2 { grid-column-start: 2; grid-column-end: 13; grid-row-start: 1; grid-row-end: 40; z-index: 2; }'),
             str_contains($composeCss, '.tl-compose { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));'),
             str_contains($composeCss, '@media (max-width: 1023px) { .tl-compose:not(.tl-compose--phone) { display: flex; flex-direction: column;'), str_contains($composeCss, '@media (max-width: 767px) { .tl-compose { display: flex; flex-direction: column;'),
         ], 'Compose: the wrapper is the grid, the children are placed by lines, at tablet and phone width the CSS stacks them in source order');
-        $composePhone = \Talea\Builder\Build::html(\Talea\Builder\Build::sanitize(['children' => [['id' => 'cs7', 'type' => 'section', 'content' => ['layout' => 'compose', 'stack_from' => 'phone', 'width' => 'full'], 'children' => []]]])[0], new \Talea\Builder\Context($headerApp));
+        $composePhone = \Talea\Builder\Renderer::html(\Talea\Builder\Build::sanitize(['children' => [['id' => 'cs7', 'type' => 'section', 'content' => ['layout' => 'compose', 'stack_from' => 'phone', 'width' => 'full'], 'children' => []]]])[0], new \Talea\Builder\Context($headerApp));
         $this->assertSame([true, false], [str_contains($composePhone, 'class="tl-compose tl-compose--phone"'), str_contains($composePhone, 'tl-wrap')], 'Compose: "phone only" keeps the grid on a tablet, a full-width section is the grid itself');
         $plainContext = new \Talea\Builder\Context($headerApp);
         $plainContext->source = 'page:7';
-        \Talea\Builder\Build::html(\Talea\Builder\Build::sanitize(['children' => [['id' => 'cs8', 'type' => 'section', 'children' => []]]])[0], $plainContext);
-        $this->assertFalse(str_contains(\Talea\Builder\Build::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $plainContext), 'tl-compose'), 'Compose: a page without a compose section carries none of its CSS');
+        \Talea\Builder\Renderer::html(\Talea\Builder\Build::sanitize(['children' => [['id' => 'cs8', 'type' => 'section', 'children' => []]]])[0], $plainContext);
+        $this->assertFalse(str_contains(\Talea\Builder\Renderer::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $plainContext), 'tl-compose'), 'Compose: a page without a compose section carries none of its CSS');
     }
 }
