@@ -506,7 +506,7 @@ PHP);
         $redirect = $visitor->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => $site->password])->redirect;
         $this->assertStringContainsString('/admin/oauth', $redirect, 'a signed-out person returns to the consent page after signing in');
 
-        $account = $site->admin()->get('/admin.php?action=account');
+        $account = $site->admin()->get('/admin.php?action=account&tab=claude');
         $this->assertStringContainsString('Connected applications', $account->body, 'the connected app in My account');
         $site->admin()->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'disconnect_client' => $client]);
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_api_tokens WHERE client_id = ?', [$client]), 'disconnecting the app deletes its tokens');

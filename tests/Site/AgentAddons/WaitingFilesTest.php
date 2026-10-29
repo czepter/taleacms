@@ -39,6 +39,13 @@ final class WaitingFilesTest extends SiteTestCase
         return $this->sq('SELECT COUNT(*) FROM tl_media WHERE image_path = ? AND staged_at IS NOT NULL', [$path]);
     }
 
+    /** Runs the media_staging job now (it publishes the waiting files published content uses). */
+    private function runJob(): void
+    {
+        $this->site()->exec("UPDATE tl_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'media_staging'");
+        $this->site()->runTasks();
+    }
+
     public function testADraftsOnlyUploadWaitsOutsideTheWebRoot(): void
     {
         $answer = $this->uploadAsDrafts('waiting-photo.png');
@@ -134,5 +141,35 @@ final class WaitingFilesTest extends SiteTestCase
         $this->assertFileDoesNotExist($this->site()->path('storage/staging/' . $path), 'the file is gone');
         $this->assertFileDoesNotExist($orphan, 'a file left without a row goes too');
         $this->assertFileExists($this->site()->path(self::$path), 'a published file stays');
+    }
+
+    public function testAHiddenVariantPageCountsNothing(): void
+    {
+        $textOnly = (string) ($this->uploadAsDrafts('variant-text.png')['path'] ?? '');
+        $shareOnly = (string) ($this->uploadAsDrafts('variant-share.png')['path'] ?? '');
+        $inBuild = (string) ($this->uploadAsDrafts('variant-build.png')['path'] ?? '');
+        $pageA = (int) $this->sq('SELECT page_id FROM tl_pages WHERE visible = TRUE AND deleted_at IS NULL ORDER BY page_id LIMIT 1');
+        $now = date('Y-m-d H:i:s');
+        // a hidden page, as a drafts-only connection leaves it, with files in fields that are never rendered for a variant
+        $this->site()->exec('INSERT INTO tl_pages (public_id, title, slug, visible, text, image, build) VALUES (?, ?, ?, FALSE, ?, ?, ?)',
+            ['6c0d3f5e-1a2b-4c3d-8e4f-5a6b7c8d9e0f', 'Variant B', 'variant-b', '<img src="/' . $textOnly . '">', $shareOnly, '']);
+        $variant = (int) $this->sq('SELECT page_id FROM tl_pages WHERE slug = ?', ['variant-b']);
+        $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_page_id, goal_type, status, created_at) VALUES (?, 'x', 'page', ?, ?, 'form', 'running', ?)",
+            ['7d1e4a6f-2b3c-4d4e-9f50-6b7c8d9e0f1a', $pageA, $variant, $now]);
+
+        $this->runJob();
+        $this->assertSame('1', $this->waiting($textOnly), 'the text of a hidden variant page is never rendered: the file waits');
+        $this->assertSame('1', $this->waiting($shareOnly), 'nor is its share image');
+
+        $build = json_encode(['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'image', 'content' => ['src' => $inBuild, 'alt' => '[Photo]']]]]]]);
+        $this->site()->exec('UPDATE tl_pages SET build = ? WHERE page_id = ?', [$build, $variant]);
+        $this->runJob();
+        $this->assertSame('1', $this->waiting($inBuild), 'a hidden variant page is never shown (Experiments::variantRoots needs visible): not even its build counts');
+        $this->assertSame('1', $this->waiting($textOnly), 'the others still wait');
+        $this->assertSame('1', $this->waiting($shareOnly));
+
+        $this->site()->exec('UPDATE tl_pages SET visible = TRUE WHERE page_id = ?', [$variant]);
+        $this->runJob();
+        $this->assertSame('0', $this->waiting($inBuild), 'once the page is visible its build is public');
     }
 }

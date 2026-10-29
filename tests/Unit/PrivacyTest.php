@@ -66,7 +66,7 @@ final class PrivacyTest extends TestCase
         }
         $set = array_values(array_unique($set));
         sort($set);
-        $this->assertSame(['talea', 'talea_consent', 'talea_consent_id', 'tl_member', 'tl_page_*', 'tl_preview', 'tl_preview_media', 'tl_remember'], $set, 'the code sets these cookies (a new one belongs in Privacy::OWN and here)');
+        $this->assertSame(['talea', 'talea_consent', 'talea_consent_id', 'tl_device', 'tl_member', 'tl_page_*', 'tl_preview', 'tl_preview_media', 'tl_remember'], $set, 'the code sets these cookies (a new one belongs in Privacy::OWN and here)');
         $this->assertSame([], array_values(array_diff($set, $own)), 'Privacy::OWN names every cookie the code sets, by the same name');
         $this->assertNotContains('PHPSESSID', $own, 'the session cookie is called talea');
 

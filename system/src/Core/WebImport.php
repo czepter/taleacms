@@ -245,8 +245,9 @@ final class WebImport
             $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
         }
         if ($state['options']['redirects'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'redirects')) {
-            Redirects::add($this->db, $old, $new);
-            $state['result']['redirects']++;
+            if (Redirects::addImported($this->db, $old, $new)) {
+                $state['result']['redirects']++;
+            }
         }
     }
 

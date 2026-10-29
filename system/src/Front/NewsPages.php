@@ -75,8 +75,14 @@ final class NewsPages
 
     public function newsItem(string $seo): Response
     {
-        $preview = $this->app->request->get('preview') === '1' && $this->app->auth()->user() !== null;
+        // the preview of unpublished news follows the admin policy: the News section, and authors only their own items (Auth::managedAuthors)
+        $auth = $this->app->auth();
+        $preview = $this->app->request->get('preview') === '1' && $auth->hasModule('news');
         $newsItem = $this->news->bySlug($seo, $preview);
+        if ($newsItem !== null && $preview && ($authors = $auth->managedAuthors()) !== null && !in_array((int) $newsItem['author_id'], $authors, true)) {
+            $preview = false;
+            $newsItem = $this->news->bySlug($seo); // someone else's item: only if it is published
+        }
         if ($newsItem === null) {
             return $this->kernel->notFound();
         }

@@ -258,7 +258,7 @@ trait CollectionTools
             if (is_string($a['publish_at'] ?? null) && trim($a['publish_at']) !== '') {
                 throw new \DomainException('This connection can only save drafts: it cannot schedule an item to be published.' . $proposeInstead);
             }
-            unset($a['visible']); // a new item stays hidden whatever visible says
+            unset($a['visible'], $a['publish_at']); // a new item stays hidden whatever visible says; a blank date means none
         }
         // on update the name is optional – the current one stays
         $itemName = mb_substr(trim((string) ($a['name'] ?? $previous['name'] ?? '')), 0, 200);
@@ -302,6 +302,10 @@ trait CollectionTools
                 $row['visible'] = $fields['visible'];
             }
         }
+        if ($draftsOnly) {
+            $row['visible'] = 0; // defence in depth: no field combination makes an item public from this scope
+            $row['publish_at'] = null;
+        }
         $row += self::validityDates($a); // true until and review by (2.10)
         $row += \Talea\Core\SeoFields::fromInput($a);
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
@@ -325,7 +329,7 @@ trait CollectionTools
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['values'] ?? null) ? $a['values'] : []), array_column($collection['fields'], 'key')));
 
         return ['id' => $itemId, 'collection' => $collection['slug'], 'invalid_fields' => array_keys($errors)] + ($unknownKeys !== [] ? ['unknown_keys' => $unknownKeys] : []) + self::validityOutput($row)
-            + ($draftsOnly ? ['visible' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
+            + ($draftsOnly ? ['visible' => (bool) $row['visible'], 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
             'url' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo) : null]
             // a document (2.11): the stable address of its current file, for links and buttons
             + ($collection['detail'] && \Talea\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo . '/latest')] : []);

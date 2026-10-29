@@ -21,6 +21,32 @@ final class CatalogTest extends TestCase
         ], '2.1: MCP catalog, definitions, parameter types and methods agree');
     }
 
+    public function testNoReadToolHasAHandlerThatWrites(): void
+    {
+        // a "read" tool is open to a read-only connection (and to run_read_tool): its handler must not write to the database
+        // (the scan sees the handler's own body; get_due_agent_runs hid its insert behind AgentSchedules::handOut, hence the names)
+        $writes = '/->(insert|insertIgnore|upsert|update|delete|exec)\(|::(handOut|markMissed)\(/';
+        $found = [];
+        $shared = ['list_redirects', 'list_item_versions']; // their handler also serves save_redirect / restore_item_version (by name); only that branch writes
+        foreach (array_keys(\Talea\Mcp\Catalog::TOOLS) as $tool) {
+            if (\Talea\Mcp\Catalog::access($tool) !== 'read' || in_array($tool, $shared, true)) {
+                continue;
+            }
+            $m = new \ReflectionMethod(\Talea\Mcp\Tools::class, \Talea\Mcp\Catalog::method($tool));
+            $body = implode('', array_slice(file((string) $m->getFileName()) ?: [], $m->getStartLine() - 1, $m->getEndLine() - $m->getStartLine() + 1));
+            if (preg_match($writes, $body) === 1) {
+                $found[] = $tool;
+            }
+        }
+        $this->assertSame([], $found, 'tools classified read whose handler writes');
+    }
+
+    public function testUpdateRequestSendsAndGetDueAgentRunsIsNotARead(): void
+    {
+        $this->assertSame('draft', \Talea\Mcp\Catalog::access('get_due_agent_runs'), 'it records a running agent_runs row');
+        $this->assertContains('update_request', \Talea\Mcp\Catalog::SENDS, 'status done e-mails the requester');
+    }
+
     public function testConnectionAccess(): void
     {
         // 2.2: what a connection may do – full everything, drafts only reads and drafts, read only reads; never an unknown level

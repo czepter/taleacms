@@ -10,6 +10,23 @@ final class RedirectRules
     public const array TYPES = [301, 302, 307, 410, 451];
     public const array MATCHES = ['exact', 'contains', 'starts', 'ends', 'regex'];
 
+    /**
+     * The address a stored exact path stands for, as Front\Kernel::redirectRule matches requests: `x.html` answers /x and `de/x`
+     * answers /de/x, so a trailing .html goes and a leading additional language is split off.
+     *
+     * @return array{0: string, 1: string} language ('' = none) and the path without it, no slashes around it
+     */
+    public static function address(Settings $s, string $path): array
+    {
+        $path = (string) preg_replace('#\.html$#', '', trim(rawurldecode($path), '/ '));
+        $segments = explode('/', $path);
+        if (count($segments) > 1 && in_array($segments[0], Language::additional($s), true)) {
+            return [array_shift($segments), implode('/', $segments)];
+        }
+
+        return ['', $path];
+    }
+
     /** The refusal message, null when the rule is fine. */
     public static function validate(string $from, string $to, string $match, int $type): ?string
     {

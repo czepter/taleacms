@@ -94,9 +94,9 @@ final class ToolSetTest extends SiteTestCase
         $site = $this->site();
         $admin = $site->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Essentials drafts', 'access' => 'drafts', 'tool_set' => 'essentials']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Essentials drafts', 'access' => 'drafts', 'tool_set' => 'essentials']);
         self::$draftsToken = preg_match('/talea_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Essentials read', 'access' => 'read', 'tool_set' => 'essentials']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Essentials read', 'access' => 'read', 'tool_set' => 'essentials']);
         self::$readToken = preg_match('/talea_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
 
         $this->assertNotContains('run_destructive_tool', $this->listed(self::$readToken), 'a read-only connection lists no destructive runner');
@@ -115,7 +115,7 @@ final class ToolSetTest extends SiteTestCase
         $site = $this->site();
         $admin = $site->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Default set']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Default set']);
         $this->assertSame('all', $site->value("SELECT tool_set FROM tl_api_tokens WHERE name = 'Default set'"), 'a personal token lists all tools unless asked otherwise');
 
         $id = (string) $site->value("SELECT public_id FROM tl_api_tokens WHERE name = 'Default set'");
