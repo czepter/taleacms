@@ -625,7 +625,7 @@ trait BuilderActions
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
-        $refusal = \Talea\Core\Guardrails::assistantRefusal($this->app, static::IDENT === 'pages' ? (int) $target['row']['page_id'] : null);
+        $refusal = \Talea\Core\Guardrails::assistantRefusal($this->app, isset($target['row']['page_id']) ? (int) $target['row']['page_id'] : null);
         if ($refusal !== null) {
             return Response::json(['ok' => false, 'error' => $refusal], 403);
         }

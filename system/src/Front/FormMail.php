@@ -26,12 +26,12 @@ final class FormMail
     {
         $values = [];
         foreach ($data as $i => $answer) {
-            $label = mb_strtolower(trim((string) ($answer[0] ?? '')));
+            $label = mb_strtolower(trim($answer[0]));
             if ($label === '' || isset($values[$label])) {
                 continue;
             }
             $type = $types[$i] ?? '';
-            $value = trim((string) ($answer[1] ?? ''));
+            $value = trim($answer[1]);
             $values[$label] = !$toVisitor || in_array($type, self::SAFE_TYPES, true) || ($type === 'text' && self::isName($value)) ? $value : '';
         }
         foreach ($extra as $name => $value) {
