@@ -1,6 +1,7 @@
 # Form calculator: a quick check that ends in an estimate
 
-Status: design, agreed in conversation on 28–29 October 2026. Not built yet.
+Status: built (October 2026). Designed in conversation on 28–29 October 2026; where the build differs from the text below, the
+section "Decided during implementation" at the end says so and wins.
 
 ## Why
 
@@ -340,3 +341,28 @@ the logic overlay and the Forms area.
 - Everything marked **(my call)**.
 - Test layout: unit tests for `FormLogic` and the sanitizer, site tests for both modes end to end (submit, result link,
   e-mail block, expired link, no amounts in `after_contact` HTML), the step beacon, and a browser test for the overlay.
+
+## Decided during implementation
+
+These calls were made while building and change what an owner or builder notices. They outrank the text above.
+
+- **Range defaults are 0 / 0 / no rounding.** A new or existing estimate field has `range_below` and `range_above` 0 and
+  `round_to` 0, so a live form that already exists shows exactly the amount it showed before (section 2 outranks the
+  -10 % / +15 % default of section 6). The starter section "Quick check with estimate" and the overlay's new estimate carry
+  10 / 15 / 50.
+- **The result pair keeps the estimate field's own label** instead of a fixed "Result" label; the Breakdown pair is added
+  as specified.
+- **The result arrives by the normal redirect** to the same page and anchor, also with JavaScript. There is no
+  fetch-based submit: one code path, and the page the visitor sees is the same page.
+- **A rule with no conditions always holds**, for visibility and amounts alike, so an unconditional amount ("hours x 180")
+  can be stored and an unconditional skip hides its question.
+- **A broken rule is kept and does nothing.** A condition that names an unknown field or operator marks its rule broken:
+  the overlay still shows it so it can be fixed, the site and `try_form` leave it out. The same applies to a rule that
+  names an option which was renamed or removed.
+- **`get_stats` keeps `forms` as before** and returns the funnels in a separate key `form_steps` (form, page, steps, sent).
+- **The dead-link result screen carries no `data-sent`**, so a tampered or expired link is never counted as a conversion.
+  Old answers of that tab can stay in `sessionStorage`.
+- **In `after_contact` mode the estimate pair is stored even when a rule hides the estimate field**, so the visitor does not
+  land on "no longer available" right after sending. An owner who hides the estimate on purpose still gets the number in
+  the enquiry.
+- **Old step counters are pruned like `ip_checks`** (one write in 50), not by the cron.

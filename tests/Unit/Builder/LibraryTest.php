@@ -41,6 +41,21 @@ final class LibraryTest extends TestCase
         $this->assertFalse(in_array('html', array_column(\Talea\Builder\Build::schema(false)['elements'], 'type'), true), 'Build::schema: without custom HTML for non-administrators');
     }
 
+    public function testQuickCheckSectionSanitizesAndIsFlaggedAsSample(): void
+    {
+        $this->assertContains('quick-check', array_column(\Talea\Builder\Library::listAll(), 'key'));
+        $element = \Talea\Builder\Library::section('quick-check')['element'];
+        [$build, $errors] = \Talea\Builder\Build::sanitize(['v' => 1, 'children' => [$element]]);
+        $this->assertSame([], $errors);
+        $this->assertNotSame([], \Talea\Builder\SampleContent::find($build), 'the placeholders are found as sample content');
+        $form = $build['children'][0]['children'][2]['content'];
+        $this->assertSame('after_contact', $form['calculation']);
+        $this->assertCount(4, array_filter($form['fields'], fn (array $f): bool => $f['type'] === 'step'), 'three questions and the contact step');
+        $estimate = array_values(array_filter($form['fields'], fn (array $f): bool => $f['type'] === 'estimate'))[0];
+        $this->assertSame([10, 15, 50, '[unit]'], [$estimate['range_below'], $estimate['range_above'], $estimate['round_to'], $estimate['unit_suffix']]);
+        $this->assertCount(1, $form['logic']['results']);
+    }
+
     public function testDisabledExtensions(): void
     {
         // disabled extensions: the builder offers neither their elements nor sections using them
