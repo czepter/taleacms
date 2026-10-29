@@ -183,7 +183,11 @@ final class FormLogic
         return is_numeric($v) ? max(-self::MAX_AMOUNT, min(self::MAX_AMOUNT, (float) $v)) : null;
     }
 
-    /** @param list<mixed> $results @param array<string, string> $errors */
+    /**
+     * @param list<mixed> $results
+     * @param array<string, string> $errors
+     * @return list<array<string, mixed>>
+     */
     private static function sanitizeResults(array $results, string $place, array &$errors): array
     {
         $clean = [];

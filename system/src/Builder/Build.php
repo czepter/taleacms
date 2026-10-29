@@ -327,6 +327,7 @@ final class Build
         return trim(str_replace(['</p>', '<p>'], ['<br>', ''], $clean));
     }
 
+    /** @param array<string, string> $errors */
     public static function link(string $url, string $path, array &$errors): string
     {
         $url = trim($url);

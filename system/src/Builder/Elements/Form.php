@@ -135,7 +135,7 @@ final class Form extends Element
         $result = FormLogic::evaluate($content, $byIndex);
 
         return [
-            'visible' => array_values(array_map(static fn (int $i): string => (string) $keys[$i], array_keys(array_filter($result['visible'])))),
+            'visible' => array_map(static fn (int $i): string => (string) $keys[$i], array_keys(array_filter($result['visible']))),
             'lines' => array_map(static fn (array $line): array => ['label' => $line[0], 'amount' => $line[1]], $result['lines']),
             'total' => $result['total'], 'shown' => $result['shown'], 'variant' => $result['variant'], 'unknown_keys' => $unknown,
         ];
