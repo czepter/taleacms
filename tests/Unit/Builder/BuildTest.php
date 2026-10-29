@@ -104,7 +104,7 @@ final class BuildTest extends TestCase
             \Talea\Builder\Elements\Button::render(['content' => ['text' => 'Bez', 'link' => '/x', 'variant' => 'primary', 'new_window' => false]], '', '', (new \ReflectionClass(\Talea\Builder\Context::class))->newInstanceWithoutConstructor()) === '<a class="tl-button tl-button--primary" href="/x">Bez</a>',
         ], 'Button: icon after the text and to the left of the text');
         $this->assertSame($compactBuild, \Talea\Builder\Build::sanitize($compact)[0], 'Build::compact: the same build after sanitizing');
-        $overview = \Talea\Builder\Build::overview(\Talea\Builder\Build::schema());
-        $this->assertSame([true, true], [str_contains($overview['elements']['button'], 'variant:choice(primary*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(\Talea\Builder\Build::schema())) / 2], 'Build::overview: one element per line, the default option with an asterisk, a much smaller schema');
+        $overview = \Talea\Builder\ElementSchema::overview(\Talea\Builder\ElementSchema::schema());
+        $this->assertSame([true, true], [str_contains($overview['elements']['button'], 'variant:choice(primary*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(\Talea\Builder\ElementSchema::schema())) / 2], 'ElementSchema::overview: one element per line, the default option with an asterisk, a much smaller schema');
     }
 }

@@ -78,7 +78,7 @@ final class ElementsTest extends TestCase
         $this->assertSame([true, true, true], [
             str_contains($f9Text, "<h3>Basic</h3><p>9 / month</p><p>Start</p><ul><li>One</li><li>Two (" . t('not included') . ")</li></ul>\n<h3>Pro</h3><p>29</p><ul><li>One</li></ul>"),
             str_contains($f9Text, '<ol><li>Entrance – Line 1' . "\n" . 'Line &amp; 2</li></ol>'), str_contains($f9Text, "<h3>2020 – Start</h3><p>Text</p>\n<h3>Today</h3>")], '2.12 Build::asText – plans with prices and features, points and milestones are page content for search and the .md version');
-        $f9Schema = array_column(\Talea\Builder\Build::schema(true, 'en')['elements'], null, 'type');
+        $f9Schema = array_column(\Talea\Builder\ElementSchema::schema(true, 'en')['elements'], null, 'type');
         $this->assertSame([['Content', 'Content', 'Content', 'Content'], ['Basic', 'Standard', 'Premium'], true, 'Before', 2, 'Today', 0, 1], [
             array_map(fn (string $t): string => $f9Schema[$t]['group'], ['pricing_table', 'before_after', 'hotspots', 'timeline']), array_column($f9Schema['pricing_table']['properties']['plans']['default'], 'name'), $f9Schema['pricing_table']['properties']['plans']['default'][1]['highlighted'],
             $f9Schema['before_after']['properties']['before_label']['default'], count($f9Schema['hotspots']['properties']['points']['default']), $f9Schema['timeline']['properties']['milestones']['default'][2]['date'],

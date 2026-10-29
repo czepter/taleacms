@@ -38,13 +38,13 @@ final class LibraryTest extends TestCase
             $buildLibraryErrors += array_map(fn (string $c): string => $buildSection['key'] . ': ' . $c, $buildErrors);
         }
         $this->assertSame([], $buildLibraryErrors, 'Library: all ready-made sections pass the validator');
-        $this->assertFalse(in_array('html', array_column(\Talea\Builder\Build::schema(false)['elements'], 'type'), true), 'Build::schema: without custom HTML for non-administrators');
+        $this->assertFalse(in_array('html', array_column(\Talea\Builder\ElementSchema::schema(false)['elements'], 'type'), true), 'ElementSchema::schema: without custom HTML for non-administrators');
     }
 
     public function testDisabledExtensions(): void
     {
         // disabled extensions: the builder offers neither their elements nor sections using them
-        $schemaTypes = array_column(\Talea\Builder\Build::schema(true, 'cs', false, ['stats'])['elements'], 'type');
+        $schemaTypes = array_column(\Talea\Builder\ElementSchema::schema(true, 'cs', false, ['stats'])['elements'], 'type');
         $this->assertSame([false, false, true], [in_array('news_list', $schemaTypes, true), in_array('form', $schemaTypes, true), in_array('heading', $schemaTypes, true)], 'Extensions: without news and enquiries the schema has no such elements');
         $libraryKey = array_column(\Talea\Builder\Library::listAll(['stats']), 'key');
         $this->assertSame([false, false, true], [in_array('contact-form', $libraryKey, true), in_array('news', $libraryKey, true), in_array('hero', $libraryKey, true)], 'Extensions: the library without sections with a form and news');
@@ -58,8 +58,8 @@ final class LibraryTest extends TestCase
         $this->assertSame(['We help businesses grow – quickly and hassle-free', '/contact', '/services'], [$libraryEn['children'][0]['content']['text'], $libraryEn['children'][2]['children'][0]['content']['link'], $libraryEn['children'][2]['children'][1]['content']['link']], 'Library: sections in English including page links');
         $this->assertSame('/kontakt', \Talea\Core\Language::runWith('cs', fn () => \Talea\Builder\Library::section('hero', 'cs')['element']['children'][2]['children'][0]['content']['link']), 'Library: in Czech it links to Czech addresses'); // check-english: allow
         $this->assertSame('cs', \Talea\Core\Language::code(), 'Library: the language is restored after a section is built');
-        $librarySchema = array_column(\Talea\Builder\Build::schema(true, 'en')['elements'], 'properties', 'type');
-        $this->assertSame(['Heading', 'Contact us'], [$librarySchema['heading']['text']['default'], $librarySchema['button']['text']['default']], 'Build::schema: default element content in the page language');
+        $librarySchema = array_column(\Talea\Builder\ElementSchema::schema(true, 'en')['elements'], 'properties', 'type');
+        $this->assertSame(['Heading', 'Contact us'], [$librarySchema['heading']['text']['default'], $librarySchema['button']['text']['default']], 'ElementSchema::schema: default element content in the page language');
         $libraryEnDictionary = (require TALEA_ROOT . '/system/languages/en.php') + (require TALEA_ROOT . '/system/languages/cs.php');
         preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(TALEA_ROOT . '/system/src/Builder/Library.php') . implode('', array_map('file_get_contents', glob(TALEA_ROOT . '/system/src/Builder/Elements/*.php'))), $libraryTexts);
         $this->assertSame([], array_values(array_diff(array_unique(array_map('stripslashes', $libraryTexts[1])), array_keys($libraryEnDictionary), ['Menu', 'Standard', 'Video'])), 'Library and elements: all sample texts have an English translation');
@@ -121,7 +121,7 @@ final class LibraryTest extends TestCase
                         if ($pageSections === []) {
                             continue; // text page: the layout provides the h1 heading
                         }
-                        [$build] = \Talea\Builder\Library::assemble($pageSections, 'Stránka', $language, \Talea\Builder\Build::disabledTypes($enabled), true); // check-english: allow
+                        [$build] = \Talea\Builder\Library::assemble($pageSections, 'Stránka', $language, \Talea\Builder\ElementSchema::disabledTypes($enabled), true); // check-english: allow
                         foreach ($pageCheck($build) as $finding) {
                             $sitesCheck[] = "$siteKey/$language/$variant/page $i: $finding";
                         }
@@ -130,7 +130,7 @@ final class LibraryTest extends TestCase
             }
         }
         $this->assertSame([], array_values(array_unique($sitesCheck)), 'Library::SITES: the pages of the sample sites pass the pre-publish check');
-        $contactWithoutForm = \Talea\Builder\Library::assemble(\Talea\Builder\Library::SITES['crafts']['pages'][3], 'Kontakt', 'cs', \Talea\Builder\Build::disabledTypes([]), true)[0]; // check-english: allow
+        $contactWithoutForm = \Talea\Builder\Library::assemble(\Talea\Builder\Library::SITES['crafts']['pages'][3], 'Kontakt', 'cs', \Talea\Builder\ElementSchema::disabledTypes([]), true)[0]; // check-english: allow
         $this->assertTrue(str_contains((string) json_encode($contactWithoutForm), '"detail":"address"'), 'Library: a contact without the Forms extension has the company details');
     }
 }

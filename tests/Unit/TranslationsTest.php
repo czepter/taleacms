@@ -200,7 +200,7 @@ final class TranslationsTest extends TestCase
         $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode((string) preg_replace('/,\s*\}$/', '}', $csJsDictionary[1] ?? '{}'), true))];
         $this->assertSame([], array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu'])), 'Builder: all editor texts have an English translation');
         $enAdmin = (require TALEA_ROOT . '/system/languages/admin-en.php') + (require TALEA_ROOT . '/system/languages/admin-cs.php');
-        $enSchema = \Talea\Builder\Build::schema(true, 'cs', true);
+        $enSchema = \Talea\Builder\ElementSchema::schema(true, 'cs', true);
         $enTexts = array_merge(array_column($enSchema['elements'], 'name'), array_column($enSchema['elements'], 'description'), array_column($enSchema['elements'], 'group'), array_values($enSchema['style_groups']));
         $enFields = function (array $properties) use (&$enFields, &$enTexts): void {
             foreach ($properties as $d) {

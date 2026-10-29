@@ -719,10 +719,10 @@ final class Tools
     }
 
     /**
-     * builder_schema: the builder schema (Builder\Build::overview), the section library,
+     * builder_schema: the builder schema (Builder\ElementSchema::overview), the section library,
      * saved sections, components, classes and design system tokens.
      *
-     * @param array<string, mixed> $schema Build::schema()
+     * @param array<string, mixed> $schema ElementSchema::schema()
      * @param array<string, mixed> $a
      */
     private function englishSchema(array $schema, array $a): array
@@ -730,7 +730,7 @@ final class Tools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
         $only = is_array($a['elements'] ?? null) ? array_values(array_filter($a['elements'], 'is_string')) : [];
-        $out = Build::overview($schema, $only, !empty($a['full']));
+        $out = \Talea\Builder\ElementSchema::overview($schema, $only, !empty($a['full']));
         if ($only !== [] && empty($a['full'])) {
             return $out;
         }
