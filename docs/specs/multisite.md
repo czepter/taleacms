@@ -44,7 +44,7 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
 - `App::boot()` resolves the request's host through `site_domains` when `TALEA_MULTISITE` is on (never in the CLI, never without
   the flag: with it off the database is not asked). An unknown or trashed host is a plain 404; `/health` answers for site 1 on
   any host. `App::$site` carries the site row. The lifecycle lives in `Front\Kernel::siteLifecycle()`: paused = 503 for visitors,
-  archived = 301 to the target's primary host or read-only (403 on forms, bookings, member login).
+  archived = 301 to the target's primary host or read-only: every request other than GET/HEAD answers 403, except a page password, unsubscribing and cancelling a booking (no GET route writes).
 - `bin/migrate` is the startup guard: more than one site that is not trashed without the flag stops the container; with the flag
   and no domain on site 1, the host of `TALEA_SITE_URL` (or the `site_url` setting) becomes its primary domain.
 - **Signing is bound by a per-site key, not by payloads.** Signed links (preview, form time stamp, page lock, share images …) all go

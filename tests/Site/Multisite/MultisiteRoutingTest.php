@@ -108,6 +108,19 @@ final class MultisiteRoutingTest extends SiteTestCase
         $post = $this->site()->client('visitor')->post('/form', ['x' => '1'], ['Host: second.test:' . $this->port()]);
         $this->assertSame(403, $post->status);
         $this->assertStringContainsString('no longer accepts submissions', $post->body);
+
+        // deny by default: any other write is refused too, reading and withdrawing consent still work
+        $host = ['Host: second.test:' . $this->port()];
+        $visitor = $this->site()->client('visitor');
+        foreach (['/subscribe' => ['email' => 'a@example.com'], '/_comment' => ['x' => '1'], '/popup' => ['x' => '1'], '/subscribe?confirm=' . str_repeat('a', 32) => []] as $path => $data) {
+            $r = $visitor->post($path, $data, $host);
+            $this->assertSame(403, $r->status, $path);
+            $this->assertStringContainsString('no longer accepts submissions', $r->body, $path);
+        }
+        $this->assertSame(200, $this->on('second.test', '/')->status);
+        foreach (['/subscribe?unsubscribe=' . str_repeat('a', 32) => [], '/_booking/cancel/' . str_repeat('a', 32) => [], '/some-page' => ['tl_page_password' => 'x']] as $path => $data) {
+            $this->assertStringNotContainsString('no longer accepts submissions', $visitor->post($path, $data, $host)->body, $path);
+        }
     }
 
     public function testATrashedSiteDoesNotAnswer(): void

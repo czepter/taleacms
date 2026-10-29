@@ -76,8 +76,9 @@ final class Kernel
 
     /**
      * Multisite (docs/specs/multisite.md): the state of the site this host belongs to. Paused: visitors get a 503 (signed-in people, the
-     * whole-site preview and signed page links pass). Archived: a 301 to the site it points at, else read-only (forms, bookings and
-     * the member login answer 403). The probe, cron, Claude and OAuth answer in every state; the administration has its own kernel.
+     * whole-site preview and signed page links pass). Archived: a 301 to the site it points at, else read-only: every request that is not
+     * GET or HEAD answers 403, except the page password, unsubscribing and cancelling a booking (reading, or withdrawing consent). No GET route writes
+     * (confirmations, unsubscribing and choosing a time only show a button; the POST does the work). The probe, cron, Claude and OAuth answer in every state; the administration has its own kernel.
      */
     private function siteLifecycle(): ?Response
     {
@@ -92,13 +93,25 @@ final class Kernel
                 return Response::redirect(\Talea\Core\Sites::originOn($r, $target) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), 301);
             }
 
-            return $r->isPost() && preg_match('#^/(form|_booking(/.*)?|member(/.*)?)$#', $r->path()) === 1 ? $this->statusPage(t('This site is archived and no longer accepts submissions.'), 403) : null;
+            return $this->archivedMayWrite($r) ? null : $this->statusPage(t('This site is archived and no longer accepts submissions.'), 403);
         }
         if ($this->sitePreview || $this->app->auth()->user() !== null || $this->pausedPreviewKey()) {
             return null;
         }
 
         return $this->statusPage(t('This site is not public yet'), 503, ['Retry-After' => '3600', 'X-Robots-Tag' => 'noindex']);
+    }
+
+    /** Deny by default: a write on an archived site passes only when it unlocks a page, unsubscribes or cancels a booking. */
+    private function archivedMayWrite(\Talea\Core\Request $r): bool
+    {
+        if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+            return true;
+        }
+
+        return $r->isPost() && ($r->post('tl_page_password') !== ''
+            || ($r->path() === '/subscribe' && $r->get('unsubscribe') !== '' && $r->get('confirm') === '')
+            || preg_match('#^/_booking/cancel/[a-f0-9]{32}$#', $r->path()) === 1);
     }
 
     /** A paused site shows a page to whoever holds a valid signed link for it (the page of this address, or the whole site). */
