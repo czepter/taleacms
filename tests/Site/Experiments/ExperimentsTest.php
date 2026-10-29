@@ -157,6 +157,7 @@ final class ExperimentsTest extends SiteTestCase
     {
         $other = $this->site()->mcpResult('create_page', ['title' => 'Landing two', 'slug' => 'landing-two'])['id'];
         $this->site()->mcp('save_build', ['id' => $other, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Second page headline']]]]]);
+        $this->site()->exec('UPDATE tl_pages SET visible = 1 WHERE slug = ?', ['landing-two']); // version B must be a public page
         $x = $this->site()->mcpResult('create_experiment', ['name' => 'Pages', 'kind' => 'page', 'page' => self::$page, 'variant_page' => $other, 'goal' => 'page', 'goal_page' => $other, 'start' => true]);
         $this->site()->clearPageCache();
         $html = $this->site()->client('visitor')->get('/landing')->body;
@@ -164,7 +165,6 @@ final class ExperimentsTest extends SiteTestCase
         $this->assertStringContainsString('Second page headline', $html);
         $this->assertStringContainsString('"g":[]', $html);
         $this->assertStringContainsString('"goal":"page"', $html);
-        $this->site()->exec('UPDATE tl_pages SET visible = 1 WHERE slug = ?', ['landing-two']);
         $this->site()->clearPageCache();
         $this->assertStringContainsString('"g":[{"id":"' . $x['id'] . '","path":"/landing-two"}]', $this->site()->client('visitor')->get('/landing-two')->body, 'the goal page knows which experiments it ends');
 
@@ -173,5 +173,51 @@ final class ExperimentsTest extends SiteTestCase
         $this->assertSame('published', $result['applied_as']);
         $this->site()->clearPageCache();
         $this->assertStringContainsString('Second page headline', $this->site()->client('visitor')->get('/landing')->body);
+    }
+
+    public function testStartingNeedsThePublishRightAndVersionBMustBeVisibleAndUnlocked(): void
+    {
+        $a = $this->site()->mcpResult('create_page', ['title' => 'Guard A', 'slug' => 'guard-a'])['id'];
+        $b = $this->site()->mcpResult('create_page', ['title' => 'Guard B', 'slug' => 'guard-b'])['id'];
+        $build = fn (string $text): array => ['v' => 1, 'children' => [['type' => 'heading', 'tag' => 'h2', 'content' => ['text' => $text]]]];
+        $this->site()->mcp('save_build', ['id' => $a, 'publish' => true, 'build' => $build('Guard A headline')]);
+        $this->site()->mcp('save_build', ['id' => $b, 'publish' => true, 'build' => $build('Secret B headline')]);
+        $this->site()->exec('UPDATE tl_pages SET visible = 1 WHERE slug = ?', ['guard-a']);
+
+        // a hidden or password-locked page is no version B
+        $args = ['name' => 'Guard', 'kind' => 'page', 'page' => $a, 'variant_page' => $b, 'goal' => 'form'];
+        $this->assertStringContainsString('another page', json_encode($this->site()->mcp('create_experiment', $args)), 'hidden');
+        $this->site()->exec('UPDATE tl_pages SET visible = 1, password_hash = ? WHERE slug = ?', ['x', 'guard-b']);
+        $this->assertStringContainsString('another page', json_encode($this->site()->mcp('create_experiment', $args)), 'locked');
+        $this->site()->exec('UPDATE tl_pages SET password_hash = NULL WHERE slug = ?', ['guard-b']);
+
+        // a role without the publish right may prepare, not start
+        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => 0, 'name' => 'Tester', 'level' => 0, 'modules' => ['experiments']], '/admin.php?module=roles');
+        $role = (int) $this->site()->value('SELECT MAX(role_id) FROM tl_role');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'abtester', 'password' => $this->site()->password, 'admin' => "r$role"], '/admin.php?module=users');
+        $token = 'talea_' . str_repeat('e', 48);
+        $this->site()->exec('INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, ?, ?, NOW() FROM tl_users WHERE username = ?', ['ab', hash('sha256', $token), 'abtester']);
+
+        $refused = json_encode($this->site()->mcp('create_experiment', $args + ['start' => true], $token));
+        $this->assertStringContainsString('may publish', $refused, 'create with start');
+        $x = $this->site()->mcpResult('create_experiment', $args, $token);
+        $this->assertSame('draft', $x['status']);
+        $this->assertStringContainsString('may publish', json_encode($this->site()->mcp('update_experiment', ['id' => $x['id'], 'action' => 'start'], $token)), 'MCP start');
+
+        $tester = $this->site()->client('abtester');
+        $this->site()->signIn($tester, 'abtester');
+        $tester->post('/admin.php?module=experiments&action=start', ['_csrf' => $tester->get('/admin.php?module=experiments')->csrf(), 'experiment_id' => $x['id']]);
+        $this->assertSame('draft', $this->site()->value('SELECT status FROM tl_experiments WHERE public_id = ?', [$x['id']]), 'admin start');
+
+        // started by someone who may publish, version B is served only while it stays public
+        $this->site()->mcp('update_experiment', ['id' => $x['id'], 'action' => 'start']);
+        $this->site()->clearPageCache();
+        $this->assertStringContainsString('Secret B headline', $this->site()->client('v1')->get('/guard-a')->body);
+        $this->site()->exec('UPDATE tl_pages SET visible = 0 WHERE slug = ?', ['guard-b']);
+        $this->site()->clearPageCache();
+        $this->assertStringNotContainsString('Secret B headline', $this->site()->client('v2')->get('/guard-a')->body, 'hidden later');
+        $this->site()->exec('UPDATE tl_pages SET visible = 1, password_hash = ? WHERE slug = ?', ['x', 'guard-b']);
+        $this->site()->clearPageCache();
+        $this->assertStringNotContainsString('Secret B headline', $this->site()->client('v3')->get('/guard-a')->body, 'locked later');
     }
 }

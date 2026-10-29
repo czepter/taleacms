@@ -3120,6 +3120,7 @@ return [
     'Only one item open at a time' => 'Otevřená vždy jen jedna položka',
     'Only own news and without publishing – an editor publishes.' => 'Novinky jen své a bez vydávání – vydává editor.',
     'Only reviews with at least this many stars' => 'Jen recenze s alespoň tolika hvězdičkami',
+    'Only someone who may publish can start an experiment.' => 'Experiment může spustit jen ten, kdo smí zveřejňovat.',
     'Only someone who may publish can undo a published change.' => 'Zveřejněnou změnu může vrátit jen ten, kdo smí publikovat.',
     'Only the %title% part changes; the site name and the tagline keep the way you wrote them.' => 'Mění se jen část %title%; název webu a slogan zůstanou tak, jak jste je napsali.',
     'Only the ID is needed. The pixels run only after the visitor allows marketing in the cookie bar (the Privacy and cookies tab) and appear in the cookie table.' => 'Stačí ID. Pixely se spustí až poté, co návštěvník v cookie liště povolí marketing (záložka Soukromí a cookies), a objeví se v tabulce cookies.',

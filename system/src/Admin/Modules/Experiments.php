@@ -76,7 +76,9 @@ final class Experiments extends Module
 
     protected function actionStart(): Response
     {
-        return $this->change(fn (array $x): ?string => Tests::start($this->db, $x), 'The experiment is running. Visitors now get a random version.');
+        $canPublish = $this->app->auth()->canPublish();
+
+        return $this->change(fn (array $x): ?string => Tests::start($this->db, $x, $canPublish), 'The experiment is running. Visitors now get a random version.');
     }
 
     protected function actionStop(): Response
@@ -143,6 +145,6 @@ final class Experiments extends Module
     /** @return list<array{public_id: string, title: string}> published pages made in the builder */
     private function builderPages(): array
     {
-        return $this->db->all('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL AND build IS NOT NULL ORDER BY language, sort_order, title LIMIT 500');
+        return $this->db->all('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL AND visible = TRUE AND password_hash IS NULL AND build IS NOT NULL ORDER BY language, sort_order, title LIMIT 500');
     }
 }

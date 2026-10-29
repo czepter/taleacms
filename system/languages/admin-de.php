@@ -3126,6 +3126,7 @@ return [
     'Only one item open at a time' => 'Immer nur ein Eintrag geöffnet',
     'Only own news and without publishing – an editor publishes.' => 'Nur eigene News und ohne Veröffentlichung – ein Redakteur veröffentlicht.',
     'Only reviews with at least this many stars' => 'Nur Bewertungen mit mindestens so vielen Sternen',
+    'Only someone who may publish can start an experiment.' => 'Ein Experiment kann nur starten, wer veröffentlichen darf.',
     'Only someone who may publish can undo a published change.' => 'Nur wer veröffentlichen darf, kann eine veröffentlichte Änderung rückgängig machen.',
     'Only the %title% part changes; the site name and the tagline keep the way you wrote them.' => 'Nur der Teil %title% ändert sich; Website-Name und Slogan bleiben, wie Sie sie geschrieben haben.',
     'Only the ID is needed. The pixels run only after the visitor allows marketing in the cookie bar (the Privacy and cookies tab) and appear in the cookie table.' => 'Die ID genügt. Die Pixel laufen erst, wenn der Besucher im Cookie-Banner Marketing erlaubt (Reiter Datenschutz und Cookies), und erscheinen in der Cookie-Tabelle.',
