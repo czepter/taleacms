@@ -113,14 +113,13 @@ final class Library
                 $s($n('form', [
                     'name' => t('Quick check'), 'calculation' => 'after_contact', 'button_text' => t('Show my estimate'),
                     'fields' => [
-                        ['label' => t('[Question 1]'), 'type' => 'step'],
                         ['label' => t('[Question 1]'), 'type' => 'radio', 'required' => true, 'display' => 'icon_tiles', 'advance' => true,
-                            'choices' => implode("\n", array_fill(0, 3, t('[Answer]') . ' | ' . t('[amount]'))), 'option_media' => "home\nstar\ncheck"],
+                            'choices' => implode("\n", [t('[Answer 1]'), t('[Answer 2]'), t('[Answer 3]')]), 'option_media' => "home\nstar\ncheck"],
                         ['label' => t('[Question 2]'), 'type' => 'step'],
                         ['label' => t('[Question 2]'), 'type' => 'number', 'required' => true, 'display' => 'slider', 'min' => '1', 'max' => '10', 'step' => '1'],
                         ['label' => t('[Question 3]'), 'type' => 'step'],
                         ['label' => t('[Question 3]'), 'type' => 'radio', 'required' => true, 'display' => 'icon_tiles',
-                            'choices' => implode("\n", array_fill(0, 3, t('[Answer]') . ' | ' . t('[amount]'))), 'option_media' => "clock\nstar\ncheck"],
+                            'choices' => implode("\n", [t('[Answer 1]'), t('[Answer 2]'), t('[Answer 3]')]), 'option_media' => "clock\nstar\ncheck"],
                         ['label' => t('Where should we send your estimate?'), 'type' => 'step'],
                         ['label' => t('Your name'), 'type' => 'text', 'required' => true],
                         ['label' => t('Email'), 'type' => 'email', 'required' => true],
