@@ -54,9 +54,9 @@ final class SecurityReleaseTest extends TestCase
             $liveMarkup(\Talea\Core\Assistant::compose($n23Parts['skeleton'], $n23Parts['segments'])),
         ], '3.3.2 N23: video embedding and the translation skeleton work on the DOM, older text stays inert');
         $this->assertSame(['', '<style>p::after{content:"\3c b>"}</style>', '<iframe src="https://mapy.cz/x"></iframe>', '<p title="&lt;/p&gt;&lt;img src=x onerror=alert(1)&gt;">x</p>', '<svg><style><a>y</a></style></svg>'], [
-            \Talea\Builder\Build::code('<select><option>a</option><img src=x onerror=alert(1)></select><datalist><option value="x"></datalist><selectedcontent></selectedcontent>'),
-            \Talea\Builder\Build::code('<style>p::after{content:"<b>"}</style>'), \Talea\Builder\Build::code('<iframe src="https://mapy.cz/x"><img src=x onerror=alert(1)></iframe>'),
-            \Talea\Builder\Build::code('<p title="</p><img src=x onerror=alert(1)>">x</p>'), \Talea\Builder\Build::code('<svg><style><a onclick="x()">y</a></style></svg>'),
+            \Talea\Builder\CodeFilter::code('<select><option>a</option><img src=x onerror=alert(1)></select><datalist><option value="x"></datalist><selectedcontent></selectedcontent>'),
+            \Talea\Builder\CodeFilter::code('<style>p::after{content:"<b>"}</style>'), \Talea\Builder\CodeFilter::code('<iframe src="https://mapy.cz/x"><img src=x onerror=alert(1)></iframe>'),
+            \Talea\Builder\CodeFilter::code('<p title="</p><img src=x onerror=alert(1)>">x</p>'), \Talea\Builder\CodeFilter::code('<svg><style><a onclick="x()">y</a></style></svg>'),
         ], '3.3.2 N30: custom HTML keeps no <select> family, no < in raw text and no raw < or > in attributes');
         $this->assertSame(['text'], array_column(\Talea\Builder\HtmlConverter::convert('<p>Text</p><video src="https://old.example/v.mp4" controls></video><svg><circle r="1"></circle></svg>', false)['build']['children'][0]['children'] ?? [], 'type'), '3.3.2 N30: imported pages are converted without administrator rights – no Custom HTML');
         $n6Html = (new \ReflectionMethod(\Talea\Core\SiteImport::class, 'html'))->invoke(null, '<p class="lead" onclick="x()">Hi <a href="javascript:alert(1)">x</a></p><script>alert(1)</script><figure class="gallery"><img src="media/2026/01/a.jpg" alt="A" width="10" height="10" loading="lazy" data-id="5"></figure><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>', 100000);
