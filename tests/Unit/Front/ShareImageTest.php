@@ -29,6 +29,6 @@ final class ShareImageTest extends TestCase
             \Talea\Front\ShareImage::matches($ogHash, $ogBrief, 'key-a'), \Talea\Front\ShareImage::matches(strrev($ogHash), $ogBrief, 'key-a'), \Talea\Front\ShareImage::matches(substr($ogHash, 1) . '0', $ogBrief, 'key-a'),
             \Talea\Front\ShareImage::matches('../' . $ogHash, $ogBrief, 'key-a'), \Talea\Front\ShareImage::matches($ogHash, $ogBrief, 'key-b')], '2.12 ShareImage::matches – the site\'s own hash passes; a tampered, malformed or foreign-key one never draws');
         $this->assertSame(['1', true, true, '1200×630'], [\Talea\Core\Settings::DEFAULTS['share_image_auto'], in_array('share_image_auto', \Talea\Core\SiteExport::SETTINGS, true),
-            in_array('og', \Talea\Admin\Modules\Pages::RESERVED_SLUGS, true), \Talea\Front\ShareImage::WIDTH . '×' . \Talea\Front\ShareImage::HEIGHT], '2.12 share images: on by default, exported with the site, /og reserved, the Open Graph size');
+            in_array('og', \Talea\Front\Kernel::reservedSlugs(), true), \Talea\Front\ShareImage::WIDTH . '×' . \Talea\Front\ShareImage::HEIGHT], '2.12 share images: on by default, exported with the site, /og reserved, the Open Graph size');
     }
 }

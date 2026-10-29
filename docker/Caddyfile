@@ -83,6 +83,9 @@
 	}
 	header @static Cache-Control "public, max-age=2592000"
 	header /sw.js Cache-Control no-cache
+	# the builder's ES modules import each other without ?v=version: revalidated (ETag) every time, so an old part never meets a new one;
+	# like /sw.js, the path matcher is sorted after @static, so its value wins
+	header /image/builder/* Cache-Control no-cache
 
 	# everything else: existing file as is, otherwise index.php (pretty URLs)
 	php_server

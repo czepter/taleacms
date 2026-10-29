@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Admin\ChangeLog;
-use Talea\Admin\Modules\Pages;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 use Talea\Builder\Library;
 use Talea\Builder\Looks;
 
@@ -89,10 +89,10 @@ final class Onboarding
         $code = Language::defaults($s);
         $title = Language::runWith($code, fn (): string => t(self::PAGES[$key][0]));
         $slug = slugify($title, 100);
-        if (in_array($slug, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$slug]) || Routes::isNewsSlug($slug, $db) || Slug::taken($db, 'pages', $slug, '')) {
+        if (in_array($slug, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$slug]) || Routes::isNewsSlug($slug, $db) || Slug::taken($db, 'pages', $slug, '')) {
             return null;
         }
-        $build = Library::page($db, self::PAGES[$key][1], $title, $code, Build::disabledTypes(Extensions::enabled($s)), true);
+        $build = Library::page($db, self::PAGES[$key][1], $title, $code, ElementSchema::disabledTypes(Extensions::enabled($s)), true);
         $id = $db->insert('pages', ['title' => $title, 'slug' => $slug, 'language' => '', 'text' => '', 'visible' => 0, 'in_menu' => 1, 'build_draft' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
         Slug::fromId($db, 'pages', $id);
         Menu::setPage($db, $id, '', true);

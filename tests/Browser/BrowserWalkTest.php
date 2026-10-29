@@ -73,7 +73,7 @@ final class BrowserWalkTest extends TestCase
             $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('gallery-test', 'Gallery test', '', 0, ?)", [json_encode($build)]);
 
             // pages for the compose scenarios (direct manipulation on the canvas): two sections, a row of three columns, a row of two with a
-            // button in the first, and an image; the same build three times – for the mouse, the keyboard and touch
+            // button in the first, and an image; the same build four times – for the mouse, the keyboard, touch and the editing steps (#232)
             $section = fn (string $id, array $children): array => ['id' => $id, 'type' => 'section', 'tag' => 'section', 'content' => ['width' => 'content', 'background_video' => '', 'on_scroll' => '', 'text_at_top' => ''], 'style' => ['base' => ['padding_y' => 'm']], 'children' => $children];
             $paragraph = fn (string $id, string $text): array => ['id' => $id, 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>' . $text . '</p>']];
             $column = fn (string $id, array $children): array => ['id' => $id, 'type' => 'container', 'tag' => 'div', 'content' => ['link' => ''], 'children' => $children];
@@ -90,7 +90,7 @@ final class BrowserWalkTest extends TestCase
             ]];
             $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES ('compose-free', 'Compose free', '', 0, ?)", [json_encode($freeBuild)]);
             $composeIds = ['free' => (string) $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', ['compose-free'])];
-            foreach (['mouse', 'keys', 'touch'] as $kind) {
+            foreach (['mouse', 'keys', 'touch', 'editing'] as $kind) {
                 $site->exec("INSERT INTO tl_pages (slug, title, text, in_menu, build) VALUES (?, ?, '', 0, ?)", ["compose-$kind", "Compose $kind", json_encode($composeBuild)]);
                 $composeIds[$kind] = (string) $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', ["compose-$kind"]);
             }

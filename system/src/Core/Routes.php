@@ -47,7 +47,7 @@ final class Routes
         if ($slug === '') {
             return null;
         }
-        $system = array_diff(\Talea\Admin\Modules\Pages::RESERVED_SLUGS, ['news']);
+        $system = array_diff(\Talea\Front\Kernel::reservedSlugs(), ['news']);
         if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug) !== 1 || strlen($slug) > 40 || in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
             return 'This URL is used by the system, choose another one.';
         }

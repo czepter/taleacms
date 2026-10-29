@@ -13,7 +13,7 @@ use Talea\Core\Db;
  * The rules the server knows (pages, collections, news, language, period) decide whether the popup is inserted into the page
  * at all. The rest (device, campaign, where the visitor came from, number of pages in the visit, frequency) is evaluated by
  * image/web.js in the browser – without cookies, only the visitor's sessionStorage and localStorage. The counters of views,
- * closes and conversions are incremented by POST /popup (Front\Kernel).
+ * closes and conversions are incremented by POST /popup (Front\Endpoints).
  */
 final class Popups
 {

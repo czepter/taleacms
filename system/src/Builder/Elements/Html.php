@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Builder\Elements;
 
-use Talea\Builder\Build;
+use Talea\Builder\CodeFilter;
 use Talea\Builder\Context;
 use Talea\Builder\Element;
 
@@ -27,6 +27,6 @@ final class Html extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         // filtered again when rendering: builds saved before the filter changed, and values of {{placeholders}} filled in just now
-        return '<div' . $a . '>' . Build::code((string) $p['content']['code']) . '</div>';
+        return '<div' . $a . '>' . CodeFilter::code((string) $p['content']['code']) . '</div>';
     }
 }
