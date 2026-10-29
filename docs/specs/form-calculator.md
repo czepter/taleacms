@@ -22,7 +22,7 @@ it should feel like every good quick check they have used.
 The Form element (`Builder\Elements\Form`, `Front\Forms`) already has most of the skeleton, so this feature **extends the
 Form element** and adds no second form system:
 
-- field type `step` (multi-step form with a text counter "Step x / n" in an `aria-live` span, `image/web.js`; there is
+- field type `step` (multi-step form with a text counter "Step x / n" in an `aria-live` span, `image/forms.js`; there is
   no progress bar yet),
 - field type `estimate` with a base price and a currency; option prices written as `Label | 1200`; a number field with a
   price per unit; `Form::estimate()` adds them up; the visitor sees a running total (`data-price`, `data-estimate`),
@@ -74,7 +74,7 @@ Decisions taken by the owner in the conversation are marked **(decided)**. Calls
 
 - The Form element is extended. Questions stay in the existing inspector editor of the form's fields; simple amounts stay
   where they are now, at the options and number fields.
-- A **"Edit logic…"** button in the form's inspector opens a large overlay in the builder for complex logic. The overlay
+- A **"Edit logic…"** button in the form's inspector opens a large overlay in the builder for complex logic (`image/builder/form-logic.js`). The overlay
   has three tabs: **Rules · Results · Try it**. Its left side lists the form's questions for picking only; questions are
   not edited there.
 - Leads stay in **Enquiries**. The drop-off statistics are shown in the existing **Forms** admin area.
@@ -116,7 +116,7 @@ Existing forms are `live` and behave exactly as today.
 | Result with breakdown | the result screen in `after_contact` mode lists one line per amount that applied |
 
 - Tiles are real radio buttons and checkboxes, styled differently, so they work without JavaScript and with the keyboard
-  **(decided)**. Style and script go in `image/web.css` / `image/web.js` (`:where()`), only on pages that use them.
+  **(decided)**. Style goes in `image/web.css` (`:where()`), the script in `image/forms.js`, which `Front\PageFrame` keeps only on a page with a form.
 - The per-option image or icon is stored in a new item property `option_media` (lines, same order as the options) and
   edited in the inspector as one row per option with a picker **(my call; the builder may choose a different shape if it
   keeps MCP writable and passes `Build::sanitize`)**.
@@ -219,8 +219,8 @@ recomputes the numbers, as today **(my call)**. The Enquiries list, CSV export, 
 
 ### 12. Drop-off statistics (decided)
 
-- When a visitor reaches a step, the page sends a small beacon (`POST /form-step`, like the pop-up counters in
-  `Front\Kernel`): form source, element id, step number. No cookie, no visitor id, no answers, no amounts. Limited per IP
+- When a visitor reaches a step, the page sends a small beacon (`POST /form-step`, like the pop-up counters, a route of
+  `Front\Kernel` answered by `Front\Endpoints`): form source, element id, step number. No cookie, no visitor id, no answers, no amounts. Limited per IP
   with `Antispam::count()` / `write()`.
 - Daily counters per form and step in a new table **(my call: `form_steps` with source, element, step, day, reached;
   unique on the first four; `Db::upsert()`; rows older than 400 days deleted by the cron)**.
@@ -251,7 +251,7 @@ recomputes the numbers, as today **(my call)**. The Enquiries list, CSV export, 
 - **Amounts, totals, ranges, variants:** PHP only, in one pure class **(my call: `Builder\FormLogic`)** with no database
   access: `evaluate(fields, logic, answers) → visible, lines, total, range, variant`. `Front\Forms`, the result page, the
   overlay's Try it tab (a builder action) and `try_form` all call it.
-- **Visibility (skip / show only when) and, in `live` mode, add and quantity × amount:** also in `image/web.js`, because
+- **Visibility (skip / show only when) and, in `live` mode, add and quantity × amount:** also in `image/forms.js`, because
   the browser must hide questions while the visitor answers. This duplicates the condition evaluation only. One shared
   file of test cases (answers in, visible fields and live total out) is run by the PHP unit tests and by the browser
   suite so the two cannot drift **(my call)**.
