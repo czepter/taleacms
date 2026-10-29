@@ -168,6 +168,15 @@ final class FormLogicTest extends TestCase
         $this->assertSame(['', 1000.0 + 8 * 180], [$live['variant'], $live['total']], 'live: no multiply, no variant');
     }
 
+    public function testRuleWithoutConditionsHolds(): void
+    {
+        $fields = [['key' => 'ka000', 'type' => 'text', 'label' => 'A'], ['key' => 'kb000', 'type' => 'text', 'label' => 'B']];
+        foreach (['all', 'any'] as $match) {
+            $rule = ['label' => '', 'match' => $match, 'when' => [], 'then' => [['do' => 'skip', 'field' => 'kb000']]];
+            $this->assertSame([true, false], array_values(FormLogic::visible($fields, [$rule], [0 => 'x', 1 => 'y'])), $match);
+        }
+    }
+
     public function testRange(): void
     {
         $e = ['range_below' => 10, 'range_above' => 15, 'round_to' => 50, 'minimum' => '1500', 'unit_suffix' => '€'];

@@ -408,7 +408,7 @@ final class FormLogic
             }
         }
         foreach ($rules as $rule) {
-            if (($rule['when'] ?? []) !== [] && !self::ruleHolds($rule, $fields, $position, $visible, $answers, count($fields))) {
+            if (!self::ruleHolds($rule, $fields, $position, $visible, $answers, count($fields))) {
                 continue;
             }
             $label = (string) ($rule['label'] ?? '') !== '' ? (string) $rule['label'] : t('Adjustment');
@@ -430,8 +430,9 @@ final class FormLogic
                         $variant = $afterContact && $variant === '' ? (string) ($action['variant'] ?? '') : $variant;
                         break;
                 }
-                if ($amount !== null && $amount != 0.0) {
-                    $lines[] = [$label, round($amount, 2)];
+                if ($amount !== null && round($amount, 2) != 0.0) {
+                    $amount = round($amount, 2); // the line and the total use the same rounded amount
+                    $lines[] = [$label, $amount];
                     $total += $amount;
                 }
             }
@@ -526,7 +527,7 @@ final class FormLogic
             $results[] = self::holds($c, $fields[$p], is_array($answer) || is_string($answer) ? $answer : (string) $answer);
         }
         if ($results === []) {
-            return false;
+            return true; // a rule without conditions always holds
         }
 
         return ($rule['match'] ?? 'all') === 'any' ? in_array(true, $results, true) : !in_array(false, $results, true);

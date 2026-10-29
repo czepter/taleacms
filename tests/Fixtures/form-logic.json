@@ -8,7 +8,8 @@
         {"key": "kcnt0", "label": "Which country?", "type": "text"},
         {"key": "kgst0", "label": "How many guests?", "type": "number", "display": "slider"},
         {"key": "khrs0", "label": "Coverage hours", "type": "timerange"},
-        {"key": "kext0", "label": "Extras", "type": "checkboxes", "checkbox_options": "Album | 150\nVideo | 400"}
+        {"key": "kext0", "label": "Extras", "type": "checkboxes", "checkbox_options": "Album | 150\nVideo | 400"},
+    {"key": "kest0", "label": "Estimate", "type": "estimate", "base_price": "1000", "range_below": 10, "range_above": 15, "round_to": 50, "unit_suffix": "€"}
       ],
       "logic": {
         "rules": [
@@ -19,9 +20,9 @@
       }
     },
     "answers": {"0": "Abroad", "1": "[Country]", "2": "80", "3": "22:00-02:00", "4": ["Album"]},
-    "visible": [true, true, true, true, true],
-    "total": 1365.0,
-    "shown": ""
+    "visible": [true, true, true, true, true, true],
+    "total": 2665.0,
+    "shown": "2,350 € – 3,100 €"
   },
   {
     "name": "wedding quiz, local",
