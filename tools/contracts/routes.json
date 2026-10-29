@@ -219,6 +219,14 @@
         "methods": [
             "POST"
         ],
+        "pattern": "/js-error",
+        "when": "",
+        "handler": "Endpoints::jsError"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
         "pattern": "/conversion",
         "when": "",
         "handler": "Endpoints::conversion"

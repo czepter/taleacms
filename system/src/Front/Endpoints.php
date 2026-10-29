@@ -167,6 +167,19 @@ final class Endpoints
         return \Talea\Core\WebVitals::record($this->app);
     }
 
+    /** POST /js-error */
+    public function jsError(): Response
+    {
+        // a browser error from image/errors.js (Core\ErrorReport): forwarded to the error tracking, nothing is stored here
+        try {
+            \Talea\Core\ErrorReport::receiveBrowser($this->app, (string) file_get_contents('php://input', false, null, 0, 8193));
+        } catch (\Throwable) {
+            // a report about a report is not worth a 500
+        }
+
+        return new Response('', 204, ['Cache-Control' => 'no-store']);
+    }
+
     /** POST /conversion */
     public function conversion(): Response
     {
@@ -185,6 +198,8 @@ final class Endpoints
     /** The Claude connection (MCP) */
     public function mcp(): Response
     {
+        \Talea\Core\ErrorReport::tag('area', 'mcp');
+
         return (new \Talea\Mcp\Server($this->app))->handle();
     }
 

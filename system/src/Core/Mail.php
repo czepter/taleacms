@@ -64,8 +64,9 @@ final class Mail
             if (random_int(1, 50) === 1) {
                 $siteSettings->db()->run('DELETE FROM {mail} WHERE created_at < NOW() - INTERVAL 30 DAY');
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet)
+            ErrorReport::capture($e, 'warning', ['tags' => ['mail' => 'log']]);
         }
         self::$error = $error;
 
@@ -102,7 +103,8 @@ final class Mail
                 'body' => json_encode(['text' => $text, 'html' => '', 'headers' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             ]);
             self::$pending = true;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            ErrorReport::capture($e, 'warning', ['tags' => ['mail' => 'queue']]);
             self::send($siteSettings, $recipient, $subject, $text); // without the queue table (before a migration) right away
         }
     }
@@ -120,8 +122,8 @@ final class Mail
         ignore_user_abort(true);
         try {
             self::processQueue($app->settings());
-        } catch (\Throwable) {
-            // the background jobs try again
+        } catch (\Throwable $e) {
+            ErrorReport::capture($e, 'warning', ['tags' => ['mail' => 'after-response']]); // the background jobs try again
         }
     }
 
@@ -148,6 +150,9 @@ final class Mail
                 if ($end) {
                     // the subject and the error, not the recipient (2.8, Core\Events)
                     Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['subject'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['mail_id']]);
+                    // a message is lost: the error tracking hears of it once per reason – never the recipient or the subject
+                    ErrorReport::message('E-mail given up after ' . $attempt . ' attempts: ' . self::$error, 'warning',
+                        ['tags' => ['mail_transport' => $siteSettings->get('mail_mode')], 'fingerprint' => ['mail-failed', ErrorReport::scrub(self::$error)]]);
                 }
             }
         }

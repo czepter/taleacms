@@ -102,7 +102,7 @@ final class Routes
     {
         $path = (string) preg_replace('#\.html$#', '', $path);
 
-        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|\.well-known|popup|form|vitals|tasks|_[^/]*)(/|$)#', $path);
+        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|\.well-known|popup|form|vitals|js-error|tasks|_[^/]*)(/|$)#', $path);
     }
 
     /** Ending of a page URL by the url_slash setting: none | slash | html. */

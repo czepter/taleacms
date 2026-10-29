@@ -132,6 +132,7 @@
         "health",
         "image",
         "install",
+        "js-error",
         "layout",
         "llms",
         "mcp",

@@ -437,6 +437,8 @@ final class Privacy
             $s->get('remote_backup') !== 'off' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
             Extensions::isEnabled($s, 'assistant') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') || $s->bool('spam_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
             Extensions::isEnabled($s, 'claude') ? t('Claude (MCP): administrators’ assistants work with the content; enquiries are shown to them as the Enquiries screen shows them.') : '',
+            ErrorReport::enabled() ? t('Error tracking: technical details of errors (the error, the page address, the browser’s name and version) are sent to %s – no IP address, cookies, names or e-mail addresses%s.', ErrorReport::host(),
+                ErrorReport::browserOnSite() ? ', ' . t('also from visitors’ browsers when a script of the site fails') : '') : '',
             $s->get('captcha_provider') !== '' ? t('Spam check: %s receives the visitor’s address and browser details when a form is sent.', Captcha::PROVIDERS[$s->get('captcha_provider')][0] ?? $s->get('captcha_provider')) : t('Spam check: built-in only (a signed time, a trap field, a limit per address) – no third party.'),
         ])];
         $cookies = array_map(fn (array $r): string => $r['name'] . ' – ' . $r['provider'] . ' (' . t(self::CATEGORIES[$r['category']] ?? $r['category']) . ', ' . $r['duration'] . ')', self::cookieTable($app));

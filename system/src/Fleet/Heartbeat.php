@@ -57,6 +57,7 @@ final class Heartbeat
             'problems_7_days' => Events::problems($db, 168),
             'claude' => Extensions::isEnabled($s, 'claude'),
             'kit_version' => $s->int('fleet_kit_version') ?: null, // the shared design kit this site applied (2.16, Fleet\Kit)
+            'error_reporting' => \Talea\Core\ErrorReport::enabled(), // errors go to Sentry or GlitchTip (TALEA_ERROR_DSN); the host is not told
         ];
     }
 }

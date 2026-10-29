@@ -80,6 +80,32 @@ address and add the passkey again in My account.
 `database`) otherwise. No session, no cache. Use it as the orchestrator's readiness probe; the image's own `HEALTHCHECK` only checks
 that the port answers, so a half-migrated container is not restarted in a loop.
 
+## Error tracking
+
+Errors can go to a Sentry or GlitchTip project (GlitchTip is open source and self-hostable; both speak the same protocol). Create a
+project there, copy its DSN and set it on the site:
+
+```
+TALEA_ERROR_DSN=https://<key>@glitchtip.example.com/<project>   # or TALEA_ERROR_DSN_FILE for a secret
+TALEA_ERROR_ENVIRONMENT=production                             # default production; staging, test …
+TALEA_ERROR_SAMPLE_RATE=1                                      # 0–1, the share of events sent
+TALEA_ERROR_BROWSER=0                                          # 1 = also the public site's browser errors
+```
+
+On classic hosting the same keys go into `config.php` (`error_dsn`, `error_environment`, `error_sample_rate`, `error_browser`); the
+variables win. The DSN is never a setting of the admin or of an MCP connection. After a restart, `php system/docker.php error-test`
+sends a test event and prints its id or why it did not arrive; System status (Operation → Error tracking) shows the last report.
+
+What is reported: uncaught errors and fatal errors of the site, the admin, MCP tool calls, the background jobs and `bin/migrate`,
+elements and site parts that could not be rendered, an e-mail given up after its last retry, and JavaScript errors of the admin and the
+builder (of the public site only with `TALEA_ERROR_BROWSER=1`). What is sent: the error with its stack trace (paths inside the install,
+a few lines of source, no arguments), the release (`talea@<version>`), the area, route, admin module, MCP tool, job or add-on, the role of
+the signed-in person and the browser's name and version. What is never sent: IP addresses, cookies, request bodies, names, e-mail
+addresses, the values of query parameters other than `module`, `action`, `tab`, `page` and the like; messages are scrubbed of e-mail
+addresses, tokens and the values in database errors. The same fault is sent once a minute at most; reports the tracker did not take
+wait in `storage/log/outbox/` and are retried by the background jobs for a day. `storage/log/errors.log` keeps every uncaught error
+with its trace and the event id, with or without a tracker. When the DSN is set, the record of processing names the tracker's host.
+
 ## Rollback
 
 Migrations only move forward, and a release never drops what the previous release still reads (expand, then contract in a later

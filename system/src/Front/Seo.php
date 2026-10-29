@@ -410,6 +410,11 @@ final class Seo
             // without it; the beacon goes to POST /vitals without cookies or identifiers
             $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
         }
+        if (\Talea\Core\ErrorReport::browserOnSite()) {
+            // browser errors of the site's own scripts to the error tracking, only when the operator switched it on
+            // (TALEA_ERROR_BROWSER=1): no cookies, no identifiers, the beacon goes to POST /js-error
+            $h[] = '<script src="' . e($this->app->url('image/errors.js')) . '?v=' . $version . '" data-errors="' . e($this->app->url('js-error')) . '"></script>';
+        }
         $h[] = $this->analyticsCode();
         if (trim($s->get('head_code')) !== '') {
             $h[] = $s->get('head_code');

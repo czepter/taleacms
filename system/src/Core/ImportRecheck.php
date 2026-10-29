@@ -82,6 +82,7 @@ final class ImportRecheck
                     $state['changed'] += self::recheck($db, (string) $r['source'], (string) $r['type'], (int) $r['local_id']) ? 1 : 0;
                 } catch (\Throwable $e) {
                     error_log('Import recheck: ' . $r['type'] . ' ' . $r['local_id'] . ' – ' . $e->getMessage()); // one odd row never stops the rest
+                    ErrorReport::capture($e, 'warning', ['tags' => ['content' => (string) $r['type']]]);
                 }
                 $state['checked']++;
                 $state['after'] = [(string) $r['source'], (string) $r['type'], (string) $r['source_id']];

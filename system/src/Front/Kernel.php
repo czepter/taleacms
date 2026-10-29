@@ -200,6 +200,7 @@ final class Kernel
             ->add('POST', '/form-step', [Endpoints::class, 'formStep'], $extension('enquiries'), 'extension:enquiries')
             ->add('POST', '/fleet/{action:pair|heartbeat|unpair|kit}', [Endpoints::class, 'fleet'], $extension('fleet'), 'extension:fleet')
             ->add('POST', '/vitals', [Endpoints::class, 'vitals'])
+            ->add('POST', '/js-error', [Endpoints::class, 'jsError'])
             ->add('POST', '/conversion', [Endpoints::class, 'conversion'])
             ->add('POST', '/experiment', [Endpoints::class, 'experiment'])
             ->add('ANY', '/mcp', [Endpoints::class, 'mcp'])
