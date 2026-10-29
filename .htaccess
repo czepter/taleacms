@@ -66,6 +66,15 @@ Options -Indexes
         Header set Cache-Control "no-cache"
     </Files>
 </IfModule>
+# the builder's ES modules (image/builder/) import each other without ?v=…: revalidated (ETag) every time, so an old part never meets a new one
+<If "%{REQUEST_URI} =~ m#/image/builder/[^/]+\.js$#">
+    <IfModule mod_expires.c>
+        ExpiresActive Off
+    </IfModule>
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache"
+    </IfModule>
+</If>
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml application/rss+xml application/javascript text/javascript application/json application/manifest+json image/svg+xml
 </IfModule>
