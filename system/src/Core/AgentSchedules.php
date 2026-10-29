@@ -274,9 +274,10 @@ final class AgentSchedules
         $now = new \DateTimeImmutable();
         $limit = $now->modify('-' . self::MISSED_HOURS . ' hours')->format('Y-m-d H:i:s');
         $missed = 0;
+        $handedOut = $now->modify('-' . self::HANDOUT_HOURS . ' hours')->format('Y-m-d H:i:s');
         foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = TRUE AND next_due IS NOT NULL AND next_due < ?', [$limit]) as $schedule) {
-            if ($db->value("SELECT COUNT(*) FROM {agent_runs} WHERE schedule_id = ? AND status = 'running'", [(int) $schedule['id']]) > 0) {
-                continue; // handed out – late, but somebody is on it
+            if ($db->value("SELECT COUNT(*) FROM {agent_runs} WHERE schedule_id = ? AND status = 'running' AND started_at >= ?", [(int) $schedule['id'], $handedOut]) > 0) {
+                continue; // handed out recently – late, but somebody is on it (an older hand-out was abandoned and does not hide the alert)
             }
             $runId = $db->insert('agent_runs', ['schedule_id' => (int) $schedule['id'], 'due_at' => (string) $schedule['next_due'], 'finished_at' => $now->format('Y-m-d H:i:s'), 'status' => 'missed']);
             $db->update('agent_schedules', ['next_due' => self::nextDue((string) $schedule['cadence'], (int) $schedule['day'], (string) $schedule['time'], $now)->format('Y-m-d H:i:s')], ['id' => (int) $schedule['id']]);

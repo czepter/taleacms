@@ -157,8 +157,10 @@ final class RedirectMatcher
         $db = $app->db();
         $threshold = self::threshold($s);
         $created = 0;
+        $audit = new Audit($app);
         foreach (self::suggestions($app, NotFound::pending($app, 30, 200)) as $from => $found) {
-            if ($found['score'] < $threshold) {
+            // hidden, scheduled or trashed content still owns its address: redirecting it would also heal the links to it away
+            if ($found['score'] < $threshold || $audit->owns('/' . $from)) {
                 continue;
             }
             Redirects::add($db, $from, $found['to']);

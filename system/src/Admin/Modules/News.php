@@ -385,9 +385,13 @@ final class News extends Module
             return Response::json(['articles' => []]);
         }
         $editMode = $this->request->get('edit') === '1';
+        // link picking: another author's draft or scheduled item is not offered (as in load())
+        $own = $this->app->auth()->managedAuthors();
+        $scope = $editMode ? $this->app->auth()->articleScope()
+            : ($own === null ? '' : ' AND (visible = TRUE AND published_at <= NOW() OR author_id IN (' . implode(',', array_map(intval(...), $own)) . '))');
         $news = $this->db->all(
             'SELECT public_id, title, slug, language, visible AND published_at <= NOW() AS published FROM {news} WHERE deleted_at IS NULL AND ' . $this->db->dialect()->likeInsensitive('title')
-                . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY published_at DESC LIMIT 8',
+                . $scope . ' ORDER BY published_at DESC LIMIT 8',
             ['%' . addcslashes($q, '%_\\') . '%'],
         );
 

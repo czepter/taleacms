@@ -49,6 +49,7 @@ final class MultisitePrefixTest extends TestCase
     {
         $this->assertContains('sites', Db::OWNER_TABLES);
         $this->assertContains('site_domains', Db::OWNER_TABLES);
+        $this->assertContains('user_devices', Db::OWNER_TABLES, 'known browsers belong to the account: a new password ends them on every site');
         $this->assertNotContains('settings', Db::OWNER_TABLES);
         $this->assertNotContains('media_usage', Db::OWNER_TABLES, 'media_usage references news, which exists once per site');
     }

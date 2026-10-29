@@ -83,11 +83,14 @@ final class Images
 
         if ($extension === 'gif') {
             // a GIF can be animated - it is saved unchanged, the thumbnail is the first frame
+            $image = @imagecreatefromgif($tmp);
+            if ($image === false) {
+                throw new \RuntimeException('The image is damaged and cannot be processed.');
+            }
             $target = $base . '.gif';
             if (!($uploaded ? move_uploaded_file($tmp, $root . '/' . $target) : copy($tmp, $root . '/' . $target))) {
                 throw new \RuntimeException('The file could not be saved.');
             }
-            $image = imagecreatefromgif($root . '/' . $target);
             [$w, $h] = [$info[0], $info[1]];
         } else {
             $image = @imagecreatefromstring((string) file_get_contents($tmp));

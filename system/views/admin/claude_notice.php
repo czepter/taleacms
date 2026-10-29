@@ -16,7 +16,7 @@ use Talea\Core\AgentSchedules;
 $link = fn (string $url, string $text): string => $admin ? ' <a href="' . e($app->url($url)) . '">' . e($text) . '</a>' : '';
 ?>
 <?php if (!Talea\Core\ClaudeConnection::reachable($claude)): ?>
-	<p class="notice ask-claude-disconnected"><?= e($admin ? t('The AI is not connected to this site yet, so requests wait until it is.') : t('The AI is not connected to this site yet – requests wait until an administrator connects it.')) ?><?= $link('admin.php?action=account#claude', t('Connect AI')) ?></p>
+	<p class="notice ask-claude-disconnected"><?= e($admin ? t('The AI is not connected to this site yet, so requests wait until it is.') : t('The AI is not connected to this site yet – requests wait until an administrator connects it.')) ?><?= $link('admin.php?action=account&tab=claude', t('Connect AI')) ?></p>
 <?php elseif ($claude['pickup'] === 'stalled'): ?>
 	<p class="notice ask-claude-when"><?= e(t('The scheduled run that picks up requests has stopped (last missed or failed %s) – requests wait until it runs again or someone asks Claude.', $claude['stalled_since'] !== null ? format_date($claude['stalled_since'], true) : '–')) ?><?= $link('admin.php?module=schedules', t('Scheduled runs')) ?></p>
 <?php elseif ($claude['pickup'] === 'manual' || $routine === null): ?>

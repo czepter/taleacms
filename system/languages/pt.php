@@ -775,6 +775,7 @@ O link é válido durante %d dias.
     'Sign out' => 'Terminar sessão',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Início de sessão na administração – só depois de iniciar sessão, nunca para visitantes',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Início de sessão na administração: «Manter sessão iniciada» – só quando um utilizador o assinala, nunca para visitantes',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'Início de sessão na administração: reconhece um navegador que já iniciou sessão, para que uma conta bloqueada continue a abrir para o seu titular – só depois de iniciar sessão, nunca para visitantes',
     'Signpost' => 'Acessos rápidos',
     'Skip' => 'Saltar',
     'Skip to content' => 'Saltar para o conteúdo',

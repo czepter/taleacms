@@ -103,7 +103,7 @@ final class Components extends Module
         if (!is_array($element) || $name === '') {
             return Response::json(['ok' => false, 'error' => t('Name or element is missing.')], 400);
         }
-        [$build] = Build::sanitize(['v' => Build::VERSION, 'children' => [$element]], true);
+        [$build] = Build::sanitize(['v' => Build::VERSION, 'children' => [$element]], $this->app->auth()->canWriteCode());
         if ($build['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('A component cannot be created from this element.')], 400);
         }
