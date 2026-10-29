@@ -4251,6 +4251,7 @@ return [
     'Tag “%s” has been merged into “%s”.' => 'Das Schlagwort „%s“ wurde mit „%s“ zusammengeführt.',
     'Tags' => 'Schlagwörter',
     'Tags and topics' => 'Schlagwörter und Themen',
+    'Tags are changed by an editor or an administrator.' => 'Schlagwörter ändern Redakteure oder Administratoren.',
     'Tags are created automatically as you write news. When you add a description to a tag, its page becomes a topic – an introduction to a field or project with all its news in one place.' => 'Schlagwörter entstehen von selbst, während Sie News schreiben. Wenn Sie einem Schlagwort eine Beschreibung hinzufügen, wird seine Seite zu einem Thema – eine Einführung in ein Fachgebiet oder Projekt mit allen News an einem Ort.',
     'Tailored design' => 'Individueller Entwurf',
     'Take a photo' => 'Foto aufnehmen',

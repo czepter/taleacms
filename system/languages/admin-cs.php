@@ -4244,6 +4244,7 @@ return [
     'Tag “%s” has been merged into “%s”.' => 'Štítek „%s“ byl sloučen do „%s“.',
     'Tags' => 'Štítky',
     'Tags and topics' => 'Štítky a témata',
+    'Tags are changed by an editor or an administrator.' => 'Štítky mění editor nebo správce.',
     'Tags are created automatically as you write news. When you add a description to a tag, its page becomes a topic – an introduction to a field or project with all its news in one place.' => 'Štítky vznikají samy při psaní novinek. Když štítku doplníte popis, stane se z jeho stránky téma – úvod k oboru nebo projektu se všemi novinkami na jednom místě.',
     'Tailored design' => 'Návrh na míru',
     'Take a photo' => 'Vyfotit',
