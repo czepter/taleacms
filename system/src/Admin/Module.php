@@ -79,11 +79,11 @@ abstract class Module
     public function handle(string $action): Response
     {
         $method = 'action' . str_replace('_', '', ucwords($action, '_'));
-        if (!preg_match('/^[a-z][a-z_]*$/', $action) || !method_exists($this, $method)) {
+        if (!preg_match('/^[a-z]+(?:_[a-z]+)*$/D', $action) || !method_exists($this, $method)) { // one spelling per method
             return $this->error('Unknown action.', 404);
         }
 
-        if (($refusal = $this->refusal($action)) !== null) {
+        if (($refusal = $this->refusal($method)) !== null) {
             return $this->error(t($refusal), 403);
         }
 
@@ -93,9 +93,12 @@ abstract class Module
     /** Actions on files the whole install shares (backups, exports, the log): the first owner's only, a further owner's request is refused (Owners::sharedFilesRefusal). */
     public const array INSTALL_FILE_ACTIONS = [];
 
-    private function refusal(string $action): ?string
+    private function refusal(string $method): ?string
     {
-        return in_array($action, static::INSTALL_FILE_ACTIONS, true) ? \Talea\Core\Owners::sharedFilesRefusal($this->db) : null;
+        // compared as method names (PHP ignores their case), so no spelling of an action slips past the list
+        $listed = array_map(fn (string $a): string => strtolower('action' . str_replace('_', '', $a)), static::INSTALL_FILE_ACTIONS);
+
+        return in_array(strtolower($method), $listed, true) ? \Talea\Core\Owners::sharedFilesRefusal($this->db) : null;
     }
 
     /** @param array<string, mixed> $data */

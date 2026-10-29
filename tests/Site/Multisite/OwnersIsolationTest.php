@@ -271,6 +271,18 @@ final class OwnersIsolationTest extends SiteTestCase
         $made = $beta->post('/admin.php?module=settings&action=backup', ['_csrf' => $tab->csrf()], $this->host(true));
         $this->assertCount(count($files), glob($site->path('storage/backups/talea-*')) ?: [], 'B made none');
         $this->assertStringNotContainsString($file, $made->body);
+        // every spelling of the action reaches the same method (PHP ignores case in method names) and is refused the same way
+        foreach (['downloadbackup', 'Download_Backup', 'DOWNLOADBACKUP', 'download__backup', 'download_backup_', '_download_backup', 'downloadBackup'] as $spelling) {
+            $r = $beta->get('/admin.php?module=settings&action=' . $spelling . '&file=' . $file, $this->host(true));
+            $this->assertContains($r->status, [403, 404], $spelling);
+            $this->assertStringNotContainsString('CREATE TABLE', $r->body, $spelling);
+        }
+        $this->assertSame(403, $beta->get('/admin.php?module=settings&action=downloadbackup&file=' . $file, $this->host(true))->status, 'the spelling without the underscore');
+        foreach (['deletebackup' => ['file' => $file], 'deletelog' => [], 'mediabackup' => [], 'restorebackup' => ['file' => $file], 'backup' => []] as $spelling => $data) {
+            $r = $beta->post('/admin.php?module=settings&action=' . $spelling, ['_csrf' => $tab->csrf()] + $data, $this->host(true));
+            $this->assertSame(403, $r->status, $spelling);
+        }
+        $this->assertFileExists($files[0], 'the backup of A is still there');
         $this->assertNotSame(200, $beta->get('/admin.php?module=transfer', $this->host(true))->status, 'the export files are the install\'s too');
         $this->assertSame(200, $site->admin()->get('/admin.php?module=transfer')->status);
     }

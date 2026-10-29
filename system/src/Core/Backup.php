@@ -273,9 +273,9 @@ final class Backup
     }
 
     /** Path to an existing backup by the name from the URL; null = invalid name. */
-    public static function path(string $file): ?string
+    public static function path(string $file, ?Db $for = null): ?string
     {
-        return preg_match('/^talea-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return ($for === null || Owners::sharedFilesRefusal($for) === null) && preg_match('/^talea-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
     /**

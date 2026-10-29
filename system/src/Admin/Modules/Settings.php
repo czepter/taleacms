@@ -417,7 +417,7 @@ class Settings extends Module
         if (Backup::refusedInDemo()) {
             return $this->error(\Talea\Core\Demo::refusal(), 403);
         }
-        $path = Backup::path($this->request->get('file'));
+        $path = Backup::path($this->request->get('file'), $this->db); // also refused here for a further owner
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }
@@ -426,7 +426,7 @@ class Settings extends Module
 
     protected function actionDeleteBackup(): Response
     {
-        $path = Backup::path($this->request->post('file'));
+        $path = Backup::path($this->request->post('file'), $this->db);
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
         }
@@ -546,7 +546,7 @@ class Settings extends Module
 
     protected function actionDeleteLog(): Response
     {
-        if ($this->request->isPost() && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
+        if ($this->request->isPost() && \Talea\Core\Owners::isFirst($this->db) && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
             file_put_contents(TALEA_ROOT . '/storage/log/errors.log', '');
         }
 
@@ -607,7 +607,7 @@ class Settings extends Module
      */
     protected function actionMediaBackup(): Response
     {
-        if (!$this->request->isPost()) {
+        if (!$this->request->isPost() || !\Talea\Core\Owners::isFirst($this->db)) {
             return $this->back('', '', ['tab' => 'backups']);
         }
         if (!class_exists(\ZipArchive::class) || !is_dir(TALEA_ROOT . '/media')) {
