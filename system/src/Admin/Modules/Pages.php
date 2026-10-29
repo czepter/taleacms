@@ -847,6 +847,9 @@ final class Pages extends Module
     protected function actionBuildText(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->idParam('page_id')) : null;
+        if ($page !== null && ($refusal = $this->requirePublishPermission($page)) !== null) {
+            return $refusal;
+        }
         if ($page !== null && $page['build'] !== null) {
             $this->db->insert('build_revisions', ['page_id' => $page['page_id'], 'created_at' => date('Y-m-d H:i:s'), 'user_id' => $this->app->auth()->id(), 'build' => $page['build']]);
             $this->db->update('pages', ['build' => null, 'build_draft' => null], ['page_id' => $page['page_id']]);
