@@ -107,6 +107,29 @@ final class McpSitesTest extends SiteTestCase
         $this->assertSame(1, (int) $site->value('SELECT COUNT(*) FROM tl_pages WHERE title = ?', ['On the first site']));
     }
 
+    public function testTheSiteArgumentOfARunnerReachesTheToolItRuns(): void
+    {
+        $site = $this->site();
+        $site->exec("UPDATE tl_api_tokens SET tool_set = 'essentials'");
+        try {
+            // an Essentials connection reaches most tools through the runners: the site given to the runner is the site the tool runs on
+            $this->call('run_tool', ['name' => 'create_page', 'arguments' => ['title' => 'Through the runner', 'visible' => false], 'site' => self::$second]);
+            $this->assertSame([1, 0], [(int) $site->value('SELECT COUNT(*) FROM tl2_pages WHERE title = ?', ['Through the runner']), (int) $site->value('SELECT COUNT(*) FROM tl_pages WHERE title = ?', ['Through the runner'])]);
+
+            $titles = array_column(json_decode($this->call('run_read_tool', ['name' => 'list_pages', 'arguments' => new \stdClass(), 'site' => self::$second])['text'], true), 'title');
+            $this->assertContains('Through the runner', $titles);
+
+            // the inner call may name the site itself, and that wins over the runner's
+            $this->call('run_tool', ['name' => 'create_page', 'arguments' => ['title' => 'Inner wins', 'visible' => false, 'site' => self::$second], 'site' => 'not-a-site']);
+            $this->assertSame(1, (int) $site->value('SELECT COUNT(*) FROM tl2_pages WHERE title = ?', ['Inner wins']));
+
+            $this->call('run_tool', ['name' => 'create_page', 'arguments' => ['title' => 'Runner on the first', 'visible' => false]]);
+            $this->assertSame([1, 0], [(int) $site->value('SELECT COUNT(*) FROM tl_pages WHERE title = ?', ['Runner on the first']), (int) $site->value('SELECT COUNT(*) FROM tl2_pages WHERE title = ?', ['Runner on the first'])], 'without a site it works on the site called');
+        } finally {
+            $site->exec("UPDATE tl_api_tokens SET tool_set = 'all'");
+        }
+    }
+
     public function testSiteToolsManageDomainsAndStates(): void
     {
         $site = $this->site();

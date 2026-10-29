@@ -153,7 +153,7 @@ final class Server
             return $tool;
         }
         // multisite: every tool of a site takes the optional site (its public id) to work on a sibling of the site the connection calls
-        if (\Talea\Core\Sites::enabled() && !in_array((string) $tool['name'], Catalog::SITE_TOOLS, true) && !isset(Catalog::META[(string) $tool['name']])) {
+        if (\Talea\Core\Sites::enabled() && !in_array((string) $tool['name'], Catalog::SITE_TOOLS, true) && (!isset(Catalog::META[(string) $tool['name']]) || isset(Discovery::RUNNERS[(string) $tool['name']]))) {
             $tool['inputSchema']['properties'] = (array) ($tool['inputSchema']['properties'] ?? []) + ['site' => ['type' => 'string',
                 'description' => 'Optional: the id of another site of this installation (list_owner_sites) to run this tool on. Without it the tool works on the site this connection calls.']];
         }
@@ -374,6 +374,9 @@ final class Server
         }
         if (!isset($inner['reason']) && is_string($arguments['reason'] ?? null)) {
             $inner['reason'] = $arguments['reason']; // the reason may come with the runner itself
+        }
+        if (!isset($inner['site']) && is_string($arguments['site'] ?? null) && \Talea\Core\Sites::enabled()) {
+            $inner['site'] = $arguments['site']; // the site may come with the runner itself; the inner call applies it
         }
         if (!Catalog::exists($name)) {
             return $error('Unknown tool: ' . mb_substr($name, 0, 100) . '. Call find_tools for the tools of this site.');
