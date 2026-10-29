@@ -15,6 +15,14 @@ final class FormSteps
 {
     public const int MAX_STEP = 40;
 
+    /** The number of steps a published form really has (1 + its step fields), or 0 when the source and element name no published form. */
+    public static function stepCount(Db $db, string $source, string $element): int
+    {
+        $form = strlen($source) <= 40 ? Forms::findElement($db, $source, $element, Form::TYPE) : null;
+
+        return $form === null ? 0 : 1 + count(array_filter((array) ($form['content']['fields'] ?? []), fn ($f): bool => ($f['type'] ?? '') === 'step'));
+    }
+
     public static function record(Db $db, string $source, string $element, int $step): void
     {
         $db->upsert('form_steps', ['source' => $source, 'element' => $element, 'step' => $step, 'day' => date('Y-m-d'), 'reached' => 1],

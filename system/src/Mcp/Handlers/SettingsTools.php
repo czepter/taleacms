@@ -311,9 +311,7 @@ trait SettingsTools
 
         $days = (int) ($a['days'] ?? 30);
         $report = \Talea\Core\Report::build($this->app->db(), $days);
-        // forms with drop-off counters come first (with their steps); the other forms keep the plain enquiry count
-        $funnels = array_map(fn (array $f): array => $f + ['enquiries' => $f['sent']], \Talea\Front\FormSteps::overview($this->app->db(), $days));
-        $report['forms'] = array_merge($funnels, array_values(array_filter((array) $report['forms'], fn (array $f): bool => !in_array($f['form'], array_column($funnels, 'form'), true))));
+        $report['form_steps'] = \Talea\Front\FormSteps::overview($this->app->db(), $days);
 
         return $report + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
     }

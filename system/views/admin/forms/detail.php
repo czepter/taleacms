@@ -12,6 +12,7 @@
  * @var list<array{step: int, title: string, reached: int}> $steps
  * @var ?string $drop
  * @var int $sent
+ * @var bool $multiStep
  * @var string $filter
  * @var string $search
  * @var int $pageNumber
@@ -37,7 +38,7 @@ echo $app->view->render('admin/list/head', ['count' => (string) $totals['total']
 	<div class="tiles-item"><strong><?= $totals['open'] ?></strong><span><?= e(t('To do')) ?></span></div>
 	<div class="tiles-item"><strong><?= $totals['recent'] ?></strong><span><?= e(t('Last 30 days')) ?></span></div>
 </div>
-<?php if (($steps[0]['reached'] ?? 0) > 0): $base = $steps[0]['reached']; ?>
+<?php if ($multiStep): $base = max(1, $steps[0]['reached'] ?? 0); ?>
 <section aria-labelledby="form-steps">
 	<h2 id="form-steps"><?= e(t('Where visitors stop')) ?></h2>
 	<form method="get" action="<?= e($app->url('admin.php')) ?>" class="toolbar">
@@ -49,6 +50,9 @@ echo $app->view->render('admin/list/head', ['count' => (string) $totals['total']
 		</select></label>
 		<noscript><button type="submit"><?= e(t('Show')) ?></button></noscript>
 	</form>
+<?php if (($steps[0]['reached'] ?? 0) === 0): ?>
+	<p class="small-text"><?= e(t('No visitor reached this form in this period.')) ?></p>
+<?php endif ?>
 	<ol class="effect">
 <?php foreach ($steps as $s): $share = (int) round(100 * $s['reached'] / $base); ?>
 		<li><?= bdi($s['title']) ?> <meter min="0" max="100" value="<?= $share ?>" aria-label="<?= e($s['title']) ?>"><?= $share ?> %</meter> <?= $share ?> % · <?= $s['reached'] ?></li>

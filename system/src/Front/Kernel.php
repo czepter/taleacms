@@ -292,7 +292,7 @@ final class Kernel
             $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
             $source = Forms::internalSource($this->app->db(), $request->post('source'));
             $step = $request->postInt('step');
-            if ($source !== '' && preg_match('/^[a-z0-9]{3,16}$/', $request->post('element')) && $step >= 1 && $step <= FormSteps::MAX_STEP && $antispam->count($request->ip(), 'form_step', 0, 60) < 120) {
+            if ($source !== '' && preg_match('/^[a-z0-9]{3,16}$/', $request->post('element')) && $step >= 1 && $step <= FormSteps::MAX_STEP && $step <= FormSteps::stepCount($this->app->db(), $source, $request->post('element')) && $antispam->count($request->ip(), 'form_step', 0, 60) < 120) {
                 $antispam->write($request->ip(), 'form_step', 0);
                 FormSteps::record($this->app->db(), $source, $request->post('element'), $step);
             }

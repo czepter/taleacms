@@ -63,6 +63,11 @@ final class FormStepsTest extends SiteTestCase
             ['source' => self::$source, 'element' => 'NOT valid!', 'step' => '1'],
             ['source' => self::$source, 'element' => self::$element, 'step' => '0'],
             ['source' => self::$source, 'element' => self::$element, 'step' => '41'],
+            ['source' => self::$source, 'element' => self::$element, 'step' => '4'], // the form has 3 steps
+            ['source' => 'anything', 'element' => self::$element, 'step' => '1'],
+            ['source' => 'part:x', 'element' => self::$element, 'step' => '1'],
+            ['source' => 'part:' . str_repeat('a', 45), 'element' => self::$element, 'step' => '1'],
+            ['source' => self::$source, 'element' => 'fake1234', 'step' => '1'],
         ] as $junk) {
             $this->assertSame(204, $visitor->post('/form-step', $junk)->status);
         }
@@ -86,7 +91,7 @@ final class FormStepsTest extends SiteTestCase
     public function testGetStatsReturnsTheFunnel(): void
     {
         $stats = $this->call('get_stats', []);
-        $form = $stats['forms'][0] ?? [];
+        $form = $stats['form_steps'][0] ?? [];
         $this->assertSame('Roof quiz', $form['form'] ?? null);
         $this->assertSame('Quiz steps', $form['page'] ?? null);
         $this->assertSame([['step' => 1, 'title' => 'Roof quiz', 'reached' => 2], ['step' => 2, 'title' => 'Your home', 'reached' => 1], ['step' => 3, 'title' => 'Contact', 'reached' => 0]], $form['steps'] ?? null);

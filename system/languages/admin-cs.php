@@ -2909,6 +2909,7 @@ return [
     'No text was written. Add an AI key under AI settings and run the wizard again to get the pages.' => 'Nebyl napsán žádný text. Doplňte klíč AI v Nastavení AI a spusťte průvodce znovu, abyste získali stránky.',
     'No traffic statistics.' => 'Žádná statistika návštěvnosti.',
     'No upcoming bookings' => 'Žádné nadcházející rezervace',
+    'No visitor reached this form in this period.' => 'Tento formulář v tomto období nikdo nenavštívil.',
     'No visits from links with utm parameters yet.' => 'Zatím žádné návštěvy z odkazů s parametry utm.',
     'No webhook has been sent yet.' => 'Zatím nebyl odeslán žádný webhook.',
     'Nobody' => 'Nikdo',

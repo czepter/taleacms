@@ -74,7 +74,7 @@ final class Forms extends Module
         $days = in_array($this->request->getInt('days'), [7, 30, 365], true) ? $this->request->getInt('days') : 30;
         $steps = \Talea\Front\FormSteps::steps($this->db, $form['source'], $form['element'], $days);
 
-        return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['days' => $days, 'steps' => $steps, 'drop' => \Talea\Front\FormSteps::biggestDrop($steps),
+        return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['days' => $days, 'steps' => $steps, 'multiStep' => \Talea\Front\FormSteps::stepCount($this->db, $form['source'], $form['element']) > 1 || (int) $this->db->value('SELECT COUNT(*) FROM {form_steps} WHERE source = ? AND element = ?', [$form['source'], $form['element']]) > 0, 'drop' => \Talea\Front\FormSteps::biggestDrop($steps),
             'sent' => \Talea\Front\FormSteps::sent($this->db, $form['source'], $form['element'], $days), 'form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'enquiries' => $this->db->all('SELECT public_id, created_at, email, status, page, data' . $sql . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'shownTotal' => (int) $this->db->value('SELECT COUNT(*)' . $sql, $params),

@@ -2915,6 +2915,7 @@ return [
     'No text was written. Add an AI key under AI settings and run the wizard again to get the pages.' => 'Es wurde kein Text geschrieben. Hinterlegen Sie unter AI-Einstellungen einen AI-Schlüssel und starten Sie den Assistenten erneut, um die Seiten zu erhalten.',
     'No traffic statistics.' => 'Keine Besucherstatistik.',
     'No upcoming bookings' => 'Keine anstehenden Buchungen',
+    'No visitor reached this form in this period.' => 'Dieses Formular hat in diesem Zeitraum kein Besucher erreicht.',
     'No visits from links with utm parameters yet.' => 'Noch keine Besuche über Links mit utm-Parametern.',
     'No webhook has been sent yet.' => 'Es wurde noch kein Webhook gesendet.',
     'Nobody' => 'Niemand',
