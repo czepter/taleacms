@@ -1,0 +1,434 @@
+[
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/",
+        "when": "",
+        "handler": "Kernel::home"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/index.php",
+        "when": "",
+        "handler": "Kernel::home"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/news{rest:(?:/.*)?}",
+        "when": "extension:news off",
+        "handler": "Kernel::notFound"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/rss.xml",
+        "when": "extension:news off",
+        "handler": "Kernel::notFound"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/feed.json",
+        "when": "extension:news off",
+        "handler": "Kernel::notFound"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/news",
+        "when": "",
+        "handler": "NewsPages::showNewsList"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/news/category/{slug}",
+        "when": "",
+        "handler": "NewsPages::category"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/news/tag/{slug}",
+        "when": "",
+        "handler": "NewsPages::tag"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/news/{slug}.md",
+        "when": "setting:markdown_versions",
+        "handler": "NewsPages::newsMarkdown"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/news/{slug}",
+        "when": "",
+        "handler": "NewsPages::newsItem"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{slug:[a-z0-9][a-z0-9/-]*}.md",
+        "when": "setting:markdown_versions",
+        "handler": "NewsPages::markdown"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/search",
+        "when": "",
+        "handler": "NewsPages::search"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/rss.xml",
+        "when": "",
+        "handler": "NewsPages::rss"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/manifest.webmanifest",
+        "when": "",
+        "handler": "Endpoints::manifest"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/favicon.ico",
+        "when": "",
+        "handler": "Endpoints::favicon"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/og/{hash:[a-f0-9]{32}}.png",
+        "when": "",
+        "handler": "Endpoints::shareImage"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/robots.txt",
+        "when": "",
+        "handler": "Endpoints::robots"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/sitemap.xml",
+        "when": "",
+        "handler": "Endpoints::sitemap"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/feed.json",
+        "when": "",
+        "handler": "Endpoints::jsonFeed"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/.well-known/security.txt",
+        "when": "setting:security_contact",
+        "handler": "Endpoints::securityTxt"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/llms.txt",
+        "when": "setting:llms_txt",
+        "handler": "Endpoints::llmsTxt"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{file:.+}.txt",
+        "when": "",
+        "handler": "Endpoints::indexNowKey"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/consent",
+        "when": "",
+        "handler": "Endpoints::consent"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/popup",
+        "when": "",
+        "handler": "Endpoints::popup"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/fleet/{action:pair|heartbeat|unpair|kit}",
+        "when": "extension:fleet",
+        "handler": "Endpoints::fleet"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/vitals",
+        "when": "",
+        "handler": "Endpoints::vitals"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/conversion",
+        "when": "",
+        "handler": "Endpoints::conversion"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/experiment",
+        "when": "",
+        "handler": "Endpoints::experiment"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/mcp",
+        "when": "",
+        "handler": "Endpoints::mcp"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/download/{token:[A-Za-z0-9._-]{30,900}}",
+        "when": "",
+        "handler": "Endpoints::download"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/subscribe",
+        "when": "extension:newsletter_signup or a subscription link",
+        "handler": "Endpoints::subscribe"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/member{rest:(?:/.*)?}",
+        "when": "extension:members",
+        "handler": "Kernel::memberArea"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}",
+        "when": "",
+        "handler": "Kernel::addOnRoute"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/form",
+        "when": "extension:enquiries",
+        "handler": "Endpoints::form"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/_booking",
+        "when": "extension:bookings",
+        "handler": "Endpoints::booking"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_booking/{what:days|slots}",
+        "when": "extension:bookings",
+        "handler": "Endpoints::bookingAvailability"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_booking/cancel/{token:[a-f0-9]{32}}",
+        "when": "",
+        "handler": "Endpoints::bookingCancel"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_booking/choose/{token:[a-f0-9]{32}}",
+        "when": "",
+        "handler": "Endpoints::bookingChoose"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_booking/ics/{token:[a-f0-9]{32}}",
+        "when": "",
+        "handler": "Endpoints::bookingIcs"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/health",
+        "when": "",
+        "handler": "Endpoints::health"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/tasks",
+        "when": "",
+        "handler": "Endpoints::tasks"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/screen/{secret:[a-f0-9]{32}}",
+        "when": "",
+        "handler": "Endpoints::screen"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/status.json",
+        "when": "",
+        "handler": "Endpoints::status"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{slug:.*}",
+        "when": "",
+        "handler": "Kernel::pageAt"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_section/{key:[a-z0-9-]{1,40}}",
+        "when": "permission:pages",
+        "handler": "Kernel::previewSection"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_popup/{id:[a-f0-9-]{36}}",
+        "when": "",
+        "handler": "Kernel::previewPopup"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_component/{id:[a-f0-9-]{36}}",
+        "when": "administrator",
+        "handler": "Kernel::previewComponent"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{collection:[a-z0-9-]{1,110}}.ics",
+        "when": "",
+        "handler": "CollectionPages::calendarFile"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{collection:[a-z0-9-]{1,110}}/{item:[a-z0-9-]{1,160}}.ics",
+        "when": "",
+        "handler": "CollectionPages::calendarFile"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/_testimonial/{token:[a-f0-9]{32}}",
+        "when": "",
+        "handler": "CollectionPages::testimonialPage"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
+        "pattern": "/_comment",
+        "when": "",
+        "handler": "Endpoints::comment"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{collection:[a-z0-9-]{1,110}}/_compare",
+        "when": "",
+        "handler": "CollectionPages::compareProducts"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{collection:(?!news/)[a-z0-9-]{1,110}}/{item:[a-z0-9-]{1,160}}",
+        "when": "",
+        "handler": "CollectionPages::showCollectionItem"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{collection:(?!news/)[a-z0-9-]{1,110}}/{item:[a-z0-9-]{1,160}}/latest",
+        "when": "",
+        "handler": "CollectionPages::latest"
+    }
+]
