@@ -37,7 +37,13 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   backups, media sync, media staging, the undo journal, unused accounts) run only with it.
 - **Page cache:** one folder per site: site 1 keeps `storage/cache/pages`, site *n* uses `storage/cache/pages-tl{n}_`.
 - **Backups:** one file holds every prefix of the database; a restore puts back all sites at once. Rolling back a single site
-  goes through site export and import.
+  goes through site export and import. The file names its prefixes in a header line (`-- prefixes: tl_,tl2_`); a restore accepts exactly
+  those (an older file without the line: the registry as it is now). Sites made after the backup are not in the restored registry, so their
+  tables are dropped as part of the restore; a site removed since comes back (its tables are created first when missing: PostgreSQL and
+  SQLite backups hold data only). The owner prefix is never dropped.
+- **Media are owner rows, their use is per site:** `Media::findUsagesElsewhere()` (the clean-up's unused list, the bulk delete, MCP
+  `delete_media`) reads the places that can hold a file on every set-up site (`Sites::otherReady()`), news usage of the others included. A file
+  any site uses is in use. `LinkHealing` and a class rename rewrite only the current site's own components; shared ones belong to every site.
 
 ## Routing and signing (phase 1, stage 1)
 
@@ -64,10 +70,15 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   same key and language (`Facts::all()` skips the shared row); saving with `shared = false` on a shared fact gives the site its own copy,
   deleting removes the site's own rows first and the shared row only when it has none. A translation follows its default row.
   `fact_history` is not split by site. **Components** go one way only: shared stays shared (other sites may use it); delete removes it for all.
+- **Forms and shared components:** forms are a site's own rows (`forms`, enquiries). A shared component may hold no Form or form_embed
+  element (`Components::formRefusal()`): sharing such a component is refused (admin and MCP `shared: true`), and so is saving or
+  publishing a form into a shared one. The Forms list and `adoptAll` look at the site's own and shared components only, and rewrite only its own.
 - **Cache:** a change to a shared row calls `Front\Cache::clearAll()` (`storage/cache/pages` and every `pages-*`), a local one `clear()`.
 - **Clone:** `Sites::provision()` also copies the source's own components (new rows, new public ids) and facts, and repoints the
   `component` elements in the copied builds (pages, site parts, pop-ups, collections and their templates, the version history, saved
-  sections, and the component copies themselves) and the variants of the copied experiments. Shared rows are not copied.
+  sections, and the component copies themselves), the variants of the copied experiments, the version keys `component:<id>` and the origins
+  of the forms placed in them. Shared rows are not copied. External connections (`connectors`, `agent_schedules`, `fleet_sites`) are not
+  cloned: a copy would act in the clone's name. `Sites::add` skips a number whose prefix already has tables.
   Removing a site (`Sites::cleanup`) deletes its own components and facts (the site number may be given out again).
 - **Inbox:** Enquiries and Bookings get "this site / all sites" (`sites=all`, administrators with more than one set-up site). Enquiries:
   `UNION ALL` of the sites' tables, paged and filtered like the list of one site; Bookings: the sites' agendas merged by time (people and
@@ -85,7 +96,10 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   owner's sites: unknown, trashed or not yet set up is an error result, never a silent fallback. The call then goes through `call()` again on a
   `Server` built for an `App` of that site (same configuration with `site_prefix`, the user and the connection signed in), so access, guardrails,
   the journal, the change log and the cache all hold for that site; a result that is an object names the site (`on_site`). Add-on tools refuse
-  `site` (add-ons are loaded once for the called site).
+  `site` (add-ons are loaded once for the called site). The runners (`run_read_tool`, `run_tool`, `run_destructive_tool`) take `site` too and
+  pass it to the tool they run (a `site` inside `arguments` wins). **Known limit:** the listeners and filters an add-on registered at boot stay
+  bound to the site the connection called, so an add-on event raised during a `site` call reaches the add-on's code of the calling site, not
+  of the sibling; add-ons that react to content events should not be relied on across sites in phase 1.
 - **Static state** switched for the call and put back afterwards: `Front\Cache` (page-cache folder), the time zone, `Core\Language` (site language
   and register), the memos of `Core\Slug` and `Core\Routes`. `Core\Facts` keys its memo by prefix by itself; `Sites::currentId()` is keyed by prefix.
 - **Undo:** `agent_journal.site_prefix` (owner table, '' = the owner's own site) records the site an entry belongs to; `AgentJournal::undo`
@@ -109,6 +123,7 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
 - A new site is provisioned by cron (`docker.php cron`), never on a page request: the admin and MCP only insert the row.
 - A clone is an SQL copy (`INSERT … SELECT`) of the source's site tables without logs, queues, counters and visitors' data, with an
   allow-list of settings (`SiteExport::SETTINGS` and the account settings); secrets are made again.
+- `TALEA_SITE_URL` is the address of site 1 only (`SiteUrl::locked()`); a further site edits its own `site_url`.
 - The `site` argument is added to the schema like `reason` and is not in the contract file.
 - Importing a Talea archive is refused while the install has several sites (above).
 - Open for later phases: several owners (databases) in one install, per-site roles, domain verification and certificates, moving a single site
