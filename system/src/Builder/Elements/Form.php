@@ -326,7 +326,7 @@ final class Form extends Element
         // data-form: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
         $files = in_array('file', array_column($o['fields'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
-        return '<form' . Text::withClass($a, 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"' . ($result !== '' ? ' data-restore' : '')
+        return '<form' . Text::withClass($a, 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
             . ($logic !== [] ? ' data-logic="' . e((string) json_encode($logic, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)) . '"' : '') . '>'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
