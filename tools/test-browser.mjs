@@ -73,7 +73,7 @@ const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module
   '/admin.php?module=news', '/admin.php?module=collections', '/admin.php?module=categories', '/admin.php?module=tags', '/admin.php?module=media',
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
-  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
+  '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=forms', '/admin.php?module=forms&action=new', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
   '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
   '/admin.php?module=bookings'];
 for (const url of ADMIN_PAGES) {
@@ -859,6 +859,38 @@ await step('builder (editing): Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctr
   expect((await columnIds()).join() === 'txt2', `Ctrl+Shift+Z did not remove it again: ${await columnIds()}`);
   const build = await savedBuild(page, 'editing');
   expect(find(build.children, 'col2').children.map((c) => c.id).join() === 'txt2', 'the saved draft does not match the last redo');
+});
+
+await step('forms: a new form opens in the form builder, a page places it and gives its fields a width', async () => {
+  await visit('/admin.php?module=forms&action=new');
+  await page.fill('input[name="name"]', 'Browser form');
+  await Promise.all([page.waitForURL(/\/forms\/builder\//), page.click('form.form input[type="submit"]')]);
+  await until(page, () => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('form.tl-form'), null, 'the form builder shows the form on its canvas');
+  await page.locator('.bd-rail button[aria-label="Add elements and sections"]').click();
+  expect(await page.getByText('A form holds only its fields.').count() === 1, 'the form builder offers no elements to add');
+  const form = new URL(page.url()).pathname.split('/').pop();
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  await until(page, () => window.taleaBuilder && window.taleaBuilder.previewDoc() && window.taleaBuilder.previewDoc().querySelector('[data-tl-id]'), null, 'the page builder is open');
+  const offered = await page.evaluate(() => window.taleaBuilder.D.schema.elements.filter((p) => p.offered !== false).map((p) => p.type));
+  expect(offered.includes('form_embed') && !offered.includes('form'), `the Add panel offers the placement, not the fields: ${offered.join()}`);
+  const id = await page.evaluate((chosen) => {
+    const B = window.taleaBuilder;
+    const n = B.newElement('form_embed');
+    n.content.form = chosen;
+    B.applyChange(() => { B.state.build.children.push(n); B.state.selected = n.id; });
+    B.redrawPanels();
+    return n.id;
+  }, form);
+  await idle(page);
+  await until(page, (placed) => window.taleaBuilder.previewDoc().querySelector(`form.tl-form[data-tl-id="${placed}"]`), id, 'the canvas shows the placed form, its draft');
+  await page.locator('.bd-form-widths select').first().selectOption('3');
+  await idle(page);
+  await until(page, (placed) => window.taleaBuilder.previewDoc().querySelector(`form.tl-form-layout[data-tl-id="${placed}"] .tl-span-3`), id, 'the field is half as wide on the canvas');
+  await visit(`/admin.php?module=pages&action=builder&id=${PAGE}`);
+  const saved = find(await page.evaluate(() => JSON.parse(document.getElementById('builder-data').textContent).build.children), id);
+  expect(saved && saved.content.form === form && Object.values(saved.content.widths || {}).join() === '3', `the draft keeps the placement: ${JSON.stringify(saved)}`);
+  await page.evaluate((placed) => { const B = window.taleaBuilder; B.applyChange(() => { B.state.build.children = B.state.build.children.filter((c) => c.id !== placed); }); }, id);
+  await idle(page);
 });
 
 await step('builder: site header', async () => {

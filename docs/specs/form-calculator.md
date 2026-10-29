@@ -57,7 +57,8 @@ out, and numbers on where visitors drop off.
 
 ## Anti-goals (a failure even if it works)
 
-- A second form builder next to the Form element, or a "Quizzes" section in the admin menu.
+- A "Quizzes" section in the admin menu. (The anti-goal "a second form builder next to the Form element" was reversed
+  on 29 October 2026: forms are records with their own builder and pages place them, see `form-builder.md`.)
 - The calculation written twice: the amounts are computed by PHP only. (The visibility conditions are the one exception,
   see "Where the logic runs".)
 - Prices leaking into the page in "result after contact" mode (HTML, data attributes, JSON, the step beacon).
