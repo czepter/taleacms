@@ -72,10 +72,10 @@ function talea_element_contract(): array
 }
 
 /**
- * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters and the
- * access levels of tools – what add-ons are written against.
+ * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters, the
+ * access levels of tools and the address prefixes Talea keeps for itself (Api::route() refuses them) – what add-ons are written against.
  *
- * @return array{version: int, supported: list<int>, methods: array<string, list<string>>, v2_methods: list<string>, filters: list<string>, tool_access: list<string>, runners: list<string>, capabilities: list<string>}
+ * @return array{version: int, supported: list<int>, methods: array<string, list<string>>, v2_methods: list<string>, filters: list<string>, tool_access: list<string>, runners: list<string>, capabilities: list<string>, reserved_prefixes: list<string>}
  */
 function talea_extension_contract(): array
 {
@@ -93,7 +93,19 @@ function talea_extension_contract(): array
 
     // version 2 is additive: "methods" lists all of them, "v2_methods" the ones an add-on of API 1 may not call (the rest is what version 1 had)
     return ['version' => Talea\Extension\Api::VERSION, 'supported' => Talea\Extension\Api::SUPPORTED, 'methods' => $methods, 'v2_methods' => $v2, 'filters' => array_keys(Talea\Extension\Api::FILTERS),
-        'tool_access' => Talea\Extension\Api::TOOL_ACCESS, 'runners' => Talea\Extension\Api::RUNNERS, 'capabilities' => array_keys(Talea\Extension\Api::CAPABILITIES)];
+        'tool_access' => Talea\Extension\Api::TOOL_ACCESS, 'runners' => Talea\Extension\Api::RUNNERS, 'capabilities' => array_keys(Talea\Extension\Api::CAPABILITIES),
+        'reserved_prefixes' => talea_sorted(Talea\Front\Kernel::reservedSlugs())];
+}
+
+/**
+ * @param list<string> $values
+ * @return list<string>
+ */
+function talea_sorted(array $values): array
+{
+    sort($values);
+
+    return $values;
 }
 
 /**
@@ -218,6 +230,9 @@ function talea_contract_diff(): array
                     $added[] = "extension API: $method() parameter $parameter";
                 }
             }
+        }
+        if (($recordedApi['reserved_prefixes'] ?? []) !== $currentApi['reserved_prefixes']) {
+            $added[] = 'extension API: reserved prefixes changed';
         }
         foreach (array_diff($recordedApi['filters'], $currentApi['filters']) as $filter) {
             $broken[] = "extension API: filter $filter removed";

@@ -259,14 +259,6 @@
         "methods": [
             "ANY"
         ],
-        "pattern": "/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}",
-        "when": "",
-        "handler": "Kernel::addOnRoute"
-    },
-    {
-        "methods": [
-            "ANY"
-        ],
         "pattern": "/form",
         "when": "extension:enquiries",
         "handler": "Endpoints::form"
@@ -342,6 +334,14 @@
         "pattern": "/status.json",
         "when": "",
         "handler": "Endpoints::status"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
+        "pattern": "/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}",
+        "when": "",
+        "handler": "Kernel::addOnRoute"
     },
     {
         "methods": [

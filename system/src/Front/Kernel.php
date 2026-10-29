@@ -17,6 +17,9 @@ use Talea\Core\Extensions;
  */
 final class Kernel
 {
+    /** Reserved addresses that are not a route of the table (reservedSlugs()). */
+    private const array RESERVED_OUTSIDE_ROUTES = ['oauth', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status'];
+
     private readonly PageFrame $frame;
     private readonly NewsPages $newsPages;
     private readonly CollectionPages $collectionPages;
@@ -133,8 +136,22 @@ final class Kernel
     }
 
     /**
+     * Addresses no page, collection, news slug or add-on prefix may take: the first segments of the core routes, and what answers
+     * outside the table – the folders of the installation, OAuth (a guard, it answers in maintenance mode too), the staged media
+     * and the old names of the feed and file addresses.
+     *
+     * @return list<string>
+     */
+    public static function reservedSlugs(): array
+    {
+        static $slugs = null;
+
+        return $slugs ??= array_values(array_unique([...self::routes()->prefixes(), ...self::RESERVED_OUTSIDE_ROUTES]));
+    }
+
+    /**
      * The public addresses, tried top to bottom (Router): the first route that answers wins, so the order is behaviour. The core
-     * addresses come first, then a page by its slug, then the previews and the addresses of collections.
+     * addresses come first, then the add-ons, then a page by its slug, then the previews and the addresses of collections.
      */
     public static function routes(): Router
     {
@@ -187,7 +204,6 @@ final class Kernel
             ->add('ANY', '/download/{token:[A-Za-z0-9._-]{30,900}}', [Endpoints::class, 'download'])
             ->add('ANY', '/subscribe', [Endpoints::class, 'subscribe'], $subscribe, 'extension:newsletter_signup or a subscription link')
             ->add('ANY', '/member{rest:(?:/.*)?}', [self::class, 'memberArea'], $extension('members'), 'extension:members')
-            ->add('ANY', '/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}', [self::class, 'addOnRoute']) // only an add-on's own prefix answers (Api::route)
             ->add('ANY', '/form', [Endpoints::class, 'form'], $extension('enquiries'), 'extension:enquiries')
             ->add('POST', '/_booking', [Endpoints::class, 'booking'], $bookingsOn, 'extension:bookings')
             ->add('ANY', '/_booking/{what:days|slots}', [Endpoints::class, 'bookingAvailability'], $bookingsOn, 'extension:bookings')
@@ -198,6 +214,8 @@ final class Kernel
             ->add('ANY', '/tasks', [Endpoints::class, 'tasks'])
             ->add('ANY', '/screen/{secret:[a-f0-9]{32}}', [Endpoints::class, 'screen'])
             ->add('ANY', '/status.json', [Endpoints::class, 'status'])
+            // add-ons (Api::route) come after every core address, which they cannot take (reservedSlugs()), and before pages and collections
+            ->add('ANY', '/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}', [self::class, 'addOnRoute']) // only an add-on's own prefix answers
             ->add('ANY', '/{slug:.*}', [self::class, 'pageAt']) // a page, when one has this address
             ->add('ANY', '/_section/{key:[a-z0-9-]{1,40}}', [self::class, 'previewSection'], fn (App $app): bool => $app->auth()->hasModule('pages'), 'permission:pages')
             ->add('ANY', '/_popup/{id:[a-f0-9-]{36}}', [self::class, 'previewPopup'])

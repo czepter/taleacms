@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Admin\Modules\Media;
-use Talea\Admin\Modules\Pages;
 use Talea\Admin\Modules\Redirects;
 
 /**
@@ -257,7 +256,7 @@ final class WebImport
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
         $seo = WpImport::availableSlug(
             slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['title'], 110),
-            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
+            fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
                 || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
         );
         $build = $this->build($page['title'], $page['content']);

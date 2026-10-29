@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Talea\Core;
 
 use Talea\Admin\ChangeLog;
-use Talea\Admin\Modules\Pages;
 use Talea\Builder\Build;
 use Talea\Builder\ElementSchema;
 use Talea\Builder\Library;
@@ -90,7 +89,7 @@ final class Onboarding
         $code = Language::defaults($s);
         $title = Language::runWith($code, fn (): string => t(self::PAGES[$key][0]));
         $slug = slugify($title, 100);
-        if (in_array($slug, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$slug]) || Routes::isNewsSlug($slug, $db) || Slug::taken($db, 'pages', $slug, '')) {
+        if (in_array($slug, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$slug]) || Routes::isNewsSlug($slug, $db) || Slug::taken($db, 'pages', $slug, '')) {
             return null;
         }
         $build = Library::page($db, self::PAGES[$key][1], $title, $code, ElementSchema::disabledTypes(Extensions::enabled($s)), true);

@@ -18,8 +18,8 @@ use Talea\Core\Response;
  *   - the handler [class, method]: dispatch() calls that method on the object given for the class, with the placeholders as strings in
  *     their order. It returns a Response, or null to let the next route try (no such page, a collection without events).
  *
- * The table holds class names, not objects, so it is read without a site or a database (tools/contracts.php records it in
- * tools/contracts/routes.json).
+ * The table holds class names, not objects, so it is read without a site or a database: tools/contracts.php records it in
+ * tools/contracts/routes.json and Kernel::reservedSlugs() takes the addresses no page or add-on may have from it.
  */
 final class Router
 {
@@ -74,6 +74,24 @@ final class Router
             'methods' => $r['methods'], 'pattern' => $r['pattern'], 'when' => $r['whenName'],
             'handler' => substr((string) strrchr('\\' . $r['handler'][0], '\\'), 1) . '::' . $r['handler'][1],
         ], $this->routes);
+    }
+
+    /**
+     * The fixed first segments of the patterns (/news/{slug} → news, /member{rest} → member), without files (robots.txt) and patterns
+     * that start with a placeholder.
+     *
+     * @return list<string>
+     */
+    public function prefixes(): array
+    {
+        $prefixes = [];
+        foreach ($this->routes as $route) {
+            if (preg_match('#^/([a-z0-9_-]+)(?:[/{]|$)#', $route['pattern'], $m) === 1) {
+                $prefixes[] = $m[1];
+            }
+        }
+
+        return array_values(array_unique($prefixes));
     }
 
     /** The anchored regular expression of a pattern: literal text is quoted, a placeholder becomes a named group. */

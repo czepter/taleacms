@@ -515,6 +515,10 @@ final class Registry
 
     public function addRoute(string $slug, string $prefix, callable $handler): void
     {
+        // core addresses always win: a prefix Talea uses (a core route or a reserved slug) is refused like one another add-on owns
+        if (in_array($prefix, \Talea\Front\Kernel::reservedSlugs(), true)) {
+            throw new \RuntimeException('The address /' . $prefix . '/ belongs to Talea.');
+        }
         if (isset($this->routes[$prefix])) {
             throw new \RuntimeException('The address /' . $prefix . '/ already belongs to another add-on.');
         }
