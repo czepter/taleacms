@@ -134,6 +134,7 @@ final class Kernel
         Modules\NewsletterSettings::class,
         Modules\Addons::class,
         Modules\Transfer::class,
+        Modules\Sites::class,
         Modules\ChangeLog::class,
         Modules\Status::class,
         Modules\Fleet::class,
@@ -150,7 +151,7 @@ final class Kernel
      * screen), label]. An entry shows only when the person may open its module.
      */
     public const array SETTINGS_MENU = [
-        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries']],
+        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries'], ['sites', '', 'Sites']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
         'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'ai', 'AI']],
@@ -243,6 +244,16 @@ final class Kernel
         }
         $request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
+        if ($app->site !== null && $request->get('handoff') !== '' && !$request->isPost()) {
+            // multisite: an administrator sent over from another site of the owner (Modules\Sites::actionHandoff). The token is used up
+            // here and the address is left at once, so it is not kept in the browser's history; a failure ends at the sign-in page.
+            $user = \Talea\Core\Sites::claimHandoff($app->db(), $request->get('handoff'), (int) $app->site['site_id']);
+            if ($user !== null) {
+                $app->auth()->signInFromHandoff($user);
+            }
+
+            return Response::redirect($app->url('admin.php'));
+        }
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }

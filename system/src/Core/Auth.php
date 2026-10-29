@@ -427,6 +427,24 @@ final class Auth
         $this->db->update('users', ['failed_logins' => 0, 'last_login_at' => date('Y-m-d H:i:s')], ['user_id' => $idu]);
     }
 
+    /**
+     * The sign-in of an administrator who came from another site of the owner with a handoff token (Core\Sites::claimHandoff): the
+     * second site trusts the first one's sign-in, so no password and no second step is asked. A blocked account or one that is not an
+     * administrator is refused. A new session id, as for every sign-in.
+     */
+    public function signInFromHandoff(int $userId): bool
+    {
+        $user = $this->db->one('SELECT user_id, password FROM {users} WHERE user_id = ? AND blocked = FALSE AND admin = ?', [$userId, self::ADMIN]);
+        if ($user === null) {
+            return false;
+        }
+        $this->session->regenerate();
+        $this->recordSignIn($userId);
+        $this->startSignIn($userId, (string) $user['password']);
+
+        return true;
+    }
+
     public function logout(): void
     {
         $this->forget();
