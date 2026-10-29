@@ -18,7 +18,7 @@ use Talea\Core\Uuid;
  */
 final class PublicIds
 {
-    private const array PAGE = ['id' => 'pages', 'popup' => 'popups', 'component' => 'components'];
+    private const array PAGE = ['id' => 'pages', 'popup' => 'popups', 'component' => 'components', 'form' => 'forms'];
 
     /** Arguments naming a row: tool => path => rule. A value that is not the UUID of an existing row is refused. */
     private const array IN = [
@@ -35,7 +35,7 @@ final class PublicIds
         'create_experiment' => ['page' => 'pages', 'variant_page' => 'pages', 'goal_page' => 'pages'],
         'get_experiment_result' => ['id' => 'experiments'], 'update_experiment' => ['id' => 'experiments'], 'promote_experiment_winner' => ['id' => 'experiments'], 'delete_experiment' => ['id' => 'experiments'],
         'save_part_variant' => ['pages.*' => 'pages'],
-        'save_component' => ['id' => 'components'], 'delete_component' => ['id' => 'components'], 'delete_section' => ['id' => 'sections'],
+        'save_component' => ['id' => 'components'], 'delete_component' => ['id' => 'components'], 'delete_section' => ['id' => 'sections'], 'delete_form' => ['id' => 'forms'],
         'get_news' => ['id' => 'news'], 'update_news' => ['id' => 'news'], 'trash_news' => ['id' => 'news'], 'get_social_drafts' => ['id' => 'news'],
         'update_category' => ['id' => 'categories'], 'delete_category' => ['id' => 'categories'],
         'update_media' => ['id' => 'media'], 'delete_media' => ['id' => 'media'],
@@ -76,6 +76,7 @@ final class PublicIds
         'save_part_variant' => ['pages.*' => 'pages'],
         'delete_section' => ['deleted' => 'sections'], 'save_section' => ['id' => 'sections'],
         'list_components' => ['*.id' => 'components'], 'save_component' => ['id' => 'components'], 'delete_component' => ['deleted' => 'components'],
+        'list_forms' => ['*.id' => 'forms'], 'create_form' => ['id' => 'forms'], 'delete_form' => ['deleted' => 'forms'],
         'list_popups' => ['*.rules.pages.*' => 'pages'], 'save_popup' => ['rules.pages.*' => 'pages'], 'delete_popup' => ['deleted' => 'popups'],
         'create_collection' => ['list_page.id' => 'pages', 'more_pages.*.id' => 'pages'],
         'list_collection_items' => ['items.*.id' => 'collection_items'], 'save_collection_item' => ['id' => 'collection_items'],

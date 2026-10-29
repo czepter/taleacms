@@ -34,6 +34,7 @@ return [
     'Check your e-mail' => 'Prüfe dein E-Mail-Postfach',
     'Choose a collection in the Content panel.' => 'Wähle eine Sammlung im Panel Inhalt.',
     'Choose a component in the Content panel.' => 'Wähle eine Komponente im Panel Inhalt.',
+    'Choose a form in the Content panel.' => 'Wähle ein Formular im Bereich Inhalt.',
     'Choose a package' => 'Wähle ein Paket',
     'Choose a service and a free time – the confirmation arrives by email.' => 'Wähle eine Leistung und eine freie Zeit – die Bestätigung kommt per E-Mail.',
     'Choose a service first.' => 'Wähle zuerst eine Leistung.',

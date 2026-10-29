@@ -293,6 +293,7 @@ final class Kernel
             ->add('ANY', '/_section/{key:[a-z0-9-]{1,40}}', [self::class, 'previewSection'], fn (App $app): bool => $app->auth()->hasModule('pages'), 'permission:pages')
             ->add('ANY', '/_popup/{id:[a-f0-9-]{36}}', [self::class, 'previewPopup'])
             ->add('ANY', '/_component/{id:[a-f0-9-]{36}}', [self::class, 'previewComponent'], fn (App $app): bool => $app->auth()->isAdmin(), 'administrator')
+            ->add('ANY', '/_form/{id:[a-f0-9-]{36}}', [self::class, 'previewForm'], fn (App $app): bool => $app->auth()->hasModule('enquiries'), 'permission:enquiries')
             ->add('ANY', '/' . $collection . '.ics', [CollectionPages::class, 'calendarFile']) // only an events collection answers
             ->add('ANY', '/' . $collection . '/' . $item . '.ics', [CollectionPages::class, 'calendarFile'])
             ->add('ANY', '/_testimonial/' . $token, [CollectionPages::class, 'testimonialPage'])
@@ -439,10 +440,31 @@ final class Kernel
         $k = $this->frame->context();
         $k->item = \Talea\Builder\Components::values($component, []);
         $k->editor = $this->app->request->get('editor') === '1';
+        $k->draft = true;
         $html = \Talea\Builder\Renderer::html(\Talea\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['children' => []], $k);
-        [$k->item, $k->editor] = [null, false];
+        [$k->item, $k->editor, $k->draft] = [null, false, false];
 
         return $this->frame->page($component['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
+    }
+
+    /**
+     * The canvas of the form builder (Admin\Modules\Forms): the form alone on an empty page, its draft (?build=draft) or what is
+     * published. It posts as the form itself (source form:<id>), so a published form can be tried here.
+     */
+    public function previewForm(string $id): Response
+    {
+        $form = \Talea\Builder\FormRecords::byPublicId($this->app->db(), $id);
+        if ($form === null) {
+            return $this->notFound();
+        }
+        $k = $this->frame->context();
+        $k->draft = $this->wantsDraft();
+        $k->editor = $k->draft && $this->app->request->get('editor') === '1';
+        $k->source = 'form:' . $form['public_id'];
+        $html = \Talea\Builder\Renderer::html(\Talea\Builder\FormRecords::definitionBuild(\Talea\Builder\Build::fromJson($k->draft ? ($form['build_draft'] ?? $form['build']) : $form['build'])), $k);
+        [$k->editor, $k->draft] = [false, false];
+
+        return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
     }
 
     public function home(): Response
@@ -508,6 +530,7 @@ final class Kernel
         $build = \Talea\Builder\Build::fromJson($draft ? ($page['build_draft'] ?? $page['build']) : $page['build']);
         if ($build !== null) {
             $k = $this->frame->context();
+            $k->draft = $draft;
             $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('part') === '' && $this->app->request->get('component') === '';
             // "Edit here" on a component (Admin\Modules\Components): the page around it without markers, the chosen use shows the component's draft with them
             if ($draft && $this->app->request->get('editor') === '1' && $this->app->request->get('component') !== '' && $this->app->auth()->isAdmin()) {
@@ -540,6 +563,7 @@ final class Kernel
             }
             $html = \Talea\Builder\Renderer::html($build, $k);
             $k->editor = false;
+            $k->draft = false;
             $k->markIds = false;
             $k->seoMarks = [];
             $k->focus = null;
