@@ -64,8 +64,11 @@ final class FormLogic
                     $value = is_scalar($c['value'] ?? null) ? trim((string) $c['value']) : '';
                     $to = is_scalar($c['to'] ?? null) ? trim((string) $c['to']) : '';
                     if (mb_strlen($value) > 200 || mb_strlen($to) > 200) {
-                        $errors[$at . '.when'] = 'A condition value is longer than 200 characters and was dropped.';
-                        continue;
+                        // kept (cut) so that the editor can show it; the rule does nothing, as a dropped condition would widen it
+                        $broken = true;
+                        $errors[$at . '.when'] = 'A condition value is longer than 200 characters and was cut; the rule does nothing until you fix it.';
+                        $value = mb_substr($value, 0, 200);
+                        $to = mb_substr($to, 0, 200);
                     }
                     $one['value'] = $value;
                     if ($op === 'between') {

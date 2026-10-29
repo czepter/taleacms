@@ -179,6 +179,18 @@ final class FormLogicTest extends TestCase
         $this->assertSame(540.0, FormLogic::evaluate($content, [0 => '3'])['total']);
     }
 
+    public function testTooLongConditionValueBreaksTheRule(): void
+    {
+        $content = ['fields' => [['key' => 'kaaaa', 'label' => 'A', 'type' => 'text'], ['key' => 'kbbbb', 'label' => 'N', 'type' => 'number'], ['key' => 'kcccc', 'label' => 'E', 'type' => 'estimate']]];
+        $errors = [];
+        $content['logic'] = FormLogic::sanitize(['rules' => [['when' => [['field' => 'kaaaa', 'op' => 'is', 'value' => str_repeat('x', 201)]], 'then' => [['do' => 'add', 'amount' => 50]]]]], $content['fields'], 'f', $errors);
+        $rule = $content['logic']['rules'][0];
+        $this->assertTrue($rule['broken']);
+        $this->assertSame(200, mb_strlen($rule['when'][0]['value']));
+        $this->assertSame([], FormLogic::rules($content));
+        $this->assertSame(0.0, FormLogic::evaluate($content, [0 => str_repeat('x', 201)])['total']);
+    }
+
     public function testRuleWithoutConditionsHolds(): void
     {
         $fields = [['key' => 'ka000', 'type' => 'text', 'label' => 'A'], ['key' => 'kb000', 'type' => 'text', 'label' => 'B']];
