@@ -63,12 +63,17 @@ check(JSON.stringify(await stepShown()) === '[false,true,false]', `quiz: a tile 
 await page.fill('input[name="p2"]', 'abc');
 await page.goBack();
 check(JSON.stringify(await stepShown()) === '[true,false,false]', 'quiz: the browser Back returns one step');
+const focusIn = (n) => page.evaluate((i) => document.activeElement?.closest('fieldset.tl-step') === document.querySelectorAll('fieldset.tl-step')[i], n);
+check(await focusIn(0), 'quiz: the browser Back puts focus into step 1');
 await page.click('label:has-text("Flat")');
 check(JSON.stringify(await stepShown()) === '[false,false,true]', `quiz: a skipped step is left out, got ${JSON.stringify(await stepShown())}`);
 check(/Step 2 \/ 2/.test(await page.locator('.tl-steps-navigation span').textContent()), 'quiz: the step count leaves out the skipped step');
 const beacons = await page.evaluate(() => window.__beacons.map((b) => b.step).sort());
 check(JSON.stringify(beacons) === '["1","2","3"]', `quiz: beacons once per step, got ${JSON.stringify(beacons)}`);
 check((await page.evaluate(() => window.__beacons[0].url)).endsWith('/form-step'), 'quiz: beacon goes to form-step');
+await page.click('.tl-steps-navigation button:has-text("Back")');
+check(JSON.stringify(await stepShown()) === '[true,false,false]', 'quiz: the Back button returns to step 1');
+check(await focusIn(0), 'quiz: the Back button leaves focus in step 1');
 await page.reload({ waitUntil: 'networkidle' });
 check(await page.locator('input[name="p0"][value="Flat"]').isChecked(), 'quiz: a reload keeps the tile');
 check(await page.locator('input[name="p2"]').inputValue() === 'abc', 'quiz: a reload keeps the text');

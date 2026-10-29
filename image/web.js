@@ -525,7 +525,8 @@
 		Array.prototype.forEach.call(f.elements, function (p) {
 			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file') { return; }
 			var many = /\[\]$/.test(p.name), name = p.name.replace(/\[\]$/, ''), value = stored[name];
-			if (many !== Array.isArray(value)) { if (value === undefined && (p.type === 'checkbox' || p.type === 'radio')) { p.checked = false; } return; }
+			if (value === undefined) { if (p.type === 'checkbox' || p.type === 'radio') { p.checked = false; } return; }
+			if (many !== Array.isArray(value)) { return; }
 			if (p.type === 'checkbox' || p.type === 'radio') { p.checked = many ? value.indexOf(p.value) !== -1 : p.value === value; return; }
 			if (many) { seen[name] = (seen[name] || 0) + 1; p.value = value[seen[name] - 1] || ''; } else { p.value = value; }
 		});
@@ -578,7 +579,7 @@
 		}
 		function positions(logic) {
 			var position = Object.create(null);
-			logic.fields.forEach(function (f, i) { if (f.key !== '' && !(f.key in position)) { position[f.key] = i; } });
+			logic.fields.forEach(function (f, i) { if (f.key && !(f.key in position)) { position[f.key] = i; } });
 			return position;
 		}
 		// a rule holds when all (or any) of its conditions do; a condition sees a hidden question as empty, and one that names the
@@ -730,16 +731,21 @@
 			next.hidden = at === list.length - 1;
 			if (submitRow) { submitRow.hidden = at !== list.length - 1; }
 		}
-		function enter(i) { current = i; layout(); reach(i + 1); }
+		function enter(i) {
+			current = i;
+			layout();
+			reach(i + 1);
+			// focus follows the visitor to the new step (Next, Back and the browser Back alike); the button that held it may be gone
+			var first = steps[current].querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+			if (first) { first.focus(); }
+		}
 		function forward() {
 			var invalid = Array.prototype.filter.call(steps[current].querySelectorAll('input, select, textarea'), function (el) { return !el.disabled && !el.checkValidity(); })[0];
 			if (invalid) { invalid.reportValidity(); return; }
 			var target = path().filter(function (i) { return i > current; })[0];
 			if (target === undefined) { return; }
-			history.pushState({ tlForm: id, tlStep: target, tlFrom: current }, '');
+			try { history.pushState({ tlForm: id, tlStep: target, tlFrom: current }, ''); } catch (error) { /* nothing */ }
 			enter(target);
-			var first = steps[current].querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
-			if (first) { first.focus(); }
 		}
 
 		if (steps.length) {
@@ -762,7 +768,10 @@
 			// the Back button of the browser goes one step back, not off the page
 			window.addEventListener('popstate', function (e) {
 				var s = e.state;
-				if (s && s.tlForm === id && steps[s.tlStep] && !skipped(s.tlStep)) { enter(s.tlStep); }
+				if (!s || s.tlForm !== id || !steps[s.tlStep]) { return; }
+				// a step the answers now skip: the nearest one that is still on the path
+				var list = path(), target = list.indexOf(s.tlStep) !== -1 ? s.tlStep : (list.filter(function (i) { return i < s.tlStep; }).pop() ?? list[0]);
+				if (target !== undefined) { enter(target); }
 			});
 			// choosing a tile moves on (pointer only: arrow keys on a radio group also "click", with no detail)
 			form.addEventListener('click', function (e) {
