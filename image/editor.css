@@ -134,6 +134,13 @@ a.signed-in { color: inherit; text-decoration: none; display: inline-flex; align
 .confirmation::backdrop { background: rgb(0 0 0 / 0.45); }
 .confirmation p { margin: 0 0 16px; font-weight: bold; white-space: pre-line; }
 .confirmation div { display: flex; gap: 8px; }
+/* a confirmation that asks for the current password (My account, the e-mail): a title, what happens, a full-width field */
+.reauth { box-sizing: border-box; width: min(420px, calc(100vw - 32px)); }
+.reauth h2 { margin: 0 0 8px; font-size: 17px; }
+.reauth .reauth-text { font-weight: 400; color: var(--ed-text-weak); overflow-wrap: anywhere; }
+.reauth .reauth-text strong { color: var(--ed-text); }
+.reauth label { display: block; margin: 0 0 6px; font-weight: 600; }
+.reauth .textfield { box-sizing: border-box; width: 100%; margin: 0 0 20px; }
 
 details.advanced > .row:first-of-type { margin-top: 4px; }
 

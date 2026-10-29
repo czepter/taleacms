@@ -221,11 +221,17 @@ final class Experiments
         return ['children' => $children] + $build;
     }
 
+    /** Version B of a page test is shown to every visitor, so it must be a page they could open: visible, not locked, not gated. */
+    private static function publicPage(): string
+    {
+        return 'deleted_at IS NULL AND visible = TRUE AND password_hash IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id');
+    }
+
     /** The elements of variant B. @return list<array<string, mixed>> */
     private static function variantRoots(Db $db, array $x): array
     {
         $json = $x['kind'] === 'page'
-            ? ($x['variant_page_id'] !== null ? $db->value('SELECT build FROM {pages} WHERE page_id = ? AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id'), [(int) $x['variant_page_id']]) : null)
+            ? ($x['variant_page_id'] !== null ? $db->value('SELECT build FROM {pages} WHERE page_id = ? AND ' . self::publicPage(), [(int) $x['variant_page_id']]) : null)
             : ($x['variant_component_id'] !== null ? $db->value('SELECT build FROM {components} WHERE component_id = ?', [(int) $x['variant_component_id']]) : null);
 
         return array_values(Build::fromJson($json === null ? null : (string) $json)['children'] ?? []);
@@ -425,7 +431,7 @@ final class Experiments
         }
         $component = null;
         if ($kind === 'page') {
-            $other = $db->one('SELECT page_id, build FROM {pages} WHERE page_id = ? AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id'), [(int) ($a['variant_page'] ?? 0)]);
+            $other = $db->one('SELECT page_id, build FROM {pages} WHERE page_id = ? AND ' . self::publicPage(), [(int) ($a['variant_page'] ?? 0)]);
             if ($other === null || (int) $other['page_id'] === (int) $page['page_id']) {
                 return 'Choose another page as version B.';
             }
@@ -456,9 +462,12 @@ final class Experiments
         return self::byId($db, $id) ?? 'The experiment could not be created.';
     }
 
-    /** Starts (or restarts) an experiment. @return ?string the English reason it cannot start */
-    public static function start(Db $db, array $x): ?string
+    /** Starts (or restarts) an experiment: that shows version B to visitors, so it needs the right to publish. @return ?string the English reason it cannot start */
+    public static function start(Db $db, array $x, bool $publish): ?string
     {
+        if (!$publish) {
+            return 'Only someone who may publish can start an experiment.';
+        }
         if (in_array($x['status'], ['running', 'promoted'], true)) {
             return 'The experiment is already running or finished.';
         }

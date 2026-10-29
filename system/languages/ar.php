@@ -775,6 +775,7 @@ The link works for %d days.
     'Sign out' => 'تسجيل الخروج',
     'Sign-in to the administration – only after signing in, never for visitors' => 'تسجيل الدخول إلى لوحة الإدارة – بعد تسجيل الدخول فقط، ولا يُستخدم مع الزوار',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'تسجيل الدخول إلى الإدارة: «البقاء مسجّلاً» – فقط عندما يختاره المستخدم، ولا يُستخدم مع الزوار أبداً',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'تسجيل الدخول إلى الإدارة: يتعرّف على متصفح سبق أن سجّل الدخول، فيظل الحساب المقفل يُفتح لصاحبه – فقط بعد تسجيل الدخول، ولا يُستخدم مع الزوار أبداً',
     'Signpost' => 'دليل التنقل',
     'Skip' => 'تخطي',
     'Skip to content' => 'انتقل إلى المحتوى',

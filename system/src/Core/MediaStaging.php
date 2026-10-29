@@ -37,7 +37,8 @@ final class MediaStaging
      * news stay hidden). A class counts once a published build uses it (classUsed): such a connection may create a new class live.
      */
     private const array PUBLISHED = [
-        'pages' => ["CONCAT_WS(' ', build, text, image)", "deleted_at IS NULL AND (visible = TRUE OR page_id IN (SELECT variant_page_id FROM {experiments} WHERE status = 'running'))"],
+        // a hidden page is never shown, not even as the variant of a page test (Builder\Experiments::variantRoots needs visible)
+        'pages' => ["CONCAT_WS(' ', build, text, image)", 'deleted_at IS NULL AND visible = TRUE'],
         'site_parts' => ['build', '1 = 1'],
         'popups' => ['build', '1 = 1'],
         'components' => ['build', '1 = 1'],

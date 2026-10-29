@@ -775,6 +775,7 @@ The link works for %d days.
     'Sign out' => '退出登录',
     'Sign-in to the administration – only after signing in, never for visitors' => '登录管理后台——仅在登录后使用，绝不用于访客',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => '登录管理后台：“保持登录”——仅在用户勾选时使用，绝不用于访客',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => '登录管理后台：识别曾经登录过的浏览器，使被锁定的账户仍能为其所有者打开——仅在登录后使用，绝不用于访客',
     'Signpost' => '路标',
     'Skip' => '跳过',
     'Skip to content' => '跳到正文',

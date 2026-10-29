@@ -109,6 +109,7 @@ final class Privacy
         [PageLock::COOKIE . '*', 'Password-protected page: the page was opened with its password (cookie)', '%d days', 'necessary', PageLock::DAYS],
         [Session::COOKIE, 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary', null],
         [Auth::REMEMBER_COOKIE, 'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors', '%d days', 'necessary', Auth::REMEMBER_DAYS],
+        [Auth::KNOWN_DEVICE_COOKIE, 'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors', '%d days', 'necessary', Auth::KNOWN_DEVICE_DAYS],
         [Members::COOKIE, 'Member login: keeps a member signed in – only after signing in, never for other visitors', '%d days', 'necessary', Members::SESSION_DAYS],
     ];
 

@@ -14,6 +14,8 @@ services:
       TALEA_DB_PASSWORD: ${TALEA_DB_PASSWORD:-change-me}
       TALEA_SITE_URL: ${TALEA_SITE_URL:-http://localhost:8080}
       TALEA_AI_URL: ${TALEA_AI_URL:-} # optional gateway for the writing assistant
+      # list only your proxy's addresses or network (docs/DEPLOYMENT.md); never keep it when the port is open to untrusted clients
+      TALEA_TRUSTED_PROXIES: ${TALEA_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,fc00::/7,::1}
       TALEA_SECRET_KEY: ${TALEA_SECRET_KEY:-} # openssl rand -hex 32; keeps the encryption key out of the database (docs/DEPLOYMENT.md)
     volumes: [storage:/app/storage, media:/app/media, extensions:/app/extensions]
     depends_on:

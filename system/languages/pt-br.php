@@ -298,6 +298,7 @@ O link é válido por %d dias.
     'Sign out' => 'Sair',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Login na administração – só depois de entrar, nunca para visitantes',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Login na administração: “Manter conectado” – só quando um usuário marca a opção, nunca para visitantes',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'Login na administração: reconhece um navegador que já fez login antes, para que uma conta bloqueada continue abrindo para o seu titular – só depois do login, nunca para visitantes',
     'Skip' => 'Pular',
     'Skip to content' => 'Pular para o conteúdo',
     'Slide %s of %s' => 'Slide %s de %s',

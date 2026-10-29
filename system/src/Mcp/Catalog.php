@@ -187,8 +187,9 @@ final class Catalog
         'get_monthly_report' => ['read', ''],
         'update_request' => ['draft', ''],
         // Scheduled runs (2.17): a routine in Claude asks what is due and reports what it did as drafts – report_agent_run
-        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both
-        'get_due_agent_runs' => ['read', ''],
+        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both; handing a run out
+        // records it as running, so get_due_agent_runs is a draft too – a read-only connection must not start runs
+        'get_due_agent_runs' => ['draft', ''],
         'report_agent_run' => ['draft', ''],
         // Content hygiene (2.14)
         'translation_status' => ['read', ''],
@@ -208,9 +209,9 @@ final class Catalog
 
     /**
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
-     * destructive tool – nothing can take a sent e-mail back – although their access is "write".
+     * destructive tool – nothing can take a sent e-mail back – although their access is "write" (update_request: draft, but status done e-mails the requester).
      */
-    public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times'];
+    public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times', 'update_request'];
 
     /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
     public const array TOOL_SETS = ['all', 'essentials'];

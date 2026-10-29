@@ -775,6 +775,7 @@ A link %d napig érvényes.
     'Sign out' => 'Kijelentkezés',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Bejelentkezés az adminisztrációba – csak bejelentkezés után, látogatóknál soha',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Bejelentkezés az adminisztrációba: „Maradjak bejelentkezve” – csak ha egy felhasználó bejelöli, látogatóknál soha',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'Bejelentkezés az adminisztrációba: felismeri a korábban már bejelentkezett böngészőt, hogy a zárolt fiók a tulajdonosa számára továbbra is megnyíljon – csak bejelentkezés után, látogatóknál soha',
     'Signpost' => 'Útjelző tábla',
     'Skip' => 'Kihagyás',
     'Skip to content' => 'Ugrás a tartalomra',

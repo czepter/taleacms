@@ -81,7 +81,7 @@ final class AuthenticationTest extends TestCase
         preg_match('/public function login\(.*?\n    }\n/s', $authSource, $loginSource);
         $this->assertSame([true, 2, false, true, true], [
             // the account's own hash is used only when the account is neither locked nor blocked
-            str_contains($loginSource[0] ?? '', '$closed = $user !== null && (!empty($user[\'blocked\']) || self::isLocked($user));')
+            str_contains($loginSource[0] ?? '', '$closed = $user !== null && (!empty($user[\'blocked\']) || $this->lockedFor($user));')
                 && str_contains($loginSource[0] ?? '', '$user !== null && !$closed ? (string) $user[\'password\'] : self::DUMMY_HASH'),
             substr_count($loginSource[0] ?? '', 'return t('), str_contains($loginSource[0] ?? '', "t('The account is"),
             isset($adminCs[\Talea\Core\Auth::SIGN_IN_FAILED], $adminDe[\Talea\Core\Auth::SIGN_IN_FAILED]), str_contains(\Talea\Core\Auth::SIGN_IN_FAILED, 'reset your password')], '3.3.3 (N51): sign-in checks the lock and the block before the password, verifies the dummy hash for them, and answers every failure with one text');
@@ -118,10 +118,10 @@ final class AuthenticationTest extends TestCase
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Admin/PasswordReset.php'), 'Mail::later('), str_contains((string) file_get_contents(TALEA_ROOT . '/admin.php'), 'Talea\Core\Mail::afterResponse($app);'),
             str_contains($mailSource, 'WHERE mail_id = ? AND attempts = ? AND sent_at IS NULL')], '3.3.3 (N59): the reset link is queued and sent after the response; the queue claims a message before sending it');
         $accountSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Admin/Account.php');
-        $this->assertSame([4, true, true, []], [
+        $this->assertSame([6, true, true, []], [
             substr_count($accountSource, "password_verify((string) (\$_POST['current_password'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
             str_contains((string) file_get_contents(TALEA_ROOT . '/image/passkeys.js'), "current_password: password ? password.value : ''"),
             array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
-                fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))], '3.3.3 (N56): a new e-mail and a new passkey need the current password; the old address hears about the change; the texts are translated');
+                fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))], '3.3.3 (N56): a new e-mail, a new passkey, a personal token and two-factor enrolment need the current password; the old address hears about the change; the texts are translated');
     }
 }

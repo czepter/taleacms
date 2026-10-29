@@ -1951,6 +1951,7 @@ Odkaz platí %d dní.
     'Sign out' => 'Odhlásit se',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Přihlášení do administrace – jen po přihlášení, nikdy pro návštěvníky',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Přihlášení do administrace: „Zůstat přihlášen“ – jen když to uživatel zaškrtne, nikdy pro návštěvníky',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'Přihlášení do administrace: pozná prohlížeč, který se už přihlásil, aby se zamčený účet pro svého majitele stále otevřel – jen po přihlášení, nikdy pro návštěvníky',
     'Signpost' => 'Rozcestník',
     'Similar news by tags and category is offered below a news item.' => 'Pod novinkou se nabídnou podobné podle štítků a kategorie.',
     'Site address' => 'Adresa webu',
