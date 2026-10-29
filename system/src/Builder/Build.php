@@ -276,6 +276,9 @@ final class Build
         return array_diff(array_keys($conditions), ['languages']) !== [];
     }
 
+    /** An image property: an https:// address, a file from Media or a collection field. */
+    public const string IMAGE_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#';
+
     /** @param array<string, array<string, mixed>> $field */
     private static function sanitizeContent(array $field, array $content, string $path, array &$errors): array
     {
@@ -290,7 +293,9 @@ final class Build
                 'html' => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''),
                 'code' => self::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''),
                 'link' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
-                'image' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $value) ? $value : '',
+                'image' => is_string($value) && preg_match(self::IMAGE_PATTERN, $value) ? $value : '',
+                // the rules and results of a form: cleaned by Elements\Form::sanitizeElement (it knows the fields); here only the shape
+                'form_logic' => is_array($value) ? $value : ['rules' => [], 'results' => []],
                 'choice' => is_scalar($value) && isset($def['options'][(string) $value]) ? (string) $value : (string) $def['default'],
                 'number' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['default'],
                 'boolean' => (bool) $value,
@@ -489,7 +494,7 @@ final class Build
         }
     }
 
-    private static function link(string $url, string $path, array &$errors): string
+    public static function link(string $url, string $path, array &$errors): string
     {
         $url = trim($url);
         if ($url === '' || $url === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/', $url)) {

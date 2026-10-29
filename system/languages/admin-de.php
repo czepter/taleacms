@@ -2477,6 +2477,7 @@ return [
     'Lock' => 'Schloss',
     'Lock: cannot be selected or moved on the canvas' => 'Sperren: lässt sich auf der Arbeitsfläche weder auswählen noch verschieben',
     'Log consents' => 'Einwilligungen protokollieren',
+    'Logic' => 'Logik',
     'Logo and icon' => 'Logo und Icon',
     'Logo and navigation at the top of every page.' => 'Logo und Navigation am Anfang jeder Seite.',
     'Logo left, menu right' => 'Logo links, Menü rechts',

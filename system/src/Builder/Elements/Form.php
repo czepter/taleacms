@@ -7,6 +7,7 @@ namespace Talea\Builder\Elements;
 use Talea\Core\Antispam;
 use Talea\Builder\Context;
 use Talea\Builder\Element;
+use Talea\Builder\FormLogic;
 
 /**
  * Enquiry / contact form. It is sent to /form (Front\Forms): the server takes the fields from the published build
@@ -69,6 +70,8 @@ final class Form extends Element
                 ['label' => t('How can we help you?'), 'type' => 'textarea', 'required' => true, 'options' => ''],
                 ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => ''],
             ]],
+            // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
+            'logic' => ['type' => 'form_logic', 'label' => 'Logic', 'default' => ['rules' => [], 'results' => []]],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
@@ -99,6 +102,7 @@ final class Form extends Element
             $used[$key] = true;
             $content['fields'][$i]['key'] = $key;
         }
+        $content['logic'] = FormLogic::sanitize($content['logic'] ?? null, array_values($content['fields'] ?? []), $place . '.logic', $errors);
 
         return $content;
     }

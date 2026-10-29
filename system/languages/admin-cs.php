@@ -2473,6 +2473,7 @@ return [
     'Lock' => 'Zámek',
     'Lock: cannot be selected or moved on the canvas' => 'Zamknout: na plátně nepůjde vybrat ani přesunout',
     'Log consents' => 'Evidovat souhlasy',
+    'Logic' => 'Logika',
     'Logo and icon' => 'Logo a ikona',
     'Logo and navigation at the top of every page.' => 'Logo a navigace nahoře na každé stránce.',
     'Logo left, menu right' => 'Logo vlevo, menu vpravo',

@@ -1766,6 +1766,8 @@
 			case 'structured': // typed schema.org data: the control is in builder-structured.js
 				if (window.taleaStructuredField) { return window.taleaStructuredField(def, value, change, { page: D.page }); }
 				return wrapper;
+			case 'form_logic': // rules and results of a form: edited in the logic overlay, not as a field
+				return wrapper;
 			case 'items':
 				return itemField(def, Array.isArray(value) ? value : [], change, options);
 			default:
