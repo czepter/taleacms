@@ -395,6 +395,14 @@
         "methods": [
             "ANY"
         ],
+        "pattern": "/_form/{id:[a-f0-9-]{36}}",
+        "when": "permission:enquiries",
+        "handler": "Kernel::previewForm"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
         "pattern": "/{collection:[a-z0-9-]{1,110}}.ics",
         "when": "",
         "handler": "CollectionPages::calendarFile"

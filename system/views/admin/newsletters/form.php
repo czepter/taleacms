@@ -87,7 +87,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php elseif (!$canPublish): ?>
 <p class="help"><?= e(t('Sending to subscribers needs the publishing permission – ask an editor or an administrator.')) ?></p>
 <?php else: ?>
-<form class="form" method="post" action="<?= e($module->url('send')) ?>" data-confirm="<?= e(t('Send the newsletter to %d confirmed subscribers? Save your changes first – the saved version goes out.', $confirmed)) ?>">
+<form class="form" method="post" action="<?= e($module->url('send')) ?>" data-no-page-save data-confirm="<?= e(t('Send the newsletter to %d confirmed subscribers? Save your changes first – the saved version goes out.', $confirmed)) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= e($publicId) ?>">
 <div class="row"><span class="caption"><?= e(t('When')) ?></span><div class="options">

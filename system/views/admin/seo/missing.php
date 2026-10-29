@@ -10,7 +10,6 @@
  * @var array{pending: int, ignored: int} $counts
  * @var array{new: int, visits: int, redirected: int, ignored: int} $tiles
  */
-$icon = require __DIR__ . '/../icons.php';
 $view->slot('count', '');
 $view->slot('actions', '<a class="navigation" href="' . e($app->url('admin.php?module=redirects#automatic')) . '">' . e(t('Settings')) . '</a>'
     . '<form class="inline" method="post" action="' . e($module->url('clear')) . '" data-confirm="' . e(t('Clear the whole list? Ignored addresses stay ignored.')) . '">' . $csrf . '<button class="navigation danger" type="submit">' . e(t('Clear the list')) . '</button></form>');
@@ -33,20 +32,20 @@ $view->slot('actions', '<a class="navigation" href="' . e($app->url('admin.php?m
 <?php else: ?>
 <div class="tab-wrap">
 <table class="listing">
-<thead><tr><th scope="col"><?= e(t('Address')) ?></th><th scope="col"><?= e(t('Visits')) ?></th><th scope="col"><?= e(t('Last visit')) ?></th><th scope="col"><?= e(t('Came from')) ?></th><?php if ($status === 'pending'): ?><th scope="col"><?= e(t('Suggested target')) ?></th><?php endif ?><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Address')) ?></th><th scope="col"><?= e(t('Visits')) ?></th><th scope="col"><?= e(t('Last visit')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
-<?php foreach ($rows as $n): $tip = $suggestions[$n['path']] ?? null; ?>
+<?php foreach ($rows as $n): $tip = $suggestions[$n['path']] ?? null;
+    // where the visitor came from and when the address first showed up share the line under the address, so the table fits beside the redirect form
+    $sub = array_filter([$n['referrer'] === '' ? '' : (str_starts_with($n['referrer'], '/') ? e(t('your site: %s', $n['referrer'])) : '<bdi>' . e($n['referrer']) . '</bdi>'),
+        $n['first_seen_at'] !== null ? e(t('First seen %s', format_date($n['first_seen_at']))) : '']); ?>
 <tr>
-	<td class="cell-main"><div class="cell-text"><code class="cell-title" title="/<?= e($n['path']) ?>">/<?= e($n['path']) ?></code><?php if ($n['first_seen_at'] !== null): ?><span class="cell-sub"><?= e(t('First seen %s', format_date($n['first_seen_at']))) ?></span><?php endif ?></div></td>
+	<td class="cell-main"><div class="cell-text"><code class="cell-title" title="/<?= e($n['path']) ?>">/<?= e($n['path']) ?></code><?php if ($sub !== []): ?><span class="cell-sub"><?= implode(' · ', $sub) ?></span><?php endif ?></div></td>
 	<td class="number"><strong><?= (int) $n['count'] ?></strong></td>
 	<td class="cell-weak"><?= e(format_ago($n['last_seen_at'])) ?></td>
-	<td class="cell-weak"><?= $n['referrer'] === '' ? '—' : (str_starts_with($n['referrer'], '/') ? e(t('your site: %s', $n['referrer'])) : '<bdi>' . e($n['referrer']) . '</bdi>') ?></td>
-<?php if ($status === 'pending'): ?>
-	<td><?php if ($tip !== null): ?><?= $icon('out') ?> <code title="/<?= e($tip['to']) ?>">/<?= e($tip['to']) ?></code> <span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php else: ?><span class="cell-sub"><?= e(t('no similar page')) ?></span><?php endif ?></td>
-<?php endif ?>
 	<td class="cell-actions"><?php if ($status === 'pending'): ?><div class="row-actions">
 		<form class="inline" method="post" action="<?= e($module->url('redirect')) ?>"><?= $csrf ?><input type="hidden" name="path" value="<?= e($n['path']) ?>">
 			<input class="textfield" type="text" name="to" value="<?= $tip !== null ? e('/' . $tip['to']) : '' ?>" placeholder="<?= e(t('/new-address')) ?>" aria-label="<?= e(t('Redirect to')) ?>" size="16" required>
+			<?php if ($tip !== null): ?><span class="tag"><?= e(t('score %d', $tip['score'])) ?></span><?php endif ?>
 			<button class="btn" type="submit"><?= e(t('Redirect')) ?></button></form>
 		<form class="inline" method="post" action="<?= e($module->url('ignore')) ?>"><?= $csrf ?><input type="hidden" name="path" value="<?= e($n['path']) ?>"><button class="navigation" type="submit" aria-label="<?= e(t('Ignore: %s', '/' . $n['path'])) ?>" title="<?= e(t('Ignore – nothing replaces it, or it is a bot probing for other systems. It will not come back.')) ?>"><?= e(t('Ignore')) ?></button></form>
 	</div><?php endif ?></td>

@@ -28,6 +28,8 @@ abstract class Element
     public const string EXTENSION = '';
     /** Offered only in site parts (header, footer, wrappers) – logo, navigation, page content. */
     public const bool PARTS_ONLY = false;
+    /** Offered in the builder's Add panel; false = only edited where it already is (the fields of a form: pages place a form instead). */
+    public const bool OFFERED = true;
 
     /** @return array<string, array<string, mixed>> content fields: key => [type, label, default, options, fields, max] */
     public static function properties(): array

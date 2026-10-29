@@ -70,6 +70,14 @@ final class JobsTest extends SiteTestCase
         $site->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'alerts'");
         $site->runTasks();
         $this->sameValue('1', $site->value($problems), 'alerts: at most one an hour');
+
+        $site->setting('alerts_interval', '0');
+        $site->setting('alerts_kinds', 'backups,mail');
+        $site->exec("INSERT INTO tl_events (created_at, type, severity, message) VALUES (NOW(), 'webhook.failed', 'error', 'Test: not chosen')");
+        $site->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'alerts'");
+        $site->runTasks();
+        $this->sameValue('2', $site->value($problems), 'alerts: right away – the waiting error goes out');
+        $this->sameValue('0', $site->value("SELECT COUNT(*) FROM tl_mail WHERE subject LIKE '%2 problem%'"), 'alerts: the webhook kind is not chosen, so it is not counted');
     }
 
     public function testClaudeReadsHealthAndEvents(): void

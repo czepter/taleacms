@@ -135,6 +135,8 @@ final class SiteExport
         self::fields($f, 'site_parts', $all('site_parts', 'SELECT type, language, variant, name, pages, build, build_draft FROM {site_parts} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY type, language, variant', [], ['pages' => 'pages'] + $builds));
         // components ("component" elements refer to them by public id) and the library's own sections
         self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} WHERE ' . Sites::visible($db) . ' ORDER BY component_id', [], $builds));
+        // forms (docs/specs/form-builder.md): "form_embed" elements place them by public id; where one was adopted from stays this site's
+        self::fields($f, 'forms', $all('forms', 'SELECT form_id, public_id, name, build, build_draft FROM {forms} ORDER BY form_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
         self::fields($f, 'menus', $all('menus', 'SELECT location, language, items FROM {menus} ORDER BY location, language', [], ['items' => 'menu']));
         self::fields($f, 'collections', $all('collections', 'SELECT collection_id, public_id, name, slug, fields, detail, admin_menu, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id', [], $builds));

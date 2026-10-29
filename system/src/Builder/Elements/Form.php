@@ -11,7 +11,9 @@ use Talea\Builder\Element;
 use Talea\Builder\FormLogic;
 
 /**
- * Enquiry / contact form. It is sent to /form (Front\Forms): the server takes the fields from the published build
+ * Enquiry / contact form: its fields and what happens after sending. It lives in a form's own build (Builder\FormRecords) and
+ * pages place it (Elements\FormEmbed); written inside another build it renders as itself until that build is published.
+ * It is sent to /form (Front\Forms): the server takes the fields from the published build
  * (not from the browser), verifies them, saves the enquiry ("Admin → Enquiries") and sends a notification e-mail.
  * Protection without cookies and CAPTCHA (Core\Antispam), so the page with the form stays in the cache.
  */
@@ -19,8 +21,10 @@ final class Form extends Element
 {
     public const string TYPE = 'form';
     public const string EXTENSION = 'enquiries';
-    public const string NAME = 'Form';
-    public const string DESCRIPTION = 'An enquiry or question – submitted messages are in Enquiries and arrive by email. Also a quiz or a quote calculator.';
+    public const string NAME = 'Form fields';
+    public const string DESCRIPTION = 'The fields of a form and what happens after sending – submitted messages are in Enquiries and arrive by email. Also a quiz or a quote calculator. It lives in a form of Enquiries → Forms; pages place it with the Form element, and one written inside a page becomes such a form when the page is published.';
+    /** Pages place a form (Elements\FormEmbed); the fields are edited in the form builder (docs/specs/form-builder.md). */
+    public const bool OFFERED = false;
     public const string ICON = 'form';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['form'];
@@ -95,10 +99,16 @@ final class Form extends Element
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
             'bcc' => ['type' => 'text', 'label' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'default' => '', 'max' => 190],
+            'notification_subject' => ['type' => 'text', 'label' => 'Subject of the notification to you (empty = “form name: site name”); {Field label} puts in an answer', 'default' => '', 'max' => 200],
             // when: the inspector offers it only in live mode; note: what it says in its place otherwise (the server ignores a stored value then)
             'thank_you_page' => ['type' => 'link', 'label' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'default' => '', 'when' => ['calculation' => 'live'],
                 'note' => 'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.'],
             'confirmation' => ['type' => 'boolean', 'label' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'default' => false],
+            // the thank-you e-mail in the owner's words (Front\FormMail): empty = the thank-you message, the result and the next steps
+            'confirmation_subject' => ['type' => 'text', 'label' => 'Subject of the thank-you e-mail (empty = “Confirmation: site name”)', 'default' => '', 'max' => 200, 'when' => ['confirmation' => true]],
+            'confirmation_text' => ['type' => 'lines', 'label' => 'Text of the thank-you e-mail (empty = the thank-you message). {Field label} puts in an answer, {Field label|text} says what stands when it is empty; also {site name}, {next steps} and {result}. Only names, dates, numbers and chosen options are put in – never text the visitor wrote freely.', 'default' => '', 'max' => 4000, 'when' => ['confirmation' => true]],
+            'confirmation_sender' => ['type' => 'text', 'label' => 'Sender name of the thank-you e-mail (empty = the site’s; the address stays the site’s)', 'default' => '', 'max' => 120, 'when' => ['confirmation' => true]],
+            'confirmation_reply_to' => ['type' => 'text', 'label' => 'Replies to the thank-you e-mail go to (empty = as in Settings → Mail)', 'default' => '', 'max' => 190, 'when' => ['confirmation' => true]],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
             'send_file' => ['type' => 'link', 'label' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'default' => '', 'media' => 'file'],
             'no_captcha' => ['type' => 'boolean', 'label' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'default' => false],
@@ -170,6 +180,11 @@ final class Form extends Element
             $errors[$place . '.calculation'] = 'Showing the estimate after the contact details needs an estimate field; it was set to "while answering".';
             $content['calculation'] = 'live';
         }
+        $replyTo = trim((string) ($content['confirmation_reply_to'] ?? ''));
+        if ($replyTo !== '' && count(\Talea\Core\Mail::addresses($replyTo)) !== 1) {
+            $errors[$place . '.confirmation_reply_to'] = 'Replies to the thank-you e-mail need one valid e-mail address.';
+            $content['confirmation_reply_to'] = '';
+        }
         $content['logic'] = FormLogic::sanitize($content['logic'] ?? null, array_values($content['fields'] ?? []), $place . '.logic', $errors);
 
         return $content;
@@ -236,7 +251,24 @@ final class Form extends Element
 .tl-range-row output { min-inline-size: 3em; font-weight: 700; text-align: end; }
 .tl-field .tl-timerange-inputs { display: flex; flex-wrap: wrap; gap: var(--tl-space-s); }
 .tl-field .tl-timerange-inputs label { flex-direction: column; align-items: stretch; gap: var(--tl-space-3xs, 0.15rem); }
+.tl-form-layout, .tl-form-layout .tl-step { grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: var(--tl-space-m); }
+.tl-form-layout > *, .tl-form-layout .tl-step > * { grid-column: 1 / -1; }
+@media (min-width: 768px) { .tl-form-layout .tl-span-4 { grid-column: span 4; } .tl-form-layout .tl-span-3 { grid-column: span 3; } .tl-form-layout .tl-span-2 { grid-column: span 2; } }
 .tl-form [hidden] { display: none !important; }'; // the display of steps, fields and buttons above would otherwise beat the hidden attribute
+    }
+
+    /** A field's width in columns of six (2, 3 or 4) as a class on its outermost tag; anything else leaves it full width. */
+    private static function span(string $html, int $span): string
+    {
+        if ($html === '' || !in_array($span, [2, 3, 4], true)) {
+            return $html;
+        }
+        $marked = preg_replace('/^<([a-z]+)\b([^>]*?)\bclass="/', '<$1$2class="tl-span-' . $span . ' ', $html, 1, $count);
+        if ($count === 1) {
+            return (string) $marked;
+        }
+
+        return (string) preg_replace('/^<([a-z]+)\b/', '<$1 class="tl-span-' . $span . '"', $html, 1);
     }
 
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
@@ -299,6 +331,7 @@ final class Form extends Element
         [$steps, $stepTitle, $current] = [[], '', ''];
         $afterContact = ($o['calculation'] ?? 'live') === 'after_contact';
         [$logic, $targets] = self::logicForPage($o, $afterContact);
+        $widths = \Talea\Builder\FormRecords::widths($o['widths'] ?? []);
         foreach ($o['fields'] as $i => $field) {
             if ($field['type'] === 'hidden') {
                 // the value is the form's own (Front\Forms) and the visitor normally neither sees nor sends it; on a collection item
@@ -318,7 +351,9 @@ final class Form extends Element
                 default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings()), $k, !$afterContact),
             };
             // a field a rule shows or skips (2.12): the script (data-logic) hides it as the answers change; without the script it is always shown
-            $current .= $one !== '' && isset($targets[$i]) ? '<div class="tl-condition" data-field="' . $i . '">' . $one . '</div>' : $one;
+            $one = $one !== '' && isset($targets[$i]) ? '<div class="tl-condition" data-field="' . $i . '">' . $one . '</div>' : $one;
+            // its width where the form is placed (Elements\FormEmbed): columns of six, on the outermost tag of the field
+            $current .= self::span($one, (int) ($widths[(string) ($field['key'] ?? '')] ?? 0));
         }
         if ($steps === []) {
             $html .= $current;
@@ -333,7 +368,7 @@ final class Form extends Element
         // data-form: after an error image/forms.js puts back into the fields what the visitor filled in (only their browser keeps it)
         $files = in_array('file', array_column($o['fields'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
-        return '<form' . Text::withClass($a, 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
+        return '<form' . Text::withClass($a, $widths !== [] ? 'tl-form tl-form-layout' : 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
             . ($logic !== [] ? ' data-logic="' . e((string) json_encode($logic, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)) . '"' : '') . '>'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
