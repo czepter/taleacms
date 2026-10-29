@@ -25,6 +25,12 @@ final class ArchiveMedia
         $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $base = basename($name);
         $dot = (int) strpos($base, '.');
+        // photo.php.gif: only the last extension is allow-listed, so a script-like inner one is refused (a server that maps .php anywhere in the name would run it)
+        foreach (array_slice(explode('.', $base), 1, -1) as $inner) {
+            if (preg_match('/^(?:php\d*|phps|phtml|phar|pht|pl|py|cgi|sh|aspx?|jsp|html?|shtml?|shtm|stm|js)$/i', $inner)) {
+                return null;
+            }
+        }
 
         return in_array($extension, [...self::EXTENSIONS, ...Files::FILE_EXTENSIONS], true) ? substr($name, 0, strlen($name) - strlen($base) + $dot) . strtolower(substr($base, $dot)) : null;
     }
