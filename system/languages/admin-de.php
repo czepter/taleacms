@@ -6457,6 +6457,7 @@ return [
     'the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.' => 'der helle Teil jedes Balkens sind die Seitenaufrufe, der dunkle Teil die Besuche. Die Messung verwendet keine Cookies und speichert keine IP-Adressen; Bots werden nicht gezählt.',
     'the mail() function is disabled – set up SMTP (Settings → Mail)' => 'die Funktion mail() ist deaktiviert – richten Sie SMTP ein (Einstellungen → E-Mail)',
     'the main language' => 'die Hauptsprache',
+    'the message' => 'die Nachricht',
     'the news list, categories and news items' => 'die News-Liste, Kategorien und einzelne News-Beiträge',
     'the row stays for statistics without the person' => 'die Zeile bleibt für die Statistik ohne die Person',
     'the scheduled run stopped' => 'der geplante Lauf ist stehen geblieben',

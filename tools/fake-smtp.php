@@ -1,7 +1,8 @@
 <?php
 /**
  * Talea – a fake SMTP server for tests: accepts every message and writes it to <dir>/<n>.eml (the envelope recipient on the
- * first line as "X-Rcpt-To:"). A recipient whose address contains "odmitnout" is refused (550), to test failed deliveries.
+ * first line as "X-Rcpt-To:"). A recipient whose address contains "odmitnout" is refused (550), to test failed deliveries,
+ * and so is a message that contains "REFUSE-THIS-MESSAGE" (550 5.7.1, like a spam filter).
  * No TLS and no login – set smtp_encryption to "none" and leave smtp_user empty.
  *   php tools/fake-smtp.php <port> <dir>
  */
@@ -39,8 +40,12 @@ while ($client = @stream_socket_accept($server, -1)) {
             while (($row = fgets($client)) !== false && rtrim($row, "\r\n") !== '.') {
                 $data .= str_starts_with($row, '..') ? substr($row, 1) : $row;
             }
-            file_put_contents(sprintf('%s/%04d.eml', $dir, ++$count), 'X-Rcpt-To: ' . implode(', ', $to) . "\r\n" . $data);
-            $say('250 OK queued');
+            if (str_contains(base64_decode(preg_replace('/^.*?\r\n\r\n/s', '', $data) ?? '') . $data, 'REFUSE-THIS-MESSAGE')) {
+                $say('550 5.7.1 Refused by local policy');
+            } else {
+                file_put_contents(sprintf('%s/%04d.eml', $dir, ++$count), 'X-Rcpt-To: ' . implode(', ', $to) . "\r\n" . $data);
+                $say('250 OK queued');
+            }
         } elseif ($command === 'QUIT') {
             $say('221 Bye');
             break;
