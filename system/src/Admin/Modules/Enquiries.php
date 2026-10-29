@@ -66,13 +66,30 @@ final class Enquiries extends Module
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: the trash condition is always there
         $pageNumber = max(1, $this->request->getInt('page', 1));
+        $columns = 'enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to, deleted_at';
+        $order = ($trash ? 'deleted_at DESC, ' : '') . 'created_at DESC, enquiry_id DESC';
+        $paging = ' LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE);
+        // multisite: "all sites" is the enquiries of every set-up site, one list (UNION ALL), each row with its site; the other numbers are sums
+        $sites = $this->request->get('sites') === 'all' ? Sites::inboxSites($this->app) : [];
+        $all = $sites !== [];
+        if ($all) {
+            $tables = array_map(fn (array $s): string => $this->db->dialect()->quote($this->db->forSite($s['prefix'])->table('enquiries')), $sites);
+            $union = implode(' UNION ALL ', array_map(fn (array $s, string $table): string => 'SELECT ' . (int) $s['site_id'] . ' AS site_id, ' . $columns . ' FROM ' . $table . ' ' . $whereParts, $sites, $tables));
+            $rows = $this->db->all('SELECT * FROM (' . $union . ') u ORDER BY ' . $order . $paging, array_merge(...array_fill(0, count($sites), $params)));
+            $count = fn (string $where, array $p = []): int => array_sum(array_map(fn (string $table): int => (int) $this->db->value('SELECT COUNT(*) FROM ' . $table . ' WHERE ' . $where, $p), $tables));
+            $total = $count(implode(' AND ', $conditions), $params);
+        } else {
+            $rows = $this->db->all('SELECT ' . $columns . ' FROM {enquiries} ' . $whereParts . ' ORDER BY ' . ($trash ? 'deleted_at DESC, ' : '') . 'enquiry_id DESC' . $paging, $params);
+            $count = fn (string $where, array $p = []): int => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} WHERE ' . $where, $p);
+            $total = (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params);
+        }
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to, deleted_at FROM {enquiries} ' . $whereParts . ' ORDER BY ' . ($trash ? 'deleted_at DESC, ' : '') . 'enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
-            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam' AND deleted_at IS NULL"),
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NOT NULL'), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'enquiries' => $rows, 'total' => $total,
+            'filter' => $filter, 'kind' => $kind, 'spam' => $count("category = 'spam' AND deleted_at IS NULL"),
+            'inTrash' => $count('deleted_at IS NOT NULL'), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT user_id, CASE WHEN name = '' THEN username ELSE name END FROM {users} WHERE blocked = FALSE ORDER BY 2"),
+            'sites' => $all ? array_column($sites, null, 'site_id') : [], 'sitesFilter' => Sites::inboxFilter($this->app, $all),
         ]);
     }
 

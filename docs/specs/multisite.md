@@ -69,6 +69,10 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   `component` elements in the copied builds (pages, site parts, pop-ups, collections and their templates, the version history, saved
   sections, and the component copies themselves) and the variants of the copied experiments. Shared rows are not copied.
   Removing a site (`Sites::cleanup`) deletes its own components and facts (the site number may be given out again).
+- **Inbox:** Enquiries and Bookings get "this site / all sites" (`sites=all`, administrators with more than one set-up site). Enquiries:
+  `UNION ALL` of the sites' tables, paged and filtered like the list of one site; Bookings: the sites' agendas merged by time (people and
+  services are per site, so those two filters are off). A row of another site names its site and opens there through the sign-in handoff
+  (`Sites::landing()`: the handoff may carry an administration address to land on, validated, never a host).
 - Known limit: a Talea import (`SiteImport`) empties and fills owner tables (components, facts, media) – it is not meant for an install
   with several sites.
 

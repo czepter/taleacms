@@ -53,6 +53,39 @@ final class Sites extends Module
         return $out;
     }
 
+    /**
+     * The sites an inbox list (Enquiries, Bookings) can span with "all sites": every set-up, not trashed site, the owner's first.
+     * Empty unless multisite is on, the person is an administrator and there is more than one site.
+     *
+     * @return list<array{site_id: int, prefix: string, public_id: string, name: string, current: bool, can_open: bool}>
+     */
+    public static function inboxSites(\Talea\Core\App $app): array
+    {
+        if (!SiteRegistry::enabled() || !$app->auth()->isAdmin()) {
+            return [];
+        }
+        $current = (int) ($app->site['site_id'] ?? 1);
+        $out = [];
+        foreach (SiteRegistry::overview($app->db(), false) as $s) {
+            if ($s['ready'] && $s['status'] !== 'trashed') {
+                $out[] = ['site_id' => (int) $s['site_id'], 'prefix' => (string) $s['prefix'], 'public_id' => (string) $s['public_id'], 'name' => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'],
+                    'current' => (int) $s['site_id'] === $current, 'can_open' => $s['domains'] !== []];
+            }
+        }
+
+        return count($out) > 1 ? $out : [];
+    }
+
+    /** The "this site / all sites" select of an inbox list (null when there is only one site). */
+    public static function inboxFilter(\Talea\Core\App $app, bool $all): ?string
+    {
+        if (self::inboxSites($app) === []) {
+            return null;
+        }
+
+        return '<select name="sites" aria-label="' . e(t('Sites')) . '" data-submit-on-change><option value="">' . e(t('This site')) . '</option><option value="all"' . ($all ? ' selected' : '') . '>' . e(t('All sites')) . '</option></select>';
+    }
+
     /** The site this request belongs to (1 when the host is not routed). */
     private function currentId(): int
     {
@@ -200,7 +233,10 @@ final class Sites extends Module
         }
         $token = SiteRegistry::handoffToken($this->db, $this->app->auth()->id(), (int) $site['site_id']);
 
-        return Response::redirect(SiteRegistry::originOn($this->request, $host) . $this->request->basePath() . '/' . Kernel::path('handoff=' . $token), 303);
+        // `to`: an administration address on that site to land on (an inbox row of another site), see SiteRegistry::landing()
+        $to = SiteRegistry::landing($this->request->post('to'));
+
+        return Response::redirect(SiteRegistry::originOn($this->request, $host) . $this->request->basePath() . '/' . Kernel::path('handoff=' . $token . ($to !== null ? '&to=' . rawurlencode($to) : '')), 303);
     }
 
     /** @return array<string, mixed>|null the site the id parameter names */

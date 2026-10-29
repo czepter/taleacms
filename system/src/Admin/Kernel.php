@@ -252,7 +252,9 @@ final class Kernel
                 $app->auth()->signInFromHandoff($user);
             }
 
-            return Response::redirect($app->url('admin.php'));
+            $to = $user !== null ? \Talea\Core\Sites::landing($request->get('to')) : null;
+
+            return Response::redirect($app->url('admin.php' . ($to !== null ? '?' . $to : '')));
         }
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();

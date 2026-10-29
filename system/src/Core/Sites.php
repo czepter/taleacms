@@ -493,6 +493,15 @@ final class Sites
         $db->update('site_domains', ['redirect_to_primary' => $redirect], ['domain_id' => $domainId, 'site_id' => $siteId, 'is_primary' => false]);
     }
 
+    /**
+     * Where a handoff may land after the sign-in: an administration query "module=enquiries&action=detail&id=…" (letters, digits, _ and -
+     * only, a few known keys), or null. Never a host or a path, so the link cannot send anyone elsewhere.
+     */
+    public static function landing(string $to): ?string
+    {
+        return preg_match('/^module=[a-z_]{1,30}(&(action|status|id)=[A-Za-z0-9_-]{1,40}){0,3}$/D', $to) === 1 ? $to : null;
+    }
+
     /** A one-time token for the sign-in on another site: only its sha256 is kept. */
     public static function handoffToken(Db $db, int $userId, int $siteId): string
     {
