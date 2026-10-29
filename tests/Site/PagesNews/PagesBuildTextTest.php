@@ -29,7 +29,8 @@ final class PagesBuildTextTest extends SiteTestCase
     {
         $site = $this->site();
         $site->mcp('create_page', ['title' => ucfirst($slug), 'slug' => $slug, 'visible' => $visible, 'in_menu' => false, 'content' => '<p>Text</p>']);
-        $site->exec('UPDATE tl_pages SET build = ?, build_draft = ?, visible = ? WHERE slug = ?', [self::BUILD, self::BUILD, $visible, $slug]);
+        // a boolean literal: a bound false is '' to MySQL and to PostgreSQL, which both refuse it for a boolean column
+        $site->exec('UPDATE tl_pages SET build = ?, build_draft = ?, visible = ' . ($visible ? 'TRUE' : 'FALSE') . ' WHERE slug = ?', [self::BUILD, self::BUILD, $slug]);
 
         return $site->publicId('pages', (int) $site->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$slug]));
     }

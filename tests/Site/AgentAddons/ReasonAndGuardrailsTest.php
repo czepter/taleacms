@@ -60,7 +60,7 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
             $this->site()->exec("INSERT INTO tl_components (public_id, name, properties, build, updated_at) VALUES (?, 'Variant', '[]', '{\"v\":1,\"children\":[]}', ?)", [$component, $now]);
             $componentId = (int) $this->sq('SELECT component_id FROM tl_components WHERE public_id = ?', [$component]);
             $public = $uuid();
-            $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_component_id, goal_type, status, auto_promote, created_at) VALUES (?, 'T', 'element', ?, ?, 'form', 'stopped', 0, ?)",
+            $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_component_id, goal_type, status, auto_promote, created_at) VALUES (?, 'T', 'element', ?, ?, 'form', 'stopped', FALSE, ?)",
                 [$public, $pageId, $componentId, $now]);
 
             return [$public, $component];
@@ -90,7 +90,7 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
             $this->assertStringNotContainsString('protected from changes', $this->mcpRawText($tool, $args), 'T-14: ' . $tool . ' is free for an unprotected page');
         }
         // a page test shows its variant page at the protected page's address: editing that page is refused while the test is live
-        $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_page_id, goal_type, status, auto_promote, created_at) VALUES (?, 'V', 'page', ?, ?, 'form', 'running', 0, ?)",
+        $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_page_id, goal_type, status, auto_promote, created_at) VALUES (?, 'V', 'page', ?, ?, 'form', 'running', FALSE, ?)",
             [$uuid(), self::$guardPage, self::$freePage, $now]);
         $this->assertStringContainsString('protected from changes', $this->mcpRawText('update_page', ['id' => $free, 'description' => 'Variant']), 'T-14: the variant page of a running test on a protected page is refused');
         $this->site()->exec("UPDATE tl_experiments SET status = 'stopped' WHERE variant_page_id = ?", [self::$freePage]);
