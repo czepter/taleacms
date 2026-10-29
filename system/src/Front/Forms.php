@@ -104,7 +104,8 @@ final class Forms
         $visible = $calculation['visible'];
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
         foreach ($element['content']['fields'] as $i => $field) {
-            if ($field['type'] === 'step' || !($visible[$i] ?? true)) {
+            // the estimate is stored even when a rule hides it: the result link needs it (Front\FormResult)
+            if ($field['type'] === 'step' || (!($visible[$i] ?? true) && !($field['type'] === 'estimate' && $calculation['after_contact']))) {
                 continue;
             }
             $types[] = $field['type'];

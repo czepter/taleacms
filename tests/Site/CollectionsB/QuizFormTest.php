@@ -148,9 +148,34 @@ final class QuizFormTest extends SiteTestCase
         $body = (string) $this->site()->value("SELECT body FROM tl_mail WHERE recipient = 'o@example.com' ORDER BY mail_id DESC LIMIT 1");
         $text = str_replace("\u{a0}", ' ', (string) (json_decode($body, true)['text'] ?? ''));
         $this->assertStringContainsString('1,450 € – 1,900 €', $text);
-        $this->assertStringContainsString('Local', $text);
+        $this->assertStringContainsString('Where is the wedding?: Local', $text, 'the option line');
+        $this->assertStringContainsString('Extras: Album', $text);
         $this->assertStringContainsString('Album', $text);
         $this->assertStringNotContainsString('SECRET-TEXT', $text);
         $this->assertStringNotContainsString('Jane', $text);
+    }
+
+    public function testResultStaysAvailableWhenARuleHidesTheEstimate(): void
+    {
+        $this->quiz(['logic' => [
+            'rules' => [['label' => 'Hide it', 'match' => 'all', 'when' => [['field' => 'kloc0', 'op' => 'is', 'value' => 'Local']], 'then' => [['do' => 'skip', 'field' => 'kest0']]]],
+            'results' => [],
+        ]]);
+        $page = $this->visitor->get($this->send(self::LOCAL + ['p2' => 'Spain'])); // no rule shows the country here, so it is answered
+        $this->assertStringNotContainsString('This result is no longer available.', $page->body);
+        $this->assertStringContainsString('Your estimate is ready.', $page->body);
+    }
+
+    public function testChangedVariantOrForeignEnquiryFailsClosed(): void
+    {
+        $this->quiz();
+        $redirect = $this->send(self::LOCAL);
+        $gone = 'This result is no longer available.';
+        $this->assertStringContainsString($gone, $this->visitor->get(str_replace('&variant=&', '&variant=vabrd&', $redirect))->body, 'a changed variant');
+
+        preg_match('/enquiry=([0-9a-f-]{36})/', $redirect, $m);
+        $other = '11111111-2222-4333-8444-555555555555';
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, source, element, page, email, data, status, public_id) VALUES (NOW(), 'Other', 'page:1', 'other', '/x', '', '[]', 0, ?)", [$other]);
+        $this->assertStringContainsString($gone, $this->visitor->get(str_replace($m[1], $other, $redirect))->body, 'another enquiry with the key of this one');
     }
 }

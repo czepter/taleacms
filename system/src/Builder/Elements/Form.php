@@ -218,6 +218,11 @@ final class Form extends Element
 .tl-form-done ol { margin: var(--tl-space-2xs) 0 0; padding-inline-start: 1.5em; }
 .tl-field .tl-tiles { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--tl-space-xs); }
 .tl-field .tl-tiles label { position: relative; flex-direction: column; justify-content: flex-start; padding: var(--tl-space-xs); border: 2px solid var(--tl-color-line); border-radius: var(--tl-radius-m); background: var(--tl-color-background); text-align: center; cursor: pointer; }
+.tl-form-done .tl-result-image { display: block; max-inline-size: 100%; block-size: auto; border-radius: var(--tl-radius-m, 0.5rem); }
+.tl-form-done .tl-result-heading { font-size: var(--tl-step-2, 1.5rem); line-height: 1.2; }
+.tl-form-done .tl-result-amount { font-size: var(--tl-step-3, 2rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tl-form-done .tl-result-breakdown { display: grid; gap: var(--tl-space-3xs, 0.25rem); margin: var(--tl-space-s) 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.tl-form-done .tl-result-breakdown li { display: flex; justify-content: space-between; gap: var(--tl-space-m); border-block-end: 1px solid var(--tl-color-line); padding-block-end: var(--tl-space-3xs, 0.25rem); }
 .tl-tiles input { position: absolute; inset-block-start: 0.5rem; inset-inline-start: 0.5rem; z-index: 1; }
 .tl-tiles label:has(input:checked) { border-color: var(--tl-color-primary); background: var(--tl-color-primary-soft); }
 .tl-tiles label:has(input:focus-visible) { outline: 2px solid var(--tl-color-primary); outline-offset: 2px; }
@@ -271,7 +276,7 @@ final class Form extends Element
         $result = $r->get('form') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         $hasBasket = in_array('basket', array_column($o['fields'], 'type'), true);
-        if (($screen = \Talea\Front\FormResult::html($k->app, $p, $k)) !== null) {
+        if (($screen = \Talea\Front\FormResult::html($k->app, $p, $k, $a)) !== null) {
             return $screen; // the result of a quiz or calculator that shows it after the contact details (signed link)
         }
         if ($result === 'ok') {

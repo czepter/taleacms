@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Front;
 
 use Talea\Builder\Context;
+use Talea\Builder\Elements\Text;
 use Talea\Builder\Elements\Form;
 use Talea\Builder\FormLogic;
 use Talea\Core\App;
@@ -29,19 +30,19 @@ final class FormResult
     }
 
     /** The result screen for this request, or null when the request carries no result link. */
-    public static function html(App $app, array $p, Context $k): ?string
+    public static function html(App $app, array $p, Context $k, string $a = ''): ?string
     {
         $r = $app->request;
         if ($r->get('form') !== $p['id'] || $r->get('result') !== 'ok' || $r->get('enquiry') === '') {
             return null;
         }
         $o = $p['content'];
-        $id = ' id="' . e(Form::anchor($p)) . '"';
+        $id = str_contains($a, ' id="') ? '' : ' id="' . e(Form::anchor($p)) . '"';
         $data = self::stored($app, $p, $k->source, $r->get('enquiry'), $r->get('variant'), $r->get('key'));
         if ($data === null) {
             $k->types['button'] = true;
 
-            return '<div class="tl-form-done"' . $id . ' role="status"><p>' . e(t('This result is no longer available.')) . '</p><p><a class="tl-button tl-button--primary" href="'
+            return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e(t('This result is no longer available.')) . '</p><p><a class="tl-button tl-button--primary" href="'
                 . e($app->url($r->path()) . '#' . Form::anchor($p)) . '">' . e($o['button_text']) . '</a></p></div>';
         }
         [$shown, $lines, $variant] = $data;
@@ -51,7 +52,7 @@ final class FormResult
             $image = $variant['image'] !== '' ? '<img class="tl-result-image" src="' . e($k->image($variant['image'])) . '" alt="" loading="lazy">' : '';
             $link = $variant['button_text'] !== '' && $variant['button_link'] !== '' ? '<p><a class="tl-button tl-button--primary" href="' . e($variant['button_link']) . '">' . e($variant['button_text']) . '</a></p>' : '';
             $k->types['button'] = true;
-            $html .= $image . ($variant['heading'] !== '' ? '<h3 class="tl-result-heading">' . e($variant['heading']) . '</h3>' : '')
+            $html .= $image . ($variant['heading'] !== '' ? '<p class="tl-result-heading"><strong>' . e($variant['heading']) . '</strong></p>' : '')
                 . ($variant['text'] !== '' ? '<p>' . e($variant['text']) . '</p>' : '');
             $tail = $link;
         } else {
@@ -60,11 +61,11 @@ final class FormResult
         }
         if ($amount) {
             $html .= '<p class="tl-result-amount"><strong>' . e($shown) . '</strong></p>'
-                . ($lines === [] ? '' : '<ul class="tl-result-breakdown">' . implode('', array_map(fn (string $l): string => '<li>' . e($l) . '</li>', $lines)) . '</ul>');
+                . ($lines === [] ? '' : '<ul class="tl-result-breakdown">' . implode('', array_map(fn (string $l): string => '<li><span>' . e(substr($l, 0, (int) strrpos($l, ': '))) . '</span><span>' . e(substr($l, (int) strrpos($l, ': ') + 2)) . '</span></li>', $lines)) . '</ul>');
         }
 
         // data-sent: image/web.js reports the conversion, as for the plain thank-you
-        return '<div class="tl-form-done tl-form-result"' . $id . ' role="status" data-sent="' . e($o['name']) . '">' . $html . $tail . '</div>';
+        return '<div' . Text::withClass($a, 'tl-form-done tl-form-result') . $id . ' role="status" data-sent="' . e($o['name']) . '">' . $html . $tail . '</div>';
     }
 
     /**
