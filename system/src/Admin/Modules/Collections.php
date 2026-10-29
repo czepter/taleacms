@@ -236,7 +236,7 @@ final class Collections extends Module
         $address = $k['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] : '';
 
         return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p, 'host' => $host, 'address' => $address,
-            // the search result preview: the title and description as Front\Kernel hands them to the item page's head
+            // the search result preview: the title and description as Front\CollectionPages hands them to the item page's head
             'serp' => ['serpTitle' => \Talea\Core\SeoTitle::compose($settings, 'item', $p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name'], $p['seo_title'] !== '', ['category' => (string) $k['name']]),
                 'serpDescription' => (string) $p['description'], 'serpAddress' => $host . '/' . $address,
                 'dir' => Language::dirAttribute(Language::ofContent($settings, (string) $p['language']))],

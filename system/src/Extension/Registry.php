@@ -611,7 +611,7 @@ final class Registry
     }
 
     /**
-     * {{ext.<slug>.<name> key="value"}} tokens in what editors wrote (builds, page and news text). Front\Kernel calls it before
+     * {{ext.<slug>.<name> key="value"}} tokens in what editors wrote (builds, page and news text). Front\Kernel and NewsPages call it before
      * a template adds anything a visitor sent, never over a whole page (3.3.2, N38). Only real quotes delimit a value: the
      * escaped form (&quot;) is how a visitor's text such as the search query looks on the page, so it never runs a token.
      */

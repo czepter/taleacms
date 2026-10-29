@@ -1,7 +1,7 @@
 <?php
 /**
  * Editing a page or news item directly on the site: the same editor as in the admin, embedded in the site template. It is rendered in
- * the language and form of address of the user's administration (Front\Kernel::editInPlace), the page around it in the site's.
+ * the language and form of address of the user's administration (Front\PageFrame::editInPlace), the page around it in the site's.
  * It is saved with a normal form to the admin (action uloz_text), so the same permissions and versions apply.
  *
  * @var Talea\Core\App $app

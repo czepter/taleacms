@@ -37,7 +37,7 @@ final class Renderer
         if ($k->editor) {
             return self::renderChildren($build['children'] ?? [], $k); // the builder keeps every token, so it stays in the build
         }
-        // the content of a site-part wrapper (a news item, a list with the visitor's search query) was filled by Front\Kernel
+        // the content of a site-part wrapper (a news item, a list with the visitor's search query) was filled by Front\PageFrame
         // already: it goes in only after the tokens of the build, so nothing a visitor sent is read as a token (3.3.2, N38)
         $content = $k->content;
         $k->content = $content === '' ? '' : self::CONTENT_MARK;

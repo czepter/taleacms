@@ -66,7 +66,13 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 
 - `/` is the home page (setting `home_page`, in a language version its counterpart `translation_of`); the home page on its own address
   redirects 301 to `/`. News at `/news`, `/news/<slug>` (+ `.md`), `/news/category/<slug>`, `/news/tag/<slug>`. Pages at `/<slug>`;
-  reserved addresses: `Modules\Pages::RESERVED_SLUGS`. `GET /health` is the orchestrator probe.
+  reserved addresses: `Kernel::reservedSlugs()` (the route table + the addresses outside it). `GET /health` is the orchestrator probe.
+- **Routing:** `Kernel::handle()` runs the guards in a fixed order (add-on early hook, redirects, demo, import, OAuth, maintenance, old
+  WordPress links, waiting media, the page cache), then the route table `Kernel::routes()` (`Front\Router`: method, pattern with
+  `{placeholders}`, a named condition, a `[class, method]` handler; the first route that answers wins, `null` lets the next one try). The
+  order is behaviour; `tools/contracts/routes.json` records it. Handlers: `Front\NewsPages`, `Front\CollectionPages`, `Front\Endpoints`
+  (addresses without the page frame) and `Kernel` (home, pages, previews, members); every page goes through `Front\PageFrame::page()`.
+  Add-on routes run after every core route, before pages and collections, and cannot take a reserved prefix.
 - **Themeless:** the page frame is `system/views/front/base.php` + `image/template.css`; the views cannot be overridden and PHP layouts
   are not used. The look comes from the design system, shared classes, components and site parts. `base.php` prints the head and foot
   blocks (SEO, structured data, measurement, cookie bar: `Front\Seo`). Take colours, fonts, scale and sizes from the design-system
@@ -96,7 +102,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - The site address is the setting `site_url`, not the Host header; absolute addresses come from `$app->request->origin()`.
 - Images: variants and WebP in `Core\Images::save()`, `srcset` in `Front\NewsRepository::prepare()`, dimensions in `Front\ImageHtml::complete()`.
   News lists do not load long texts (`Front\NewsRepository::LIST_COLUMNS`; a new column is added there too).
-- Edit in place (`Kernel::editInPlace()`): "Edit here" for signed-in people with the right; saves go through `save_text` in `Modules\News` and `Modules\Pages`.
+- Edit in place (`PageFrame::editInPlace()`): "Edit here" for signed-in people with the right; saves go through `save_text` in `Modules\News` and `Modules\Pages`.
 
 ## Builder and design system
 

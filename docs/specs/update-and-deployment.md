@@ -33,7 +33,7 @@ The in-app updater (download a zip, overwrite files) stays switched off (`Core\U
 
 1. `Core\UpdateFeed`: fetch, verify the signature, cache for 24 h (setting `update_feed_cache`), expose `available()` for the notice; honours `TALEA_UPDATE_CHECK`. Tests with a fake feed server.
 2. Admin notice (dashboard, System status) from `UpdateFeed`; no install button.
-3. `GET /health` in `Front\Kernel`.
+3. `GET /health` in `Front\Endpoints`.
 4. `bin/backup` (database dump through PDO, no `mysqldump` needed) and the entrypoint step.
 5. `release.yml`: build and push the multi-arch image, sign it, generate and sign `update.json`, create the release. Written now, enabled when the repository is ready.
 6. `docs/DEPLOYMENT.md`: install, update, rollback, replicas, backup, verifying an image.
