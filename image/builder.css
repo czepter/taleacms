@@ -300,7 +300,7 @@ body.bd-placing .bd-node { cursor: copy; }
 .bd-option-media-row { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
 .bd-option-media-row > span { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
-/* the logic overlay of a form (builder-form-logic.js): questions on the left, Rules · Results · Try it on the right */
+/* the logic overlay of a form (builder/form-logic.js): questions on the left, Rules · Results · Try it on the right */
 .bd-logic-summary { margin: 0; font-size: 12px; color: var(--text-weak); }
 .bd-logic-field > .bd-btn { justify-self: start; }
 .bd-dialog.bd-logic { width: min(1100px, calc(100vw - 32px)); height: min(860px, calc(100dvh - 32px)); }
