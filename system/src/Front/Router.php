@@ -54,6 +54,7 @@ final class Router
             }
             // the named groups in their order, as positional arguments
             $arguments = array_values(array_filter($m, is_string(...), ARRAY_FILTER_USE_KEY));
+            \Talea\Core\ErrorReport::tag('route', $route['pattern']); // an error report names the route, never the address
             $response = $handlers[$route['handler'][0]]->{$route['handler'][1]}(...$arguments);
             if ($response !== null) {
                 return $response;

@@ -127,6 +127,7 @@ final class Connectors
             });
         } catch (\Throwable $e) {
             error_log('Talea: the connector credentials could not be moved to TALEA_SECRET_KEY: ' . $e->getMessage());
+            ErrorReport::capture($e);
 
             return false;
         }

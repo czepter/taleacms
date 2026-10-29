@@ -68,6 +68,10 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 | `TALEA_BACKUP_BEFORE_MIGRATE` | on | `0` skips the database backup that precedes pending migrations on start |
 | `TALEA_CRON` | on | `0` on every replica but one: the background-job loop must run once |
 | `TALEA_SECRET_KEY` | – | The site's secret, at least 32 characters (`openssl rand -hex 32`): encrypts the connector credentials and signs links, so a database dump alone holds no key. Without it the key stays in the database (System status warns). Keep it with your backups, see docs/DEPLOYMENT.md |
+| `TALEA_ERROR_DSN` | – | DSN of a Sentry or GlitchTip project: errors of the site, the admin, MCP, jobs and the admin's scripts are reported there, without personal data (docs/DEPLOYMENT.md, "Error tracking"). Test it with `php system/docker.php error-test` |
+| `TALEA_ERROR_ENVIRONMENT` | `production` | The environment the reports carry (`staging`, `test` …) |
+| `TALEA_ERROR_SAMPLE_RATE` | `1` | Share of the error events sent, 0–1 |
+| `TALEA_ERROR_BROWSER` | off | `1` = report JavaScript errors of the public site too (no cookies, no identifiers) |
 | `TALEA_INTERNAL_URL` | `http://127.0.0.1:8080` | Where the background loop reaches this container's own server to warm the page cache |
 
 SMTP is configured in the admin (Settings → Mail).

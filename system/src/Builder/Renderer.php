@@ -60,7 +60,9 @@ final class Renderer
                 $html .= self::renderElement($p, $k);
             } catch (\Throwable $e) {
                 // "doctor": a broken element is left out on the site, the editor shows a message
-                error_log('Builder: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());                $html .= $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('This element could not be displayed.')) . '</div>' : '';
+                error_log('Builder: element ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
+                \Talea\Core\ErrorReport::capture($e, 'warning', ['tags' => ['element' => (string) ($p['type'] ?? '?')]]); // the type, never the content
+                $html .= $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('This element could not be displayed.')) . '</div>' : '';
             }
         }
 

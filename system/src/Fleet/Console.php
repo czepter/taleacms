@@ -28,7 +28,7 @@ final class Console
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
     private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'schema_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
-        'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
+        'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version', 'error_reporting'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [

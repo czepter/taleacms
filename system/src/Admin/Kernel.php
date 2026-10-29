@@ -274,6 +274,9 @@ final class Kernel
         }
 
         $ident = $request->get('module');
+        \Talea\Core\ErrorReport::tag('module', $ident !== '' ? $ident : 'dashboard');
+        \Talea\Core\ErrorReport::tag('action', $action);
+        \Talea\Core\ErrorReport::tag('role', \Talea\Core\Auth::TYPES[(int) ($app->auth()->user()['admin'] ?? -1)] ?? 'custom');
         if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
             $app->session->flash('error', \Talea\Core\Demo::refusal());
 

@@ -202,6 +202,7 @@ final class PageFrame
                     : \Talea\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
                 error_log('Site parts: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
+                \Talea\Core\ErrorReport::capture($e, 'warning', ['tags' => ['part' => $type]]);
 
                 return null;
             }
@@ -279,6 +280,7 @@ final class PageFrame
             $draft = $preview > 0 ? \Talea\Builder\Popups::byId($db, $preview) : null;
         } catch (\Throwable $e) {
             error_log('Pop-ups: ' . $e->getMessage()); // site before migration
+            \Talea\Core\ErrorReport::capture($e, 'warning');
 
             return '';
         }
