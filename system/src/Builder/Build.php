@@ -36,7 +36,7 @@ final class Build
         Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\PricingTable::class, Elements\BeforeAfter::class, Elements\Hotspots::class, Elements\Timeline::class,
         Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
-        Elements\News::class, Elements\GoogleReviews::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\Booking::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
+        Elements\News::class, Elements\GoogleReviews::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\FormEmbed::class, Elements\Booking::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
         Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\MemberMenu::class, Elements\StructuredData::class, Elements\CompanyDetails::class, Elements\PageContent::class,
     ];
 
@@ -291,6 +291,8 @@ final class Build
                 'image' => is_string($value) && preg_match(self::IMAGE_PATTERN, $value) ? $value : '',
                 // the rules and results of a form: cleaned by Elements\Form::sanitizeElement (it knows the fields); here only the shape
                 'form_logic' => is_array($value) ? $value : ['rules' => [], 'results' => []],
+                // a form placement's widths: field key => columns of six (Builder\FormRecords)
+                'form_widths' => FormRecords::widths($value),
                 'choice' => is_scalar($value) && isset($def['options'][(string) $value]) ? (string) $value : (string) $def['default'],
                 'number' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['default'],
                 'boolean' => (bool) $value,

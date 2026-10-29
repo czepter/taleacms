@@ -817,8 +817,10 @@
 
 	// Save at hand: the Save row of the screen's one edit form is repeated in the page heading, which stays on top while scrolling.
 	// The copies submit that form (form="…"), so their name/value, data-confirm and the field validation work as on the originals.
+	// A form inside a <details> (a collapsed settings panel) or marked data-no-page-save (a side form, a decision) is not the edit form.
 	var head = document.querySelector('.header-pages'), rows = [];
-	document.querySelectorAll('main form.form').forEach(function (form) {
+	document.querySelectorAll('main form.form:not([data-no-page-save])').forEach(function (form) {
+		if (form.closest('details')) { return; }
 		var row = Array.prototype.filter.call(form.querySelectorAll('.buttons'), function (r) {
 			return Array.prototype.some.call(r.querySelectorAll('.btn'), function (b) { return b.type === 'submit'; });
 		}).pop();

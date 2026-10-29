@@ -49,7 +49,7 @@ final class EmailSignaturesTest extends TestCase
         $this->assertSame([true, true, false, true], [str_contains($privacy, 'not legal advice'), str_contains($privacy, 'enquiry form'), str_contains($privacy, 'newsletter'),
             str_contains(\Talea\Core\Language::runWith('cs', fn (): string => \Talea\Builder\Library::privacyPolicyText()), 'nikoli právní rada')], 'Privacy policy: a template with a notice, without settings only enquiries'); // check-english: allow
         // import of a Talea export (1.8): which files from the archive may go into media/, which names are exports
-        $this->assertSame(['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', null, null, null, null, 'media/2026/09/dokument.pdf', null, 'media/2026/09/logo.svg'], array_map(\Talea\Core\SiteImport::mediaTarget(...), ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', 'media/x.php', 'media/../config.php', // check-english: allow
+        $this->assertSame(['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', null, null, null, null, 'media/2026/09/dokument.pdf', null, 'media/2026/09/logo.svg'], array_map(\Talea\Core\ArchiveMedia::path(...), ['media/2026/09/foto.jpg', 'media/2026/09/foto.jpg.webp', 'media/x.php', 'media/../config.php', // check-english: allow
             'media/.htaccess', 'content.json', 'media/2026/09/dokument.pdf', 'media/a/b.phtml', 'media/2026/09/logo.svg']), 'Import Talea: soubory do media/'); // check-english: allow
         $this->assertSame([true, true, false, false, false, false, false], array_map(\Talea\Core\SiteImport::isValidName(...), ['export-20260928-101010.zip', 'web.json', 'state-0123456789abcdef.json',
             'talea-state-0123456789abcdef.json', '../web.zip', 'web.xml', '.web.zip']), 'Talea import: file names');

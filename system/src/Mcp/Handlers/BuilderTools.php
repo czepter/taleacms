@@ -186,6 +186,7 @@ trait BuilderTools
             'collection' => \Talea\Builder\Collections::writeTemplate($db, $r, ['build_draft' => null]),
             'popup' => $db->update('popups', ['build_draft' => null], ['popup_id' => $r['popup_id']]),
             'component' => $db->update('components', ['build_draft' => null], ['component_id' => $r['component_id']]),
+            'form' => $db->update('forms', ['build_draft' => null], ['form_id' => $r['form_id']]),
             default => $db->update('site_parts', ['build_draft' => null], ['type' => $r['type'], 'language' => $r['language'], 'variant' => $r['variant']]),
         };
 
@@ -277,6 +278,60 @@ trait BuilderTools
 
         return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","content":{"component":"' . $this->pid('components', $id) . '","values":{}}}',
             'build' => 'edit it with get_build / save_build / edit_build and component: ' . $this->pid('components', $id) . ', then publish_build'];
+    }
+
+    /** list_forms */
+    private function toolListForms(string $name, array $a): mixed
+    {
+        $db = $this->app->db();
+        $answers = array_column($db->all("SELECT form_id, COUNT(*) AS n FROM {enquiries} WHERE form_id IS NOT NULL AND category <> 'spam' AND deleted_at IS NULL GROUP BY form_id"), 'n', 'form_id');
+
+        return array_map(fn (array $f): array => ['id' => (int) $f['form_id'], 'name' => (string) $f['name'], 'published' => $f['build'] !== null,
+            'unpublished_changes' => $f['build_draft'] !== null && $f['build_draft'] !== $f['build'],
+            'fields' => array_values(array_map(fn (array $field): array => ['key' => (string) ($field['key'] ?? ''), 'label' => (string) ($field['label'] ?? ''), 'type' => (string) ($field['type'] ?? '')],
+                array_filter((array) (\Talea\Builder\FormRecords::definition(Build::fromJson($f['build_draft'] ?? $f['build']))['content']['fields'] ?? []), 'is_array'))),
+            'placed_on' => array_values(array_unique(array_column(\Talea\Builder\FormRecords::placements($this->app, (string) $f['public_id']), 'where'))),
+            'answers' => (int) ($answers[$f['form_id']] ?? 0)], \Talea\Builder\FormRecords::all($db));
+    }
+
+    /** create_form */
+    private function toolCreateForm(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Forms can be created only by someone with access to Enquiries.');
+        }
+        $formName = mb_substr(trim((string) ($a['name'] ?? '')), 0, 120);
+        if ($formName === '') {
+            throw new \InvalidArgumentException('The form needs a name.');
+        }
+        $starter = isset(\Talea\Admin\Modules\Forms::STARTERS[(string) ($a['starter'] ?? '')]) ? (string) $a['starter'] : 'enquiry';
+        $build = \Talea\Builder\FormRecords::starterBuild($starter);
+        $build['children'][0]['content']['name'] = $formName;
+        $now = date('Y-m-d H:i:s');
+        $id = $this->app->db()->insert('forms', ['name' => $formName, 'build_draft' => Build::toJson($build), 'created_at' => $now, 'updated_at' => $now]);
+        $publicId = $this->pid('forms', $id);
+
+        return ['id' => $id, 'name' => $formName, 'status' => 'draft – publish_build with form: ' . $publicId . ' before a page shows it',
+            'place' => '{"type":"form_embed","content":{"form":"' . $publicId . '"}}', 'build' => 'edit the fields with get_build / edit_build and form: ' . $publicId];
+    }
+
+    /** delete_form */
+    private function toolDeleteForm(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Forms can be deleted only by someone with access to Enquiries.');
+        }
+        $db = $this->app->db();
+        $form = \Talea\Builder\FormRecords::byId($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The form does not exist. Use list_forms.');
+        $places = \Talea\Builder\FormRecords::placements($this->app, (string) $form['public_id']);
+        if ($places !== []) {
+            throw new \DomainException('The form is placed on: ' . implode(', ', array_unique(array_column($places, 'where'))) . '. Remove the form_embed elements there first.');
+        }
+        $db->delete('forms', ['form_id' => $form['form_id']]);
+        $db->delete('build_revisions', ['part' => 'form:' . (int) $form['form_id']]);
+        \Talea\Builder\FormRecords::forget();
+
+        return ['deleted' => (int) $form['form_id']];
     }
 
     /** delete_component */
