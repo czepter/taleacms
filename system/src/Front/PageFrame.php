@@ -152,7 +152,7 @@ final class PageFrame
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
         // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
         $countsClicks = !empty($meta['vitals']) && preg_match(\Talea\Core\Conversions::LINK_PATTERN, $html);
-        if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|booking|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|id="tl-experiments"|rel="alternate" hreflang=/', $html)) {
+        if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|booking|form|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|id="tl-experiments"|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         if (!str_contains($html, ' data-form="')) { // image/forms.js only with a form (Builder\Elements\Form)
