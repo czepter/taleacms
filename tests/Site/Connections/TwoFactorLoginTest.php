@@ -127,20 +127,8 @@ final class TwoFactorLoginTest extends SiteTestCase
     {
         $site = $this->site();
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
-        // a software authenticator: an ES256 key registered for the author
-        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
-        $id = random_bytes(20);
-        $site->exec("INSERT INTO tl_user_passkeys (public_id, user_id, name, credential_hash, credential_id, public_key, alg, sign_count, created_at) SELECT ?, user_id, 'test', ?, ?, ?, -7, 0, NOW() FROM tl_users WHERE username = 'author'",
-            ['8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a10', hash('sha256', $id), Passkey::b64($id), (string) openssl_pkey_get_details($key)['key']]);
-        $origin = Passkey::origin($site->base);
-        $answer = static function (string $challenge, int $flags) use ($key, $id, $origin): string {
-            $client = (string) json_encode(['type' => 'webauthn.get', 'challenge' => $challenge, 'origin' => $origin, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES);
-            $data = hash('sha256', Passkey::rpId($origin), true) . chr($flags) . pack('N', 0);
-            openssl_sign($data . hash('sha256', $client, true), $signature, $key, OPENSSL_ALGO_SHA256);
-
-            return (string) json_encode(['id' => Passkey::b64($id), 'clientDataJSON' => Passkey::b64($client), 'authenticatorData' => Passkey::b64($data), 'signature' => Passkey::b64((string) $signature)]);
-        };
-
+        [$key, $id] = $this->registerKey('8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a10');
+        $answer = fn (string $challenge, int $flags): string => $this->keyAnswer($key, $id, $challenge, $flags);
         $browser = $site->client('passkey');
         $page = $browser->get('/admin.php');
         $this->assertTrue($page->contains('data-passkey-signin'), 'the first step offers a passkey once an account has one');
@@ -159,6 +147,28 @@ final class TwoFactorLoginTest extends SiteTestCase
         $site->exec("DELETE FROM tl_user_passkeys WHERE name = 'test'");
         $site->exec("UPDATE tl_users SET failed_logins = 0 WHERE username = 'author'");
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+    }
+
+    /** A software authenticator: an ES256 key registered for the author. @return array{OpenSSLAsymmetricKey, string} */
+    private function registerKey(string $publicId): array
+    {
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        $id = random_bytes(20);
+        $this->site()->exec("INSERT INTO tl_user_passkeys (public_id, user_id, name, credential_hash, credential_id, public_key, alg, sign_count, created_at) SELECT ?, user_id, 'test', ?, ?, ?, -7, 0, NOW() FROM tl_users WHERE username = 'author'",
+            [$publicId, hash('sha256', $id), Passkey::b64($id), (string) openssl_pkey_get_details($key)['key']]);
+
+        return [$key, $id];
+    }
+
+    /** The answer of the authenticator to a sign-in challenge. */
+    private function keyAnswer(\OpenSSLAsymmetricKey $key, string $id, string $challenge, int $flags): string
+    {
+        $origin = Passkey::origin($this->site()->base);
+        $client = (string) json_encode(['type' => 'webauthn.get', 'challenge' => $challenge, 'origin' => $origin, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES);
+        $data = hash('sha256', Passkey::rpId($origin), true) . chr($flags) . pack('N', 0);
+        openssl_sign($data . hash('sha256', $client, true), $signature, $key, OPENSSL_ALGO_SHA256);
+
+        return (string) json_encode(['id' => Passkey::b64($id), 'clientDataJSON' => Passkey::b64($client), 'authenticatorData' => Passkey::b64($data), 'signature' => Passkey::b64((string) $signature)]);
     }
 
     #[Depends('testAppCodeAndBackupCodes')]
@@ -203,5 +213,114 @@ final class TwoFactorLoginTest extends SiteTestCase
         $post(['op' => 'profile', 'name' => 'Author', 'email' => 'author-new@example.cz', 'current_password' => $site->password]);
         $this->assertSame('author-new@example.cz|1', $site->value("SELECT CONCAT((SELECT email FROM tl_users WHERE username = 'author'), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'author-original@example.cz' AND subject LIKE 'The e-mail address of your account%'))"),
             '3.3.3: with the current password the e-mail changes and the old address gets a notice');
+    }
+
+    /** The author with a passkey and no app, two backup codes; returns the key. @return array{OpenSSLAsymmetricKey, string} */
+    private function passkeyOnlyAuthor(): array
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("DELETE FROM tl_user_passkeys");
+        $site->exec("UPDATE tl_users SET totp_secret = '', totp_last_step = NULL, failed_logins = 0, locked_until = NULL, totp_backup_codes = ? WHERE username = 'author'",
+            [json_encode([hash('sha256', 'aaaaa-11111'), hash('sha256', 'bbbbb-22222')])]);
+
+        return $this->registerKey('8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a11');
+    }
+
+    #[Depends('testAppCodeAndBackupCodes')]
+    public function testAPasskeyIsASecondFactorOfItsOwn(): void
+    {
+        $site = $this->site();
+        [$key, $id] = $this->passkeyOnlyAuthor();
+
+        $browser = $site->client('author');
+        $csrf = $browser->get('/admin.php')->csrf();
+        $first = $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'author', 'password' => $site->password]);
+        $this->assertStringContainsString('name="code"', $first->body, 'the password alone does not sign in: the second step is asked for');
+        $this->assertStringContainsString('data-passkey-signin', $first->body, 'the passkey is the main way of the second step');
+        $this->assertStringNotContainsString('authenticator app', $first->body, 'an account without the app is not asked for a code from it');
+        $this->assertStringNotContainsString('inputmode="numeric"', $first->body, 'backup codes contain letters');
+        $this->assertStringNotContainsString('"csrf"', $browser->get('/admin.php?action=token')->body, 'not signed in yet');
+
+        $options = $browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'passkey_options'])->json();
+        $this->assertCount(1, $options['allowCredentials'] ?? [], 'the challenge names the keys of the account');
+        $signed = $browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'key', 'answer' => $this->keyAnswer($key, $id, (string) $options['challenge'], 0x01)]);
+        $this->assertSame([200, true], [$signed->status, $signed->json()['ok'] ?? null], 'the passkey completes the sign-in after the password');
+        $this->assertSame(1, substr_count($browser->get('/admin.php?action=token')->body, '"csrf"'), 'the browser is signed in');
+
+        $this->assertSame(401, $this->signInWithCode('000000')[0], 'a wrong code does not pass');
+        $empty = trim($site->php('echo Talea\Core\Totp::code("", intdiv(time(), 30));'));
+        $this->assertSame(401, $this->signInWithCode($empty)[0], 'a code computed from an empty secret never passes');
+        $this->assertSame(302, $this->signInWithCode('aaaaa-11111')[0], 'a backup code completes the sign-in');
+        $this->assertSame(401, $this->signInWithCode('aaaaa-11111')[0], 'a backup code works once');
+    }
+
+    #[Depends('testAppCodeAndBackupCodes')]
+    public function testMyAccountAddsAndRemovesPasskeysWithoutTheApp(): void
+    {
+        $site = $this->site();
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
+        $site->exec("DELETE FROM tl_user_passkeys");
+        $site->exec("UPDATE tl_users SET totp_secret = '', totp_backup_codes = NULL, failed_logins = 0, locked_until = NULL WHERE username = 'author'");
+        $browser = $site->client('author');
+        $csrf = $browser->get('/admin.php')->csrf();
+        $this->assertSame(302, $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'author', 'password' => $site->password])->status, 'no second step yet: the password signs in');
+
+        $page = $browser->get('/admin.php?action=account&tab=sign-in');
+        $csrf = $page->csrf();
+        $this->assertStringContainsString('data-passkey-add', $page->body, 'My account offers a passkey without the app');
+        $post = static fn (array $fields) => $browser->post('/admin.php?action=account', ['_csrf' => $csrf] + $fields);
+        $this->assertSame(403, $post(['op' => 'passkey_options', 'current_password' => 'wrong-password-1'])->status, 'still only with the current password');
+        $options = $post(['op' => 'passkey_options', 'current_password' => $site->password]);
+        $this->assertSame(200, $options->status, 'the challenge is issued to an account without the app');
+
+        // a software authenticator registers
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        $details = openssl_pkey_get_details($key);
+        $id = random_bytes(20);
+        $origin = Passkey::origin($site->base);
+        $client = (string) json_encode(['type' => 'webauthn.create', 'challenge' => $options->json()['challenge'], 'origin' => $origin, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES);
+        $data = hash('sha256', Passkey::rpId($origin), true) . chr(0x45) . pack('N', 0) . str_repeat("\0", 16) . pack('n', strlen($id)) . $id
+            . str_pad((string) $details['ec']['x'], 32, "\0", STR_PAD_LEFT) . str_pad((string) $details['ec']['y'], 32, "\0", STR_PAD_LEFT);
+        $der = base64_decode(preg_replace('/-----[A-Z ]+-----|\s/', '', $details['key']));
+        $saved = $post(['op' => 'passkey_save', 'name' => 'Laptop', 'answer' => json_encode([
+            'id' => Passkey::b64($id), 'clientDataJSON' => Passkey::b64($client), 'authenticatorData' => Passkey::b64($data),
+            'publicKey' => Passkey::b64($der), 'publicKeyAlgorithm' => -7,
+        ])]);
+        $this->assertTrue($saved->json()['ok'] ?? false, 'the first passkey is saved: ' . $saved->body);
+        $this->assertNotSame('', (string) $site->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), 'it turned two-factor sign-in on: backup codes exist');
+
+        $page = $browser->get('/admin.php?action=account&tab=sign-in');
+        $this->assertSame(1, preg_match_all('/<p class="backup-codes">[0-9a-f]{5}-[0-9a-f]{5}/', $page->body), 'the backup codes are shown once');
+        $this->assertSame(0, preg_match_all('/<p class="backup-codes">/', $browser->get('/admin.php?action=account&tab=sign-in')->body), '... and not again');
+
+        // the last passkey goes: two-factor sign-in is off, the backup codes with it
+        $csrf = $page->csrf();
+        $browser->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'passkey_delete', 'passkey_id' => $site->value('SELECT public_id FROM tl_user_passkeys LIMIT 1')]);
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_user_passkeys'), 'the passkey is removed');
+        $this->assertNull($site->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), 'the backup codes are cleared');
+        $other = $site->client('author');
+        $this->assertSame(302, $other->post('/admin.php', ['_csrf' => $other->get('/admin.php')->csrf(), 'username' => 'author', 'password' => $site->password])->status, 'the password alone signs in again');
+    }
+
+    #[Depends('testAppCodeAndBackupCodes')]
+    public function testAPasskeySatisfiesTheRequiredTwoFactor(): void
+    {
+        $site = $this->site();
+        [$key, $id] = $this->passkeyOnlyAuthor();
+        $browser = $site->client('author');
+        $csrf = $browser->get('/admin.php')->csrf();
+        $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'author', 'password' => $site->password]);
+        $options = $browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'passkey_options'])->json();
+        $browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'key', 'answer' => $this->keyAnswer($key, $id, (string) $options['challenge'], 0x01)]);
+
+        $site->setting('require_2fa', 'everyone');
+        $withKey = $browser->get('/admin.php?module=news');
+        $site->exec('DELETE FROM tl_user_passkeys');
+        $without = $browser->get('/admin.php?module=news');
+        $site->setting('require_2fa', '');
+
+        $this->assertSame(200, $withKey->status, 'a passkey meets the two-factor requirement of the site');
+        $this->assertSame(302, $without->status, 'without a passkey (or the app) the requirement sends the account to My account');
     }
 }

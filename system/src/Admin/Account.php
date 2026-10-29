@@ -37,7 +37,11 @@ final class Account
         $r = $app->request;
         $db = $app->db();
         $user = $app->auth()->user();
-        $data = ['backupCodes' => [], 'newSecret' => '', 'newToken' => ''];
+        // backup codes made by the first passkey wait in the session for the page that follows its reload (key())
+        $data = ['backupCodes' => (array) $app->session->get('backup_codes_new', []), 'newSecret' => '', 'newToken' => ''];
+        if ($data['backupCodes'] !== [] && !$r->isPost()) {
+            $app->session->remove('backup_codes_new');
+        }
         $op = $r->isPost() ? ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('op')))) : '';
         $tab = $this->tab(self::OP_TABS[$op] ?? $r->get('tab'));
 
@@ -166,7 +170,13 @@ final class Account
                     $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$db->internalId('user_passkeys', $r->post('passkey_id')), $user['user_id']]);
                     $app->auth()->forgetOtherDevices((int) $user['user_id']); // the lost device may have ticked "stay signed in"
                     ChangeLog::write($app, 'account', 'passkey_removed');
-                    $message = ['ok', 'The passkey has been removed.'];
+                    if ($app->auth()->hasTwoStep($user)) {
+                        $message = ['ok', 'The passkey has been removed.'];
+                    } else {
+                        // the last passkey of an account without the app: two-factor sign-in is off, the backup codes go with it
+                        $db->update('users', ['totp_backup_codes' => null], ['user_id' => $user['user_id']]);
+                        $message = ['ok', 'The passkey has been removed. Two-factor sign-in is turned off.'];
+                    }
                     break;
                 case 'remember_end':
                     $app->auth()->forgetOtherDevices((int) $user['user_id']);
@@ -178,11 +188,12 @@ final class Account
                         $message = ['error', 'Enter the correct password to turn it off.'];
                         break;
                     }
-                    $db->update('users', ['totp_secret' => '', 'totp_backup_codes' => null], ['user_id' => $user['user_id']]);
-                    $db->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$user['user_id']]); // keys replace the code from the app - without it they make no sense
+                    // passkeys are a second factor of their own and stay – with them the backup codes stay too
+                    $left = $app->auth()->accountKeys((int) $user['user_id']) !== [];
+                    $db->update('users', ['totp_secret' => ''] + ($left ? [] : ['totp_backup_codes' => null]), ['user_id' => $user['user_id']]);
                     $app->auth()->forgetOtherDevices((int) $user['user_id']);
                     ChangeLog::write($app, 'account', 'two_step_off');
-                    $message = ['ok', 'Two-factor sign-in is turned off.'];
+                    $message = ['ok', $left ? 'The code from the app is turned off. Your passkeys still protect the sign-in.' : 'Two-factor sign-in is turned off.'];
                     break;
             }
             if ($message !== null) {
@@ -203,9 +214,9 @@ final class Account
 
     /**
      * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/passkeys.js.
-     * A key can be added only to an account with two-factor sign-in enabled: it is a more convenient replacement of the
-     * code from the app (and signs in alone when the device checks its owner), the code and the backup codes remain as a
-     * fallback in case the device is lost.
+     * A passkey is a second factor of its own (and signs in alone when the device checks its owner). The first one on an
+     * account without two-factor sign-in turns it on and creates the backup codes – the fallback in case the device is lost;
+     * they wait in the session and My account shows them once after the page reloads.
      * The challenge is issued only to whoever types the current password (3.3.3, N56): a stolen session alone must not add
      * the attacker's own key. Saving needs that challenge, so it needs the password too.
      *
@@ -214,9 +225,6 @@ final class Account
     private function key(bool $save, array $user): Response
     {
         $app = $this->kernel->app;
-        if ((string) $user['totp_secret'] === '') {
-            return Response::json(['error' => t('Turn on two-factor sign-in first.')], 400);
-        }
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
             if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
@@ -244,12 +252,20 @@ final class Account
             return Response::json(['error' => t('This key is already registered.')], 400);
         }
         $name = mb_substr(trim($app->request->post('name')), 0, 80);
+        $first = !$app->auth()->hasTwoStep($user);
         $app->db()->insert('user_passkeys', [
             'user_id' => $user['user_id'], 'name' => $name !== '' ? $name : t('Passkey'), 'credential_hash' => $hash, 'credential_id' => $new['id'],
             'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
         ]);
         ChangeLog::write($app, 'account', 'passkey_added', $name);
-        $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone, or use it instead of the code from the app.');
+        if ($first) {
+            [$codes, $json] = Totp::backupCodes();
+            $app->db()->update('users', ['totp_backup_codes' => $json], ['user_id' => $user['user_id']]);
+            $app->session->set('backup_codes_new', $codes);
+            $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the new second step
+            ChangeLog::write($app, 'account', 'two_step_on', 'passkey');
+        }
+        $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone, or with your password and the passkey.');
 
         return Response::json(['ok' => true]);
     }
