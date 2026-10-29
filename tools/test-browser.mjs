@@ -413,6 +413,7 @@ const undoDepth = (p) => p.evaluate(() => window.taleaBuilder.state.undo.length)
 async function mouseDrag(p, locator, dx, dy) {
   await locator.scrollIntoViewIfNeeded();
   const b = await locator.boundingBox();
+  if (!b) throw new Error(`the drag handle ${locator} has no box: it is not on the canvas (is the canvas being swapped?)`);
   const x = b.x + b.width / 2;
   const y = b.y + b.height / 2;
   await p.mouse.move(x, y);
@@ -482,6 +483,8 @@ await step('compose (mouse): a row of three columns becomes 2 : 1 : 1 with the d
   await handle(page, 'divider-0').waitFor({ timeout: 5000 });
   const box = await grid(page, 'cg3');
   await mouseDrag(page, handle(page, 'divider-0'), (2 / 12) * box.width * 0.97, 0);
+  await idle(page); // the autosave swaps the canvas: the second divider is drawn again on the new one
+  await handle(page, 'divider-1').waitFor({ timeout: 5000 });
   await mouseDrag(page, handle(page, 'divider-1'), (1 / 12) * box.width * 0.97, 0);
   const build = await savedBuild(page, 'mouse');
   expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `the columns are ${find(build.children, 'cg3').style.base.columns}`);
@@ -591,6 +594,8 @@ await step('compose (keyboard): the divider handles set 2 : 1 : 1', async () => 
   await page.waitForTimeout(150);
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(250);
+  await idle(page); // the autosave swaps the canvas: focus the second divider on the new one
+  await handle(page, 'divider-1').waitFor({ timeout: 5000 });
   await handle(page, 'divider-1').focus();
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(250);
@@ -635,7 +640,7 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
     await idle(tp); // the autosave reloads the canvas: the next finger must not land on the old one
   };
   // the focus mode's canvas is wider (#115), so a target may lie below the fold: it is scrolled into view before the finger goes down
-  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); if (!b) throw new Error(`${locator} has no box: it is not on the canvas`); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
   const tap = async (id, corner) => { await idle(tp); await node(tp, id).scrollIntoViewIfNeeded().catch(() => {}); const b = await node(tp, id).boundingBox(); await tp.touchscreen.tap(corner ? b.x + 3 : b.x + b.width / 2, corner ? b.y + 3 : b.y + b.height / 2); await tp.waitForFunction((x) => window.taleaBuilder.state.selected === x, id); await handle(tp, 'margin-bottom').waitFor(); };
   await openBuilder(tp, 'touch');
 
@@ -651,6 +656,7 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
   const grid3 = await grid(tp, 'cg3');
   let d = await centre(handle(tp, 'divider-0'));
   await finger(d, { x: d.x + (2 / 12) * grid3.width * 0.97, y: d.y });
+  await handle(tp, 'divider-1').waitFor(); // finger() waited for the new canvas; its overlay draws the dividers again
   d = await centre(handle(tp, 'divider-1'));
   await finger(d, { x: d.x + (1 / 12) * grid3.width * 0.97, y: d.y });
 
