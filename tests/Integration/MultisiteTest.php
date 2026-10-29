@@ -6,6 +6,7 @@ namespace Talea\Tests\Integration;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Talea\Core\Backup;
+use Talea\Core\MediaStaging;
 use Talea\Core\Migrator;
 use Talea\Core\Sites;
 use Talea\Tests\Support\DatabaseTestCase;
@@ -14,6 +15,7 @@ use Talea\Tests\Support\DatabaseTestCase;
 #[CoversClass(Sites::class)]
 #[CoversClass(Migrator::class)]
 #[CoversClass(Backup::class)]
+#[CoversClass(MediaStaging::class)]
 final class MultisiteTest extends DatabaseTestCase
 {
     private static bool $secondSite = false;
@@ -101,6 +103,41 @@ final class MultisiteTest extends DatabaseTestCase
         $this->assertArrayHasKey('uq_pages_slug', $this->db()->uniqueKeys('pages'), 'site 1 keeps its key');
         $site->addUniqueKey('pages', 'uq_pages_slug', ['slug']);
         $this->assertArrayHasKey('uq_pages_slug', $site->uniqueKeys('pages'));
+    }
+
+    public function testARestoreRefusesTablesOfAnUnregisteredPrefix(): void
+    {
+        // tl9_ looks like a site of this install, but no site has it: it may belong to another installation in the same database
+        $file = 'talea-20261029-000000-multisitetest-foreign.sql';
+        @mkdir(Backup::FOLDER, 0775, true);
+        file_put_contents(Backup::FOLDER . '/' . $file, "-- Talea test\n-- engine: " . $this->db()->dialect()->name() . "\nDELETE FROM \"tl9_pages\";\n");
+        try {
+            Backup::restore($this->db(), $file);
+            $this->fail('A table of an unregistered prefix must stop the restore.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('foreign table tl9_pages', $e->getMessage());
+        } finally {
+            @unlink(Backup::FOLDER . '/' . $file);
+        }
+    }
+
+    public function testAWaitingFileGoesPublicWhenAFurtherSitePublishesIt(): void
+    {
+        $path = 'media/2026/10/multisite-probe-' . bin2hex(random_bytes(3)) . '.jpg';
+        $staged = MediaStaging::root(true) . '/' . $path;
+        @mkdir(dirname($staged), 0775, true);
+        file_put_contents($staged, 'jpeg');
+        $id = $this->db()->insert('media', ['image_path' => $path, 'staged_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
+        $this->db()->forSite('tl2_')->insert('site_parts', ['type' => 'footer', 'build' => '{"v":1,"children":[{"type":"image","content":{"src":"' . $path . '"}}]}']);
+        try {
+            MediaStaging::cleanup($this->db()); // the job runs with site 1 only, but site 2's content counts
+
+            $this->assertNull($this->db()->value('SELECT staged_at FROM {media} WHERE media_id = ?', [$id]));
+            $this->assertFileExists(TALEA_ROOT . '/' . $path);
+        } finally {
+            @unlink($staged);
+            @unlink(TALEA_ROOT . '/' . $path);
+        }
     }
 
     public function testOneBackupRestoresEverySite(): void

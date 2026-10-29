@@ -108,15 +108,16 @@ final class Backup
         // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
         // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
         $dialect = $db->dialect();
-        $count = self::walk($path, $gz, $db, $dialect->name(), null);
+        $prefixes = Sites::prefixes($db); // read before the restore replaces the registry
+        $count = self::walk($path, $gz, $prefixes, $dialect->name(), null);
         @set_time_limit(300);
         $pdo = $db->pdo();
         $tables = [];
         $dialect->restoreBegin($pdo);
         try {
-            self::walk($path, $gz, $db, $dialect->name(), function (string $statement) use ($pdo, &$tables, $db): mixed {
+            self::walk($path, $gz, $prefixes, $dialect->name(), function (string $statement) use ($pdo, &$tables, $prefixes): mixed {
                 if (preg_match('/^INSERT INTO [`"]([^`"]+)[`"]/', $statement, $m) === 1) {
-                    $prefix = (string) self::prefixOf($db, $m[1]);
+                    $prefix = (string) self::prefixOf($prefixes, $m[1]);
                     $tables[$prefix][substr($m[1], strlen($prefix))] = true;
                 }
 
@@ -134,8 +135,11 @@ final class Backup
         return $count;
     }
 
-    /** @param (callable(string): mixed)|null $apply null = check only */
-    private static function walk(string $path, bool $gz, Db $db, string $engine, ?callable $apply): int
+    /**
+     * @param list<string> $prefixes table prefixes of this installation's sites
+     * @param (callable(string): mixed)|null $apply null = check only
+     */
+    private static function walk(string $path, bool $gz, array $prefixes, string $engine, ?callable $apply): int
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $first = (string) ($gz ? gzgets($f) : fgets($f));
@@ -160,7 +164,7 @@ final class Backup
                 // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE|DELETE FROM) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
                     foreach ($names[1] as $name) {
-                        if (self::prefixOf($db, $name) === null) {
+                        if (self::prefixOf($prefixes, $name) === null) {
                             throw new \RuntimeException('The backup contains a foreign table ' . $name . ' – the restore was stopped.');
                         }
                     }
@@ -180,15 +184,22 @@ final class Backup
         return $count;
     }
 
-    /** The table prefix of a real table name: the owner's (site 1) or a further site's (Sites::prefixFor), null for a foreign table. */
-    private static function prefixOf(Db $db, string $table): ?string
+    /**
+     * The prefix of a real table name among the sites in the registry, null for a foreign table – also for a tl7_ table of a site
+     * that is not registered: it may belong to another installation in the same database.
+     *
+     * @param list<string> $prefixes
+     */
+    private static function prefixOf(array $prefixes, string $table): ?string
     {
-        $owner = $db->ownerPrefix;
-        if (str_ends_with($owner, '_') && preg_match('/^' . preg_quote(substr($owner, 0, -1), '/') . '\d*_/', $table, $m) === 1) {
-            return $m[0];
+        usort($prefixes, fn (string $a, string $b): int => strlen($b) <=> strlen($a)); // the longest first
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($table, $prefix)) {
+                return $prefix;
+            }
         }
 
-        return str_starts_with($table, $owner) ? $owner : null;
+        return null;
     }
 
     /** @return list<array{file:string, size:int, time:int}> newest first */
