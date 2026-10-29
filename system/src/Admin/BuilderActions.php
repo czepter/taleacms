@@ -124,7 +124,7 @@ trait BuilderActions
             'urls' => array_map(fn (string $action): string => $this->url($action, $target['params']), [
                 'save' => 'build_save', 'publish' => 'build_publish', 'discard' => 'build_discard', 'section' => 'build_section', 'class' => 'build_class',
                 'versions' => 'build_versions', 'compare' => 'build_compare', 'restore' => 'build_restore','ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',
-                'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve',
+                'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve', 'form_try' => 'build_form_try',
             ]) + ['delete_section' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['params']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
                 'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'section_preview' => $app->url('_section/'),
@@ -548,6 +548,9 @@ trait BuilderActions
         $field = function (array $properties) use (&$field): array {
             foreach ($properties as $key => $d) {
                 $properties[$key]['label'] = t((string) ($d['label'] ?? ''));
+                if (isset($d['note'])) {
+                    $properties[$key]['note'] = t((string) $d['note']);
+                }
                 if (isset($d['options'])) {
                     $properties[$key]['options'] = array_map(fn (string $m): string => t($m), $d['options']);
                 }

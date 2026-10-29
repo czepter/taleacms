@@ -5587,6 +5587,7 @@ return [
     'With search' => 'S vyhledáváním',
     'With selected:' => 'S označenými:',
     'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.' => 'Když se odhad zobrazí až po kontaktních údajích, výsledek se ukáže u formuláře: po odeslání se neotevře žádná jiná stránka.',
+    'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.' => 'Když se odhad zobrazí až po kontaktních údajích, výsledek se ukáže u formuláře: po odeslání se neotevře žádná jiná stránka.',
     'With the imprint' => 'S tiráží',
     'With your own AI key (AI settings) the assistant can also draft the pages and their texts.' => 'S vlastním klíčem AI (Nastavení AI) může asistent navrhnout i stránky a jejich texty.',
     'Within 50 km.' => 'V okruhu 50 km.',

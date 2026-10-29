@@ -1708,9 +1708,12 @@
 		if (!properties.length) { panel.append(el('p', { class: 'bd-empty' }, s.container ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
 		// a Collection list offers the chosen collection's fields by their labels where a property holds a field key
 		const listCollection = p.type === 'collection_list' ? (D.collections || []).find((k) => k.slug === p.content.collection) || null : null;
-		properties.forEach(([key, def]) => panel.append(field(listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.content[key]) : def, p.content[key], (h) => {
+		// a property with the condition „when“ ({other property: value or list}) is offered only when it holds; its note says why in its place
+		const holds = (def) => !def.when || Object.entries(def.when).every(([k, v]) => (Array.isArray(v) ? v : [v]).includes(p.content[k] ?? (s.properties[k] || {}).default));
+		const steers = (key) => properties.some(([, d]) => d.when && key in d.when);
+		properties.forEach(([key, def]) => panel.append(!holds(def) ? (def.note ? el('p', { class: 'bd-field-note' }, T(def.note)) : '') : field(listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.content[key]) : def, p.content[key], (h) => {
 			if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); }
-			if (p.type === 'collection_list' && key === 'collection') { redrawRight(); } // the field choices follow the collection
+			if ((p.type === 'collection_list' && key === 'collection') || steers(key)) { redrawRight(); } // the field choices follow the collection, a „when“ follows its property
 		}, { error: state.errors[state.selectedPath + '.content.' + key], element: p, key: key })));
 	}
 
@@ -1766,7 +1769,8 @@
 			case 'structured': // typed schema.org data: the control is in builder-structured.js
 				if (window.taleaStructuredField) { return window.taleaStructuredField(def, value, change, { page: D.page }); }
 				return wrapper;
-			case 'form_logic': // rules and results of a form: edited in the logic overlay, not as a field
+			case 'form_logic': // rules and results of a form: a summary and the button of the logic overlay (builder-form-logic.js)
+				if (window.taleaFormLogicField && options && options.element) { return window.taleaFormLogicField(def, value, change, { element: options.element }); }
 				return wrapper;
 			case 'items':
 				return itemField(def, Array.isArray(value) ? value : [], change, options);
@@ -1820,12 +1824,14 @@
 			// a field with the condition „when“ ({siblings: hodnota}) shows only when another field of the item has the given value (options only for a select)
 			const visible = (d) => !d.when || Object.entries(d.when).every(([pk, pv]) => (Array.isArray(pv) ? pv.includes(item[pk]) : item[pk] === pv));
 			let label = null;
-			const control = ([k, d]) => field(d, item[k], (h) => {
+			let media = null; // the picture or icon rows of the options follow the options as they are typed
+			const control = ([k, d]) => (k === 'option_media' ? (media = optionMediaField(d, item, (h) => { item[k] = h; save(); })) : field(d, item[k], (h) => {
 				item[k] = h;
 				save();
 				if (label && def.summary.includes(k)) { label.textContent = summaryText(item); } // the row follows, the focus stays
+				if (media && (k === 'choices' || k === 'checkbox_options')) { media.refresh(); }
 				if (Object.values(def.fields).some((other) => other.when && k in other.when)) { redrawRight(); }
-			});
+			}));
 			const actions = el('div', { class: 'bd-item-actions bd-actions' },
 				el('button', { type: 'button', title: T('Up'), 'aria-label': T('Up'), onclick: () => { if (i > 0) { reorder((f) => f.splice(i - 1, 0, f.splice(i, 1)[0])); items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('up')),
 				el('button', { type: 'button', class: 'danger', title: T("Remove"), 'aria-label': T("Remove"), onclick: () => { reorder((f) => f.splice(i, 1)); items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('delete')));
@@ -1862,6 +1868,27 @@
 		return wrapper;
 	}
 
+	/** A form field's picture or icon per option (option_media: lines in the order of the options): one row per option with a Media button. */
+	function optionMediaField(def, item, change) {
+		const wrapper = el('div', { class: 'bd-field bd-option-media' }, el('span', {}, T(def.label)));
+		const rows = el('div', { class: 'bd-option-media-rows' });
+		wrapper.refresh = () => {
+			const options = String(item[item.type === 'checkboxes' ? 'checkbox_options' : 'choices'] || '').split(/\r?\n/).map((o) => o.replace(/\s*\|\s*-?\d[\d \u00a0]*(?:[.,]\d+)?\s*$/u, '').trim()).filter(Boolean);
+			const media = String(item.option_media || '').split('\n');
+			const write = () => change(media.map((m) => (m || '').trim()).join('\n').replace(/\n+$/, ''));
+			rows.replaceChildren(...options.map((option, i) => {
+				const input = el('input', { type: 'text', value: media[i] || '', list: 'bd-dl-icons', placeholder: T('media/… or an icon name'), 'aria-label': T('Image or icon for “%s”').replace('%s', option),
+					oninput: (e) => { media[i] = e.target.value; write(); } });
+				return el('div', { class: 'bd-option-media-row' }, el('span', {}, option), input,
+					el('button', { type: 'button', class: 'bd-btn', onclick: () => window.taleaPickImage && window.taleaPickImage((o) => { input.value = o.url; media[i] = o.url; write(); }) }, T('Media')));
+			}));
+			if (!options.length) { rows.append(el('p', { class: 'bd-empty' }, T('Write the options first.'))); }
+		};
+		wrapper.refresh();
+		wrapper.append(rows);
+		return wrapper;
+	}
+
 	/* ---------- style (of an element and a class) ---------- */
 
 	const HINTS = {
@@ -1872,7 +1899,7 @@
 		area: [],
 	};
 	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'bd-dl-' + type }, values.map((h) => el('option', { value: h })))),
-		el('datalist', { id: 'bd-dl-links' }));
+		el('datalist', { id: 'bd-dl-links' }), el('datalist', { id: 'bd-dl-icons' }, Object.entries(((TYPY.icon || {}).properties || {}).icon?.options || {}).map(([k, name]) => el('option', { value: k, label: name }))));
 	/** The link field menu: site pages, news and element anchors on this page (up to date on every opening). */
 	function refreshLinks() {
 		const anchors = [];

@@ -116,6 +116,62 @@ final class BrowserWalkTest extends TestCase
         return [$chrome, $modules];
     }
 
+    /**
+     * The builder's logic overlay (tools/test-logic-overlay.mjs): a legacy condition shows as a rule, a rule and a result are added by
+     * picking from the lists, Try it shows what try_form says, and the saved draft has the rules and no old condition pair.
+     */
+    public function testLogicOverlay(): void
+    {
+        [$chrome, $modules] = $this->playwright();
+        try {
+            $site = Site::boot(['web' => 'business', 'siteName' => 'Browser Test Ltd', 'language' => 'en', 'extensions' => ['enquiries', 'claude'], 'enabledExtensions' => 'enquiries,claude']);
+        } catch (\PDOException $e) {
+            $this->markTestSkipped('No MySQL reachable: ' . $e->getMessage());
+        }
+        try {
+            $site->mcpResult('create_page', ['title' => 'Quote', 'slug' => 'quote', 'visible' => true]);
+            $id = (string) $site->value('SELECT public_id FROM tl_pages WHERE slug = ?', ['quote']);
+            $saved = $site->mcpResult('save_build', ['id' => $id, 'build' => ['v' => 1, 'children' => [['id' => 'sq1', 'type' => 'section', 'children' => [
+                ['id' => 'frm1', 'type' => 'form', 'content' => ['name' => 'Quote', 'thank_you_page' => '/contact', 'fields' => [
+                    ['key' => 'kloc0', 'label' => 'Location', 'type' => 'radio', 'choices' => "Home\nAbroad"],
+                    ['key' => 'kgue0', 'label' => 'Guests', 'type' => 'number', 'unit_price' => '10'],
+                    ['key' => 'kext0', 'label' => 'Extras', 'type' => 'text', 'show_when_field' => 'Location', 'show_when_value' => 'Home'],
+                    ['key' => 'kest0', 'label' => 'Estimate', 'type' => 'estimate', 'base_price' => '100'],
+                    ['key' => 'kmai0', 'label' => 'Email', 'type' => 'email'],
+                ]]],
+            ]]]]]);
+            $this->assertEmpty($saved['errors'] ?? null, json_encode($saved['errors'] ?? null));
+
+            $out = sys_get_temp_dir() . '/talea-logic-overlay-' . getmypid() . '.json';
+            $project = dirname(__DIR__, 2);
+            $process = proc_open(['node', $project . '/tools/test-logic-overlay.mjs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $project,
+                array_merge(getenv(), ['BASE' => $site->base, 'PASSWORD' => $site->password, 'CHROME' => $chrome, 'NODE_PATH' => $modules . '/node_modules', 'PAGE' => $id, 'OUT' => $out]));
+            $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+            $exit = proc_close($process);
+            $seen = is_file($out) ? json_decode((string) file_get_contents($out), true) : null;
+            @unlink($out);
+            $this->assertSame(0, $exit, $output);
+
+            // Try it showed what try_form says for the same answers
+            $try = $site->mcpResult('try_form', ['id' => $id, 'element' => 'frm1', 'answers' => $seen['answers']]);
+            $this->assertSame(str_replace("\u{a0}", ' ', $try['shown']), $seen['shown'], $output);
+            $this->assertEqualsWithDelta(260.0, $try['total'], 0.001, 'base 100 + 10 guests x 10, abroad x 1.3');
+
+            $form = $site->mcpResult('get_build', ['id' => $id])['build']['children'][0]['children'][0]['content'];
+            $rules = $form['logic']['rules'];
+            $this->assertCount(2, $rules, json_encode($form['logic']));
+            $this->assertSame([['field' => 'kloc0', 'op' => 'is', 'value' => 'Home']], $rules[0]['when'], 'the legacy condition became a rule');
+            $this->assertSame([['do' => 'show_when', 'field' => 'kext0']], $rules[0]['then']);
+            $this->assertSame([['field' => 'kloc0', 'op' => 'is', 'value' => 'Abroad']], $rules[1]['when']);
+            $this->assertSame([['do' => 'multiply', 'by' => 1.3]], $rules[1]['then']);
+            $this->assertSame('Personal offer', $form['logic']['results'][0]['heading'] ?? null);
+            $this->assertSame('after_contact', $form['calculation']);
+            $this->assertSame([''], array_values(array_unique(array_map(fn (array $f): string => (string) ($f['show_when_field'] ?? ''), $form['fields']))), 'the old condition pairs are cleared');
+        } finally {
+            $site->close();
+        }
+    }
+
     /** the script mirrors the server: same hidden questions, same total and estimate, and the quiz flow works (tools/test-form-logic.mjs) */
     public function testFormLogicMatchesTheServer(): void
     {
