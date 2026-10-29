@@ -70,6 +70,12 @@ final class AgentJournal
         return new self($db, $id, mb_substr($tool, 0, 60), $call);
     }
 
+    /** The prefix an entry carries: the tables of the site the call works on; '' for the owner's own site. */
+    private function sitePrefix(): string
+    {
+        return $this->db->prefix === $this->db->ownerPrefix ? '' : $this->db->prefix;
+    }
+
     public static function journaled(string $table): bool
     {
         return in_array($table, self::TABLES, true);
@@ -114,7 +120,7 @@ final class AgentJournal
                     continue; // nothing changed (an update to the same values)
                 }
                 $this->db->insert('agent_journal', ['session_id' => $this->session, 'call_no' => $this->call, 'tool' => $this->tool, 'tbl' => $table,
-                    'row_key' => (string) json_encode($key, JSON_UNESCAPED_UNICODE), 'before_row' => $old === null ? null : (string) json_encode($old, JSON_UNESCAPED_UNICODE),
+                    'site_prefix' => $this->sitePrefix(), 'row_key' => (string) json_encode($key, JSON_UNESCAPED_UNICODE), 'before_row' => $old === null ? null : (string) json_encode($old, JSON_UNESCAPED_UNICODE),
                     'after_row' => $new === null ? null : (string) json_encode($new, JSON_UNESCAPED_UNICODE), 'created_at' => date('Y-m-d H:i:s')]);
             }
         });
@@ -136,7 +142,7 @@ final class AgentJournal
     public function untracked(string $table, string $why): void
     {
         $this->quietly(fn (): int => $this->db->insert('agent_journal', ['session_id' => $this->session, 'call_no' => $this->call, 'tool' => $this->tool, 'tbl' => $table,
-            'row_key' => '', 'before_row' => null, 'after_row' => null, 'untracked' => mb_substr($why, 0, 120), 'created_at' => date('Y-m-d H:i:s')]));
+            'site_prefix' => $this->sitePrefix(), 'row_key' => '', 'before_row' => null, 'after_row' => null, 'untracked' => mb_substr($why, 0, 120), 'created_at' => date('Y-m-d H:i:s')]));
     }
 
     /**
@@ -214,16 +220,18 @@ final class AgentJournal
             if ($e['untracked'] !== null) {
                 continue;
             }
-            $id = $e['tbl'] . '|' . $e['row_key'];
-            $rows[$id] ??= ['table' => $e['tbl'], 'key' => (array) json_decode((string) $e['row_key'], true), 'before' => $e['before_row']];
+            $id = $e['site_prefix'] . '|' . $e['tbl'] . '|' . $e['row_key'];
+            $rows[$id] ??= ['prefix' => (string) $e['site_prefix'], 'table' => $e['tbl'], 'key' => (array) json_decode((string) $e['row_key'], true), 'before' => $e['before_row']];
             $rows[$id]['after'] = $e['after_row'];
         }
         $result = ['restored' => 0, 'removed' => 0, 'conflicts' => [], 'untracked' => $untracked, 'undone' => false];
         // restoring the settings row can change the instructions for Claude: that change is recorded like any other (#149)
         $instructions = fn (): string => (string) ($db->value("SELECT value FROM {settings} WHERE name = 'claude_instructions'") ?? '');
         $instructionsBefore = $instructions();
-        $db->transaction(function (Db $db) use ($rows, $force, &$result): void {
+        $db->transaction(function (Db $host) use ($rows, $force, &$result): void {
             foreach (array_reverse($rows) as $row) {
+                // a row is written back on the site it was changed on (same connection)
+                $db = $row['prefix'] === '' ? $host->forSite($host->ownerPrefix) : $host->forSite($row['prefix']);
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition($db, array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
                 if (!$force && !self::same($current, $expected)) {
@@ -249,7 +257,8 @@ final class AgentJournal
         $user = $app->auth()->user();
         $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
-        \Talea\Front\Cache::clear();
+        $host = $db->prefix === $db->ownerPrefix ? '' : $db->prefix;
+        array_diff(array_column($rows, 'prefix'), [$host]) === [] ? \Talea\Front\Cache::clear() : \Talea\Front\Cache::clearAll(); // rows of another site: its pages go too
         ClaudeInstructions::changed($app, $instructionsBefore, $instructions());
         \Talea\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
         Events::record($db, 'claude.session_undone', 'info', t('A Claude session was undone: %d rows restored, %d removed, %d left because they changed since.', $result['restored'], $result['removed'], count($result['conflicts'])),
