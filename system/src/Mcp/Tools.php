@@ -384,7 +384,7 @@ final class Tools
                     'links' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the drafts you made: [{"label": "Services – draft build", "url": "https://…/preview…"}] or plain strings (a URL, or a label such as "page About us")']], ['id', 'status', 'summary'])],
         ];
 
-        return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], [...$tools, ...self::siteDefinitions($s, $text, $pid)]));
+        return array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], [...$tools, ...self::siteDefinitions($s, $text, $pid)]);
     }
 
     /** @return list<string> names of all tools (including those of disabled extensions) */
