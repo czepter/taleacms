@@ -167,6 +167,25 @@ abstract class Dialect
     /** Statements ({table} names) that empty these tables whatever the foreign keys say: MySQL switches the checks off around DELETE, PostgreSQL TRUNCATEs them together (CASCADE: rows that only exist for them go too). @param list<string> $tables @return list<string> */
     abstract public function emptyTablesSql(array $tables): array;
 
+    /**
+     * Statements that switch the foreign key checks off before and on after a bulk copy or drop (MySQL, SQLite); PostgreSQL has none
+     * (copy parents first, drop with CASCADE). A transaction in progress is fine: SQLite then defers the checks to the commit.
+     *
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    public function foreignKeysOff(): array
+    {
+        return [[], []];
+    }
+
+    /** Statements that drop these tables (REAL names, no braces) whatever the foreign keys between them say. @param list<string> $tables @return list<string> */
+    public function dropTablesSql(array $tables): array
+    {
+        [$before, $after] = $this->foreignKeysOff();
+
+        return [...$before, ...array_map(fn (string $t): string => 'DROP TABLE IF EXISTS ' . $this->quote($t), $tables), ...$after];
+    }
+
     /** Statement ({table}, no placeholders) that moves the auto-number of a table past its highest key after rows were inserted with explicit keys; '' when the engine does it by itself (MySQL). */
     public function syncSequenceSql(string $table, string $keyColumn): string
     {

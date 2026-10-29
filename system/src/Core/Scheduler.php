@@ -55,12 +55,13 @@ final class Scheduler
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
         'media_staging' => [3600, 'any', 'Files waiting for approval: public with the content that uses them, deleted after 30 days'],
         'page_cache' => [0, 'any', 'Page cache: emptied on a new day, warmed after changes'],
+        'sites_cleanup' => [3600, 'any', 'Sites in the trash for 30 days: their tables are dropped'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
 
     /** Jobs over the owner's shared tables and files (multisite, docs/specs/multisite.md): they run with site 1 only. */
-    public const array OWNER_JOBS = ['backup', 'media_sync', 'media_staging', 'agent_journal', 'security'];
+    public const array OWNER_JOBS = ['backup', 'media_sync', 'media_staging', 'agent_journal', 'security', 'sites_cleanup'];
 
     /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
     private static function lockName(Db $db): string
@@ -120,6 +121,7 @@ final class Scheduler
             'triage' => fn (App $app): string => Triage::run($app),
             'connectors' => fn (App $app): string => Connectors::processQueue($app),
             'agent_journal' => fn (App $app): string => AgentJournal::purge($app->db()),
+            'sites_cleanup' => fn (App $app): string => Sites::enabled() ? Sites::cleanup($app->db()) : 'off',
             'search_data' => fn (App $app): string => SearchData::run($app),
             'gbp' => fn (App $app): string => GoogleBusiness::run($app),
             'notices' => fn (App $app): string => Notices::run($app),

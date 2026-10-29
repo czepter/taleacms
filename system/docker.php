@@ -35,10 +35,17 @@ try {
             foreach (Talea\Core\Scheduler::run($app, 'cron', 50.0) as $job => $result) {
                 fwrite(STDOUT, ($prefix !== null ? "[{$prefix}] " : '') . "{$job}: {$result}\n");
             }
+            if ($prefix === null && Talea\Core\Sites::enabled()) {
+                // new sites: their tables are made here, never on a page request (Admin\Modules\Sites only inserts the row)
+                foreach (Talea\Core\Sites::provisionPending($app->db(), $app->config['db']) as $line) {
+                    fwrite(STDOUT, $line . "\n");
+                }
+                $ready = Talea\Core\Sites::readyPrefixes($app->db());
+            }
             if ($prefix === null) {
                 // multisite: every further live site in its own process, so no static state crosses from one site to another
                 foreach (array_slice($sites, 1) as $site) {
-                    if ($site['status'] === 'live') {
+                    if ($site['status'] === 'live' && in_array($site['prefix'], $ready ?? array_column($sites, 'prefix'), true)) {
                         passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' cron ' . escapeshellarg($site['prefix']));
                     }
                 }
