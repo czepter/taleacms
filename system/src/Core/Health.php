@@ -112,7 +112,7 @@ final class Health
         // --- operation
         $log = TALEA_ROOT . '/storage/log/errors.log';
         $errorCount = 0;
-        if (is_file($log)) {
+        if (is_file($log) && Owners::isFirst($app->db())) { // the log and the backups are the install's: a further owner does not read them
             $from = date('c', time() - 86400);
             foreach (array_slice(file($log, FILE_IGNORE_NEW_LINES) ?: [], -500) as $row) {
                 $errorCount += (int) (substr($row, 1, 25) >= $from);
@@ -128,9 +128,11 @@ final class Health
                 . ($tracking['failed_at'] > 0 ? ', ' . t('the last report failed: %s', $tracking['error']) : '')
                 . ($tracking['outbox'] > 0 ? ', ' . t('%d waiting to be sent', $tracking['outbox']) : '')
                 . ($tracking['browser'] ? ', ' . t('browser errors of the public site too') : ''));
-        $last = Backup::listAll()[0]['time'] ?? 0;
-        $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-        $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+        if (Owners::isFirst($app->db())) {
+            $last = Backup::listAll()[0]['time'] ?? 0;
+            $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
+            $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+        }
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $media = 0;
         if (is_dir(TALEA_ROOT . '/media')) {

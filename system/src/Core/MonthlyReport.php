@@ -87,7 +87,7 @@ final class MonthlyReport
         }
         $signups = Extensions::isEnabled($s, 'newsletter_signup') ? $count('SELECT COUNT(*) FROM {subscribers} WHERE status = 1 AND created_at >= ? AND created_at < ?', [$from, $to]) : null;
 
-        $lastBackup = Backup::listAll()[0]['time'] ?? null;
+        $lastBackup = Owners::isFirst($db) ? Backup::listAll()[0]['time'] ?? null : null; // the backups are the install's
         $backups = [
             'created' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.created', $from, $to]),
             'failed' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.failed', $from, $to]),

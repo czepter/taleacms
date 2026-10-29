@@ -82,6 +82,22 @@ final class Owners
         return array_map('strval', array_column(array_filter(self::all($db), fn (array $o): bool => $o['ready_at'] !== null), 'prefix'));
     }
 
+    /** Sets an owner's state (live, paused, archived); owner 1 is the install itself and always live. Returns an error text, null = saved. */
+    public static function setStatus(Db $db, string $prefix, string $status): ?string
+    {
+        if (!in_array($status, self::STATUSES, true)) {
+            return 'Choose a state for the owner.';
+        }
+        if ($prefix === $db->installPrefix) {
+            return 'The first owner cannot be paused or archived.';
+        }
+        if ($db->update('owners', ['status' => $status], ['prefix' => $prefix]) === 0 && $db->value('SELECT 1 FROM {owners} WHERE prefix = ?', [$prefix]) === null) {
+            return 'The owner does not exist.';
+        }
+
+        return null;
+    }
+
     /** Is this connection owner 1's, the one whose files (media/, storage/backups/, the logs) are the install's own? */
     public static function isFirst(Db $db): bool
     {

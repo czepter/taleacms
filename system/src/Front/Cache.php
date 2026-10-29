@@ -21,6 +21,14 @@ final class Cache
     /** Multisite: a further site's own folder (useSite()); null = site 1, the folder above. */
     private static ?string $siteFolder = null;
     private static ?string $sitePrefix = null;
+    /** The install prefix (the first owner's site 1 and the folder above): clearAll() needs it to tell the owners' folders apart. */
+    private static string $installPrefix = 'tl_';
+
+    /** Set by App for every request/process. */
+    public static function useInstall(string $prefix): void
+    {
+        self::$installPrefix = $prefix;
+    }
     /** Only a safety net: a change and a new day clear the cache anyway. */
     private const int LINK_LIFETIME = 86400;
 
@@ -170,7 +178,16 @@ final class Cache
      */
     public static function clearAll(): void
     {
-        foreach (array_merge([self::FOLDER], glob(self::FOLDER . '-*', GLOB_ONLYDIR) ?: []) as $folder) {
+        // every site of the owner being served, never another owner's: the letters of a prefix name its owner ("tl", "tlb")
+        $letters = fn (string $prefix): string => (string) preg_replace('/\d*_$/', '', $prefix);
+        $owner = $letters(self::$sitePrefix ?? self::$installPrefix);
+        $folders = $owner === $letters(self::$installPrefix) ? [self::FOLDER] : [];
+        foreach (glob(self::FOLDER . '-*', GLOB_ONLYDIR) ?: [] as $folder) {
+            if ($letters(substr(basename($folder), strlen('pages-'))) === $owner) {
+                $folders[] = $folder;
+            }
+        }
+        foreach ($folders as $folder) {
             self::clearFolder($folder);
         }
     }

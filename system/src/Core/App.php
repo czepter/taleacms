@@ -24,9 +24,10 @@ final class App
     public function __construct(public readonly array $config, ?Request $request = null, public readonly ?array $site = null)
     {
         $this->request = $request ?? Request::fromGlobals();
-        $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
+        $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/', (string) ($config['db']['owner_prefix'] ?? $config['db']['prefix'] ?? 'tl_'), (string) ($config['db']['prefix'] ?? 'tl_'));
         $this->view = new View([TALEA_SYSTEM . '/views']);
         Demo::configure($config['demo'] ?? null);
+        \Talea\Front\Cache::useInstall((string) ($config['db']['prefix'] ?? 'tl_'));
     }
 
     /**
@@ -99,6 +100,17 @@ final class App
                 exit($setUp ? "This site is being set up\n" : "Not found\n");
             }
             $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true];
+        }
+        if (($site['owner_status'] ?? 'live') !== 'live' && $request->path() !== '/health') {
+            // a paused owner: every one of its sites answers 503 (admin too), an archived owner's hosts are unknown
+            $paused = $site['owner_status'] === 'paused';
+            http_response_code($paused ? 503 : 404);
+            header('Content-Type: text/plain; charset=utf-8');
+            if ($paused) {
+                header('Retry-After: 3600');
+                header('X-Robots-Tag: noindex');
+            }
+            exit($paused ? "This site is not public yet\n" : "Not found\n");
         }
         if ($site['redirect_to_primary'] && !$site['is_primary'] && $site['primary_host'] !== null) {
             header('Location: ' . Sites::originOn($request, $site['primary_host']) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);

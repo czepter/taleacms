@@ -14,6 +14,8 @@ final class Session
     public function __construct(
         private readonly bool $secure,
         private readonly string $cookiePath = '/',
+        private readonly string $owner = '',
+        private readonly string $install = '',
     ) {
     }
 
@@ -35,6 +37,15 @@ final class Session
         ini_set('session.gc_maxlifetime', '28800');
         session_start();
         $this->started = true;
+        // several owners (docs/specs/multisite.md): the store is shared by the install, so a session belongs to the owner that made it. The id
+        // of an owner's session presented on another owner's host (the cookie is host-only, but a header is not) starts empty there. A session
+        // from before owners existed has no marker and is the install owner's.
+        if ($this->owner !== '' && ($_SESSION['_owner'] ?? $this->install) !== $this->owner) {
+            $_SESSION = [];
+        }
+        if ($this->owner !== '' && $this->owner !== $this->install) {
+            $_SESSION['_owner'] = $this->owner;
+        }
     }
 
     public function get(string $key, mixed $default = null): mixed

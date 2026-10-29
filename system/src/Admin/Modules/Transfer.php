@@ -39,6 +39,12 @@ final class Transfer extends Module
     public const string ICON = 'b-archive';
     public const bool ADMIN_ONLY = true;
 
+    /** The export and import files and the staged WordPress file are the install's: only the first owner works with them until owners get their own folders. */
+    public static function availableTo(\Talea\Core\App $app): bool
+    {
+        return \Talea\Core\Owners::isFirst($app->db());
+    }
+
     protected function actionList(): Response
     {
         $files = [];

@@ -412,7 +412,7 @@ final class Kernel
         }
         if ($this->app->auth()->isAdmin()) {
             $backup = \Talea\Core\Backup::listAll()[0]['time'] ?? 0;
-            if (time() - $backup > 8 * 86400) {
+            if (time() - $backup > 8 * 86400 && \Talea\Core\Owners::isFirst($this->app->db())) { // the backups are the install's, not a further owner's
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
             // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
