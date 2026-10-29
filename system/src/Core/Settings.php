@@ -169,6 +169,8 @@ final class Settings
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail
+        'alerts_kinds' => 'backups,mail,deliveries,jobs,content,notfound,security,fleet,other', // what is worth an alert, a list of Alerts::KINDS
+        'alerts_interval' => '60',     // minutes between two alerts at least (Alerts::INTERVALS); 0 = right away
         'alerts_cursor' => '',         // the last event reported (internal)
         'alerts_last_sent' => '0',     // when the last alert went out (internal)
         'report_monthly' => '0',       // monthly report by e-mail (2.9, Core\MonthlyReport) – off, so an update never starts e-mailing by itself

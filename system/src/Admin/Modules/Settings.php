@@ -101,7 +101,7 @@ class Settings extends Module
         'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
             'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'backup_media' => 'flag'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
-        'health' => ['health_token' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'flag', 'alerts_email' => 'email'],
+        'health' => ['health_token' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'flag', 'alerts_email' => 'email', 'alerts_kinds' => 'list:backups|mail|deliveries|jobs|content|notfound|security|fleet|other', 'alerts_interval' => 'choice:0|60|360|1440'], // Alerts::KINDS, INTERVALS
     ];
 
     /**
