@@ -76,6 +76,45 @@ final class LinksTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertSame('0', $site->settingValue('redirect_auto'), 'MCP: update_settings switches the automatic redirects off');
     }
 
+    public function testRedirectsByThemselvesLeaveAddressesOfHiddenContentAlone(): void
+    {
+        $site = $this->site();
+        $this->adminPost('/admin.php?module=redirects&action=settings', ['redirect_auto' => '1', 'redirect_auto_threshold' => '90'], '/admin.php?module=redirects');
+        $site->mcp('create_page', ['title' => 'Coming soon', 'slug' => 'coming-soon', 'visible' => false, 'in_menu' => false, 'content' => '<p>Not yet.</p>']);
+        $site->mcp('create_page', ['title' => 'Opening in the services', 'slug' => 'services-coming-soon', 'visible' => true, 'in_menu' => false, 'content' => '<p>Other.</p>']);
+        $site->mcp('create_page', ['title' => 'Dead end', 'slug' => 'services-dead-end', 'visible' => true, 'in_menu' => false, 'content' => '<p>Moved.</p>']);
+        $site->mcp('create_page', ['title' => 'Linker', 'slug' => 'linker', 'visible' => true, 'in_menu' => false, 'content' => '<p><a href="/coming-soon">soon</a></p>']);
+        $site->exec("UPDATE tl_pages SET slug = 'services/coming-soon' WHERE title = 'Opening in the services'");
+        $site->exec("UPDATE tl_pages SET slug = 'services/dead-end' WHERE title = 'Dead end'");
+        $site->exec('DELETE FROM tl_not_found');
+        $site->clearPageCache();
+        $visitor = $site->client('visitor');
+        for ($i = 0; $i < 3; $i++) {
+            $visitor->get('/coming-soon');
+            $visitor->get('/dead-end');
+        }
+
+        $this->runJob('redirects');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path = 'coming-soon'"), 'the address of a hidden page is never redirected by itself');
+        $this->assertSame('services/dead-end', $site->value("SELECT to_path FROM tl_redirects WHERE from_path = 'dead-end'"), 'a truly dead address still gets its redirect');
+        $this->assertStringContainsString('href="/coming-soon"', (string) $site->value("SELECT text FROM tl_pages WHERE slug = 'linker'"), 'links to the hidden page stay');
+    }
+
+    public function testAHtmlProbeOfHiddenContentIsNotRedirected(): void
+    {
+        $site = $this->site();
+        $this->adminPost('/admin.php?module=redirects&action=settings', ['redirect_auto' => '1', 'redirect_auto_threshold' => '90'], '/admin.php?module=redirects');
+        $site->mcp('create_page', ['title' => 'About soon', 'slug' => 'about', 'visible' => false, 'in_menu' => false, 'content' => '<p>Not yet.</p>']);
+        $site->mcp('create_page', ['title' => 'Elsewhere', 'slug' => 'services-about', 'visible' => true, 'in_menu' => false, 'content' => '<p>Other.</p>']);
+        $site->exec("UPDATE tl_pages SET slug = 'services/about' WHERE title = 'Elsewhere'");
+        $site->exec('DELETE FROM tl_not_found');
+        $site->clearPageCache();
+        $site->exec('INSERT INTO tl_not_found (path, count, last_seen_at, referrer, first_seen_at) VALUES (?, ?, NOW(), ?, NOW())', ['about.html', 5, '']);
+
+        $this->runJob('redirects');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path IN ('about.html', 'about')"), 'about.html would also match /about once the page is published');
+    }
+
     public function testOrphanPagesAndInternalLinkSuggestions(): void
     {
         $site = $this->site();
