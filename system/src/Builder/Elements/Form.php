@@ -112,7 +112,7 @@ final class Form extends Element
     /**
      * Runs the logic of the form element $elementId of a build with answers given by field key (what try_form and the builder's try do).
      *
-     * @param array<string, string|list<string>> $answers field key => answer (a list for checkboxes, "HH:MM-HH:MM" for a time range)
+     * @param array<string, mixed> $answers field key => answer, untrusted (a list for checkboxes, "HH:MM-HH:MM" for a time range)
      * @return array{visible: list<string>, lines: list<array{label: string, amount: float}>, total: float, shown: string, variant: string, unknown_keys: list<string>}
      */
     public static function tryOut(array $build, string $elementId, array $answers): array

@@ -160,7 +160,12 @@ final class FormLogic
         return is_scalar($v) ? (string) $v : '';
     }
 
-    /** The first $max entries of a list; the rest is reported. @return list<mixed> */
+    /**
+     * The first $max entries of a list; the rest is reported.
+     *
+     * @param array<string, string> $errors
+     * @return list<mixed>
+     */
     private static function cap(mixed $list, int $max, string $at, array &$errors): array
     {
         $list = is_array($list) ? array_values($list) : [];
@@ -357,7 +362,6 @@ final class FormLogic
      */
     public static function visible(array $fields, array $rules, array $answers): array
     {
-        $fields = array_values($fields);
         $position = [];
         foreach ($fields as $i => $f) {
             if (self::str($f['key'] ?? '') !== '') {
@@ -400,7 +404,6 @@ final class FormLogic
      */
     public static function amounts(array $fields, array $rules, array $answers, array $visible, float $base, bool $afterContact): array
     {
-        $fields = array_values($fields);
         $lines = [];
         if ($base != 0.0) {
             $lines[] = [t('Base price'), $base];
