@@ -24,15 +24,21 @@ final class Db
 {
     /** Tables whose rows are addressed from outside by a public UUID v4 (column public_id); insert() fills it. The integer key never leaves the database layer. */
     /** table => primary key column of the same tables (the integer key that never leaves the database layer). */
-    public const array PRIMARY_KEYS = ['users' => 'user_id', 'categories' => 'category_id', 'news' => 'news_id', 'tags' => 'tag_id', 'media' => 'media_id', 'media_folders' => 'folder_id', 'pages' => 'page_id', 'collections' => 'collection_id', 'collection_items' => 'item_id', 'popups' => 'popup_id', 'components' => 'component_id', 'forms' => 'form_id', 'sections' => 'section_id', 'enquiries' => 'enquiry_id', 'subscribers' => 'subscriber_id', 'newsletters' => 'id', 'redirects' => 'redirect_id', 'api_tokens' => 'token_id', 'user_passkeys' => 'passkey_id', 'bookings' => 'id', 'booking_services' => 'id', 'booking_staff' => 'id', 'requests' => 'id', 'fleet_sites' => 'id', 'experiments' => 'experiment_id', 'members' => 'member_id', 'member_groups' => 'group_id', 'monthly_reports' => 'report_id', 'sites' => 'site_id'];
+    public const array PRIMARY_KEYS = ['users' => 'user_id', 'categories' => 'category_id', 'news' => 'news_id', 'tags' => 'tag_id', 'media' => 'media_id', 'media_folders' => 'folder_id', 'pages' => 'page_id', 'collections' => 'collection_id', 'collection_items' => 'item_id', 'popups' => 'popup_id', 'components' => 'component_id', 'forms' => 'form_id', 'sections' => 'section_id', 'enquiries' => 'enquiry_id', 'subscribers' => 'subscriber_id', 'newsletters' => 'id', 'redirects' => 'redirect_id', 'api_tokens' => 'token_id', 'user_passkeys' => 'passkey_id', 'bookings' => 'id', 'booking_services' => 'id', 'booking_staff' => 'id', 'requests' => 'id', 'fleet_sites' => 'id', 'experiments' => 'experiment_id', 'members' => 'member_id', 'member_groups' => 'group_id', 'monthly_reports' => 'report_id', 'sites' => 'site_id', 'owners' => 'owner_id'];
 
-    public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'forms', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites', 'experiments', 'members', 'member_groups', 'monthly_reports', 'sites'];
+    public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'forms', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites', 'experiments', 'members', 'member_groups', 'monthly_reports', 'sites', 'owners'];
 
     /** Tables shared by every site of the owner: always under the owner prefix. Every other table exists once per site prefix. */
     public const array OWNER_TABLES = ['users', 'user_passkeys', 'user_permissions', 'user_remember_tokens', 'user_devices', 'role', 'media', 'media_folders', 'components', 'facts', 'fact_history', 'api_tokens', 'oauth_clients', 'oauth_codes', 'agent_sessions', 'agent_journal', 'sites', 'site_domains', 'handoff_tokens'];
 
+    /** Tables of the install, shared by every owner (several owners, docs/specs/multisite.md): always under the install prefix, the configured base prefix. */
+    public const array INSTALL_TABLES = ['owners'];
+
     /** Prefix of the owner tables; the same as $prefix for site 1. */
     public readonly string $ownerPrefix;
+
+    /** Prefix of the install tables and of the first owner (and its site 1); the same as $ownerPrefix with one owner. */
+    public readonly string $installPrefix;
 
     private ?PDO $pdo = null;
     private ?Dialect $dialect = null;
@@ -57,24 +63,28 @@ final class Db
         private readonly string $password,
         public readonly string $prefix = 'tl_',
         string $ownerPrefix = '',
+        string $installPrefix = '',
     ) {
         $this->ownerPrefix = $ownerPrefix !== '' ? $ownerPrefix : $prefix;
+        $this->installPrefix = $installPrefix !== '' ? $installPrefix : $this->ownerPrefix;
     }
 
-    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,site_prefix?:string} $c driver: mysql (default) | pgsql | sqlite (name = the file); prefix = the owner's (site 1), site_prefix = another site's */
+    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,owner_prefix?:string,site_prefix?:string} $c driver: mysql (default) | pgsql | sqlite (name = the file); prefix = the install's (owner 1, its site 1), owner_prefix = a further owner's, site_prefix = another site's */
     public static function fromConfig(array $c): self
     {
         $dialect = Dialect::forDriver($c['driver'] ?? 'mysql');
         $c['port'] ??= $dialect->defaultPort();
 
-        $db = new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['site_prefix'] ?? $c['prefix'] ?? 'tl_', $c['prefix'] ?? 'tl_');
+        $install = $c['prefix'] ?? 'tl_';
+        $owner = $c['owner_prefix'] ?? $install;
+        $db = new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['site_prefix'] ?? $owner, $owner, $install);
         unset($c['site_prefix']);
         $db->config = $c;
 
         return $db;
     }
 
-    /** The configuration this connection was made from (without a site prefix); empty when it was not made by fromConfig(). @return array<string, mixed> */
+    /** The configuration this connection was made from (without a site prefix; a further owner's connection carries owner_prefix); empty when it was not made by fromConfig(). @return array<string, mixed> */
     public function config(): array
     {
         return $this->config;
@@ -83,7 +93,7 @@ final class Db
     /** The tables of the site with this prefix, on the same connection. */
     public function forSite(string $prefix): self
     {
-        $db = new self($this->dsn, $this->user, $this->password, $prefix, $this->ownerPrefix);
+        $db = new self($this->dsn, $this->user, $this->password, $prefix, $this->ownerPrefix, $this->installPrefix);
         $db->pdo = $this->pdo();
         $db->dialect = $this->dialect;
         $db->config = $this->config;
@@ -91,10 +101,31 @@ final class Db
         return $db;
     }
 
-    /** Real name of a table (name without prefix): the owner prefix for OWNER_TABLES, the site prefix for the rest. */
+    /** The tables of another owner (its owner prefix, which is also its site 1) on the same connection; the install tables stay the install's. */
+    public function forOwner(string $ownerPrefix): self
+    {
+        $db = new self($this->dsn, $this->user, $this->password, $ownerPrefix, $ownerPrefix, $this->installPrefix);
+        $db->pdo = $this->pdo();
+        $db->dialect = $this->dialect;
+        $db->config = ($ownerPrefix === $this->installPrefix ? [] : ['owner_prefix' => $ownerPrefix]) + array_diff_key($this->config, ['owner_prefix' => 1]);
+
+        return $db;
+    }
+
+    /** Real name of a table (name without prefix): the install prefix for INSTALL_TABLES, the owner prefix for OWNER_TABLES, the site prefix for the rest. */
     public function table(string $table): string
     {
-        return (in_array($table, self::OWNER_TABLES, true) ? $this->ownerPrefix : $this->prefix) . $table;
+        return $this->tablePrefix($table) . $table;
+    }
+
+    /** The prefix a table (name without prefix) lives under. */
+    public function tablePrefix(string $table): string
+    {
+        return match (true) {
+            in_array($table, self::INSTALL_TABLES, true) => $this->installPrefix,
+            in_array($table, self::OWNER_TABLES, true) => $this->ownerPrefix,
+            default => $this->prefix,
+        };
     }
 
     /** The SQL differences of the engine this connection talks to (upsert, JSON, intervals, locks, full-text …). */
@@ -307,15 +338,18 @@ final class Db
         $this->run($this->dialect()->addUniqueKeySql($table, $this->keyName($table, $key), $columns));
     }
 
-    /** Stored name of an index: a further site's own tables carry the site prefix in front (MigrationSupport::indexName()). */
+    /** Stored name of an index: every table outside the install's own prefix carries its prefix in front (MigrationSupport::indexName()). */
     private function keyName(string $table, string $key): string
     {
-        return $this->sitePrefixedKeys($table) ? $this->prefix . $key : $key;
+        return $this->keyPrefix($table) . $key;
     }
 
-    private function sitePrefixedKeys(string $table): bool
+    /** '' for the install's own tables (owner 1, site 1), else the prefix of the table. */
+    private function keyPrefix(string $table): string
     {
-        return $this->prefix !== $this->ownerPrefix && !in_array($table, self::OWNER_TABLES, true);
+        $prefix = $this->tablePrefix($table);
+
+        return $prefix !== $this->installPrefix ? $prefix : '';
     }
 
     /** The primary key columns of a table (name without prefix). @return list<string> */
@@ -332,8 +366,8 @@ final class Db
         if (!isset($this->keyMemo[$table])) {
             foreach ($this->all($this->dialect()->uniqueKeysSql(), [$this->table($table)]) as $r) {
                 $name = (string) $r['key_name'];
-                if ($this->sitePrefixedKeys($table) && str_starts_with($name, $this->prefix)) {
-                    $name = substr($name, strlen($this->prefix)); // the name the migration gave it
+                if (($keyPrefix = $this->keyPrefix($table)) !== '' && str_starts_with($name, $keyPrefix)) {
+                    $name = substr($name, strlen($keyPrefix)); // the name the migration gave it
                 }
                 $this->keyMemo[$table][$name] = ['primary' => (int) $r['is_primary'] === 1, 'columns' => [...($this->keyMemo[$table][$name]['columns'] ?? []), (string) $r['column_name']]];
             }

@@ -34,22 +34,36 @@ final class MigrationSupport
         return $owner !== '' && $owner !== (string) $adapter->getOption('table_prefix');
     }
 
+    /** The install prefix (the base prefix: install tables, owner 1 and its site 1); older option sets without it count the owner prefix. */
+    public static function installPrefix(AdapterInterface $adapter): string
+    {
+        return (string) ($adapter->getOption('install_prefix') ?: $adapter->getOption('owner_prefix') ?: $adapter->getOption('table_prefix'));
+    }
+
     /**
-     * Multisite: is this an owner table (Db::OWNER_TABLES) while a further site is migrated? The owner run already changed it, and
-     * raw SQL with the table_prefix option would name a table that does not exist (PrefixAdapter skips the DSL writes itself).
+     * Multisite: is this a table that an earlier run made while a later one is migrated? An owner table (Db::OWNER_TABLES) in the run of
+     * a further site of its owner, an install table (Db::INSTALL_TABLES) in every run but the install's own. The earlier run already
+     * changed it, and raw SQL with the table_prefix option would name a table that does not exist (PrefixAdapter skips the DSL writes itself).
      */
     public static function ownerTableInSiteRun(AdapterInterface $adapter, string $table): bool
     {
+        if (in_array($table, Db::INSTALL_TABLES, true)) {
+            return self::installPrefix($adapter) !== (string) $adapter->getOption('table_prefix');
+        }
+
         return self::siteRun($adapter) && in_array($table, Db::OWNER_TABLES, true);
     }
 
     /**
-     * Name of an index: a further site's indexes carry its prefix, because PostgreSQL and SQLite want index names unique in the
-     * whole database (as foreign key names already are). Site 1 keeps the plain names. Db::keyName() reads them the same way.
+     * Name of an index: every table outside the install's own prefix (a further site, a further owner) carries its prefix in front,
+     * because PostgreSQL and SQLite want index names unique in the whole database (as foreign key names already are). Owner 1 and its
+     * site 1 keep the plain names. Db::keyName() reads them the same way.
      */
     public static function indexName(AdapterInterface $adapter, string $name): string
     {
-        return self::siteRun($adapter) ? $adapter->getOption('table_prefix') . $name : $name;
+        $prefix = (string) $adapter->getOption('table_prefix');
+
+        return $prefix !== self::installPrefix($adapter) ? $prefix . $name : $name;
     }
 
     /**

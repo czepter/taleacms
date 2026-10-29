@@ -14,14 +14,19 @@ use Phinx\Db\Table\Table;
  * Phinx's table prefix wrapper, registered by Migrator::phinxConfig() for every engine. Two jobs:
  *  - Multisite (docs/specs/multisite.md): in the run of a further site (option owner_prefix differs from table_prefix) the owner
  *    tables (Db::OWNER_TABLES) keep the owner prefix – a foreign key to users points at tl_users – and every write to them is
- *    skipped, because the owner run already made it. Index names get the site prefix (MigrationSupport::indexName()). A migration
- *    file is written once, for one site, as before.
+ *    skipped, because the owner run already made it. The install tables (Db::INSTALL_TABLES) are made in the install run only
+ *    (table_prefix = install_prefix) and skipped in every other. Index names get the table prefix unless it is the install's
+ *    (MigrationSupport::indexName()). A migration file is written once, for one site, as before.
  *  - SQLite: an auto-numbered biginteger key becomes INTEGER, and the foreign key check gets the real table names.
  */
 final class PrefixAdapter extends TablePrefixAdapter
 {
     public function getAdapterTableName(string $tableName): string
     {
+        if (in_array($tableName, Db::INSTALL_TABLES, true) && MigrationSupport::installPrefix($this) !== $this->getOption('table_prefix')) {
+            return MigrationSupport::installPrefix($this) . $tableName; // the install's table, made in the install run
+        }
+
         return $this->ownerTable($tableName) ? $this->getOption('owner_prefix') . $tableName : parent::getAdapterTableName($tableName);
     }
 
@@ -101,7 +106,7 @@ final class PrefixAdapter extends TablePrefixAdapter
         }
     }
 
-    /** An owner table while a further site is migrated: it lives under the owner prefix, and the owner run already wrote it. */
+    /** An owner table while a further site is migrated, an install table while any other run goes: the earlier run already wrote it. */
     private function ownerTable(string $table): bool
     {
         return MigrationSupport::ownerTableInSiteRun($this, $table);
