@@ -244,7 +244,7 @@ final class AccountSecurityTest extends SiteTestCase
         // turning on two-factor sign-in ends the remembered sign-ins elsewhere: they would skip the new code
         $signIn('tablet');
         $csrf = $laptop->get('/admin.php?action=account')->csrf();
-        $laptop->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'totp_start']);
+        $laptop->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'totp_start', 'current_password' => self::NEW_PASSWORD]);
         $setup = $laptop->get('/admin.php?action=account&tab=sign-in');
         $this->assertSame(1, preg_match('/<code class="totp-key">([A-Z2-7 ]+)<\/code>/', $setup->body, $key), 'the setup shows the key');
         $code = trim($site->php('echo Talea\Core\Totp::code("' . str_replace(' ', '', $key[1]) . '", intdiv(time(), 30));'));

@@ -88,15 +88,16 @@
 		confirmDialog.querySelector('[data-no]').focus();
 	});
 
-	// A change that needs the current password (the e-mail in My account): the password field waits in <dialog data-reauth="<field>">
-	// inside the form, which opens when that field was changed and the password is still empty; [data-reauth-value] shows the new value
+	// An action that needs the current password: the password field waits in <dialog data-reauth="<field>"> inside the form, which opens
+	// when that field was changed (the e-mail in My account) and the password is still empty; data-reauth="" opens it whenever the password
+	// is empty (a new token, turning on two-factor sign-in); [data-reauth-value] shows the new value
 	document.addEventListener('submit', function (e) {
 		var dialog = e.target.querySelector('dialog[data-reauth]');
-		var field = dialog && e.target.elements[dialog.getAttribute('data-reauth')], password = dialog && dialog.querySelector('input[type="password"]');
-		if (!field || !password || field.value === field.defaultValue || password.value !== '') { return; }
+		var name = dialog && dialog.getAttribute('data-reauth'), field = name && e.target.elements[name], password = dialog && dialog.querySelector('input[type="password"]');
+		if (!password || password.value !== '' || (name !== '' && (!field || field.value === field.defaultValue))) { return; }
 		e.preventDefault();
 		var value = dialog.querySelector('[data-reauth-value]');
-		if (value) { value.textContent = field.value; }
+		if (value && field) { value.textContent = field.value; }
 		if (!dialog.open) { dialog.showModal(); }
 		password.focus();
 	});

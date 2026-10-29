@@ -68,7 +68,7 @@ trait AgentHelpers
         }
         $admin = $this->site()->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
-        $response = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude drafts', 'access' => 'drafts']);
+        $response = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $this->site()->password, 'name' => 'Claude drafts', 'access' => 'drafts']);
         $this->assertMatchesRegularExpression('/talea_[a-f0-9]{48}/', $response->body, 'My account shows the new drafts-only token');
         preg_match('/talea_[a-f0-9]{48}/', $response->body, $m);
 

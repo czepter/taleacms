@@ -95,6 +95,11 @@ final class Account
                         $message = ['error', 'The website requires two-step sign-in – you can create a token once you turn it on.'];
                         break;
                     }
+                    // a token works without the person present, possibly for good: like a new password, it needs the current one (N56)
+                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
+                        $message = ['error', 'The current password is not correct.'];
+                        break;
+                    }
                     $token = 'talea_' . bin2hex(random_bytes(24));
                     $access = \Talea\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only
                     // a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
@@ -132,6 +137,11 @@ final class Account
                     $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];
                     break;
                 case 'totp_start':
+                    // an attacker's secret on the account would be the second factor: the key appears only after the password (N56)
+                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
+                        $message = ['error', 'The current password is not correct.'];
+                        break;
+                    }
                     $app->session->set('totp_new', Totp::newSecret());
                     break;
                 case 'totp_confirm':

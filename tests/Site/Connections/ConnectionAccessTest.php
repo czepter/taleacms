@@ -68,15 +68,15 @@ final class ConnectionAccessTest extends SiteTestCase
         $site = $this->site();
         $admin = $site->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude read', 'access' => 'read']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Claude read', 'access' => 'read']);
         self::$readToken = preg_match('/talea_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude drafts', 'access' => 'drafts']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Claude drafts', 'access' => 'drafts']);
         self::$draftToken = preg_match('/talea_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
 
         $this->assertSame('drafts,read', $site->value("SELECT GROUP_CONCAT(access ORDER BY name) FROM tl_api_tokens WHERE name IN ('Claude read', 'Claude drafts')"),
             'tokens from My account keep the chosen access');
 
-        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude no choice']);
+        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Claude no choice']);
         $this->assertSame('drafts', $site->value("SELECT access FROM tl_api_tokens WHERE name = 'Claude no choice'"), 'a token form without a choice gets drafts only');
 
         // one application with several consents shows its strongest live access, not the alphabetically largest ('read' sorts last)

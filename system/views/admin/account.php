@@ -118,6 +118,14 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <p><?= e(t('Your account is protected by a password only. With two-factor sign-in, nobody can sign in without your phone – even if they guess or steal the password.')) ?></p>
 <input type="hidden" name="op" value="totp_start">
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Turn on two-factor sign-in')) ?>"></p>
+<?php // the current password is asked for in this dialog when the form is sent (image/admin.js, data-reauth) ?>
+<dialog class="confirmation reauth" id="start-confirm" data-reauth="" aria-labelledby="start-confirm-title" aria-describedby="start-confirm-text">
+	<h2 id="start-confirm-title"><?= e(t('Turn on two-factor sign-in')) ?></h2>
+	<p class="reauth-text" id="start-confirm-text"><?= e(t('This starts the setup of an authenticator app. Confirm with the current password.')) ?></p>
+	<label for="start-password"><?= e(t('Current password')) ?></label>
+	<input class="textfield" type="password" id="start-password" name="current_password" autocomplete="current-password">
+	<div><button class="btn" type="submit"><?= e(t('Turn on two-factor sign-in')) ?></button> <button class="navigation" type="button" commandfor="start-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
+</dialog>
 <?php endif ?>
 </fieldset>
 </form>
@@ -203,6 +211,14 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 </select><span class="help"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
 <?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'drafts', 'toolSet' => 'all']) ?>
 <p class="buttons"><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button></p>
+<?php // the current password is asked for in this dialog when the form is sent (image/admin.js, data-reauth) ?>
+<dialog class="confirmation reauth" id="token-confirm" data-reauth="" aria-labelledby="token-confirm-title" aria-describedby="token-confirm-text">
+	<h2 id="token-confirm-title"><?= e(t('Create a token')) ?></h2>
+	<p class="reauth-text" id="token-confirm-text"><?= e(t('A token gives a connection lasting access to this site. Confirm with the current password.')) ?></p>
+	<label for="token-password"><?= e(t('Current password')) ?></label>
+	<input class="textfield" type="password" id="token-password" name="current_password" autocomplete="current-password">
+	<div><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button> <button class="navigation" type="button" commandfor="token-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
+</dialog>
 </fieldset>
 </form>
 <?php endif ?>
